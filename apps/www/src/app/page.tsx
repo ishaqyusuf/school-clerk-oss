@@ -1,4 +1,4 @@
-import { prisma } from "@next16/db";
+import { prisma } from "@school-clerk/db";
 import Image from "next/image";
 
 export default async function Home() {

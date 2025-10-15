@@ -2,7 +2,7 @@ import type { BetterAuthOptions } from "better-auth";
 // import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { prisma } from "@next16/db";
+import { prisma } from "@school-clerk/db";
 import { nextCookies } from "better-auth/next-js";
 
 export function initAuth(options: {

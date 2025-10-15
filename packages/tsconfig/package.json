@@ -1,5 +1,5 @@
 {
-  "name": "@next16/tsconfig",
+  "name": "@school-clerk/tsconfig",
   "private": true,
   "version": "1.0.0",
   "files": [

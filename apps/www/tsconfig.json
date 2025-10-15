@@ -1,5 +1,5 @@
 {
-  "extends": "@next16/tsconfig/nextjs.json",
+  "extends": "@school-clerk/tsconfig/nextjs.json",
   "compilerOptions": {
     "target": "es2017",
     "lib": ["dom", "dom.iterable", "esnext"],
