@@ -1,0 +1,5 @@
+import { SearchParamsKeys } from "@/utils/search-params";
+import { createSearchParamsCache, parseAsString } from "nuqs/server";
+
+export const staffPageQuery = {} as { [k in SearchParamsKeys]: any };
+export const searchParamsCache = createSearchParamsCache(staffPageQuery);

@@ -1,7 +1,7 @@
 import { Button } from "@school-clerk/ui/button";
 import { Sheet, SheetContent } from "@school-clerk/ui/sheet";
 import { useState } from "react";
-import { Icons } from "../../../../../apps/dashboard/src/components/icons";
+import { Icons } from "../../../../../apps/dashboard/src.example/components/icons";
 import { MainMenu } from "@school-clerk/ui/nav/sidebar";
 import { SideBarProvider } from "./use-sidebar";
 

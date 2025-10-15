@@ -1,0 +1,43 @@
+export const countries = {
+  en: {
+    us: "United States",
+    ca: "Canada",
+    mx: "Mexico",
+    gb: "United Kingdom",
+    fr: "France",
+    de: "Germany",
+    it: "Italy",
+    es: "Spain",
+    pt: "Portugal",
+    ru: "Russia",
+    cn: "China",
+    jp: "Japan",
+    in: "India",
+    br: "Brazil",
+    za: "South Africa",
+    au: "Australia",
+    nz: "New Zealand",
+    // Add more countries as needed
+  },
+  es: {
+    us: "Estados Unidos",
+    ca: "Canadá",
+    mx: "México",
+    gb: "Reino Unido",
+    fr: "Francia",
+    de: "Alemania",
+    it: "Italia",
+    es: "España",
+    pt: "Portugal",
+    ru: "Rusia",
+    cn: "China",
+    jp: "Japón",
+    in: "India",
+    br: "Brasil",
+    za: "Sudáfrica",
+    au: "Australia",
+    nz: "Nueva Zelanda",
+    // Add more countries as needed
+  },
+  // Add more languages as needed
+};
