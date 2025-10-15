@@ -7,7 +7,7 @@
       "dependsOn": ["^topo"]
     },
     "build": {
-      "env": ["DATABASE_URL"],
+      "env": ["POSTGRES_URL", "DIRECT_URL"],
       "dependsOn": ["^build"],
       "outputs": [
         ".next/**",
