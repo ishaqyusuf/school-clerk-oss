@@ -1,22 +1,105 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client-js"
+  relationMode = "prisma"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DIRECT_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-model User {
-  id Int @id @default(autoincrement())
-
-  createdAt DateTime? @default(now()) @db.Timestamp(0)
-  updatedAt DateTime? @updatedAt
-  deletedAt DateTime?
+model guardian {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id  String    @db.Uuid
+  name       String    @db.VarChar(256)
+  created_at DateTime  @default(now()) @db.Timestamp(6)
+  deleted_at DateTime? @db.Timestamp(6)
+  updatedAt  DateTime? @db.Timestamptz(6)
+  school     school    @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "guardian_school_id_school_id_fk")
+  student    student[]
 }
+
+model school {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String                 @db.VarChar(256)
+  sub_domain           String                 @unique(map: "school_sub_domain_unique") @db.VarChar(256)
+  meta                 Json?
+  created_at           DateTime               @default(now()) @db.Timestamp(6)
+  deleted_at           DateTime?              @db.Timestamp(6)
+  updatedAt            DateTime?              @db.Timestamptz(6)
+  Subjects             Subjects[]
+  academic_class       academic_class[]
+  academic_session     academic_session[]
+  academic_term        academic_term[]
+  assessments          assessments[]
+  batch_staff_service  batch_staff_service[]
+  billable_service     billable_service[]
+  class_subject        class_subject[]
+  guardian             guardian[]
+  inventory            inventory[]
+  inventory_sales      inventory_sales[]
+  school_wallet        school_wallet[]
+  session_class        session_class[]
+  staff_session_form   staff_session_form[]
+  staff_term_sheet     staff_term_sheet[]
+  student              student[]
+  student_session_form student_session_form[]
+  transaction          transaction[]
+  // user                 user[]
+
+  @@unique([name, sub_domain], map: "school_name_sub_domain_unique")
+}
+
+// model session {
+//   sessionToken String   @id @db.VarChar(255)
+//   userId       String   @db.Uuid
+//   expires      DateTime @db.Timestamptz(6)
+//   user         user     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "session_userId_user_id_fk")
+// }
+
+model session_class {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id              String                   @db.Uuid
+  academic_session_id    String                   @db.Uuid
+  academic_class_id      String                   @db.Uuid
+  created_at             DateTime                 @default(now()) @db.Timestamp(6)
+  deleted_at             DateTime?                @db.Timestamp(6)
+  updatedAt              DateTime?                @db.Timestamptz(6)
+  class_subject          class_subject[]
+  academic_class         academic_class           @relation(fields: [academic_class_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "session_class_academic_class_id_academic_class_id_fk")
+  academic_session       academic_session         @relation(fields: [academic_session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "session_class_academic_session_id_academic_session_id_fk")
+  school                 school                   @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "session_class_school_id_school_id_fk")
+  staff_class_role       staff_class_role[]
+  student_day_attendance student_day_attendance[]
+  student_term_sheet     student_term_sheet[]
+}
+
+// model user {
+//   id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+//   title                  String?                  @db.VarChar(255)
+//   name                   String?                  @db.VarChar(255)
+//   email                  String                   @db.VarChar(255)
+//   username               String?                  @db.VarChar(255)
+//   phone_no               String?                  @db.VarChar(255)
+//   role                   String?                  @db.VarChar(255)
+//   school_id              String                   @db.Uuid
+//   emailVerified          DateTime?                @db.Timestamptz(6)
+//   image                  String?                  @db.VarChar(255)
+//   created_at             DateTime                 @default(now()) @db.Timestamp(6)
+//   deleted_at             DateTime?                @db.Timestamp(6)
+//   updatedAt              DateTime?                @db.Timestamptz(6)
+//   account                account[]
+//   assessments            assessments[]
+//   session                session[]
+//   staff_class_role       staff_class_role[]
+//   staff_service          staff_service[]
+//   staff_session_form     staff_session_form[]
+//   staff_term_sheet       staff_term_sheet[]
+//   student_attendance     student_attendance[]
+//   student_day_attendance student_day_attendance[]
+//   school                 school                   @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "user_school_id_school_id_fk")
+//   // @@map("old_user")
+
+//   @@unique([email, school_id], map: "user_email_school_id_unique")
+// }

@@ -1,0 +1,84 @@
+model student {
+    id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    school_id            String                 @db.Uuid
+    first_name           String                 @db.VarChar(256)
+    other_name           String?                @db.VarChar(256)
+    surname              String                 @db.VarChar(256)
+    guardianId           String?                @db.Uuid
+    created_at           DateTime               @default(now()) @db.Timestamp(6)
+    deleted_at           DateTime?              @db.Timestamp(6)
+    updatedAt            DateTime?              @db.Timestamptz(6)
+    gender               String?                @db.VarChar
+    dob                  DateTime?              @db.Timestamp(6)
+    guardian             guardian?              @relation(fields: [guardianId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_guardianId_guardian_id_fk")
+    school               school                 @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_school_id_school_id_fk")
+    student_session_form student_session_form[]
+    student_term_sheet   student_term_sheet[]
+
+    @@unique([school_id, first_name, other_name, surname], map: "student_school_id_first_name_other_name_surname_unique")
+}
+
+model student_attendance {
+    id                     String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    attendance_id          String                 @db.Uuid
+    present                Boolean?               @default(false)
+    comment                String?
+    teacher_id             String                 @db.Uuid
+    student_term_sheet_id  String                 @db.Uuid
+    created_at             DateTime               @default(now()) @db.Timestamp(6)
+    deleted_at             DateTime?              @db.Timestamp(6)
+    updatedAt              DateTime?              @db.Timestamptz(6)
+    student_day_attendance student_day_attendance @relation(fields: [attendance_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_attendance_attendance_id_student_day_attendance_id_fk")
+    student_term_sheet     student_term_sheet     @relation(fields: [student_term_sheet_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_attendance_student_term_sheet_id_student_term_sheet_id_")
+    // user                   user                   @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_attendance_teacher_id_user_id_fk")
+}
+
+model student_day_attendance {
+    id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    session_class_id   String               @db.Uuid
+    teacher_id         String               @db.Uuid
+    class_subject_id   String               @db.Uuid
+    term_id            String               @db.Uuid
+    created_at         DateTime             @default(now()) @db.Timestamp(6)
+    deleted_at         DateTime?            @db.Timestamp(6)
+    updatedAt          DateTime?            @db.Timestamptz(6)
+    student_attendance student_attendance[]
+    class_subject      class_subject        @relation(fields: [class_subject_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_day_attendance_class_subject_id_class_subject_id_fk")
+    session_class      session_class        @relation(fields: [session_class_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_day_attendance_session_class_id_session_class_id_fk")
+    // user               user                 @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_day_attendance_teacher_id_user_id_fk")
+    academic_term      academic_term        @relation(fields: [term_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_day_attendance_term_id_academic_term_id_fk")
+}
+
+model student_session_form {
+    id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    school_id          String               @db.Uuid
+    student_id         String               @db.Uuid
+    session_id         String               @db.Uuid
+    created_at         DateTime             @default(now()) @db.Timestamp(6)
+    deleted_at         DateTime?            @db.Timestamp(6)
+    updatedAt          DateTime?            @db.Timestamptz(6)
+    school             school               @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_session_form_school_id_school_id_fk")
+    academic_session   academic_session     @relation(fields: [session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_session_form_session_id_academic_session_id_fk")
+    student            student              @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_session_form_student_id_student_id_fk")
+    student_term_sheet student_term_sheet[]
+
+    @@unique([school_id, student_id], map: "student_session_form_school_id_student_id_unique")
+}
+
+model student_term_sheet {
+    id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    session_sheet_id     String               @db.Uuid
+    academic_term_id     String               @db.Uuid
+    student_id           String               @db.Uuid
+    session_class_id     String               @db.Uuid
+    created_at           DateTime             @default(now()) @db.Timestamp(6)
+    deleted_at           DateTime?            @db.Timestamp(6)
+    updatedAt            DateTime?            @db.Timestamptz(6)
+    assessment_result    assessment_result[]
+    student_attendance   student_attendance[]
+    academic_term        academic_term        @relation(fields: [academic_term_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_term_sheet_academic_term_id_academic_term_id_fk")
+    session_class        session_class        @relation(fields: [session_class_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_term_sheet_session_class_id_session_class_id_fk")
+    student_session_form student_session_form @relation(fields: [session_sheet_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_term_sheet_session_sheet_id_student_session_form_id_fk")
+    student              student              @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "student_term_sheet_student_id_student_id_fk")
+    transaction          transaction[]
+}

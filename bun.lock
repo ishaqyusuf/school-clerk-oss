@@ -16,7 +16,7 @@
         "knip": "^5.61.2",
       },
     },
-    "apps/www": {
+    "apps/dashboard": {
       "name": "@school-clerk/www",
       "version": "0.1.0",
       "dependencies": {
@@ -57,6 +57,22 @@
     },
     "packages/db": {
       "name": "@school-clerk/db",
+      "version": "1.0.0",
+      "dependencies": {
+        "@prisma/client": "^6.11.1",
+        "@prisma/extension-accelerate": "^2.0.2",
+        "@t3-oss/env-core": "^0.11.1",
+        "date-fns": "^4.1.0",
+        "react": "18.3.1",
+        "server-only": "^0.0.1",
+      },
+      "devDependencies": {
+        "prisma": "^6.11.1",
+        "typescript": "^5.9.2",
+      },
+    },
+    "packages/db.example": {
+      "name": "@school-clerk/db-example",
       "version": "1.0.0",
       "dependencies": {
         "@prisma/client": "^6.11.1",
@@ -423,9 +439,11 @@
 
     "@school-clerk/db": ["@school-clerk/db@workspace:packages/db"],
 
+    "@school-clerk/db-example": ["@school-clerk/db-example@workspace:packages/db.example"],
+
     "@school-clerk/tsconfig": ["@school-clerk/tsconfig@workspace:packages/tsconfig"],
 
-    "@school-clerk/www": ["@school-clerk/www@workspace:apps/www"],
+    "@school-clerk/www": ["@school-clerk/www@workspace:apps/dashboard"],
 
     "@simplewebauthn/browser": ["@simplewebauthn/browser@13.2.2", "", {}, "sha512-FNW1oLQpTJyqG5kkDg5ZsotvWgmBaC6jCHR7Ej0qUNep36Wl9tj2eZu7J5rP+uhXgHaLk+QQ3lqcw2vS5MX1IA=="],
 
@@ -1704,6 +1722,8 @@
     "@prisma/config/c12": ["c12@3.1.0", "", { "dependencies": { "chokidar": "^4.0.3", "confbox": "^0.2.2", "defu": "^6.1.4", "dotenv": "^16.6.1", "exsolve": "^1.0.7", "giget": "^2.0.0", "jiti": "^2.4.2", "ohash": "^2.0.11", "pathe": "^2.0.3", "perfect-debounce": "^1.0.0", "pkg-types": "^2.2.0", "rc9": "^2.1.2" }, "peerDependencies": { "magicast": "^0.3.5" }, "optionalPeers": ["magicast"] }, "sha512-uWoS8OU1MEIsOv8p/5a82c3H31LsWVR5qiyXVfBNOzfffjUWtPnhAb4BYI2uG2HfGmZmFjCtui5XNWaps+iFuw=="],
 
     "@school-clerk/db/react": ["react@18.3.1", "", { "dependencies": { "loose-envify": "^1.1.0" } }, "sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ=="],
+
+    "@school-clerk/db-example/react": ["react@18.3.1", "", { "dependencies": { "loose-envify": "^1.1.0" } }, "sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ=="],
 
     "@tailwindcss/oxide-wasm32-wasi/@emnapi/core": ["@emnapi/core@1.5.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.1.0", "tslib": "^2.4.0" }, "bundled": true }, "sha512-sbP8GzB1WDzacS8fgNPpHlp6C9VZe+SJP3F90W9rLemaQj2PzIuTEl1qDOYQf58YIpyjViI24y9aPWCjEzY2cg=="],
 

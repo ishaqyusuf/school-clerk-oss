@@ -1,0 +1,7 @@
+model Posts {
+    id        Int       @unique @default(autoincrement())
+    data      Json?
+    name      String
+    createdAt DateTime  @default(now()) @db.Timestamp(0)
+    deletedAt DateTime?
+}

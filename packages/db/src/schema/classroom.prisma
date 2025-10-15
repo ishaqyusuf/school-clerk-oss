@@ -1,0 +1,77 @@
+model ClassRoom {
+    id                   String                @id @default(uuid())
+    name                 String?
+    classLevel           Float?
+    schoolProfileId      String
+    schoolSessionId      String
+    createdAt            DateTime?             @default(now()) @db.Timestamp(0)
+    updatedAt            DateTime?             @updatedAt
+    deletedAt            DateTime?             @db.Timestamp(0)
+    session              SchoolSession         @relation(fields: [schoolSessionId], references: [id])
+    school               SchoolProfile         @relation(fields: [schoolProfileId], references: [id])
+    classRoomDepartments ClassRoomDepartment[]
+
+    @@unique([schoolSessionId, name])
+}
+
+model ClassRoomDepartment {
+    // if a class has multiple sub classes: eg: js 1 A, js 1 B etc.
+    id                    String                                 @id @default(uuid())
+    departmentName        String?
+    classRoomsId          String?
+    schoolProfileId       String?
+    departmentLevel       Float?
+    classRoom             ClassRoom?                             @relation(fields: [classRoomsId], references: [id])
+    createdAt             DateTime?                              @default(now()) @db.Timestamp(0)
+    updatedAt             DateTime?                              @updatedAt
+    deletedAt             DateTime?                              @db.Timestamp(0)
+    schoolProfile         SchoolProfile?                         @relation(fields: [schoolProfileId], references: [id])
+    attendance            ClassRoomAttendance[]
+    studentAttendanceList StudentAttendance[]
+    subjects              DepartmentSubject[]
+    studentSessionForms   StudentSessionForm[]
+    staffTermProfiles     StaffClassroomDepartmentTermProfiles[]
+    StudentTermForm       StudentTermForm[]
+
+    @@unique([classRoomsId, departmentName])
+}
+
+model DepartmentSubject {
+    id String @id @default(uuid())
+
+    description String?
+
+    classRoomDepartment   ClassRoomDepartment? @relation(fields: [classRoomDepartmentId], references: [id])
+    classRoomDepartmentId String?
+
+    staffSubjects StaffSubject[]
+    assessments   ClassroomSubjectAssessment[]
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    sessionTerm   SessionTerm? @relation(fields: [sessionTermId], references: [id])
+    sessionTermId String?
+
+    subject   Subject @relation(fields: [subjectId], references: [id])
+    subjectId String
+
+    // @@unique([classRoomDepartmentId,sessionTermId,])
+}
+
+model Subject {
+    id    String @id @default(uuid())
+    title String
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String?
+
+    departmentSubjects DepartmentSubject[]
+
+    @@unique([title, schoolProfileId])
+}

@@ -1,0 +1,35 @@
+model ClassroomSubjectAssessment {
+    id                   Int    @unique @default(autoincrement())
+    title                String
+    obtainable           Float
+    percentageObtainable Float? @default(0)
+    index                Float?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    assessmentResults   StudentAssessmentRecord[]
+    departmentSubjectId String?
+    departmentSubject   DepartmentSubject?        @relation(fields: [departmentSubjectId], references: [id])
+}
+
+model StudentAssessmentRecord {
+    id                       Int     @unique @default(autoincrement())
+    obtained                 Float?
+    percentageScore          Float?
+    studentId                String?
+    classSubjectAssessmentId Int?
+    remarkOnAssementId       Int?
+    studentTermFormId        String?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    student                Students?                   @relation(fields: [studentId], references: [id])
+    classSubjectAssessment ClassroomSubjectAssessment? @relation(fields: [classSubjectAssessmentId], references: [id])
+    studentTermForm        StudentTermForm?            @relation(fields: [studentTermFormId], references: [id])
+
+    @@unique([studentId, studentTermFormId, classSubjectAssessmentId])
+}

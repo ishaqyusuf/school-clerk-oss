@@ -1,0 +1,26 @@
+model inventory {
+    id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    school_id       String            @db.Uuid
+    title           String?           @db.VarChar
+    type            String?           @db.VarChar
+    amount          Decimal           @db.Decimal
+    created_at      DateTime          @default(now()) @db.Timestamp(6)
+    deleted_at      DateTime?         @db.Timestamp(6)
+    updatedAt       DateTime?         @db.Timestamptz(6)
+    school          school            @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inventory_school_id_school_id_fk")
+    inventory_sales inventory_sales[]
+}
+
+model inventory_sales {
+    id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    school_id      String      @db.Uuid
+    title          String?     @db.VarChar
+    book_id        String      @db.Uuid
+    transaction_id String      @db.Uuid
+    created_at     DateTime    @default(now()) @db.Timestamp(6)
+    deleted_at     DateTime?   @db.Timestamp(6)
+    updatedAt      DateTime?   @db.Timestamptz(6)
+    inventory      inventory   @relation(fields: [book_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inventory_sales_book_id_inventory_id_fk")
+    school         school      @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inventory_sales_school_id_school_id_fk")
+    transaction    transaction @relation(fields: [transaction_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inventory_sales_transaction_id_transaction_id_fk")
+}

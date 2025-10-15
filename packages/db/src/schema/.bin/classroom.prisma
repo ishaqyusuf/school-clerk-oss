@@ -1,0 +1,64 @@
+model assessment_result {
+    id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    assessment_id         String             @db.Uuid
+    score                 Decimal?           @db.Decimal
+    percentage            Decimal?           @db.Decimal
+    student_term_sheet_id String             @db.Uuid
+    created_at            DateTime           @default(now()) @db.Timestamp(6)
+    deleted_at            DateTime?          @db.Timestamp(6)
+    updatedAt             DateTime?          @db.Timestamptz(6)
+    assessments           assessments        @relation(fields: [assessment_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessment_result_assessment_id_assessments_id_fk")
+    student_term_sheet    student_term_sheet @relation(fields: [student_term_sheet_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessment_result_student_term_sheet_id_student_term_sheet_id_f")
+}
+
+model assessments {
+    id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    school_id         String              @db.Uuid
+    class_subject_id  String              @db.Uuid
+    description       String?             @db.VarChar
+    obtainable        Decimal?            @db.Decimal
+    teacher_id        String              @db.Uuid
+    term_id           String              @db.Uuid
+    created_at        DateTime            @default(now()) @db.Timestamp(6)
+    deleted_at        DateTime?           @db.Timestamp(6)
+    updatedAt         DateTime?           @db.Timestamptz(6)
+    assessment_result assessment_result[]
+    class_subject     class_subject       @relation(fields: [class_subject_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessments_class_subject_id_class_subject_id_fk")
+    school            school              @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessments_school_id_school_id_fk")
+    // user              user                @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessments_teacher_id_user_id_fk")
+    academic_term     academic_term       @relation(fields: [term_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessments_term_id_academic_term_id_fk")
+}
+
+model class_subject {
+    id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    school_id              String                   @db.Uuid
+    academic_session_id    String                   @db.Uuid
+    academic_class_id      String                   @db.Uuid
+    session_class_id       String                   @db.Uuid
+    subject_id             String                   @db.Uuid
+    created_at             DateTime                 @default(now()) @db.Timestamp(6)
+    deleted_at             DateTime?                @db.Timestamp(6)
+    updatedAt              DateTime?                @db.Timestamptz(6)
+    assessments            assessments[]
+    academic_class         academic_class           @relation(fields: [academic_class_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "class_subject_academic_class_id_academic_class_id_fk")
+    academic_session       academic_session         @relation(fields: [academic_session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "class_subject_academic_session_id_academic_session_id_fk")
+    school                 school                   @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "class_subject_school_id_school_id_fk")
+    session_class          session_class            @relation(fields: [session_class_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "class_subject_session_class_id_session_class_id_fk")
+    Subjects               Subjects                 @relation(fields: [subject_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "class_subject_subject_id_Subjects_id_fk")
+    student_day_attendance student_day_attendance[]
+
+    @@unique([session_class_id, subject_id], map: "class_subject_session_class_id_subject_id_unique")
+}
+
+model Subjects {
+    id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    name          String          @db.VarChar(256)
+    school_id     String          @db.Uuid
+    created_at    DateTime        @default(now()) @db.Timestamp(6)
+    deleted_at    DateTime?       @db.Timestamp(6)
+    updatedAt     DateTime?       @db.Timestamptz(6)
+    school        school          @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Subjects_school_id_school_id_fk")
+    class_subject class_subject[]
+
+    @@unique([name, school_id], map: "Subjects_name_school_id_unique")
+}

@@ -1,0 +1,61 @@
+model batch_staff_service {
+    id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    title            String?          @db.VarChar
+    note             String?          @db.VarChar
+    school_id        String           @db.Uuid
+    total_amount     Decimal?         @default(0) @db.Decimal
+    term_id          String           @db.Uuid
+    session_id       String           @db.Uuid
+    created_at       DateTime         @default(now()) @db.Timestamp(6)
+    deleted_at       DateTime?        @db.Timestamp(6)
+    updatedAt        DateTime?        @db.Timestamptz(6)
+    school           school           @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "batch_staff_service_school_id_school_id_fk")
+    academic_session academic_session @relation(fields: [session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "batch_staff_service_session_id_academic_session_id_fk")
+    academic_term    academic_term    @relation(fields: [term_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "batch_staff_service_term_id_academic_term_id_fk")
+    staff_service    staff_service[]
+}
+
+model billable_service {
+    id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    school_id          String               @db.Uuid
+    title              String?              @db.VarChar
+    amount             Decimal              @db.Decimal
+    created_at         DateTime             @default(now()) @db.Timestamp(6)
+    deleted_at         DateTime?            @db.Timestamp(6)
+    updatedAt          DateTime?            @db.Timestamptz(6)
+    school             school               @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "billable_service_school_id_school_id_fk")
+    staff_service_cost staff_service_cost[]
+}
+
+model school_wallet {
+    id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    school_id  String    @db.Uuid
+    balance    Decimal?  @default(0.00) @db.Decimal
+    created_at DateTime  @default(now()) @db.Timestamp(6)
+    deleted_at DateTime? @db.Timestamp(6)
+    updatedAt  DateTime? @db.Timestamptz(6)
+    school     school    @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "school_wallet_school_id_school_id_fk")
+}
+
+model transaction {
+    id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    school_id          String              @db.Uuid
+    payment_type       String?             @db.VarChar
+    transaction_type   String?             @db.VarChar
+    headline           String?             @db.VarChar
+    description        String?             @db.VarChar
+    amount             Decimal             @db.Decimal
+    coupon             Boolean?            @default(false)
+    academic_term_id   String              @db.Uuid
+    student_term_id    String?             @db.Uuid
+    staff_term_id      String?             @db.Uuid
+    created_at         DateTime            @default(now()) @db.Timestamp(6)
+    deleted_at         DateTime?           @db.Timestamp(6)
+    updatedAt          DateTime?           @db.Timestamptz(6)
+    inventory_sales    inventory_sales[]
+    staff_service      staff_service[]
+    academic_term      academic_term       @relation(fields: [academic_term_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transaction_academic_term_id_academic_term_id_fk")
+    school             school              @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transaction_school_id_school_id_fk")
+    staff_term_sheet   staff_term_sheet?   @relation(fields: [staff_term_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transaction_staff_term_id_staff_term_sheet_id_fk")
+    student_term_sheet student_term_sheet? @relation(fields: [student_term_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "transaction_student_term_id_student_term_sheet_id_fk")
+}

@@ -1,0 +1,18 @@
+model Guardians {
+    id String @id @default(uuid())
+
+    name   String
+    phone  String
+    phone2 String?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+
+    wards StudentGuardians[]
+
+    @@unique([name, phone, schoolProfileId])
+}

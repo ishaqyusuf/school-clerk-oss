@@ -1,0 +1,68 @@
+model StaffProfile {
+    id       String  @id @default(uuid())
+    name     String
+    title    String?
+    email    String?
+    password String?
+    phone    String?
+    phone2   String?
+    address  String?
+
+    classRoomAttendanceList ClassRoomAttendance[]
+    schoolProfile           SchoolProfile?        @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId         String?
+    subjects                StaffSubject[]
+    termProfiles            StaffTermProfile[]
+    createdAt               DateTime?             @default(now()) @db.Timestamp(0)
+    updatedAt               DateTime?             @updatedAt
+    deletedAt               DateTime?             @db.Timestamp(0)
+}
+
+model StaffTermProfile {
+    id String @id @default(uuid())
+
+    bills Bills[]
+
+    staffProfileId String
+    staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id])
+
+    schoolSessionId String
+    schoolSession   SchoolSession @relation(fields: [schoolSessionId], references: [id])
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    classroomsProfiles StaffClassroomDepartmentTermProfiles[]
+
+    sessionTerm   SessionTerm @relation(fields: [sessionTermId], references: [id])
+    sessionTermId String
+}
+
+model StaffClassroomDepartmentTermProfiles {
+    id String @id @default(uuid())
+
+    classRoomDepartment   ClassRoomDepartment? @relation(fields: [classRoomDepartmentId], references: [id])
+    classRoomDepartmentId String?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    staffTermProfile   StaffTermProfile @relation(fields: [staffTermProfileId], references: [id])
+    staffTermProfileId String
+}
+
+model StaffSubject {
+    id String @id @default(uuid())
+
+    staffProfilesId String
+    staffProfile    StaffProfile @relation(fields: [staffProfilesId], references: [id])
+
+    departmentSubject   DepartmentSubject? @relation(fields: [departmentSubjectId], references: [id])
+    departmentSubjectId String?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+}

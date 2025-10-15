@@ -1,0 +1,89 @@
+model SaasAccount {
+    id      String  @id @default(uuid())
+    name    String
+    email   String
+    phoneNo String?
+
+    createdAt DateTime?       @default(now()) @db.Timestamp(0)
+    updatedAt DateTime?       @updatedAt
+    deletedAt DateTime?       @db.Timestamp(0)
+    schools   SchoolProfile[]
+    users     User[]
+}
+
+model User {
+    id            String       @id @default(uuid())
+    name          String
+    email         String
+    password      String?
+    phoneNo       String?
+    role          String?
+    emailVerified Boolean?     @default(false)
+    createdAt     DateTime?    @default(now()) @db.Timestamp(0)
+    updatedAt     DateTime?    @updatedAt
+    deletedAt     DateTime?    @db.Timestamp(0)
+    // schools   SchoolProfile[]
+    tenant        SaasAccount? @relation(fields: [saasAccountId], references: [id])
+    saasAccountId String?
+    sessions      Session[]
+    accounts      Account[]
+}
+
+model Session {
+    id        String    @id @default(cuid())
+    expiresAt DateTime?
+    token     String?
+
+    ipAddress      String?
+    userAgent      String?
+    impersonatedBy String?
+    userId         String
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    deletedAt DateTime? @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([token])
+    @@index([userId])
+}
+
+model Account {
+    id                    String    @id @default(uuid())
+    userId                String
+    accountId             String
+    providerId            String
+    accessToken           String?
+    refreshToken          String?
+    idToken               String?
+    accessTokenExpiresAt  DateTime?
+    refreshTokenExpiresAt DateTime?
+    scope                 String?
+    password              String?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    deletedAt DateTime? @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+
+    user User @relation(fields: [userId], references: [id])
+
+    @@unique([providerId, accountId]) // ensures unique per provider
+}
+
+model Verification {
+    id         String    @id @default(uuid())
+    identifier String
+    value      String
+    expiresAt  DateTime
+    createdAt  DateTime? @default(now()) @db.Timestamp(0)
+    deletedAt  DateTime? @db.Timestamp(0)
+    updatedAt  DateTime? @updatedAt
+}
+
+model EmailTokenLogin {
+    id        String    @id @default(cuid())
+    userId    String
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    deletedAt DateTime? @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+}

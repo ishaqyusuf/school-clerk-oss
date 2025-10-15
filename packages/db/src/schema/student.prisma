@@ -1,0 +1,82 @@
+model Students {
+    id                 String                      @id @default(uuid())
+    name               String
+    surname            String?
+    otherName          String?
+    createdAt          DateTime?                   @default(now()) @db.Timestamp(0)
+    updatedAt          DateTime?                   @updatedAt
+    deletedAt          DateTime?                   @db.Timestamp(0)
+    dob                DateTime?                   @db.Timestamp(0)
+    gender             Gender
+    schoolProfile      SchoolProfile?              @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId    String?
+    sessionForms       StudentSessionForm[]
+    termForms          StudentTermForm[]
+    guardians          StudentGuardians[]
+    fees               StudentFee[]
+    walletTransactions StudentWalletTransactions[]
+    assessmentRecords  StudentAssessmentRecord[]
+
+    @@unique([name, surname, otherName, schoolProfileId, deletedAt])
+}
+
+model StudentGuardians {
+    id          String    @id @default(uuid())
+    guardian    Guardians @relation(fields: [guardiansId], references: [id])
+    guardiansId String
+    relation    String?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    student   Students? @relation(fields: [studentId], references: [id])
+    studentId String
+}
+
+enum Gender {
+    Male
+    Female
+}
+
+model StudentSessionForm {
+    id                    String               @id @default(uuid())
+    student               Students?            @relation(fields: [studentId], references: [id])
+    studentId             String?
+    createdAt             DateTime?            @default(now()) @db.Timestamp(0)
+    updatedAt             DateTime?            @updatedAt
+    deletedAt             DateTime?            @db.Timestamp(0)
+    schoolSession         SchoolSession?       @relation(fields: [schoolSessionId], references: [id])
+    schoolSessionId       String?
+    schoolProfile         SchoolProfile?       @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId       String?
+    termForms             StudentTermForm[]
+    classroomDepartment   ClassRoomDepartment? @relation(fields: [classroomDepartmentId], references: [id])
+    classroomDepartmentId String?
+}
+
+model StudentTermForm {
+    id                String                    @id @default(uuid())
+    schoolProfile     SchoolProfile?            @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId   String?
+    createdAt         DateTime?                 @default(now()) @db.Timestamp(0)
+    updatedAt         DateTime?                 @updatedAt
+    deletedAt         DateTime?                 @db.Timestamp(0)
+    sessionTerm       SessionTerm?              @relation(fields: [sessionTermId], references: [id])
+    sessionTermId     String?
+    schoolSession     SchoolSession?            @relation(fields: [schoolSessionId], references: [id])
+    schoolSessionId   String?
+    attendanceList    StudentAttendance[]
+    studentFees       StudentFee[]
+    paymentReceipts   StudentPayment[]
+    assessmentRecords StudentAssessmentRecord[]
+
+    studentSessionFormId String
+    sessionForm          StudentSessionForm @relation(fields: [studentSessionFormId], references: [id])
+
+    student   Students? @relation(fields: [studentId], references: [id])
+    studentId String?
+
+    classroomDepartment   ClassRoomDepartment? @relation(fields: [classroomDepartmentId], references: [id])
+    classroomDepartmentId String?
+}

@@ -1,0 +1,150 @@
+model ExampleClassRoom {
+    id             Int                           @unique @default(autoincrement())
+    classCode      String                        @unique
+    classTitle     String
+    classGroupCode String
+    students       ExampleStudents[]
+    subjects       ExampleSubjectsOnClassRooms[]
+
+    @@unique([classCode, classTitle, classGroupCode])
+}
+
+model ExampleSubject {
+    id            Int                    @unique @default(autoincrement())
+    title         String
+    code          String                 @unique
+    classSubjects ExampleClassSubjects[]
+
+    @@unique([title])
+}
+
+// model ExampleSubjects {
+//     id            Int                    @unique @default(autoincrement())
+//     title         String
+//     code          String                 @unique
+//     classSubjects ExampleClassSubjects[]
+
+//     @@unique([title])
+// }
+
+model ExampleClassSubjects {
+    id             Int                           @unique @default(autoincrement())
+    classGroupCode String
+    subjectCode    String
+    classRooms     ExampleSubjectsOnClassRooms[]
+    subject        ExampleSubject?               @relation(fields: [subjectCode], references: [code])
+    // assessmentResults ExampleStudentAssessment[]
+
+    @@unique([classGroupCode, subjectCode])
+}
+
+model ExampleSubjectsOnClassRooms {
+    id                        Int                               @unique @default(autoincrement())
+    classRoomSubjectId        Int?
+    classRoomId               Int?
+    classRoom                 ExampleClassRoom?                 @relation(fields: [classRoomId], references: [id])
+    classRoomSubject          ExampleClassSubjects?             @relation(fields: [classRoomSubjectId], references: [id])
+    assessments               ExampleClassSubjectAssessment[]
+    studentSubjectAssessments ExampleStudentSubjectAssessment[]
+    studentAssessment         ExampleStudentAssessment[]
+
+    @@unique([classRoomSubjectId, classRoomId])
+}
+
+model ExampleStudents {
+    id                  Int                                @unique @default(autoincrement())
+    studentCode         String
+    firstName           String
+    fathersName         String
+    otherName           String?
+    classCode           String
+    studentString       String
+    performanceRemarkId Int?
+    exampleClassId      Int?
+    classRoom           ExampleClassRoom?                  @relation(fields: [exampleClassId], references: [id])
+    assessmentResults   ExampleStudentAssessment[]
+    performanceRemark   ExampleRemarkOnStudentPerformance? @relation(fields: [performanceRemarkId], references: [id])
+    payments            ExampleStudentPayments[]
+    subjectAssessments  ExampleStudentSubjectAssessment[]
+
+    @@unique([firstName, fathersName, otherName, classCode])
+}
+
+model ExampleClassSubjectAssessment {
+    id                     Int                          @unique @default(autoincrement())
+    title                  String
+    obtainable             Float
+    assessmentResults      ExampleStudentAssessment[]
+    subjectsOnClassRoomsId Int?
+    subjectsOnClassRoom    ExampleSubjectsOnClassRooms? @relation(fields: [subjectsOnClassRoomsId], references: [id])
+}
+
+model ExampleStudentSubjectAssessment {
+    id                     Int                          @unique @default(autoincrement())
+    subjectsOnClassRoomsId Int?
+    studentId              Int?
+    subjectsOnClassRoom    ExampleSubjectsOnClassRooms? @relation(fields: [subjectsOnClassRoomsId], references: [id])
+    assessments            ExampleStudentAssessment[]
+    obtained               Float?
+    percentageScore        Float?
+    student                ExampleStudents?             @relation(fields: [studentId], references: [id])
+
+    @@unique([studentId, subjectsOnClassRoomsId])
+}
+
+model ExampleStudentAssessment {
+    id                              Int                              @unique @default(autoincrement())
+    obtained                        Float?
+    percentageScore                 Float?
+    classSubjectsId                 Int?
+    studentId                       Int?
+    classSubjectAssessmentId        Int?
+    remarkOnAssementId              Int?
+    studentSubjectAssessmentId      Int?
+    classSubject                    ExampleSubjectsOnClassRooms?     @relation(fields: [classSubjectsId], references: [id])
+    student                         ExampleStudents?                 @relation(fields: [studentId], references: [id])
+    classSubjectAssessment          ExampleClassSubjectAssessment?   @relation(fields: [classSubjectAssessmentId], references: [id])
+    RemarkOnAssessment              ExampleRemarkOnAssessment?       @relation(fields: [remarkOnAssementId], references: [id])
+    ExampleStudentSubjectAssessment ExampleStudentSubjectAssessment? @relation(fields: [studentSubjectAssessmentId], references: [id])
+
+    @@unique([studentId, studentSubjectAssessmentId, classSubjectAssessmentId])
+}
+
+model ExampleRemarkOnSubjectAssessment {
+    id        Int  @unique @default(autoincrement())
+    remarksId Int?
+
+    remarks ExampleRemarks? @relation(fields: [remarksId], references: [id])
+}
+
+model ExampleRemarkOnAssessment {
+    id          Int                        @unique @default(autoincrement())
+    remarksId   Int?
+    assessments ExampleStudentAssessment[]
+    remarks     ExampleRemarks?            @relation(fields: [remarksId], references: [id])
+}
+
+model ExampleRemarkOnStudentPerformance {
+    id         Int               @unique @default(autoincrement())
+    percentage Float?
+    remarksId  Int?
+    remarks    ExampleRemarks?   @relation(fields: [remarksId], references: [id])
+    student    ExampleStudents[]
+}
+
+model ExampleRemarks {
+    id                        Int                                 @unique @default(autoincrement())
+    remarkAr                  String?
+    remarkEn                  String?
+    assmentRemarks            ExampleRemarkOnAssessment[]
+    studentPerformanceRemarks ExampleRemarkOnStudentPerformance[]
+    subjectRemark             ExampleRemarkOnSubjectAssessment[]
+}
+
+model ExampleStudentPayments {
+    id                Int              @unique @default(autoincrement())
+    amount            Float?
+    summary           String?
+    ExampleStudents   ExampleStudents? @relation(fields: [exampleStudentsId], references: [id])
+    exampleStudentsId Int?
+}

@@ -1,0 +1,205 @@
+model Wallet {
+    id                  String               @id @default(uuid())
+    name                String
+    schoolProfile       SchoolProfile?       @relation(fields: [schoolProfileId], references: [id])
+    type                String?
+    schoolProfileId     String?
+    sessionTerm         SessionTerm?         @relation(fields: [sessionTermId], references: [id])
+    sessionTermId       String?
+    studentTransactions WalletTransactions[]
+    bills               Bills[]
+    funds               Funds[]
+    createdAt           DateTime?            @default(now()) @db.Timestamp(0)
+    updatedAt           DateTime?            @updatedAt
+    deletedAt           DateTime?            @db.Timestamp(0)
+
+    @@unique([name, schoolProfileId, sessionTermId, type])
+}
+
+model StudentWalletTransactions {
+    id              String            @id @default(uuid())
+    description     String?
+    amount          Float?
+    transactionType TransactionType
+    status          TransactionStatus @default(success)
+
+    walletTransactionId String?             @unique
+    walletTransaction   WalletTransactions? @relation(fields: [walletTransactionId], references: [id])
+
+    studentId String
+    student   Students @relation(fields: [studentId], references: [id])
+
+    transactionDate DateTime?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+}
+
+enum TransactionStatus {
+    success
+    cancelled
+    failed
+    draft
+}
+
+enum TransactionType {
+    credit
+    debit
+}
+
+model WalletTransactions {
+    id       String             @id @default(uuid())
+    wallet   Wallet             @relation(fields: [walletId], references: [id])
+    type     String?
+    summary  String?
+    amount   Float
+    walletId String
+    status   TransactionStatus?
+
+    studentPayment           StudentPayment?
+    studentWalletTransaction StudentWalletTransactions?
+    billPayment              BillPayment?
+
+    transactionDate DateTime?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    fund   Funds?  @relation(fields: [fundId], references: [id])
+    fundId String?
+}
+
+enum WalletType {
+    Bill
+    Fee
+}
+
+model Funds {
+    id            String @id @default(uuid())
+    title         String
+    description   String
+    amount        Float
+    pendingAmount Float
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    transactions WalletTransactions[]
+
+    wallet   Wallet @relation(fields: [walletId], references: [id])
+    walletId String
+}
+
+model Billable {
+    id          String    @id @default(uuid())
+    title       String
+    description String?
+    type        BillType?
+    amount      Float?
+    createdAt   DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt   DateTime? @updatedAt
+    deletedAt   DateTime? @db.Timestamp(0)
+
+    bills           Bills[]
+    schoolProfileId String
+    schoolProfile   SchoolProfile     @relation(fields: [schoolProfileId], references: [id])
+    billableHistory BillableHistory[]
+}
+
+model BillableHistory {
+    id      String  @id @default(uuid())
+    amount  Float
+    current Boolean @default(false)
+
+    billable Billable @relation(fields: [feeId], references: [id])
+    feeId    String
+
+    schoolSession   SchoolSession @relation(fields: [schoolSessionId], references: [id])
+    schoolSessionId String
+
+    term   SessionTerm @relation(fields: [termId], references: [id])
+    termId String
+
+    bills Bills[]
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+}
+
+model Bills {
+    id          String  @id @default(uuid())
+    title       String
+    description String?
+
+    amount Float?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    invoice   BillInvoice? @relation(fields: [invoiceId], references: [id])
+    invoiceId String?
+
+    staffTermProfile   StaffTermProfile? @relation(fields: [staffTermProfileId], references: [id])
+    staffTermProfileId String?
+
+    wallet   Wallet? @relation(fields: [walletId], references: [id])
+    walletId String?
+
+    billPayment   BillPayment? @relation(fields: [billPaymentId], references: [id])
+    billPaymentId String?
+
+    billable   Billable? @relation(fields: [billableId], references: [id])
+    billableId String?
+
+    billableHistory   BillableHistory? @relation(fields: [billableHistoryId], references: [id])
+    billableHistoryId String?
+
+    sessionTerm   SessionTerm @relation(fields: [sessionTermId], references: [id])
+    sessionTermId String
+
+    schoolSession   SchoolSession @relation(fields: [schoolSessionId], references: [id])
+    schoolSessionId String
+
+    schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+}
+
+enum BillType {
+    SALARY
+    MISC
+    OTHER
+}
+
+model BillInvoice {
+    id     String  @id @default(uuid())
+    amount Float?
+    bills  Bills[]
+
+    payment BillPayment?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+}
+
+model BillPayment {
+    id     String @id @default(uuid())
+    amount Float
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    transactionId String             @unique
+    transaction   WalletTransactions @relation(fields: [transactionId], references: [id])
+
+    invoiceId String      @unique
+    invoice   BillInvoice @relation(fields: [invoiceId], references: [id])
+
+    bills Bills[]
+}

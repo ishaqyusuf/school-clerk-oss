@@ -1,0 +1,86 @@
+model SchoolProfile {
+    id                      String                @id @default(uuid())
+    name                    String
+    slug                    String
+    subDomain               String                @unique
+    createdAt               DateTime?             @default(now()) @db.Timestamp(0)
+    accountId               String
+    updatedAt               DateTime?             @updatedAt
+    deletedAt               DateTime?             @db.Timestamp(0)
+    sessions                SchoolSession[]
+    terms                   SessionTerm[]
+    classRooms              ClassRoom[]
+    classRoomDepartments    ClassRoomDepartment[]
+    classRoomAttendanceList ClassRoomAttendance[]
+    students                Students[]
+    sessionForms            StudentSessionForm[]
+    termForms               StudentTermForm[]
+    studentAttendanceList   StudentAttendance[]
+    staffProfiles           StaffProfile[]
+
+    subjects               Subject[]
+    studentFees            StudentFee[]
+    studentPaymentReceipts StudentPayment[]
+    account                SaasAccount      @relation(fields: [accountId], references: [id])
+    fees                   Fees[]
+    wallets                Wallet[]
+    guardians              Guardians[]
+    billables              Billable[]
+    bills                  Bills[]
+    domains                TenantDomains[]
+    activities             Activity[]
+
+    @@unique([name, subDomain, slug, deletedAt])
+}
+
+model TenantDomains {
+    id              String         @id @default(uuid())
+    domain          String
+    createdAt       DateTime?      @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?      @updatedAt
+    deletedAt       DateTime?      @db.Timestamp(0)
+    schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String?
+}
+
+model SchoolSession {
+    id    String @id @default(uuid())
+    title String
+
+    createdAt DateTime?     @default(now()) @db.Timestamp(0)
+    updatedAt DateTime?     @updatedAt
+    deletedAt DateTime?     @db.Timestamp(0)
+    schoolId  String
+    school    SchoolProfile @relation(fields: [schoolId], references: [id])
+
+    terms             SessionTerm[]
+    classRooms        ClassRoom[]
+    sessionForms      StudentSessionForm[]
+    termForms         StudentTermForm[]
+    studentFees       StudentFee[]
+    feeHistory        FeeHistory[]
+    billableHistory   BillableHistory[]
+    staffTermProfiles StaffTermProfile[]
+    bills             Bills[]
+}
+
+model SessionTerm {
+    id                 String              @id @default(uuid())
+    sessionId          String
+    schoolId           String
+    title              String
+    startDate          DateTime?           @db.Timestamp(0)
+    endDate            DateTime?           @db.Timestamp(0)
+    createdAt          DateTime?           @default(now()) @db.Timestamp(0)
+    updatedAt          DateTime?           @updatedAt
+    deletedAt          DateTime?           @db.Timestamp(0)
+    school             SchoolProfile?      @relation(fields: [schoolId], references: [id])
+    session            SchoolSession?      @relation(fields: [sessionId], references: [id])
+    termForms          StudentTermForm[]
+    departmentSubjects DepartmentSubject[]
+    feeHistory         FeeHistory[]
+    billableHistory    BillableHistory[]
+    wallets            Wallet[]
+    staffTermProfiles  StaffTermProfile[]
+    bills              Bills[]
+}

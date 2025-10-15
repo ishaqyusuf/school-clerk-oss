@@ -1,0 +1,55 @@
+model academic_class {
+    id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    name          String          @db.VarChar(256)
+    school_id     String          @db.Uuid
+    classLevel    Int             @default(1)
+    created_at    DateTime        @default(now()) @db.Timestamp(6)
+    deleted_at    DateTime?       @db.Timestamp(6)
+    updatedAt     DateTime?       @db.Timestamptz(6)
+    school        school          @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "academic_class_school_id_school_id_fk")
+    class_subject class_subject[]
+    session_class session_class[]
+
+    @@unique([name, school_id], map: "academic_class_name_school_id_unique")
+}
+
+model academic_session {
+    id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    name                 String                 @db.VarChar(256)
+    start_date           DateTime?              @db.Timestamp(6)
+    end_date             DateTime?              @db.Timestamp(6)
+    school_id            String                 @db.Uuid
+    created_at           DateTime               @default(now()) @db.Timestamp(6)
+    deleted_at           DateTime?              @db.Timestamp(6)
+    updatedAt            DateTime?              @db.Timestamptz(6)
+    school               school                 @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "academic_session_school_id_school_id_fk")
+    academic_term        academic_term[]
+    batch_staff_service  batch_staff_service[]
+    class_subject        class_subject[]
+    session_class        session_class[]
+    staff_session_form   staff_session_form[]
+    student_session_form student_session_form[]
+
+    @@unique([name, school_id], map: "academic_session_name_school_id_unique")
+}
+
+model academic_term {
+    id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    name                   String                   @db.VarChar(256)
+    school_id              String                   @db.Uuid
+    academic_session_id    String                   @db.Uuid
+    start_date             DateTime?                @db.Timestamp(6)
+    end_date               DateTime?                @db.Timestamp(6)
+    created_at             DateTime                 @default(now()) @db.Timestamp(6)
+    deleted_at             DateTime?                @db.Timestamp(6)
+    updatedAt              DateTime?                @db.Timestamptz(6)
+    academic_session       academic_session         @relation(fields: [academic_session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "academic_term_academic_session_id_academic_session_id_fk")
+    school                 school                   @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "academic_term_school_id_school_id_fk")
+    assessments            assessments[]
+    batch_staff_service    batch_staff_service[]
+    student_day_attendance student_day_attendance[]
+    student_term_sheet     student_term_sheet[]
+    transaction            transaction[]
+
+    @@unique([name, school_id, academic_session_id], map: "academic_term_name_school_id_academic_session_id_unique")
+}

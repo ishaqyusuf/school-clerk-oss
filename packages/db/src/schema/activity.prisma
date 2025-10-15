@@ -1,0 +1,38 @@
+model Activity {
+    id              String         @id @default(uuid())
+    userId          String
+    title           String?
+    description     String?
+    author          String
+    source          ActivitySource
+    type            ActivityType
+    meta            Json?
+    createdAt       DateTime?      @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?      @updatedAt
+    deletedAt       DateTime?      @db.Timestamp(0)
+    schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String?
+}
+
+enum ActivitySource {
+    user
+    system
+}
+
+enum ActivityType {
+    wallet_created
+
+    student_fee_created
+    student_fee_cancelled
+
+    // student payment transaction activities
+    student_payment_received
+    student_payment_refund
+    student_payment_cancelled
+
+    student_payment_transaction_cancelled
+    student_payment_transaction_created
+
+    student_term_created
+    student_term_cancelled
+}

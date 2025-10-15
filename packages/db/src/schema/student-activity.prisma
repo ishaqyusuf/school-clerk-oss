@@ -1,0 +1,131 @@
+model ClassRoomAttendance {
+    id                    String               @id @default(uuid())
+    attendanceTitle       String
+    studentAttendanceList StudentAttendance[]
+    SchoolProfile         SchoolProfile?       @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId       String?
+    createdAt             DateTime?            @default(now()) @db.Timestamp(0)
+    updatedAt             DateTime?            @updatedAt
+    deletedAt             DateTime?            @db.Timestamp(0)
+    department            ClassRoomDepartment? @relation(fields: [departmentId], references: [id])
+    departmentId          String?
+    staffProfile          StaffProfile?        @relation(fields: [staffProfileId], references: [id])
+    staffProfileId        String?
+}
+
+model StudentAttendance {
+    id                    String               @id @default(uuid())
+    isPresent             Boolean?             @default(false)
+    comment               String?
+    StudentTermForm       StudentTermForm?     @relation(fields: [studentTermFormId], references: [id])
+    schoolProfile         SchoolProfile?       @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId       String?
+    studentTermFormId     String?
+    createdAt             DateTime?            @default(now()) @db.Timestamp(0)
+    updatedAt             DateTime?            @updatedAt
+    deletedAt             DateTime?            @db.Timestamp(0)
+    classroomAttendance   ClassRoomAttendance? @relation(fields: [classroomAttendanceId], references: [id])
+    classroomAttendanceId String?
+    department            ClassRoomDepartment? @relation(fields: [departmentId], references: [id])
+    departmentId          String?
+}
+
+model Fees {
+    id          String    @id @default(uuid())
+    title       String
+    description String?
+    amount      Float?
+    createdAt   DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt   DateTime? @updatedAt
+    deletedAt   DateTime? @db.Timestamp(0)
+
+    feeHistory      FeeHistory[]
+    schoolProfileId String
+    schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id])
+}
+
+model FeeHistory {
+    id              String        @id @default(uuid())
+    amount          Float
+    current         Boolean       @default(false)
+    fee             Fees          @relation(fields: [feeId], references: [id])
+    feeId           String
+    schoolSession   SchoolSession @relation(fields: [schoolSessionId], references: [id])
+    schoolSessionId String
+    term            SessionTerm   @relation(fields: [termId], references: [id])
+    termId          String
+    studentFees     StudentFee[]
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+}
+
+model StudentFee {
+    id                String           @id @default(uuid())
+    billAmount        Float
+    pendingAmount     Float
+    createdAt         DateTime?        @default(now()) @db.Timestamp(0)
+    updatedAt         DateTime?        @updatedAt
+    deletedAt         DateTime?        @db.Timestamp(0)
+    feeTitle          String?
+    description       String?
+    billablePriceId   String?
+    schoolProfile     SchoolProfile?   @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId   String?
+    studentTermForm   StudentTermForm? @relation(fields: [studentTermFormId], references: [id])
+    studentTermFormId String?
+    schoolSession     SchoolSession?   @relation(fields: [schoolSessionId], references: [id])
+    schoolSessionId   String?
+    receipts          StudentPayment[]
+    feeHistory        FeeHistory?      @relation(fields: [feeHistoryId], references: [id])
+    feeHistoryId      String?
+    status            String?
+    student           Students?        @relation(fields: [studentId], references: [id])
+    studentId         String?
+}
+
+model StudentPurchase {
+    id          String           @id @default(uuid())
+    description String
+    title       String
+    amount      Float
+    paid        Float
+    createdAt   DateTime?        @default(now()) @db.Timestamp(0)
+    updatedAt   DateTime?        @updatedAt
+    deletedAt   DateTime?        @db.Timestamp(0)
+    payments    StudentPayment[]
+}
+
+model StudentPayment {
+    id          String             @id @default(uuid())
+    paymentType String
+    amount      Float?
+    status      String?
+    description String?
+    type        StudentPaymentType
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    studentFee            StudentFee? @relation(fields: [studentBillPaymentsId], references: [id])
+    studentBillPaymentsId String?
+
+    studentTermForm   StudentTermForm @relation(fields: [studentTermFormId], references: [id])
+    studentTermFormId String
+
+    schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+
+    walletTransaction    WalletTransactions @relation(fields: [walletTransactionsId], references: [id])
+    walletTransactionsId String             @unique
+
+    studentPurchase   StudentPurchase? @relation(fields: [studentPurchaseId], references: [id])
+    studentPurchaseId String?
+}
+
+enum StudentPaymentType {
+    FEE
+    PURCHASE
+}
