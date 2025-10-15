@@ -1,0 +1,115 @@
+@tailwind base;
+/* @tailwind components; */
+/* @tailwind utilities; */
+@layer base {
+  :root {
+    --background: 0, 0%, 100%;
+    --foreground: 0, 0%, 7%;
+    --card: 45 18% 96%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 45 18% 96%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 40, 11%, 89%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 40, 11%, 89%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 40, 10%, 94%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --muted-foreground: 0, 0%, 38%;
+    --border: 45, 5%, 85%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0, 0%, 7%;
+    --foreground: 0 0% 98%;
+    --card: 0, 0%, 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0, 0%, 7%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 0, 0%, 11%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0, 0%, 11%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 0, 0%, 11%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 359, 100%, 61%;
+    --destructive-foreground: 0, 0%, 100%;
+    --muted-foreground: 0, 0%, 38%;
+    --border: 0, 0%, 17%;
+    --input: 0, 0%, 11%;
+    --ring: 240 4.9% 83.9%;
+  }
+}
+
+td.score {
+  @apply w-6 border cursor-pointer p-1 px-2;
+}
+td.total {
+  @apply font-semibold;
+}
+table.result td,
+table.result th {
+  @apply border-x border-b border-muted-foreground p-1 px-2;
+}
+table.result th {
+  @apply h-auto font-bold text-black whitespace-nowrap p-3 text-base;
+}
+table.result th.first {
+  @apply text-start;
+}
+div.result-lines-lg table.result th:nth-child(2),
+div.result-lines-lg table.result th:nth-child(3),
+div.result-lines-lg table.result th:nth-child(4) {
+  @apply w-[120px];
+}
+div.result-lines-lg table.result td {
+  @apply p-1.5 text-xl;
+}
+div.result-lines-sm table.result td {
+  @apply p-6 text-2xl;
+}
+table.result td.first {
+  @apply font-bold;
+}
+table.result.lines-5 th.last {
+  @apply w-36 text-lg;
+}
+div.result-lines-lg p#schoolName {
+  @apply text-2xl;
+}
+div.result-lines-sm p#schoolName {
+  @apply text-3xl;
+}
+div.result-lines-lg p#address {
+  @apply text-xl font-semibold;
+}
+div.result-lines-sm p#address {
+  @apply text-2xl;
+}
+div.result-lines-lg div#signature,
+div.result-lines-sm div#signature {
+  @apply pt-8;
+}
+@page {
+  size: A4;
+  margin: 0;
+}
+
+.size-a4 {
+  /* width: 210mm; */
+  /* height: 297mm; */
+}
+@media print {
+  .hide-on-print {
+    display: none !important;
+  }
+}
