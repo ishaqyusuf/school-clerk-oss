@@ -1,0 +1,76 @@
+{
+  "$schema": "https://turborepo.org/schema.json",
+  "globalDependencies": ["**/.env"],
+  "ui": "tui",
+  "tasks": {
+    "topo": {
+      "dependsOn": ["^topo"]
+    },
+    "build": {
+      "env": ["DATABASE_URL"],
+      "dependsOn": ["^build"],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "next-env.d.ts",
+        ".expo/**",
+        "dist/**",
+        "build/**",
+        "lib/**"
+      ]
+    },
+    "prisma-generate": {
+      "cache": false,
+      "interactive": true
+    },
+    "db-generate": {
+      "cache": false,
+      "interactive": true
+    },
+    "db-migrate": {
+      "cache": false,
+      "interactive": true
+    },
+    "generate": {
+      "cache": false,
+      "interactive": true
+    },
+    "migrate": {
+      "cache": false,
+      "interactive": true
+    },
+    "push": {
+      "cache": false,
+      "interactive": true
+    },
+    "pull": {
+      "cache": false,
+      "interactive": true
+    },
+    "studio": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev": {
+      "dependsOn": ["^dev", "^generate"],
+      "persistent": true,
+      "cache": false
+    },
+    "dev:prod": {
+      "dependsOn": ["^dev:prod"],
+      "persistent": true,
+      "cache": false
+    },
+    "format": {},
+    "lint": {
+      "dependsOn": ["^topo"]
+    },
+    "typecheck": {
+      "dependsOn": ["^topo"],
+      "outputs": []
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

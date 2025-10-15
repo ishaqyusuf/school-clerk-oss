@@ -1,0 +1,22 @@
+model AddressBooks {
+    id         Int       @unique @default(autoincrement())
+    customerId Int?
+    name       String?   @db.VarChar(255)
+    address1   String?   @db.VarChar(300)
+    address2   String?   @db.VarChar(300)
+    country    String?   @db.VarChar(255)
+    state      String?   @db.VarChar(255)
+    city       String?   @db.VarChar(255)
+    email      String?   @db.VarChar(255)
+    phoneNo    String?   @db.VarChar(255)
+    phoneNo2   String?   @db.VarChar(255)
+    isPrimary  Boolean?
+    meta       Json?     @db.Json
+    createdAt  DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt  DateTime? @updatedAt
+    deletedAt  DateTime?
+
+    @@index([createdAt, deletedAt, name, address1])
+    @@index([customerId])
+    @@index([phoneNo])
+}
