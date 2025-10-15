@@ -1,7 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@next16/db";
 import Image from "next/image";
 
-const prisma = new PrismaClient();
 export default async function Home() {
   await prisma.user.create({
     data: {},

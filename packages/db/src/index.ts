@@ -50,7 +50,7 @@ type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>;
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClientSingleton | undefined;
 };
-export {} from "";
+
 export const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
 export type Database = typeof prisma;
 
