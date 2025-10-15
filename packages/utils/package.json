@@ -1,0 +1,30 @@
+{
+  "name": "@school-clerk/utils",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "private": true,
+  "sideEffects": false,
+  "scripts": {
+    "clean": "rm -rf .turbo node_modules",
+    "lint": "biome check .",
+    "format": "biome --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./colors": "./src/colors.ts",
+    "./construct-metadata": "./src/construct-metadata.ts",
+    "./context-factory": "./src/context-factory.tsx",
+    "./dayjs": "./src/dayjs.ts",
+    "./envs": "./src/envs.ts",
+    "./constants": "./src/constants.ts",
+    "./responsive": "./src/responsive.ts",
+    "./format": "./src/format.ts",
+    "./query-response": "./src/query-response.ts",
+    "./types": "./src/types.ts"
+  }
+}
