@@ -1,6 +1,3 @@
-import { Inter as FontSans } from "next/font/google";
-import localFont from "next/font/local";
-
 import "@school-clerk/ui/globals.css";
 import "@/styles/globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
@@ -9,8 +6,7 @@ import { TailwindIndicator } from "@/components/tailwind-indicator";
 import { cn } from "@school-clerk/ui/cn";
 import { Toaster } from "@school-clerk/ui/toaster";
 import { Providers } from "./providers";
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
+
 import { Lora } from "next/font/google";
 import { StaticTrpc } from "@/components/static-trpc";
 
@@ -41,7 +37,7 @@ export default function RootLayout({
       {/*</Suspense>*/}
       <body
         className={cn(
-          `${GeistSans.variable} ${GeistMono.variable} ${lora.variable} font-sans`,
+          `${lora.variable} font-sans`,
           "whitespace-pre-line overscroll-none antialiased"
           // "min-h-screen bg-background font-sans text-black antialiased",
           // fontSans.variable,
