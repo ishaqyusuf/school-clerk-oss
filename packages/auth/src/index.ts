@@ -18,7 +18,7 @@ export function initAuth(options: {
     }),
     baseURL: options.baseUrl,
     // secret: options.secret!,
-    secret: process.env.BETTER_AUTH_SECRET,
+    secret: process.env.BETTER_AUTH_SECRET!,
     account: {
       fields: {
         // providerId
