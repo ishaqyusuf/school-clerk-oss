@@ -8,7 +8,7 @@ import { nextCookies } from "better-auth/next-js";
 export function initAuth(options: {
   baseUrl: string;
   productionUrl: string;
-  secret: string | undefined;
+  secret: string;
   //   discordClientId: string;
   //   discordClientSecret: string;
 }) {
@@ -17,8 +17,8 @@ export function initAuth(options: {
       provider: "postgresql",
     }),
     baseURL: options.baseUrl,
-    // secret: options.secret!,
-    secret: process.env.BETTER_AUTH_SECRET!,
+    secret: options.secret!,
+    // secret,//: process.env.BETTER_AUTH_SECRET!,
     account: {
       fields: {
         // providerId
