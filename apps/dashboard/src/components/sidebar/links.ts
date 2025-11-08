@@ -1,5 +1,5 @@
 // import { ICan, Permission } from "@/types/auth";
-import { IconKeys } from "../icons";
+import { IconKeys } from "@school-clerk/ui/custom/icons";
 import {
   createNavLink,
   createNavModule,
@@ -91,7 +91,7 @@ const __access = (
   type: Access["type"],
   equator: Access["equator"],
   ...values
-) => ({ type, equator, values }) as Access;
+) => ({ type, equator, values } as Access);
 
 type Role =
   | "Admin"

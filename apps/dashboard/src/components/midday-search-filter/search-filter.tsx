@@ -21,7 +21,7 @@ import {
 import { Icons } from "@school-clerk/ui/icons";
 import { Input } from "@school-clerk/ui/input";
 
-import { Icon } from "../icons";
+import { Icon } from "@school-clerk/ui/custom/icons";
 import { SelectTag } from "../select-tag";
 import { FilterList } from "./filter-list";
 import { useQuery } from "@tanstack/react-query";

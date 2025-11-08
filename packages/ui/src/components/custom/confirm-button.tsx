@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { cn } from "@school-clerk/ui/cn";
-import { Icon, IconKeys } from "./icons";
+import { Icon, IconKeys } from "@school-clerk/ui/custom/icons";
 import { ButtonProps } from "../button";
 
 export interface ConfirmBtnProps extends ButtonProps {
@@ -44,10 +44,10 @@ export function ConfirmBtn({
   const iconName = confirm
     ? "Warn"
     : isPending
-      ? "spinner"
-      : size == "icon" || trash
-        ? "trash"
-        : icon;
+    ? "spinner"
+    : size == "icon" || trash
+    ? "trash"
+    : icon;
   return (
     <Button
       size={size}

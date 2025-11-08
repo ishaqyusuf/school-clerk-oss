@@ -15,7 +15,7 @@ import {
 import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
 
-import { Icons } from "@/components/icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { ArrowUpDown, MoreHorizontal, User } from "lucide-react";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { useAuth } from "@/hooks/use-auth";

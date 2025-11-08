@@ -1,5 +1,5 @@
 import { Button } from "@school-clerk/ui/button";
-import { Icons } from "./icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { Collapsible } from "@school-clerk/ui/composite";
 import Portal from "@school-clerk/ui/custom/portal";
 import { SubjectForm, SubjectFormAction } from "./forms/subject-form";

@@ -1,6 +1,6 @@
 "use client";
 import { Button } from "@school-clerk/ui/button";
-import { Icons } from "../icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { useQuestionFormParams } from "@/hooks/use-question-form-params";
 
 export function NewQuestionButton({}) {

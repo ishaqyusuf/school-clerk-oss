@@ -56,7 +56,7 @@ export function NumberInput({
           // className,
           isPlaceholder && "opacity-0",
           "border-transparents h-6 border-0 border-b !bg-transparent p-0 text-xs focus:border-border",
-          className,
+          className
         )}
         allowNegative={false}
         {...props}

@@ -1,4 +1,4 @@
-import { IconKeys } from "../icons";
+import { IconKeys } from "@school-clerk/ui/custom/icons";
 
 export const searchIcons: Partial<{
   [id in string]: IconKeys;

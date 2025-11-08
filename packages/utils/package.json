@@ -10,7 +10,10 @@
     "format": "biome --write .",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "date-fns": "^4.1.0",
+    "dayjs": "^1.11.18"
+  },
   "devDependencies": {
     "typescript": "^5.9.2"
   },

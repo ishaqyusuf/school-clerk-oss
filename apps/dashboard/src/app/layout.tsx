@@ -1,5 +1,5 @@
 import "@school-clerk/ui/globals.css";
-// import "@/styles/globals.css";
+import "@/styles/globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { TailwindIndicator } from "@/components/tailwind-indicator";
 

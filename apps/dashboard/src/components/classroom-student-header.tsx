@@ -4,7 +4,7 @@ import { OpenClassroomSheet } from "./open-classroom-sheet";
 import { classroomFilterParams } from "@/hooks/use-classroom-filter-params";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@school-clerk/ui/button";
-import { Icons } from "./icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 
 export function ClassroomStudentHeader({}) {

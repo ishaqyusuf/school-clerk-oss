@@ -1,5 +1,5 @@
 import { SearchParamsKeys } from "@/utils/search-params";
-import { IconKeys } from "../icons";
+import { IconKeys } from "@school-clerk/ui/custom/icons";
 import { RouterInputs, RouterOutputs } from "@api/trpc/routers/_app";
 
 type T = RouterInputs["students"]["index"];

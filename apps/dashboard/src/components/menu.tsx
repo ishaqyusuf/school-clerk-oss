@@ -27,7 +27,7 @@ import {
 } from "@school-clerk/ui/dropdown-menu";
 import { ScrollArea } from "@school-clerk/ui/scroll-area";
 
-import { Icon, IconKeys, Icons } from "./icons";
+import { Icon, IconKeys, Icons } from "@school-clerk/ui/custom/icons";
 
 type MenuItemProps = {
   link?;
@@ -66,7 +66,7 @@ function BaseMenu(
     variant = "outline",
     className,
   }: RowActionMoreMenuProps,
-  ref,
+  ref
 ) {
   const [_open, _onOpenChanged] = useState(open);
   useImperativeHandle(ref, () => ({
@@ -90,7 +90,7 @@ function BaseMenu(
               variant == "default"
                 ? "data-[state=open]:bg-muted-foreground"
                 : "data-[state=open]:bg-muted",
-              triggerSize == "sm" && "h-6 w-6",
+              triggerSize == "sm" && "h-6 w-6"
             )}
           >
             {Icon && <Icon className="h-4 w-4" />}
@@ -103,7 +103,7 @@ function BaseMenu(
         className={cn(
           !noSize && "w-[185px]",
           "max-h-56 overflow-auto",
-          className,
+          className
         )}
       >
         {children}
@@ -244,7 +244,7 @@ function Trash({ action, children, ...props }: TrashProps) {
         (!props.variant || props.variant == "trash") &&
           "text-red-500 hover:text-red-600",
         props.variant == "primary" && "",
-        "gap-2",
+        "gap-2"
       )}
     >
       <Icon

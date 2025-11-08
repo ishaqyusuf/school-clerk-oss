@@ -1,6 +1,6 @@
 "use client";
 
-import { Icons } from "@/components/icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { Menu } from "@/components/menu";
 import { generateRandomString } from "@/utils/utils";
 

@@ -2,7 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 
-import { Icons } from "./icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { Progress } from "./progress";
 import {
   Toast,
@@ -82,7 +82,7 @@ export function Toaster() {
               <div className="flex w-full justify-end">{footer}</div>
             </Toast>
           );
-        },
+        }
       )}
       <ToastViewport />
     </ToastProvider>

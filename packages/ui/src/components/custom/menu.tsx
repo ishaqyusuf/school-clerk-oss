@@ -6,7 +6,7 @@ import {
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Icon, IconKeys, Icons } from "./icons";
+import { Icon, IconKeys, Icons } from "@school-clerk/ui/custom/icons";
 import { cn } from "../../utils";
 
 import { VariantProps } from "class-variance-authority";

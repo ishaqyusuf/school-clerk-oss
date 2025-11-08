@@ -4,7 +4,7 @@ import { Fragment, useRef, useState } from "react";
 import { cva } from "class-variance-authority";
 import { LinkItem, NavModule } from "./utils";
 import { Icon } from "../custom/icons";
-import { Icons } from "../icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { SidebarNavUser } from "./sidebar-nav-user";
 import { SidebarModules } from "./sidebar-modules";
 export function SidebarLayout(props: { children?; context }) {
@@ -233,8 +233,8 @@ const ChildItem = ({
             transitionDelay: shouldSkipAnimation
               ? undefined
               : showChild
-                ? `${60 + index * 25}ms`
-                : `${(2 - index) * 10}ms`,
+              ? `${60 + index * 25}ms`
+              : `${(2 - index) * 10}ms`,
           }}
         >
           <span

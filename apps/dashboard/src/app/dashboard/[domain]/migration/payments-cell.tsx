@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AnimatedNumber } from "@/components/animated-number";
 import FormInput from "@/components/controls/form-input";
 import FormSelect from "@/components/controls/form-select";
-import { Icons } from "@/components/icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { Menu } from "@/components/menu";
 import { generateRandomString } from "@/utils/utils";
 import { FormProvider, useFieldArray, useForm } from "react-hook-form";
@@ -46,10 +46,10 @@ export function PaymentCell({ student }: { student: StudentRecord }) {
         data.postId = postId;
         store.update(
           `studentPayments.${student.classRoom}.${studentName}`,
-          data,
+          data
         );
         store.update("refreshToken", generateRandomString());
-      },
+      }
     );
   }
   return (
@@ -65,7 +65,7 @@ export function PaymentCell({ student }: { student: StudentRecord }) {
               <span
                 className={cn(
                   "uppercase",
-                  entranceStatus == "paid" ? "text-green-700" : null,
+                  entranceStatus == "paid" ? "text-green-700" : null
                 )}
               >
                 Form:{entranceStatus}
@@ -78,7 +78,7 @@ export function PaymentCell({ student }: { student: StudentRecord }) {
                   ? paid == payable
                     ? "text-green-700"
                     : "text-red-700"
-                  : "",
+                  : ""
               )}
             >
               <AnimatedNumber maximumFractionDigits={0} value={paid} />
@@ -220,7 +220,7 @@ function PayData({
                 </TableHeader>
                 <TableBody>
                   {Object.entries(
-                    student.paymentData?.storePayments?.billables,
+                    student.paymentData?.storePayments?.billables
                   )?.map(([term, value]) => (
                     <TableRow className="" key={term}>
                       <TableCell className="flex">

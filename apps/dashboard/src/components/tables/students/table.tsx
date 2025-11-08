@@ -16,7 +16,7 @@ import { TableProvider } from "..";
 import { TableHeaderComponent } from "../table-header";
 import { TableRow } from "../table-row";
 import { columns } from "./columns";
-import { Icons } from "@/components/icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 
 type Props = {
   data: StudentData[];

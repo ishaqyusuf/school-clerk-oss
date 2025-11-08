@@ -18,7 +18,7 @@ import {
   SidebarMenuItem,
 } from "@school-clerk/ui/sidebar";
 
-import { Icon, Icons } from "../icons";
+import { Icon, Icons } from "@school-clerk/ui/custom/icons";
 import { useSidebar } from "./context";
 import { useSidebarStore } from "./store";
 import { useAsyncMemo } from "use-async-memo";

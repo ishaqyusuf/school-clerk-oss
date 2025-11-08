@@ -10,7 +10,7 @@ import { useMediaQuery } from "react-responsive";
 import Portal from "./portal";
 import { Label } from "@school-clerk/ui/label";
 import { Button } from "@school-clerk/ui/button";
-import { Icons } from "./icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { screens } from "@/utils/responsive";
 
 const sheetContentVariant = cva(

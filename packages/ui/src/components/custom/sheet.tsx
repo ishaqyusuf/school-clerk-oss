@@ -14,7 +14,7 @@ import {
 import { useMediaQuery } from "react-responsive";
 import { Label } from "../label";
 import { Button } from "../button";
-import { Icons } from "./icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import createContextFactory from "@school-clerk/utils/context-factory";
 import { screens } from "@school-clerk/utils/responsive";
 import Portal from "./portal";

@@ -38,6 +38,7 @@ export default async function Page(props: Props) {
   //   })
   // );
   // if (!data?.pages?.[0]?.data?.length) return <></>;
+
   return (
     <HydrateClient>
       <PageTitle>Students</PageTitle>

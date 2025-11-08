@@ -23,12 +23,12 @@ import {
 } from "@school-clerk/ui/table";
 
 import { CollapseForm } from "../collapse-form";
-import { FormDate } from "../controls/form-date";
+import { FormDate } from "@school-clerk/ui/controls/form-date";
 import FormInput from "../controls/form-input";
 import FormSelect from "../controls/form-select";
 import { NumberInput } from "../currency-input";
 import { CustomSheetContentPortal } from "../custom-sheet-content";
-import { Icons } from "../icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { Menu } from "../menu";
 import { useStaffFormContext } from "../staffs/form-context";
 import { useStudentFormContext } from "../students/form-context";

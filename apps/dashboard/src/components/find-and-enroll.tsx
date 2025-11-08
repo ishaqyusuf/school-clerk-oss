@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { _qc, _trpc } from "./static-trpc";
-import { Icons } from "./icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { Item } from "@school-clerk/ui/composite";
 import { useDeferredValue, useState } from "react";
 import { Button } from "@school-clerk/ui/button";

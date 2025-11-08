@@ -18,7 +18,7 @@ import { useBillFormContext } from "../bill/form-context";
 import FormInput from "../controls/form-input";
 import FormSelect from "../controls/form-select";
 import { CustomSheetContentPortal } from "../custom-sheet-content";
-import { Icons } from "../icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { Menu } from "../menu";
 import { useStaffFormContext } from "../staffs/form-context";
 import { SubmitButton } from "../submit-button";

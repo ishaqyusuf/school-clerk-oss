@@ -6,7 +6,7 @@ import { Button } from "@school-clerk/ui/button";
 import { Label } from "@school-clerk/ui/label";
 import { useTable } from ".";
 import { cn } from "../../../utils";
-import { IconKeys, Icons } from "../icons";
+import { IconKeys, Icons } from "@school-clerk/ui/custom/icons";
 import { Menu } from "../menu";
 import { ConfirmBtn } from "../confirm-button";
 

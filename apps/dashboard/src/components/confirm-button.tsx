@@ -7,7 +7,7 @@ import { Info, Trash } from "lucide-react";
 import { Button, ButtonProps } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
 
-import { Icon, IconKeys, Icons } from "./icons";
+import { Icon, IconKeys, Icons } from "@school-clerk/ui/custom/icons";
 
 export interface ConfirmBtnProps extends ButtonProps {
   icon?: IconKeys;
@@ -47,10 +47,10 @@ export default function ConfirmBtn({
   const iconName = confirm
     ? "Warn"
     : isPending
-      ? "spinner"
-      : size == "icon" || trash
-        ? "trash"
-        : icon;
+    ? "spinner"
+    : size == "icon" || trash
+    ? "trash"
+    : icon;
   return (
     <Button
       size={size}
@@ -62,7 +62,7 @@ export default function ConfirmBtn({
         size == "icon" && "size-8 p-0",
         size == "icon" && variant == "ghost" && "size-6",
         size == "xs" && "h-6 w-6 p-0",
-        variant != "destructive" && trash && "text-red-500 hover:text-red-600",
+        variant != "destructive" && trash && "text-red-500 hover:text-red-600"
       )}
       {...props}
     >
@@ -70,7 +70,7 @@ export default function ConfirmBtn({
         name={iconName}
         className={cn(
           isPending || isDeleting ? "size-3.5 animate-spin" : "size-4",
-          size == "xs" && "size-3",
+          size == "xs" && "size-3"
         )}
       />
 

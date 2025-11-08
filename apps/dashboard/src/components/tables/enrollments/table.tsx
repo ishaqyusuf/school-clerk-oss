@@ -10,7 +10,7 @@ import { TableProvider } from "..";
 import { TableHeaderComponent } from "../table-header";
 import { TableRow } from "../table-row";
 
-import { Icons } from "@/components/icons";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { columns } from "./columns";
 import { useTRPC } from "@/trpc/client";
 import { useStudentFilterParams } from "@/hooks/use-student-filter-params";
@@ -42,7 +42,7 @@ export function DataTable({}: Props) {
         console.log({ meta });
         return meta?.cusor?.toString();
       },
-    },
+    }
   );
   const { data, fetchNextPage, hasNextPage, isFetching } =
     useSuspenseInfiniteQuery(infiniteQueryOptions);

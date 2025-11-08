@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@school-clerk/ui/table";
 
-import { FormDate } from "../controls/form-date";
+import { FormDate } from "@school-clerk/ui/controls/form-date";
 import FormInput from "../controls/form-input";
 import { SubmitButton } from "../submit-button";
 import { useZodForm } from "@/hooks/use-zod-form";
@@ -51,7 +51,7 @@ export function AcademicSessionForm() {
           description: "Something went wrong. Please try again later.",
         });
       },
-    }),
+    })
   );
   const onSubmit = form.handleSubmit((data) => {
     save.mutate(data);

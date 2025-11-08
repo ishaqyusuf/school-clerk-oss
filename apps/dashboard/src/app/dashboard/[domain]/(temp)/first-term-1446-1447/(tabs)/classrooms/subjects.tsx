@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useGlobalParams, usePostMutate } from "../../use-global";
 import { TableCell, TableRow } from "@school-clerk/ui/table";
 import { Button } from "@school-clerk/ui/button";
-import { Icons } from "@/components/icons";
 import {
   Popover,
   PopoverContent,
@@ -23,6 +22,7 @@ import { toast } from "@school-clerk/ui/use-toast";
 import { Menu } from "@/components/menu";
 import { Badge } from "@school-clerk/ui/badge";
 import { indices } from "../../utils";
+import { Icons } from "@school-clerk/ui/custom/icons";
 
 export function ClassroomSubjects({ classRoomId }) {
   const trpc = useTRPC();
