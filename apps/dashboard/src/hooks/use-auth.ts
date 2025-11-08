@@ -1,4 +1,3 @@
-// import { useSession } from "next-auth/react";
 import { useTRPC } from "@/trpc/client";
 import { useDebugToast } from "./use-debug-console";
 import { authClient } from "@/auth/client";

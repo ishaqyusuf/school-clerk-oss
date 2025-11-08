@@ -22,7 +22,7 @@ export function SidebarClient() {
     Logo: Icons.LogoIcons.Variant3,
   };
   const ctx = useSidebarContext(value);
-  // return <>abc</>;
+
   if (!auth?.profile?.schoolId) return null;
   return <SidebarLayout context={ctx} />;
 }
