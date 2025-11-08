@@ -32,6 +32,7 @@ export function constructMetadata({
   icons?: Metadata["icons"];
   noIndex?: boolean;
 } = {}): Metadata {
+  return { title };
   return {
     title,
     description,
