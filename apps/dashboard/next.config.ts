@@ -5,10 +5,6 @@ const config = {
   reactStrictMode: true,
   /** Enables hot reloading for local packages without a build step */
   transpilePackages: [
-    // "@school-clerk/api",
-    // "@school-clerk/auth",
-    // "@school-clerk/db",
-    // "@school-clerk/common",
     "@school-clerk/ui",
     "@school-clerk/api",
 
