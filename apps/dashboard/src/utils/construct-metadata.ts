@@ -56,7 +56,10 @@ export function constructMetadata({
       creator: "@ishaaq_yusuf",
     },
     icons,
-    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL!),
+    metadataBase: new URL(
+      `http${process.env.NODE_ENV === "production" ? "s" : ""}//${process.env
+        .NEXT_PUBLIC_APP_URL!}`
+    ),
     ...(noIndex && {
       robots: {
         index: false,
