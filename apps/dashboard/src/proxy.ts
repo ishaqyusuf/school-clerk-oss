@@ -28,15 +28,15 @@ export default function proxy(req: NextRequest) {
       }`;
       // console.log({ host, path, subdomain });
 
-      // const isProd = env.NODE_ENV == "production";
+      const isProd = env.NODE_ENV == "production";
       const _url = `/dashboard/${
-        // isProd ? "daarul-hadith" :
-        host
-        // ?.replace(
-        //   ".localhost:2200",
-        //   ".schoolclerk.com",
-        //   // "",
-        // )
+        isProd
+          ? "daarul-hadith"
+          : host?.replace(
+              ".localhost:2200",
+              ".schoolclerk.com"
+              // "",
+            )
       }${path}`;
       console.log({ _url });
 
