@@ -1,4 +1,4 @@
-import { constructMetadata } from "@school-clerk/utils/construct-metadata";
+import { constructMetadata } from "@/utils/construct-metadata";
 export async function generateMetadata() {
   return constructMetadata({
     title: `Login - GND Storefront`,

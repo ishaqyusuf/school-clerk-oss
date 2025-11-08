@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
 import { ErrorFallback } from "@/components/error-fallback";
 import { TableSkeleton } from "@/components/tables/skeleton";
-import { constructMetadata } from "@school-clerk/utils/construct-metadata";
+import { constructMetadata } from "@/utils/construct-metadata";
 import { DataTable } from "@/components/tables/classrooms/data-table";
 import { ClassroomHeader } from "@/components/classroom-header";
 import { batchPrefetch, trpc } from "@/trpc/server";

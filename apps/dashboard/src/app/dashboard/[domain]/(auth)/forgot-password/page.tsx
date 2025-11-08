@@ -1,4 +1,4 @@
-import { constructMetadata } from "@school-clerk/utils/construct-metadata";
+import { constructMetadata } from "@/utils/construct-metadata";
 import { Client } from "./client";
 
 export async function generateMetadata() {
