@@ -3,6 +3,7 @@
 import { TRPCReactProvider } from "@/trpc/client";
 import { ReactNode } from "react";
 import { I18nProviderClient } from "@/locales/client";
+import { ThemeProvider } from "next-themes";
 // import { SessionProvider } from "next-auth/react";
 type ProviderProps = {
   locale: string;
@@ -14,14 +15,14 @@ export function Providers({ children, locale = "en" }: ProviderProps) {
     // <SessionProvider>
     <TRPCReactProvider>
       <I18nProviderClient locale={locale}>
-        {/* <ThemeProvider
+        <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
-          > */}
-        {children}
-        {/* </ThemeProvider> */}
+        >
+          {children}
+        </ThemeProvider>
       </I18nProviderClient>
     </TRPCReactProvider>
     // </SessionProvider>
