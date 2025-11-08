@@ -31,7 +31,13 @@ export default function proxy(req: NextRequest) {
     const path = `${url.pathname}${searchParams ? `?${searchParams}` : ""}`;
 
     const dashboardSlug = isProd ? subdomain : subdomain || "local";
-    const rewritePath = `/dashboard/${dashboardSlug}${path}`;
+    // const rewritePath = `/dashboard/${dashboardSlug}${path}`;
+    // return NextResponse.rewrite(new URL(rewritePath, req.url));
+    let rewritePath = `/dashboard/${dashboardSlug}${path}`;
+
+    // ✅ Always ensure it starts with a slash
+    if (!rewritePath.startsWith("/")) rewritePath = `/${rewritePath}`;
+
     return NextResponse.rewrite(new URL(rewritePath, req.url));
   }
 
