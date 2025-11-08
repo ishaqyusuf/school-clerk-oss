@@ -61,6 +61,7 @@
         "@hookform/resolvers": "^3.10.0",
         "@next/mdx": "^16.0.1",
         "@number-flow/react": "^0.4.1",
+        "@school-clerk/api": "workspace:*",
         "@school-clerk/auth": "workspace:*",
         "@school-clerk/db": "workspace:*",
         "@school-clerk/ui": "workspace:*",
