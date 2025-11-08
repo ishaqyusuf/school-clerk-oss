@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ThemeSwitch } from "./theme-switch";
+import { MobileMenu } from "@school-clerk/ui/nav/mobile-menu";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
