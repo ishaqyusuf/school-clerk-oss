@@ -16,7 +16,7 @@
     "db:studio": "turbo -F @school-clerk/db studio",
     "db:migrate": "turbo -F @school-clerk/db db-migrate",
     "db:generate": "turbo -F @school-clerk/db prisma-generate",
-    "dev": "turbo dev --parallel",
+    "dev": "turbo dev --parallel --filter !@school-clerk/jobs",
     "dev2": "turbo dev --parallel --filter !@school-clerk/jobs --filter  !@school-clerk/api --filter !@school-clerk/site",
     "dev:dashboard": "turbo dev --parallel --filter !@school-clerk/jobs --filter  !@school-clerk/api --filter !@school-clerk/site",
     "format": "turbo format --continue -- --cache --cache-location='node_modules/.cache/.prettiercache' --ignore-path='../../.gitignore'",
