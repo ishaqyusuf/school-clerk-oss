@@ -238,7 +238,7 @@ const ChildItem = ({
         {/* Child item text */}
         <div
           className={cn(
-            "ml-[35px] mr-[15px] h-[32px] flex items-center",
+            "ml-[35px] mr-[15px] h-8 flex items-center",
             "border-l border-[#DCDAD2] dark:border-[#2C2C2C] pl-3",
             !shouldSkipAnimation && "transition-all duration-300 ease-in-out",
             showChild ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2"
@@ -338,22 +338,22 @@ const Item = ({
           {/* Background that expands */}
           <div
             className={cn(
-              "border border-transparent h-[40px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ml-[15px] mr-[15px]",
+              "border border-transparent h-10 transition-all duration-200 ease-in-out ml-[15px] mr-[15px]",
               isActive &&
                 "bg-[#F2F1EF] dark:bg-secondary border-[#DCDAD2] dark:border-[#2C2C2C]",
-              isExpanded ? "w-[calc(100%-30px)]" : "w-[40px]"
+              isExpanded ? "w-[calc(100%-30px)]" : "w-10"
             )}
           />
 
           {/* Icon - always in same position from sidebar edge */}
-          <div className="absolute top-0 left-[15px] w-[40px] h-[40px] flex items-center justify-center dark:text-[#666666] text-black group-hover:!text-primary pointer-events-none">
-            <div className={cn(isActive && "dark:!text-white")}>
+          <div className="absolute top-0 left-[15px] w-10 h-10 flex items-center justify-center dark:text-[#666666] text-black group-hover:text-primary! pointer-events-none">
+            <div className={cn(isActive && "dark:text-white!")}>
               <Icon name={item.icon} className={cn("h-4 w-4")} />
             </div>
           </div>
 
           {isExpanded && (
-            <div className="absolute top-0 left-[55px] right-[4px] h-[40px] flex items-center pointer-events-none">
+            <div className="absolute top-0 left-[55px] right-1 h-10 flex items-center pointer-events-none">
               <span
                 className={cn(
                   "text-sm font-medium transition-opacity duration-200 ease-in-out text-[#666] group-hover:text-primary",
