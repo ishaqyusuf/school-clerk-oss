@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Generate } from "./first-term-1446-1447/generate";
 import { useGlobalParams } from "./first-term-1446-1447/use-global";
+import { ThemeSwitch } from "@/components/theme-switch";
 
 export function Header({}) {
   const g = useGlobalParams();
@@ -43,6 +44,7 @@ export function Header({}) {
         ))}
       </nav>
       <Generate />
+      <ThemeSwitch />
     </div>
   );
 }

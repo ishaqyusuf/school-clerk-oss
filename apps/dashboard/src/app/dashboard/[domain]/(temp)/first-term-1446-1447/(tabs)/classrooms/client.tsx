@@ -47,6 +47,7 @@ export function Client() {
           <CreateClassroom />
         </div>
       )}
+      {JSON.stringify(auth)}
       <Table dir={"rtl"} className="">
         <TableBody>
           {data
