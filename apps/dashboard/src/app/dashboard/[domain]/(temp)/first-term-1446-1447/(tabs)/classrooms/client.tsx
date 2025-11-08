@@ -16,12 +16,14 @@ import { Menu } from "@/components/menu";
 import { indices } from "../../utils";
 import { cn } from "@school-clerk/ui/cn";
 
+import { useAuth } from "@/hooks/use-auth";
 export function Client() {
   const trpc = useTRPC();
   const { data } = useQuery(trpc.ftd.classRooms.queryOptions());
   const g = useGlobalParams();
   const m = usePostMutate();
   const qc = useQueryClient();
+  const auth = useAuth();
   const updateIndex = (id, inddex) =>
     m.updateAction.mutate(
       {
@@ -36,7 +38,7 @@ export function Client() {
             queryKey: trpc.ftd.classRooms.queryKey(),
           });
         },
-      },
+      }
     );
   return (
     <div className="pb-56 md:pb-10">
@@ -80,7 +82,7 @@ export function Client() {
                     <div
                       className={cn(
                         "flex gap-2",
-                        g.params.entryMode && "hidden",
+                        g.params.entryMode && "hidden"
                       )}
                     >
                       <Button
