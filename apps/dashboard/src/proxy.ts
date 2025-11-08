@@ -38,7 +38,7 @@ export default function proxy(req: NextRequest) {
               // "",
             )
       }${path}`;
-
+      console.log({ _url, url: req.url });
       return NextResponse.rewrite(new URL(_url, req.url));
       // return NextResponse.rewrite(new URL(`/dashboard/${subdomain}/`, req.url));
     }
