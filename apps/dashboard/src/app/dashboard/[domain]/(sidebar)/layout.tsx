@@ -1,11 +1,8 @@
 import { Suspense } from "react";
 import { GlobalSheets } from "@/components/sheets/global-sheets";
-
 import { HydrateClient } from "@/trpc/server";
-import { SidebarClient } from "./layout.client";
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
-import { cn } from "@school-clerk/ui/cn";
-import { Header } from "@/components/header";
+import { NavLayout } from "@/components/nav-layout";
 
 export default async function LayoutNew({ children }) {
   const cookie = await getAuthCookie();
@@ -14,19 +11,19 @@ export default async function LayoutNew({ children }) {
   }
   return (
     <HydrateClient>
-      <div className="relative">
-        <SidebarClient />
-        <div
+      {/* <div className="relative"> */}
+      {/* <SidebarClient /> */}
+      <NavLayout>{children}</NavLayout>
+      {/* <div
           className={cn(
-            "pb-8",
-            // ctx?.linkModules?.noSidebar ||
+            "pb-8", 
             "md:ml-[70px]"
           )}
         >
           <Header />
           <div className="px-6">{children}</div>
-        </div>
-      </div>
+        </div> */}
+      {/* </div> */}
       <Suspense>
         <GlobalSheets />
       </Suspense>

@@ -10,9 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "../dropdown-menu";
 import { useSidebar } from "./use-sidebar";
-import { Avatar, AvatarFallback, AvatarImage } from "../avatar";
-import { getInitials } from "@school-clerk/utils";
-import { ChevronsUpDown, LogOut } from "lucide-react";
+import { ChevronsUpDown } from "lucide-react";
 import { Icon } from "../custom/icons";
 
 export function SidebarModules() {
@@ -32,7 +30,7 @@ export function SidebarModules() {
   if (modules.length < 2) return null;
 
   return (
-    <div className="relative flex-1 h-[40px]" ref={ref}>
+    <div className="relative flex-1 h-10" ref={ref}>
       {/* <div className="fixed left-[19px] top-4 w-[32px] h-[32px]">
                 <div className="relative w-[32px] h-[32px] bg-red-500"></div>
             </div> */}

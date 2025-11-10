@@ -1,5 +1,3 @@
-// import { ICan, Permission } from "@/types/auth";
-import { IconKeys } from "@school-clerk/ui/custom/icons";
 import {
   createNavLink,
   createNavModule,
@@ -7,9 +5,6 @@ import {
   initPermAccess,
   initRoleAccess,
 } from "@school-clerk/ui/nav/utils";
-// import { IconKeys } from "../_v1/icons";
-
-// const { ICan } = {} as any
 type Permission = any | null | string | undefined;
 type moduleNames =
   | "HRM"
@@ -18,20 +13,7 @@ type moduleNames =
   | "Settings"
   | "PTA"
   | "Academic";
-const _module = (
-  name: moduleNames,
-  icon: IconKeys,
-  // title?,
-  subtitle?,
-  sections = []
-) => ({
-  name,
-  icon,
-  title: name,
-  subtitle,
-  sections,
-  index: -1,
-});
+
 type sectionNames = "main" | "sales";
 type Link = {
   name;
@@ -55,33 +37,7 @@ const _section = (
   access,
 });
 // type linkNames = "HRM" | "customer-services" | "Dashboard" | "Sales";
-const _subLink = (name, href, access?: Access[]) =>
-  _link(name, null, href, access);
-const _link = (
-  name, //: linkNames,
-  // title?: string,
-  icon?: IconKeys,
-  href?,
-  subLinks = [],
-  access: Access[] = []
-) => {
-  const res = {
-    name,
-    title: name?.split("-").join(" "),
-    icon,
-    href,
-    subLinks,
-    access,
-  };
-  const ctx = {
-    data: res,
-    access(...access: Access[]) {
-      res.access = access;
-      return ctx;
-    },
-  };
-  return ctx;
-};
+
 type Access = {
   type: "role" | "permission";
   equator: "is" | "isNot" | "in" | "notIn" | "every" | "some";
@@ -121,48 +77,59 @@ export const linkModules = [
     ]),
   ]),
 
-  _module("HRM", "users", "HR & Staff", [
-    _section("main", "Staff Management", [
-      _link("Teachers", "users", "/staff/teachers").access(_role.is("Admin"))
-        .data,
-      _link("Non-Teaching Staff", "users", "/staff/non-teaching").access(
+  createNavModule("HRM", "users", "HR & Staff", [
+    createNavSection("main", "Staff Management", [
+      createNavLink("Teachers", "users", "/staff/teachers").access(
         _role.is("Admin")
       ).data,
-      _link("Departments", "building", "/staff/departments").access(
+      createNavLink(
+        "Non-Teaching Staff",
+        "users",
+        "/staff/non-teaching"
+      ).access(_role.is("Admin")).data,
+      createNavLink("Departments", "building", "/staff/departments").access(
         _role.is("Admin")
       ).data,
-      _link("Attendance", "calendar-check", "/staff/attendance").access(
+      createNavLink("Attendance", "calendar-check", "/staff/attendance").access(
         _role.in("Admin", "HR")
       ).data,
-      _link("Payroll", "wallet", "/staff/payroll").access(_role.is("Admin"))
-        .data,
+      createNavLink("Payroll", "wallet", "/staff/payroll").access(
+        _role.is("Admin")
+      ).data,
     ]),
   ]),
 
-  _module("Bursary", "wallet", "Finance & Payments", [
-    _section("dashboard", null, [
-      _link("Dashboard", "dashboard", "/finance").access(_role.is("Admin"))
-        .data,
-    ]),
-    _section("main", "Finance Managment", [
-      _link("Fee Management", "coins", "/finance/fees-management").access(
-        _role.is("Admin")
-      ).data,
-      _link("Billables", "coins", "/finance/billables").access(
+  createNavModule("Bursary", "wallet", "Finance & Payments", [
+    createNavSection("dashboard", null, [
+      createNavLink("Dashboard", "dashboard", "/finance").access(
         _role.is("Admin")
       ).data,
     ]),
-    _section("main", "Fees", [
-      _link("Transactions", "file-text", "/finance/transactions").access(
+    createNavSection("main", "Finance Managment", [
+      createNavLink(
+        "Fee Management",
+        "coins",
+        "/finance/fees-management"
+      ).access(_role.is("Admin")).data,
+      createNavLink("Billables", "coins", "/finance/billables").access(
+        _role.is("Admin")
+      ).data,
+    ]),
+    createNavSection("main", "Fees", [
+      createNavLink(
+        "Transactions",
+        "file-text",
+        "/finance/transactions"
+      ).access(_role.in("Admin", "Accountant")).data,
+      createNavLink(
+        "Student Fees",
+        "file-text",
+        "/finance/student-fees"
+      ).access(_role.in("Admin", "Accountant")).data,
+      createNavLink("Bills", "file-text", "/finance/bills").access(
         _role.in("Admin", "Accountant")
       ).data,
-      _link("Student Fees", "file-text", "/finance/student-fees").access(
-        _role.in("Admin", "Accountant")
-      ).data,
-      _link("Bills", "file-text", "/finance/bills").access(
-        _role.in("Admin", "Accountant")
-      ).data,
-      _link("Payments", "credit-card", "/finance/payments").access(
+      createNavLink("Payments", "credit-card", "/finance/payments").access(
         _role.in("Admin", "Accountant")
       ).data,
     ]),
@@ -198,29 +165,37 @@ export const linkModules = [
     ]),
   ]),
 
-  _module("PTA", "user", "Parent Portal", [
-    _section("main", "Engagement", [
-      _link("Student Performance", "bar-chart", "/parents/performance").access(
-        _role.is("Parent")
-      ).data,
-      _link("Communication", "message-square", "/parents/messages").access(
-        _role.is("Parent")
-      ).data,
-      _link("Payments", "credit-card", "/parents/payments").access(
+  createNavModule("PTA", "user", "Parent Portal", [
+    createNavSection("main", "Engagement", [
+      createNavLink(
+        "Student Performance",
+        "bar-chart",
+        "/parents/performance"
+      ).access(_role.is("Parent")).data,
+      createNavLink(
+        "Communication",
+        "message-square",
+        "/parents/messages"
+      ).access(_role.is("Parent")).data,
+      createNavLink("Payments", "credit-card", "/parents/payments").access(
         _role.is("Parent")
       ).data,
     ]),
   ]),
 
-  _module("Settings", "settings", "Settings", [
-    _section("main", "Configuration", [
-      _link("School Profile", "settings", "/settings/school-profile").access(
-        _role.is("Admin")
-      ).data,
-      _link("Academic Session", "calendar", "/settings/sessions").access(
-        _role.is("Admin")
-      ).data,
-      _link("Roles & Permissions", "shield", "/settings/roles").access(
+  createNavModule("Settings", "settings", "Settings", [
+    createNavSection("main", "Configuration", [
+      createNavLink(
+        "School Profile",
+        "settings",
+        "/settings/school-profile"
+      ).access(_role.is("Admin")).data,
+      createNavLink(
+        "Academic Session",
+        "calendar",
+        "/settings/sessions"
+      ).access(_role.is("Admin")).data,
+      createNavLink("Roles & Permissions", "shield", "/settings/roles").access(
         _role.is("Admin")
       ).data,
     ]),

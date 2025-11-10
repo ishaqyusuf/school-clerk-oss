@@ -1,9 +1,7 @@
 "use client";
 import { linkModules } from "@/components/sidebar/links";
 import { useAuth } from "@/hooks/use-auth";
-import { cn } from "@school-clerk/ui/cn";
 import { Icons } from "@school-clerk/ui/custom/icons";
-import { MobileMenu } from "@school-clerk/ui/nav/mobile-menu";
 import { SidebarLayout } from "@school-clerk/ui/nav/sidebar";
 import { useSidebarContext } from "@school-clerk/ui/nav/use-sidebar";
 import Link from "next/link";
