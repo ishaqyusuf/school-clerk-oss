@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ThemeSwitch } from "./theme-switch";
 import { MobileMenu } from "@school-clerk/ui/nav/mobile-menu";
+import { SiteNav } from "@school-clerk/site-nav";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -10,6 +11,7 @@ export function Header() {
   return (
     <header className="">
       <div className="md:m-0 z-50 px-6 md:border-b border-border h-[70px] flex justify-between items-center desktop:sticky desktop:top-0 desktop:bg-background sticky md:static top-0 backdrop-filter backdrop-blur-xl md:backdrop-filter md:backdrop-blur-none bg-opacity-70 desktop:rounded-t-[10px]">
+        <SiteNav.MobileSidebar />
         <div className="md:hidden">
           {/* <MobileMenu
                   value={{

@@ -467,19 +467,53 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
       },
     },
   });
-  await tx.studentTermForm.updateMany({
-    where: {
-      studentSessionFormId: {
-        in: student!.sessionForms.map((s) => s.id),
-      },
-      studentId: null,
-    },
-    data: {
-      studentId: student.id,
-    },
-  });
+  await updateStudentTermFormStudentId(ctx);
 
   return student;
+}
+export async function updateStudentTermFormStudentId(ctx: TRPCContext) {
+  const students = await ctx.db.students.findMany({
+    where: {
+      sessionForms: {
+        some: {
+          termForms: {
+            some: {
+              studentId: null,
+            },
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      sessionForms: {
+        select: {
+          termForms: {
+            where: {
+              studentId: null,
+            },
+            select: {
+              id: true,
+            },
+          },
+        },
+      },
+    },
+  });
+  for (const student of students) {
+    const termFormIds = student.sessionForms
+      .map((a) => a.termForms.map((b) => b.id))
+      .flat();
+    const studentId = student.id;
+    await ctx.db.studentTermForm.updateMany({
+      where: {
+        id: { in: termFormIds },
+      },
+      data: {
+        studentId,
+      },
+    });
+  }
 }
 export async function createStudentForm(
   ctx: TRPCContext,
@@ -491,4 +525,48 @@ export async function createStudentForm(
     return { student };
   });
   return student;
+}
+
+/*
+
+*/
+export const studentsRecentRecordSchema = z.object({});
+export type StudentsRecentRecordSchema = z.infer<
+  typeof studentsRecentRecordSchema
+>;
+
+export async function studentsRecentRecord(
+  ctx: TRPCContext,
+  query: StudentsRecentRecordSchema
+) {
+  const { db, profile } = ctx;
+  const sessionTermId = profile.termId;
+  const students = await db.students.findMany({
+    where: {
+      schoolProfileId: profile.schoolId,
+    },
+    select: {
+      name: true,
+      otherName: true,
+      surname: true,
+      termForms: {
+        // where: {
+        //   OR: [
+        //     {
+        //       sessionTermId,
+        //     },
+        //     {
+        //       sessionTermId: {
+        //         not: null,
+        //       },
+        //     },
+        //   ],
+        // },
+        take: 1,
+        select: {
+          sessionTermId: true,
+        },
+      },
+    },
+  });
 }

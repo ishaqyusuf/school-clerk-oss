@@ -42,7 +42,7 @@ export default async function Page(props: Props) {
   return (
     <HydrateClient>
       <PageTitle>Students</PageTitle>
-      <div className="flex justify-between py-6">
+      <div className="py-6">
         <StudentHeader />
       </div>
       <div className="flex flex-col gap-6">

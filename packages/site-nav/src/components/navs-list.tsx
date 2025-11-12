@@ -45,9 +45,10 @@ const sectionLabel = cva("", {
     renderMode: "default",
   },
 });
-export function NavsList() {
-  const { linkModules, activeLink, isExpanded } = useSiteNav();
+export function NavsList({ mobile = false }) {
+  const { linkModules, activeLink, isExpanded: _isExpanded } = useSiteNav();
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const isExpanded = _isExpanded || mobile;
   return (
     <div className="mt-6 w-full">
       <nav className="w-full overflow-auto">

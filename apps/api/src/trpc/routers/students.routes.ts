@@ -5,6 +5,8 @@ import {
   getStudentsQueryParams,
   createStudentSchema,
   createStudent,
+  studentsRecentRecordSchema,
+  studentsRecentRecord,
 } from "../../db/queries/students";
 import {
   getStudentOverviewSchema,
@@ -57,4 +59,9 @@ export const studentsRouter = createTRPCRouter({
   getStudentPaymentHistory: publicProcedure.query(async ({ ctx, input }) => {
     // return getStudentPaymentHistory(ctx, input);
   }),
+  studentsRecentRecord: publicProcedure
+    .input(studentsRecentRecordSchema)
+    .query(async (props) => {
+      return studentsRecentRecord(props.ctx, props.input);
+    }),
 });

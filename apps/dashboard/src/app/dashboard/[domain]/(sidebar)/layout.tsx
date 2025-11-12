@@ -3,6 +3,7 @@ import { GlobalSheets } from "@/components/sheets/global-sheets";
 import { HydrateClient } from "@/trpc/server";
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { NavLayout } from "@/components/nav-layout";
+import { GlobalModals } from "@/components/modals/global-modals";
 
 export default async function LayoutNew({ children }) {
   const cookie = await getAuthCookie();
@@ -26,6 +27,7 @@ export default async function LayoutNew({ children }) {
       {/* </div> */}
       <Suspense>
         <GlobalSheets />
+        <GlobalModals />
       </Suspense>
     </HydrateClient>
   );

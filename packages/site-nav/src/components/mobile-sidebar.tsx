@@ -1,3 +1,38 @@
+import { Button } from "@school-clerk/ui/button";
+import { Sheet } from "@school-clerk/ui/composite";
+import { Icons } from "@school-clerk/ui/icons";
+import { useState } from "react";
+import { NavsList } from "./navs-list";
+
 export function MobileSidebar() {
-  return <></>;
+  const [isOpen, setOpen] = useState(false);
+  return (
+    <div className="md:hidden">
+      <Sheet.Root open={isOpen} onOpenChange={setOpen}>
+        <div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setOpen(true)}
+            className="rounded-full w-8 h-8 items-center relative flex md:hidden"
+          >
+            <Icons.Menu size={16} />
+          </Button>
+        </div>
+        <Sheet.Content side="left" className="border-none rounded-none -ml-4">
+          <Sheet.Header>
+            <Sheet.Title></Sheet.Title>
+            <Sheet.Description></Sheet.Description>
+          </Sheet.Header>
+          <div className="ml-2 mb-8">
+            <Icons.Logo />
+          </div>
+
+          <div className="-ml-2">
+            <NavsList mobile />
+          </div>
+        </Sheet.Content>
+      </Sheet.Root>
+    </div>
+  );
 }
