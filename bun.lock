@@ -49,6 +49,7 @@
       },
       "devDependencies": {
         "@types/bun": "^1.2.16",
+        "@types/node": "^24.7.2",
         "vercel": "^44.2.7",
       },
     },
@@ -118,7 +119,7 @@
       "devDependencies": {
         "@school-clerk/tsconfig": "workspace:*",
         "@types/dot-object": "^2.1.6",
-        "@types/node": "^24.0.1",
+        "@types/node": "^24.7.2",
         "@types/react": "19.2.2",
         "@types/react-dom": "19.2.1",
         "typescript": "^5.9.2",
@@ -138,7 +139,6 @@
         "@eslint/eslintrc": "^3",
         "@school-clerk/tsconfig": "workspace:*",
         "@tailwindcss/postcss": "^4",
-        "@types/node": "^24.7.2",
         "@types/react": "^19",
         "@types/react-dom": "^19",
         "eslint": "^9",
@@ -3836,6 +3836,8 @@
     "@school-clerk/dashboard/superjson": ["superjson@2.2.1", "", { "dependencies": { "copy-anything": "^3.0.2" } }, "sha512-8iGv75BYOa0xRJHK5vRLEjE2H/i4lulTjzpUXic3Eg8akftYjkmQDa8JARQ42rlczXyFR3IeRoeFCc7RxHsYZA=="],
 
     "@school-clerk/dashboard/vercel": ["vercel@48.9.0", "", { "dependencies": { "@vercel/backends": "0.0.5", "@vercel/blob": "1.0.2", "@vercel/build-utils": "13.0.0", "@vercel/detect-agent": "1.0.0", "@vercel/elysia": "0.1.3", "@vercel/express": "0.1.6", "@vercel/fastify": "0.1.6", "@vercel/fun": "1.1.6", "@vercel/go": "3.2.3", "@vercel/h3": "0.1.12", "@vercel/hono": "0.2.6", "@vercel/hydrogen": "1.3.1", "@vercel/next": "4.15.2", "@vercel/node": "5.5.5", "@vercel/python": "6.0.2", "@vercel/redwood": "2.4.1", "@vercel/remix-builder": "5.5.1", "@vercel/ruby": "2.2.1", "@vercel/static-build": "2.8.5", "chokidar": "4.0.0", "jose": "5.9.6" }, "bin": { "vc": "dist/vc.js", "vercel": "dist/vc.js" } }, "sha512-DaCn7z/9/b0QGSvpxyTJM7PYMsKGPL5Vasso3jXl9sOHqCKZ5e51nP5DSsgQ6/f0mW9fPoiq+1wIST4b6dPP5A=="],
+
+    "@school-clerk/site/@types/react-dom": ["@types/react-dom@19.2.2", "", { "peerDependencies": { "@types/react": "^19.2.0" } }, "sha512-9KQPoO6mZCi7jcIStSnlOWn2nEF3mNmyr3rIAsGnAbQKYbRLyqmeSc39EVgtxXVia+LMT8j3knZLAZAh+xLmrw=="],
 
     "@school-clerk/site-nav/@types/react-dom": ["@types/react-dom@19.2.2", "", { "peerDependencies": { "@types/react": "^19.2.0" } }, "sha512-9KQPoO6mZCi7jcIStSnlOWn2nEF3mNmyr3rIAsGnAbQKYbRLyqmeSc39EVgtxXVia+LMT8j3knZLAZAh+xLmrw=="],
 

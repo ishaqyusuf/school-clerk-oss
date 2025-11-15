@@ -75,7 +75,7 @@
   "devDependencies": {
     "@school-clerk/tsconfig": "workspace:*",
     "@types/dot-object": "^2.1.6",
-    "@types/node": "^24.0.1",
+    "@types/node": "^24.7.2",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.1",
     "typescript": "^5.9.2",
