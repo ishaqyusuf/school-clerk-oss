@@ -16,10 +16,7 @@ import {
   getClassroomDepartments,
   getClassroomsSchema,
 } from "@api/db/queries/classroom";
-import {
-  updateAssessmentScore,
-  updateAssessmentScoreSchema,
-} from "@api/db/queries/assessments";
+
 export const academicsRouter = createTRPCRouter({
   getStudentTermsList: publicProcedure
     .input(getStudentTermsListSchema)

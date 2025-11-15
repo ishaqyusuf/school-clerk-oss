@@ -2,7 +2,6 @@
 
 import { Loader2 } from "lucide-react";
 
-import { Icons } from "@school-clerk/ui/custom/icons";
 import { Progress } from "./progress";
 import {
   Toast,
@@ -13,6 +12,7 @@ import {
   ToastViewport,
 } from "./toast";
 import { useToast } from "./use-toast";
+import { Icons } from "./icons";
 
 export function Toaster() {
   const { toasts } = useToast();

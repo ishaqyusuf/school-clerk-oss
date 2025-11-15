@@ -2,32 +2,33 @@ import { useZodForm } from "@/hooks/use-zod-form";
 import { Button } from "@school-clerk/ui/button";
 import { Dialog, Field, InputGroup, Tabs } from "@school-clerk/ui/composite";
 import { parseAsString, useQueryStates } from "nuqs";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller } from "react-hook-form";
 import { z } from "zod";
 import { ImportActivity } from "./import-activities";
 import { _trpc } from "@/components/static-trpc";
 import { useQuery } from "@tanstack/react-query";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 export function StudentImportModal() {
   const [{ action }, setParams] = useQueryStates({
     action: parseAsString,
   });
+  const [ls, setLs] = useLocalStorage("student-import-data", "");
   const form = useZodForm(
     z.object({
       raw: z.string(),
     }),
     {
       defaultValues: {
-        raw: "",
+        raw: ls,
       },
     }
   );
-
   const [tab, setTab] = useState("main");
   const onSubmit = ({ raw }) => {
-    // setTab("importing");
-    console.log(parse);
+    setTab("importing");
+    // console.log(parse);
   };
   const open = action == "student-import";
   const raw = form.watch("raw");
@@ -75,8 +76,12 @@ export function StudentImportModal() {
     });
     return data;
   }, [raw]);
+  useEffect(() => {
+    setLs(raw);
+  }, [raw]);
   // const [tab,setTab] = use
   //   const [text, setText] = useState("");
+
   return (
     <Dialog.Root
       open={open}
@@ -106,6 +111,7 @@ export function StudentImportModal() {
                         <InputGroup>
                           <InputGroup.TextArea
                             {...field}
+                            dir="rtl"
                             aria-invalid={fieldState.invalid}
                             //   data-slot="input-group-control"
                             className="min-h-[20vh]"
@@ -113,8 +119,7 @@ export function StudentImportModal() {
                           />
                           <InputGroup.Addon align="block-end">
                             <p className="text-xs text-muted-foreground mt-1">
-                              {raw.split("\n").filter((l) => l.trim()).length}{" "}
-                              lines
+                              {parse?.students?.length} students
                             </p>
                             <InputGroup.Button
                               type="submit"

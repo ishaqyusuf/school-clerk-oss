@@ -8,6 +8,7 @@ import { studentDisplayName } from "./enrollment-query";
 import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
 import { z } from "zod";
 
+import { subDays } from "date-fns";
 const emptySearchQuery = (q: GetStudentsSchema) =>
   (
     [
@@ -540,33 +541,144 @@ export async function studentsRecentRecord(
   query: StudentsRecentRecordSchema
 ) {
   const { db, profile } = ctx;
+  // await db.studentSessionForm.updateMany({
+  //   where: {
+  //     createdAt: {
+  //       gt: subDays(new Date(), 1),
+  //     },
+  //   },
+  //   data: {
+  //     deletedAt: new Date(),
+  //   },
+  // });
+  // await db.studentTermForm.updateMany({
+  //   where: {
+  //     createdAt: {
+  //       gt: subDays(new Date(), 1),
+  //     },
+  //   },
+  //   data: {
+  //     deletedAt: new Date(),
+  //   },
+  // });
   const sessionTermId = profile.termId;
+  const schoolSessionId = profile.sessionId;
+  // const currentTerm = await
   const students = await db.students.findMany({
     where: {
       schoolProfileId: profile.schoolId,
     },
     select: {
+      id: true,
       name: true,
       otherName: true,
       surname: true,
+      gender: true,
       termForms: {
-        // where: {
-        //   OR: [
-        //     {
-        //       sessionTermId,
-        //     },
-        //     {
-        //       sessionTermId: {
-        //         not: null,
-        //       },
-        //     },
-        //   ],
-        // },
-        take: 1,
+        where: {
+          deletedAt: null,
+          OR: [
+            {
+              sessionTermId,
+            },
+            {
+              schoolSessionId,
+            },
+            {
+              sessionTermId: {
+                not: null,
+              },
+            },
+          ],
+        },
+
+        // take: 1,
         select: {
+          id: true,
           sessionTermId: true,
+          schoolSessionId: true,
+          classroomDepartmentId: true,
+          studentSessionFormId: true,
+          sessionTerm: {
+            select: {
+              title: true,
+              startDate: true,
+              session: {
+                select: {
+                  title: true,
+                },
+              },
+            },
+          },
+        },
+        // orderBy: {
+        //   sessionTerm: {
+        //     startDate: "desc",
+        //   },
+        // },
+        // take: 1,
+      },
+    },
+  });
+  const classDepartments = await db.classRoomDepartment.findMany({
+    where: {
+      classRoom: {
+        schoolSessionId: profile.sessionId,
+      },
+    },
+    select: {
+      id: true,
+      departmentName: true,
+      classRoom: {
+        select: {
+          name: true,
         },
       },
     },
   });
+  const term = await db.sessionTerm.findUnique({
+    where: {
+      id: sessionTermId,
+    },
+    select: {
+      id: true,
+      title: true,
+      session: {
+        select: {
+          title: true,
+        },
+      },
+    },
+  });
+  return {
+    students: students.map((s) => {
+      const { termForms, ...rest } = s;
+      const termForm =
+        termForms.find((a) => a.sessionTermId == sessionTermId) ||
+        termForms.find((a) => a.schoolSessionId == schoolSessionId) ||
+        termForms?.[0];
+      const dept = classDepartments?.find(
+        (a) => a.id === termForm?.classroomDepartmentId
+      );
+      const studentSessionFormId = termForm?.studentSessionFormId;
+      return {
+        ...rest,
+        termId: termForm?.sessionTermId,
+        classroomDepartmentId: termForm?.classroomDepartmentId,
+        classRoom: dept?.classRoom?.name || dept?.departmentName,
+        termSheetId: termForm?.id,
+        termName: termForm?.sessionTerm?.title,
+        termStartDate: termForm?.sessionTerm?.startDate,
+        sessionName: termForm?.sessionTerm?.session?.title,
+        studentSessionFormId:
+          termForm?.schoolSessionId === schoolSessionId
+            ? studentSessionFormId
+            : null,
+      };
+    }),
+    sessionTermId,
+    schoolSessionId,
+    classDepartments,
+    term,
+  };
 }
