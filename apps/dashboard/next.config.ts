@@ -13,6 +13,8 @@ const config = {
   pageExtensions: ["ts", "tsx", "mdx"],
   experimental: {
     mdxRs: true,
+    // serverComponentsExternalPackages: ["@prisma/client"],
+    serverExternalPackages: [],
     // serverActions: true,
   },
   images: {
