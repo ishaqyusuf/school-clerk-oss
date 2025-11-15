@@ -245,6 +245,7 @@ export function ImportActivity({ classrooms, students }: Props) {
                                       m.studentSessionFormId,
                                   } as RouterInputs["academics"]["entrollStudentToTerm"];
                                   console.log(enrollData);
+
                                   enroll(enrollData);
                                 }}
                                 type="button"

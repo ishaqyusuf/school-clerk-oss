@@ -1,4 +1,4 @@
-import { IconKeys } from "@school-clerk/ui/custom/icons";
+import { IconKeys } from "../icons";
 
 export const searchIcons: Partial<{
   [id in string]: IconKeys;
@@ -20,6 +20,12 @@ export const searchIcons: Partial<{
   "dispatch.status": "Export",
   status: "Status",
   dateRange: "calendar",
+  showing: "monitor",
+  category: "category",
+  payments: "cash",
+  project: "project",
+  builder: "user",
+  installation: "installation",
 };
 
 export function isSearchKey(k) {

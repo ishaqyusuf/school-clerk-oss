@@ -86,7 +86,7 @@ export function StudentImportModal() {
     <Dialog.Root
       open={open}
       onOpenChange={(e) => {
-        // setParams(null);
+        setParams(null);
       }}
     >
       <Dialog.Content>

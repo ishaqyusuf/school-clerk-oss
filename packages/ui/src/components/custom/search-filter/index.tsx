@@ -46,27 +46,35 @@ interface Props {
   defaultSearch?;
   placeholder?;
   filterList?: PageFilterData[];
+  filters;
+  setFilters;
   SearchTips?;
 }
 export function SearchFilter({
   trpcRoute,
   filterSchema,
+  filters,
+  setFilters,
+  trpQueryOptions = undefined,
   placeholder = "Search ...",
 }) {
   const { data: trpcFilterData } = useQuery({
-    ...trpcRoute.queryOptions(),
+    ...trpcRoute.queryOptions(trpQueryOptions),
   });
   return (
     <SearchFilterProvider
       args={[
         {
           filterSchema,
+          filters,
+          setFilters,
         },
       ]}
     >
       <SearchFilterTRPC
         placeholder={placeholder}
         filterList={trpcFilterData as any}
+        {...{ filters, setFilters }}
       />
     </SearchFilterProvider>
   );
