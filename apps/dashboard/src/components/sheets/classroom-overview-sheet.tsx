@@ -17,6 +17,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { StudentFormAction } from "../forms/student-form-action";
 import { ClassroomSubjectOverviewSecondary } from "../classroom-subject-secondary-overview";
+import { _trpc } from "../static-trpc";
 
 export function ClassroomOverviewSheet({}) {
   const { setParams, ...params } = useClassroomParams();
@@ -44,9 +45,9 @@ export function Content({}) {
   const { setParams, ...params } = useClassroomParams();
   const { viewClassroomId } = params;
   const isOpen = Boolean(params.viewClassroomId);
-  const trpc = useTRPC();
+  // const trpc = useTRPC();
   const { data: classRoom } = useSuspenseQuery(
-    trpc.classrooms.getClassroomOverview.queryOptions(
+    _trpc.classrooms.getClassroomOverview.queryOptions(
       {
         departmentId: params.viewClassroomId,
       },

@@ -1,6 +1,5 @@
 "use client";
 
-import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useSchoolFeeParams } from "@/hooks/use-school-fee-params";
 import { useTermBillableParams } from "@/hooks/use-term-billable-params";
 

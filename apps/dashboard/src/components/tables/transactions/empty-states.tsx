@@ -1,6 +1,5 @@
 "use client";
 
-import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useTermBillableParams } from "@/hooks/use-term-billable-params";
 
 import { Button } from "@school-clerk/ui/button";

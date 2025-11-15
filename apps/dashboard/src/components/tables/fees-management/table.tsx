@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { MiddaySearchFilter } from "@/components/midday-search-filter/search-filter";
-import { useClassroomParams } from "@/hooks/use-classroom-params";
+
 import { useSchoolFeeParams } from "@/hooks/use-school-fee-params";
 import {
   getCoreRowModel,

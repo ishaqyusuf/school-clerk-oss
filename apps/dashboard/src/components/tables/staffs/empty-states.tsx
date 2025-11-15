@@ -1,7 +1,7 @@
 "use client";
 
 import { studentPageQuery } from "@/app/dashboard/[domain]/(sidebar)/students/list/search-params";
-import { useClassroomParams } from "@/hooks/use-classroom-params";
+
 import { useStaffParams } from "@/hooks/use-staff-params";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { useQueryStates } from "nuqs";

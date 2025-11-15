@@ -6,7 +6,7 @@ import { Button } from "@school-clerk/ui/button";
 import { Icons } from "@school-clerk/ui/icons";
 import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@school-clerk/ui/cn";
-import { useClassroomParams } from "@/hooks/use-classroom-params";
+
 import { Badge } from "@school-clerk/ui/badge";
 
 export type Item = RouterOutputs["academics"]["getClassrooms"]["data"][number];
@@ -120,6 +120,6 @@ export const mobileColumn: ColumnDef<Item>[] = [
 ];
 function ItemCard({ item }: ItemProps) {
   // design a mobile version of the columns here
-  const { setParams } = useClassroomParams();
+
   return <></>;
 }

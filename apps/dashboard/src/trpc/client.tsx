@@ -31,12 +31,16 @@ export function TRPCReactProvider(
   }>
 ) {
   const queryClient = getQueryClient();
-
+  const isProd = process.env.NODE_ENV === "production";
+  const url = window.location.origin;
+  // console.log({ domain });
+  // "http://daarulhadith.localhost:2200/academic/classes?openSubjectSecondaryId=eed879bb-20db-457b-bd06-ae09643b959b&subjectTab=recordings"
   const [trpcClient] = useState(() =>
     createTRPCClient<AppRouter>({
       links: [
         httpBatchLink({
-          url: `${process.env.NEXT_PUBLIC_URL}/api/trpc`,
+          // url: `${process.env.NEXT_PUBLIC_URL}/api/trpc`,
+          url: `${url}/api/trpc`,
           // url:
           //   process.env.NODE_ENV === "production"
           //     ? `https://daarulhadith.vercel.app/api/trpc`

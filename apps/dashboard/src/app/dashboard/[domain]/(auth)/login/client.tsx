@@ -46,7 +46,6 @@ export function Client() {
     setIsLoading(true);
     setError("");
 
-    console.log(e);
     try {
       authClient.signIn
         .email({
@@ -100,7 +99,7 @@ export function Client() {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
-        {JSON.stringify(auth.data)}
+
         <div className="max-w-md mx-auto">
           <Card>
             <CardHeader className="text-center">
