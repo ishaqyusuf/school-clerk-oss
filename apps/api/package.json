@@ -5,7 +5,7 @@
     "dev:node": "tsx src/node.ts",
     "clean": "git clean -xdf .next .turbo node_modules",
     "--build": "bun-vercel ./src/bun.ts",
-    "build": "./bun-vercel/build.sh ./src/bun.ts",
+    "---build": "./bun-vercel/build.sh ./src/bun.ts",
     "deploy:vc": "vc",
     "db:pull": "drizzle-kit pull",
     "lint": "biome check .",

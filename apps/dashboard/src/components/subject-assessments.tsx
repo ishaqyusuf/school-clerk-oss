@@ -8,6 +8,7 @@ import { _qc, _trpc } from "./static-trpc";
 import { Badge } from "@school-clerk/ui/badge";
 import { Icons } from "@school-clerk/ui/icons";
 import { useSubjectParams } from "@/hooks/use-subject-params";
+import { useQuery } from "@tanstack/react-query";
 
 interface Props {
   overview: RouterOutputs["subjects"]["overview"];
@@ -21,6 +22,7 @@ export function SubjectAssessments(props: Props) {
     // if (defaultFormValue)
     setView(defaultFormValue ? "form" : "general");
   }, [defaultFormValue]);
+
   const { setParams } = useSubjectParams();
   return (
     <>

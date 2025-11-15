@@ -1,6 +1,8 @@
 import { createTRPCRouter, publicProcedure } from "../init";
 
 import {
+  getAssessmentSuggestions,
+  getAssessmentSuggestionsSchema,
   getSubjectAssessmentRecordings,
   getSubjectAssessmentRecordingsSchema,
   saveAssessement,
@@ -13,6 +15,11 @@ export const assessmentRouter = createTRPCRouter({
     .input(saveAssessementSchema)
     .mutation(async (props) => {
       return saveAssessement(props.ctx, props.input);
+    }),
+  getAssessmentSuggestions: publicProcedure
+    .input(getAssessmentSuggestionsSchema)
+    .query(async (props) => {
+      return getAssessmentSuggestions(props.ctx, props.input);
     }),
   getSubjectAssessmentRecordings: publicProcedure
     .input(getSubjectAssessmentRecordingsSchema)

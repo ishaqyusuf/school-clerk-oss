@@ -267,10 +267,13 @@ export function selectOptions<T>(
 }
 export function uniqueList<T>(
   list: T[],
-  uniqueBy: keyof T | undefined = undefined
+  // uniqueBy: keyof T | undefined = undefined
+  ...uniqueBy: (keyof T)[]
 ) {
   if (!list) return [];
-  const kValue = (b) => (!uniqueBy || typeof b === "string" ? b : b[uniqueBy]);
+  // const kValue = (b) => (!uniqueBy || typeof b === "string" ? b : b[uniqueBy]);
+  const kValue = (b: T) =>
+    uniqueBy.length === 0 ? b : uniqueBy.map((k) => b[k]).join("::");
   return list.filter(
     (a, i) => i === list.findIndex((b) => kValue(b) == kValue(a))
   );

@@ -2,6 +2,7 @@ import type { TRPCContext } from "@api/trpc/init";
 import { z } from "zod";
 import { overview } from "./subjects";
 import { studentDisplayName } from "./enrollment-query";
+import { uniqueList } from "@school-clerk/utils";
 
 export const saveAssessementSchema = z.object({
   id: z.number().optional().nullable(),
@@ -27,7 +28,7 @@ export async function saveAssessement(
     departmentSubjectId,
   } = data;
   if (id) {
-    await ctx.db.classroomSubjectAssessment.update({
+    await db.classroomSubjectAssessment.update({
       where: { id },
       data: {
         title,
@@ -36,7 +37,7 @@ export async function saveAssessement(
       },
     });
   } else
-    await ctx.db.classroomSubjectAssessment.create({
+    await db.classroomSubjectAssessment.create({
       data: {
         title,
         obtainable,
@@ -207,4 +208,39 @@ export async function updateAssessmentScore(
 }
 export function getScoreKey(assessmentId, studentTermId) {
   return `${assessmentId}-${studentTermId}`;
+}
+
+export const getAssessmentSuggestionsSchema = z.object({
+  deptSubjectId: z.string().optional().nullable(),
+});
+export type GetAssessmentSuggestionsSchema = z.infer<
+  typeof getAssessmentSuggestionsSchema
+>;
+
+export async function getAssessmentSuggestions(
+  ctx: TRPCContext,
+  query: GetAssessmentSuggestionsSchema
+) {
+  const { db } = ctx;
+  const list = await db.classroomSubjectAssessment.findMany({
+    select: {
+      obtainable: true,
+      percentageObtainable: true,
+      title: true,
+      departmentSubjectId: true,
+    },
+  });
+  const uList = uniqueList(list, "title", "obtainable", "percentageObtainable");
+  return uList.filter((a) => {
+    if (a.departmentSubjectId) return false;
+    if (
+      list.some((b) =>
+        ["obtainable", "percentageObtainable", "title"].every(
+          (c) => a[c] === b[c]
+        )
+      )
+    )
+      return false;
+    return true;
+  });
 }

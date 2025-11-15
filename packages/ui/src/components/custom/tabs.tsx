@@ -258,7 +258,10 @@ function TabItem(props: TabItemProps) {
                 // (!activeElement && props.value === tabCtx.value)
                 "text-[#0e0e10] dark:text-white"
               : "text-[#0e0f1199] dark:text-[#ffffff99]"
-          } ${props.value === tabCtx.value && "bg-primary rounded-lg text-secondary"}`,
+          } ${
+            props.value === tabCtx.value &&
+            "bg-primary rounded-lg text-secondary"
+          }`,
           !props.label && "hidden"
         )}
         // onMouseEnter={() => setHoveredIndex(props.index)}

@@ -4,12 +4,13 @@ import { saveSubjectSchema } from "@api/db/queries/subjects";
 import { Form } from "@school-clerk/ui/form";
 import { useFormContext } from "react-hook-form";
 import { SubmitButton } from "../submit-button";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { FormInput } from "@school-clerk/ui/controls/form-input";
 import { Suspense, useEffect } from "react";
 import { FormSkeleton } from "@school-clerk/ui/custom/form-skeleton";
 import { toast } from "@school-clerk/ui/use-toast";
 import { saveAssessementSchema } from "@api/db/queries/assessments";
+import { _trpc } from "../static-trpc";
 interface Props {
   defaultValues?: typeof saveAssessementSchema._type;
   children?;
@@ -33,6 +34,11 @@ function Content(props: Props) {
       title: "",
     },
   });
+  const { data: sugestions } = useQuery(
+    _trpc.assessments.getAssessmentSuggestions.queryOptions({
+      deptSubjectId: props.defaultValues.departmentSubjectId,
+    })
+  );
   useEffect(() => {
     form.reset({
       ...props.defaultValues,
@@ -80,6 +86,7 @@ export function AssessmentFormAction(props: FormActionProps) {
   const onSubmit = async (data: typeof saveAssessementSchema._type) => {
     mutate(data);
   };
+
   const { isPending, mutate } = useMutation(
     trpc.assessments.saveAssessement.mutationOptions({
       onSuccess(data, variables, context) {
