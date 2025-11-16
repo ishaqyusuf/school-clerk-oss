@@ -40,16 +40,6 @@ function Content(props: Props) {
       title: "",
     },
   });
-  const { data: sugestions } = useQuery(
-    _trpc.assessments.getAssessmentSuggestions.queryOptions(
-      {
-        deptSubjectId: props.defaultValues?.departmentSubjectId,
-      },
-      {
-        enabled: !!props.defaultValues?.departmentSubjectId,
-      }
-    )
-  );
   useEffect(() => {
     form.reset({
       ...props.defaultValues,
@@ -61,61 +51,6 @@ function Content(props: Props) {
     <Form {...form}>
       <div className="space-y-4">
         <div className="grid gap-4">
-          <ComboboxDropdown
-            selectedItem={selected}
-            onSelect={(data) => {
-              setSelected(data);
-              form.setValue("title", data?.data?.title);
-              form.setValue("obtainable", data?.data?.obtainable);
-              form.setValue(
-                "percentageObtainable",
-                data?.data?.percentageObtainable
-              );
-              // assign({
-              //   userId: data.data.id,
-              //   woId: item.id,
-              // });
-            }}
-            items={labelIdOptions(sugestions, "title", "uid")}
-            popoverProps={{
-              className: cn("!w-auto"),
-            }}
-            placeholder="Assign"
-            listClassName="max-w-auto"
-            // disabled
-            // renderSelectedItem={(selectedItem) => (
-            //     <>
-            //         <Item.Title>{selectedItem?.label}</Item.Title>
-            //     </>
-            // )}
-            renderListItem={({ item, isChecked }) => (
-              <Item size="xs">
-                <Item.Media>
-                  {/* <CheckIcon
-                    className={cn(
-                      "size-4"
-                      // item?.id !== selected?.id && "text-transparent"
-                    )}
-                  /> */}
-                </Item.Media>
-                <Item.Content>
-                  <Item.Title className="whitespace-nowrap">
-                    {item?.label}
-                  </Item.Title>
-                  <div className="gap-2 flex-row flex whitespace-nowrap">
-                    <Item.Description>
-                      {item?.data?.obtainable}
-                    </Item.Description>
-                    <Separator orientation="vertical" />
-                    <Item.Description className="flex">
-                      {item?.data?.percentageObtainable}
-                      <Percent className="size-4" />
-                    </Item.Description>
-                  </div>
-                </Item.Content>
-              </Item>
-            )}
-          />
           <FormInput label="Title" control={form.control} name="title" />
           <div className="grid grid-cols-4 gap-4">
             <div className=""></div>

@@ -27,7 +27,6 @@ export default function AssessmentRecording() {
             <Select.Root
               dir="rtl"
               onValueChange={(e) => {
-                console.log(e);
                 setFilters({
                   deptSubjectId: e,
                 });

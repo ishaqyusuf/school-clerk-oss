@@ -5,6 +5,7 @@ import Portal from "@school-clerk/ui/custom/portal";
 import { SubjectForm, SubjectFormAction } from "./forms/subject-form";
 import { _qc, _trpc } from "./static-trpc";
 import { useState } from "react";
+import { QuickAddSubject } from "./quick-add-subject";
 
 export function ClassroomSubjectHeader({ departmentId }) {
   const [open, setOpen] = useState(false);
@@ -17,6 +18,7 @@ export function ClassroomSubjectHeader({ departmentId }) {
         Subject
       </Button> */}
         <div id="buttonSlot"></div>
+        <QuickAddSubject departmentId={departmentId} />
       </div>
       <Collapsible open={open} onOpenChange={setOpen}>
         <Portal nodeId={"buttonSlot"}>

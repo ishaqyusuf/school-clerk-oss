@@ -9,6 +9,7 @@ import { composeQuery } from "@api/utils";
 import { Prisma, type Database } from "@school-clerk/db";
 import { z } from "zod";
 import { getClassroomDepartments } from "./classroom";
+import { uniqueList } from "@school-clerk/utils";
 
 export async function getSubjects(ctx: TRPCContext, query: GetSubjectsSchema) {
   const { db } = ctx;
@@ -22,6 +23,14 @@ export async function getSubjects(ctx: TRPCContext, query: GetSubjectsSchema) {
     where,
     ...searchMeta,
     select: {
+      // assessments: {}.
+      _count: {
+        select: {
+          assessments: {
+            where: { deletedAt: null },
+          },
+        },
+      },
       id: true,
       subject: {
         select: { id: true, title: true },
@@ -29,6 +38,7 @@ export async function getSubjects(ctx: TRPCContext, query: GetSubjectsSchema) {
       classRoomDepartment: {
         select: {
           departmentName: true,
+          id:true,
           classRoom: {
             select: {
               name: true,
@@ -223,6 +233,7 @@ export async function saveSubject(ctx: TRPCContext, data: SaveSubjectSchema) {
               ? {
                   classRoomDepartmentId: data.departmentId,
                   sessionTermId: data.sessionTermId,
+                  description: data.description,
                 }
               : undefined,
           },
@@ -242,6 +253,7 @@ export async function saveSubject(ctx: TRPCContext, data: SaveSubjectSchema) {
               ? {
                   classRoomDepartmentId: data.departmentId,
                   sessionTermId: data.sessionTermId,
+                  description: data.description,
                 }
               : undefined,
           },
@@ -310,4 +322,62 @@ export async function formData(ctx: TRPCContext, data: FormDataSchema) {
   return {
     departments: departments.data,
   };
+}
+
+export const getQuickAddSubjectsSchema = z.object({
+  departmentId: z.string(),
+});
+export type GetQuickAddSubjectsSchema = z.infer<
+  typeof getQuickAddSubjectsSchema
+>;
+
+export async function getQuickAddSubjects(
+  ctx: TRPCContext,
+  query: GetQuickAddSubjectsSchema
+) {
+  const { db } = ctx;
+  const subjects = (
+    await db.subject.findMany({
+      where: {},
+      select: {
+        title: true,
+        id: true,
+        _count: {
+          select: {
+            departmentSubjects: {
+              where: {
+                id: query.departmentId,
+              },
+            },
+          },
+        },
+      },
+    })
+  )
+    .map(({ title, id, _count }) => ({
+      title,
+      id,
+      exists: !!_count?.departmentSubjects,
+    }))
+    .sort((x, y) => (x === y ? 0 : x ? -1 : 1));
+  const uniqueSubjects = uniqueList(subjects, "title");
+  return uniqueSubjects?.filter((a) => !a.exists);
+}
+
+export const deleteClassSubjectSchema = z.object({
+  id: z.string(),
+});
+export type DeleteClassSubjectSchema = z.infer<typeof deleteClassSubjectSchema>;
+
+export async function deleteClassSubject(
+  ctx: TRPCContext,
+  query: DeleteClassSubjectSchema
+) {
+  const { db } = ctx;
+  await db.departmentSubject.update({
+    where: { id: query.id },
+    data: {
+      deletedAt: new Date(),
+    },
+  });
 }

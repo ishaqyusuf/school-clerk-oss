@@ -1,8 +1,12 @@
 import {
+  deleteClassSubject,
+  deleteClassSubjectSchema,
   formData,
   formDataSchema,
   getAllSubjects,
   getClassroomSubjects,
+  getQuickAddSubjects,
+  getQuickAddSubjectsSchema,
   getSubjects,
   overview,
   saveSubject,
@@ -29,6 +33,16 @@ export const subjectsRouter = createTRPCRouter({
 
       // return [];
       return await getClassroomSubjects(db, input);
+    }),
+  deleteClassSubject: publicProcedure
+    .input(deleteClassSubjectSchema)
+    .mutation(async (props) => {
+      return deleteClassSubject(props.ctx, props.input);
+    }),
+  getQuickAddSubjects: publicProcedure
+    .input(getQuickAddSubjectsSchema)
+    .query(async (props) => {
+      return getQuickAddSubjects(props.ctx, props.input);
     }),
   saveSubject: publicProcedure
     .input(saveSubjectSchema)
