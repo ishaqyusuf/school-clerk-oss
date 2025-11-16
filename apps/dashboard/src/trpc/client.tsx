@@ -40,7 +40,8 @@ export function TRPCReactProvider(
       links: [
         httpBatchLink({
           // url: `${process.env.NEXT_PUBLIC_URL}/api/trpc`,
-          url: `${url}/api/trpc`,
+          url: `/api/trpc`,
+          // url: `${url}/api/trpc`,
           // url:
           //   process.env.NODE_ENV === "production"
           //     ? `https://daarulhadith.vercel.app/api/trpc`

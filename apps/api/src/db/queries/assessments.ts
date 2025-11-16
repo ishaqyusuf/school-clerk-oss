@@ -2,7 +2,11 @@ import type { TRPCContext } from "@api/trpc/init";
 import { z } from "zod";
 import { overview } from "./subjects";
 import { studentDisplayName } from "./enrollment-query";
-import { uniqueList } from "@school-clerk/utils";
+import {
+  consoleLog,
+  generateRandomString,
+  uniqueList,
+} from "@school-clerk/utils";
 
 export const saveAssessementSchema = z.object({
   id: z.number().optional().nullable(),
@@ -231,16 +235,23 @@ export async function getAssessmentSuggestions(
     },
   });
   const uList = uniqueList(list, "title", "obtainable", "percentageObtainable");
-  return uList.filter((a) => {
-    if (a.departmentSubjectId) return false;
-    if (
-      list.some((b) =>
-        ["obtainable", "percentageObtainable", "title"].every(
-          (c) => a[c] === b[c]
-        )
+  consoleLog("UL", uList);
+  return uList
+    .filter((a) => {
+      if (a.departmentSubjectId === query?.deptSubjectId) return false;
+      if (
+        list.some((b) => {
+          const match = ["obtainable", "percentageObtainable", "title"].every(
+            (c) => a[c] === b[c]
+          );
+          return match && b.departmentSubjectId === query?.deptSubjectId;
+        })
       )
-    )
-      return false;
-    return true;
-  });
+        return false;
+      return true;
+    })
+    .map((a) => ({
+      ...a,
+      uid: generateRandomString(5),
+    }));
 }

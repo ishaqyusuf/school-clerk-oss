@@ -1,3 +1,6 @@
+import { FieldPath } from "react-hook-form";
+import { dotObject } from "./dot-utils";
+
 export function generateRandomString(length = 15) {
   const charset =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -72,3 +75,19 @@ export const enToAr = function (v: string | number) {
     return "٠١٢٣٤٥٦٧٨٩"[d as any];
   });
 };
+export function labelIdOptions<T, L extends FieldPath<T>, I extends keyof T>(
+  list: T[],
+  label: L,
+  id: I
+) {
+  if (!list?.length) return [];
+  return list?.filter(Boolean).map((l) => {
+    // if (typeof l == "string") return { label: l, id: String(l), data: l };
+    const getValue = (path) => dotObject.pick(path, l);
+    return {
+      label: getValue(label),
+      id: String(getValue(id)),
+      data: l,
+    };
+  });
+}
