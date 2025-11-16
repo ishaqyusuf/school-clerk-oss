@@ -122,6 +122,18 @@ export async function getSubjectAssessmentRecordings(
         },
       },
     },
+    orderBy: [
+      {
+        student: {
+          gender: "asc",
+        },
+      },
+      {
+        student: {
+          name: "asc",
+        },
+      },
+    ],
   });
 
   const data = {

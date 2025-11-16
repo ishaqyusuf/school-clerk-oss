@@ -2,19 +2,18 @@ import { Skeletons } from "@school-clerk/ui/skeletons";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useDeferredValue, useEffect } from "react";
 import { _trpc } from "./static-trpc";
-import { RouterOutputs } from "@api/trpc/routers/_app";
 import { Accordion } from "@school-clerk/ui/composite";
 import { ScoreData, useAssessmentStore } from "@/store/assessment";
 import { NumberInput } from "./currency-input";
 import { cn } from "@school-clerk/ui/cn";
 import { Input } from "@school-clerk/ui/input";
 import { useDebouncedCallback } from "use-debounce";
-import { Noto_Sans_Cherokee } from "next/font/google";
 import { getScoreKey } from "@api/db/queries/assessments";
 import { useDebugToast } from "@/hooks/use-debug-console";
 
 interface Props {
-  overview: RouterOutputs["subjects"]["overview"];
+  // overview: RouterOutputs["subjects"]["overview"];
+  deparmentSubjectId;
 }
 export function AssessmentSubmissions(props: Props) {
   return (
@@ -30,9 +29,9 @@ export function AssessmentSubmissions(props: Props) {
   );
 }
 function Content(props: Props) {
-  const { data, isPending, isSuccess } = useSuspenseQuery(
+  const { data, isPending } = useSuspenseQuery(
     _trpc.assessments.getSubjectAssessmentRecordings.queryOptions({
-      deparmentSubjectId: props.overview?.subject?.id,
+      deparmentSubjectId: props.deparmentSubjectId, //props.overview?.subject?.id,
     })
   );
   const store = useAssessmentStore();
@@ -40,6 +39,7 @@ function Content(props: Props) {
     if (isPending) return;
     useAssessmentStore.getState().update("data", data);
   }, [data, isPending]);
+
   return (
     <Accordion collapsible type="single">
       {store?.data?.students?.map((student) => (

@@ -41,9 +41,14 @@ function Content(props: Props) {
     },
   });
   const { data: sugestions } = useQuery(
-    _trpc.assessments.getAssessmentSuggestions.queryOptions({
-      deptSubjectId: props.defaultValues.departmentSubjectId,
-    })
+    _trpc.assessments.getAssessmentSuggestions.queryOptions(
+      {
+        deptSubjectId: props.defaultValues?.departmentSubjectId,
+      },
+      {
+        enabled: !!props.defaultValues?.departmentSubjectId,
+      }
+    )
   );
   useEffect(() => {
     form.reset({

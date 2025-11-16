@@ -8,9 +8,12 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { _trpc } from "./static-trpc";
 import { Suspense } from "react";
 import { Skeletons } from "@school-clerk/ui/skeletons";
-import { Empty } from "@school-clerk/ui/composite";
+import { DropdownMenu, Empty } from "@school-clerk/ui/composite";
 import { SubjectAssessments } from "./subject-assessments";
 import { AssessmentSubmissions } from "./asessment-submissions";
+import { ExternalLink } from "lucide-react";
+import { Menu } from "./menu";
+import Link from "next/link";
 export function ClassroomSubjectOverviewSecondary() {
   const ctx = useClassroomParams();
   const { openSubjectSecondaryId, subjectTab, setParams } = useSubjectParams();
@@ -44,7 +47,9 @@ function Content() {
       }
     )
   );
-
+  const openExternal = (permission) => {
+    return `/assessment-recording?deptId=${ctx?.viewClassroomId}&deptSubjectId=${data?.subject?.id}&permission=${permission}`;
+  };
   if (ctx.secondaryTab != "subject-overview") return null;
   return (
     <>
@@ -87,7 +92,28 @@ function Content() {
               <Tabs.Item value={"recordings"} label="">
                 <Tabs.Content className="">
                   <Portal noDelay nodeId={"contentArea"}>
-                    <AssessmentSubmissions overview={data} />
+                    <div className="flex gap-4">
+                      <div className="flex-1"></div>
+                      <Menu Icon={ExternalLink}>
+                        <DropdownMenu.Label>Permission</DropdownMenu.Label>
+                        <Menu.Item>
+                          <Link
+                            href={openExternal("classroom")}
+                            target="_blank"
+                          >
+                            Classroom
+                          </Link>
+                        </Menu.Item>
+                        <Menu.Item>
+                          <Link href={openExternal("subject")} target="_blank">
+                            Subject
+                          </Link>
+                        </Menu.Item>
+                      </Menu>
+                    </div>
+                    <AssessmentSubmissions
+                      deparmentSubjectId={data.subject?.id}
+                    />
                   </Portal>
                 </Tabs.Content>
               </Tabs.Item>

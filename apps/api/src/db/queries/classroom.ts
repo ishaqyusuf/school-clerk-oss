@@ -36,7 +36,6 @@ export async function getClassrooms(
           },
         },
       },
-
       classRoom: {
         select: {
           session: {
