@@ -92,10 +92,12 @@ function CustomSheetBase({
   primarySize,
   secondarySize,
   onCloseSecondary,
+  secondaryOpened,
+
   ...props
 }: Props) {
   const sheet = useSheet();
-  const { secondaryOpened, isDesktop } = sheet;
+  const { isDesktop } = sheet;
   return (
     <BaseSheet open={open} onOpenChange={onOpenChange}>
       <SheetContent

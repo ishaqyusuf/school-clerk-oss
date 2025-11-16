@@ -97,14 +97,16 @@ function Content(props: Props) {
                   <Item.Title className="whitespace-nowrap">
                     {item?.label}
                   </Item.Title>
-                  <Item.Description className="gap-2 flex-row flex whitespace-nowrap">
-                    <span>{item?.data?.obtainable}</span>
+                  <div className="gap-2 flex-row flex whitespace-nowrap">
+                    <Item.Description>
+                      {item?.data?.obtainable}
+                    </Item.Description>
                     <Separator orientation="vertical" />
-                    <div className="flex">
+                    <Item.Description className="flex">
                       {item?.data?.percentageObtainable}
                       <Percent className="size-4" />
-                    </div>
-                  </Item.Description>
+                    </Item.Description>
+                  </div>
                 </Item.Content>
               </Item>
             )}
