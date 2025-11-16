@@ -32,7 +32,7 @@ export function TRPCReactProvider(
 ) {
   const queryClient = getQueryClient();
   const isProd = process.env.NODE_ENV === "production";
-  const url = window.location.origin;
+  // const url = window.location.origin;
   // console.log({ domain });
   // "http://daarulhadith.localhost:2200/academic/classes?openSubjectSecondaryId=eed879bb-20db-457b-bd06-ae09643b959b&subjectTab=recordings"
   const [trpcClient] = useState(() =>

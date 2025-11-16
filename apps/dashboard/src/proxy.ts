@@ -37,7 +37,6 @@ export default function proxy(req: NextRequest) {
 
     // ✅ Always ensure it starts with a slash
     if (!rewritePath.startsWith("/")) rewritePath = `/${rewritePath}`;
-    console.log({ host, subdomain, rewritePath, reqUrl: req.url });
 
     return NextResponse.rewrite(new URL(rewritePath, req.url));
   }
