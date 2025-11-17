@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { _qc, _trpc } from "./static-trpc";
-import { Menu } from "./menu";
-import { Bolt, ListPlus } from "lucide-react";
+import { ListPlus } from "lucide-react";
 import { DropdownMenu } from "@school-clerk/ui/composite";
 import { Button } from "@school-clerk/ui/button";
 
@@ -47,7 +46,7 @@ export function QuickAddSubject(props: Props) {
   return (
     <DropdownMenu>
       <DropdownMenu.Trigger asChild>
-        <Button size="sm">
+        <Button>
           <ListPlus className="size-4" />
         </Button>
       </DropdownMenu.Trigger>

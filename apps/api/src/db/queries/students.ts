@@ -380,7 +380,7 @@ export const createStudentSchema = z.object({
   surname: z.string().min(1),
   otherName: z.string().optional().nullable(),
   gender: z.enum(["Male", "Female"]),
-  dob: z.date().nullable(),
+  dob: z.date().nullable().optional(),
   classRoomId: z.string().nullable(),
   fees: z.array(studentFeeSchema).optional(),
   guardian: guardianSchema.optional().nullable(),
@@ -441,6 +441,7 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
                   data: data.termForms.map((termForm) => ({
                     ...termForm,
                     schoolProfileId: profile.schoolId,
+                    classroomDepartmentId: data.classRoomId || undefined,
                   })),
                 },
               }
@@ -449,6 +450,7 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
                   schoolProfileId: profile.schoolId,
                   sessionTermId: profile.termId,
                   schoolSessionId: profile.sessionId,
+                  classroomDepartmentId: data.classRoomId || undefined,
                 },
               },
         },
@@ -515,6 +517,32 @@ export async function updateStudentTermFormStudentId(ctx: TRPCContext) {
       },
     });
   }
+  const s = await ctx.db.studentSessionForm.findMany({
+    where: {
+      classroomDepartmentId: {
+        not: null,
+      },
+      termForms: {
+        some: {
+          classroomDepartmentId: null,
+        },
+      },
+    },
+    select: {
+      id: true,
+      classroomDepartmentId: true,
+    },
+  });
+  for (const ss of s)
+    await ctx.db.studentTermForm.updateMany({
+      where: {
+        classroomDepartmentId: null,
+        studentSessionFormId: ss.id,
+      },
+      data: {
+        classroomDepartmentId: ss.classroomDepartmentId,
+      },
+    });
 }
 export async function createStudentForm(
   ctx: TRPCContext,

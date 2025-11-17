@@ -9,11 +9,12 @@ import { motion } from "framer-motion";
 import { cn } from "@school-clerk/ui/cn";
 import { studentDisplayName } from "@/utils/utils";
 import { Menu } from "@school-clerk/ui/custom/menu";
-import { Check, MenuIcon } from "lucide-react";
-import { Button } from "@school-clerk/ui/button";
-import { Icons } from "@school-clerk/ui/icons";
+import { Check, Import } from "lucide-react";
+
 import { SubmitButton } from "@/components/submit-button";
 import { RouterInputs } from "@api/trpc/routers/_app";
+import { Arabic } from "@/components/arabic";
+import { Button } from "@school-clerk/ui/button";
 interface Props {
   classrooms: { title: string }[];
   students: {
@@ -105,7 +106,7 @@ export function ImportActivity({ classrooms, students }: Props) {
         resolution: undefined,
       };
     });
-    console.log({ activities, students });
+    console.log({ activities, records });
     form.reset({
       activities,
     });
@@ -151,6 +152,24 @@ export function ImportActivity({ classrooms, students }: Props) {
       },
     })
   );
+  const { mutate: createStudent, isPending: isCreating } = useMutation(
+    _trpc.students.createStudent.mutationOptions({
+      onSuccess(data, variables, onMutateResult, context) {},
+      onError(error, variables, onMutateResult, context) {
+        console.log({
+          error,
+          variables,
+        });
+      },
+      meta: {
+        toastTitle: {
+          error: "Unable to complete",
+          loading: "Processing...",
+          success: "Done!.",
+        },
+      },
+    })
+  );
   return (
     <>
       <Tabs.Root defaultValue="activties">
@@ -159,11 +178,6 @@ export function ImportActivity({ classrooms, students }: Props) {
           <Tabs.Trigger value="conflicts">Conflicts</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="activties">
-          <div className="">
-            <p>
-              {records?.term?.title} {fields?.length}
-            </p>
-          </div>
           <div className="space-y-2 font-mono text-xs max-h-96 overflow-y-auto">
             {fields.length === 0 ? (
               <div className="text-muted-foreground">No activities yet</div>
@@ -175,7 +189,10 @@ export function ImportActivity({ classrooms, students }: Props) {
                   )}
                   key={activity._id}
                 >
-                  <Collapsible.Trigger className="flex w-full">
+                  <Collapsible.Trigger
+                    // asChild={!activity?.matches?.length}
+                    className="flex w-full"
+                  >
                     <div
                       key={activity._id}
                       // initial={{ opacity: 0, x: -10 }}
@@ -192,22 +209,51 @@ export function ImportActivity({ classrooms, students }: Props) {
                             {/* <span className="text-muted-foreground">
                               line {idx + 1}:
                             </span>{" "} */}
-                            <span className="font-medium">
+                            <Arabic className="font-medium text-sm">
                               {studentDisplayName(activity.student)}
                               {/* {activity.student.name} {activity.student.surname} */}
-                            </span>
+                            </Arabic>
 
-                            <span className={cn("text-muted-foreground ml-1")}>
+                            <Arabic
+                              className={cn("text-muted-foreground ml-1")}
+                            >
                               {activity.classRoom?.departmentName ||
                                 activity.student.classRoom}
                               {activity?.classRoom?.id && (
                                 <>{statusIcon?.success}</>
                               )}
-                            </span>
+                            </Arabic>
                           </div>
                           <div className="text-xs text-muted-foreground truncate">
                             {activity.status} | {activity?.matches?.length}
                           </div>
+                          {!activity?.matches?.length && (
+                            <Button
+                              onClick={(e) => {
+                                const student = activity.student;
+                                e.preventDefault();
+                                const formData = {
+                                  name: student.name,
+                                  surname: student.surname,
+                                  otherName: student.otherName,
+                                  gender:
+                                    student.gender == "M" ? "Male" : "Female",
+                                  classRoomId: activity.classRoom.id,
+                                  termForms: [
+                                    {
+                                      sessionTermId: records.sessionTermId,
+                                      schoolSessionId: records.schoolSessionId,
+                                    },
+                                  ],
+                                };
+                                console.log(formData);
+                                // return;
+                                createStudent(formData);
+                              }}
+                            >
+                              <Import className="size-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                       {/* {activity.action && (
@@ -223,12 +269,14 @@ export function ImportActivity({ classrooms, students }: Props) {
                         <Item variant="muted" key={mi}>
                           <Item.Title>{studentDisplayName(m)}</Item.Title>
                           <Item.Content>
-                            <Item.Description>
-                              <span>{m.classRoom}</span>
-                              <span>
-                                {m.termName} {m.sessionName}
-                              </span>
-                            </Item.Description>
+                            <Arabic>
+                              <Item.Description>
+                                <span>{m.classRoom || "no class"}</span>
+                                <span>
+                                  {m.termName} | {m.sessionName}
+                                </span>
+                              </Item.Description>
+                            </Arabic>
                             <Item.Actions>
                               <SubmitButton
                                 variant="outline"
