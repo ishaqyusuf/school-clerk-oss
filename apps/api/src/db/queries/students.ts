@@ -627,6 +627,21 @@ export async function studentsRecentRecord(
           schoolSessionId: true,
           classroomDepartmentId: true,
           studentSessionFormId: true,
+          sessionForm: {
+            select: {
+              classroomDepartment: {
+                select: {
+                  departmentName: true,
+                  id: true,
+                  classRoom: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
           sessionTerm: {
             select: {
               title: true,
@@ -692,8 +707,14 @@ export async function studentsRecentRecord(
       return {
         ...rest,
         termId: termForm?.sessionTermId,
-        classroomDepartmentId: termForm?.classroomDepartmentId,
-        classRoom: dept?.classRoom?.name || dept?.departmentName,
+        classroomDepartmentId:
+          termForm?.classroomDepartmentId ||
+          termForm?.sessionForm?.classroomDepartment?.id,
+        classRoom:
+          dept?.classRoom?.name ||
+          dept?.departmentName ||
+          termForm?.sessionForm?.classroomDepartment?.departmentName ||
+          termForm?.sessionForm?.classroomDepartment?.classRoom?.name,
         termSheetId: termForm?.id,
         termName: termForm?.sessionTerm?.title,
         termStartDate: termForm?.sessionTerm?.startDate,
@@ -709,4 +730,40 @@ export async function studentsRecentRecord(
     classDepartments,
     term,
   };
+}
+
+/*
+updateStudentBasicProfile: publicProcedure
+      .input(updateStudentBasicProfileSchema)
+      .mutation(async (props) => {
+        return updateStudentBasicProfile(props.ctx, props.input);
+      }),
+*/
+export const updateStudentBasicProfileSchema = z.object({
+  id: z.string(),
+  data: createStudentSchema.pick({
+    gender: true,
+    name: true,
+    otherName: true,
+    surname: true,
+    dob: true,
+  }),
+});
+export type UpdateStudentBasicProfileSchema = z.infer<
+  typeof updateStudentBasicProfileSchema
+>;
+
+export async function updateStudentBasicProfile(
+  ctx: TRPCContext,
+  query: UpdateStudentBasicProfileSchema
+) {
+  const { db } = ctx;
+  await db.students.update({
+    where: {
+      id: query.id,
+    },
+    data: Object.fromEntries(
+      Object.entries(query.data).filter(([a, b]) => !!b)
+    ),
+  });
 }

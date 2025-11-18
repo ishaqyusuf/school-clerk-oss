@@ -1,0 +1,27 @@
+{
+  "name": "@school-clerk/react-pdf",
+  "private": true,
+  "scripts": {
+    "clean": "rm -rf .turbo node_modules",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.tsx",
+    "./*": "./src/components/*.ts"
+  },
+  "dependencies": {
+    "@react-pdf/renderer": "^4.3.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "qrcode": "^1.5.4",
+    "clsx": "^2.1.1"
+  },
+  "devDependencies": {
+    "@school-clerk/tsconfig": "workspace:*",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2"
+  }
+}

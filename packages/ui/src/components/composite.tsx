@@ -119,21 +119,18 @@ import {
   SelectScrollDownButton,
 } from "./select";
 
-const Select = Object.assign(
-  {},
-  {
-    Root: SelectRoot,
-    Content: SelectContent,
-    Trigger: SelectTrigger,
-    Value: SelectValue,
-    Item: SelectItem,
-    Group: SelectGroup,
-    Label: SelectLabel,
-    Separator: SelectSeparator,
-    ScrollUpButton: SelectScrollUpButton,
-    ScrollDownButton: SelectScrollDownButton,
-  }
-);
+const Select = Object.assign(SelectRoot, {
+  Root: SelectRoot,
+  Content: SelectContent,
+  Trigger: SelectTrigger,
+  Value: SelectValue,
+  Item: SelectItem,
+  Group: SelectGroup,
+  Label: SelectLabel,
+  Separator: SelectSeparator,
+  ScrollUpButton: SelectScrollUpButton,
+  ScrollDownButton: SelectScrollDownButton,
+});
 import {
   Accordion as AccordionRoot,
   AccordionItem,

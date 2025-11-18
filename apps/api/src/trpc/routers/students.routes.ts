@@ -7,6 +7,8 @@ import {
   createStudent,
   studentsRecentRecordSchema,
   studentsRecentRecord,
+  updateStudentBasicProfileSchema,
+  updateStudentBasicProfile,
 } from "../../db/queries/students";
 import {
   getStudentOverviewSchema,
@@ -32,6 +34,11 @@ export const studentsRouter = createTRPCRouter({
     .input(createStudentSchema)
     .mutation(async (props) => {
       return createStudent(props.ctx, props.input);
+    }),
+  updateStudentBasicProfile: publicProcedure
+    .input(updateStudentBasicProfileSchema)
+    .mutation(async (props) => {
+      return updateStudentBasicProfile(props.ctx, props.input);
     }),
   academicsOverview: publicProcedure
     .input(getStudentOverviewSchema)

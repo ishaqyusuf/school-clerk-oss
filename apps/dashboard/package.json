@@ -23,6 +23,7 @@
     "@school-clerk/auth": "workspace:*",
     "@school-clerk/db": "workspace:*",
     "@school-clerk/site-nav": "workspace:*",
+    "@school-clerk/pdf": "workspace:*",
     "@school-clerk/ui": "workspace:*",
     "@school-clerk/utils": "workspace:*",
     "@t3-oss/env-nextjs": "0.8.0",

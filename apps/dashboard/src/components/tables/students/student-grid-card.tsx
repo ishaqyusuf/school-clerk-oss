@@ -51,7 +51,9 @@ export function StudentGridCard({ item: student }: { item: DataItem }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => {}}>View Details</DropdownMenuItem>
-            <DropdownMenuItem>Edit Student</DropdownMenuItem>
+            <DropdownMenuItem onClick={(e) => {}}>
+              Edit Student
+            </DropdownMenuItem>
             <DropdownMenuItem>Contact Parents</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

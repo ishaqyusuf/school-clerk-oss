@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "./env";
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|fonts).*)"],
 };
 
 export default function proxy(req: NextRequest) {
