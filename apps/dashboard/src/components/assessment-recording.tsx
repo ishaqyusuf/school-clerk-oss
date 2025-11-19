@@ -10,6 +10,7 @@ import {
   InputGroup,
   Select,
 } from "@school-clerk/ui/composite";
+import { Separator } from "@school-clerk/ui/separator";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 
@@ -31,16 +32,21 @@ export function AssessmentRecording() {
   return (
     <>
       <div className="sm:mx-auto gap-4 px-4 sm:px-0 flex-col flex py-4 sm:max-w-4xl">
-        <div className="fixed w-full border-b border-border">
-          <Card.Header className="bg-background " dir="rtl">
+        <div className="fixed w-full sm:max-w-4xl top-0 border-b border-border">
+          <Card.Header
+            className="bg-background flex flex-row gap-4 items-center h-16"
+            dir="rtl"
+          >
             <Card.Title>{department?.departmentName}</Card.Title>
-
+            {/* <Separator orientation="vertical" className="h-full" /> */}
             <DropdownMenu dir="rtl">
               <DropdownMenu.Trigger
                 dir="rtl"
                 className="flex rounded-xl border-border border items-center p-0.5 px-2 gap-2 w-[56px]s  w-min "
               >
-                <Card.Description>{subject?.subject?.title}</Card.Description>
+                <Card.Description className="whitespace-nowrap">
+                  {subject?.subject?.title}
+                </Card.Description>
                 <div className="rounded-full size-4 p-0">
                   <ChevronDown className="size-4" />
                 </div>
@@ -63,7 +69,9 @@ export function AssessmentRecording() {
             </DropdownMenu>
           </Card.Header>
         </div>
-        <AssessmentSubmissions deparmentSubjectId={filters.deptSubjectId} />
+        <div className="mt-16">
+          <AssessmentSubmissions deparmentSubjectId={filters.deptSubjectId} />
+        </div>
       </div>
     </>
   );
