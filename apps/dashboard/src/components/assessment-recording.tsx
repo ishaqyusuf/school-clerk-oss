@@ -69,7 +69,7 @@ export function AssessmentRecording() {
             </DropdownMenu>
           </Card.Header>
         </div>
-        <div className="mt-16">
+        <div className="mt-16 mb-28">
           <AssessmentSubmissions deparmentSubjectId={filters.deptSubjectId} />
         </div>
       </div>
