@@ -53,28 +53,32 @@ function Content(props: Props) {
             <span>{student.name}</span>
             <div className="flex-1"></div>
             <div className="flex gap-2 text-sm text-muted-foreground">
-              {store.data?.assessments?.map((a) => (
-                <span key={a.id}>
-                  {a.title}:{" "}
-                  {store.data?.scores?.[getScoreKey(a.id, student.termId)]
-                    ?.obtained || "-"}
-                </span>
-              ))}
+              {store.data?.assessments
+                ?.filter((a) => !!a?.percentageObtainable)
+                ?.map((a) => (
+                  <span key={a.id}>
+                    {a.title}:{" "}
+                    {store.data?.scores?.[getScoreKey(a.id, student.termId)]
+                      ?.obtained || "-"}
+                  </span>
+                ))}
             </div>
           </Accordion.Trigger>
           <Accordion.Content>
             <div className="grid grid-cols-3 gap-4">
-              {store.data?.assessments?.map((a) => (
-                <span key={a.id}>
-                  <ScoreInput
-                    assessment={a}
-                    student={student}
-                    scoreKey={getScoreKey(a.id, student.termId)}
-                  />
-                  {/* {store.data?.scores?.[getScoreKey(a.id, student.termId)]
+              {store.data?.assessments
+                ?.filter((a) => !!a?.percentageObtainable)
+                ?.map((a) => (
+                  <span key={a.id}>
+                    <ScoreInput
+                      assessment={a}
+                      student={student}
+                      scoreKey={getScoreKey(a.id, student.termId)}
+                    />
+                    {/* {store.data?.scores?.[getScoreKey(a.id, student.termId)]
                   ?.obtained || "-"} */}
-                </span>
-              ))}
+                  </span>
+                ))}
             </div>
           </Accordion.Content>
         </Accordion.Item>
