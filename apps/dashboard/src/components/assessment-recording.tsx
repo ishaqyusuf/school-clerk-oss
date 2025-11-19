@@ -36,11 +36,14 @@ export function AssessmentRecording() {
             <Card.Title>{department?.departmentName}</Card.Title>
 
             <DropdownMenu dir="rtl">
-              <DropdownMenu.Trigger dir="rtl" className="flex gap-2 w-[56px]">
+              <DropdownMenu.Trigger
+                dir="rtl"
+                className="flex rounded-xl border-border border items-center p-0.5 px-2 gap-2 w-[56px]s  w-min "
+              >
                 <Card.Description>{subject?.subject?.title}</Card.Description>
-                <Button className="rounded-full size-4 p-0">
+                <div className="rounded-full size-4 p-0">
                   <ChevronDown className="size-4" />
-                </Button>
+                </div>
               </DropdownMenu.Trigger>
               <DropdownMenu.Content>
                 {subjects?.map((s) => (
