@@ -38,7 +38,7 @@ export async function getSubjects(ctx: TRPCContext, query: GetSubjectsSchema) {
       classRoomDepartment: {
         select: {
           departmentName: true,
-          id:true,
+          id: true,
           classRoom: {
             select: {
               name: true,
@@ -139,21 +139,32 @@ export async function getClassroomSubjects(
   db: Database,
   params: GetClassroomSubjects
 ) {
-  const subjects = await db.departmentSubject.findMany({
+  const department = await db.classRoomDepartment.findUniqueOrThrow({
     where: {
-      classRoomDepartmentId: params?.departmentId,
+      id: params?.departmentId,
     },
     select: {
       id: true,
-      subject: {
+      departmentName: true,
+      classRoom: {
+        select: {
+          name: true,
+        },
+      },
+      subjects: {
         select: {
           id: true,
-          title: true,
+          subject: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
         },
       },
     },
   });
-  return subjects;
+  return department;
 }
 export async function getSubjectByName(ctx: TRPCContext, name: string) {
   let subject = await ctx.db.subject.findFirst({

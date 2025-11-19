@@ -1,51 +1,17 @@
-"use client";
-import { AssessmentSubmissions } from "@/components/asessment-submissions";
-import { _trpc } from "@/components/static-trpc";
-import { useAssessmentRecordingParams } from "@/hooks/use-assessment-recording-params";
-import { InputGroup, Select } from "@school-clerk/ui/composite";
-import { useQuery } from "@tanstack/react-query";
+import { AssessmentRecording } from "@/components/assessment-recording";
+import { constructMetadata } from "@/utils/construct-metadata";
+import { getClassroomSubjects } from "@api/db/queries/subjects";
+import { prisma } from "@school-clerk/db";
 
-export default function AssessmentRecording() {
-  const { filters, setFilters } = useAssessmentRecordingParams();
-  const { data: subjects } = useQuery(
-    _trpc.subjects.byClassroom.queryOptions(
-      {
-        departmentId: filters?.deptId,
-      },
-      {
-        enabled: filters.permission === "classroom",
-      }
-    )
-  );
-  return (
-    <>
-      <div className="sm:mx-auto gap-4 flex-col flex py-4 sm:max-w-4xl">
-        <div className="flex">
-          <div className="flex-1"></div>
-          <InputGroup>
-            <InputGroup.Addon>Subject:</InputGroup.Addon>
-            <Select.Root
-              dir="rtl"
-              onValueChange={(e) => {
-                setFilters({
-                  deptSubjectId: e,
-                });
-              }}
-              value={filters.deptSubjectId}
-            >
-              <Select.Trigger value={filters.deptSubjectId} />
-              <Select.Content>
-                {subjects?.map((s) => (
-                  <Select.Item value={s.id} key={s.id}>
-                    {s.subject?.title}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
-          </InputGroup>
-        </div>
-        <AssessmentSubmissions deparmentSubjectId={filters.deptSubjectId} />
-      </div>
-    </>
-  );
+export async function generateMetadata({ searchParams }) {
+  const departmentId = (await searchParams).deptId;
+  const s = await getClassroomSubjects(prisma, {
+    departmentId,
+  });
+  return constructMetadata({
+    title: `${s?.departmentName}`,
+  });
+}
+export default async function Page() {
+  return <AssessmentRecording />;
 }

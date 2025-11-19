@@ -29,9 +29,6 @@ export const subjectsRouter = createTRPCRouter({
   byClassroom: publicProcedure
     .input(getClassroomSubjectsSchema)
     .query(async ({ input, ctx: { db } }) => {
-      // console.log(input);
-
-      // return [];
       return await getClassroomSubjects(db, input);
     }),
   deleteClassSubject: publicProcedure
