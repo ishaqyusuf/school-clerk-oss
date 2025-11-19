@@ -1,5 +1,7 @@
 export const configs = {
   schoolName: `مدرسـة دار الحديث لتحفيـظ القرآن والسنـة`,
+  schoolAddress:
+    " Sannushehu Street, Isale-koko, Ojagboro, Isale Gambari, Ilorin, Kwara State, Nigeria.",
   comment: "الملاحظة",
   teacherSignature: `توقيع المدرس`,
   directorSignature: `توقيع المدير`,

@@ -63,6 +63,46 @@ export function SubjectAssessments(props: Props) {
     })
   );
   const { setParams } = useSubjectParams();
+
+  const Suggestion = ({
+    children,
+    defaultValues,
+  }: {
+    children?;
+    defaultValues?: {
+      index?;
+      id?;
+    };
+  }) => (
+    <DropdownMenu dir="rtl">
+      <DropdownMenu.Trigger disabled={!suggestions?.length}>
+        {children}
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content className="">
+        {suggestions?.map((s) => (
+          <DropdownMenu.Item
+            onClick={(e) => {
+              mutate({
+                departmentSubjectId: deptSubjectId,
+                index: assessments?.length,
+                obtainable: s?.obtainable,
+                percentageObtainable: s?.percentageObtainable,
+                title: s?.title,
+                ...(defaultValues || {}),
+              });
+            }}
+            className="pr-8"
+            key={s.uid}
+          >
+            {s.title}
+            <DropdownMenu.Sub>
+              - {s?.obtainable} | {s?.percentageObtainable}%
+            </DropdownMenu.Sub>
+          </DropdownMenu.Item>
+        ))}
+      </DropdownMenu.Content>
+    </DropdownMenu>
+  );
   return (
     <>
       <div className="grid gap-2">
@@ -91,35 +131,11 @@ export function SubjectAssessments(props: Props) {
                     Create
                   </Button>
                   <Separator orientation="vertical" />
-                  <DropdownMenu dir="rtl">
-                    <DropdownMenu.Trigger disabled={!suggestions?.length}>
-                      <Button size="sm">
-                        <ListPlus className="size-4" />
-                      </Button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Content className="">
-                      {suggestions?.map((s) => (
-                        <DropdownMenu.Item
-                          onClick={(e) => {
-                            mutate({
-                              departmentSubjectId: deptSubjectId,
-                              index: assessments?.length,
-                              obtainable: s?.obtainable,
-                              percentageObtainable: s?.percentageObtainable,
-                              title: s?.title,
-                            });
-                          }}
-                          className="pr-8"
-                          key={s.uid}
-                        >
-                          {s.title}
-                          <DropdownMenu.Sub>
-                            - {s?.obtainable} | {s?.percentageObtainable}%
-                          </DropdownMenu.Sub>
-                        </DropdownMenu.Item>
-                      ))}
-                    </DropdownMenu.Content>
-                  </DropdownMenu>
+                  <Suggestion>
+                    <Button size="sm">
+                      <ListPlus className="size-4" />
+                    </Button>
+                  </Suggestion>
                 </ButtonGroup>
                 <Button
                   size="sm"
@@ -137,7 +153,7 @@ export function SubjectAssessments(props: Props) {
               </div>
               {assessments?.length ? (
                 <div className="grid gap-4 py-4">
-                  {assessments.map((a) => (
+                  {assessments.map((a, ai) => (
                     <Item key={a.id} variant="outline" dir="rtl">
                       <Item.Content>
                         <Item.Title>{a.title}</Item.Title>
@@ -147,9 +163,16 @@ export function SubjectAssessments(props: Props) {
                         </div>
                       </Item.Content>
                       <Item.Actions>
-                        <Button size="sm" variant="outline">
-                          <Icons.Edit className="size-4" />
-                        </Button>
+                        <Suggestion
+                          defaultValues={{
+                            id: a.id,
+                            index: a.index || ai,
+                          }}
+                        >
+                          <Button size="sm" variant="outline">
+                            <Icons.Edit className="size-4" />
+                          </Button>
+                        </Suggestion>
                       </Item.Actions>
                     </Item>
                   ))}

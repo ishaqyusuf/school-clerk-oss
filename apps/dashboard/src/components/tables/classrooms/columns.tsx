@@ -8,6 +8,8 @@ import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@school-clerk/ui/cn";
 
 import { Badge } from "@school-clerk/ui/badge";
+import { useAuth } from "@/hooks/use-auth";
+import Link from "next/link";
 
 export type Item = RouterOutputs["academics"]["getClassrooms"]["data"][number];
 interface ItemProps {
@@ -73,6 +75,7 @@ export const columns: Column[] = [
 
 function Actions({ item }: ItemProps) {
   const isMobile = useIsMobile();
+  const auth = useAuth();
   return (
     <div className="relative flex justify-end z-10">
       <Menu
@@ -101,6 +104,13 @@ function Actions({ item }: ItemProps) {
         >
           Update Class Grade
         </Menu.Item>
+
+        <Link
+          target="_blank"
+          href={`/student-report?departmentId=${item.id}&termId=${auth?.profile?.termId}`}
+        >
+          <Menu.Item>Report Sheet</Menu.Item>
+        </Link>
       </Menu>
     </div>
   );

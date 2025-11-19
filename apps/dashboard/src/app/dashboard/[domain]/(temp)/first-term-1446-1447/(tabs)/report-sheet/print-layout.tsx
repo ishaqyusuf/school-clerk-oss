@@ -22,11 +22,11 @@ export function PrintLayout(props: PrintLayoutProps) {
       },
       {
         enabled: false, // !!props.studentId,
-      },
-    ),
+      }
+    )
   );
   const data = useStore(
-    (s) => s.printDataObjectByStudentId?.[String(props?.studentId)],
+    (s) => s.printDataObjectByStudentId?.[String(props?.studentId)]
   );
   // const data = printList?.[0];
   if (!data) return null;
@@ -34,20 +34,20 @@ export function PrintLayout(props: PrintLayoutProps) {
     <div
       id={`result-${data.student?.postId}`}
       className={cn(
-        " p-4 mx-auto border shadow-lg bg-white print:p-0 print:mx-0 print:border-0 print:shadow-none print:bg-transparent   flex flex-col pt-10 text-lg",
+        "p-4 mx-auto border shadow-lg bg-white print:p-0 print:mx-0 print:border-0 print:shadow-none print:bg-transparent   flex flex-col pt-10 text-lg",
         arabic.className,
         `result-lines-${data?.lineCount}`,
         data?.lineCount > 8
           ? "result-lines-lg space-y-4"
           : "result-lines-sm space-y-8",
-        g.params.printHideSubjects || "--h-[11.6in] h-[297mm]",
+        g.params.printHideSubjects || "--h-[11.6in] h-[297mm]"
       )}
     >
       <ReportSheetHeader studentId={props.studentId} data={data as any} />
       <div
         className={cn(
           "flex flex-col text-xl",
-          g.params.printHideSubjects && "hidden print:flex",
+          g.params.printHideSubjects && "hidden print:flex"
         )}
       >
         {/* {props.data?.lineCount} */}
@@ -58,7 +58,7 @@ export function PrintLayout(props: PrintLayoutProps) {
               "w-full result",
               `lines-${data?.lineCount}`,
 
-              ti == 0 && "border-t border-muted-foreground",
+              ti == 0 && "border-t border-muted-foreground"
             )}
             key={ti}
           >
@@ -71,7 +71,7 @@ export function PrintLayout(props: PrintLayoutProps) {
                       ci > 0 && "w-24",
                       ci === table.columns.length - 1 && "w-28",
                       ci === table?.columns?.length - 1 ? "last" : "",
-                      ci == 0 && "first",
+                      ci == 0 && "first"
                     )}
                   >
                     <div className="inline-flex">
@@ -89,7 +89,7 @@ export function PrintLayout(props: PrintLayoutProps) {
                     <td
                       className={cn(
                         rci === r?.columns?.length - 1 ? "last" : "",
-                        rci == 0 && "first",
+                        rci == 0 && "first"
                       )}
                       align={rci > 0 ? "center" : "right"}
                       key={rci}

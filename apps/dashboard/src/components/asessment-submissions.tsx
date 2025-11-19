@@ -42,7 +42,7 @@ function Content(props: Props) {
 
   return (
     <Accordion collapsible type="single">
-      {store?.data?.students?.map((student) => (
+      {store?.data?.students?.map((student, si) => (
         <Accordion.Item
           dir="rtl"
           key={student.id}
@@ -50,7 +50,9 @@ function Content(props: Props) {
           value={String(student.id)}
         >
           <Accordion.Trigger className="gap-2">
-            <span>{student.name}</span>
+            <span>
+              {si + 1}.{student.name}
+            </span>
             <div className="flex-1"></div>
             <div className="flex gap-2 text-sm text-muted-foreground">
               {store.data?.assessments

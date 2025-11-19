@@ -1,3 +1,7 @@
+import {
+  getClassroomReportSheet,
+  getClassroomReportSheetSchema,
+} from "@api/db/queries/report-sheet";
 import { createTRPCRouter, publicProcedure } from "../init";
 
 import {
@@ -30,5 +34,10 @@ export const assessmentRouter = createTRPCRouter({
     .input(updateAssessmentScoreSchema)
     .mutation(async (props) => {
       return updateAssessmentScore(props.ctx, props.input);
+    }),
+  getClassroomReportSheet: publicProcedure
+    .input(getClassroomReportSheetSchema)
+    .query(async (props) => {
+      return getClassroomReportSheet(props.ctx, props.input);
     }),
 });

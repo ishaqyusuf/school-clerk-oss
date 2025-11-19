@@ -81,19 +81,16 @@ import {
   SheetClose,
 } from "./sheet";
 
-const Sheet = Object.assign(
-  {},
-  {
-    Root: SheetRoot,
-    Content: SheetContent,
-    Header: SheetHeader,
-    Footer: SheetFooter,
-    Title: SheetTitle,
-    Description: SheetDescription,
-    Trigger: SheetTrigger,
-    Close: SheetClose,
-  }
-);
+const Sheet = Object.assign(SheetRoot, {
+  Root: SheetRoot,
+  Content: SheetContent,
+  Header: SheetHeader,
+  Footer: SheetFooter,
+  Title: SheetTitle,
+  Description: SheetDescription,
+  Trigger: SheetTrigger,
+  Close: SheetClose,
+});
 
 import { Tabs as TabsRoot, TabsList, TabsTrigger, TabsContent } from "./tabs";
 
