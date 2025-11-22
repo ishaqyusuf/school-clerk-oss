@@ -132,7 +132,9 @@ function ScoreInput({ scoreKey, student, assessment }: ScoreInputProps) {
     });
   }, 800);
   return (
-    <InputGroup className="w-48">
+    <InputGroup
+      className={cn("w-48", value > assessment?.obtainable && "border-red-400")}
+    >
       <InputGroup.Input
         defaultValue={value}
         onChange={(e) => {
@@ -161,25 +163,5 @@ function ScoreInput({ scoreKey, student, assessment }: ScoreInputProps) {
         {prefix}
       </InputGroup.Addon>
     </InputGroup>
-  );
-  return (
-    <NumberInput
-      placeholder={`${prefix}-/${assessment?.obtainable}`}
-      prefix={`${prefix}`}
-      suffix={`/${assessment?.obtainable}`}
-      dir="rtl"
-      type="tel"
-      customInput={Input}
-      onValueChange={(e) => {
-        handleUpdate(e.floatValue || ("" as any));
-      }}
-      defaultValue={value}
-      className={cn(
-        value > assessment?.obtainable && "border-red-400",
-        "w-28 placeholder:font-semibold text-primary",
-        isPending && "border-dashed",
-        isSuccess && "border-green-500"
-      )}
-    />
   );
 }
