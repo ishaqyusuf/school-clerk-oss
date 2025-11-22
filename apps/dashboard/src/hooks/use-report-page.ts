@@ -2,10 +2,10 @@ import { createContext, useContext, useMemo } from "react";
 import { useStudentReportFilterParams } from "./use-student-report-filter-params";
 import { _trpc } from "@/components/static-trpc";
 import { useQuery } from "@tanstack/react-query";
-import { useDebugConsole } from "./use-debug-console";
-import { enToAr, percent, sum } from "@school-clerk/utils";
+import { enToAr, sum } from "@school-clerk/utils";
 import { getResultComment } from "@api/db/queries/first-term-data";
 
+const assessmentOrder = ["الحضور", "الاختبار", "الامتحان"];
 type ReportPageContext = ReturnType<typeof createReportPageContext>;
 export const ReportPageContext = createContext<ReportPageContext>(undefined);
 export const ReportPageProvider = ReportPageContext.Provider;
@@ -61,16 +61,20 @@ export const createReportPageContext = () => {
         });
         const tables = tableModel();
         const response = subjectList.map((subject, si) => {
-          const assessmentCode = subject.assessments
-            .map((a) => a.label)
-            .join("-");
+          const assessments = subject.assessments
+            .map((a) => {
+              a.index = assessmentOrder.findIndex((b) => b === a.label);
+              return a;
+            })
+            .sort((a, b) => a.index - b.index);
+          const assessmentCode = assessments.map((a) => a.label).join("-");
           if (!tables[assessmentCode])
             tables[assessmentCode] = {
               columns: [
                 {
                   label: `المواد`,
                 },
-                ...subject.assessments
+                ...assessments
                   // ?.filter((a) => a.assessmentType == "primary")
                   .map((a) => ({
                     label: a.label,

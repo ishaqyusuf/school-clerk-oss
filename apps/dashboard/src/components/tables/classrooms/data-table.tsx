@@ -28,7 +28,7 @@ export function DataTable() {
       args={[
         {
           columns,
-          mobileColumn,
+          // mobileColumn,
           data,
           props: {
             hasNextPage,

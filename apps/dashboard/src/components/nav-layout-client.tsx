@@ -6,7 +6,7 @@ import { Header } from "./header";
 import { linkModules } from "./sidebar/links";
 import Link from "next/link";
 
-export function NavLayout({ children }) {
+export function NavLayoutClient({ children }) {
   const auth = useAuth({
     required: true,
   });

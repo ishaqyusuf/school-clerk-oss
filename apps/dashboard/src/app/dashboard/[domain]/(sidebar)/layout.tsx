@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { GlobalSheets } from "@/components/sheets/global-sheets";
 import { HydrateClient } from "@/trpc/server";
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
-import { NavLayout } from "@/components/nav-layout";
+import { NavLayoutClient } from "@/components/nav-layout-client";
 import { GlobalModals } from "@/components/modals/global-modals";
 
 export default async function LayoutNew({ children }) {
@@ -12,19 +12,8 @@ export default async function LayoutNew({ children }) {
   }
   return (
     <HydrateClient>
-      {/* <div className="relative"> */}
-      {/* <SidebarClient /> */}
-      <NavLayout>{children}</NavLayout>
-      {/* <div
-          className={cn(
-            "pb-8", 
-            "md:ml-[70px]"
-          )}
-        >
-          <Header />
-          <div className="px-6">{children}</div>
-        </div> */}
-      {/* </div> */}
+      <NavLayoutClient>{children}</NavLayoutClient>
+
       <Suspense>
         <GlobalSheets />
         <GlobalModals />

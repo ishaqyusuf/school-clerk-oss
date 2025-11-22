@@ -44,7 +44,7 @@ export function ClassroomOverviewSheet({}) {
 export function Content({}) {
   const { setParams, ...params } = useClassroomParams();
   const { viewClassroomId } = params;
-  const isOpen = Boolean(params.viewClassroomId);
+  const isOpen = !!params.viewClassroomId;
   // const trpc = useTRPC();
   const { data: classRoom } = useSuspenseQuery(
     _trpc.classrooms.getClassroomOverview.queryOptions(
