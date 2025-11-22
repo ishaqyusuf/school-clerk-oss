@@ -2,7 +2,7 @@ import { Skeletons } from "@school-clerk/ui/skeletons";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useDeferredValue, useEffect } from "react";
 import { _trpc } from "./static-trpc";
-import { Accordion } from "@school-clerk/ui/composite";
+import { Accordion, InputGroup } from "@school-clerk/ui/composite";
 import { ScoreData, useAssessmentStore } from "@/store/assessment";
 import { NumberInput } from "./currency-input";
 import { cn } from "@school-clerk/ui/cn";
@@ -10,6 +10,8 @@ import { Input } from "@school-clerk/ui/input";
 import { useDebouncedCallback } from "use-debounce";
 import { getScoreKey } from "@api/db/queries/assessments";
 import { useDebugToast } from "@/hooks/use-debug-console";
+import { X } from "lucide-react";
+import { Spinner } from "@school-clerk/ui/spinner";
 
 interface Props {
   // overview: RouterOutputs["subjects"]["overview"];
@@ -49,7 +51,7 @@ function Content(props: Props) {
           className=""
           value={String(student.id)}
         >
-          <Accordion.Trigger className="gap-2">
+          <Accordion.Trigger className="gap-2 max-lg:px-4">
             <span>
               {si + 1}.{student.name}
             </span>
@@ -58,7 +60,13 @@ function Content(props: Props) {
               {store.data?.assessments
                 ?.filter((a) => !!a?.percentageObtainable)
                 ?.map((a) => (
-                  <span key={a.id}>
+                  <span
+                    className={cn(
+                      store.data?.scores?.[getScoreKey(a.id, student.termId)]
+                        ?.obtained && "text-green-400"
+                    )}
+                    key={a.id}
+                  >
                     {a.title}:{" "}
                     {store.data?.scores?.[getScoreKey(a.id, student.termId)]
                       ?.obtained || "-"}
@@ -67,7 +75,7 @@ function Content(props: Props) {
             </div>
           </Accordion.Trigger>
           <Accordion.Content>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 max-lg:px-4 gap-4">
               {store.data?.assessments
                 ?.filter((a) => !!a?.percentageObtainable)
                 ?.map((a) => (
@@ -123,6 +131,37 @@ function ScoreInput({ scoreKey, student, assessment }: ScoreInputProps) {
       departmentId,
     });
   }, 800);
+  return (
+    <InputGroup className="w-48">
+      <InputGroup.Input
+        defaultValue={value}
+        onChange={(e) => {
+          // console.log(e.target?.value);
+          handleUpdate(+e.target?.value || ("" as any));
+        }}
+        className="  [appearance:textfield]
+      [&::-webkit-inner-spin-button]:appearance-none
+      [&::-webkit-outer-spin-button]:appearance-none"
+        type="number"
+        placeholder={``}
+      />
+      <InputGroup.Addon className="" align="inline-end">
+        /{assessment?.obtainable}
+      </InputGroup.Addon>
+      <InputGroup.Addon className="pl-2" align="inline-end">
+        <InputGroup.Button
+          disabled={!value}
+          className={cn("rounded-full")}
+          size="icon-xs"
+        >
+          {isPending ? <Spinner /> : <X className="size-4" />}
+        </InputGroup.Button>
+      </InputGroup.Addon>
+      <InputGroup.Addon className="pr-2" align="inline-start">
+        {prefix}
+      </InputGroup.Addon>
+    </InputGroup>
+  );
   return (
     <NumberInput
       placeholder={`${prefix}-/${assessment?.obtainable}`}
