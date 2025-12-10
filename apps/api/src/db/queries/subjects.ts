@@ -9,7 +9,7 @@ import { composeQuery } from "@api/utils";
 import { Prisma, type Database } from "@school-clerk/db";
 import { z } from "zod";
 import { getClassroomDepartments } from "./classroom";
-import { uniqueList } from "@school-clerk/utils";
+import { percent, sum, uniqueList } from "@school-clerk/utils";
 
 export async function getSubjects(ctx: TRPCContext, query: GetSubjectsSchema) {
   const { db } = ctx;
@@ -144,8 +144,15 @@ export async function getClassroomSubjects(
       id: params?.departmentId,
     },
     select: {
+      studentTermForms: {
+        where: {
+          deletedAt: null,
+        },
+      },
       id: true,
       departmentName: true,
+
+      // studentTermForms: {},
       classRoom: {
         select: {
           name: true,
@@ -154,17 +161,62 @@ export async function getClassroomSubjects(
       subjects: {
         select: {
           id: true,
+          sessionTermId: true,
           subject: {
             select: {
               id: true,
               title: true,
             },
           },
+          assessments: {
+            where: {
+              percentageObtainable: {
+                gt: 0,
+              },
+              deletedAt: null,
+            },
+            select: {
+              percentageObtainable: true,
+              title: true,
+              _count: {
+                select: {
+                  assessmentResults: {
+                    where: {
+                      deletedAt: null,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
   });
-  return department;
+  const { studentTermForms, subjects, ...dept } = department;
+  return {
+    ...dept,
+    subjects: subjects.map(({ assessments, sessionTermId, subject, id }) => {
+      const submissions: any[] = [];
+      const _count = studentTermForms.filter(
+        (a) => a.sessionTermId === sessionTermId
+      )?.length;
+      return {
+        subject,
+        id,
+        assessments: assessments.map((a) => {
+          const s = percent(a._count.assessmentResults, _count);
+          submissions.push(s);
+          return {
+            title: a.title,
+            percentage: a.percentageObtainable,
+            submissions: s,
+          };
+        }),
+        submissionPercentage: sum([sum(submissions) / submissions.length]),
+      };
+    }),
+  };
 }
 export async function getSubjectByName(ctx: TRPCContext, name: string) {
   let subject = await ctx.db.subject.findFirst({

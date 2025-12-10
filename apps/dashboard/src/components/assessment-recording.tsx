@@ -2,15 +2,7 @@
 import { AssessmentSubmissions } from "@/components/asessment-submissions";
 import { _trpc } from "@/components/static-trpc";
 import { useAssessmentRecordingParams } from "@/hooks/use-assessment-recording-params";
-import { constructMetadata } from "@/utils/construct-metadata";
-import { Button } from "@school-clerk/ui/button";
-import {
-  Card,
-  DropdownMenu,
-  InputGroup,
-  Select,
-} from "@school-clerk/ui/composite";
-import { Separator } from "@school-clerk/ui/separator";
+import { Card, DropdownMenu } from "@school-clerk/ui/composite";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 
@@ -62,7 +54,9 @@ export function AssessmentRecording() {
                     dir="rtl"
                     key={s.id}
                   >
-                    <>{s.subject?.title}</>
+                    <>
+                      {s.subject?.title} | {s.submissionPercentage}%
+                    </>
                   </DropdownMenu.Item>
                 ))}
               </DropdownMenu.Content>

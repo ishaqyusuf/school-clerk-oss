@@ -60,6 +60,7 @@ export async function getClassroomReportSheet(
         ],
         where: {
           sessionTermId: query.sessionTermId,
+          deletedAt: null,
         },
         select: {
           id: true,
