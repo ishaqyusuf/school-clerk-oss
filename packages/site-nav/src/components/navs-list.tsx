@@ -1,10 +1,11 @@
 import { cn, cva } from "@school-clerk/ui/cn";
 import { useSiteNav } from "./use-site-nav";
 
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Icons } from "@school-clerk/ui/icons";
 import { Icon } from "@school-clerk/ui/custom/icons";
 import { LinkItem, NavLink, NavModule } from "../lib/utils";
+// import {ChevronDown} from "lucide-icons"
 interface Props {}
 
 const moduleVariants = cva("", {
@@ -49,77 +50,107 @@ export function NavsList({ mobile = false }) {
   const { linkModules, activeLink, isExpanded: _isExpanded } = useSiteNav();
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const isExpanded = _isExpanded || mobile;
+  const [expandModule, setExpandModule] = useState(null);
+  useEffect(() => {
+    setExpandModule(null);
+  }, [_isExpanded]);
   return (
     <div className="mt-6 w-full">
       <nav className="w-full overflow-auto">
         <div className="flex flex-col gap-2">
           {/* <span>{JSON.stringify({ activeLink })}</span> */}
           {linkModules?.modules
-            ?.filter((a) => a.activeLinkCount)
-            .map((module, mi) => (
-              <Fragment key={mi}>
-                {module?.sections?.map((section, si) => (
+            // ?.filter((a) => a.activeLinkCount)
+            .map((module, mi) => {
+              const isActiveModule = activeLink?.module == module?.name;
+              const isExpandedModule = expandModule === module.name;
+              const show = isActiveModule || (isExpandedModule && isExpanded);
+              return (
+                <Fragment key={mi}>
                   <div
-                    key={si}
+                    onClick={(e) => {
+                      if (isActiveModule) return;
+                      setExpandModule(module?.name);
+                    }}
                     className={cn(
-                      !section?.linksCount && "hidden",
-                      moduleVariants({
-                        isCurrent: activeLink?.module == module?.name,
-                        // renderMode,
-                        moduleType: module?.name ? "module" : "global",
-                      })
+                      "flex justify-betweens justify-end gap-2 items-center uppercase pl-4 text-sm font-medium text-muted-foreground cursor-pointer h-6",
+                      !isExpanded && "hidden",
+                      isExpanded && !show && "border-bs border-muted-foreground"
                     )}
                   >
-                    {!isExpanded && si > 0 ? null : (
-                      <div
-                        className={cn(
-                          "uppercase hidden text-xs mx-4 mt-4 font-semibold text-muted-foreground",
-                          activeLink?.module != module.name &&
-                            sectionLabel({
-                              renderMode: isExpanded ? "default" : "suppressed",
-                            }),
-                          !section?.title &&
-                            !section?.name &&
-                            (si > 0 || !module?.name) &&
-                            "hidden",
-                          isExpanded && si > 0 && "block"
-                        )}
-                      >
-                        {si == 0 && !isExpanded
-                          ? module.name
-                          : section?.title || section.name}
-                      </div>
-                    )}
-                    <div>
-                      {section?.links
-                        ?.filter((l) => l?.show)
-                        ?.map((link, li) => (
-                          <Fragment key={li}>
-                            {/* {link?.subLinks?.length ? } */}
-                            <Item
-                              isExpanded={isExpanded}
-                              isItemExpanded={expandedItem === link.href}
-                              onToggle={(path) => {
-                                setExpandedItem(
-                                  expandedItem === path ? null : path
-                                );
-                              }}
-                              item={link}
-                              key={li}
-                              module={module}
-                              isActive={
-                                activeLink?.module == module.name &&
-                                activeLink?.name === link.name
-                              }
-                              // onSelect={onSelect}
-                            />
-                          </Fragment>
-                        ))}
-                    </div>
+                    {module.name}
+                    <Icons.ChevronDown
+                      className={cn(
+                        isActiveModule || isExpandedModule ? "" : "-rotate-90"
+                      )}
+                    />
                   </div>
-                ))}
-              </Fragment>
-            ))}
+                  {module?.sections?.map((section, si) => (
+                    <div
+                      key={si}
+                      className={cn(
+                        !section?.linksCount && "hidden",
+                        moduleVariants({
+                          // isCurrent: activeLink?.module == module?.name,
+                          isCurrent: show,
+                          // renderMode,
+                          moduleType: module?.name ? "module" : "global",
+                        })
+                      )}
+                    >
+                      {!isExpanded && si > 0 ? null : (
+                        <div
+                          className={cn(
+                            "uppercase hidden text-xs mx-4 mt-4 font-semibold text-muted-foreground",
+                            activeLink?.module != module.name &&
+                              sectionLabel({
+                                renderMode: isExpanded
+                                  ? "default"
+                                  : "suppressed",
+                              }),
+                            !section?.title &&
+                              !section?.name &&
+                              (si > 0 || !module?.name) &&
+                              "hidden",
+                            isExpanded && si > 0 && "block"
+                          )}
+                        >
+                          {si == 0 && !isExpanded
+                            ? module.name
+                            : section?.title || section.name}
+                        </div>
+                      )}
+                      <div>
+                        {section?.links
+                          ?.filter((l) => l?.show)
+                          ?.map((link, li) => (
+                            <Fragment key={li}>
+                              {/* {link?.subLinks?.length ? } */}
+                              <Item
+                                isExpanded={isExpanded}
+                                isItemExpanded={expandedItem === link.href}
+                                onToggle={(path) => {
+                                  setExpandedItem(
+                                    expandedItem === path ? null : path
+                                  );
+                                }}
+                                item={link}
+                                key={li}
+                                module={module}
+                                isActive={
+                                  activeLink?.module == module.name &&
+                                  activeLink?.name === link.name
+                                }
+                                // onSelect={onSelect}
+                              />
+                            </Fragment>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                </Fragment>
+              );
+            })}
         </div>
       </nav>
     </div>

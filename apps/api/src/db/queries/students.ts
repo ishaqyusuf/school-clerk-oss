@@ -767,3 +767,21 @@ export async function updateStudentBasicProfile(
     ),
   });
 }
+
+export const deleteStudentSchema = z.object({
+  studentId: z.string(),
+});
+export type DeleteStudentSchema = z.infer<typeof deleteStudentSchema>;
+
+export async function deleteStudent(
+  ctx: TRPCContext,
+  query: DeleteStudentSchema
+) {
+  const { db } = ctx;
+  await db.students.update({
+    where: { id: query.studentId },
+    data: {
+      deletedAt: new Date(0),
+    },
+  });
+}

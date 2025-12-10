@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Header } from "./header";
 import { linkModules } from "./sidebar/links";
 import Link from "next/link";
+import { NavsList } from "node_modules/@school-clerk/site-nav/src/components/navs-list";
 
 export function NavLayoutClient({ children }) {
   const auth = useAuth({
@@ -21,19 +22,13 @@ export function NavLayoutClient({ children }) {
         userId: auth.id,
       })}
     >
-      <SiteNav.Sidebar>
-        {/* Logo area */}
-        {/* <div className="pt-[75px] flex w-full"><SidebarModules /></div> */}
-        {/* <SiteNav.NavsList /> */}
-        <div className="flex flex-col overflow-y-auto scrollbar-hide w-full pb-[100px] flex-1">
-          {/* <MainMenu/> */}
-        </div>
-      </SiteNav.Sidebar>
-      <SiteNav.Shell className="pb-8">
-        <Header />
-        <div className="px-6">{children}</div>
-      </SiteNav.Shell>
-      {/* <div className={cn("p-8", "md:ml-[70px]")}></div> */}
+      <div className="relative">
+        <SiteNav.Sidebar />
+        <SiteNav.Shell className="pb-8">
+          <Header />
+          <div className="px-6">{children}</div>
+        </SiteNav.Shell>
+      </div>
     </SiteNav.Provider>
   );
 }

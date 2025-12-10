@@ -28,7 +28,7 @@ export function MobileSidebar() {
             <Icons.Logo />
           </div>
 
-          <div className="-ml-2">
+          <div className="-ml-2 h-[85vh] overflow-auto scrollbar-hide pb-16">
             <NavsList mobile />
           </div>
         </Sheet.Content>
