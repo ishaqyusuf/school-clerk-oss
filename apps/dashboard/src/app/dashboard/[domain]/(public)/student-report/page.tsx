@@ -4,23 +4,23 @@ import { StudentReportPage } from "@/components/student-report-page";
 import {
   createReportPageContext,
   ReportPageProvider,
+  useReportPageContext,
 } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
-import { useReportStore } from "@/store/report";
 import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
 import { Sheet } from "@school-clerk/ui/composite";
 import { Menu } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 export default function Page() {
   const { filters, setFilters } = useStudentReportFilterParams();
   const [width, height] = [595, 842];
-  const store = useReportStore();
-  const studentIds = Object.entries(store?.selection)
-    ?.filter(([a, b]) => b)
-    ?.map(([a, b]) => a);
+  // const studentIds = Object.entries(store?.selection)
+  //   ?.filter(([a, b]) => b)
+  //   ?.map(([a, b]) => a);
   const [menuOpened, setMenuOpened] = useState(false);
+  // const studentIds = useMemo(() => {},[filters.selections,])
   return (
     <ReportPageProvider value={createReportPageContext()}>
       <div className={cn("lg:flex print:hidden")}>
@@ -39,14 +39,7 @@ export default function Page() {
               // style={{ maxWidth: width }}
             >
               <div className="pb-24  lg:pb-0">
-                {studentIds?.map((studentId) => (
-                  <div
-                    key={studentId}
-                    className="shadow-[0_24px_48px_-12px_rgba(0,0,0,0.3)] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.6)]"
-                  >
-                    <StudentReportPage studentId={studentId} />
-                  </div>
-                ))}
+                <Reports />
               </div>
             </div>
           </div>
@@ -69,12 +62,35 @@ export default function Page() {
         </div>
       </div>
       <div className="hidden  flex-col print:flex">
-        {studentIds?.map((studentId, i) => (
-          <div key={studentId} className={cn(i > 0 && "break-before-page ")}>
-            <StudentReportPage studentId={studentId} key={studentId} />
-          </div>
-        ))}
+        <Reports printMode />
       </div>
     </ReportPageProvider>
+  );
+}
+function Reports({ printMode = false }) {
+  const ctx = useReportPageContext();
+  const { filters } = useStudentReportFilterParams();
+  const studentIds = useMemo(() => {
+    if (!ctx.termForms) return [];
+    return ctx.termForms
+      .filter((_, i) => filters.selections?.includes(i))
+      .map((a) => a.id);
+  }, [filters.selections, ctx.termForms]);
+  return (
+    <>
+      {studentIds?.map((studentId, i) => (
+        <div
+          key={studentId}
+          className={cn(
+            !printMode
+              ? "shadow-[0_24px_48px_-12px_rgba(0,0,0,0.3)] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.6)]"
+              : "",
+            i > 0 && printMode && "break-before-page "
+          )}
+        >
+          <StudentReportPage studentId={studentId} key={studentId} />
+        </div>
+      ))}
+    </>
   );
 }

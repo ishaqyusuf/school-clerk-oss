@@ -125,7 +125,7 @@ function ReportFooter({ studentId }) {
         className={cn("print-px spb-8 pt-8s flex justify-between")}
       >
         {[configs.directorSignature, configs.teacherSignature].map((c, ci) => (
-          <div className="relative">
+          <div key={ci} className="relative">
             <div className="h-[30px]">
               {ci == 0 && (
                 <div className="-top-8s absolutes right-2">

@@ -64,7 +64,8 @@ export const createReportPageContext = () => {
           };
         });
         const tables = tableModel();
-        const response = subjectList.map((subject, si) => {
+        // const response =
+        subjectList.map((subject, si) => {
           const assessments = subject.assessments
             .map((a) => {
               a.index = assessmentOrder.findIndex((b) => b === a.label);

@@ -1,6 +1,5 @@
 import { useReportPageContext } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
-import { useReportStore } from "@/store/report";
 import { studentDisplayName } from "@/utils/utils";
 import { Checkbox } from "@school-clerk/ui/checkbox";
 import { Field, Select } from "@school-clerk/ui/composite";
@@ -12,7 +11,6 @@ import { ThemeSwitch } from "./theme-switch";
 export function StudentReportFilter() {
   const { setFilters, filters } = useStudentReportFilterParams();
   const ctx = useReportPageContext();
-  const store = useReportStore();
   return (
     <div className="gap-4 flex flex-col">
       <div>
@@ -27,9 +25,7 @@ export function StudentReportFilter() {
             onValueChange={(e) => {
               setFilters({
                 departmentId: e,
-              });
-              store.reset({
-                selection: {},
+                selections: null,
               });
             }}
           >
@@ -56,9 +52,17 @@ export function StudentReportFilter() {
                 {studentDisplayName(tf?.student)}
               </Field.Label>
               <Checkbox
-                checked={!!store?.selection?.[tf.id]}
+                checked={filters.selections?.includes(tfi)}
+                // checked={!!store?.selection?.[tf.id]}
                 onCheckedChange={(e) => {
-                  store.update(`selection.${tf.id}`, !!e);
+                  // store.update(`selection.${tf.id}`, !!e);
+                  let selections = [...(filters.selections || []), tfi];
+
+                  setFilters({
+                    selections: selections.filter(
+                      (a, i) => selections.filter((b) => b === a)?.length == 1
+                    ),
+                  });
                 }}
                 id={`cb-${tf.id}`}
               />

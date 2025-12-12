@@ -1,9 +1,10 @@
-import { useQueryStates } from "nuqs";
+import { parseAsArrayOf, parseAsInteger, useQueryStates } from "nuqs";
 import { createLoader, parseAsString } from "nuqs/server";
 
 export const studentReportFilterParams = {
   departmentId: parseAsString,
   termId: parseAsString,
+  selections: parseAsArrayOf(parseAsInteger),
 };
 
 export function useStudentReportFilterParams() {
