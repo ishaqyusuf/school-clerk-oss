@@ -5,7 +5,7 @@ import { useReportPageContext } from "@/hooks/use-report-page";
 import { cn } from "@school-clerk/ui/cn";
 import { enToAr } from "@school-clerk/utils";
 import Image from "next/image";
-import signature from "public/signature.png";
+// import signature from "@public/signature.png";
 export function StudentReportPage({ studentId }) {
   const [width, height] = [595, 842];
   const ctx = useReportPageContext();
@@ -13,7 +13,7 @@ export function StudentReportPage({ studentId }) {
   return (
     <div
       className={cn(
-        "p-4 mx-auto border shadow-lg bg-white print:p-0 print:mx-0 print:border-0 print:shadow-none print:bg-transparent   flex flex-col pt-10 text-lg",
+        "p-4 mx-auto border shadow-lg bg-white print:p-0s print:mx-0 print:border-0 print:shadow-none print:bg-transparent   flex flex-col pt-10 text-lg",
         arabic.className,
         `result-lines-${data?.lineCount}`,
         data?.lineCount > 8
@@ -58,7 +58,7 @@ export function StudentReportPage({ studentId }) {
                       ci == 0 && "first"
                     )}
                   >
-                    <div className="inline-flex">
+                    <div className="flex flex-col">
                       <span>{c.label}</span>
                       {c.subLabel ? <span>{c.subLabel}</span> : null}
                     </div>
@@ -102,21 +102,21 @@ function ReportFooter({ studentId }) {
   return (
     <>
       <div className="">
-        <div className="space-y-6">
+        <div className="space-y-10">
           <div
             className="border-b-2 border-dashed border-muted-foreground"
             dir="rtl"
           >
-            <span className="font-bold"> {configs.comment}:</span>
-            <span className="px-4 text-2xl">{data?.comment?.arabic}</span>
+            <span className="font-bold text-xl"> {configs.comment}:</span>
+            <span className="px-4 text-4xl">{data?.comment?.arabic}</span>
           </div>
           <div
             className="border-b-2 border-dashed border-muted-foreground"
             dir="ltr"
           >
-            <span className="font-bold"> Comment:</span>
+            <span className="font-bold text-xl"> Comment:</span>
 
-            <span className="px-4 text-2xl">{data?.comment?.english}</span>
+            <span className="px-4 text-4xl">{data?.comment?.english}</span>
           </div>
         </div>
       </div>
@@ -133,7 +133,7 @@ function ReportFooter({ studentId }) {
                     alt=""
                     width={80}
                     height={80}
-                    src={signature}
+                    src={`/signature.png`}
                     className="object-fill"
                     loading="lazy"
                   />
@@ -174,7 +174,7 @@ function ReportHeader({ studentId }) {
           <div className="w-full border-b-4 border-muted-foreground"></div>
           <div className="under-line w-full"></div>
         </div>
-        <div className="space-y-2 text-xl font-semibold" dir="rtl">
+        <div className="space-y-4 text-xl font-semibold" dir="rtl">
           <div className="flex gap-2">
             <div className="flex w-2/3 items-end">
               <div className="whitespace-nowrap text-black/70">
@@ -216,7 +216,7 @@ function ReportHeader({ studentId }) {
               </span>
             </div>
             <div className="">
-              <span className="text-black/70">المجموع الكلي </span>
+              <span className="text-black/70">المجموع الكلي</span>
               <span>:</span>
               <span className="mx-1 border-b border-muted-foreground">
                 {`${enToAr(data?.grade?.obtained)}/${enToAr(
@@ -244,11 +244,12 @@ function ReportHeader({ studentId }) {
               <span className="mx-1 border-b border-muted-foreground">
                 {`${enToAr(data?.grade?.position)} من ${enToAr(
                   data?.grade?.totalStudents
-                )} طالبا`}
+                )} ${data?.grade?.totalStudents >= 10 ? "طالبا" : "طلابا"}`}
               </span>
             </div>
             <div className="">
-              <span className="text-black/70">تاريخ العودة للعام الجديد</span>
+              <span className="text-black/70">تاريخ العودة</span>
+              {/* <span className="text-black/70">تاريخ العودة للعام الجديد</span> */}
               <span>:</span>
               <span className="mx-1 border-b border-muted-foreground">
                 {enToAr("27/07/25")}

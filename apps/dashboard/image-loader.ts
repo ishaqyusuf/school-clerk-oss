@@ -4,7 +4,7 @@ interface ImageLoaderParams {
   quality?: number;
 }
 
-const CDN_URL = "https://schoolclerk.com";
+const CDN_URL = process.env.NEXT_PUBLIC_URL; // "https://schoolclerk.com";
 
 export default function imageLoader({
   src,
@@ -14,5 +14,6 @@ export default function imageLoader({
   if (src.startsWith("/_next")) {
     return `${CDN_URL}/cdn-cgi/image/width=${width},quality=${quality}/https://app.schoolclerk.com${src}`;
   }
-  return `${CDN_URL}/cdn-cgi/image/width=${width},quality=${quality}/${src}`;
+  return `${CDN_URL}/${src}`;
+  // return `${CDN_URL}/cdn-cgi/image/width=${width},quality=${quality}/${src}`;
 }

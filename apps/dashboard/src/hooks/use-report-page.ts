@@ -40,15 +40,19 @@ export const createReportPageContext = () => {
             const record = _as.assessmentResults.find(
               (r) => r.studentTermFormId == tf.id
             );
-            return {
-              obtainable: _as.obtainable,
-              obtained:
-                record?.percentageScore || record?.obtained
-                  ? sum([
+            const obtained =
+              record?.percentageScore || record?.obtained
+                ? _as?.percentageObtainable === _as?.obtainable
+                  ? record?.obtained
+                  : sum([
                       (record?.obtained / _as.obtainable) *
                         _as.percentageObtainable,
                     ])
-                  : null,
+                : null;
+
+            return {
+              obtainable: _as.percentageObtainable,
+              obtained,
               index: _as.index,
               label: _as.title,
             };
@@ -112,18 +116,33 @@ export const createReportPageContext = () => {
         );
         const grade = {
           obtained: sum(
-            subjectList.map((a) => a.assessments.map((b) => b.obtained).flat())
+            subjectList.map((a) => a.assessments.map((b) => b.obtained)).flat()
           ),
           obtainable: sum(
-            subjectList.map((a) =>
-              a.assessments.map((b) => b.obtainable).flat()
-            )
+            subjectList
+              .map((a) => a.assessments.map((b) => b.obtainable))
+              .flat()
           ),
           totalStudents,
           position: 0,
           percentage: 0,
         };
         grade.percentage = sum([(grade.obtained / grade.obtainable) * 100]);
+        const comment = getResultComment(grade.percentage);
+        if (
+          subjectList.some((sl) =>
+            sl.assessments.some((a) => Math.floor(a.obtained) === 55)
+          )
+        ) {
+          // console.log({ obtained, record, _as });
+          // console.log({ grade, subjectList, comment });
+        }
+        if (comment.arabic === "درجة غير صالحة")
+          console.log({
+            p: grade.percentage,
+            ar: comment.arabic,
+          });
+
         return {
           termFormId: tf.id,
           tables: Object.values(tables),
@@ -131,7 +150,7 @@ export const createReportPageContext = () => {
           grade,
           subjectList,
           student: tf.student,
-          comment: getResultComment(grade.percentage),
+          comment,
           //   classroom: { title: tf..classTitle },
         };
         // .flat();

@@ -77,7 +77,7 @@ function ClassroomSidebar({ classrooms, isLoading }) {
 export default function ReportSheetPage() {
   const trpc = useTRPC();
   const { data: classrooms, isLoading: isLoadingClassrooms } = useQuery(
-    trpc.ftd.classRooms.queryOptions(),
+    trpc.ftd.classRooms.queryOptions()
   );
   const g = useGlobalParams();
 
@@ -116,8 +116,10 @@ export default function ReportSheetPage() {
             Clear Selections
           </Button>
         </div>
-        {g.params?.selectedStudentIds?.map((p) => (
-          <PrintLayout key={p} studentId={p} />
+        {g.params?.selectedStudentIds?.map((p, i) => (
+          <div key={p} className={cn(i > 0 && "print:break-before-all")}>
+            <PrintLayout studentId={p} />
+          </div>
         ))}
       </div>
     </div>
@@ -134,7 +136,7 @@ function ClassroomItem({ classroom }: ClassroomItemProps) {
   const trpc = useTRPC();
   const store = useStore();
   const classroomPrintData = useStore(
-    (s) => s.classroomPrintData[classroom.postId],
+    (s) => s.classroomPrintData[classroom.postId]
   );
   const storeStudents = classroomPrintData?.classroomData?.students;
   const { data: printData, isLoading: isLoadingPrintData } = useQuery(
@@ -142,8 +144,8 @@ function ClassroomItem({ classroom }: ClassroomItemProps) {
       { classRoomId: classroom.postId },
       {
         enabled: isOpen && !storeStudents?.length,
-      },
-    ),
+      }
+    )
   );
   useEffect(() => {
     if (!printData?.classroomData?.students?.length) return;
@@ -152,10 +154,10 @@ function ClassroomItem({ classroom }: ClassroomItemProps) {
     const sorted = sortClassroomStudents([...students], "grade");
     sorted.map((a, i) => {
       const totalSubjects = a.subjectAssessments.filter((b) =>
-        b.assessments?.some((a) => !!a.subjectAssessment?.obtainable),
+        b.assessments?.some((a) => !!a.subjectAssessment?.obtainable)
       )?.length;
       const sittedSubjects = a.subjectAssessments.filter((b) =>
-        b.assessments?.some((a) => !!a.studentAssessment?.markObtained),
+        b.assessments?.some((a) => !!a.studentAssessment?.markObtained)
       )?.length;
       store.update(`studentGrade.${a.postId}`, {
         totalScore: a.totalScore!,
@@ -191,7 +193,7 @@ function ClassroomItem({ classroom }: ClassroomItemProps) {
         const newRes = e
           ? [...(g.params.printFilterClassIds || []), classroom.postId]
           : g.params.printFilterClassIds?.filter(
-              (a) => a != classroom.postId,
+              (a) => a != classroom.postId
             ) || null;
         g.setParams({
           printFilterClassIds: newRes,
@@ -219,7 +221,7 @@ function ClassroomItem({ classroom }: ClassroomItemProps) {
                   <TableRow
                     className={
                       cn(
-                        g.params.selectedStudentIds?.includes(student.postId),
+                        g.params.selectedStudentIds?.includes(student.postId)
                       ) && "cursor-pointer"
                     }
                     onClick={(e) => {
@@ -233,7 +235,7 @@ function ClassroomItem({ classroom }: ClassroomItemProps) {
                         disabled={!grade?.sittedSubjects}
                         checked={
                           !!g.params.selectedStudentIds?.includes(
-                            student.postId,
+                            student.postId
                           )
                         }
                         onCheckedChange={(checked) => {
@@ -243,7 +245,7 @@ function ClassroomItem({ classroom }: ClassroomItemProps) {
                                 student.postId,
                               ]
                             : g.params.selectedStudentIds?.filter(
-                                (a) => a != student.postId,
+                                (a) => a != student.postId
                               ) || null;
                           g.setParams({
                             selectedStudentIds: newRes,
@@ -268,7 +270,7 @@ function ClassroomItem({ classroom }: ClassroomItemProps) {
                             payment.status === "paid"
                               ? "bg-green-500"
                               : "bg-red-500",
-                            "text-white",
+                            "text-white"
                           )}
                         >
                           {payment.term} - {payment.paymentType}

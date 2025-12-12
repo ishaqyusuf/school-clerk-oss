@@ -69,8 +69,10 @@ export default function Page() {
         </div>
       </div>
       <div className="hidden  flex-col print:flex">
-        {studentIds?.map((studentId) => (
-          <StudentReportPage studentId={studentId} key={studentId} />
+        {studentIds?.map((studentId, i) => (
+          <div key={studentId} className={cn(i > 0 && "break-before-page ")}>
+            <StudentReportPage studentId={studentId} key={studentId} />
+          </div>
         ))}
       </div>
     </ReportPageProvider>

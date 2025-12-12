@@ -74,7 +74,7 @@ export function PrintLayout(props: PrintLayoutProps) {
                       ci == 0 && "first"
                     )}
                   >
-                    <div className="inline-flex">
+                    <div className="flex flex-col justify-center">
                       <span>{c.label}</span>
                       {c.subLabel ? <span>{c.subLabel}</span> : null}
                     </div>

@@ -132,8 +132,11 @@ div.result-lines-lg table.result th:nth-child(4) {
 div.result-lines-lg table.result td {
   @apply p-1.5 text-xl;
 }
+div.result-lines-sm {
+  @apply print:py-10;
+}
 div.result-lines-sm table.result td {
-  @apply p-6 text-2xl;
+  @apply p-8 text-2xl;
 }
 table.result td.first {
   @apply font-bold;
@@ -146,6 +149,9 @@ div.result-lines-lg p#schoolName {
 }
 div.result-lines-sm p#schoolName {
   @apply text-3xl;
+}
+div.result-lines-sm table {
+  @apply mt-8;
 }
 div.result-lines-lg p#address {
   @apply text-xl font-semibold;

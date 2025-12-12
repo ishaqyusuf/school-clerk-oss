@@ -73,14 +73,16 @@ export function NavsList({ mobile = false }) {
                       setExpandModule(module?.name);
                     }}
                     className={cn(
-                      "flex justify-betweens justify-end gap-2 items-center uppercase pl-4 text-sm font-medium text-muted-foreground cursor-pointer h-6",
+                      "flex justify-between  gap-2 items-center uppercase pl-4 text-sm text-xs font-bold text-muted-foreground cursor-pointer h-8",
                       !isExpanded && "hidden",
-                      isExpanded && !show && "border-bs border-muted-foreground"
+                      !mobile ? "pr-4" : "",
+                      isExpanded && !show && "border-b border-muted"
                     )}
                   >
-                    {module.name}
+                    <span>{module.name}</span>
                     <Icons.ChevronDown
                       className={cn(
+                        "size-4",
                         isActiveModule || isExpandedModule ? "" : "-rotate-90"
                       )}
                     />

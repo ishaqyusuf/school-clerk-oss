@@ -407,7 +407,7 @@ async function getDataList<T>(ctx, dataQuery) {
       ({
         postId,
         ...(data as any),
-      }) as T
+      } as T)
   );
 }
 
@@ -647,7 +647,10 @@ export async function getStudentsPrintdata(
     }));
   if (!studentIdsArray.length)
     throw new Error(
-      `student ids not found: ${JSON.stringify({ studentIds, studentIdsArray })}`
+      `student ids not found: ${JSON.stringify({
+        studentIds,
+        studentIdsArray,
+      })}`
     );
   const students = await getDataList<Student>(ctx, [
     pathEquals("type", "student" as PostTypes),
@@ -734,7 +737,9 @@ export async function getStudentsPrintdata(
                       ?.filter((a) => a.assessmentType == "primary")
                       .map((a) => ({
                         label: a.label,
-                        subLabel: `(${a.obtainable ? enToAr(a.obtainable) : "-"})`,
+                        subLabel: `(${
+                          a.obtainable ? enToAr(a.obtainable) : "-"
+                        })`,
                       })),
                     {
                       label: `المجموع الكلي`,
@@ -936,7 +941,8 @@ export function getResultComment(score) {
     },
   ];
 
-  const comment = comments.find((c) => score >= c.min && score <= c.max);
+  // const comment = comments.find((c) => score >= c.min && score <= c.max);
+  const comment = comments.find((c) => score > c.min - 1 && score < c.max + 1);
   return comment
     ? comment
     : { arabic: "درجة غير صالحة", english: "Invalid score" };
