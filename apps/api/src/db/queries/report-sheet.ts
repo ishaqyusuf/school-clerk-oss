@@ -21,15 +21,24 @@ export async function getClassroomReportSheet(
     select: {
       departmentName: true,
       subjects: {
+        where: {
+          deletedAt: null,
+        },
         select: {
           id: true,
           assessments: {
+            where: {
+              deletedAt: null,
+            },
             select: {
               title: true,
               percentageObtainable: true,
               obtainable: true,
               index: true,
               assessmentResults: {
+                where: {
+                  deletedAt: null,
+                },
                 select: {
                   obtained: true,
                   percentageScore: true,
@@ -61,11 +70,15 @@ export async function getClassroomReportSheet(
         where: {
           sessionTermId: query.sessionTermId,
           deletedAt: null,
+          student: {
+            deletedAt: null,
+          },
         },
         select: {
           id: true,
           student: {
             select: {
+              id: true,
               gender: true,
               name: true,
               otherName: true,
@@ -75,6 +88,16 @@ export async function getClassroomReportSheet(
         },
       },
     },
+  });
+
+  // const duplicateTermSheets =
+  department.studentTermForms.map((stf) => {
+    const dups = department.studentTermForms.filter(
+      (s) => s.student?.id === stf?.student?.id
+    );
+    if (dups.length > 1) {
+      // duplicates found
+    }
   });
   return department;
 }

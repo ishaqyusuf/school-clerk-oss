@@ -216,6 +216,13 @@ function ReportHeader({ studentId }) {
               </span>
             </div>
             <div className="">
+              <span className="text-black/70">النسبة المئوية</span>
+              <span>:</span>
+              <span className="mx-1 border-b border-muted-foreground">
+                {`${enToAr(data?.grade?.percentage)}%`}
+              </span>
+            </div>
+            {/* <div className="">
               <span className="text-black/70">المجموع الكلي</span>
               <span>:</span>
               <span className="mx-1 border-b border-muted-foreground">
@@ -223,7 +230,7 @@ function ReportHeader({ studentId }) {
                   data?.grade?.obtainable
                 )}`}
               </span>
-            </div>
+            </div> */}
             {/* <div className="">
               <span className="text-black/70">عدد الطلاب في الفصل</span>
               <span>:</span>

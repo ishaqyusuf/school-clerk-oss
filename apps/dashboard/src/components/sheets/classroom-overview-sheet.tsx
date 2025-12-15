@@ -49,7 +49,7 @@ export function Content({}) {
   const { data: classRoom } = useSuspenseQuery(
     _trpc.classrooms.getClassroomOverview.queryOptions(
       {
-        departmentId: params.viewClassroomId,
+        departmentId: params.viewClassroomId || "-",
       },
       {
         enabled: isOpen,

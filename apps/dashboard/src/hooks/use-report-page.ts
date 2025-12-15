@@ -4,6 +4,7 @@ import { _trpc } from "@/components/static-trpc";
 import { useQuery } from "@tanstack/react-query";
 import { enToAr, sum } from "@school-clerk/utils";
 import { getResultComment } from "@api/db/queries/first-term-data";
+import { subjectsArray } from "@/app/dashboard/[domain]/migration/constants";
 
 const assessmentOrder = ["الحضور", "الاختبار", "الامتحان"];
 type ReportPageContext = ReturnType<typeof createReportPageContext>;
@@ -34,7 +35,7 @@ export const createReportPageContext = () => {
   const calculatedReport = useMemo(() => {
     const totalStudents = reportData?.studentTermForms.length;
     const students =
-      reportData?.studentTermForms?.map((tf) => {
+      reportData?.studentTermForms?.map((tf, tfi) => {
         const subjectList = reportData?.subjects?.map((subject) => {
           const assessments = subject.assessments.map((_as) => {
             const record = _as.assessmentResults.find(
@@ -44,10 +45,12 @@ export const createReportPageContext = () => {
               record?.percentageScore || record?.obtained
                 ? _as?.percentageObtainable === _as?.obtainable
                   ? record?.obtained
-                  : sum([
+                  : _as.percentageObtainable
+                  ? sum([
                       (record?.obtained / _as.obtainable) *
                         _as.percentageObtainable,
                     ])
+                  : null
                 : null;
 
             return {
@@ -97,17 +100,17 @@ export const createReportPageContext = () => {
               {
                 value: `${enToAr(si + 1)}. ${subject.title}`,
               },
-              ...subject.assessments
+              ...assessments
                 //  .filter((a) => a.assessmentType == "primary")
                 .map((a) => ({
                   value: a.obtained,
                 })),
               {
                 value: sum(
-                  subject.assessments
+                  assessments
                     //  .filter((a) => a.assessmentType == "primary")
                     .map((a) => a.obtained)
-                ),
+                ), //.toFixed(2),
               },
             ],
           });
@@ -128,21 +131,16 @@ export const createReportPageContext = () => {
           position: 0,
           percentage: 0,
         };
-        grade.percentage = sum([(grade.obtained / grade.obtainable) * 100]);
+        grade.percentage = +sum([
+          (grade.obtained / grade.obtainable) * 100,
+        ]).toFixed(1);
         const comment = getResultComment(grade.percentage);
         if (
           subjectList.some((sl) =>
             sl.assessments.some((a) => Math.floor(a.obtained) === 55)
           )
         ) {
-          // console.log({ obtained, record, _as });
-          // console.log({ grade, subjectList, comment });
         }
-        if (comment.arabic === "درجة غير صالحة")
-          console.log({
-            p: grade.percentage,
-            ar: comment.arabic,
-          });
 
         return {
           termFormId: tf.id,
@@ -152,6 +150,12 @@ export const createReportPageContext = () => {
           subjectList,
           student: tf.student,
           comment,
+          summary: {
+            subjects: subjectList.length,
+            results: subjectList.filter((a) =>
+              a.assessments.some((b) => b.obtained)
+            ).length,
+          },
           //   classroom: { title: tf..classTitle },
         };
         // .flat();

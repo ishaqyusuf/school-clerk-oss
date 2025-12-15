@@ -785,3 +785,21 @@ export async function deleteStudent(
     },
   });
 }
+
+export const deleteTermSheetSchema = z.object({
+  id: z.string(),
+});
+export type DeleteTermSheetSchema = z.infer<typeof deleteTermSheetSchema>;
+
+export async function deleteTermSheet(
+  ctx: TRPCContext,
+  query: DeleteTermSheetSchema
+) {
+  const { db } = ctx;
+  await db.studentTermForm.update({
+    where: { id: query.id },
+    data: {
+      deletedAt: new Date(),
+    },
+  });
+}

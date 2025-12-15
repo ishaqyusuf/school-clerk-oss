@@ -11,6 +11,8 @@ import {
   updateStudentBasicProfile,
   deleteStudentSchema,
   deleteStudent,
+  deleteTermSheetSchema,
+  deleteTermSheet,
 } from "../../db/queries/students";
 import {
   getStudentOverviewSchema,
@@ -41,6 +43,11 @@ export const studentsRouter = createTRPCRouter({
     .input(deleteStudentSchema)
     .mutation(async (props) => {
       return deleteStudent(props.ctx, props.input);
+    }),
+  deleteTermSheet: publicProcedure
+    .input(deleteTermSheetSchema)
+    .mutation(async (props) => {
+      return deleteTermSheet(props.ctx, props.input);
     }),
   updateStudentBasicProfile: publicProcedure
     .input(updateStudentBasicProfileSchema)

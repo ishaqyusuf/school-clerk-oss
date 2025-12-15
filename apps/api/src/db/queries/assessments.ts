@@ -61,6 +61,7 @@ getSubjectAssessmentRecordings: publicProcedure
 */
 export const getSubjectAssessmentRecordingsSchema = z.object({
   deparmentSubjectId: z.string(),
+  termId: z.string().optional().nullable(),
   assessmentIds: z.array(z.number()).optional().nullable(),
 });
 export type GetSubjectAssessmentRecordingsSchema = z.infer<
@@ -110,6 +111,9 @@ export async function getSubjectAssessmentRecordings(
     where: {
       sessionTermId: ds?.sessionTermId,
       classroomDepartmentId: ds.classRoomDepartmentId,
+      student: {
+        deletedAt: null,
+      },
     },
     select: {
       id: true,

@@ -12,6 +12,7 @@ import { getScoreKey } from "@api/db/queries/assessments";
 import { useDebugToast } from "@/hooks/use-debug-console";
 import { X } from "lucide-react";
 import { Spinner } from "@school-clerk/ui/spinner";
+import { useAssessmentRecordingParams } from "@/hooks/use-assessment-recording-params";
 
 interface Props {
   // overview: RouterOutputs["subjects"]["overview"];
@@ -31,9 +32,11 @@ export function AssessmentSubmissions(props: Props) {
   );
 }
 function Content(props: Props) {
+  const { filters, setFilters } = useAssessmentRecordingParams();
   const { data, isPending } = useSuspenseQuery(
     _trpc.assessments.getSubjectAssessmentRecordings.queryOptions({
       deparmentSubjectId: props.deparmentSubjectId, //props.overview?.subject?.id,
+      termId: filters?.termId,
     })
   );
   const store = useAssessmentStore();

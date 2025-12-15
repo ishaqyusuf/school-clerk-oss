@@ -90,7 +90,7 @@ getClassroomOverview: publicProcedure
       }),
 */
 export const getClassroomOverviewSchema = z.object({
-  departmentId: z.string(),
+  departmentId: z.string(), //.optional().nullable(),
 });
 export type GetClassroomOverview = z.infer<typeof getClassroomOverviewSchema>;
 
