@@ -19,7 +19,6 @@ import { Alert, AlertDescription } from "@school-clerk/ui/alert";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { authClient } from "@/auth/client";
 import { debugToast } from "@/hooks/use-debug-console";
-import { changePasswordDefault } from "@/actions/change-password-default";
 import { useWorkspaceStore } from "@/store/workspace";
 import { resetCookie } from "@/actions/cookies/auth-cookie";
 
@@ -47,6 +46,7 @@ export function Client() {
     setError("");
 
     try {
+      // authClient.
       authClient.signIn
         .email({
           email: formData.email,
