@@ -7,6 +7,7 @@ import { Menu } from "@school-clerk/ui/custom/menu";
 import { enToAr } from "@school-clerk/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
+import Link from "next/link";
 
 export function AssessmentRecording() {
   const { filters, permissions, setFilters } = useAssessmentRecordingParams();
@@ -17,7 +18,7 @@ export function AssessmentRecording() {
         sessionTermId: filters?.termId,
       },
       {
-        enabled: permissions.subjects,
+        enabled: permissions.subjects && !!filters?.deptId,
       }
     )
   );
@@ -94,6 +95,14 @@ export function AssessmentRecording() {
                 ))}
               </DropdownMenu.Content>
             </DropdownMenu>
+            {!permissions.classrooms || (
+              <Link
+                target="_blank"
+                href={`/student-report?deptId=${filters.deptId}&permission=all&termId=${filters.termId}`}
+              >
+                Report Sheet
+              </Link>
+            )}
           </Card.Header>
         </div>
         <div className="mt-16 mb-28">
