@@ -3,6 +3,7 @@ import { _qc, _trpc } from "./static-trpc";
 import { ListPlus } from "lucide-react";
 import { DropdownMenu } from "@school-clerk/ui/composite";
 import { Button } from "@school-clerk/ui/button";
+import { useAuth } from "@/hooks/use-auth";
 
 interface Props {
   departmentId: string;
@@ -42,6 +43,7 @@ export function QuickAddSubject(props: Props) {
       },
     })
   );
+  const auth = useAuth();
   if (!subjects?.length) return null;
   return (
     <DropdownMenu>
@@ -58,6 +60,7 @@ export function QuickAddSubject(props: Props) {
                 departmentId: props.departmentId,
                 subjectId: s.id,
                 title: s.title,
+                sessionTermId: auth.profile?.termId,
               });
             }}
             className="pr-8"

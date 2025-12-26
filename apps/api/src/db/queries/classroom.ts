@@ -19,6 +19,11 @@ export async function getClassrooms(
         name: params.className ? params.className : undefined,
         session: {
           id: params.schoolSessionId!,
+          terms: {
+            some: {
+              id: params?.sessionTermId || profile?.termId,
+            },
+          },
         },
       },
     },

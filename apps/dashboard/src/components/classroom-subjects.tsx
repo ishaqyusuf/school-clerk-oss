@@ -6,6 +6,7 @@ import { ClassroomSubjectHeader } from "./classroom-subject-header";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { Item } from "./tables/subjects/columns";
 import { useSubjectParams } from "@/hooks/use-subject-params";
+import { useAuth } from "@/hooks/use-auth";
 
 export function ClassroomSubject({ departmentId }) {
   return (
@@ -18,6 +19,7 @@ export function ClassroomSubject({ departmentId }) {
 function Content({ departmentId }) {
   const { setParams } = useClassroomParams();
   const { setParams: setSubjectParams } = useSubjectParams();
+  const auth = useAuth();
   return (
     <div>
       <ClassroomSubjectHeader departmentId={departmentId} />
@@ -36,11 +38,13 @@ function Content({ departmentId }) {
           });
           setParams({
             secondaryTab: "subject-overview",
+
             // subjectOverviewId: item.id,
           });
         }}
         defaultFilters={{
           departmentId,
+          termId: auth.profile?.termId,
         }}
       />
     </div>

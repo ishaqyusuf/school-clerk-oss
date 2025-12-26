@@ -6,9 +6,11 @@ import { SubjectForm, SubjectFormAction } from "./forms/subject-form";
 import { _qc, _trpc } from "./static-trpc";
 import { useState } from "react";
 import { QuickAddSubject } from "./quick-add-subject";
+import { useAuth } from "@/hooks/use-auth";
 
 export function ClassroomSubjectHeader({ departmentId }) {
   const [open, setOpen] = useState(false);
+  const auth = useAuth();
   return (
     <div className="flex gap-4 flex-col">
       <div className="flex-1 flex">
@@ -32,6 +34,7 @@ export function ClassroomSubjectHeader({ departmentId }) {
           <SubjectForm
             defaultValues={{
               departmentId,
+              sessionTermId: auth.profile?.termId,
             }}
           >
             <div className="flex justify-end">

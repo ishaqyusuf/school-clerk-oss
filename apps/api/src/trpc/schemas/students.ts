@@ -10,11 +10,13 @@ export const getAllSubjectsSchema = z.object({
 export type GetClassroomSubjects = z.infer<typeof getClassroomSubjectsSchema>;
 export const getClassroomSubjectsSchema = z.object({
   departmentId: z.string(),
+  sessionTermId: z.string(),
 });
 export const getSubjectsSchema = z
   .object({
     q: z.string().optional().nullable(),
     departmentId: z.string().optional().nullable(),
+    termId: z.string().optional().nullable(),
   })
   .merge(paginationSchema);
 export type GetSubjectsSchema = z.infer<typeof getSubjectsSchema>;

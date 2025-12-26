@@ -3,18 +3,31 @@ import { AssessmentSubmissions } from "@/components/asessment-submissions";
 import { _trpc } from "@/components/static-trpc";
 import { useAssessmentRecordingParams } from "@/hooks/use-assessment-recording-params";
 import { Card, DropdownMenu } from "@school-clerk/ui/composite";
+import { Menu } from "@school-clerk/ui/custom/menu";
+import { enToAr } from "@school-clerk/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 
 export function AssessmentRecording() {
-  const { filters, setFilters } = useAssessmentRecordingParams();
+  const { filters, permissions, setFilters } = useAssessmentRecordingParams();
   const { data } = useQuery(
     _trpc.subjects.byClassroom.queryOptions(
       {
         departmentId: filters?.deptId,
+        sessionTermId: filters?.termId,
       },
       {
-        enabled: filters.permission === "classroom",
+        enabled: permissions.subjects,
+      }
+    )
+  );
+  const { data: departments } = useQuery(
+    _trpc.classrooms.all.queryOptions(
+      {
+        sessionTermId: filters.termId,
+      },
+      {
+        enabled: permissions.classrooms,
       }
     )
   );
@@ -29,6 +42,25 @@ export function AssessmentRecording() {
             className="bg-background flex flex-row gap-4 items-center h-16"
             dir="rtl"
           >
+            {!departments?.data?.length || (
+              <>
+                <Menu>
+                  {departments?.data?.map((dept) => (
+                    <Menu.Item
+                      onClick={(e) => {
+                        setFilters({
+                          deptId: dept.id,
+                        });
+                      }}
+                      dir="rtl"
+                      key={dept?.id}
+                    >
+                      {dept?.displayName}
+                    </Menu.Item>
+                  ))}
+                </Menu>
+              </>
+            )}
             <Card.Title>{department?.departmentName}</Card.Title>
             {/* <Separator orientation="vertical" className="h-full" /> */}
             <DropdownMenu dir="rtl">
@@ -44,7 +76,7 @@ export function AssessmentRecording() {
                 </div>
               </DropdownMenu.Trigger>
               <DropdownMenu.Content>
-                {subjects?.map((s) => (
+                {subjects?.map((s, i) => (
                   <DropdownMenu.Item
                     onClick={(e) => {
                       setFilters({
@@ -55,7 +87,8 @@ export function AssessmentRecording() {
                     key={s.id}
                   >
                     <>
-                      {s.subject?.title} | {s.submissionPercentage}%
+                      {enToAr(i + 1)}.{s.subject?.title} |{" "}
+                      {s.submissionPercentage}%
                     </>
                   </DropdownMenu.Item>
                 ))}

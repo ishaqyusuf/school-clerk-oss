@@ -64,6 +64,10 @@ function whereSubjects(query: GetSubjectsSchema) {
       classRoomDepartmentId: query.departmentId,
     });
   }
+  if (query.termId)
+    where.push({
+      sessionTermId: query.termId,
+    });
   return composeQuery(where);
 }
 /*
@@ -159,6 +163,9 @@ export async function getClassroomSubjects(
         },
       },
       subjects: {
+        where: {
+          sessionTermId: params.sessionTermId,
+        },
         select: {
           id: true,
           sessionTermId: true,

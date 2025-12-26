@@ -62,7 +62,7 @@ export function StudentReportFilter() {
       <Item.Separator />
       <Item asChild>
         <a
-          href={`/assessment-recording?deptId=${filters.departmentId}&permission=classroom`}
+          href={`/assessment-recording?deptId=${filters.departmentId}&permission=all&termId=${filters.termId}`}
           target="_blank"
         >
           <Item.Content>

@@ -5,10 +5,15 @@ export function useAssessmentRecordingParams() {
     deptSubjectId: parseAsString,
     deptId: parseAsString,
     termId: parseAsString,
-    permission: parseAsStringEnum(["classroom", "subject"]),
+    permission: parseAsStringEnum(["classroom", "subject", "all"]),
   });
+  const permissions = {
+    subjects: ["classroom", "all"].includes(filters.permission),
+    classrooms: ["all"].includes(filters.permission),
+  };
   return {
     filters,
     setFilters,
+    permissions,
   };
 }
