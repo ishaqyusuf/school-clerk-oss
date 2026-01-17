@@ -18,6 +18,8 @@ export function StudentReportPage({ studentId }) {
         `result-lines-${data?.lineCount}`,
         data?.lineCount > 8
           ? "result-lines-lg space-y-4"
+          : data?.lineCount > 5
+          ? "result-lines-md space-y-4"
           : "result-lines-sm space-y-8",
         "h-[297mm]"
         // g.params.printHideSubjects || "--h-[11.6in] h-[297mm]"

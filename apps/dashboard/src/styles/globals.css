@@ -153,6 +153,9 @@ div.result-lines-sm {
 div.result-lines-sm table.result td {
   @apply p-8 text-2xl;
 }
+div.result-lines-md table.result td {
+  @apply p-5 text-2xl;
+}
 table.result td.first {
   @apply font-bold;
 }
@@ -162,7 +165,8 @@ table.result.lines-5 th.last {
 div.result-lines-lg p#schoolName {
   @apply text-2xl;
 }
-div.result-lines-sm p#schoolName {
+div.result-lines-sm p#schoolName,
+div.result-lines-md p#schoolName {
   @apply text-3xl;
 }
 div.result-lines-sm table {
@@ -175,6 +179,7 @@ div.result-lines-sm p#address {
   @apply text-2xl;
 }
 div.result-lines-lg div#signature,
+div.result-lines-md div#signature,
 div.result-lines-sm div#signature {
   @apply pt-8;
 }
