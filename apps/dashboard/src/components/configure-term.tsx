@@ -19,10 +19,14 @@ import { z } from "zod";
 import { useZodForm } from "@/hooks/use-zod-form";
 import { FormDate } from "@school-clerk/ui/controls/form-date";
 import { FormInput } from "@school-clerk/ui/controls/form-input";
+import { useRouter } from "next/navigation";
 export const ConfigureTerm = ({ termId }) => {
+  const router = useRouter();
   const { mutate: saveAndProceed, isPending: isSaving } = useMutation(
     _trpc.academics.saveTermMetaData.mutationOptions({
-      onSuccess(data, variables, onMutateResult, context) {},
+      onSuccess(data, variables, onMutateResult, context) {
+        router.push(`/academic/term-getting-started/${termId}/data-migration`);
+      },
       onError(error, variables, onMutateResult, context) {},
       meta: {
         toastTitle: {
@@ -39,9 +43,10 @@ export const ConfigureTerm = ({ termId }) => {
   );
   const schema = z.object({
     id: z.string(),
-    startDate: z.string(),
+    startDate: z.date(),
     title: z.string().optional().nullable(),
-    endDate: z.string().optional().nullable(),
+    endDate: z.date().optional().nullable(),
+    note: z.string().optional().nullable(),
   });
   const form = useZodForm(schema, {
     defaultValues: {
@@ -49,6 +54,7 @@ export const ConfigureTerm = ({ termId }) => {
       startDate: undefined as any,
       endDate: undefined as any,
       title: "",
+      note: "",
     },
   });
   useEffect(() => {
@@ -72,13 +78,18 @@ export const ConfigureTerm = ({ termId }) => {
   const formData = form.watch();
   return (
     <form
-      onSubmit={form.handleSubmit((data) => {
-        saveAndProceed({
-          termId: data.id,
-          startDate: new Date(data.startDate),
-          endDate: data.endDate ? new Date(data.endDate) : null,
-        });
-      })}
+      onSubmit={form.handleSubmit(
+        (data) => {
+          saveAndProceed({
+            termId: data.id,
+            startDate: new Date(data.startDate),
+            endDate: data.endDate ? new Date(data.endDate) : null,
+          });
+        },
+        (arg) => {
+          console.log("Form errors:", arg);
+        },
+      )}
     >
       <div className="animate-in fade-in slide-in-from-right-4 duration-500 max-w-5xl mx-auto space-y-8">
         {/* Breadcrumb */}
