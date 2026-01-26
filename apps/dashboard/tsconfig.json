@@ -21,7 +21,8 @@
     "next.config.js",
     "tailwind.config.ts",
     ".next/types/**/*.ts",
-    "../../packages/ui/src/components/nav/mobile-menu.tsx"
+    "../../packages/ui/src/components/nav/mobile-menu.tsx",
+    "src/app/dashboard/[domain]/(sidebar)/academic/(dashboard)/term-getting-started/[id]"
   ],
   "exclude": ["node_modules", ".next"]
 }

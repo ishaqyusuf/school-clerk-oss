@@ -1,6 +1,11 @@
 import { Fragment, InputHTMLAttributes, useState } from "react";
 
-import { ControllerProps, FieldPath, FieldValues } from "react-hook-form";
+import {
+  Controller,
+  ControllerProps,
+  FieldPath,
+  FieldValues,
+} from "react-hook-form";
 
 import { Button } from "@school-clerk/ui/button";
 import {
@@ -20,6 +25,7 @@ import {
 import { useDataSkeleton } from "@/hooks/use-data-skeleton";
 import { cn } from "../../utils";
 import { Eye, EyeOff } from "lucide-react";
+import { Field } from "../composite";
 interface Props<T> {
   label?: string;
   placeholder?: string;
@@ -66,26 +72,25 @@ export function FormInput<
   const isPassword = type == "password";
 
   return (
-    <FormField
+    <Controller
       {...(props as any)}
       render={({ field, fieldState }) => {
         return (
-          <FormItem
+          <Field
             className={cn(
               className,
               props.disabled && "text-muted-foreground",
-              "mx-1"
+              "mx-1",
             )}
           >
             {label && (
-              <FormLabel className={cn(fieldState.error && "border-red-400")}>
+              <Field.Label className={cn(fieldState.error && "border-red-400")}>
                 {label}
-              </FormLabel>
+              </Field.Label>
             )}
-            <FormControl
-              {...inputProps}
-              className={cn("relative", inputProps?.className)}
-            >
+            {/* // {...inputProps}
+            // className={cn("relative", inputProps?.className)} */}
+            <>
               {load?.loading ? (
                 <Skeleton className="h-8 w-full" />
               ) : numericProps ? (
@@ -123,7 +128,7 @@ export function FormInput<
                   className={cn(
                     "relative",
                     (suffix || prefix) && "flex items-center space-x-1",
-                    ""
+                    "",
                   )}
                 >
                   {!PrefixIcon || (
@@ -133,7 +138,7 @@ export function FormInput<
                     <div
                       className={cn(
                         size == "sm" && "",
-                        "sbg-muted-foreground/50 h-full px-1 text-sm"
+                        "sbg-muted-foreground/50 h-full px-1 text-sm",
                       )}
                     >
                       {prefix}
@@ -166,7 +171,7 @@ export function FormInput<
                         uppercase && "uppercase",
                         fieldState.error && "border-red-400",
                         size == "sm" && "h-8",
-                        !PrefixIcon || "pl-10"
+                        !PrefixIcon || "pl-10",
                       )}
                       {...(list
                         ? {
@@ -180,7 +185,7 @@ export function FormInput<
                         if (type == "number")
                           e.target.value
                             ? field.onChange(
-                                e.target.value ? Number(e.target.value) : ""
+                                e.target.value ? Number(e.target.value) : "",
                               )
                             : field.onChange(null);
                         else field.onChange(e);
@@ -212,8 +217,8 @@ export function FormInput<
                   )}
                 </div>
               )}
-            </FormControl>
-          </FormItem>
+            </>
+          </Field>
         );
       }}
     />

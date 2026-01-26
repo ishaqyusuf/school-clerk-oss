@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useDataSkeleton } from "@/hooks/use-data-skeleton";
 import { cn } from "../../utils";
-import { ControllerProps, FieldPath, FieldValues } from "react-hook-form";
-import { Button } from "@school-clerk/ui/button";
 import {
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-} from "@school-clerk/ui/form";
+  Controller,
+  ControllerProps,
+  FieldPath,
+  FieldValues,
+} from "react-hook-form";
+import { Button } from "@school-clerk/ui/button";
+
 import { Skeleton } from "@school-clerk/ui/skeleton";
 
 import { format } from "date-fns";
@@ -19,6 +19,7 @@ import {
 } from "@school-clerk/ui/popover";
 import { Calendar } from "@school-clerk/ui/calendar";
 import { CalendarIcon } from "lucide-react";
+import { Field } from "../composite";
 
 interface Props<T> {
   label?: string;
@@ -31,6 +32,7 @@ interface Props<T> {
   prefix?: string;
   tabIndex?;
   dateFormat?: DateFormats;
+  description?: string;
   calendarProps?: any;
 }
 export type DateFormats =
@@ -57,26 +59,27 @@ export function FormDate<
   size = "default",
   dateFormat = "dd/MM/yy",
   calendarProps,
+  description,
   ...props
 }: Partial<ControllerProps<TFieldValues, TName>> & Props<TOptionType>) {
   const load = useDataSkeleton();
   const [open, setOpen] = useState(false);
   return (
-    <FormField
+    <Controller
       {...(props as any)}
       render={({ field, fieldState }) => (
-        <FormItem
+        <Field
           className={cn(
             className,
             props.disabled && "text-muted-foreground",
             "mx-1",
-            "flex flex-col"
+            "flex flex-col",
           )}
         >
           {label && (
-            <FormLabel className={cn(fieldState.error && "border-red-400")}>
+            <Field.Label className={cn(fieldState.error && "border-red-400")}>
               {label}
-            </FormLabel>
+            </Field.Label>
           )}
           {/* <FormControl {...inputProps}> */}
           {load?.loading ? (
@@ -84,23 +87,21 @@ export function FormDate<
           ) : (
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
-                <FormControl>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "pl-3 text-left font-normal",
-                      !field.value && "text-muted-foreground",
-                      size == "sm" && "h-8"
-                    )}
-                  >
-                    {field.value ? (
-                      format(field.value, dateFormat)
-                    ) : (
-                      <span>{placeholder || "Pick a date"}</span>
-                    )}
-                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                  </Button>
-                </FormControl>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "pl-3 text-left font-normal",
+                    !field.value && "text-muted-foreground",
+                    size == "sm" && "h-8",
+                  )}
+                >
+                  {field.value ? (
+                    format(field.value, dateFormat)
+                  ) : (
+                    <span>{placeholder || "Pick a date"}</span>
+                  )}
+                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
@@ -117,8 +118,9 @@ export function FormDate<
               </PopoverContent>
             </Popover>
           )}
+          {description && <Field.Description>{description}</Field.Description>}
           {/* </FormControl> */}
-        </FormItem>
+        </Field>
       )}
     />
   );

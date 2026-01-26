@@ -53,6 +53,9 @@ model SchoolSession {
     schoolId  String
     school    SchoolProfile @relation(fields: [schoolId], references: [id])
 
+    startDate DateTime? @db.Timestamp(0)
+    endDate   DateTime? @db.Timestamp(0)
+
     terms             SessionTerm[]
     classRooms        ClassRoom[]
     sessionForms      StudentSessionForm[]

@@ -20,7 +20,7 @@ const Dialog = Object.assign(
     Description: DialogDescription,
     Trigger: DialogTrigger,
     Close: DialogClose,
-  }
+  },
 );
 
 import {
@@ -35,7 +35,7 @@ const Popover = Object.assign(
     Root: PopoverRoot,
     Content: PopoverContent,
     Trigger: PopoverTrigger,
-  }
+  },
 );
 
 import {
@@ -101,7 +101,7 @@ const Tabs = Object.assign(
     List: TabsList,
     Trigger: TabsTrigger,
     Content: TabsContent,
-  }
+  },
 );
 import {
   Select as SelectRoot,
@@ -153,7 +153,7 @@ const HoverCard = Object.assign(
     Root: HoverCardRoot,
     Content: HoverCardContent,
     Trigger: HoverCardTrigger,
-  }
+  },
 );
 export {
   HoverCard,
@@ -174,17 +174,14 @@ import {
   CardContent,
 } from "./card";
 
-const Card = Object.assign(
-  {},
-  {
-    Root: CardRoot,
-    Header: CardHeader,
-    Footer: CardFooter,
-    Title: CardTitle,
-    Description: CardDescription,
-    Content: CardContent,
-  }
-);
+const Card = Object.assign(CardRoot, {
+  Root: CardRoot,
+  Header: CardHeader,
+  Footer: CardFooter,
+  Title: CardTitle,
+  Description: CardDescription,
+  Content: CardContent,
+});
 import {
   InputGroup as InputGroupRoot,
   InputGroupAddon,
