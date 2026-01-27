@@ -6,6 +6,7 @@ import { getAuthCookie } from "./cookies/auth-cookie";
 export async function getTermListAction() {
   const tags = ["term-list"];
   const profile = await getAuthCookie();
+  // profile.
   // return unstable_cache(
   //   async (profile) => {
   const sessions = await prisma.schoolSession.findMany({

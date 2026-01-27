@@ -137,9 +137,9 @@ export const linkModules = [
 
   createNavModule("Academic", "graduation-cap", "Academic", [
     createNavSection("dashboard", null, [
-      createNavLink("Dashboard", "dashboard", "/academic").access(
-        _role.is("Admin"),
-      ).data,
+      createNavLink("Dashboard", "dashboard", "/academic")
+        .access(_role.is("Admin"))
+        .childPaths("/academic").data,
     ]),
     // createNavLink("Student List", "users", "/students/list").access(
     //   _role.in("Admin", "Teacher"),

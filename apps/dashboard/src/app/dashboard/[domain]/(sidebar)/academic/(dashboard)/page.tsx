@@ -47,10 +47,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenModal }) => {
   const [expandedSessionId, setExpandedSessionId] = React.useState<
     string | null
   >("2023-2024");
-  const { data: sessions, isPending } = useQuery(
+  const { data: dashboard, isPending } = useQuery(
     _trpc.academics.dashboard.queryOptions({}),
   );
-
+  const sessions = dashboard?.sessions || [];
   return (
     <div className="animate-in fade-in duration-500">
       {/* Page Header */}

@@ -4,7 +4,7 @@ import { NavsList } from "./navs-list";
 
 interface Props {}
 
-export function Sidebar({}) {
+export function Sidebar({ children }: { children?: React.ReactNode }) {
   const ctx = useSiteNav();
   const { isExpanded, mainMenuRef, setIsExpanded } = ctx;
   return (
@@ -13,10 +13,11 @@ export function Sidebar({}) {
         "h-screen flex-shrink-0 flex-col desktop:overflow-hidden desktop:rounded-tl-[10px] desktop:rounded-bl-[10px] justify-between fixed top-0 pb-4 items-center hidden md:block z-50 transition-all duration-200 ease-&lsqb;cubic-bezier(0.4,0,0.2,1)&rsqb;",
 
         "bg-background border-r border-border",
-        isExpanded ? "w-[240px]" : "w-[70px]"
+        isExpanded ? "w-[240px]" : "w-[70px]",
       )}
     >
-      {/* {children} */}
+      {children}
+
       <div
         ref={mainMenuRef}
         onMouseEnter={() => setIsExpanded(true)}

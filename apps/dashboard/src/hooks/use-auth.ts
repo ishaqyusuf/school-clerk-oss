@@ -22,6 +22,7 @@ export function useAuth(props?: Props) {
   return {
     isPending,
     sessionId: data?.session?.id,
+    // termId: data?.session?.term
     id: data?.user?.id,
     email: data?.user?.email,
     name: data?.user?.name,
