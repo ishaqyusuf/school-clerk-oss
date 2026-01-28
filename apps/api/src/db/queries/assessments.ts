@@ -20,7 +20,7 @@ export type SaveAssessementSchema = z.infer<typeof saveAssessementSchema>;
 
 export async function saveAssessement(
   ctx: TRPCContext,
-  data: SaveAssessementSchema
+  data: SaveAssessementSchema,
 ) {
   const { db } = ctx;
   const {
@@ -70,7 +70,7 @@ export type GetSubjectAssessmentRecordingsSchema = z.infer<
 
 export async function getSubjectAssessmentRecordings(
   ctx: TRPCContext,
-  query: GetSubjectAssessmentRecordingsSchema
+  query: GetSubjectAssessmentRecordingsSchema,
 ) {
   const { db } = ctx;
   const ds = await db.departmentSubject.findUniqueOrThrow({
@@ -149,7 +149,7 @@ export async function getSubjectAssessmentRecordings(
       name: studentDisplayName(s.student as any),
       assessments: ds.assessments.map((a) => {
         const result = a.assessmentResults.find(
-          (r) => r.studentTermFormId === s.id
+          (r) => r.studentTermFormId === s.id,
         );
         return {
           id: result?.id,
@@ -171,7 +171,7 @@ export async function getSubjectAssessmentRecordings(
     })),
   };
   const scores = Object.fromEntries(
-    data.students.flatMap((s) => s.assessments).map((a) => [a.scoreKey, a])
+    data.students.flatMap((s) => s.assessments).map((a) => [a.scoreKey, a]),
   );
   const students = data.students.map(({ assessments, ...student }) => ({
     ...student,
@@ -196,7 +196,7 @@ export type UpdateAssessmentScoreSchema = z.infer<
 
 export async function updateAssessmentScore(
   ctx: TRPCContext,
-  data: UpdateAssessmentScoreSchema
+  data: UpdateAssessmentScoreSchema,
 ) {
   const { db } = ctx;
   if (data.id) {
@@ -239,7 +239,7 @@ export type GetAssessmentSuggestionsSchema = z.infer<
 
 export async function getAssessmentSuggestions(
   ctx: TRPCContext,
-  query: GetAssessmentSuggestionsSchema
+  query: GetAssessmentSuggestionsSchema,
 ) {
   const { db } = ctx;
   const list = await db.classroomSubjectAssessment.findMany({
@@ -251,14 +251,13 @@ export async function getAssessmentSuggestions(
     },
   });
   const uList = uniqueList(list, "title", "obtainable", "percentageObtainable");
-  consoleLog("UL", uList);
   return uList
     .filter((a) => {
       if (a.departmentSubjectId === query?.deptSubjectId) return false;
       if (
         list.some((b) => {
           const match = ["obtainable", "percentageObtainable", "title"].every(
-            (c) => a[c] === b[c]
+            (c) => a[c] === b[c],
           );
           return match && b.departmentSubjectId === query?.deptSubjectId;
         })

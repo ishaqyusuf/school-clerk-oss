@@ -18,6 +18,7 @@ import {
 } from "@api/db/queries/classroom";
 import { z } from "zod";
 import { constructNow, differenceInDays, sub, subDays } from "date-fns";
+import { consoleLog } from "@school-clerk/utils";
 
 export const academicsRouter = createTRPCRouter({
   dashboard: publicProcedure.input(z.object({})).query(async (props) => {
@@ -416,6 +417,19 @@ export const academicsRouter = createTRPCRouter({
       // return migrateTermData(props.ctx, props.input);
       return db.$transaction(async (tx) => {
         // Migrate Subjects
+        await Promise.all([
+          tx.departmentSubject.deleteMany({
+            where: {
+              sessionTermId: input.termId,
+            },
+          }),
+          tx.studentTermForm.deleteMany({
+            where: {
+              sessionTermId: input.termId,
+            },
+          }),
+        ]);
+
         const previousTermId = props.input.previousTermId;
         if (
           input.subjectOption === "copy-all" ||
@@ -424,9 +438,9 @@ export const academicsRouter = createTRPCRouter({
           const previousTermSubjects = await tx.departmentSubject.findMany({
             where: {
               sessionTermId: previousTermId,
-              ...(input.subjectOption === "select" && {
-                subjectId: { in: input.selectedSubjectIds || [] },
-              }),
+              // ...(input.subjectOption === "select" && {
+              //   subjectId: { in: input.selectedSubjectIds || [] },
+              // }),
             },
             select: {
               subjectId: true,
@@ -443,15 +457,16 @@ export const academicsRouter = createTRPCRouter({
               // },
             },
           });
-          const newDeptSubjects =
-            await tx.departmentSubject.createManyAndReturn({
-              data: previousTermSubjects.map((ds) => ({
-                subjectId: ds.subjectId,
-                classRoomDepartmentId: ds.classRoomDepartmentId,
-                description: ds.description,
-                sessionTermId: input.termId,
-              })),
-            });
+          // const newDeptSubjects =
+          const subjects = await tx.departmentSubject.createManyAndReturn({
+            data: previousTermSubjects.map((ds) => ({
+              subjectId: ds.subjectId,
+              classRoomDepartmentId: ds.classRoomDepartmentId,
+              description: ds.description,
+              sessionTermId: input.termId,
+            })),
+          });
+          // consoleLog("DEPARTMENT SUBJECTs", previousTermSubjects.length);
         }
         // Migrate Students
         if (input.studentOption === "copy-all") {
@@ -479,7 +494,7 @@ export const academicsRouter = createTRPCRouter({
             ),
           });
         }
-        throw new Error("Not implemented yet");
+        // throw new Error("Not implemented yet");
       });
     }),
 });

@@ -23,6 +23,7 @@ function Content({ departmentId }) {
   return (
     <div>
       <ClassroomSubjectHeader departmentId={departmentId} />
+
       <DataTable
         grid
         className="lg:grid-cols-2"
