@@ -18,7 +18,7 @@ export function AssessmentRecording() {
         sessionTermId: filters?.termId,
       },
       {
-        enabled: permissions.subjects && !!filters?.deptId,
+        // enabled: permissions.subjects && !!filters?.deptId,
       },
     ),
   );

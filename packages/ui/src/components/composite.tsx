@@ -279,3 +279,24 @@ const Collapsible = Object.assign(CollapsibleBase, {
 });
 
 export { Collapsible };
+
+import {
+  Table as TableBase,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+  TableFooter,
+} from "./table";
+
+const Table = Object.assign(TableBase, {
+  Header: TableHeader,
+  Row: TableRow,
+  Head: TableHead,
+  Body: TableBody,
+  Cell: TableCell,
+  Footer: TableFooter,
+});
+
+export { Table };
