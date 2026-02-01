@@ -42,7 +42,12 @@ export default async function proxy(req: NextRequest) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
-  if (!session && url.pathname !== "/login") {
+  if (
+    !session &&
+    url.pathname !== "/login" &&
+    !url.pathname.includes("/student-report") &&
+    !url.pathname.includes("/assessment-recording")
+  ) {
     const url = new URL("/login", req.url);
 
     if (encodedSearchParams) {

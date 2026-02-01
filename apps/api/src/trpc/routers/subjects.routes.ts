@@ -21,14 +21,14 @@ import {
 } from "../schemas/students";
 export const subjectsRouter = createTRPCRouter({
   getSubjects: publicProcedure.input(getSubjectsSchema).query(async (props) => {
-    // await props.ctx.db.departmentSubject.updateMany({
-    //   where: {
-    //     description: `حفظ القرآن`,
-    //   },
-    //   data: {
-    //     description: `تحفيظ القرآن`,
-    //   },
-    // });
+    await props.ctx.db.subject.updateMany({
+      where: {
+        title: `حفظ القرآن`,
+      },
+      data: {
+        title: `تحفيظ القرآن`,
+      },
+    });
     return getSubjects(props.ctx, props.input);
   }),
   all: publicProcedure.input(getAllSubjectsSchema).query(async (q) => {
