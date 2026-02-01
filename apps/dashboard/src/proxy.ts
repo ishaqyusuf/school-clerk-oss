@@ -48,6 +48,8 @@ export default async function proxy(req: NextRequest) {
     !url.pathname.includes("/student-report") &&
     !url.pathname.includes("/assessment-recording")
   ) {
+    // TODO: check if domain tenant exists, else redirect to tenant not found page
+
     const url = new URL("/login", req.url);
 
     if (encodedSearchParams) {

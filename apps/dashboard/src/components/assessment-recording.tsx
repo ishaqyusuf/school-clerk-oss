@@ -19,8 +19,8 @@ export function AssessmentRecording() {
       },
       {
         enabled: permissions.subjects && !!filters?.deptId,
-      }
-    )
+      },
+    ),
   );
   const { data: departments } = useQuery(
     _trpc.classrooms.all.queryOptions(
@@ -29,8 +29,8 @@ export function AssessmentRecording() {
       },
       {
         enabled: permissions.classrooms,
-      }
-    )
+      },
+    ),
   );
   if (!data) return null;
   const { subjects, ...department } = data;
@@ -64,38 +64,40 @@ export function AssessmentRecording() {
             )}
             <Card.Title>{department?.departmentName}</Card.Title>
             {/* <Separator orientation="vertical" className="h-full" /> */}
-            <DropdownMenu dir="rtl">
-              <DropdownMenu.Trigger
-                dir="rtl"
-                className="flex rounded-xl border-border border items-center p-0.5 px-2 gap-2 w-[56px]s  w-min "
-              >
-                <Card.Description className="whitespace-nowrap">
-                  {subject?.subject?.title}
-                </Card.Description>
-                <div className="rounded-full size-4 p-0">
-                  <ChevronDown className="size-4" />
-                </div>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content>
-                {subjects?.map((s, i) => (
-                  <DropdownMenu.Item
-                    onClick={(e) => {
-                      setFilters({
-                        deptSubjectId: s.id,
-                      });
-                    }}
-                    dir="rtl"
-                    key={s.id}
-                  >
-                    <>
-                      {enToAr(i + 1)}.{s.subject?.title} |{" "}
-                      {s.submissionPercentage}%
-                    </>
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.Content>
-            </DropdownMenu>
             {!permissions.classrooms || (
+              <DropdownMenu dir="rtl">
+                <DropdownMenu.Trigger
+                  dir="rtl"
+                  className="flex rounded-xl border-border border items-center p-0.5 px-2 gap-2 w-[56px]s  w-min "
+                >
+                  <Card.Description className="whitespace-nowrap">
+                    {subject?.subject?.title}
+                  </Card.Description>
+                  <div className="rounded-full size-4 p-0">
+                    <ChevronDown className="size-4" />
+                  </div>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content>
+                  {subjects?.map((s, i) => (
+                    <DropdownMenu.Item
+                      onClick={(e) => {
+                        setFilters({
+                          deptSubjectId: s.id,
+                        });
+                      }}
+                      dir="rtl"
+                      key={s.id}
+                    >
+                      <>
+                        {enToAr(i + 1)}.{s.subject?.title} |{" "}
+                        {s.submissionPercentage}%
+                      </>
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu>
+            )}
+            {!permissions.all || (
               <Link
                 target="_blank"
                 href={`/student-report?deptId=${filters.deptId}&permission=all&termId=${filters.termId}`}
