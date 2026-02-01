@@ -28,7 +28,7 @@ export function AssessmentRecording() {
         sessionTermId: filters.termId,
       },
       {
-        enabled: permissions.classrooms,
+        // enabled: permissions.classrooms,
       },
     ),
   );
@@ -43,7 +43,7 @@ export function AssessmentRecording() {
             className="bg-background flex flex-row gap-4 items-center h-16"
             dir="rtl"
           >
-            {!departments?.data?.length || (
+            {!permissions.classrooms || (
               <>
                 <Menu>
                   {departments?.data?.map((dept) => (
@@ -64,7 +64,7 @@ export function AssessmentRecording() {
             )}
             <Card.Title>{department?.departmentName}</Card.Title>
             {/* <Separator orientation="vertical" className="h-full" /> */}
-            {!permissions.classrooms || (
+            {!permissions.subjects || (
               <DropdownMenu dir="rtl">
                 <DropdownMenu.Trigger
                   dir="rtl"
