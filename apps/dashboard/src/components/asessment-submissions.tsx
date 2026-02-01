@@ -49,11 +49,13 @@ function Content(props: Props) {
     <Table dir="rtl">
       <Table.Header dir="rtl">
         <Table.Row>
-          <Table.Head dir="rtl">الطالب</Table.Head>
+          <Table.Head dir="rtl" className="text-start">
+            الطالب
+          </Table.Head>
           {store?.data?.assessments
             ?.filter((a) => !!a?.percentageObtainable)
             ?.map((a) => (
-              <Table.Head key={a.id} className="text-center">
+              <Table.Head key={a.id} className="w-32">
                 {a.title}
               </Table.Head>
             ))}
@@ -62,13 +64,13 @@ function Content(props: Props) {
       <Table.Body>
         {store?.data?.students?.map((student, si) => (
           <Table.Row key={student.id}>
-            <Table.Cell>
+            <Table.Cell dir="rtl">
               {enToAr(si + 1)}. {student.name}
             </Table.Cell>
             {store.data?.assessments
               ?.filter((a) => !!a?.percentageObtainable)
               ?.map((a) => (
-                <Table.Cell key={a.id} className="text-center">
+                <Table.Cell key={a.id} className="w-32">
                   {/* {store.data?.scores?.[getScoreKey(a.id, student.termId)]
                     ?.obtained || "-"} */}
                   <ScoreInput
@@ -172,6 +174,7 @@ function ScoreInput({ scoreKey, student, assessment }: ScoreInputProps) {
       departmentId,
     });
   }, 800);
+
   return (
     <InputGroup
       className={cn("w-32", value > assessment?.obtainable && "border-red-400")}
