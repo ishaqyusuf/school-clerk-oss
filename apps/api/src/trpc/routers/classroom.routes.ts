@@ -16,7 +16,20 @@ export const classroomRouter = createTRPCRouter({
       const result = await getClassrooms(ctx, input);
       return result;
     }),
-
+  deleteClassroomTermDepartment: publicProcedure
+    .input(z.object({ departmentId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const result = await ctx.db.classRoomDepartment.update({
+        where: {
+          id: input.departmentId,
+          // schoolId: ctx.profile.schoolId,
+        },
+        data: {
+          deletedAt: new Date(),
+        },
+      });
+      return result;
+    }),
   getClassroomOverview: publicProcedure
     .input(getClassroomOverviewSchema)
     .query(async (props) => {
@@ -38,7 +51,7 @@ export const classroomRouter = createTRPCRouter({
     .input(
       z.object({
         postId: z.number().optional(),
-      })
+      }),
     )
     .query(async ({ input, ctx }) => {
       const result = await loadQuestions(ctx, input);

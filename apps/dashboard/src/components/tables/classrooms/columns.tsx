@@ -10,6 +10,9 @@ import { cn } from "@school-clerk/ui/cn";
 import { Badge } from "@school-clerk/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import Link from "next/link";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTRPC } from "@/trpc/client";
+import { _qc, _trpc } from "@/components/static-trpc";
 
 export type Item = RouterOutputs["academics"]["getClassrooms"]["data"][number];
 interface ItemProps {
@@ -76,6 +79,18 @@ export const columns: Column[] = [
 function Actions({ item }: ItemProps) {
   const isMobile = useIsMobile();
   const auth = useAuth();
+  const { mutate: deleteClassroomDepartmentGrade } = useMutation(
+    useTRPC().classrooms.deleteClassroomTermDepartment.mutationOptions({
+      onSuccess(data, variables, onMutateResult, context) {},
+      meta: {
+        toastTitle: {
+          error: "Unable to complete",
+          loading: "Processing...",
+          success: "Done!.",
+        },
+      },
+    }),
+  );
   return (
     <div className="relative flex justify-end z-10">
       <Menu
@@ -111,6 +126,20 @@ function Actions({ item }: ItemProps) {
         >
           <Menu.Item>Report Sheet</Menu.Item>
         </Link>
+        <Menu.Item
+          icon="trash"
+          onClick={(e) => {
+            deleteClassroomDepartmentGrade({ departmentId: item.id });
+            _qc.invalidateQueries({
+              queryKey: _trpc.classrooms.all.queryKey(),
+            });
+            // _qc.invalidateQueries({
+            //   queryKey: _trpc.classrooms.all.
+            // });
+          }}
+        >
+          Delete Classroom
+        </Menu.Item>
       </Menu>
     </div>
   );
