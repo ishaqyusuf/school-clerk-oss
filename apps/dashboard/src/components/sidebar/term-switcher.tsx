@@ -25,7 +25,7 @@ export function TermSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenu.Trigger asChild>
-        <Button variant="outline" className="">
+        <Button variant="outline" className="whitespace-nowrap my-4 p-0 px-1">
           {sb?.isExpanded
             ? `${currentTerm ? currentTerm.sessionName + " - " + currentTerm.title : "Select Term"}`
             : currentTerm
