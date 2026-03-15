@@ -19,9 +19,9 @@ export function StudentReportPage({ studentId }) {
         data?.lineCount > 8
           ? "result-lines-lg space-y-4"
           : data?.lineCount > 5
-          ? "result-lines-md space-y-4"
-          : "result-lines-sm space-y-8",
-        "h-[297mm]"
+            ? "result-lines-md space-y-4"
+            : "result-lines-sm space-y-8",
+        "h-[297mm]",
         // g.params.printHideSubjects || "--h-[11.6in] h-[297mm]"
       )}
       style={{
@@ -32,7 +32,7 @@ export function StudentReportPage({ studentId }) {
       <ReportHeader studentId={studentId} />
       <div
         className={cn(
-          "flex flex-col text-xl"
+          "flex flex-col text-xl",
           // g.params.printHideSubjects && "hidden print:flex",
         )}
       >
@@ -44,7 +44,7 @@ export function StudentReportPage({ studentId }) {
               "w-full result",
               `lines-${data?.lineCount}`,
 
-              ti == 0 && "border-t border-muted-foreground"
+              ti == 0 && "border-t border-muted-foreground",
             )}
             key={ti}
           >
@@ -57,7 +57,7 @@ export function StudentReportPage({ studentId }) {
                       ci > 0 && "w-24",
                       ci === table.columns.length - 1 && "w-28",
                       ci === table?.columns?.length - 1 ? "last" : "",
-                      ci == 0 && "first"
+                      ci == 0 && "first",
                     )}
                   >
                     <div className="flex flex-col">
@@ -75,7 +75,7 @@ export function StudentReportPage({ studentId }) {
                     <td
                       className={cn(
                         rci === r?.columns?.length - 1 ? "last" : "",
-                        rci == 0 && "first"
+                        rci == 0 && "first",
                       )}
                       align={rci > 0 ? "center" : "right"}
                       key={rci}
@@ -188,7 +188,7 @@ function ReportHeader({ studentId }) {
                 {namePrintFormat(
                   data.student.name,
                   data.student.surname,
-                  data.student.otherName
+                  data.student.otherName,
                 )?.map((p, i) => (
                   <div key={i} className="px-2">
                     {p}
@@ -214,7 +214,7 @@ function ReportHeader({ studentId }) {
               <span className="text-black/70">الفترة</span>
               <span>:</span>
               <span className="mx-1 border-b border-muted-foreground">
-                {`الأولى`}
+                {`الثالثة`}
               </span>
             </div>
             <div className="">
@@ -252,7 +252,7 @@ function ReportHeader({ studentId }) {
               <span>:</span>
               <span className="mx-1 border-b border-muted-foreground">
                 {`${enToAr(data?.grade?.position)} من ${enToAr(
-                  data?.grade?.totalStudents
+                  data?.grade?.totalStudents,
                 )} ${data?.grade?.totalStudents >= 10 ? "طالبا" : "طلابا"}`}
               </span>
             </div>
@@ -261,7 +261,7 @@ function ReportHeader({ studentId }) {
               {/* <span className="text-black/70">تاريخ العودة للعام الجديد</span> */}
               <span>:</span>
               <span className="mx-1 border-b border-muted-foreground">
-                {enToAr("27/07/25")}
+                {enToAr("28/03/26")}
               </span>
             </div>
           </div>
