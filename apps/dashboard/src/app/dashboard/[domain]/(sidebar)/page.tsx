@@ -1,3 +1,6 @@
+import { redirect } from "next/navigation";
+
 export default async function Page({ params }) {
-  return <div> </div>;
+  const { domain } = await params;
+  redirect(`/dashboard/${domain}/dashboard`);
 }
