@@ -18,6 +18,8 @@ import { useTRPC } from "@/trpc/client";
 import { StudentFormAction } from "../forms/student-form-action";
 import { ClassroomSubjectOverviewSecondary } from "../classroom-subject-secondary-overview";
 import { _trpc } from "../static-trpc";
+import { ClassroomAttendance } from "../classroom-attendance";
+import { ClassroomAttendanceForm } from "../classroom-attendance-form";
 
 export function ClassroomOverviewSheet({}) {
   const { setParams, ...params } = useClassroomParams();
@@ -86,6 +88,7 @@ export function Content({}) {
               {/* <TabsTrigger value="overview">Overview</TabsTrigger> */}
               <TabsTrigger value="students">Students</TabsTrigger>
               <TabsTrigger value="subjects">Subjects</TabsTrigger>
+              <TabsTrigger value="attendance">Attendance</TabsTrigger>
               {/* <TabsTrigger value="finance">Finance</TabsTrigger> */}
             </TabsList>
           </TabsBase>
@@ -96,6 +99,9 @@ export function Content({}) {
               </TabsContent>
               <TabsContent value="subjects" className="h-screen">
                 <ClassroomSubject departmentId={viewClassroomId} />
+              </TabsContent>
+              <TabsContent value="attendance" className="h-screen">
+                <ClassroomAttendance departmentId={viewClassroomId} />
               </TabsContent>
             </TabsBase>
           </Sheet.ScrollArea>
@@ -109,6 +115,7 @@ export function Content({}) {
         />
         <ClassroomSubjectSecondaryForm />
         <ClassroomSubjectOverviewSecondary />
+        <ClassroomAttendanceForm />
       </Sheet.MultiContent>
     </>
   );

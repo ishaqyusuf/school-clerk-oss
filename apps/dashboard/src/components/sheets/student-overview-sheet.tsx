@@ -27,6 +27,7 @@ import {
   SheetTitle,
 } from "@school-clerk/ui/sheet";
 import { StudentTransactionOverview } from "../students/student-transaction-overview";
+import { StudentAttendanceHistory } from "../students/student-attendance-history";
 
 export function StudentOverviewSheet({}) {
   const { studentViewId, setParams } = useStudentParams();
@@ -104,6 +105,9 @@ export function Content({}) {
           </TabsContent>
           <TabsContent value="academics" className="h-screen">
             <StudentAcademicsOverview />
+          </TabsContent>
+          <TabsContent value="attendance" className="h-screen">
+            <StudentAttendanceHistory />
           </TabsContent>
           <TabsContent value="finance" className="h-screen">
             <StudentTransactionOverview />

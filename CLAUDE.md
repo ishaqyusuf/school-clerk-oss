@@ -115,6 +115,7 @@ export default async function Page({ searchParams }) {
 - `/settings/school-profile` (read-only profile card)
 - `/dashboard` (home dashboard with stat cards)
 - `onboarding/create-school` (confirmation page)
+- **Attendance system** (classroom sheet → Attendance tab + Take Attendance secondary panel; student sheet → Attendance tab with history + stats)
 
 **Coming Soon stubs (placeholder):**
 - `/announcements`, `/calendar`
@@ -123,6 +124,13 @@ export default async function Page({ searchParams }) {
 - `/academic/assessments`, `/academic/grading`, `/academic/reports`
 - `/parents/performance`, `/parents/messages`, `/parents/payments`
 - `/settings/sessions`, `/settings/roles`
+
+### Attendance System Pattern
+- **Models**: `ClassRoomAttendance` (session) + `StudentAttendance` (per-student record)
+- **tRPC router**: `apps/api/src/trpc/routers/attendance.routes.ts` — `getClassroomAttendance`, `takeAttendance`, `getStudentAttendanceHistory`
+- **Classroom sheet**: "Attendance" tab → `ClassroomAttendance` component + "Take Attendance" → secondary panel `ClassroomAttendanceForm` (uses `secondaryTab: "attendance-form"`)
+- **Student sheet**: "Attendance" tab → `StudentAttendanceHistory` component (summary stats + record list)
+- **Hook**: `useClassroomParams` tabs include `"attendance"`; secondaryTabs include `"attendance-form"`
 
 ## Web (Marketing) App — `apps/web`
 Fully built marketing landing page with:
