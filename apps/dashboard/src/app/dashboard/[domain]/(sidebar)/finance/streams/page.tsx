@@ -4,16 +4,16 @@ import { Suspense } from "react";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
 import { ErrorFallback } from "@/components/error-fallback";
 import { TableSkeleton } from "@/components/tables/skeleton";
-import { Payroll } from "@/components/payroll";
+import { AccountingStreams } from "@/components/accounting-streams";
 
 export default async function Page() {
   return (
     <HydrateClient>
       <div className="flex flex-col gap-4">
-        <PageTitle>Payroll</PageTitle>
+        <PageTitle>Accounting Streams</PageTitle>
         <ErrorBoundary errorComponent={ErrorFallback}>
           <Suspense fallback={<TableSkeleton />}>
-            <Payroll />
+            <AccountingStreams />
           </Suspense>
         </ErrorBoundary>
       </div>

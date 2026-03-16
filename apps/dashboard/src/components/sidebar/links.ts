@@ -107,6 +107,11 @@ export const linkModules = [
     ]),
     createNavSection("main", "Finance Managment", [
       createNavLink(
+        "Accounting Streams",
+        "layers",
+        "/finance/streams",
+      ).access(_role.is("Admin")).data,
+      createNavLink(
         "Fee Management",
         "coins",
         "/finance/fees-management",

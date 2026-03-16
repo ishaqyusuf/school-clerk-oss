@@ -116,6 +116,8 @@ export default async function Page({ searchParams }) {
 - `/dashboard` (home dashboard with stat cards)
 - `onboarding/create-school` (confirmation page)
 - **Attendance system** (classroom sheet → Attendance tab + Take Attendance secondary panel; student sheet → Attendance tab with history + stats)
+- **Finance system** (`/finance/streams` accounting streams + fund transfers; `/finance/payments` service expenses; `/staff/payroll` staff salary bills + payments)
+- **Student finance** (enhanced: payment method, purchase recording, payment history, reverse payment)
 
 **Coming Soon stubs (placeholder):**
 - `/announcements`, `/calendar`
@@ -124,6 +126,14 @@ export default async function Page({ searchParams }) {
 - `/academic/assessments`, `/academic/grading`, `/academic/reports`
 - `/parents/performance`, `/parents/messages`, `/parents/payments`
 - `/settings/sessions`, `/settings/roles`
+
+### Finance System Pattern
+- **Accounting Streams**: `Wallet` model — named buckets scoped to term+school. `finance.getStreams` returns balances. `finance.transferFunds` moves money between wallets.
+- **Service Payments**: `Bills` where `staffTermProfileId = null`. `finance.createServicePayment` → `finance.payServiceBill` (creates WalletTransaction + BillInvoice + BillPayment).
+- **Payroll**: `Bills` where `staffTermProfileId != null`. `finance.createStaffBill` auto-creates `StaffTermProfile`. `finance.payStaffBill` pays salary.
+- **Student Payment**: `finance.applyPayment` (payment method in description). `finance.createStudentPurchase` for sales (uniform, books). `finance.reverseStudentPayment` restores `StudentFee.pendingAmount`.
+- **Pages**: `/finance/streams`, `/finance/payments` (service), `/staff/payroll`
+- **Router file**: `apps/api/src/trpc/routers/finance.routes.ts`
 
 ### Attendance System Pattern
 - **Models**: `ClassRoomAttendance` (session) + `StudentAttendance` (per-student record)

@@ -5,6 +5,8 @@ import {
   applyPaymentSchema,
   cancelStudentFee,
   cancelStudentFeeSchema,
+  cancelStudentPayment,
+  cancelStudentPaymentSchema,
   createSchoolFee,
   createSchoolFeeSchema,
   createStudentFee,
@@ -22,6 +24,11 @@ export const transactionRoutes = createTRPCRouter({
     .input(cancelStudentFeeSchema)
     .mutation(async (props) => {
       return cancelStudentFee(props.ctx, props.input);
+    }),
+  cancelStudentPayment: publicProcedure
+    .input(cancelStudentPaymentSchema)
+    .mutation(async (props) => {
+      return cancelStudentPayment(props.ctx, props.input);
     }),
   createSchoolFee: publicProcedure
     .input(createSchoolFeeSchema)
