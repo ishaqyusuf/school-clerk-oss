@@ -1,5 +1,5 @@
 import { sum } from "@school-clerk/utils";
-import { IconKeys } from "@school-clerk/ui/custom/icons";
+import { IconKeys } from "@school-clerk/ui/icons";
 export type NavModule = ReturnType<typeof createNavModule>;
 export type NavSection = ReturnType<typeof createNavSection>;
 export type NavLink = ReturnType<typeof createNavLink>["data"] | undefined;
@@ -8,7 +8,7 @@ export const createNavModule = (
   icon: IconKeys,
   // title?,
   subtitle?,
-  sections: NavSection[] = []
+  sections: NavSection[] = [],
 ) => ({
   name,
   icon,
@@ -24,7 +24,7 @@ export const createNavSection = (
   name: string,
   title?: string,
   links?: NavLink[],
-  access: Access[] = []
+  access: Access[] = [],
 ) => ({
   name,
   title,
@@ -43,7 +43,7 @@ export const createNavLink = (
   icon?: IconKeys,
   href?,
   subLinks: LinkItem[] = [],
-  access: Access[] = []
+  access: Access[] = [],
 ) => {
   const res = {
     name,
@@ -100,7 +100,7 @@ export const navHasAccess = (
   type: Access["type"],
   equator: Access["equator"],
   ...values
-) => ({ type, equator, values } as Access);
+) => ({ type, equator, values }) as Access;
 export const initRoleAccess = <Role>(a: Role) => ({
   is: (role: Role) => navHasAccess("role", "is", role),
   isNot: (role: Role) => navHasAccess("role", "isNot", role),
@@ -302,7 +302,7 @@ export function getLinkModules(linkModules: NavModule[]) {
     __defaultLink = __rankedLinks.sort((a, b) => a.rank - b.rank)?.[0]?.href;
   }
   const totalLinks = sum(modules, "activeLinkCount");
-  const noSidebar = totalLinks < 5;
+  const noSidebar = false;
   return {
     modules,
     renderMode,

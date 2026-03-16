@@ -3,9 +3,12 @@ import { Sheet } from "@school-clerk/ui/composite";
 import { Icons } from "@school-clerk/ui/icons";
 import { useState } from "react";
 import { NavsList } from "./navs-list";
+import { useSiteNav } from "./use-site-nav";
 
 export function MobileSidebar() {
   const [isOpen, setOpen] = useState(false);
+  const { linkModules } = useSiteNav();
+  if (linkModules?.noSidebar) return null;
   return (
     <div className="md:hidden">
       <Sheet.Root open={isOpen} onOpenChange={setOpen}>

@@ -119,48 +119,43 @@ export async function createAcademicSession(
 ) {
   const { sessionId, terms, title } = data;
   const { db } = ctx;
-  const resp = await db.$transaction(async (tx) => {
-    sessionId
-      ? await tx.schoolSession.update({
-          where: {
-            id: sessionId,
-          },
-          data: {
-            terms: {
-              createMany: terms?.length
-                ? {
-                    data: data.terms!?.map((d) => ({
-                      schoolId: ctx.profile?.schoolId,
-                      title: d.title,
-                      startDate: d.startDate,
-                      endDate: d.endDate,
-                    })),
-                  }
-                : undefined,
-            },
-          },
-        })
-      : await tx.schoolSession.create({
-          data: {
-            title: title!,
-            school: {
-              connect: {
-                id: ctx.profile.schoolId,
-              },
-            },
-            terms: {
-              createMany: terms?.length
-                ? {
-                    data: data.terms!?.map((d) => ({
-                      schoolId: ctx.profile?.schoolId,
-                      title: d.title,
-                      startDate: d.startDate,
-                      endDate: d.endDate,
-                    })),
-                  }
-                : undefined,
-            },
-          },
-        });
+  return db.$transaction(async (tx) => {
+    let session: { id: string; title: string };
+
+    if (sessionId) {
+      session = await tx.schoolSession.update({
+        where: { id: sessionId },
+        data: {},
+        select: { id: true, title: true },
+      });
+    } else {
+      session = await tx.schoolSession.create({
+        data: {
+          title: title!,
+          school: { connect: { id: ctx.profile.schoolId } },
+        },
+        select: { id: true, title: true },
+      });
+    }
+
+    let createdTerms: { id: string; title: string }[] = [];
+    if (terms?.length) {
+      createdTerms = await tx.sessionTerm.createManyAndReturn({
+        data: terms.map((d) => ({
+          schoolId: ctx.profile?.schoolId,
+          sessionId: session.id,
+          title: d.title,
+          startDate: d.startDate,
+          endDate: d.endDate,
+        })),
+        select: { id: true, title: true },
+      });
+    }
+
+    return {
+      sessionId: session.id,
+      sessionTitle: session.title,
+      terms: createdTerms,
+    };
   });
 }

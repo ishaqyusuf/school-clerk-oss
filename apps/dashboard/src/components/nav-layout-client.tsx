@@ -5,14 +5,9 @@ import { usePathname } from "next/navigation";
 import { Header } from "./header";
 import { linkModules } from "./sidebar/links";
 import Link from "next/link";
-import { NavsList } from "node_modules/@school-clerk/site-nav/src/components/navs-list";
-import { ModuleSwitcher } from "./sidebar/module-switcher";
-import { TermSwitcher } from "./sidebar/term-switcher";
 
 export function NavLayoutClient({ children }) {
-  const auth = useAuth({
-    required: true,
-  });
+  const auth = useAuth();
   const pathName = usePathname();
   return (
     <SiteNav.Provider
@@ -24,10 +19,20 @@ export function NavLayoutClient({ children }) {
         userId: auth.id,
       })}
     >
-      <div className="relative">
+      <div className="relative ">
         <SiteNav.Sidebar>
-          <TermSwitcher />
+          {/* <SiteNav.Logo Icon={Icons.LogoLg} /> */}
+          {/* <SiteNav.LogoSm Icon={Icons.Logo} /> */}
+          {/* <TermSwitcher /> */}
           {/* <ModuleSwitcher /> */}
+          <div className="absolute bottom-4 left-0 right-0 z-10 px-2 w-full flex items-center justify-center md:justify-start md:px-2">
+            <SiteNav.User
+              user={auth}
+              onLogout={() => {
+                window.location.href = "/signout";
+              }}
+            />
+          </div>
         </SiteNav.Sidebar>
         <SiteNav.Shell className="pb-8">
           <Header />
@@ -37,3 +42,31 @@ export function NavLayoutClient({ children }) {
     </SiteNav.Provider>
   );
 }
+// export function NavLayoutClient({ children }) {
+//   const auth = useAuth({
+//     required: true,
+//   });
+//   const pathName = usePathname();
+//   return (
+//     <SiteNav.Provider
+//       value={createSiteNavContext({
+//         pathName,
+//         linkModules,
+//         Link,
+//         role: auth.role,
+//         userId: auth.id,
+//       })}
+//     >
+//       <div className="relative">
+//         <SiteNav.Sidebar>
+//           <TermSwitcher />
+//           {/* <ModuleSwitcher /> */}
+//         </SiteNav.Sidebar>
+//         <SiteNav.Shell className="pb-8">
+//           <Header />
+//           <div className="px-6">{children}</div>
+//         </SiteNav.Shell>
+//       </div>
+//     </SiteNav.Provider>
+//   );
+// }

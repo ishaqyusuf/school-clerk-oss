@@ -21,13 +21,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { _trpc } from "@/components/static-trpc";
 import { formatDate } from "date-fns";
 import Link from "next/link";
+import { useAcademicParams } from "@/hooks/use-academic-params";
+import { AcademicSessionSheet } from "@/components/sheets/academic-session-sheet";
 
-interface DashboardProps {
-  onNavigate: (page: "details") => void;
-  onOpenModal: () => void;
-}
-
-const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenModal }) => {
+const Dashboard = () => {
+  const { setParams } = useAcademicParams();
   const { mutate: patchCreateMissingTermSession, isPending: isPatching } =
     useMutation(
       _trpc.academics.patchCreateMissingTermSession.mutationOptions({
@@ -68,14 +66,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenModal }) => {
           <Button
             variant="outline"
             className="gap-2 font-bold"
-            onClick={onOpenModal}
+            onClick={() => setParams({ academicSessionFormType: "term" })}
           >
             <Plus className="h-5 w-5" />
             Create New Term
           </Button>
           <Button
             className="gap-2 font-bold shadow-md shadow-primary/20"
-            onClick={onOpenModal}
+            onClick={() => setParams({ academicSessionFormType: "session" })}
           >
             <Calendar className="h-5 w-5" />
             Create New Session
@@ -167,13 +165,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenModal }) => {
                   <tr
                     className="group hover:bg-muted/30 transition-colors cursor-pointer"
                     onClick={() =>
-                      session.status === "planning"
-                        ? onNavigate("details")
-                        : setExpandedSessionId(
-                            session.id === expandedSessionId
-                              ? null
-                              : session.id,
-                          )
+                      setExpandedSessionId(
+                        session.id === expandedSessionId ? null : session.id,
+                      )
                     }
                   >
                     <td className="px-6 py-5">
@@ -236,7 +230,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenModal }) => {
                               className="h-8 w-8 text-muted-foreground"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onNavigate("details");
                               }}
                             >
                               <Edit2 className="h-4 w-4" />
@@ -308,81 +301,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenModal }) => {
                             </div>
                           </td>
                         </tr>
-                        <tr className="bg-muted/20">
-                          <td colSpan={5} className="px-6 py-6 lg:px-10">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-top-2 duration-200">
-                              {/* Term 1 */}
-                              <Card className="p-4 relative overflow-hidden bg-card/50">
-                                <div className="absolute top-2 right-2 opacity-10">
-                                  <CheckCircle2 className="h-12 w-12" />
-                                </div>
-                                <p className="text-xs font-bold text-muted-foreground uppercase mb-2">
-                                  1st Term
-                                </p>
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Calendar className="h-3 w-3" />
-                                    <span>Sep 04 - Dec 15, 2023</span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 mt-1">
-                                    <CheckCircle2 className="h-3 w-3" />{" "}
-                                    Completed
-                                  </div>
-                                </div>
-                                <button className="mt-4 text-[11px] text-primary font-bold flex items-center gap-1 hover:underline">
-                                  <History className="h-3 w-3" /> View Results
-                                </button>
-                              </Card>
-
-                              {/* Term 2 (Active) */}
-                              <Card className="p-4 relative overflow-hidden ring-2 ring-primary/20 bg-card">
-                                <div className="absolute top-2 right-2 text-primary/10">
-                                  <Hourglass className="h-12 w-12" />
-                                </div>
-                                <p className="text-xs font-bold text-primary uppercase mb-2">
-                                  2nd Term (Active)
-                                </p>
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Calendar className="h-3 w-3" />
-                                    <span>Jan 08 - Apr 12, 2024</span>
-                                  </div>
-                                  <div className="w-full bg-secondary rounded-full h-1 mt-2">
-                                    <div className="bg-primary h-1 rounded-full w-3/4"></div>
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => onNavigate("details")}
-                                  className="mt-4 text-[11px] text-primary font-bold flex items-center gap-1 hover:underline"
-                                >
-                                  <Edit2 className="h-3 w-3" /> Edit Dates
-                                </button>
-                              </Card>
-
-                              {/* Term 3 */}
-                              <Card className="p-4 relative overflow-hidden opacity-75 bg-card/50">
-                                <p className="text-xs font-bold text-muted-foreground uppercase mb-2">
-                                  3rd Term
-                                </p>
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Calendar className="h-3 w-3" />
-                                    <span>May 06 - Jul 26, 2024</span>
-                                  </div>
-                                  <span className="text-[10px] text-muted-foreground font-bold mt-1 uppercase tracking-wide">
-                                    Upcoming
-                                  </span>
-                                </div>
-                                <Link
-                                  href={`/academic/term-getting-started/1`}
-                                  className="mt-4 text-[11px] text-primary font-bold flex items-center gap-1 hover:underline"
-                                >
-                                  <Settings className="h-3 w-3" /> Configure
-                                </Link>
-                              </Card>
-                            </div>
-                          </td>
-                        </tr>
                       </>
                     )}
                 </React.Fragment>
@@ -428,11 +346,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onOpenModal }) => {
           <Button
             variant="ghost"
             className="text-primary hover:text-primary font-bold hover:bg-transparent hover:underline px-0"
+            onClick={() => setParams({ academicSessionFormType: "session" })}
           >
             Start Roll-over Wizard →
           </Button>
         </Card>
       </div>
+
+      <AcademicSessionSheet />
     </div>
   );
 };

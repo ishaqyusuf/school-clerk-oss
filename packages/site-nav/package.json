@@ -21,7 +21,8 @@
     "./*": "./src/utils/*.tsx"
   },
   "dependencies": {
-    "@school-clerk/ui": "workspace:*"
+    "@school-clerk/ui": "workspace:*",
+    "@school-clerk/utils": "workspace:*"
   },
   "devDependencies": {
     "@school-clerk/tsconfig": "workspace:*",

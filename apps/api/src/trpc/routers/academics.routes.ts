@@ -17,7 +17,7 @@ import {
   getClassroomsSchema,
 } from "@api/db/queries/classroom";
 import { z } from "zod";
-import { constructNow, differenceInDays, sub, subDays } from "date-fns";
+import { addYears, constructNow, differenceInDays, sub, subDays } from "date-fns";
 import { consoleLog } from "@school-clerk/utils";
 
 export const academicsRouter = createTRPCRouter({
@@ -496,5 +496,249 @@ export const academicsRouter = createTRPCRouter({
         }
         // throw new Error("Not implemented yet");
       });
+    }),
+  getSessionPrefill: publicProcedure
+    .input(z.object({}))
+    .query(async ({ ctx }) => {
+      const db = ctx.db;
+      const latestSession = await db.schoolSession.findFirst({
+        where: { schoolId: ctx.profile.schoolId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          startDate: true,
+          endDate: true,
+          terms: {
+            where: { deletedAt: null },
+            orderBy: { startDate: { sort: "asc", nulls: "last" } },
+            select: { id: true, title: true, startDate: true, endDate: true },
+          },
+        },
+      });
+      if (!latestSession) return null;
+
+      const titleMatch = latestSession.title?.match(/^(\d{4})\/(\d{4})$/);
+      const suggestedTitle = titleMatch
+        ? `${parseInt(titleMatch[1]) + 1}/${parseInt(titleMatch[2]) + 1}`
+        : latestSession.title
+          ? `${latestSession.title} (New)`
+          : "";
+
+      const lastTerm =
+        latestSession.terms[latestSession.terms.length - 1] ?? null;
+
+      return {
+        suggestedTitle,
+        suggestedStartDate: latestSession.startDate
+          ? addYears(latestSession.startDate, 1)
+          : null,
+        suggestedEndDate: latestSession.endDate
+          ? addYears(latestSession.endDate, 1)
+          : null,
+        lastTermId: lastTerm?.id ?? null,
+        previousTerms: latestSession.terms.map((t) => ({
+          id: t.id,
+          title: t.title,
+          startDate: t.startDate ? addYears(t.startDate, 1) : null,
+          endDate: t.endDate ? addYears(t.endDate, 1) : null,
+        })),
+      };
+    }),
+  getPromotionStudents: publicProcedure
+    .input(z.object({ lastTermId: z.string(), firstTermId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const db = ctx.db;
+      const lastTermForms = await db.studentTermForm.findMany({
+        where: {
+          sessionTermId: input.lastTermId,
+          deletedAt: null,
+          schoolProfileId: ctx.profile.schoolId,
+        },
+        select: {
+          id: true,
+          studentId: true,
+          classroomDepartmentId: true,
+          student: {
+            select: { id: true, name: true, surname: true },
+          },
+          classroomDepartment: {
+            select: { id: true, departmentName: true },
+          },
+          assessmentRecords: {
+            where: { deletedAt: null },
+            select: { obtained: true, percentageScore: true },
+          },
+        },
+      });
+
+      const promotedForms = await db.studentTermForm.findMany({
+        where: {
+          sessionTermId: input.firstTermId,
+          deletedAt: null,
+          schoolProfileId: ctx.profile.schoolId,
+        },
+        select: { studentId: true, id: true },
+      });
+      const promotedStudentIds = new Set(
+        promotedForms.map((f) => f.studentId),
+      );
+      const promotedFormMap = new Map(
+        promotedForms.map((f) => [f.studentId, f.id]),
+      );
+
+      return lastTermForms.map((form) => {
+        const scores = form.assessmentRecords
+          .map((r) => r.percentageScore)
+          .filter((s): s is number => s !== null);
+        const avgScore =
+          scores.length > 0
+            ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+            : null;
+        return {
+          termFormId: form.id,
+          studentId: form.studentId!,
+          name: [form.student?.name, form.student?.surname]
+            .filter(Boolean)
+            .join(" "),
+          className: form.classroomDepartment?.departmentName ?? null,
+          classroomDepartmentId: form.classroomDepartmentId,
+          avgScore,
+          isPromoted: promotedStudentIds.has(form.studentId!),
+          firstTermFormId: promotedFormMap.get(form.studentId!) ?? null,
+        };
+      });
+    }),
+  getStudentTermPerformance: publicProcedure
+    .input(z.object({ studentId: z.string(), termId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const db = ctx.db;
+      const termForm = await db.studentTermForm.findFirst({
+        where: {
+          studentId: input.studentId,
+          sessionTermId: input.termId,
+          deletedAt: null,
+          schoolProfileId: ctx.profile.schoolId,
+        },
+        select: {
+          id: true,
+          classroomDepartment: {
+            select: { departmentName: true },
+          },
+          sessionTerm: {
+            select: {
+              title: true,
+              session: { select: { title: true } },
+            },
+          },
+          student: { select: { name: true, surname: true } },
+          assessmentRecords: {
+            where: { deletedAt: null },
+            select: {
+              obtained: true,
+              percentageScore: true,
+              classSubjectAssessment: {
+                select: {
+                  title: true,
+                  obtainable: true,
+                  departmentSubject: {
+                    select: {
+                      subject: { select: { name: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      return termForm;
+    }),
+  batchPromote: publicProcedure
+    .input(
+      z.object({
+        studentIds: z.array(z.string()),
+        fromTermId: z.string(),
+        toTermId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = ctx.db;
+      const toTerm = await db.sessionTerm.findFirstOrThrow({
+        where: { id: input.toTermId },
+        select: { id: true, sessionId: true, schoolId: true },
+      });
+      const sourceTermForms = await db.studentTermForm.findMany({
+        where: {
+          sessionTermId: input.fromTermId,
+          studentId: { in: input.studentIds },
+          deletedAt: null,
+          schoolProfileId: ctx.profile.schoolId,
+        },
+        select: {
+          studentId: true,
+          classroomDepartmentId: true,
+        },
+      });
+
+      return db.$transaction(async (tx) => {
+        for (const form of sourceTermForms) {
+          if (!form.studentId) continue;
+          let sessionForm = await tx.studentSessionForm.findFirst({
+            where: {
+              studentId: form.studentId,
+              schoolSessionId: toTerm.sessionId,
+              deletedAt: null,
+            },
+            select: { id: true },
+          });
+          if (!sessionForm) {
+            sessionForm = await tx.studentSessionForm.create({
+              data: {
+                studentId: form.studentId,
+                schoolSessionId: toTerm.sessionId,
+                schoolProfileId: ctx.profile.schoolId,
+                classroomDepartmentId: form.classroomDepartmentId,
+              },
+              select: { id: true },
+            });
+          }
+          const existing = await tx.studentTermForm.findFirst({
+            where: {
+              studentId: form.studentId,
+              sessionTermId: input.toTermId,
+              deletedAt: null,
+            },
+          });
+          if (!existing) {
+            await tx.studentTermForm.create({
+              data: {
+                studentId: form.studentId,
+                studentSessionFormId: sessionForm.id,
+                classroomDepartmentId: form.classroomDepartmentId,
+                schoolSessionId: toTerm.sessionId,
+                schoolProfileId: ctx.profile.schoolId,
+                sessionTermId: input.toTermId,
+              },
+            });
+          }
+        }
+        return { promoted: sourceTermForms.length };
+      });
+    }),
+  reversePromotion: publicProcedure
+    .input(z.object({ studentId: z.string(), termId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = ctx.db;
+      await db.studentTermForm.updateMany({
+        where: {
+          studentId: input.studentId,
+          sessionTermId: input.termId,
+          deletedAt: null,
+          schoolProfileId: ctx.profile.schoolId,
+        },
+        data: { deletedAt: new Date() },
+      });
+      return { success: true };
     }),
 });

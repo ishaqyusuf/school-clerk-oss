@@ -8,48 +8,6 @@ import {
   validateLinks as buildValidatedNavLinks,
 } from "@school-clerk/ui/nav/utils";
 type Permission = any | null | string | undefined;
-type moduleNames =
-  | "HRM"
-  | "Bursary"
-  | "Community"
-  | "Settings"
-  | "PTA"
-  | "Academic";
-
-type sectionNames = "main" | "sales";
-type Link = {
-  name;
-  title;
-  href?;
-  links?: {
-    name;
-    link: string;
-    title;
-  }[];
-};
-const _section = (
-  name: any,
-  title?: string,
-  links?: Link[],
-  access: Access[] = [],
-) => ({
-  name,
-  title,
-  links,
-  access,
-});
-// type linkNames = "HRM" | "customer-services" | "Dashboard" | "Sales";
-
-type Access = {
-  type: "role" | "permission";
-  equator: "is" | "isNot" | "in" | "notIn" | "every" | "some";
-  values: string[];
-};
-const __access = (
-  type: Access["type"],
-  equator: Access["equator"],
-  ...values
-) => ({ type, equator, values }) as Access;
 
 type Role =
   | "Admin"
@@ -62,7 +20,6 @@ type Role =
   | "Staff"
   | "Support";
 const _role = initRoleAccess("" as Role);
-const _perm = initPermAccess("" as Permission);
 
 export const linkModules = [
   createNavModule("Community", "school", "School Management", [
@@ -108,11 +65,9 @@ export const linkModules = [
       ).data,
     ]),
     createNavSection("main", "Finance Managment", [
-      createNavLink(
-        "Accounting Streams",
-        "layers",
-        "/finance/streams",
-      ).access(_role.is("Admin")).data,
+      createNavLink("Accounting Streams", "layers", "/finance/streams").access(
+        _role.is("Admin"),
+      ).data,
       createNavLink(
         "Fee Management",
         "coins",

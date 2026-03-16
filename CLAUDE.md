@@ -136,6 +136,15 @@ See `brain/decisions/ADR-0003-tenant-domain-model.md` for full rationale.
 - `/parents/performance`, `/parents/messages`, `/parents/payments`
 - `/settings/sessions`, `/settings/roles`
 
+### Session Roll-over & Student Promotion System
+See `brain/features/student-promotion.md` for full details.
+- **Entry**: Academic dashboard → "Create New Session" / "Start Roll-over Wizard →" → opens `AcademicSessionSheet`
+- **Form prefill**: `academics.getSessionPrefill` → suggests next year title/dates; "Initialize with Terms" toggle auto-populates 3 terms
+- **On success**: cookie auto-switches to new session (`switchSessionTerm` server action), then redirects to `/academic/promotion/[lastTermId]/[firstTermId]`
+- **Promotion page** (`/academic/promotion/[lastTerm]/[firstTerm]`): student table + filters + batch promote/reverse + per-student performance modal
+- **New tRPC procedures** in `academics.routes.ts`: `getSessionPrefill`, `getPromotionStudents`, `getStudentTermPerformance`, `batchPromote`, `reversePromotion`
+- **`createAcademicSession`** updated to return `{ sessionId, sessionTitle, terms: [{ id, title }] }`
+
 ### Finance System Pattern
 - **Accounting Streams**: `Wallet` model — named buckets scoped to term+school. `finance.getStreams` returns balances. `finance.transferFunds` moves money between wallets.
 - **Service Payments**: `Bills` where `staffTermProfileId = null`. `finance.createServicePayment` → `finance.payServiceBill` (creates WalletTransaction + BillInvoice + BillPayment).
