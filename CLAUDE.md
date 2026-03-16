@@ -80,11 +80,20 @@ export default async function Page({ searchParams }) {
 
 ### Prisma Models (key ones)
 - `prisma.schoolProfile` — school tenant (has `id`, `name`, `subDomain`, `slug`)
+- `prisma.tenantDomain` — domain record per school (`subdomain`, `customDomain`, `isPrimary`, `isVerified`). Linked to both `SchoolProfile` and `SaasAccount`
 - `prisma.students` — students (linked via `sessionForms`)
 - `prisma.staffProfile` — staff members
 - `prisma.classRoomDepartment` — classes (linked to `classRoom.schoolSessionId`)
 - `prisma.sessionTerm` — academic terms (has `schoolId`, `sessionId`)
 - `prisma.walletTransactions` — finance transactions
+
+### Multi-Tenant Domain Architecture
+See `brain/decisions/ADR-0003-tenant-domain-model.md` for full rationale.
+- `TenantDomain` model: `subdomain` (slug only) + `customDomain` (full, nullable) — linked to both `SchoolProfile` + `SaasAccount`
+- Dashboard URL auto-derived by middleware (`dashboard.{subdomain}.school-clerk.com`) — never stored in DB
+- Signup: `create-saas-profile.ts` creates `TenantDomain` in step 2 of `$transaction` + calls `addDomainToVercel()` post-tx (production-only)
+- `SchoolProfile.subDomain` stays as the fast-lookup middleware field
+- **Canonical slug resolution** (both `proxy.ts` + `auth-cookie.ts`): `extractTenantSubdomain` → `stripDashboardPrefix` → custom domain DB fallback. Shared helper in `apps/dashboard/src/utils/tenant-host.ts`
 
 ## Dashboard App Structure
 

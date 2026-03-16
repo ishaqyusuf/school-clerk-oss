@@ -4,7 +4,11 @@ import { prisma } from "@school-clerk/db";
 import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { extractTenantSubdomain } from "@/utils/tenant-host";
+import {
+  extractTenantSubdomain,
+  normalizeHost,
+  stripDashboardPrefix,
+} from "@/utils/tenant-host";
 
 export interface AuthCookie {
   domain: string;
@@ -22,9 +26,29 @@ const getCookieName = (domain) => `${domain}-session-cookie`;
 export async function getTenantDomain() {
   const host = decodeURIComponent((await headers()).get("host") || "");
   const appRootDomain = resolveDashboardAppRootDomain(env.APP_ROOT_DOMAIN);
-  return {
-    domain: extractTenantSubdomain(host, appRootDomain),
-  };
+
+  // Step 1+2: extract subdomain then strip "dashboard." prefix
+  const strippedSubdomain = stripDashboardPrefix(
+    extractTenantSubdomain(host, appRootDomain),
+  );
+
+  if (strippedSubdomain) return { domain: strippedSubdomain };
+
+  // Step 3: custom domain fallback — strip port + optional "dashboard." from raw host
+  const normalizedHost = normalizeHost(host).replace(/:\d+$/, "");
+  const bareHost = normalizedHost.startsWith("dashboard.")
+    ? normalizedHost.slice("dashboard.".length)
+    : normalizedHost;
+
+  if (bareHost) {
+    const record = await prisma.tenantDomain.findUnique({
+      where: { customDomain: bareHost },
+      select: { subdomain: true },
+    });
+    if (record?.subdomain) return { domain: record.subdomain };
+  }
+
+  return { domain: "" };
 }
 export async function getAuthCookie() {
   const { domain } = await getTenantDomain();
@@ -37,9 +61,14 @@ export async function getAuthCookie() {
 export async function resetCookie({ bearerToken, userId, redirectUrl = null }) {
   let authCookie = await getAuthCookie();
   const { domain } = await getTenantDomain();
+
   const school = await prisma.schoolProfile.findFirst({
     where: {
-      subDomain: domain,
+      domains: {
+        some: {
+          subdomain: domain,
+        },
+      },
     },
     select: {
       id: true,
@@ -71,6 +100,7 @@ export async function resetCookie({ bearerToken, userId, redirectUrl = null }) {
       },
     },
   });
+
   const session =
     school?.sessions?.find((s) => s.id === authCookie?.sessionId) ||
     school?.sessions?.[0];
@@ -94,12 +124,12 @@ export async function resetCookie({ bearerToken, userId, redirectUrl = null }) {
   const cookie = await cookies();
   const cookieName = getCookieName(domain);
   cookie.set(cookieName, JSON.stringify(authCookie));
-  if (redirectUrl) redirect(redirectUrl);
+  // if (redirectUrl) redirect(redirectUrl);
   return authCookie;
 }
 export async function switchSessionTerm(
   { termId, termTitle, sessionId, sessionTitle },
-  tx = null
+  tx = null,
 ) {
   const { domain } = await getTenantDomain();
 

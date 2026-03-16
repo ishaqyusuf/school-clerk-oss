@@ -34,3 +34,18 @@ export function extractTenantSubdomain(host: string, appRootDomain: string) {
 
   return "";
 }
+
+export const DASHBOARD_SUBDOMAIN_PREFIX = "dashboard.";
+
+/**
+ * Strips the "dashboard." prefix from a raw subdomain string.
+ * "dashboard.daarulhadith" → "daarulhadith"
+ * "daarulhadith"           → "daarulhadith" (no-op)
+ * ""                       → ""             (no-op)
+ */
+export function stripDashboardPrefix(subdomain: string): string {
+  if (subdomain.startsWith(DASHBOARD_SUBDOMAIN_PREFIX)) {
+    return subdomain.slice(DASHBOARD_SUBDOMAIN_PREFIX.length);
+  }
+  return subdomain;
+}

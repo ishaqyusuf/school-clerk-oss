@@ -27,20 +27,27 @@ model SchoolProfile {
     guardians              Guardians[]
     billables              Billable[]
     bills                  Bills[]
-    domains                TenantDomains[]
+    domains                TenantDomain[]
     activities             Activity[]
 
     @@unique([name, subDomain, slug, deletedAt])
 }
 
-model TenantDomains {
-    id              String         @id @default(uuid())
-    domain          String
-    createdAt       DateTime?      @default(now()) @db.Timestamp(0)
-    updatedAt       DateTime?      @updatedAt
-    deletedAt       DateTime?      @db.Timestamp(0)
+model TenantDomain {
+    id           String    @id @default(uuid())
+    subdomain    String?   @unique
+    customDomain String?   @unique
+    isPrimary    Boolean   @default(true)
+    isVerified   Boolean   @default(false)
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
     schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
     schoolProfileId String?
+    saasAccount     SaasAccount?   @relation(fields: [saasAccountId], references: [id])
+    saasAccountId   String?
 }
 
 model SchoolSession {

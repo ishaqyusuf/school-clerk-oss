@@ -1,4 +1,5 @@
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { Button } from "@school-clerk/ui/button";
 import {
   Card,
@@ -13,6 +14,8 @@ import Link from "next/link";
 export default async function Page({ params }) {
   const { domain } = await params;
   const cookie = await getAuthCookie();
+  const host = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
+  const schoolUrl = cookie?.domain ? `${cookie.domain}.${host}` : null;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
@@ -27,11 +30,11 @@ export default async function Page({ params }) {
           <p>
             Your school account has been set up and is ready to configure.
           </p>
-          {cookie?.domain && (
+          {schoolUrl && (
             <p>
-              Domain:{" "}
+              Your school URL:{" "}
               <span className="font-semibold text-foreground">
-                {cookie.domain}
+                {schoolUrl}
               </span>
             </p>
           )}

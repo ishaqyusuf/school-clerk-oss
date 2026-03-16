@@ -11,6 +11,9 @@ Describes entity relationships and cardinality constraints.
 ## Relationship Map
 - `SaasAccount` 1:N `SchoolProfile`
 - `SaasAccount` 1:N `User`
+- `SaasAccount` 1:N `TenantDomain` (direct denormalized link — enables account-level domain queries without joining through SchoolProfile)
+- `SchoolProfile` 1:N `TenantDomain`
+- `TenantDomain` stores `subdomain` (slug) + optional `customDomain` (full domain)
 - `SchoolProfile` 1:N `Students`, `StaffProfile`, `Guardians`, `ClassRoom`, `Activity`, `Fees`, `Billable`, `Wallet`
 - `SchoolSession` 1:N `SessionTerm`, `ClassRoom`, `StudentSessionForm`, `StudentTermForm`
 - `ClassRoom` 1:N `ClassRoomDepartment`

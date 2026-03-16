@@ -16,7 +16,20 @@ Tracks logical and physical schema for SchoolClerk data entities.
 ## Active Model Groups
 ## Tenant and Identity
 - `SaasAccount`, `User`, `Session`, `Account`, `Verification`, `EmailTokenLogin`
-- `SchoolProfile`, `TenantDomains`, `SchoolSession`, `SessionTerm`
+- `SchoolProfile`, `TenantDomain`, `SchoolSession`, `SessionTerm`
+
+### TenantDomain (schema: `packages/db/src/schema/school.prisma`)
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | String (uuid) | PK |
+| `subdomain` | String? unique | Slug only — `"daarulhadith"`. Never the full URL. Auto-set on school creation |
+| `customDomain` | String? unique | Full user-provided domain — `"myschool.org"`. Nullable |
+| `isPrimary` | Boolean | Default true |
+| `isVerified` | Boolean | Default false. True for auto-generated subdomains; requires DNS check for custom domains |
+| `schoolProfileId` | String? | FK → SchoolProfile |
+| `saasAccountId` | String? | FK → SaasAccount (denormalized for fast account-level queries) |
+
+Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.school-clerk.com`
 
 ## Academic Structure
 - `ClassRoom`, `ClassRoomDepartment`, `DepartmentSubject`, `Subject`

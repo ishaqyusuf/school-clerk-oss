@@ -1,9 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "./env";
 import { auth } from "./auth/server";
-import { extractTenantSubdomain } from "./utils/tenant-host";
+import {
+  extractTenantSubdomain,
+  normalizeHost,
+  stripDashboardPrefix,
+} from "./utils/tenant-host";
 import { getFirstPermittedHref } from "./components/sidebar/links";
 import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
+import { prisma } from "@school-clerk/db";
 
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico|fonts).*)"],
@@ -16,9 +21,25 @@ export default async function proxy(req: NextRequest) {
   const host = req.headers.get("host") ?? "";
   const url = req.nextUrl;
 
-  // ---- Determine subdomain ----
-  const subdomain = extractTenantSubdomain(host, hostName);
-  // console.log({ subdomain, host });
+  // ---- Determine canonical slug ----
+  const rawSubdomain = extractTenantSubdomain(host, hostName);
+  let canonicalSlug = stripDashboardPrefix(rawSubdomain);
+
+  if (!canonicalSlug) {
+    const normalizedHostForLookup = normalizeHost(host).replace(/:\d+$/, "");
+    const bareHost = normalizedHostForLookup.startsWith("dashboard.")
+      ? normalizedHostForLookup.slice("dashboard.".length)
+      : normalizedHostForLookup;
+
+    if (bareHost) {
+      const record = await prisma.tenantDomain.findUnique({
+        where: { customDomain: bareHost },
+        select: { subdomain: true },
+      });
+      if (record?.subdomain) canonicalSlug = record.subdomain;
+    }
+  }
+  // console.log({ canonicalSlug, host });
   const nextUrl = req.nextUrl;
   const pathnameLocale = nextUrl.pathname; //.split("/", 2)?.[1];
   // Remove the locale from the pathname
@@ -33,7 +54,7 @@ export default async function proxy(req: NextRequest) {
   const isLogin = url.pathname === "/login";
 
   // ---- Handle special app subdomain ----
-  if (subdomain === "app" || subdomain.startsWith("app.")) {
+  if (canonicalSlug === "app" || canonicalSlug.startsWith("app.")) {
     return NextResponse.rewrite(new URL("/app/", req.url));
   }
 
@@ -77,12 +98,12 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // ---- Handle custom subdomain (school sites) ----
-  if (subdomain && subdomain !== hostName) {
+  // ---- Rewrite to school dashboard route ----
+  if (canonicalSlug && canonicalSlug !== hostName) {
     const searchParams = url.searchParams.toString();
     const path = `${url.pathname}${searchParams ? `?${searchParams}` : ""}`;
 
-    let rewritePath = `/dashboard/${subdomain}${path}`;
+    let rewritePath = `/dashboard/${canonicalSlug}${path}`;
 
     // ✅ Always ensure it starts with a slash
     if (!rewritePath.startsWith("/")) rewritePath = `/${rewritePath}`;

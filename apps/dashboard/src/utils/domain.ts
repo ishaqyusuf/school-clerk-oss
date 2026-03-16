@@ -12,7 +12,7 @@ export async function addDomainToVercel(domain: string) {
     teamId: env.VERCEL_TEAM_ID,
     slug: env.VERCEL_PROJECT_SLUG,
     requestBody: {
-      name: `${domain}.vercel.app`, // www.example.com
+      name: domain,
       gitBranch: null,
       //   redirect: "",
       //   redirectStatusCode: 307,

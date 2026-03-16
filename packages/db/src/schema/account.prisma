@@ -9,6 +9,7 @@ model SaasAccount {
     deletedAt DateTime?       @db.Timestamp(0)
     schools   SchoolProfile[]
     users     User[]
+    domains   TenantDomain[]
 }
 
 model User {

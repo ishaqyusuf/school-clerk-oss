@@ -52,9 +52,10 @@ export function Client() {
         .email({
           email: formData.email,
           password: formData.password,
+          // callbackURL: "/signout",
         })
         .then((resp) => {
-          console.log({ resp });
+          // console.log({ resp });
           const bearerToken = resp.data.token;
           const userId = resp.data.user.id;
 
@@ -63,7 +64,11 @@ export function Client() {
           });
           resetCookie({ bearerToken, userId, redirectUrl })
             .then((res) => {
-              console.log({ res, bearerToken, userId });
+              // console.log({ res, bearerToken, userId });
+              //reload window
+              window.location.reload();
+              //signout
+              // window.location.href = "/signout";
             })
             .catch((e) => {
               debugToast("Error setting cookie:", e);

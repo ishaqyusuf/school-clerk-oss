@@ -10,6 +10,7 @@ import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 
 import { actionClient } from "./safe-action";
 import { createSignupSchema } from "./schema";
+import { addDomainToVercel } from "@/utils/domain";
 
 // const schema = createSignupSchema({} as any);
 //z.custom() as ReturnType<typeof createSignupSchema>;
@@ -59,13 +60,35 @@ export const createSaasProfileAction = actionClient
           schools: true,
         },
       });
+
+      await tx.tenantDomain.create({
+        data: {
+          subdomain: input.domainName,
+          isPrimary: true,
+          isVerified: true,
+          schoolProfileId: s.schools[0].id,
+          saasAccountId: s.id,
+        },
+      });
+
       const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
       const host = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
       const subDomain = s.schools?.[0]?.subDomain;
       const redirectUrl = `${protocol}://${subDomain}.${host}`;
       return {
         redirectUrl,
+        subDomain,
+        host,
       };
     });
+
+    if (process.env.NODE_ENV === "production") {
+      try {
+        await addDomainToVercel(`${resp.subDomain}.${resp.host}`);
+      } catch (e) {
+        console.error("[Vercel] Failed to add domain:", e);
+      }
+    }
+
     redirect(resp.redirectUrl);
   });
