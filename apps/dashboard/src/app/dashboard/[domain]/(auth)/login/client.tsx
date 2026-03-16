@@ -21,7 +21,7 @@ import { authClient } from "@/auth/client";
 import { debugToast } from "@/hooks/use-debug-console";
 import { useWorkspaceStore } from "@/store/workspace";
 import { resetCookie } from "@/actions/cookies/auth-cookie";
-import { getFirstPermittedHref } from "@/sidebar/utils";
+import { getFirstPermittedHref } from "@/components/sidebar/links";
 
 // import { signIn } from "next-auth/react";
 
@@ -52,22 +52,23 @@ export function Client() {
         .email({
           email: formData.email,
           password: formData.password,
-          // callbackURL: "/",
+          callbackURL: "/signout",
         })
         .then((resp) => {
           console.log({ resp });
           const bearerToken = resp.data.token;
-          const userId = resp.data.user.id;
-          const redirectUrl = getFirstPermittedHref({
-            role: resp.data.user.role,
-          });
-          resetCookie({ bearerToken, userId, redirectUrl })
-            .then((res) => {
-              console.log({ res, bearerToken, userId });
-            })
-            .catch((e) => {
-              debugToast("Error setting cookie:", e);
-            });
+          // const userId = resp.data.user.id;
+
+          // const redirectUrl = getFirstPermittedHref({
+          //   role: resp.data.user.role,
+          // });
+          // resetCookie({ bearerToken, userId, redirectUrl })
+          //   .then((res) => {
+          //     console.log({ res, bearerToken, userId });
+          //   })
+          //   .catch((e) => {
+          //     debugToast("Error setting cookie:", e);
+          //   });
           // ws.
 
           // .then((e) => {

@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import { prisma, type Database } from "@school-clerk/db";
+import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { TRPCError, initTRPC } from "@trpc/server";
 import superjson from "superjson";
 import { withPrimaryReadAfterWrite } from "./middleware/primary-read-after-write";
@@ -23,9 +24,10 @@ export const createTRPCContext = async (
   c: Context
 ): Promise<TRPCContext> => {
   const authSessionId = c.req.header("Authorization")?.split(" ")[1];
+  const appRootDomain = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
   let host = decodeURIComponent(c.req.header()["host"] || "");
   if (process.env.NODE_ENV == "development") {
-    host = host?.replaceAll(`.${process.env.APP_ROOT_DOMAIN}`, ".vercel.app");
+    host = host?.replaceAll(`.${appRootDomain}`, ".vercel.app");
   }
   const [termId, sessionId, schoolId] = (
     c.req.header()["x-ttss-id"] ?? ""
@@ -36,7 +38,7 @@ export const createTRPCContext = async (
     sessionId,
     schoolId,
     authSessionId,
-    domain: host?.replace(`.${process.env.APP_ROOT_DOMAIN}`, ""),
+    domain: host?.replace(`.${appRootDomain}`, ""),
   };
 
   return {

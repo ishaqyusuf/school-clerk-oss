@@ -3,6 +3,7 @@ import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@school-clerk/db";
+import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { nextCookies } from "better-auth/next-js";
 
 export function initAuth(options: {
@@ -12,8 +13,9 @@ export function initAuth(options: {
   //   discordClientId: string;
   //   discordClientSecret: string;
 }) {
-  const developmentAppRootDomain =
-    process.env.APP_ROOT_DOMAIN ?? "school-clerk-dashboard.localhost:1355";
+  const developmentAppRootDomain = resolveDashboardAppRootDomain(
+    process.env.APP_ROOT_DOMAIN
+  );
   const defaultDevelopmentOrigin = `http://${developmentAppRootDomain}`;
 
   const config = {

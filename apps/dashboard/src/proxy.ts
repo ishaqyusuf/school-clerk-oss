@@ -2,14 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "./env";
 import { auth } from "./auth/server";
 import { extractTenantSubdomain } from "./utils/tenant-host";
-import { getFirstPermittedHref } from "./sidebar/utils";
+import { getFirstPermittedHref } from "./components/sidebar/links";
+import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico|fonts).*)"],
 };
 
 export default async function proxy(req: NextRequest) {
-  const hostName = env.APP_ROOT_DOMAIN; // e.g. "schoolclerk-dashboard.vercel.app"
+  const hostName = resolveDashboardAppRootDomain(env.APP_ROOT_DOMAIN);
   if (!hostName) throw new Error("APP_ROOT_DOMAIN is not defined");
 
   const host = req.headers.get("host") ?? "";
@@ -17,7 +18,7 @@ export default async function proxy(req: NextRequest) {
 
   // ---- Determine subdomain ----
   const subdomain = extractTenantSubdomain(host, hostName);
-
+  // console.log({ subdomain, host });
   const nextUrl = req.nextUrl;
   const pathnameLocale = nextUrl.pathname; //.split("/", 2)?.[1];
   // Remove the locale from the pathname
@@ -44,6 +45,7 @@ export default async function proxy(req: NextRequest) {
       const defaultLink = getFirstPermittedHref({
         role: session.user?.role,
       });
+      console.log({ defaultLink });
       return NextResponse.redirect(new URL(defaultLink, req.url));
     }
 

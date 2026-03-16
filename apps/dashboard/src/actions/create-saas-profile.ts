@@ -6,6 +6,7 @@ import type z from "zod";
 
 import { prisma } from "@school-clerk/db";
 import { slugify } from "@school-clerk/utils";
+import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 
 import { actionClient } from "./safe-action";
 import { createSignupSchema } from "./schema";
@@ -59,7 +60,7 @@ export const createSaasProfileAction = actionClient
         },
       });
       const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-      const host = process.env.APP_ROOT_DOMAIN;
+      const host = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
       const subDomain = s.schools?.[0]?.subDomain;
       const redirectUrl = `${protocol}://${subDomain}.${host}`;
       return {

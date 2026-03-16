@@ -25,7 +25,7 @@ const _module = (
   icon: IconKeys,
   // title?,
   subtitle?,
-  sections: ReturnType<typeof _section>[] = []
+  sections: ReturnType<typeof _section>[] = [],
 ) => ({
   name,
   icon,
@@ -59,7 +59,7 @@ const _section = (
   name: string,
   title?: string,
   links?: (ReturnType<typeof _link>["data"] | undefined)[],
-  access: Access[] = []
+  access: Access[] = [],
 ) => ({
   name,
   title,
@@ -79,7 +79,7 @@ const _link = (
   icon?: IconKeys,
   href?,
   subLinks: LinkItem[] = [],
-  access: Access[] = []
+  access: Access[] = [],
 ) => {
   const res = {
     name,
@@ -120,7 +120,7 @@ export const __access = (
   type: Access["type"],
   equator: Access["equator"],
   ...values
-) => ({ type, equator, values } as Access);
+) => ({ type, equator, values }) as Access;
 
 type Role =
   | "Admin"
@@ -175,53 +175,17 @@ export function validateRules(accessList: Access[], can?, userId?, _role?) {
   });
 }
 
-export function getFirstPermittedHref({
-  can,
-  role,
-  userId,
-}: {
-  can?: Record<string, boolean>;
-  role?: string | null;
-  userId?: string | null;
-}) {
-  for (const module of linkModules) {
-    for (const section of module.sections ?? []) {
-      const sectionAllowed = validateRules(section.access ?? [], can, userId, role);
-      if (!sectionAllowed) continue;
-
-      for (const link of section.links ?? []) {
-        const linkAllowed = validateRules(link.access ?? [], can, userId, role);
-        if (!linkAllowed) continue;
-
-        if (link.href) return link.href;
-
-        for (const subLink of link.subLinks ?? []) {
-          const subLinkAllowed = validateRules(
-            subLink.access ?? [],
-            can,
-            userId,
-            role
-          );
-          if (subLinkAllowed && subLink.href) return subLink.href;
-        }
-      }
-    }
-  }
-
-  return "/";
-}
-
 export const linkModules = [
   createNavModule("Community", "school", "School Management", [
     createNavSection("main", "General", [
       createNavLink("Dashboard", "dashboard", "/dashboard").access(
-        _role.in("Admin", "Staff")
+        _role.in("Admin", "Staff"),
       ).data,
       createNavLink("Announcements", "speaker", "/announcements").access(
-        _role.in("Admin", "Teacher")
+        _role.in("Admin", "Teacher"),
       ).data,
       createNavLink("Calendar", "calendar", "/calendar").access(
-        _role.in("Admin", "Staff")
+        _role.in("Admin", "Staff"),
       ).data,
     ]),
   ]),
@@ -231,13 +195,13 @@ export const linkModules = [
       _link("Teachers", "users", "/staff/teachers").access(_role.is("Admin"))
         .data,
       _link("Non-Teaching Staff", "users", "/staff/non-teaching").access(
-        _role.is("Admin")
+        _role.is("Admin"),
       ).data,
       _link("Departments", "building", "/staff/departments").access(
-        _role.is("Admin")
+        _role.is("Admin"),
       ).data,
       _link("Attendance", "calendar-check", "/staff/attendance").access(
-        _role.in("Admin", "HR")
+        _role.in("Admin", "HR"),
       ).data,
       _link("Payroll", "wallet", "/staff/payroll").access(_role.is("Admin"))
         .data,
@@ -251,24 +215,24 @@ export const linkModules = [
     ]),
     _section("main", "Finance Managment", [
       _link("Fee Management", "coins", "/finance/fees-management").access(
-        _role.is("Admin")
+        _role.is("Admin"),
       ).data,
       _link("Billables", "coins", "/finance/billables").access(
-        _role.is("Admin")
+        _role.is("Admin"),
       ).data,
     ]),
     _section("main", "Fees", [
       _link("Transactions", "file-text", "/finance/transactions").access(
-        _role.in("Admin", "Accountant")
+        _role.in("Admin", "Accountant"),
       ).data,
       _link("Student Fees", "file-text", "/finance/student-fees").access(
-        _role.in("Admin", "Accountant")
+        _role.in("Admin", "Accountant"),
       ).data,
       _link("Bills", "file-text", "/finance/bills").access(
-        _role.in("Admin", "Accountant")
+        _role.in("Admin", "Accountant"),
       ).data,
       _link("Payments", "credit-card", "/finance/payments").access(
-        _role.in("Admin", "Accountant")
+        _role.in("Admin", "Accountant"),
       ).data,
     ]),
   ]),
@@ -276,29 +240,29 @@ export const linkModules = [
   createNavModule("Academic", "graduation-cap", "Academic", [
     createNavSection("main", "Students", [
       createNavLink("Student List", "users", "/students/list").access(
-        _role.in("Admin", "Teacher")
+        _role.in("Admin", "Teacher"),
       ).data,
       createNavLink("Enrollment", "user-plus", "/students/enrollment").access(
-        _role.in("Admin", "Registrar")
+        _role.in("Admin", "Registrar"),
       ).data,
       createNavLink("Classes", "list", "/academic/classes").access(
-        _role.in("Admin", "Teacher")
+        _role.in("Admin", "Teacher"),
       ).data,
       createNavLink("Subjects", "book", "/academic/subjects").access(
-        _role.in("Admin", "Teacher")
+        _role.in("Admin", "Teacher"),
       ).data,
     ]),
     createNavSection("main", "Assessment", [
       createNavLink(
         "Tests & Exams",
         "clipboard-list",
-        "/academic/assessments"
+        "/academic/assessments",
       ).access(_role.in("Admin", "Teacher")).data,
       createNavLink("Grading", "award", "/academic/grading").access(
-        _role.in("Admin", "Teacher")
+        _role.in("Admin", "Teacher"),
       ).data,
       createNavLink("Report Cards", "file-text", "/academic/reports").access(
-        _role.in("Admin", "Teacher")
+        _role.in("Admin", "Teacher"),
       ).data,
     ]),
   ]),
@@ -306,13 +270,13 @@ export const linkModules = [
   _module("PTA", "user", "Parent Portal", [
     _section("main", "Engagement", [
       _link("Student Performance", "bar-chart", "/parents/performance").access(
-        _role.is("Parent")
+        _role.is("Parent"),
       ).data,
       _link("Communication", "message-square", "/parents/messages").access(
-        _role.is("Parent")
+        _role.is("Parent"),
       ).data,
       _link("Payments", "credit-card", "/parents/payments").access(
-        _role.is("Parent")
+        _role.is("Parent"),
       ).data,
     ]),
   ]),
@@ -320,13 +284,13 @@ export const linkModules = [
   _module("Settings", "settings", "Settings", [
     _section("main", "Configuration", [
       _link("School Profile", "settings", "/settings/school-profile").access(
-        _role.is("Admin")
+        _role.is("Admin"),
       ).data,
       _link("Academic Session", "calendar", "/settings/sessions").access(
-        _role.is("Admin")
+        _role.is("Admin"),
       ).data,
       _link("Roles & Permissions", "shield", "/settings/roles").access(
-        _role.is("Admin")
+        _role.is("Admin"),
       ).data,
     ]),
   ]),

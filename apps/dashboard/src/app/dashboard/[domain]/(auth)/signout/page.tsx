@@ -6,7 +6,7 @@ import { useEffect } from "react";
 export default function SignoutPage() {
   useEffect(() => {
     authClient.signOut({
-      callbackUrl: "",
+      callbackUrl: "/",
     });
   }, []);
 

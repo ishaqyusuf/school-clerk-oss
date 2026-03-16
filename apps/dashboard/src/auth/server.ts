@@ -4,13 +4,13 @@ import { cache } from "react";
 import { headers } from "next/headers";
 
 import { initAuth } from "@school-clerk/auth";
+import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 
+const appRootDomain = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
 const baseUrl =
   process.env.NODE_ENV === "production"
     ? `https://${process.env.NEXT_PUBLIC_APP_URL}`
-    : `http://${
-        process.env.APP_ROOT_DOMAIN ?? "school-clerk-dashboard.localhost:1355"
-      }`;
+    : `http://${appRootDomain}`;
 
 export const auth = initAuth({
   baseUrl,

@@ -21,6 +21,21 @@ export function stripSpecialCharacters(inputString: string) {
     .toLowerCase(); // Convert to lowercase for consistency
 }
 export const devMode = process.env.NODE_ENV != "production";
+export const DASHBOARD_DEV_ROOT_DOMAIN = "school-clerk-dashboard.localhost:1355";
+
+function isBareLocalhostDomain(domain?: string | null) {
+  if (!domain) return true;
+  return /^localhost(?::\d+)?$/i.test(domain.trim());
+}
+
+export function resolveDashboardAppRootDomain(configuredDomain?: string | null) {
+  if (isBareLocalhostDomain(configuredDomain)) {
+    return DASHBOARD_DEV_ROOT_DOMAIN;
+  }
+
+  return configuredDomain!.trim().toLowerCase();
+}
+
 export function shuffle(array: any) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));

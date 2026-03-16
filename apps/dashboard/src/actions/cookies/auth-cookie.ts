@@ -1,6 +1,7 @@
 "use server";
 import { env } from "@/env";
 import { prisma } from "@school-clerk/db";
+import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { extractTenantSubdomain } from "@/utils/tenant-host";
@@ -20,8 +21,9 @@ export interface AuthCookie {
 const getCookieName = (domain) => `${domain}-session-cookie`;
 export async function getTenantDomain() {
   const host = decodeURIComponent((await headers()).get("host") || "");
+  const appRootDomain = resolveDashboardAppRootDomain(env.APP_ROOT_DOMAIN);
   return {
-    domain: extractTenantSubdomain(host, env.APP_ROOT_DOMAIN),
+    domain: extractTenantSubdomain(host, appRootDomain),
   };
 }
 export async function getAuthCookie() {
