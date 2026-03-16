@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "./env";
 import { auth } from "./auth/server";
 import { headers } from "next/headers";
+import { extractTenantSubdomain } from "./utils/tenant-host";
 
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico|fonts).*)"],
@@ -13,14 +14,9 @@ export default async function proxy(req: NextRequest) {
 
   const host = req.headers.get("host") ?? "";
   const url = req.nextUrl;
-  const isProd = env.NODE_ENV === "production";
 
   // ---- Determine subdomain ----
-  let subdomain = host
-    .replace(`.${hostName}`, "")
-    .replace(".vercel.app", "")
-    .replace(".localhost:2200", "")
-    .trim();
+  const subdomain = extractTenantSubdomain(host, hostName);
 
   const nextUrl = req.nextUrl;
   const pathnameLocale = nextUrl.pathname; //.split("/", 2)?.[1];
@@ -64,10 +60,7 @@ export default async function proxy(req: NextRequest) {
     const searchParams = url.searchParams.toString();
     const path = `${url.pathname}${searchParams ? `?${searchParams}` : ""}`;
 
-    const dashboardSlug = isProd ? subdomain : subdomain || "local";
-    // const rewritePath = `/dashboard/${dashboardSlug}${path}`;
-    // return NextResponse.rewrite(new URL(rewritePath, req.url));
-    let rewritePath = `/dashboard/${dashboardSlug}${path}`;
+    let rewritePath = `/dashboard/${subdomain}${path}`;
 
     // ✅ Always ensure it starts with a slash
     if (!rewritePath.startsWith("/")) rewritePath = `/${rewritePath}`;

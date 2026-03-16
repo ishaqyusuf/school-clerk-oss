@@ -8,9 +8,9 @@ import { initAuth } from "@school-clerk/auth";
 const baseUrl =
   process.env.NODE_ENV === "production"
     ? `https://${process.env.NEXT_PUBLIC_APP_URL}`
-    : // : env.VERCEL_ENV === "preview"
-      //   ? `https://${env.VERCEL_URL}`
-      "http://daarulhadith.localhost:2200";
+    : `http://${
+        process.env.APP_ROOT_DOMAIN ?? "school-clerk-dashboard.localhost:1355"
+      }`;
 
 export const auth = initAuth({
   baseUrl,

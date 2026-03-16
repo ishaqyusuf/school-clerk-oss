@@ -175,6 +175,42 @@ export function validateRules(accessList: Access[], can?, userId?, _role?) {
   });
 }
 
+export function getFirstPermittedHref({
+  can,
+  role,
+  userId,
+}: {
+  can?: Record<string, boolean>;
+  role?: string | null;
+  userId?: string | null;
+}) {
+  for (const module of linkModules) {
+    for (const section of module.sections ?? []) {
+      const sectionAllowed = validateRules(section.access ?? [], can, userId, role);
+      if (!sectionAllowed) continue;
+
+      for (const link of section.links ?? []) {
+        const linkAllowed = validateRules(link.access ?? [], can, userId, role);
+        if (!linkAllowed) continue;
+
+        if (link.href) return link.href;
+
+        for (const subLink of link.subLinks ?? []) {
+          const subLinkAllowed = validateRules(
+            subLink.access ?? [],
+            can,
+            userId,
+            role
+          );
+          if (subLinkAllowed && subLink.href) return subLink.href;
+        }
+      }
+    }
+  }
+
+  return "/";
+}
+
 export const linkModules = [
   createNavModule("Community", "school", "School Management", [
     createNavSection("main", "General", [

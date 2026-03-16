@@ -21,6 +21,7 @@ import { authClient } from "@/auth/client";
 import { debugToast } from "@/hooks/use-debug-console";
 import { useWorkspaceStore } from "@/store/workspace";
 import { resetCookie } from "@/actions/cookies/auth-cookie";
+import { getFirstPermittedHref } from "@/sidebar/utils";
 
 // import { signIn } from "next-auth/react";
 
@@ -57,7 +58,10 @@ export function Client() {
           console.log({ resp });
           const bearerToken = resp.data.token;
           const userId = resp.data.user.id;
-          resetCookie({ bearerToken, userId, redirectUrl: "/" })
+          const redirectUrl = getFirstPermittedHref({
+            role: resp.data.user.role,
+          });
+          resetCookie({ bearerToken, userId, redirectUrl })
             .then((res) => {
               console.log({ res, bearerToken, userId });
             })

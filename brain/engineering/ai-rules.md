@@ -16,6 +16,7 @@ Operational rules for AI agents contributing to this repository.
 - Update docs alongside code changes.
 - Prefer the existing `portless`-wrapped `dev` scripts for local app startup; do not introduce new hardcoded default ports unless explicitly required.
 - Current Portless local app names: dashboard -> `school-clerk-dashboard`, web -> `school-clerk-web`, api -> `api`.
+- Dashboard tenant development hosts resolve as `<tenant>.school-clerk-dashboard.localhost:1355`; keep host parsing and cookie lookup aligned with that format.
 
 ## Documentation Rules
 - Use ADRs for architectural decisions.

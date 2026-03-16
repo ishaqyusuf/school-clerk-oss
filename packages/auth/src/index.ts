@@ -12,6 +12,10 @@ export function initAuth(options: {
   //   discordClientId: string;
   //   discordClientSecret: string;
 }) {
+  const developmentAppRootDomain =
+    process.env.APP_ROOT_DOMAIN ?? "school-clerk-dashboard.localhost:1355";
+  const defaultDevelopmentOrigin = `http://${developmentAppRootDomain}`;
+
   const config = {
     database: prismaAdapter(prisma, {
       provider: "postgresql",
@@ -88,13 +92,20 @@ export function initAuth(options: {
       // google: {}
     },
     hooks: {},
-    trustedOrigins: [
-      "expo://",
-      "*.localhost:2200", // Trust all subdomains of example.com (any protocol)
-      "https://01f5e232bbc3.ngrok-free.app", // Trust all subdomains of example.com (any protocol)
-      //   "https://*.example.com", // Trust only HTTPS subdomains of example.com
-      //   "http://*.dev.example.com", // Trust all HTTP subdomains of dev.example.com
-    ],
+    trustedOrigins: (request) => {
+      const requestOrigin = request.headers.get("origin");
+      const requestUrlOrigin = new URL(request.url).origin;
+
+      return [
+        "expo://",
+        defaultDevelopmentOrigin,
+        options.baseUrl,
+        options.productionUrl,
+        requestUrlOrigin,
+        ...(requestOrigin ? [requestOrigin] : []),
+        "https://01f5e232bbc3.ngrok-free.app",
+      ];
+    },
   } satisfies BetterAuthOptions;
 
   return betterAuth(config);

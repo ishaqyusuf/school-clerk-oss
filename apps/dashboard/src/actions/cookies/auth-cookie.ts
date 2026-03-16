@@ -3,14 +3,15 @@ import { env } from "@/env";
 import { prisma } from "@school-clerk/db";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { extractTenantSubdomain } from "@/utils/tenant-host";
 
 export interface AuthCookie {
   domain: string;
   sessionId?: string;
   schoolId?: string;
   termId?: string;
-  sessionTitle: string;
-  termTitle: string;
+  sessionTitle?: string;
+  termTitle?: string;
   auth: {
     bearerToken: string;
     userId: string;
@@ -18,12 +19,9 @@ export interface AuthCookie {
 }
 const getCookieName = (domain) => `${domain}-session-cookie`;
 export async function getTenantDomain() {
-  let host = decodeURIComponent((await headers()).get("host") || "");
-  if (env.NODE_ENV == "development") {
-    host = host?.replaceAll(`.${env.APP_ROOT_DOMAIN}`, ".vercel.app");
-  }
+  const host = decodeURIComponent((await headers()).get("host") || "");
   return {
-    domain: host?.replace(`.${env.APP_ROOT_DOMAIN}`, ""),
+    domain: extractTenantSubdomain(host, env.APP_ROOT_DOMAIN),
   };
 }
 export async function getAuthCookie() {
@@ -72,11 +70,11 @@ export async function resetCookie({ bearerToken, userId, redirectUrl = null }) {
     },
   });
   const session =
-    school.sessions.find((s) => s.id === authCookie?.sessionId) ||
+    school?.sessions?.find((s) => s.id === authCookie?.sessionId) ||
     school?.sessions?.[0];
   const term =
-    session.terms.find((s) => s.id === authCookie?.termId) ||
-    session.terms?.[0];
+    session?.terms?.find((s) => s.id === authCookie?.termId) ||
+    session?.terms?.[0];
 
   authCookie = {
     ...authCookie,
@@ -84,8 +82,8 @@ export async function resetCookie({ bearerToken, userId, redirectUrl = null }) {
     sessionId: session?.id,
     termId: term?.id,
     schoolId: school?.id,
-    sessionTitle: session?.title,
-    termTitle: term?.title,
+    sessionTitle: session?.title ?? authCookie?.sessionTitle,
+    termTitle: term?.title ?? authCookie?.termTitle,
     auth: {
       bearerToken,
       userId,
