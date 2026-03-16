@@ -100,12 +100,12 @@ const tickerItems = [...institutionTypes, ...institutionTypes];
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <div className="min-h-screen bg-background text-foreground">
       {/* ─── Sticky Nav ─── */}
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/90 backdrop-blur-md">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4 sm:px-10 lg:px-12">
           <div className="flex items-center gap-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent)]">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-primary">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <rect x="1" y="1" width="5" height="5" rx="1" fill="white" />
                 <rect
@@ -129,27 +129,27 @@ export default function Home() {
                 <rect x="8" y="8" width="5" height="5" rx="1" fill="white" />
               </svg>
             </div>
-            <span className="text-sm font-semibold tracking-tight text-[var(--foreground)]">
+            <span className="text-sm font-semibold tracking-tight text-foreground">
               SchoolClerk
             </span>
           </div>
 
-          <nav className="hidden items-center gap-7 text-sm text-[var(--muted)] md:flex">
+          <nav className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
             <a
               href="#modules"
-              className="transition-colors hover:text-[var(--foreground)]"
+              className="transition-colors hover:text-foreground"
             >
               Modules
             </a>
             <a
               href="#platform"
-              className="transition-colors hover:text-[var(--foreground)]"
+              className="transition-colors hover:text-foreground"
             >
               Platform
             </a>
             <a
               href="#pricing"
-              className="transition-colors hover:text-[var(--foreground)]"
+              className="transition-colors hover:text-foreground"
             >
               Pricing
             </a>
@@ -157,7 +157,7 @@ export default function Home() {
 
           <a
             href="#pricing"
-            className="hidden rounded-full bg-[var(--foreground)] px-5 py-2.5 text-sm font-semibold text-[var(--background)] transition hover:opacity-85 sm:inline-flex"
+            className="hidden rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-85 sm:inline-flex"
           >
             Book a demo
           </a>
@@ -165,26 +165,26 @@ export default function Home() {
       </header>
 
       {/* ─── Hero ─── */}
-      <section className="relative isolate overflow-hidden bg-[var(--foreground)] pt-24">
+      <section className="relative isolate overflow-hidden bg-primary pt-24 text-primary-foreground">
         {/* subtle texture */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(21,76,65,0.35),transparent)]" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary-foreground/10 to-transparent" />
 
         <div className="relative mx-auto w-full max-w-7xl px-6 pb-0 pt-16 sm:px-10 lg:px-12 lg:pt-24">
           {/* eyebrow */}
           <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-light)]" />
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/50">
+            <span className="size-1.5 rounded-full bg-primary-foreground/80" />
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-primary-foreground/50">
               Multi-tenant school SaaS
             </p>
           </div>
 
           {/* headline */}
-          <h1 className="mt-7 max-w-4xl text-5xl font-semibold leading-[1.08] tracking-[-0.06em] text-white sm:text-6xl lg:text-[5.5rem]">
+          <h1 className="mt-7 max-w-4xl text-5xl font-semibold leading-[1.08] tracking-[-0.06em] sm:text-6xl lg:text-[5.5rem]">
             One operating system for every school type.
           </h1>
 
           <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_auto]">
-            <p className="max-w-xl text-lg leading-8 text-white/60">
+            <p className="max-w-xl text-lg leading-8 text-primary-foreground/70">
               SchoolClerk replaces paper-heavy admin, scattered spreadsheets,
               and rigid software with a configurable platform built for
               academics, finance, communication, and growth.
@@ -194,10 +194,10 @@ export default function Home() {
             <div className="flex items-end gap-10 pb-1 lg:gap-12">
               {metrics.map((m) => (
                 <div key={m.label} className="text-right lg:text-left">
-                  <p className="text-3xl font-semibold tracking-[-0.05em] text-white">
+                  <p className="text-3xl font-semibold tracking-[-0.05em]">
                     {m.value}
                   </p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.22em] text-white/40">
+                  <p className="mt-1 text-xs uppercase tracking-[0.22em] text-primary-foreground/45">
                     {m.label}
                   </p>
                 </div>
@@ -209,20 +209,20 @@ export default function Home() {
           <div className="mt-10 flex flex-col gap-3 sm:flex-row">
             <a
               href="#pricing"
-              className="inline-flex items-center justify-center rounded-full bg-[var(--accent)] px-7 py-3.5 text-sm font-semibold text-[var(--accent-foreground)] transition hover:bg-[var(--accent-light)] hover:translate-y-[-1px]"
+              className="inline-flex items-center justify-center rounded-full bg-background px-7 py-3.5 text-sm font-semibold text-foreground transition hover:bg-background/90 hover:-translate-y-px"
             >
               Book a demo
             </a>
             <a
               href="#modules"
-              className="inline-flex items-center justify-center rounded-full border border-white/15 px-7 py-3.5 text-sm font-semibold text-white/80 transition hover:border-white/35 hover:text-white"
+              className="inline-flex items-center justify-center rounded-full border border-primary-foreground/15 px-7 py-3.5 text-sm font-semibold text-primary-foreground/80 transition hover:border-primary-foreground/35 hover:text-primary-foreground"
             >
               Explore modules →
             </a>
           </div>
 
           {/* Ticker strip at bottom of hero */}
-          <div className="relative mt-16 overflow-hidden border-t border-white/10 py-5">
+          <div className="relative mt-16 overflow-hidden border-t border-primary-foreground/10 py-5">
             <div className="flex gap-0">
               <div className="marquee-track flex shrink-0 gap-0">
                 {tickerItems.map((item, i) => (
@@ -230,10 +230,10 @@ export default function Home() {
                     key={i}
                     className="flex items-center gap-0 whitespace-nowrap"
                   >
-                    <span className="px-6 text-xs font-semibold uppercase tracking-[0.26em] text-white/35">
+                    <span className="px-6 text-xs font-semibold uppercase tracking-[0.26em] text-primary-foreground/40">
                       {item}
                     </span>
-                    <span className="h-3.5 w-px bg-white/15" />
+                    <span className="h-3.5 w-px bg-primary-foreground/15" />
                   </span>
                 ))}
               </div>
@@ -245,19 +245,19 @@ export default function Home() {
       {/* ─── How it works / Highlights ─── */}
       <section
         id="platform"
-        className="border-b border-[var(--border)] bg-[var(--surface)]"
+        className="border-b border-border bg-muted/30"
       >
         <div className="mx-auto w-full max-w-7xl px-6 py-20 sm:px-10 lg:px-12">
           <div className="mb-14 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--muted)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                 Platform
               </p>
               <h2 className="mt-3 text-4xl font-semibold tracking-[-0.05em]">
                 Built to flex with any school model.
               </h2>
             </div>
-            <p className="max-w-sm text-sm leading-7 text-[var(--muted)] lg:text-right">
+            <p className="max-w-sm text-sm leading-7 text-muted-foreground lg:text-right">
               Whether you run a single nursery or a network of secondary
               schools, SchoolClerk adapts to your structure.
             </p>
@@ -267,15 +267,15 @@ export default function Home() {
             {highlights.map((item) => (
               <article
                 key={item.title}
-                className="group relative overflow-hidden rounded-[1.75rem] border border-[var(--border)] bg-[var(--background)] p-7 transition hover:shadow-[0_20px_50px_rgba(23,20,16,0.08)]"
+                className="group relative overflow-hidden rounded-[1.75rem] border border-border bg-card p-7 text-card-foreground transition hover:shadow-[0_20px_50px_rgba(23,20,16,0.08)]"
               >
-                <p className="text-4xl font-semibold tracking-[-0.08em] text-[var(--border-strong)] transition group-hover:text-[var(--accent)] group-hover:opacity-100">
+                <p className="text-4xl font-semibold tracking-[-0.08em] text-muted-foreground/60 transition group-hover:text-primary group-hover:opacity-100">
                   {item.number}
                 </p>
                 <h3 className="mt-6 text-xl font-semibold tracking-[-0.04em]">
                   {item.title}
                 </h3>
-                <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
+                <p className="mt-3 text-sm leading-7 text-muted-foreground">
                   {item.copy}
                 </p>
               </article>
@@ -285,11 +285,11 @@ export default function Home() {
       </section>
 
       {/* ─── Academic Engine Visual ─── */}
-      <section className="border-b border-[var(--border)]">
+      <section className="border-b border-border">
         <div className="mx-auto w-full max-w-7xl px-6 py-20 sm:px-10 lg:px-12">
           <div className="grid gap-8 lg:grid-cols-2 lg:gap-16 lg:items-center">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--muted)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                 Academic engine
               </p>
               <h2 className="mt-3 text-4xl font-semibold tracking-[-0.05em]">
@@ -297,12 +297,12 @@ export default function Home() {
                 <br />
                 every institution.
               </h2>
-              <p className="mt-4 max-w-lg text-base leading-7 text-[var(--muted)]">
+              <p className="mt-4 max-w-lg text-base leading-7 text-muted-foreground">
                 SchoolClerk's academic engine is composable. Configure sessions,
                 terms, semesters, class arms, departments, and programs exactly
                 the way your institution works — no hard-coded assumptions.
               </p>
-              <ul className="mt-7 space-y-3">
+              <ul className="mt-7 flex flex-col gap-3">
                 {[
                   "Works for term-based and semester-based calendars",
                   "Supports class arms and departmental structures",
@@ -310,9 +310,9 @@ export default function Home() {
                 ].map((point) => (
                   <li
                     key={point}
-                    className="flex items-start gap-3 text-sm leading-6 text-[var(--muted)]"
+                    className="flex items-start gap-3 text-sm leading-6 text-muted-foreground"
                   >
-                    <span className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/12 text-[var(--accent)]">
+                    <span className="mt-1 flex size-4 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary">
                       <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
                         <path
                           d="M1.5 4L3.5 6L6.5 2"
@@ -330,11 +330,11 @@ export default function Home() {
             </div>
 
             {/* Visual flow diagram */}
-            <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--foreground)] p-8 text-white">
-              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-white/40">
+            <div className="rounded-[2rem] border border-border bg-card p-8 text-card-foreground">
+              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-muted-foreground">
                 Academic structure
               </p>
-              <div className="mt-6 space-y-3">
+              <div className="mt-6 flex flex-col gap-3">
                 {[
                   { level: "Session", eg: "2024 / 2025" },
                   {
@@ -350,16 +350,14 @@ export default function Home() {
                 ].map((row, i) => (
                   <div
                     key={row.level}
-                    className="flex items-center gap-4 rounded-2xl bg-white/6 px-5 py-4"
+                    className="flex items-center gap-4 rounded-2xl bg-muted px-5 py-4"
                   >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10 text-xs font-semibold text-white/50">
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-background text-xs font-semibold text-muted-foreground">
                       {i + 1}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white">
-                        {row.level}
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-white/40">
+                      <p className="text-sm font-semibold">{row.level}</p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
                         {row.eg}
                       </p>
                     </div>
@@ -372,10 +370,10 @@ export default function Home() {
       </section>
 
       {/* ─── Modules ─── */}
-      <section id="modules" className="border-b border-[var(--border)]">
+      <section id="modules" className="border-b border-border">
         <div className="mx-auto w-full max-w-7xl px-6 py-20 sm:px-10 lg:px-12">
           <div className="mb-14">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--muted)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
               Core modules
             </p>
             <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -383,25 +381,25 @@ export default function Home() {
                 Built for the real work
                 <br className="hidden sm:block" /> schools do every day.
               </h2>
-              <p className="max-w-xs text-sm leading-7 text-[var(--muted)]">
+              <p className="max-w-xs text-sm leading-7 text-muted-foreground">
                 Start with what you need now, enable more as operations mature.
               </p>
             </div>
           </div>
 
-          <div className="grid gap-px rounded-[2rem] border border-[var(--border)] bg-[var(--border)] overflow-hidden sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid overflow-hidden rounded-[2rem] border border-border bg-border gap-px sm:grid-cols-2 lg:grid-cols-4">
             {modules.map((mod, i) => (
               <div
                 key={mod.name}
-                className="group bg-[var(--background)] px-6 py-7 transition hover:bg-[var(--surface)]"
+                className="group bg-background px-6 py-7 transition hover:bg-muted/30"
               >
-                <span className="text-xs font-semibold tabular-nums tracking-[0.22em] text-[var(--muted-light)]">
+                <span className="text-xs font-semibold tabular-nums tracking-[0.22em] text-muted-foreground">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <h3 className="mt-4 text-base font-semibold tracking-[-0.03em]">
                   {mod.name}
                 </h3>
-                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   {mod.description}
                 </p>
               </div>
@@ -411,17 +409,17 @@ export default function Home() {
       </section>
 
       {/* ─── Institution Types ─── */}
-      <section className="border-b border-[var(--border)] bg-[var(--surface)]">
+      <section className="border-b border-border bg-muted/30">
         <div className="mx-auto w-full max-w-7xl px-6 py-20 sm:px-10 lg:px-12">
           <div className="grid gap-12 lg:grid-cols-[1fr_1.4fr] lg:items-center">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--muted)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                 Who it's for
               </p>
               <h2 className="mt-3 text-4xl font-semibold tracking-[-0.05em]">
                 Every institution model, covered.
               </h2>
-              <p className="mt-4 max-w-sm text-base leading-7 text-[var(--muted)]">
+              <p className="mt-4 max-w-sm text-base leading-7 text-muted-foreground">
                 SchoolClerk is designed so that one product works seamlessly
                 across the full spectrum of educational institutions.
               </p>
@@ -431,9 +429,9 @@ export default function Home() {
               {institutionTypes.map((type) => (
                 <div
                   key={type}
-                  className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-4"
+                  className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-4 text-card-foreground"
                 >
-                  <span className="flex h-2 w-2 shrink-0 rounded-full bg-[var(--accent)]" />
+                  <span className="flex size-2 shrink-0 rounded-full bg-primary" />
                   <span className="text-sm font-medium">{type}</span>
                 </div>
               ))}
@@ -446,7 +444,7 @@ export default function Home() {
       <section id="pricing">
         <div className="mx-auto w-full max-w-7xl px-6 py-20 sm:px-10 lg:px-12">
           <div className="mb-14 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--muted)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
               Pricing
             </p>
             <h2 className="mt-3 text-4xl font-semibold tracking-[-0.05em]">
@@ -456,53 +454,53 @@ export default function Home() {
 
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Setup */}
-            <div className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--background)] p-7 shadow-[0_12px_40px_rgba(23,20,16,0.05)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--muted)]">
+            <div className="rounded-[1.75rem] border border-border bg-card p-7 text-card-foreground shadow-[0_12px_40px_rgba(23,20,16,0.05)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-muted-foreground">
                 Setup fee
               </p>
               <p className="mt-5 text-4xl font-semibold tracking-[-0.06em]">
-                ₦50k<span className="text-xl text-[var(--muted)]">–200k</span>
+                ₦50k<span className="text-xl text-muted-foreground">–200k</span>
               </p>
-              <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 One-time onboarding, data migration, and configuration to match
                 your institution's structure.
               </p>
             </div>
 
             {/* Monthly */}
-            <div className="relative rounded-[1.75rem] border-2 border-[var(--accent)] bg-[var(--foreground)] p-7 text-white shadow-[0_20px_60px_rgba(21,76,65,0.22)]">
+            <div className="relative rounded-[1.75rem] border-2 border-primary bg-primary p-7 text-primary-foreground shadow-[0_20px_60px_rgba(21,76,65,0.22)]">
               <div className="absolute -top-3.5 left-7">
-                <span className="rounded-full bg-[var(--accent)] px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--accent-foreground)]">
+                <span className="rounded-full bg-background px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-foreground">
                   Most popular
                 </span>
               </div>
-              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-white/50">
+              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-primary-foreground/55">
                 Monthly SaaS
               </p>
-              <p className="mt-5 text-4xl font-semibold tracking-[-0.06em] text-white">
-                ₦10k<span className="text-xl text-white/50">–50k</span>
+              <p className="mt-5 text-4xl font-semibold tracking-[-0.06em]">
+                ₦10k<span className="text-xl text-primary-foreground/55">–50k</span>
               </p>
-              <p className="mt-3 text-sm leading-6 text-white/60">
+              <p className="mt-3 text-sm leading-6 text-primary-foreground/70">
                 Per institution per month. Includes platform updates, uptime,
                 and support. Scales with school size.
               </p>
               <a
                 href="#"
-                className="mt-7 inline-flex w-full items-center justify-center rounded-2xl bg-[var(--accent)] py-3.5 text-sm font-semibold text-[var(--accent-foreground)] transition hover:bg-[var(--accent-light)]"
+                className="mt-7 inline-flex w-full items-center justify-center rounded-2xl bg-background py-3.5 text-sm font-semibold text-foreground transition hover:bg-background/90"
               >
                 Book a demo
               </a>
             </div>
 
             {/* Add-ons */}
-            <div className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--background)] p-7 shadow-[0_12px_40px_rgba(23,20,16,0.05)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--muted)]">
+            <div className="rounded-[1.75rem] border border-border bg-card p-7 text-card-foreground shadow-[0_12px_40px_rgba(23,20,16,0.05)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-muted-foreground">
                 Add-ons
               </p>
               <p className="mt-5 text-4xl font-semibold tracking-[-0.06em]">
                 À la carte
               </p>
-              <div className="mt-4 space-y-2.5">
+              <div className="mt-4 flex flex-col gap-2.5">
                 {[
                   "AI assistant",
                   "SMS notifications",
@@ -510,9 +508,9 @@ export default function Home() {
                 ].map((addon) => (
                   <div
                     key={addon}
-                    className="flex items-center gap-3 text-sm text-[var(--muted)]"
+                    className="flex items-center gap-3 text-sm text-muted-foreground"
                   >
-                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--surface)]">
+                    <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-muted">
                       <svg width="7" height="7" viewBox="0 0 7 7" fill="none">
                         <path
                           d="M1.5 3.5H5.5M3.5 1.5V5.5"
@@ -532,24 +530,24 @@ export default function Home() {
       </section>
 
       {/* ─── CTA Banner ─── */}
-      <section className="border-t border-[var(--border)] bg-[var(--foreground)]">
+      <section className="border-t border-border bg-primary text-primary-foreground">
         <div className="mx-auto w-full max-w-7xl px-6 py-20 sm:px-10 lg:px-12">
           <div className="flex flex-col items-center gap-8 text-center lg:flex-row lg:items-center lg:justify-between lg:text-left">
             <div>
-              <h2 className="max-w-xl text-4xl font-semibold leading-tight tracking-[-0.05em] text-white">
+              <h2 className="max-w-xl text-4xl font-semibold leading-tight tracking-[-0.05em]">
                 Ready to replace scattered admin with one calm system?
               </h2>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:shrink-0">
               <a
                 href="#"
-                className="inline-flex items-center justify-center rounded-full bg-[var(--accent)] px-7 py-3.5 text-sm font-semibold text-[var(--accent-foreground)] transition hover:bg-[var(--accent-light)]"
+                className="inline-flex items-center justify-center rounded-full bg-background px-7 py-3.5 text-sm font-semibold text-foreground transition hover:bg-background/90"
               >
                 Book a demo
               </a>
               <a
                 href="#modules"
-                className="inline-flex items-center justify-center rounded-full border border-white/15 px-7 py-3.5 text-sm font-semibold text-white/75 transition hover:border-white/35 hover:text-white"
+                className="inline-flex items-center justify-center rounded-full border border-primary-foreground/15 px-7 py-3.5 text-sm font-semibold text-primary-foreground/75 transition hover:border-primary-foreground/35 hover:text-primary-foreground"
               >
                 See all modules
               </a>
@@ -559,11 +557,11 @@ export default function Home() {
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="border-t border-white/10 bg-[var(--foreground)]">
+      <footer className="border-t border-primary-foreground/10 bg-primary text-primary-foreground">
         <div className="mx-auto w-full max-w-7xl px-6 py-10 sm:px-10 lg:px-12">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--accent)]">
+              <div className="flex size-6 items-center justify-center rounded-md bg-background">
                 <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
                   <rect x="1" y="1" width="5" height="5" rx="1" fill="white" />
                   <rect
@@ -587,24 +585,22 @@ export default function Home() {
                   <rect x="8" y="8" width="5" height="5" rx="1" fill="white" />
                 </svg>
               </div>
-              <span className="text-sm font-semibold text-white">
-                SchoolClerk
-              </span>
+              <span className="text-sm font-semibold">SchoolClerk</span>
             </div>
 
-            <div className="flex items-center gap-7 text-xs text-white/35">
-              <a href="#modules" className="transition hover:text-white/70">
+            <div className="flex items-center gap-7 text-xs text-primary-foreground/35">
+              <a href="#modules" className="transition hover:text-primary-foreground/70">
                 Modules
               </a>
-              <a href="#platform" className="transition hover:text-white/70">
+              <a href="#platform" className="transition hover:text-primary-foreground/70">
                 Platform
               </a>
-              <a href="#pricing" className="transition hover:text-white/70">
+              <a href="#pricing" className="transition hover:text-primary-foreground/70">
                 Pricing
               </a>
             </div>
 
-            <p className="text-xs text-white/25">
+            <p className="text-xs text-primary-foreground/25">
               © {new Date().getFullYear()} SchoolClerk. All rights reserved.
             </p>
           </div>

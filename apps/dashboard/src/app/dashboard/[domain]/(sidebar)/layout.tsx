@@ -7,6 +7,7 @@ import { GlobalModals } from "@/components/modals/global-modals";
 
 export default async function LayoutNew({ children }) {
   const cookie = await getAuthCookie();
+  console.log({ cookie });
   if (!cookie?.schoolId) {
     return null;
   }

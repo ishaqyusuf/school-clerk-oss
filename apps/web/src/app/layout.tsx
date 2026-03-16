@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import "./globals.css";
+// import "./globals.css";
 import "@school-clerk/ui/globals.css";
 export const metadata: Metadata = {
   title: "School Clerk — Modern School Management System",

@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "./env";
 import { auth } from "./auth/server";
-import { headers } from "next/headers";
 import { extractTenantSubdomain } from "./utils/tenant-host";
+import { getFirstPermittedHref } from "./sidebar/utils";
 
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico|fonts).*)"],
@@ -29,6 +29,7 @@ export default async function proxy(req: NextRequest) {
   const encodedSearchParams = `${newUrl?.pathname?.substring(1)}${
     newUrl.search
   }`;
+  const isLogin = url.pathname === "/login";
 
   // ---- Handle special app subdomain ----
   if (subdomain === "app" || subdomain.startsWith("app.")) {
@@ -36,11 +37,30 @@ export default async function proxy(req: NextRequest) {
   }
 
   const session = await auth.api.getSession({
-    headers: await headers(),
+    headers: req.headers,
   });
+  if (url.pathname === "/" || isLogin) {
+    if (session) {
+      const defaultLink = getFirstPermittedHref({
+        role: session.user?.role,
+      });
+      return NextResponse.redirect(new URL(defaultLink, req.url));
+    }
+
+    if (!isLogin) {
+      const loginUrl = new URL("/login", req.url);
+
+      if (encodedSearchParams) {
+        loginUrl.searchParams.append("return_to", encodedSearchParams);
+      }
+
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   if (
     !session &&
-    url.pathname !== "/login" &&
+    !isLogin &&
     !url.pathname.includes("/student-report") &&
     !url.pathname.includes("/assessment-recording")
   ) {
