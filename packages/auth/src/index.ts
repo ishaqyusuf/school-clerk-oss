@@ -14,7 +14,7 @@ export function initAuth(options: {
   //   discordClientSecret: string;
 }) {
   const developmentAppRootDomain = resolveDashboardAppRootDomain(
-    process.env.APP_ROOT_DOMAIN
+    process.env.APP_ROOT_DOMAIN,
   );
   const defaultDevelopmentOrigin = `http://${developmentAppRootDomain}`;
 
@@ -95,8 +95,10 @@ export function initAuth(options: {
     },
     hooks: {},
     trustedOrigins: (request) => {
-      const requestOrigin = request.headers.get("origin");
-      const requestUrlOrigin = new URL(request.url).origin;
+      const requestOrigin = request?.headers?.get("origin");
+      const requestUrlOrigin = request?.url
+        ? new URL(request?.url).origin
+        : null;
 
       return [
         "expo://",

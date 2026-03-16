@@ -52,23 +52,22 @@ export function Client() {
         .email({
           email: formData.email,
           password: formData.password,
-          callbackURL: "/signout",
         })
         .then((resp) => {
           console.log({ resp });
           const bearerToken = resp.data.token;
-          // const userId = resp.data.user.id;
+          const userId = resp.data.user.id;
 
-          // const redirectUrl = getFirstPermittedHref({
-          //   role: resp.data.user.role,
-          // });
-          // resetCookie({ bearerToken, userId, redirectUrl })
-          //   .then((res) => {
-          //     console.log({ res, bearerToken, userId });
-          //   })
-          //   .catch((e) => {
-          //     debugToast("Error setting cookie:", e);
-          //   });
+          const redirectUrl = getFirstPermittedHref({
+            role: resp.data.user.role,
+          });
+          resetCookie({ bearerToken, userId, redirectUrl })
+            .then((res) => {
+              console.log({ res, bearerToken, userId });
+            })
+            .catch((e) => {
+              debugToast("Error setting cookie:", e);
+            });
           // ws.
 
           // .then((e) => {

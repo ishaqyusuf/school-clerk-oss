@@ -5,8 +5,12 @@ import { useEffect } from "react";
 
 export default function SignoutPage() {
   useEffect(() => {
-    authClient.signOut({
-      callbackUrl: "/",
+    void authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          window.location.replace("/");
+        },
+      },
     });
   }, []);
 
