@@ -474,6 +474,211 @@ export const financeRouter = createTRPCRouter({
       });
     }),
 
+  // ── Billables ───────────────────────────────────────────────────────────────
+
+  getBillables: publicProcedure
+    .input(z.object({ termId: z.string().optional().nullable() }).optional())
+    .query(async ({ input, ctx }) => {
+      const termId = input?.termId || ctx.profile.termId;
+      const billables = await ctx.db.billable.findMany({
+        where: {
+          schoolProfileId: ctx.profile.schoolId,
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          amount: true,
+          type: true,
+          billableHistory: {
+            where: { current: true, termId: termId || undefined },
+            take: 1,
+            select: { id: true, amount: true },
+          },
+        },
+        orderBy: { title: "asc" },
+      });
+      return billables.map((b) => ({
+        id: b.id,
+        title: b.title,
+        description: b.description,
+        amount: b.billableHistory?.[0]?.amount ?? b.amount,
+        type: b.type,
+        historyId: b.billableHistory?.[0]?.id,
+      }));
+    }),
+
+  createBillable: publicProcedure
+    .input(
+      z.object({
+        title: z.string().min(1),
+        amount: z.number().min(1),
+        description: z.string().optional().nullable(),
+        type: z.enum(["SALARY", "MISC", "OTHER"]).default("OTHER"),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      return ctx.db.billable.create({
+        data: {
+          title: input.title,
+          amount: input.amount,
+          description: input.description,
+          type: input.type,
+          schoolProfileId: ctx.profile.schoolId!,
+          billableHistory: {
+            create: {
+              amount: input.amount,
+              current: true,
+              schoolSessionId: ctx.profile.sessionId!,
+              termId: ctx.profile.termId!,
+            },
+          },
+        },
+      });
+    }),
+
+  // ── Bills ────────────────────────────────────────────────────────────────────
+
+  getBills: publicProcedure
+    .input(z.object({ termId: z.string().optional().nullable() }).optional())
+    .query(async ({ input, ctx }) => {
+      const termId = input?.termId || ctx.profile.termId;
+      const bills = await ctx.db.bills.findMany({
+        where: {
+          schoolProfileId: ctx.profile.schoolId,
+          sessionTermId: termId!,
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          title: true,
+          amount: true,
+          description: true,
+          billPaymentId: true,
+          billable: { select: { description: true } },
+          staffTermProfile: {
+            select: { staffProfile: { select: { name: true, id: true } } },
+          },
+          sessionTerm: { select: { title: true, id: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      return bills.map((b) => ({
+        id: b.id,
+        title: b.staffTermProfile
+          ? b.staffTermProfile.staffProfile?.name
+          : b.title,
+        description: b.description,
+        amount: b.amount,
+        status: b.billPaymentId ? "PAID" : "PENDING",
+        termTitle: b.sessionTerm?.title,
+      }));
+    }),
+
+  createBill: publicProcedure
+    .input(
+      z.object({
+        title: z.string().min(1),
+        amount: z.number().min(1),
+        billableId: z.string().optional().nullable(),
+        billableHistoryId: z.string().optional().nullable(),
+        staffTermProfileId: z.string().optional().nullable(),
+        description: z.string().optional().nullable(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const wallet = await getOrCreateWallet(ctx.db, {
+        name: input.title || "General",
+        type: "bill",
+        schoolId: ctx.profile.schoolId!,
+        termId: ctx.profile.termId!,
+      });
+      return ctx.db.bills.create({
+        data: {
+          title: input.title,
+          description: input.description,
+          amount: input.amount,
+          sessionTermId: ctx.profile.termId!,
+          schoolProfileId: ctx.profile.schoolId!,
+          schoolSessionId: ctx.profile.sessionId!,
+          walletId: wallet.id,
+          billableId: input.billableId || undefined,
+          billableHistoryId: input.billableHistoryId || undefined,
+          staffTermProfileId: input.staffTermProfileId || undefined,
+        },
+      });
+    }),
+
+  // ── Transactions ─────────────────────────────────────────────────────────────
+
+  getTransactions: publicProcedure
+    .input(z.object({ termId: z.string().optional().nullable() }).optional())
+    .query(async ({ input, ctx }) => {
+      const termId = input?.termId || ctx.profile.termId;
+      const txs = await ctx.db.walletTransactions.findMany({
+        where: {
+          wallet: {
+            schoolProfileId: ctx.profile.schoolId,
+            sessionTermId: termId!,
+          },
+          OR: [
+            { billPayment: { deletedAt: null } },
+            {
+              studentPayment: {
+                deletedAt: null,
+                studentTermForm: { student: { deletedAt: null } },
+              },
+            },
+          ],
+        },
+        select: {
+          id: true,
+          amount: true,
+          summary: true,
+          type: true,
+          createdAt: true,
+          wallet: {
+            select: {
+              sessionTerm: {
+                select: {
+                  title: true,
+                  session: { select: { title: true } },
+                },
+              },
+            },
+          },
+          studentPayment: {
+            select: {
+              studentTermForm: {
+                select: {
+                  sessionTerm: {
+                    select: {
+                      title: true,
+                      session: { select: { title: true } },
+                    },
+                  },
+                  student: {
+                    select: { name: true, otherName: true, surname: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      return txs.map((tx) => ({
+        id: tx.id,
+        amount: tx.amount,
+        type: tx.type,
+        createdAt: tx.createdAt,
+        student: tx.studentPayment?.studentTermForm?.student,
+        billTerm: tx.studentPayment?.studentTermForm?.sessionTerm,
+        invoiceTerm: tx.wallet?.sessionTerm,
+      }));
+    }),
+
   // ── Student Purchase (stationary, uniform, etc.) ────────────────────────────
 
   createStudentPurchase: publicProcedure

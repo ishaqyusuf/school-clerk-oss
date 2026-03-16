@@ -1,19 +1,11 @@
-import { getCachedClassRooms } from "@/actions/cache/classrooms";
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
-import { createClassroomAction } from "@/actions/create-classroom";
+"use client";
+
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
-import { useTermBillableParams } from "@/hooks/use-term-billable-params";
-import { useAction } from "next-safe-action/hooks";
-import { useAsyncMemo } from "use-async-memo";
+import { useFieldArray } from "react-hook-form";
 
 import { Button } from "@school-clerk/ui/button";
-
-import { useBillableFormContext } from "../billable/form-context";
-import { useClassroomFormContext } from "../classroom/form-context";
-import FormInput from "../controls/form-input";
-import { CustomSheetContentPortal } from "../custom-sheet-content";
-import { SubmitButton } from "../submit-button";
-import { useFieldArray } from "react-hook-form";
 import {
   Table,
   TableBody,
@@ -22,20 +14,27 @@ import {
   TableHeader,
   TableRow,
 } from "@school-clerk/ui/table";
+
+import { useClassroomFormContext } from "../classroom/form-context";
+import FormInput from "../controls/form-input";
+import { CustomSheetContentPortal } from "../custom-sheet-content";
+import { SubmitButton } from "../submit-button";
 import ConfirmBtn from "../confirm-button";
 
 export function Form({}) {
   const { setParams } = useClassroomParams();
-  const { watch, control, trigger, handleSubmit, formState } =
-    useClassroomFormContext();
-  const create = useAction(createClassroomAction, {
-    onSuccess(args) {
-      setParams(null);
-    },
-    onError(e) {
-      console.log(e);
-    },
-  });
+  const { control, handleSubmit } = useClassroomFormContext();
+  const trpc = useTRPC();
+  const qc = useQueryClient();
+
+  const { mutate, isPending } = useMutation(
+    trpc.classrooms.createClassroom.mutationOptions({
+      onSuccess() {
+        qc.invalidateQueries({ queryKey: trpc.classrooms.all.queryKey({}) });
+        setParams(null);
+      },
+    })
+  );
   const departments = useFieldArray({
     control,
     name: "departments",
@@ -86,19 +85,9 @@ export function Form({}) {
         </Button>
       </div>
       <CustomSheetContentPortal>
-        <form onSubmit={handleSubmit(create.execute)}>
+        <form onSubmit={handleSubmit((data) => mutate(data))}>
           <div className="flex justify-end">
-            <Button
-              type="button"
-              onClick={() => {
-                trigger().then((e) => {
-                  console.log(formState);
-                });
-              }}
-            ></Button>
-            <SubmitButton isSubmitting={create?.isExecuting}>
-              Submit
-            </SubmitButton>
+            <SubmitButton isSubmitting={isPending}>Submit</SubmitButton>
           </div>
         </form>
       </CustomSheetContentPortal>

@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { deleteClassroomDepartmentAction } from "@/actions/delete-department";
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useLoadingToast } from "@/hooks/use-loading-toast";
-import { useAction } from "next-safe-action/hooks";
 
 import { Button } from "@school-clerk/ui/button";
 import { Table, TableBody } from "@school-clerk/ui/table";
@@ -27,26 +27,18 @@ export function DataTable({ data, loadMore, pageSize, hasNextPage }: Props) {
   // __classQueryState.context = classQueryState;
   // useEffect(() => {}, []);
   const toast = useLoadingToast();
-  const deleteAction = useAction(deleteClassroomDepartmentAction, {
-    onSuccess(args) {
-      toast.success("Deleted!", {
-        variant: "destructive",
-      });
-    },
-    onError(e) {
-      console.log(e);
-    },
-  });
+  const trpc = useTRPC();
+  const qc = useQueryClient();
+  const { mutate: deleteDepartment } = useMutation(
+    trpc.classrooms.deleteClassroomDepartment.mutationOptions({
+      onSuccess() {
+        toast.success("Deleted!", { variant: "destructive" });
+        qc.invalidateQueries({ queryKey: trpc.classrooms.all.queryKey({}) });
+      },
+    })
+  );
   const handleDeleteInvoice = (id: string) => {
-    console.log("DELET", { id });
-    toast.loading("Deleting...");
-    deleteAction.execute({
-      id,
-    });
-    // setData((prev) => {
-    //   return prev.filter((item) => item.id !== id);
-    // });
-    // deleteInvoice.execute({ id });
+    deleteDepartment({ id });
   };
 
   return (

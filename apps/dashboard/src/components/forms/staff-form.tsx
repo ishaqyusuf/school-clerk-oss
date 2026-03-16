@@ -1,74 +1,36 @@
-import { getCachedClassRooms } from "@/actions/cache/classrooms";
-import { getCachedFees } from "@/actions/cache/fees";
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
-import { createStaffAction } from "@/actions/create-staff";
-import { createStudentAction } from "@/actions/create-student";
+"use client";
+
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLoadingToast } from "@/hooks/use-loading-toast";
 import { useTermBillableParams } from "@/hooks/use-term-billable-params";
-import { timeout } from "@/utils/timeout";
-import { randomInt } from "@/utils/utils";
-import { useAction } from "next-safe-action/hooks";
-import { useFieldArray } from "react-hook-form";
-import { useAsyncMemo } from "use-async-memo";
 
 import { Button } from "@school-clerk/ui/button";
-import { cn } from "@school-clerk/ui/cn";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@school-clerk/ui/table";
-
-import { CollapseForm } from "../collapse-form";
-import { FormDate } from "@school-clerk/ui/controls/form-date";
 import FormInput from "../controls/form-input";
 import FormSelect from "../controls/form-select";
-import { NumberInput } from "../currency-input";
 import { CustomSheetContentPortal } from "../custom-sheet-content";
 import { Icons } from "@school-clerk/ui/custom/icons";
 import { Menu } from "../menu";
 import { useStaffFormContext } from "../staffs/form-context";
-import { useStudentFormContext } from "../students/form-context";
 import { SubmitButton } from "../submit-button";
 
 export function Form({}) {
   const { setParams } = useTermBillableParams();
-  const { watch, control, getValues, reset, trigger, handleSubmit, formState } =
-    useStaffFormContext();
+  const { control, getValues, trigger, handleSubmit } = useStaffFormContext();
   const toast = useLoadingToast();
-  const onError = (e) => {
-    console.log(e);
-  };
-  const onSuccess = (args?) => {
-    toast.success("Created");
-  };
-  const create = useAction(createStaffAction, {
-    onSuccess(args) {
-      onSuccess(args);
-      setParams(null);
-    },
-    onError,
-  });
-  const createAndNew = useAction(createStaffAction, {
-    onSuccess(args) {
-      onSuccess(args);
-      // reset()
-    },
-    onError,
-  });
+  const trpc = useTRPC();
+  const qc = useQueryClient();
 
-  // const classList = useAsyncMemo(async () => {
-  //   await timeout(randomInt(250));
-  //   const profile = await getAuthCookie();
-  //   const classList = await getCachedClassRooms(
-  //     profile.termId,
-  //     profile.sessionId,
-  //   );
-  //   return classList;
-  // }, []);
+  const { mutate, isPending } = useMutation(
+    trpc.staff.createStaff.mutationOptions({
+      onSuccess() {
+        toast.success("Created");
+        qc.invalidateQueries({ queryKey: trpc.staff.getStaffList.queryKey() });
+        setParams(null);
+      },
+    })
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex gap-4">
@@ -93,30 +55,28 @@ export function Form({}) {
       <CustomSheetContentPortal>
         <div className="flex justify-end">
           <form
-            onSubmit={handleSubmit(create.execute, (arg) => {
-              toast.error("Invalid Form");
-            })}
+            onSubmit={handleSubmit(
+              (data) => mutate(data),
+              () => toast.error("Invalid Form")
+            )}
           >
             <div className="flex">
-              <SubmitButton size="sm" isSubmitting={create?.isExecuting}>
+              <SubmitButton size="sm" isSubmitting={isPending}>
                 Submit
               </SubmitButton>
               <Menu
                 Icon={Icons.more}
                 Trigger={
                   <Button className="border-l" type="button" size="sm">
-                    {/* <Icons.more className="size-4" /> */}
                     <span>&</span>
                   </Button>
                 }
               >
                 <Menu.Item
-                  onClick={async (e) => {
-                    // e.preventDefault();
-                    const isValid = await trigger(); // run validation manually
+                  onClick={async () => {
+                    const isValid = await trigger();
                     if (isValid) {
-                      const values = getValues();
-                      createAndNew.execute(values); // only execute if form is valid
+                      mutate(getValues());
                     } else {
                       toast.error("Invalid Form");
                     }

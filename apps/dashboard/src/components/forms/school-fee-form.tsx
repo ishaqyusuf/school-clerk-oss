@@ -1,25 +1,30 @@
-import { createSchoolFeeAction } from "@/actions/create-school-fee";
+"use client";
+
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSchoolFeeParams } from "@/hooks/use-school-fee-params";
-import { useAction } from "next-safe-action/hooks";
 
 import FormInput from "../controls/form-input";
 import { CustomSheetContentPortal } from "../custom-sheet-content";
-import { FormActionButton } from "../form-action-button";
-import { FormDebugBtn } from "../form-debug-btn";
+import { SubmitButton } from "../submit-button";
 import { useSchoolFeeFormContext } from "../school-fee/form-context";
 
 export function Form({}) {
   const { setParams } = useSchoolFeeParams();
-  const { watch, control, trigger, handleSubmit, formState } =
-    useSchoolFeeFormContext();
-  const create = useAction(createSchoolFeeAction, {
-    onSuccess(args) {
-      setParams(null);
-    },
-    onError(e) {
-      console.log(e);
-    },
-  });
+  const { control, handleSubmit } = useSchoolFeeFormContext();
+  const trpc = useTRPC();
+  const qc = useQueryClient();
+
+  const { mutate, isPending } = useMutation(
+    trpc.transactions.createSchoolFee.mutationOptions({
+      onSuccess() {
+        qc.invalidateQueries({
+          queryKey: trpc.transactions.getSchoolFees.queryKey(),
+        });
+        setParams(null);
+      },
+    })
+  );
 
   return (
     <div className="grid gap-4">
@@ -32,7 +37,14 @@ export function Form({}) {
       />
       <FormInput name="amount" type="number" label="Amount" control={control} />
       <CustomSheetContentPortal>
-        <FormActionButton action={create} />
+        <form
+          className="grid gap-4"
+          onSubmit={handleSubmit((data) => mutate(data))}
+        >
+          <div className="flex justify-end">
+            <SubmitButton isSubmitting={isPending}>Submit</SubmitButton>
+          </div>
+        </form>
       </CustomSheetContentPortal>
     </div>
   );
