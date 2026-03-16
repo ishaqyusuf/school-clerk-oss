@@ -1,13 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4efe4;
-  --foreground: #1d1b19;
-  --surface: #e8dfcf;
-  --panel: rgba(255, 252, 246, 0.78);
-  --muted: #655c51;
+  --background: #f5f0e8;
+  --foreground: #171410;
+  --surface: #ede6d8;
+  --panel: rgba(255, 252, 246, 0.82);
+  --muted: #6b6057;
+  --muted-light: #9e9185;
   --accent: #154c41;
-  --accent-foreground: #f6efe1;
+  --accent-light: #1e6b5a;
+  --accent-foreground: #f0ebe0;
+  --border: rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.18);
+  --white: #ffffff;
 }
 
 @theme inline {
@@ -19,6 +24,8 @@
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 html {
@@ -30,6 +37,7 @@ body {
   color: var(--foreground);
   font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -38,5 +46,18 @@ a {
 }
 
 ::selection {
-  background: rgba(21, 76, 65, 0.18);
+  background: rgba(21, 76, 65, 0.20);
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.marquee-track {
+  animation: marquee 28s linear infinite;
+}
+
+.marquee-track:hover {
+  animation-play-state: paused;
 }
