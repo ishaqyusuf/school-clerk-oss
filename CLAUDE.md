@@ -134,6 +134,16 @@ export default async function Page({ searchParams }) {
 - **Student Payment**: `finance.applyPayment` (payment method in description). `finance.createStudentPurchase` for sales (uniform, books). `finance.reverseStudentPayment` restores `StudentFee.pendingAmount`.
 - **Pages**: `/finance/streams`, `/finance/payments` (service), `/staff/payroll`
 - **Router file**: `apps/api/src/trpc/routers/finance.routes.ts`
+- **Additional procedures**: `getBillables`, `createBillable`, `getBills`, `createBill`, `getTransactions` in finance router
+
+### tRPC Router Coverage (all server actions migrated)
+- **`staff.routes.ts`** — `createStaff`, `deleteStaff`, `getStaffList` (NEW)
+- **`classroom.routes.ts`** — added `createClassroom`, `deleteClassroomDepartment`
+- **`finance.routes.ts`** — added `getBillables`, `createBillable`, `getBills`, `createBill`, `getTransactions`
+- **`transaction.routes.ts`** — added `getSchoolFees`, `getStudentFees`
+- All forms (classroom-form, staff-form, bill-form, school-fee-form, billable-form) now use `useMutation(trpc.*)` instead of `useAction(serverAction)`
+- All table delete actions use `useMutation(trpc.*)` instead of `useAction(serverAction)`
+- Finance table indexes (`billables`, `bills`, `fees-management`, `student-fees`, `transactions`) are client components using `useSuspenseQuery(trpc.*)`
 
 ### Attendance System Pattern
 - **Models**: `ClassRoomAttendance` (session) + `StudentAttendance` (per-student record)
