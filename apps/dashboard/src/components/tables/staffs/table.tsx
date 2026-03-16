@@ -1,13 +1,12 @@
 "use client";
 
 import React, { use } from "react";
-import { deleteStaffAction } from "@/actions/delete-staff-schema";
-import { ListItem } from "@/actions/get-staff-list";
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { MiddaySearchFilter } from "@/components/midday-search-filter/search-filter";
 import { useLoadingToast } from "@/hooks/use-loading-toast";
 import { useStaffParams } from "@/hooks/use-staff-params";
 import { PageFilterData } from "@/types";
-import { useAction } from "next-safe-action/hooks";
 
 import { Button } from "@school-clerk/ui/button";
 import { Table, TableBody } from "@school-clerk/ui/table";
@@ -18,7 +17,7 @@ import { TableRow } from "../table-row";
 import { columns } from "./columns";
 
 type Props = {
-  data: ListItem[];
+  data: any[];
   loadMore: (query) => Promise<any>;
   pageSize: number;
   hasNextPage: boolean;
@@ -37,14 +36,16 @@ export function DataTable({
     ? use(filterDataPromise)
     : [];
   const toast = useLoadingToast();
-  const deleteStudent = useAction(deleteStaffAction, {
-    onSuccess(args) {
-      toast.success("Deleted!", {
-        variant: "destructive",
-      });
-    },
-    onError(e) {},
-  });
+  const trpc = useTRPC();
+  const qc = useQueryClient();
+  const { mutate: deleteStaff } = useMutation(
+    trpc.staff.deleteStaff.mutationOptions({
+      onSuccess() {
+        toast.success("Deleted!", { variant: "destructive" });
+        qc.invalidateQueries({ queryKey: trpc.staff.getStaffList.queryKey() });
+      },
+    })
+  );
   return (
     <TableProvider
       args={[
@@ -58,9 +59,7 @@ export function DataTable({
           params,
           tableMeta: {
             deleteAction(id) {
-              deleteStudent.execute({
-                staffId: id,
-              });
+              deleteStaff({ staffId: id });
             },
             rowClick(id, rowData) {
               setParams({

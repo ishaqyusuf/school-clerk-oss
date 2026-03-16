@@ -1,24 +1,28 @@
-import { createBillableAction } from "@/actions/create-billable-action";
+"use client";
+
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTermBillableParams } from "@/hooks/use-term-billable-params";
-import { useAction } from "next-safe-action/hooks";
 
 import { useBillableFormContext } from "../billable/form-context";
 import FormInput from "../controls/form-input";
 import { CustomSheetContentPortal } from "../custom-sheet-content";
-import { FormActionButton } from "../form-action-button";
+import { SubmitButton } from "../submit-button";
 
 export function Form({}) {
-  const { billableId, setParams } = useTermBillableParams();
-  const { watch, control, trigger, handleSubmit, formState } =
-    useBillableFormContext();
-  const create = useAction(createBillableAction, {
-    onSuccess(args) {
-      setParams(null);
-    },
-    onError(e) {
-      console.log(e);
-    },
-  });
+  const { setParams } = useTermBillableParams();
+  const { control, handleSubmit } = useBillableFormContext();
+  const trpc = useTRPC();
+  const qc = useQueryClient();
+
+  const { mutate, isPending } = useMutation(
+    trpc.finance.createBillable.mutationOptions({
+      onSuccess() {
+        qc.invalidateQueries({ queryKey: trpc.finance.getBillables.queryKey() });
+        setParams(null);
+      },
+    })
+  );
 
   return (
     <div className="grid gap-4">
@@ -31,7 +35,14 @@ export function Form({}) {
       />
       <FormInput name="amount" type="number" label="Amount" control={control} />
       <CustomSheetContentPortal>
-        <FormActionButton action={create} />
+        <form
+          className="grid gap-4"
+          onSubmit={handleSubmit((data) => mutate(data))}
+        >
+          <div className="flex justify-end">
+            <SubmitButton isSubmitting={isPending}>Submit</SubmitButton>
+          </div>
+        </form>
       </CustomSheetContentPortal>
     </div>
   );

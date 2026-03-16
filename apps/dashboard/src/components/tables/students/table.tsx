@@ -1,13 +1,11 @@
 "use client";
 
 import React, { use } from "react";
-import { deleteStudentAction } from "@/actions/delete-student";
-import { StudentData } from "@/actions/get-students-list";
-
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLoadingToast } from "@/hooks/use-loading-toast";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { PageFilterData } from "@/types";
-import { useAction } from "next-safe-action/hooks";
 
 import { Button } from "@school-clerk/ui/button";
 import { Table, TableBody } from "@school-clerk/ui/table";
@@ -19,7 +17,7 @@ import { columns } from "./columns";
 import { Icons } from "@school-clerk/ui/custom/icons";
 
 type Props = {
-  data: StudentData[];
+  data: any[];
   loadMore?: (query) => Promise<any>;
   pageSize?: number;
   hasNextPage?: boolean;
@@ -49,14 +47,16 @@ export function DataTable({
     // deleteInvoice.execute({ id });
   };
   const toast = useLoadingToast();
-  const deleteStudent = useAction(deleteStudentAction, {
-    onSuccess(args) {
-      toast.success("Deleted!", {
-        variant: "destructive",
-      });
-    },
-    onError(e) {},
-  });
+  const trpc = useTRPC();
+  const qc = useQueryClient();
+  const { mutate: deleteStudent } = useMutation(
+    trpc.students.deleteStudent.mutationOptions({
+      onSuccess() {
+        toast.success("Deleted!", { variant: "destructive" });
+        qc.invalidateQueries({ queryKey: trpc.students.index.queryKey({}) });
+      },
+    })
+  );
 
   return (
     <TableProvider
@@ -71,9 +71,7 @@ export function DataTable({
           params,
           tableMeta: {
             deleteAction(id) {
-              deleteStudent.execute({
-                studentId: id,
-              });
+              deleteStudent({ studentId: id });
             },
             rowClick(id, rowData) {
               setParams({

@@ -12,12 +12,13 @@ const lineItemSchema = z.object({
   quantity: z.number(),
 });
 
-const tabs = ["overview", "students", "subjects"] as const;
+const tabs = ["overview", "students", "subjects", "attendance"] as const;
 const secondaryTabs = [
   "student-form",
   "subject-form",
   "student-overview",
   "subject-overview",
+  "attendance-form",
 ] as const;
 export type TabType = (typeof tabs)[number];
 export type SecondaryTabTypes = (typeof secondaryTabs)[number];
