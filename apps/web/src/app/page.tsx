@@ -6,19 +6,19 @@ import Nav from "@/components/nav";
 import Pricing from "@/components/pricing";
 import Testimonials from "@/components/testimonials";
 
-export default function Home() {
-  return (
-    <>
-      <Nav />
-      <main>
-        <Hero />
-        <Features />
-        <Pricing />
-        <Testimonials />
-        <Faq />
-      </main>
-      <Footer />
-    </>
+// export default function Home() {
+//   return (
+//     <>
+//       <Nav />
+//       <main>
+//         <Hero />
+//         <Features />
+//         <Pricing />
+//         <Testimonials />
+//         <Faq />
+//       </main>
+//       <Footer />
+//     </>
 const institutionTypes = [
   "Pre-School",
   "Primary School",
@@ -33,31 +33,38 @@ const institutionTypes = [
 const modules = [
   {
     name: "Student Records",
-    description: "Centralised profiles, documents, and academic history for every student.",
+    description:
+      "Centralised profiles, documents, and academic history for every student.",
   },
   {
     name: "Admissions",
-    description: "Digital applications, shortlisting, offers, and enrolment in one flow.",
+    description:
+      "Digital applications, shortlisting, offers, and enrolment in one flow.",
   },
   {
     name: "Attendance",
-    description: "Daily or per-subject tracking with parent notifications built in.",
+    description:
+      "Daily or per-subject tracking with parent notifications built in.",
   },
   {
     name: "Results & Transcripts",
-    description: "Grade entry, GPA computation, and official transcript generation.",
+    description:
+      "Grade entry, GPA computation, and official transcript generation.",
   },
   {
     name: "Billing & Payments",
-    description: "Fee schedules, invoices, reminders, and payment reconciliation.",
+    description:
+      "Fee schedules, invoices, reminders, and payment reconciliation.",
   },
   {
     name: "Parent Portal",
-    description: "Real-time access to results, attendance, fees, and announcements.",
+    description:
+      "Real-time access to results, attendance, fees, and announcements.",
   },
   {
     name: "External Exams",
-    description: "Registration, candidate management, and results import for WAEC, NECO, and more.",
+    description:
+      "Registration, candidate management, and results import for WAEC, NECO, and more.",
   },
   {
     name: "Communication",
@@ -94,7 +101,6 @@ const tickerItems = [...institutionTypes, ...institutionTypes];
 export default function Home() {
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-
       {/* ─── Sticky Nav ─── */}
       <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/90 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4 sm:px-10 lg:px-12">
@@ -102,8 +108,24 @@ export default function Home() {
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent)]">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <rect x="1" y="1" width="5" height="5" rx="1" fill="white" />
-                <rect x="8" y="1" width="5" height="5" rx="1" fill="white" fillOpacity="0.6" />
-                <rect x="1" y="8" width="5" height="5" rx="1" fill="white" fillOpacity="0.6" />
+                <rect
+                  x="8"
+                  y="1"
+                  width="5"
+                  height="5"
+                  rx="1"
+                  fill="white"
+                  fillOpacity="0.6"
+                />
+                <rect
+                  x="1"
+                  y="8"
+                  width="5"
+                  height="5"
+                  rx="1"
+                  fill="white"
+                  fillOpacity="0.6"
+                />
                 <rect x="8" y="8" width="5" height="5" rx="1" fill="white" />
               </svg>
             </div>
@@ -113,9 +135,24 @@ export default function Home() {
           </div>
 
           <nav className="hidden items-center gap-7 text-sm text-[var(--muted)] md:flex">
-            <a href="#modules" className="transition-colors hover:text-[var(--foreground)]">Modules</a>
-            <a href="#platform" className="transition-colors hover:text-[var(--foreground)]">Platform</a>
-            <a href="#pricing" className="transition-colors hover:text-[var(--foreground)]">Pricing</a>
+            <a
+              href="#modules"
+              className="transition-colors hover:text-[var(--foreground)]"
+            >
+              Modules
+            </a>
+            <a
+              href="#platform"
+              className="transition-colors hover:text-[var(--foreground)]"
+            >
+              Platform
+            </a>
+            <a
+              href="#pricing"
+              className="transition-colors hover:text-[var(--foreground)]"
+            >
+              Pricing
+            </a>
           </nav>
 
           <a
@@ -148,9 +185,9 @@ export default function Home() {
 
           <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_auto]">
             <p className="max-w-xl text-lg leading-8 text-white/60">
-              SchoolClerk replaces paper-heavy admin, scattered spreadsheets, and
-              rigid software with a configurable platform built for academics,
-              finance, communication, and growth.
+              SchoolClerk replaces paper-heavy admin, scattered spreadsheets,
+              and rigid software with a configurable platform built for
+              academics, finance, communication, and growth.
             </p>
 
             {/* metrics */}
@@ -189,7 +226,10 @@ export default function Home() {
             <div className="flex gap-0">
               <div className="marquee-track flex shrink-0 gap-0">
                 {tickerItems.map((item, i) => (
-                  <span key={i} className="flex items-center gap-0 whitespace-nowrap">
+                  <span
+                    key={i}
+                    className="flex items-center gap-0 whitespace-nowrap"
+                  >
                     <span className="px-6 text-xs font-semibold uppercase tracking-[0.26em] text-white/35">
                       {item}
                     </span>
@@ -203,7 +243,10 @@ export default function Home() {
       </section>
 
       {/* ─── How it works / Highlights ─── */}
-      <section id="platform" className="border-b border-[var(--border)] bg-[var(--surface)]">
+      <section
+        id="platform"
+        className="border-b border-[var(--border)] bg-[var(--surface)]"
+      >
         <div className="mx-auto w-full max-w-7xl px-6 py-20 sm:px-10 lg:px-12">
           <div className="mb-14 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -215,7 +258,8 @@ export default function Home() {
               </h2>
             </div>
             <p className="max-w-sm text-sm leading-7 text-[var(--muted)] lg:text-right">
-              Whether you run a single nursery or a network of secondary schools, SchoolClerk adapts to your structure.
+              Whether you run a single nursery or a network of secondary
+              schools, SchoolClerk adapts to your structure.
             </p>
           </div>
 
@@ -249,17 +293,34 @@ export default function Home() {
                 Academic engine
               </p>
               <h2 className="mt-3 text-4xl font-semibold tracking-[-0.05em]">
-                One hierarchy,<br />every institution.
+                One hierarchy,
+                <br />
+                every institution.
               </h2>
               <p className="mt-4 max-w-lg text-base leading-7 text-[var(--muted)]">
-                SchoolClerk's academic engine is composable. Configure sessions, terms, semesters, class arms, departments, and programs exactly the way your institution works — no hard-coded assumptions.
+                SchoolClerk's academic engine is composable. Configure sessions,
+                terms, semesters, class arms, departments, and programs exactly
+                the way your institution works — no hard-coded assumptions.
               </p>
               <ul className="mt-7 space-y-3">
-                {["Works for term-based and semester-based calendars", "Supports class arms and departmental structures", "Optional program layers for colleges and polytechnics"].map((point) => (
-                  <li key={point} className="flex items-start gap-3 text-sm leading-6 text-[var(--muted)]">
+                {[
+                  "Works for term-based and semester-based calendars",
+                  "Supports class arms and departmental structures",
+                  "Optional program layers for colleges and polytechnics",
+                ].map((point) => (
+                  <li
+                    key={point}
+                    className="flex items-start gap-3 text-sm leading-6 text-[var(--muted)]"
+                  >
                     <span className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/12 text-[var(--accent)]">
                       <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                        <path d="M1.5 4L3.5 6L6.5 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path
+                          d="M1.5 4L3.5 6L6.5 2"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                     </span>
                     {point}
@@ -276,18 +337,31 @@ export default function Home() {
               <div className="mt-6 space-y-3">
                 {[
                   { level: "Session", eg: "2024 / 2025" },
-                  { level: "Term / Semester", eg: "First Term  ·  Second Term" },
+                  {
+                    level: "Term / Semester",
+                    eg: "First Term  ·  Second Term",
+                  },
                   { level: "Class / Level", eg: "JSS 1  ·  SS 2  ·  Year 3" },
-                  { level: "Department", eg: "Science  ·  Arts  ·  Commercial" },
+                  {
+                    level: "Department",
+                    eg: "Science  ·  Arts  ·  Commercial",
+                  },
                   { level: "Program", eg: "Engineering  ·  Law  ·  Medicine" },
                 ].map((row, i) => (
-                  <div key={row.level} className="flex items-center gap-4 rounded-2xl bg-white/6 px-5 py-4">
+                  <div
+                    key={row.level}
+                    className="flex items-center gap-4 rounded-2xl bg-white/6 px-5 py-4"
+                  >
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10 text-xs font-semibold text-white/50">
                       {i + 1}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white">{row.level}</p>
-                      <p className="mt-0.5 truncate text-xs text-white/40">{row.eg}</p>
+                      <p className="text-sm font-semibold text-white">
+                        {row.level}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-white/40">
+                        {row.eg}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -306,7 +380,8 @@ export default function Home() {
             </p>
             <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <h2 className="text-4xl font-semibold tracking-[-0.05em]">
-                Built for the real work<br className="hidden sm:block" /> schools do every day.
+                Built for the real work
+                <br className="hidden sm:block" /> schools do every day.
               </h2>
               <p className="max-w-xs text-sm leading-7 text-[var(--muted)]">
                 Start with what you need now, enable more as operations mature.
@@ -347,7 +422,8 @@ export default function Home() {
                 Every institution model, covered.
               </h2>
               <p className="mt-4 max-w-sm text-base leading-7 text-[var(--muted)]">
-                SchoolClerk is designed so that one product works seamlessly across the full spectrum of educational institutions.
+                SchoolClerk is designed so that one product works seamlessly
+                across the full spectrum of educational institutions.
               </p>
             </div>
 
@@ -388,7 +464,8 @@ export default function Home() {
                 ₦50k<span className="text-xl text-[var(--muted)]">–200k</span>
               </p>
               <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                One-time onboarding, data migration, and configuration to match your institution's structure.
+                One-time onboarding, data migration, and configuration to match
+                your institution's structure.
               </p>
             </div>
 
@@ -406,7 +483,8 @@ export default function Home() {
                 ₦10k<span className="text-xl text-white/50">–50k</span>
               </p>
               <p className="mt-3 text-sm leading-6 text-white/60">
-                Per institution per month. Includes platform updates, uptime, and support. Scales with school size.
+                Per institution per month. Includes platform updates, uptime,
+                and support. Scales with school size.
               </p>
               <a
                 href="#"
@@ -425,11 +503,23 @@ export default function Home() {
                 À la carte
               </p>
               <div className="mt-4 space-y-2.5">
-                {["AI assistant", "SMS notifications", "White-label mobile app"].map((addon) => (
-                  <div key={addon} className="flex items-center gap-3 text-sm text-[var(--muted)]">
+                {[
+                  "AI assistant",
+                  "SMS notifications",
+                  "White-label mobile app",
+                ].map((addon) => (
+                  <div
+                    key={addon}
+                    className="flex items-center gap-3 text-sm text-[var(--muted)]"
+                  >
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--surface)]">
                       <svg width="7" height="7" viewBox="0 0 7 7" fill="none">
-                        <path d="M1.5 3.5H5.5M3.5 1.5V5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        <path
+                          d="M1.5 3.5H5.5M3.5 1.5V5.5"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
                       </svg>
                     </span>
                     {addon}
@@ -476,18 +566,42 @@ export default function Home() {
               <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--accent)]">
                 <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
                   <rect x="1" y="1" width="5" height="5" rx="1" fill="white" />
-                  <rect x="8" y="1" width="5" height="5" rx="1" fill="white" fillOpacity="0.5" />
-                  <rect x="1" y="8" width="5" height="5" rx="1" fill="white" fillOpacity="0.5" />
+                  <rect
+                    x="8"
+                    y="1"
+                    width="5"
+                    height="5"
+                    rx="1"
+                    fill="white"
+                    fillOpacity="0.5"
+                  />
+                  <rect
+                    x="1"
+                    y="8"
+                    width="5"
+                    height="5"
+                    rx="1"
+                    fill="white"
+                    fillOpacity="0.5"
+                  />
                   <rect x="8" y="8" width="5" height="5" rx="1" fill="white" />
                 </svg>
               </div>
-              <span className="text-sm font-semibold text-white">SchoolClerk</span>
+              <span className="text-sm font-semibold text-white">
+                SchoolClerk
+              </span>
             </div>
 
             <div className="flex items-center gap-7 text-xs text-white/35">
-              <a href="#modules" className="transition hover:text-white/70">Modules</a>
-              <a href="#platform" className="transition hover:text-white/70">Platform</a>
-              <a href="#pricing" className="transition hover:text-white/70">Pricing</a>
+              <a href="#modules" className="transition hover:text-white/70">
+                Modules
+              </a>
+              <a href="#platform" className="transition hover:text-white/70">
+                Platform
+              </a>
+              <a href="#pricing" className="transition hover:text-white/70">
+                Pricing
+              </a>
             </div>
 
             <p className="text-xs text-white/25">

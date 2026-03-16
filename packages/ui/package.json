@@ -35,7 +35,7 @@
     "./hooks/*": "./src/hooks/*.ts",
     "./controls/*": "./src/components/controls/*.tsx",
     "./custom/sheet": "./src/components/custom/sheet.tsx",
-    "./globals.css": "./src/styles/globals.css",
+    "./globals.css": "./globals.css",
     "./postcss.config": "./postcss.config.mjs",
     "./cn": "./src/utils/cn.ts",
     "./truncate": "./src/utils/truncate.ts",

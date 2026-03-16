@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "TZ=UTC portless dashboard next dev --turbopack",
+    "dev": "TZ=UTC portless school-clerk-dashboard next dev --turbopack",
     "build": "NODE_ENV=production next build --turbopack",
     "clean": "git clean -xdf .next .turbo node_modules",
     "lint": "next lint",
