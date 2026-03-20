@@ -51,7 +51,7 @@ function Content({}) {
                   Student ID
                 </p>
                 <p className="text-sm font-bold text-foreground font-mono">
-                  {student?.id ? student.id.slice(0, 12) : "--"}
+                  {student?.id ? student.id.slice(0, 8) : "--"}
                 </p>
               </div>
             </div>
