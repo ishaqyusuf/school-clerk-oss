@@ -15,6 +15,8 @@ import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
 import { ErrorFallback } from "@/components/error-fallback";
 import { StudentHeader } from "@/components/student-header";
+import { StudentStatsCards } from "@/components/tables/students/student-stats-cards";
+
 export const metadata: Metadata = {
   title: "Students",
 };
@@ -31,26 +33,22 @@ export default async function Page(props: Props) {
       ...filter,
     }),
   ]);
-  // Change this to prefetch once this is fixed: https://github.com/trpc/trpc/issues/6632
-  // await queryClient.fetchInfiniteQuery(
-  //   trpc.students.index.infiniteQueryOptions({
-  //     ...filter,
-  //   })
-  // );
-  // if (!data?.pages?.[0]?.data?.length) return <></>;
 
   return (
     <HydrateClient>
       <PageTitle>Students</PageTitle>
-      <div className="py-6">
-        <StudentHeader />
-      </div>
-      <div className="flex flex-col gap-6">
-        <ErrorBoundary errorComponent={ErrorFallback}>
-          <Suspense fallback={<TableSkeleton />}>
-            <DataTable grid />
-          </Suspense>
-        </ErrorBoundary>
+      <div className="animate-in fade-in duration-500">
+        <div className="py-6">
+          <StudentHeader />
+        </div>
+        <StudentStatsCards />
+        <div className="flex flex-col gap-6 mt-8">
+          <ErrorBoundary errorComponent={ErrorFallback}>
+            <Suspense fallback={<TableSkeleton />}>
+              <DataTable grid />
+            </Suspense>
+          </ErrorBoundary>
+        </div>
       </div>
     </HydrateClient>
   );

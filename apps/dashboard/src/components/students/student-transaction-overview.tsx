@@ -5,7 +5,6 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
-  useSuspenseQuery,
 } from "@tanstack/react-query";
 import { TableSkeleton } from "../tables/skeleton";
 import { Suspense, useState } from "react";
@@ -21,7 +20,6 @@ import { NumericFormat } from "react-number-format";
 import {
   Collapsible,
   CollapsibleContent,
-  CollapsibleTrigger,
 } from "@school-clerk/ui/collapsible";
 import { AnimatedNumber } from "../animated-number";
 import { CreateStudentBilling } from "../create-student-billing";
@@ -40,6 +38,8 @@ import {
 } from "@school-clerk/ui/select";
 import { format } from "date-fns";
 import { z } from "zod";
+import { Card, CardContent } from "@school-clerk/ui/card";
+import { Receipt, Wallet, AlertTriangle, Plus, ScrollText, Info } from "lucide-react";
 
 export function StudentTransactionOverview({}) {
   return (
@@ -95,37 +95,49 @@ function Content({}) {
     setOpenForm(frm === openForm ? undefined : frm);
   };
 
+  // Calculate totals from fees
+  const totalInvoiced = data?.fees?.reduce((sum, f) => sum + (f.billAmount || 0), 0) || 0;
+  const totalPaid = totalInvoiced - (data?.pendingAmount || 0);
+  const paidPercentage = totalInvoiced > 0 ? Math.round((totalPaid / totalInvoiced) * 100) : 0;
+
   return (
-    <div className="flex flex-col gap-4">
-      {/* Action buttons */}
-      <div className="flex gap-2 justify-end flex-wrap">
-        <Button
-          onClick={() => _openForm("bill")}
-          variant={openForm === "bill" ? "default" : "secondary"}
-          size="xs"
-          type="button"
-        >
-          <span>Bill</span>
-          <Icons.Add className="size-4 ml-1" />
-        </Button>
-        <Button
-          onClick={() => _openForm("pay")}
-          variant={openForm === "pay" ? "default" : "secondary"}
-          size="xs"
-          type="button"
-        >
-          <span>Pay Fees</span>
-          <Icons.Add className="size-4 ml-1" />
-        </Button>
-        <Button
-          onClick={() => _openForm("purchase")}
-          variant={openForm === "purchase" ? "default" : "secondary"}
-          size="xs"
-          type="button"
-        >
-          <span>Purchase</span>
-          <Icons.Add className="size-4 ml-1" />
-        </Button>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      {/* Header & Actions */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-lg font-bold tracking-tight text-foreground">
+            Financial Overview
+          </h3>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            onClick={() => _openForm("bill")}
+            variant={openForm === "bill" ? "default" : "outline"}
+            size="sm"
+            type="button"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Bill
+          </Button>
+          <Button
+            onClick={() => _openForm("pay")}
+            variant={openForm === "pay" ? "default" : "outline"}
+            size="sm"
+            type="button"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Pay Fees
+          </Button>
+          <Button
+            onClick={() => _openForm("purchase")}
+            variant={openForm === "purchase" ? "default" : "outline"}
+            size="sm"
+            type="button"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Purchase
+          </Button>
+        </div>
       </div>
 
       {/* Bill form */}
@@ -178,80 +190,210 @@ function Content({}) {
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Balance summary */}
-      <div className="flex justify-center flex-col items-center py-4 border rounded-lg bg-muted/30">
-        <span className="text-4xl font-bold">
-          <AnimatedNumber value={data?.pendingAmount} currency="NGN" />
-        </span>
-        <span className="text-sm text-muted-foreground">Outstanding Balance</span>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Total Invoiced */}
+        <Card className="bg-card rounded-xl shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                <Receipt className="w-4 h-4" />
+              </div>
+              <p className="text-muted-foreground text-sm font-medium">
+                Total Invoiced
+              </p>
+            </div>
+            <p className="text-foreground text-2xl font-bold">
+              <AnimatedNumber value={totalInvoiced} currency="NGN" />
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              All fees and charges
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Total Paid */}
+        <Card className="bg-card rounded-xl shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-8 w-8 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-600 dark:text-green-400">
+                <Wallet className="w-4 h-4" />
+              </div>
+              <p className="text-muted-foreground text-sm font-medium">
+                Total Paid
+              </p>
+            </div>
+            <p className="text-foreground text-2xl font-bold">
+              <AnimatedNumber value={totalPaid} currency="NGN" />
+            </p>
+            <div className="w-full bg-muted h-1.5 rounded-full mt-2 overflow-hidden">
+              <div
+                className="bg-green-500 h-1.5 rounded-full transition-all"
+                style={{ width: `${paidPercentage}%` }}
+              ></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Outstanding */}
+        <Card className="bg-card rounded-xl shadow-sm border-red-100 dark:border-red-900/30 relative overflow-hidden">
+          <div className="absolute right-0 top-0 h-full w-1 bg-red-500"></div>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-8 w-8 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-600 dark:text-red-400">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              <p className="text-muted-foreground text-sm font-medium">
+                Outstanding
+              </p>
+            </div>
+            <p className="text-red-600 dark:text-red-400 text-2xl font-bold">
+              <AnimatedNumber value={data?.pendingAmount} currency="NGN" />
+            </p>
+            <p className="text-xs text-red-500 mt-1 font-medium">
+              Balance due
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Active fees */}
-      <div className="divide-y">
-        {data?.fees?.map((f, fi) => (
-          <div className="py-2" key={fi}>
-            <div className="flex gap-4 items-center">
-              <div className="flex-1">
-                <div className="text-sm font-medium">{f.feeTitle}</div>
-                {f.description && (
-                  <div className="text-xs text-muted-foreground">{f.description}</div>
-                )}
-                <div className="text-xs text-muted-foreground">{f.termDescription}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-xs text-muted-foreground">
-                  <NumericFormat readOnly value={f.billAmount} prefix="NGN " displayType="text" />
-                </div>
-                <div className="text-sm font-mono">
-                  <NumericFormat
-                    value={f.pendingAmount}
-                    prefix="NGN "
-                    suffix=" pending"
-                    displayType="text"
-                  />
-                </div>
-              </div>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "text-xs",
-                  f.status === "active"
-                    ? "border-yellow-300 text-yellow-700"
-                    : "border-gray-300 text-gray-500"
-                )}
-              >
-                {f.status}
-              </Badge>
-              <Menu>
-                <Menu.Item
-                  onClick={() => cancelFeeMutate({ id: f.id, reason: "" })}
-                  disabled={f.status === "cancelled"}
-                >
-                  Cancel Fee
-                </Menu.Item>
-              </Menu>
-            </div>
+      {/* Fee Structure */}
+      {data?.fees && data.fees.length > 0 && (
+        <Card className="bg-card rounded-xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex justify-between items-center bg-muted/30">
+            <h3 className="text-foreground text-base font-bold">
+              Fee Structure
+            </h3>
           </div>
-        ))}
-      </div>
+          <div className="p-5 flex flex-col gap-4">
+            {data.fees.map((f, fi) => (
+              <div key={fi} className="flex flex-col gap-2">
+                <div className="flex justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-foreground font-medium">
+                      {f.feeTitle}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px]",
+                        f.status === "active"
+                          ? "border-yellow-300 text-yellow-700 dark:border-yellow-800 dark:text-yellow-400"
+                          : "border-muted text-muted-foreground"
+                      )}
+                    >
+                      {f.status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-foreground font-bold">
+                      <NumericFormat
+                        readOnly
+                        value={f.billAmount}
+                        prefix="NGN "
+                        displayType="text"
+                      />
+                    </span>
+                    <Menu>
+                      <Menu.Item
+                        onClick={() =>
+                          cancelFeeMutate({ id: f.id, reason: "" })
+                        }
+                        disabled={f.status === "cancelled"}
+                      >
+                        Cancel Fee
+                      </Menu.Item>
+                    </Menu>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 bg-muted h-2 rounded-full overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        f.pendingAmount === 0
+                          ? "bg-green-500"
+                          : f.pendingAmount < f.billAmount
+                            ? "bg-primary"
+                            : "bg-muted-foreground/30"
+                      )}
+                      style={{
+                        width: `${
+                          f.billAmount > 0
+                            ? Math.round(
+                                ((f.billAmount - f.pendingAmount) /
+                                  f.billAmount) *
+                                  100
+                              )
+                            : 0
+                        }%`,
+                      }}
+                    ></div>
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {f.pendingAmount === 0 ? (
+                      <span className="text-green-600 font-medium">Paid</span>
+                    ) : (
+                      <NumericFormat
+                        readOnly
+                        value={f.pendingAmount}
+                        prefix="NGN "
+                        suffix=" pending"
+                        displayType="text"
+                      />
+                    )}
+                  </span>
+                </div>
+                {f.description && (
+                  <p className="text-xs text-muted-foreground">
+                    {f.description}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Payment history */}
       {payments && payments.length > 0 && (
-        <div>
-          <p className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">
-            Payment History
-          </p>
+        <Card className="bg-card rounded-xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex justify-between items-center">
+            <h3 className="text-foreground text-base font-bold">
+              Payment History
+            </h3>
+          </div>
           <PaymentHistoryList
             payments={payments}
             studentId={params.studentViewId}
           />
-        </div>
+        </Card>
       )}
+
+      {/* Info Box */}
+      <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-lg p-4 flex gap-3">
+        <Info className="text-blue-600 dark:text-blue-400 shrink-0 h-5 w-5 mt-0.5" />
+        <div>
+          <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">
+            Payment Information
+          </h4>
+          <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+            All payment records are scoped to the current term. Use the term
+            selector in the header to view payment history for other terms.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
 
-function PaymentHistoryList({ payments, studentId }: { payments: any[]; studentId: string }) {
+function PaymentHistoryList({
+  payments,
+  studentId,
+}: {
+  payments: any[];
+  studentId: string;
+}) {
   const trpc = useTRPC();
   const qc = useQueryClient();
 
@@ -276,7 +418,7 @@ function PaymentHistoryList({ payments, studentId }: { payments: any[]; studentI
   );
 
   return (
-    <div className="divide-y border rounded-md">
+    <div className="divide-y divide-border">
       {payments.map((p) => {
         const date = p.walletTransaction?.transactionDate || p.createdAt;
         const canReverse =
@@ -285,20 +427,25 @@ function PaymentHistoryList({ payments, studentId }: { payments: any[]; studentI
           p.walletTransaction?.id;
 
         return (
-          <div key={p.id} className="py-2 px-3 flex items-center gap-3">
+          <div
+            key={p.id}
+            className="py-3 px-5 flex items-center gap-3 hover:bg-muted/20 transition-colors"
+          >
             <div className="flex-1">
-              <p className="text-sm font-medium">
+              <p className="text-sm font-medium text-foreground">
                 {p.studentFee?.feeTitle || p.paymentType || "Payment"}
               </p>
               {p.description && (
-                <p className="text-xs text-muted-foreground">{p.description}</p>
+                <p className="text-xs text-muted-foreground">
+                  {p.description}
+                </p>
               )}
               <p className="text-xs text-muted-foreground">
                 {date ? format(new Date(date), "dd MMM yyyy") : ""}
               </p>
             </div>
             <div className="text-right">
-              <div className="text-sm font-mono">
+              <div className="text-sm font-mono font-medium text-foreground">
                 <AnimatedNumber value={p.amount} currency="NGN" />
               </div>
               <Badge
@@ -306,8 +453,8 @@ function PaymentHistoryList({ payments, studentId }: { payments: any[]; studentI
                 className={cn(
                   "text-xs mt-0.5",
                   p.status === "success"
-                    ? "border-green-300 text-green-600"
-                    : "border-red-300 text-red-500"
+                    ? "border-green-300 text-green-600 dark:border-green-800 dark:text-green-400"
+                    : "border-red-300 text-red-500 dark:border-red-800 dark:text-red-400"
                 )}
               >
                 {p.status}
@@ -375,9 +522,12 @@ function ApplyPaymentForm({
     mutate({ ...data, description: paymentMethod });
   };
   return (
-    <div className="border rounded-lg p-4 bg-muted/20">
+    <div className="border border-border rounded-lg p-4 bg-muted/20">
       <Form {...form}>
-        <form className="flex flex-col gap-3" onSubmit={form.handleSubmit(onSubmit)}>
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={form.handleSubmit(onSubmit)}
+        >
           <div className="grid grid-cols-2 gap-3">
             <FormInput
               label="Amount (NGN)"
@@ -450,25 +600,35 @@ function StudentPurchaseForm({
     })
   );
 
-  const PRESETS = ["Uniform", "Textbooks", "Exercise Books", "Stationery", "PE Kit", "School Bag"];
+  const PRESETS = [
+    "Uniform",
+    "Textbooks",
+    "Exercise Books",
+    "Stationery",
+    "PE Kit",
+    "School Bag",
+  ];
 
   if (!studentTermFormId) {
     return (
-      <div className="border rounded-lg p-4 text-sm text-muted-foreground">
+      <div className="border border-border rounded-lg p-4 text-sm text-muted-foreground">
         Student must be enrolled in a term to record purchases.
       </div>
     );
   }
 
   return (
-    <div className="border rounded-lg p-4 bg-muted/20">
+    <div className="border border-border rounded-lg p-4 bg-muted/20">
       <div className="flex flex-wrap gap-2 mb-3">
         {PRESETS.map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => setTitle(p)}
-            className={`text-xs px-2 py-1 rounded border hover:bg-accent ${title === p ? "bg-accent" : ""}`}
+            className={cn(
+              "text-xs px-2 py-1 rounded border border-border hover:bg-accent transition-colors",
+              title === p && "bg-accent"
+            )}
           >
             {p}
           </button>
@@ -478,7 +638,7 @@ function StudentPurchaseForm({
         <div className="grid gap-1.5">
           <Label className="text-sm">Item</Label>
           <input
-            className="flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-sm"
+            className="flex h-9 w-full rounded-md border border-border bg-transparent px-3 py-1 text-sm shadow-sm"
             placeholder="e.g. School Uniform"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -488,7 +648,7 @@ function StudentPurchaseForm({
           <Label className="text-sm">Amount (NGN)</Label>
           <input
             type="number"
-            className="flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-sm"
+            className="flex h-9 w-full rounded-md border border-border bg-transparent px-3 py-1 text-sm shadow-sm"
             placeholder="0.00"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
@@ -510,7 +670,7 @@ function StudentPurchaseForm({
         <div className="grid gap-1.5">
           <Label className="text-sm">Notes (optional)</Label>
           <input
-            className="flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-sm"
+            className="flex h-9 w-full rounded-md border border-border bg-transparent px-3 py-1 text-sm shadow-sm"
             placeholder="Additional notes"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
