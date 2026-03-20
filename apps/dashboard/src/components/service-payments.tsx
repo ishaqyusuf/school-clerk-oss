@@ -201,10 +201,10 @@ function Content() {
                     </td>
                   </tr>
                 ))}
-                {filtered.length === 0 && (
+                {filtered.length === 0 && bills.length > 0 && (
                   <tr>
                     <td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">
-                      No expenses found matching your search.
+                      No expenses match your search. Try a different keyword.
                     </td>
                   </tr>
                 )}

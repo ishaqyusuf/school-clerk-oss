@@ -26,8 +26,6 @@ import {
   Users,
   Activity,
   Search,
-  Eye,
-  MoreVertical,
   CheckCircle,
   X,
 } from "lucide-react";
@@ -46,7 +44,6 @@ function Content() {
   const [showCreate, setShowCreate] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [deptFilter, setDeptFilter] = useState("all");
 
   const { data: bills } = useSuspenseQuery(
     trpc.finance.getPayroll.queryOptions({ termId: undefined })
