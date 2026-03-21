@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { TableSkeleton } from "./tables/skeleton";
 import { Button } from "@school-clerk/ui/button";
@@ -18,6 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@school-clerk/ui/select";
+import {
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  AlertCircle,
+  ArrowUpRight,
+  ArrowDownRight,
+  X,
+} from "lucide-react";
 
 export function AccountingStreams() {
   return (
@@ -41,36 +50,60 @@ function Content() {
   const invalidate = () =>
     qc.invalidateQueries({ queryKey: trpc.finance.getStreams.queryKey({ filter }) });
 
+  const feeStreams = streams.filter((s) => s.type === "fee");
+  const billStreams = streams.filter((s) => s.type !== "fee");
+  const totalInflow = feeStreams.reduce((s, w) => s + w.totalIn, 0);
+  const totalOutflow = billStreams.reduce((s, w) => s + w.totalOut, 0);
+  const netPosition = totalInflow - totalOutflow;
+
+  const streamColors = [
+    { color: "text-primary", bg: "bg-primary/10", bar: "bg-primary" },
+    { color: "text-purple-600", bg: "bg-purple-100 dark:bg-purple-900/20", bar: "bg-purple-600" },
+    { color: "text-indigo-600", bg: "bg-indigo-100 dark:bg-indigo-900/20", bar: "bg-indigo-600" },
+    { color: "text-teal-600", bg: "bg-teal-100 dark:bg-teal-900/20", bar: "bg-teal-600" },
+    { color: "text-rose-600", bg: "bg-rose-100 dark:bg-rose-900/20", bar: "bg-rose-600" },
+    { color: "text-orange-600", bg: "bg-orange-100 dark:bg-orange-900/20", bar: "bg-orange-600" },
+  ];
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          <Button
-            variant={filter === "term" ? "default" : "outline"}
-            size="xs"
-            onClick={() => setFilter("term")}
-          >
-            This Term
-          </Button>
-          <Button
-            variant={filter === "session" ? "default" : "outline"}
-            size="xs"
-            onClick={() => setFilter("session")}
-          >
-            This Session
-          </Button>
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight">Account Streams</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage financial streams and transaction records for the current term.
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-2">
+            <Button
+              variant={filter === "term" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilter("term")}
+            >
+              This Term
+            </Button>
+            <Button
+              variant={filter === "session" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilter("session")}
+            >
+              This Session
+            </Button>
+          </div>
           <Button
-            size="xs"
             variant="outline"
+            size="sm"
+            className="gap-2"
             onClick={() => { setShowTransfer(!showTransfer); setShowCreate(false); }}
           >
-            Transfer Funds
+            <ArrowUpRight className="h-4 w-4" />
+            Internal Transfer
           </Button>
           <Button
-            size="xs"
+            size="sm"
+            className="gap-2"
             onClick={() => { setShowCreate(!showCreate); setShowTransfer(false); }}
           >
             Add Stream
@@ -78,12 +111,82 @@ function Content() {
         </div>
       </div>
 
-      {/* Create stream form */}
+      {/* KPI Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Card className="p-6 flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg text-green-600 dark:text-green-400">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <Badge variant="outline" className="text-xs text-green-700 border-green-200 bg-green-50">
+              Revenue
+            </Badge>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm font-medium text-muted-foreground">Total Inflow</p>
+            <h3 className="text-2xl font-bold tracking-tight mt-1">
+              <AnimatedNumber value={totalInflow} currency="NGN" />
+            </h3>
+          </div>
+        </Card>
+
+        <Card className="p-6 flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <div className="p-2 bg-rose-100 dark:bg-rose-900/20 rounded-lg text-rose-600 dark:text-rose-400">
+              <TrendingDown className="h-5 w-5" />
+            </div>
+            <Badge variant="outline" className="text-xs text-rose-700 border-rose-200 bg-rose-50">
+              Expenses
+            </Badge>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm font-medium text-muted-foreground">Total Outflow</p>
+            <h3 className="text-2xl font-bold tracking-tight mt-1">
+              <AnimatedNumber value={totalOutflow} currency="NGN" />
+            </h3>
+          </div>
+        </Card>
+
+        <Card className="p-6 flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400">
+              <Wallet className="h-5 w-5" />
+            </div>
+            <Badge
+              variant="outline"
+              className={`text-xs ${netPosition >= 0 ? "text-green-700 border-green-200 bg-green-50" : "text-rose-700 border-rose-200 bg-rose-50"}`}
+            >
+              {netPosition >= 0 ? "Surplus" : "Deficit"}
+            </Badge>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm font-medium text-muted-foreground">Net Position</p>
+            <h3 className="text-2xl font-bold tracking-tight mt-1">
+              <AnimatedNumber value={Math.abs(netPosition)} currency="NGN" />
+            </h3>
+          </div>
+        </Card>
+
+        <Card className="p-6 flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg text-orange-600 dark:text-orange-400">
+              <AlertCircle className="h-5 w-5" />
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {streams.length} streams
+            </Badge>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm font-medium text-muted-foreground">Active Streams</p>
+            <h3 className="text-2xl font-bold tracking-tight mt-1">{streams.length}</h3>
+          </div>
+        </Card>
+      </div>
+
+      {/* Inline forms */}
       {showCreate && (
         <CreateStreamForm onSuccess={() => { setShowCreate(false); invalidate(); }} />
       )}
-
-      {/* Transfer form */}
       {showTransfer && (
         <TransferFundsForm
           streams={streams}
@@ -91,41 +194,96 @@ function Content() {
         />
       )}
 
-      {/* Streams list */}
-      {streams.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm gap-2">
-          <span>No accounting streams yet for this period.</span>
-          <span>Streams are created automatically when fees or bills are recorded.</span>
+      {/* Active Streams */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold">Active Account Streams</h2>
+          <span className="text-sm text-muted-foreground">{streams.length} total</span>
         </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {streams.map((s) => (
-            <Card key={s.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">{s.name}</CardTitle>
-                  <Badge variant="outline" className="text-xs capitalize">
-                    {s.type}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                <div className="text-2xl font-bold">
-                  <AnimatedNumber value={s.balance} currency="NGN" />
-                </div>
-                <div className="flex gap-4 text-xs text-muted-foreground">
-                  <span className="text-green-600">
-                    In: <AnimatedNumber value={s.totalIn} currency="NGN" />
-                  </span>
-                  <span className="text-red-500">
-                    Out: <AnimatedNumber value={s.totalOut} currency="NGN" />
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+
+        {streams.length === 0 ? (
+          <Card className="p-16 flex flex-col items-center justify-center text-center">
+            <AlertCircle className="h-8 w-8 text-muted-foreground mb-3" />
+            <p className="font-medium text-muted-foreground">No accounting streams yet</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Streams are created automatically when fees or bills are recorded.
+            </p>
+            <Button className="mt-4 gap-2" onClick={() => setShowCreate(true)}>
+              Add Stream
+            </Button>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {streams.map((stream, idx) => {
+              const colorSet = streamColors[idx % streamColors.length];
+              const isRevenue = stream.type === "fee";
+              const target = Math.max(stream.totalIn, stream.totalOut, 1);
+              const current = isRevenue ? stream.totalIn : stream.totalOut;
+              const progress = Math.min((current / target) * 100, 100);
+
+              return (
+                <Card
+                  key={stream.id}
+                  className="p-5 flex flex-col hover:shadow-md transition-shadow cursor-pointer group"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${colorSet.bg} ${colorSet.color}`}>
+                      {isRevenue
+                        ? <ArrowUpRight className="h-5 w-5" />
+                        : <ArrowDownRight className="h-5 w-5" />
+                      }
+                    </div>
+                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      isRevenue
+                        ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                        : "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                    }`}>
+                      {isRevenue ? "revenue" : "expense"}
+                    </span>
+                  </div>
+
+                  <h3 className="text-base font-bold">{stream.name}</h3>
+                  <div className="flex items-baseline gap-2 mt-2">
+                    <span className="text-2xl font-bold">
+                      <AnimatedNumber value={stream.balance} currency="NGN" />
+                    </span>
+                    <span className="text-xs text-muted-foreground">balance</span>
+                  </div>
+
+                  <div className="mt-4 w-full bg-secondary rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className={`${colorSet.bar} h-1.5 rounded-full transition-all duration-500`}
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+
+                  <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
+                    <span className="text-green-600">
+                      In: <AnimatedNumber value={stream.totalIn} currency="NGN" />
+                    </span>
+                    <span className="text-red-500">
+                      Out: <AnimatedNumber value={stream.totalOut} currency="NGN" />
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2 mt-5 pt-4 border-t border-border">
+                    <Button
+                      variant={isRevenue ? "default" : "secondary"}
+                      size="sm"
+                      className="flex-1 text-xs font-bold"
+                    >
+                      {isRevenue ? "New Transaction" : "Manage Expense"}
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-xs font-bold">
+                      Statement
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -150,7 +308,15 @@ function CreateStreamForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <Card className="border-dashed">
-      <CardContent className="pt-4">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm">Add New Stream</CardTitle>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onSuccess}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
         <div className="grid sm:grid-cols-3 gap-4 items-end">
           <div className="grid gap-1.5">
             <Label>Stream Name</Label>
@@ -230,7 +396,12 @@ function TransferFundsForm({
   return (
     <Card className="border-dashed">
       <CardHeader>
-        <CardTitle className="text-sm">Transfer Funds Between Streams</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm">Transfer Funds Between Streams</CardTitle>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onSuccess}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="grid sm:grid-cols-4 gap-4 items-end">

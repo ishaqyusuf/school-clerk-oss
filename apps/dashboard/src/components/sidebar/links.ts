@@ -64,10 +64,23 @@ export const linkModules = [
         _role.is("Admin"),
       ).data,
     ]),
+    createNavSection("main", "Accounting", [
+      createNavLink("Accounting", "layers", "/finance/streams", [
+        createNavLink("Account Streams", null, "/finance/streams").access(
+          _role.is("Admin"),
+        ).data,
+        createNavLink("Remuneration", null, "/finance/payments").access(
+          _role.in("Admin", "Accountant"),
+        ).data,
+        createNavLink("Payroll", null, "/staff/payroll").access(
+          _role.is("Admin"),
+        ).data,
+        createNavLink("Transactions", null, "/finance/transactions").access(
+          _role.in("Admin", "Accountant"),
+        ).data,
+      ]).access(_role.is("Admin")).data,
+    ]),
     createNavSection("main", "Finance Managment", [
-      createNavLink("Accounting Streams", "layers", "/finance/streams").access(
-        _role.is("Admin"),
-      ).data,
       createNavLink(
         "Fee Management",
         "coins",
@@ -79,19 +92,11 @@ export const linkModules = [
     ]),
     createNavSection("main", "Fees", [
       createNavLink(
-        "Transactions",
-        "file-text",
-        "/finance/transactions",
-      ).access(_role.in("Admin", "Accountant")).data,
-      createNavLink(
         "Student Fees",
         "file-text",
         "/finance/student-fees",
       ).access(_role.in("Admin", "Accountant")).data,
       createNavLink("Bills", "file-text", "/finance/bills").access(
-        _role.in("Admin", "Accountant"),
-      ).data,
-      createNavLink("Payments", "credit-card", "/finance/payments").access(
         _role.in("Admin", "Accountant"),
       ).data,
     ]),
