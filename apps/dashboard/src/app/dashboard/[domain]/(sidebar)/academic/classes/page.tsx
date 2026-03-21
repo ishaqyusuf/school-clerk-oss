@@ -27,8 +27,15 @@ export default async function Page(props: Props) {
     }),
   ]);
   return (
-    <div className="py-4 space-y-8">
-      <PageTitle>Classroom</PageTitle>
+    <div className="py-4 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <PageTitle>Classrooms</PageTitle>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Manage class capacities, assigned teachers, and term records.
+          </p>
+        </div>
+      </div>
       <ClassroomHeader />
       <ErrorBoundary errorComponent={ErrorFallback}>
         <Suspense fallback={<TableSkeleton />}>

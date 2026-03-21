@@ -12,7 +12,14 @@ const lineItemSchema = z.object({
   quantity: z.number(),
 });
 
-const tabs = ["overview", "students", "subjects", "attendance"] as const;
+const tabs = [
+  "overview",
+  "students",
+  "subjects",
+  "attendance",
+  "payments",
+  "performance",
+] as const;
 const secondaryTabs = [
   "student-form",
   "subject-form",
