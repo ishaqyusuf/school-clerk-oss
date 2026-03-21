@@ -148,7 +148,7 @@ export default async function Page({ params }) {
               className="h-auto flex-col gap-2 py-5"
               asChild
             >
-              <Link href={`${base}${l.href}`}>
+              <Link href={`${l.href}`}>
                 <l.icon className="h-5 w-5" />
                 <span className="text-sm font-medium">{l.label}</span>
               </Link>
