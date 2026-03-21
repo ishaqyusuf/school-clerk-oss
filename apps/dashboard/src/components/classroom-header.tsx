@@ -1,8 +1,6 @@
 "use client";
 import { SearchFilter } from "@school-clerk/ui/search-filter";
-import { OpenClassroomSheet } from "./open-classroom-sheet";
 import { classroomFilterParams } from "@/hooks/use-classroom-filter-params";
-import { useTRPC } from "@/trpc/client";
 import { useQueryStates } from "nuqs";
 import { _trpc } from "./static-trpc";
 import { Button } from "@school-clerk/ui/button";
@@ -17,7 +15,7 @@ export function ClassroomHeader({}) {
       <div className="flex-1 w-full sm:w-auto">
         <SearchFilter
           filterSchema={classroomFilterParams}
-          placeholder="Search by class name..."
+          placeholder="Search classrooms..."
           trpcRoute={_trpc.filters.classroom}
           trpQueryOptions={{}}
           {...{ filters, setFilters }}
@@ -27,7 +25,7 @@ export function ClassroomHeader({}) {
         className="gap-2 shadow-sm"
         onClick={() => setParams({ createClassroom: true })}
       >
-        <Icons.Add className="h-4 w-4" />
+        <Icons.add className="h-4 w-4" />
         Add Classroom
       </Button>
     </div>

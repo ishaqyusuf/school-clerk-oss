@@ -2,8 +2,6 @@ import Sheet from "@school-clerk/ui/custom/sheet";
 import {
   Tabs as TabsBase,
   TabsContent,
-  TabsList,
-  TabsTrigger,
 } from "@school-clerk/ui/tabs";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { ClassroomStudents } from "../classroom-students";
@@ -14,7 +12,6 @@ import { Skeleton } from "@school-clerk/ui/skeleton";
 import { Suspense } from "react";
 import { ClassroomSubjectSecondaryForm } from "../classroom-subject-secondary-form";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { useTRPC } from "@/trpc/client";
 import { StudentFormAction } from "../forms/student-form-action";
 import { ClassroomSubjectOverviewSecondary } from "../classroom-subject-secondary-overview";
 import { _trpc } from "../static-trpc";
@@ -28,7 +25,6 @@ import {
   Banknote,
   BarChart3,
   FileText,
-  TrendingUp,
 } from "lucide-react";
 import { cn } from "@school-clerk/ui/cn";
 

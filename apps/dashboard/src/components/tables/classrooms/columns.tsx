@@ -7,10 +7,9 @@ import { Icons } from "@school-clerk/ui/icons";
 import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@school-clerk/ui/cn";
 
-import { Badge } from "@school-clerk/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import Link from "next/link";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { _qc, _trpc } from "@/components/static-trpc";
 
