@@ -1,4 +1,5 @@
 "use client";
+import { ClassroomResultTable } from "@/components/classroom-result-table";
 import { StudentReportFilter } from "@/components/student-report-filters";
 import { StudentReportPage } from "@/components/student-report-page";
 import {
@@ -10,38 +11,69 @@ import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-
 import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
 import { Sheet } from "@school-clerk/ui/composite";
-import { Menu } from "lucide-react";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@school-clerk/ui/tabs";
+import { FileText, Menu, TableIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export default function Page() {
   const { filters, setFilters } = useStudentReportFilterParams();
-  const [width, height] = [595, 842];
-  // const studentIds = Object.entries(store?.selection)
-  //   ?.filter(([a, b]) => b)
-  //   ?.map(([a, b]) => a);
   const [menuOpened, setMenuOpened] = useState(false);
-  // const studentIds = useMemo(() => {},[filters.selections,])
   return (
     <ReportPageProvider value={createReportPageContext()}>
       <div className={cn("lg:flex print:hidden")}>
-        <div className="hidden lg:block  lg:w-56 border lg:h-screen p-2 overflow-auto">
+        <div className="hidden lg:block lg:w-56 border lg:h-screen p-2 overflow-auto">
           <StudentReportFilter />
         </div>
-        <div className="min-h-screen  flex-1 lg:h-screen overflow-auto mx-auto lg:max-w-4xl  flex flex-col">
-          <div className="flex flex-col justify-center items-center  dotted-bg p-4 lg:p-6 xl:p-0">
-            <div className="h-16 lg:hidden fixed flex items-center top-0 border-border gap-4 border-b w-full">
-              <Button onClick={(e) => setMenuOpened(true)} size="sm">
-                <Menu className="size-4" />
-              </Button>
-            </div>
-            <div
-              className="flex flex-col w-full py-6"
-              // style={{ maxWidth: width }}
+        <div className="min-h-screen flex-1 lg:h-screen overflow-auto flex flex-col">
+          <div className="h-16 lg:hidden fixed flex items-center top-0 border-border gap-4 border-b w-full z-20 bg-background px-2">
+            <Button onClick={() => setMenuOpened(true)} size="sm">
+              <Menu className="size-4" />
+            </Button>
+          </div>
+          <div className="flex flex-col flex-1">
+            <Tabs
+              value={filters.tab}
+              onValueChange={(v) =>
+                setFilters({ tab: v as typeof filters.tab })
+              }
+              className="flex flex-col flex-1"
             >
-              <div className="pb-24  lg:pb-0">
-                <Reports />
+              <div className="sticky top-0 z-10 bg-background border-b px-4 pt-2 lg:pt-0">
+                <TabsList className="w-full sm:w-auto rounded-lg">
+                  <TabsTrigger
+                    value="print"
+                    className="flex items-center gap-2 rounded-md"
+                  >
+                    <FileText className="size-4" />
+                    Print View
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="classroom-results"
+                    className="flex items-center gap-2 rounded-md"
+                  >
+                    <TableIcon className="size-4" />
+                    Classroom Results
+                  </TabsTrigger>
+                </TabsList>
               </div>
-            </div>
+              <TabsContent value="print" className="flex-1 mt-0">
+                <div className="flex flex-col justify-center items-center dotted-bg p-4 lg:p-6 xl:p-0">
+                  <div className="flex flex-col w-full py-6 mx-auto lg:max-w-4xl">
+                    <div className="pb-24 lg:pb-0">
+                      <Reports />
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+              <TabsContent value="classroom-results" className="flex-1 mt-0 p-4">
+                <ClassroomResultTable />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
         <div className="lg:hidden">
@@ -61,7 +93,7 @@ export default function Page() {
           </Sheet>
         </div>
       </div>
-      <div className="hidden  flex-col print:flex">
+      <div className="hidden flex-col print:flex">
         <Reports printMode />
       </div>
     </ReportPageProvider>

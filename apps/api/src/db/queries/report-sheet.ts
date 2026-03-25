@@ -34,6 +34,7 @@ export async function getClassroomReportSheet(
               deletedAt: null,
             },
             select: {
+              id: true,
               title: true,
               percentageObtainable: true,
               obtainable: true,
@@ -46,9 +47,11 @@ export async function getClassroomReportSheet(
                   },
                 },
                 select: {
+                  id: true,
                   obtained: true,
                   percentageScore: true,
                   studentTermFormId: true,
+                  studentId: true,
                 },
               },
             },

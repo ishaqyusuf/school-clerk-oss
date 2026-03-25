@@ -1,10 +1,16 @@
-import { parseAsArrayOf, parseAsInteger, useQueryStates } from "nuqs";
+import {
+  parseAsArrayOf,
+  parseAsInteger,
+  parseAsStringEnum,
+  useQueryStates,
+} from "nuqs";
 import { createLoader, parseAsString } from "nuqs/server";
 
 export const studentReportFilterParams = {
   departmentId: parseAsString,
   termId: parseAsString,
   selections: parseAsArrayOf(parseAsInteger),
+  tab: parseAsStringEnum(["print", "classroom-results"]).withDefault("print"),
 };
 
 export function useStudentReportFilterParams() {
