@@ -45,9 +45,9 @@ function Content() {
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
       className={cn(
-        "h-screen shrink-0 flex-col desktop:overflow-hidden  desktop:rounded-tl-[10px] desktop:rounded-bl-[10px] justify-between fixed top-0 pb-4 items-center shidden md:flex z-50 transition-all duration-200 ease-in-out",
+        "h-screen shrink-0 flex-col desktop:overflow-hidden  desktop:rounded-tl-[10px] desktop:rounded-bl-[10px] justify-between fixed top-0 pb-4 items-center md:flex z-50 transition-all duration-200 ease-in-out",
         "bg-background border-r border-border z-10",
-        isExpanded ? "w-60" : "w-[70px]"
+        isExpanded ? "w-60" : "w-[70px]",
       )}
       // className={cn(
       //   "h-screen shrink-0 flex-col desktop:overflow-hidden desktop:rounded-tl-[10px] desktop:rounded-bl-[10px] justify-between fixed top-0 pb-4 items-center shidden md:flex z-50 transition-all duration-200 ease-in-out",
@@ -58,14 +58,14 @@ function Content() {
       <div
         className={cn(
           "absolute top-0 left-0 h-[70px] flex items-center justify-center bg-background border-b border-border transition-all duration-200 ease-in-out z-10",
-          isExpanded ? "w-full justify-starts" : "w-[69px]"
+          isExpanded ? "w-full justify-starts" : "w-[69px]",
         )}
       >
         <ctx.Link
           href="/"
           className={cn(
             "absolute left-2 transition-none",
-            isExpanded && "left-[16px]s  "
+            isExpanded && "left-[16px]s  ",
           )}
         >
           {isExpanded ? <Logo.Logo /> : <Logo.LogoSm />}
@@ -144,7 +144,7 @@ export function MainMenu() {
                         isCurrent: activeLink?.module == module?.name,
                         // renderMode,
                         moduleType: module?.name ? "module" : "global",
-                      })
+                      }),
                     )}
                   >
                     {!isExpanded && si > 0 ? null : (
@@ -159,7 +159,7 @@ export function MainMenu() {
                             !section?.name &&
                             (si > 0 || !module?.name) &&
                             "hidden",
-                          isExpanded && si > 0 && "block"
+                          isExpanded && si > 0 && "block",
                         )}
                       >
                         {si == 0 && !isExpanded
@@ -179,7 +179,7 @@ export function MainMenu() {
                               isItemExpanded={expandedItem === link.href}
                               onToggle={(path) => {
                                 setExpandedItem(
-                                  expandedItem === path ? null : path
+                                  expandedItem === path ? null : path,
                                 );
                               }}
                               item={link}
@@ -240,14 +240,16 @@ const ChildItem = ({
             "ml-[35px] mr-[15px] h-8 flex items-center",
             "border-l border-[#DCDAD2] dark:border-[#2C2C2C] pl-3",
             !shouldSkipAnimation && "transition-all duration-300 ease-in-out",
-            showChild ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2"
+            showChild
+              ? "opacity-100 translate-x-0"
+              : "opacity-0 -translate-x-2",
           )}
           style={{
             transitionDelay: shouldSkipAnimation
               ? undefined
               : showChild
-              ? `${60 + index * 25}ms`
-              : `${(2 - index) * 10}ms`,
+                ? `${60 + index * 25}ms`
+                : `${(2 - index) * 10}ms`,
           }}
         >
           <span
@@ -255,7 +257,7 @@ const ChildItem = ({
               "text-xs font-medium transition-colors duration-200",
               "text-[#888] group-hover:text-primary",
               "whitespace-nowrap overflow-hidden",
-              isActive && "text-primary"
+              isActive && "text-primary",
             )}
           >
             {child.name}
@@ -340,7 +342,7 @@ const Item = ({
               "border border-transparent h-10 transition-all duration-200 ease-in-out ml-[15px] mr-[15px]",
               isActive &&
                 "bg-[#F2F1EF] dark:bg-secondary border-[#DCDAD2] dark:border-[#2C2C2C]",
-              isExpanded ? "w-[calc(100%-30px)]" : "w-10"
+              isExpanded ? "w-[calc(100%-30px)]" : "w-10",
             )}
           />
 
@@ -358,7 +360,7 @@ const Item = ({
                   "text-sm font-medium transition-opacity duration-200 ease-in-out text-[#666] group-hover:text-primary",
                   "whitespace-nowrap overflow-hidden",
                   hasChildren ? "pr-2" : "",
-                  isActive && "text-primary"
+                  isActive && "text-primary",
                 )}
               >
                 {item.name}
@@ -371,7 +373,7 @@ const Item = ({
                     "w-8 h-8 flex items-center justify-center transition-all duration-200 ml-auto mr-3",
                     "text-[#888] hover:text-primary pointer-events-auto",
                     isActive && "text-primary/60",
-                    shouldShowChildren && "rotate-180"
+                    shouldShowChildren && "rotate-180",
                   )}
                 >
                   <Icons.chevronDown size={16} />
@@ -387,7 +389,7 @@ const Item = ({
         <div
           className={cn(
             "transition-all duration-300 ease-in-out overflow-hidden",
-            shouldShowChildren ? "max-h-96 mt-1" : "max-h-0"
+            shouldShowChildren ? "max-h-96 mt-1" : "max-h-0",
           )}
         >
           {item.subLinks!.map((child, index) => {

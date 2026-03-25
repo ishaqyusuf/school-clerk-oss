@@ -38,7 +38,7 @@ export default function RootLayout({
       <body
         className={cn(
           `${lora.variable} font-sans`,
-          "whitespace-pre-line overscroll-none antialiased"
+          "whitespace-pre-line overscroll-none antialiased",
           // "min-h-screen bg-background font-sans text-black antialiased",
           // fontSans.variable,
           // fontHeading.variable
