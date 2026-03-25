@@ -7,6 +7,7 @@ const config = {
   transpilePackages: [
     "@school-clerk/ui",
     "@school-clerk/api",
+    "@school-clerk/site-nav",
 
     // "@school-clerk/stripe",
   ],
