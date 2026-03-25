@@ -275,7 +275,7 @@ function ScoreCell({
   const handleSave = useDebouncedCallback((value: string) => {
     const numValue = value ? +value : null;
     mutate({
-      id: result?.id ?? undefined,
+      id: result?.id,
       obtained: numValue,
       assessmentId,
       studentTermId: studentTermFormId,

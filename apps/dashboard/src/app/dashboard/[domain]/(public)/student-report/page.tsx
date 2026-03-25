@@ -39,7 +39,7 @@ export default function Page() {
             <Tabs
               value={filters.tab}
               onValueChange={(v) =>
-                setFilters({ tab: v as "print" | "classroom-results" })
+                setFilters({ tab: v as typeof filters.tab })
               }
               className="flex flex-col flex-1"
             >
