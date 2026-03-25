@@ -177,6 +177,7 @@ export const createReportPageContext = () => {
     termForms: reportData?.studentTermForms,
     reportsById: calculatedReport?.reportsById,
     classRooms: classRooms?.data,
+    reportData,
   };
 };
 function tableModel() {
