@@ -25,7 +25,7 @@ export function ClassroomHeader({}) {
         className="gap-2 shadow-sm"
         onClick={() => setParams({ createClassroom: true })}
       >
-        <Icons.add className="h-4 w-4" />
+        <Icons.Add className="h-4 w-4" />
         Add Classroom
       </Button>
     </div>

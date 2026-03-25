@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "TZ=UTC portless school-clerk-dashboard next dev --turbopack",
+    "dev": "PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-2200} TZ=UTC portless dashboard.school-clerk next dev --turbopack",
     "build": "NODE_ENV=production next build --turbopack",
     "clean": "git clean -xdf .next .turbo node_modules",
     "lint": "next lint",

@@ -1,9 +1,4 @@
-import {
-  batchPrefetch,
-  getQueryClient,
-  HydrateClient,
-  trpc,
-} from "@/trpc/server";
+import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server";
 import { Metadata } from "next";
 import { SearchParams } from "nuqs";
 import { loadStudentFilterParams } from "@/hooks/use-student-filter-params";
@@ -24,11 +19,10 @@ type Props = {
   searchParams: Promise<SearchParams>;
 };
 export default async function Page(props: Props) {
-  const queryClient = getQueryClient();
   const searchParams = await props.searchParams;
   const filter = loadStudentFilterParams(searchParams);
 
-  batchPrefetch([
+  await batchPrefetch([
     trpc.students.index.infiniteQueryOptions({
       ...filter,
     }),

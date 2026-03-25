@@ -14,8 +14,8 @@ import {
 import { cache } from "react";
 import superjson from "superjson";
 import { makeQueryClient } from "./query-client";
-import { getSession } from "@/auth/server";
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { headers } from "next/headers";
 
 // IMPORTANT: Create a stable getter for the query client that
 //            will return the same client during the same request.
@@ -26,15 +26,29 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
   client: createTRPCClient({
     links: [
       httpBatchLink({
-        // url: `${process.env.NEXT_PUBLIC_API_URL}/api/trpc`,
-        // url: `${process.env.NEXT_PUBLIC_URL}/api/trpc`,
-        // url: `http://localhost:2200/api/trpc`,
-        url: `${process.env.NEXT_PUBLIC_URL}/api/trpc`,
-        // url:
-        //   process.env.NODE_ENV === "production"
-        //     ? `https://daarulhadith.vercel.app/api/trpc`
-        //     : `${process.env.NEXT_PUBLIC_API_URL}/api/trpc`,
+        url: "/api/trpc",
         transformer: superjson as any,
+        async fetch(input, init) {
+          const requestHeaders = await headers();
+          const host =
+            requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+          const protocol =
+            requestHeaders.get("x-forwarded-proto") ??
+            (host?.includes("localhost") ? "http" : "https");
+
+          const url =
+            typeof input === "string"
+              ? input
+              : input instanceof URL
+                ? input.toString()
+                : input.url;
+
+          const resolvedUrl = url.startsWith("http")
+            ? url
+            : `${protocol}://${host}${url}`;
+
+          return fetch(resolvedUrl, init);
+        },
         async headers() {
           const cook = await getAuthCookie();
           return {
@@ -70,22 +84,24 @@ export function prefetch<T extends ReturnType<TRPCQueryOptions<any>>>(
   const queryClient = getQueryClient();
 
   if (queryOptions.queryKey[1]?.type === "infinite") {
-    void queryClient.prefetchInfiniteQuery(queryOptions as any);
+    return queryClient.prefetchInfiniteQuery(queryOptions as any);
   } else {
-    void queryClient.prefetchQuery(queryOptions);
+    return queryClient.prefetchQuery(queryOptions);
   }
 }
 
-export function batchPrefetch<T extends ReturnType<TRPCQueryOptions<any>>>(
+export async function batchPrefetch<T extends ReturnType<TRPCQueryOptions<any>>>(
   queryOptionsArray: T[]
 ) {
   const queryClient = getQueryClient();
 
-  for (const queryOptions of queryOptionsArray) {
-    if (queryOptions.queryKey[1]?.type === "infinite") {
-      void queryClient.prefetchInfiniteQuery(queryOptions as any);
-    } else {
-      void queryClient.prefetchQuery(queryOptions);
-    }
-  }
+  await Promise.allSettled(
+    queryOptionsArray.map((queryOptions) => {
+      if (queryOptions.queryKey[1]?.type === "infinite") {
+        return queryClient.prefetchInfiniteQuery(queryOptions as any);
+      }
+
+      return queryClient.prefetchQuery(queryOptions);
+    })
+  );
 }

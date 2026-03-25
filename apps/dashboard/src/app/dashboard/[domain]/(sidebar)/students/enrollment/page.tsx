@@ -19,7 +19,7 @@ export default async function Page(props: Props) {
   const searchParams = await props.searchParams;
   const filter = loadStudentFilterParams(searchParams);
 
-  batchPrefetch([
+  await batchPrefetch([
     trpc.enrollments.index.queryOptions({
       ...(filter as any),
     }),

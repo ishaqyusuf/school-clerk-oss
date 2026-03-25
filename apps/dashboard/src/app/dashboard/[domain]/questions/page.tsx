@@ -16,13 +16,12 @@ export default async function Page(props: Props) {
   const searchParams = await props.searchParams;
   const { classDepartmentId, subjectId } = loadQuestionsParams(searchParams);
 
-  batchPrefetch([
+  await batchPrefetch([
     trpc.questions.all.queryOptions({
       classDepartmentId,
       subjectId,
     }),
   ]);
-  await Promise.all([]);
 
   return (
     <HydrateClient>

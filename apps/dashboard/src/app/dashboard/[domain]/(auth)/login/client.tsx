@@ -18,8 +18,6 @@ import {
 import { Alert, AlertDescription } from "@school-clerk/ui/alert";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { authClient } from "@/auth/client";
-import { debugToast } from "@/hooks/use-debug-console";
-import { useWorkspaceStore } from "@/store/workspace";
 import { resetCookie } from "@/actions/cookies/auth-cookie";
 import { getFirstPermittedHref } from "@/components/sidebar/links";
 
@@ -27,7 +25,6 @@ import { getFirstPermittedHref } from "@/components/sidebar/links";
 
 export function Client() {
   const router = useRouter();
-  const auth = authClient.useSession();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -40,58 +37,55 @@ export function Client() {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setError("");
   };
-  const ws = useWorkspaceStore();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
     try {
-      // authClient.
-      authClient.signIn
-        .email({
-          email: formData.email,
-          password: formData.password,
-          // callbackURL: "/signout",
-        })
-        .then((resp) => {
-          // console.log({ resp });
-          const bearerToken = resp.data.token;
-          const userId = resp.data.user.id;
+      const resp = await authClient.signIn.email({
+        email: formData.email,
+        password: formData.password,
+      });
 
-          const redirectUrl = getFirstPermittedHref({
-            role: resp.data.user.role,
-          });
-          resetCookie({ bearerToken, userId, redirectUrl })
-            .then((res) => {
-              // console.log({ res, bearerToken, userId });
-              //reload window
-              window.location.reload();
-              //signout
-              // window.location.href = "/signout";
-            })
-            .catch((e) => {
-              debugToast("Error setting cookie:", e);
-            });
-          // ws.
+      if (resp.error) {
+        setError(resp.error.message || "Unable to sign in right now.");
+        return;
+      }
 
-          // .then((e) => {
-          //   if (e.error.status === 401) {
-          //     authClient.signUp
-          //       .email({
-          //         email: formData.email,
-          //         password: formData.password,
-          //         name: "Ishaq Yusuf",
-          //       })
-          //       .then((e) => {
-          //         debugToast("Register", e);
-          //       });
-          //   }
-          //   debugToast("Login", e);
-          //   setIsLoading(false);
-          // });
-        });
-    } catch (error) {}
+      const bearerToken = resp.data?.token;
+      const userId = resp.data?.user?.id;
+
+      if (!bearerToken || !userId) {
+        setError("Login succeeded, but your session could not be prepared.");
+        return;
+      }
+
+      const redirectUrl = getFirstPermittedHref({
+        role: resp.data.user.role,
+      });
+
+      const cookie = await resetCookie({ bearerToken, userId, redirectUrl });
+      if (!cookie?.schoolId) {
+        setError(
+          "Signed in, but your school workspace could not be loaded for this tenant.",
+        );
+        router.refresh();
+        return;
+      }
+
+      router.push(redirectUrl || "/");
+      router.refresh();
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Unable to sign in right now. Please try again.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
 
     // signIn("credentials", {
     //   email: formData.email,

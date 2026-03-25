@@ -1,12 +1,14 @@
 "use client";
 
-import NextError from "next/error";
 import { useEffect } from "react";
+import { ApiErrorState } from "@/components/api-error-state";
 
 export default function GlobalError({
   error,
+  reset,
 }: {
   error: Error & { digest?: string };
+  reset: () => void;
 }) {
   useEffect(() => {
     // Only capture exceptions in production
@@ -21,7 +23,12 @@ export default function GlobalError({
   return (
     <html lang="en">
       <body>
-        <NextError statusCode={0} />
+        <ApiErrorState
+          title="The dashboard hit an unexpected error"
+          description="Something broke before the page could finish loading. You can retry now, or sign out and in again if your session is out of sync."
+          error={error}
+          onRetry={reset}
+        />
       </body>
     </html>
   );
