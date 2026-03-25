@@ -2,9 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "./env";
 import { auth } from "./auth/server";
 import {
-  extractTenantSubdomain,
-  normalizeHost,
-  stripDashboardPrefix,
+  getCanonicalTenantSlugFromHost,
+  getCustomDomainLookupHost,
 } from "./utils/tenant-host";
 import { getFirstPermittedHref } from "./components/sidebar/links";
 import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
@@ -22,14 +21,10 @@ export default async function proxy(req: NextRequest) {
   const url = req.nextUrl;
 
   // ---- Determine canonical slug ----
-  const rawSubdomain = extractTenantSubdomain(host, hostName);
-  let canonicalSlug = stripDashboardPrefix(rawSubdomain);
+  let canonicalSlug = getCanonicalTenantSlugFromHost(host, hostName);
 
   if (!canonicalSlug) {
-    const normalizedHostForLookup = normalizeHost(host).replace(/:\d+$/, "");
-    const bareHost = normalizedHostForLookup.startsWith("dashboard.")
-      ? normalizedHostForLookup.slice("dashboard.".length)
-      : normalizedHostForLookup;
+    const bareHost = getCustomDomainLookupHost(host);
 
     if (bareHost) {
       const record = await prisma.tenantDomain.findUnique({
@@ -99,7 +94,7 @@ export default async function proxy(req: NextRequest) {
   }
 
   // ---- Rewrite to school dashboard route ----
-  if (canonicalSlug && canonicalSlug !== hostName) {
+  if (canonicalSlug) {
     const searchParams = url.searchParams.toString();
     const path = `${url.pathname}${searchParams ? `?${searchParams}` : ""}`;
 

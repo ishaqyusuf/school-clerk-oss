@@ -51,6 +51,13 @@ export function initAuth(options: {
         // },
       },
     },
+    session: {
+      cookieCache: {
+        enabled: true,
+        maxAge: 60 * 5,
+        strategy: "jwe",
+      },
+    },
     advanced: {
       // cookies:
     },

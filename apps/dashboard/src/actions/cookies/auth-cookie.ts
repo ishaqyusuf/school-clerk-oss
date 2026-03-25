@@ -3,11 +3,9 @@ import { env } from "@/env";
 import { prisma } from "@school-clerk/db";
 import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
 import {
-  extractTenantSubdomain,
-  normalizeHost,
-  stripDashboardPrefix,
+  getCanonicalTenantSlugFromHost,
+  getCustomDomainLookupHost,
 } from "@/utils/tenant-host";
 
 export interface AuthCookie {
@@ -27,18 +25,15 @@ export async function getTenantDomain() {
   const host = decodeURIComponent((await headers()).get("host") || "");
   const appRootDomain = resolveDashboardAppRootDomain(env.APP_ROOT_DOMAIN);
 
-  // Step 1+2: extract subdomain then strip "dashboard." prefix
-  const strippedSubdomain = stripDashboardPrefix(
-    extractTenantSubdomain(host, appRootDomain),
+  const strippedSubdomain = getCanonicalTenantSlugFromHost(
+    host,
+    appRootDomain,
   );
 
   if (strippedSubdomain) return { domain: strippedSubdomain };
 
   // Step 3: custom domain fallback — strip port + optional "dashboard." from raw host
-  const normalizedHost = normalizeHost(host).replace(/:\d+$/, "");
-  const bareHost = normalizedHost.startsWith("dashboard.")
-    ? normalizedHost.slice("dashboard.".length)
-    : normalizedHost;
+  const bareHost = getCustomDomainLookupHost(host);
 
   if (bareHost) {
     const record = await prisma.tenantDomain.findUnique({

@@ -2,23 +2,34 @@ export function normalizeHost(host: string) {
   return host.trim().toLowerCase();
 }
 
-function stripPort(host: string) {
+export function stripPort(host: string) {
   return host.replace(/:\d+$/, "");
+}
+
+function getRootDomainCandidates(appRootDomain: string) {
+  const normalizedRootDomain = normalizeHost(appRootDomain);
+  const rootCandidates = new Set<string>([
+    normalizedRootDomain,
+    stripPort(normalizedRootDomain),
+  ]);
+
+  // Support plain localhost dev hosts in addition to the portless pattern.
+  if (normalizedRootDomain.includes(".localhost")) {
+    rootCandidates.add("localhost");
+  }
+
+  return [...rootCandidates].filter(Boolean);
 }
 
 export function extractTenantSubdomain(host: string, appRootDomain: string) {
   const normalizedHost = normalizeHost(host);
-  const normalizedRootDomain = normalizeHost(appRootDomain);
+  const rootCandidates = getRootDomainCandidates(appRootDomain);
 
-  if (!normalizedHost || !normalizedRootDomain) {
+  if (!normalizedHost || rootCandidates.length === 0) {
     return "";
   }
 
   const hostCandidates = [normalizedHost, stripPort(normalizedHost)];
-  const rootCandidates = [
-    normalizedRootDomain,
-    stripPort(normalizedRootDomain),
-  ];
 
   for (const candidateHost of hostCandidates) {
     for (const candidateRoot of rootCandidates) {
@@ -48,4 +59,21 @@ export function stripDashboardPrefix(subdomain: string): string {
     return subdomain.slice(DASHBOARD_SUBDOMAIN_PREFIX.length);
   }
   return subdomain;
+}
+
+export function getCustomDomainLookupHost(host: string) {
+  const normalizedHost = stripPort(normalizeHost(host));
+
+  if (normalizedHost.startsWith(DASHBOARD_SUBDOMAIN_PREFIX)) {
+    return normalizedHost.slice(DASHBOARD_SUBDOMAIN_PREFIX.length);
+  }
+
+  return normalizedHost;
+}
+
+export function getCanonicalTenantSlugFromHost(
+  host: string,
+  appRootDomain: string,
+) {
+  return stripDashboardPrefix(extractTenantSubdomain(host, appRootDomain));
 }

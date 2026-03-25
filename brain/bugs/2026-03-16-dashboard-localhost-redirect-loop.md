@@ -15,10 +15,12 @@ Several dashboard and auth code paths trusted `APP_ROOT_DOMAIN` directly. In loc
 ## Fix
 
 Added a shared `resolveDashboardAppRootDomain` helper in `@school-clerk/utils` that normalizes bare localhost development values to `school-clerk-dashboard.localhost:1355`. Updated dashboard middleware, auth cookie handling, auth initialization, signup redirect generation, and API host parsing to use the normalized root domain.
+Follow-up host parsing now also accepts plain localhost tenant hosts such as `tenant.localhost` and `tenant.localhost:2200` in addition to the portless `tenant.school-clerk-dashboard.localhost:1355` format, while preserving production subdomain and custom-domain resolution through the same canonical slug helpers.
 
 ## Prevention
 
 Keep local multi-tenant host handling aligned with the documented portless dashboard hostname format. When new auth or host-sensitive code is added, reuse the shared root-domain helper instead of reading `APP_ROOT_DOMAIN` directly.
+Keep proxy and cookie tenant resolution on the same shared helper so localhost compatibility fixes automatically apply to both request rewriting and tenant cookie lookup.
 
 ## Related Files
 

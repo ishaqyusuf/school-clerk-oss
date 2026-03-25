@@ -34,6 +34,7 @@ Defines access control rules for each API surface.
 - Better Auth trusted origins are resolved per request and include the exact incoming origin for tenant subdomains in development.
 - Dashboard login stores tenant-scoped cookie state with school, session, and term identifiers when available.
 - Tenant auth cookie reset must tolerate tenants with no school record, no academic sessions, or no terms yet; missing values should not crash login.
+- Dashboard host parsing treats `tenant.localhost[:port]`, `tenant.school-clerk-dashboard.localhost:1355`, production tenant subdomains, and verified custom domains as equivalent inputs for tenant resolution.
 
 ## Current Dashboard Navigation Authorization
 - Dashboard navigation access is currently driven from `apps/dashboard/src/sidebar/utils.ts`.
