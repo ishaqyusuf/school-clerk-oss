@@ -60,8 +60,8 @@ export function AcademicSessionForm() {
       terms.replace(
         prefill.previousTerms.map((t) => ({
           title: t.title,
-          startDate: t.startDate ? new Date(t.startDate) : undefined,
-          endDate: t.endDate ? new Date(t.endDate) : undefined,
+          startDate: undefined,
+          endDate: undefined,
         })),
       );
     }
@@ -73,8 +73,8 @@ export function AcademicSessionForm() {
       terms.replace(
         prefill.previousTerms.map((t) => ({
           title: t.title,
-          startDate: t.startDate ? new Date(t.startDate) : undefined,
-          endDate: t.endDate ? new Date(t.endDate) : undefined,
+          startDate: undefined,
+          endDate: undefined,
         })),
       );
     } else if (!checked) {

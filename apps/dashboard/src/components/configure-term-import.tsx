@@ -1,13 +1,7 @@
 "use client";
-import React, { useState } from "react";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Info,
-  LayoutTemplate,
-  BookOpen,
-  Users,
-} from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Info, LayoutTemplate, BookOpen, Users } from "lucide-react";
 import { Card } from "@school-clerk/ui/card";
 import { Switch } from "@school-clerk/ui/switch";
 import { Button } from "@school-clerk/ui/button";
@@ -35,6 +29,7 @@ const schema = z.object({
 export const ConfigureTermImport: React.FC<DataMigrationProps> = ({
   termId,
 }) => {
+  const router = useRouter();
   const form = useZodForm(schema, {
     defaultValues: {
       classroomOption: "copy-all",
@@ -53,17 +48,34 @@ export const ConfigureTermImport: React.FC<DataMigrationProps> = ({
     autoPromote,
   } = form.watch();
 
+  // When promotional, "copy-all" is not allowed — reset to "empty" if needed
+  useEffect(() => {
+    if (
+      migrationStat?.promotional &&
+      form.getValues("studentOption") === "copy-all"
+    ) {
+      form.setValue("studentOption", "empty");
+    }
+  }, [migrationStat?.promotional]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const { mutate: migrateTermData, isPending: isMigrating } = useMutation(
     _trpc.academics.migrateTermData.mutationOptions({
-      onSuccess(data, variables, onMutateResult, context) {},
-      onError(error, variables, onMutateResult, context) {
+      onSuccess() {
+        // return;
+        if (migrationStat?.promotional && migrationStat?.previousTerm?.id) {
+          router.push(
+            `/academic/promotion/${migrationStat.previousTerm.id}/${termId}`,
+          );
+        }
+      },
+      onError(error) {
         console.error("Migration error:", error);
       },
       meta: {
         toastTitle: {
           error: "Unable to complete",
           loading: "Processing...",
-          success: "Done!.",
+          success: "Done!",
         },
       },
     }),
@@ -104,8 +116,7 @@ export const ConfigureTermImport: React.FC<DataMigrationProps> = ({
             <div className="h-full bg-primary w-2/3 rounded-full"></div>
           </div>
           <p className="text-sm text-muted-foreground mt-2">
-            Almost there! Configure how your data transfers to the Spring 2024
-            term.
+            Almost there! Configure how your data transfers to the new term.
           </p>
         </div>
       </div>
@@ -152,10 +163,12 @@ export const ConfigureTermImport: React.FC<DataMigrationProps> = ({
                       onValueChange={field.onChange}
                       aria-invalid={fieldState.invalid}
                     >
-                      {classroomImportOptions.map((plan) => (
+                      {classroomImportOptions(
+                        migrationStat?.classrooms ?? 0,
+                      ).map((plan) => (
                         <Field.Label
                           key={plan.id}
-                          htmlFor={`form-rhf-radiogroup-${plan.id}`}
+                          htmlFor={`form-rhf-radiogroup-classroom-${plan.id}`}
                         >
                           <Field
                             orientation="horizontal"
@@ -167,7 +180,7 @@ export const ConfigureTermImport: React.FC<DataMigrationProps> = ({
                             </Field.Content>
                             <RadioGroupItem
                               value={plan.id}
-                              id={`form-rhf-radiogroup-${plan.id}`}
+                              id={`form-rhf-radiogroup-classroom-${plan.id}`}
                               aria-invalid={fieldState.invalid}
                             />
                           </Field>
@@ -198,16 +211,16 @@ export const ConfigureTermImport: React.FC<DataMigrationProps> = ({
             <div className="space-y-3">
               <Controller
                 control={form.control}
-                name="classroomOption"
+                name="subjectOption"
                 render={({ field, fieldState }) => (
                   <FieldSet
                     data-invalid={
-                      form.formState.errors.classroomOption ? true : false
+                      form.formState.errors.subjectOption ? true : false
                     }
                   >
-                    <Field.Legend>Classrooms Import Options</Field.Legend>
+                    <Field.Legend>Subjects Import Options</Field.Legend>
                     <Field.Description>
-                      Choose how to handle classroom data for the new term.
+                      Choose how to handle subject data for the new term.
                     </Field.Description>
                     <RadioGroup
                       name={field.name}
@@ -215,27 +228,31 @@ export const ConfigureTermImport: React.FC<DataMigrationProps> = ({
                       onValueChange={field.onChange}
                       aria-invalid={fieldState.invalid}
                     >
-                      {subjectImportOptions.map((plan) => (
-                        <Field.Label
-                          key={plan.id}
-                          htmlFor={`form-rhf-radiogroup-${plan.id}`}
-                        >
-                          <Field
-                            orientation="horizontal"
-                            data-invalid={fieldState.invalid}
+                      {subjectImportOptions(migrationStat?.subjects ?? 0).map(
+                        (plan) => (
+                          <Field.Label
+                            key={plan.id}
+                            htmlFor={`form-rhf-radiogroup-subject-${plan.id}`}
                           >
-                            <Field.Content>
-                              <Field.Title>{plan.title}</Field.Title>
-                              <Field.Description>{plan.desc}</Field.Description>
-                            </Field.Content>
-                            <RadioGroupItem
-                              value={plan.id}
-                              id={`form-rhf-radiogroup-${plan.id}`}
-                              aria-invalid={fieldState.invalid}
-                            />
-                          </Field>
-                        </Field.Label>
-                      ))}
+                            <Field
+                              orientation="horizontal"
+                              data-invalid={fieldState.invalid}
+                            >
+                              <Field.Content>
+                                <Field.Title>{plan.title}</Field.Title>
+                                <Field.Description>
+                                  {plan.desc}
+                                </Field.Description>
+                              </Field.Content>
+                              <RadioGroupItem
+                                value={plan.id}
+                                id={`form-rhf-radiogroup-subject-${plan.id}`}
+                                aria-invalid={fieldState.invalid}
+                              />
+                            </Field>
+                          </Field.Label>
+                        ),
+                      )}
                     </RadioGroup>
                   </FieldSet>
                 )}
@@ -281,44 +298,67 @@ export const ConfigureTermImport: React.FC<DataMigrationProps> = ({
             <div className="space-y-3">
               <Controller
                 control={form.control}
-                name="classroomOption"
+                name="studentOption"
                 render={({ field, fieldState }) => (
                   <FieldSet
                     data-invalid={
-                      form.formState.errors.classroomOption ? true : false
+                      form.formState.errors.studentOption ? true : false
                     }
                   >
-                    <Field.Legend>Classrooms Import Options</Field.Legend>
+                    <Field.Legend>Students Import Options</Field.Legend>
                     <Field.Description>
-                      Choose how to handle classroom data for the new term.
+                      Choose how to handle student enrollment for the new term.
                     </Field.Description>
+                    {migrationStat?.promotional && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-2">
+                        This is a cross-session promotion — "Copy All" is
+                        unavailable. Students must be promoted manually on the
+                        next step.
+                      </p>
+                    )}
                     <RadioGroup
                       name={field.name}
                       value={field.value}
                       onValueChange={field.onChange}
                       aria-invalid={fieldState.invalid}
                     >
-                      {studentImportOptions.map((plan) => (
-                        <Field.Label
-                          key={plan.id}
-                          htmlFor={`form-rhf-radiogroup-${plan.id}`}
-                        >
-                          <Field
-                            orientation="horizontal"
-                            data-invalid={fieldState.invalid}
-                          >
-                            <Field.Content>
-                              <Field.Title>{plan.title}</Field.Title>
-                              <Field.Description>{plan.desc}</Field.Description>
-                            </Field.Content>
-                            <RadioGroupItem
-                              value={plan.id}
-                              id={`form-rhf-radiogroup-${plan.id}`}
-                              aria-invalid={fieldState.invalid}
-                            />
-                          </Field>
-                        </Field.Label>
-                      ))}
+                      {studentImportOptions(migrationStat?.students ?? 0).map(
+                        (plan) => {
+                          const isDisabled =
+                            plan.id === "copy-all" &&
+                            !!migrationStat?.promotional;
+                          return (
+                            <Field.Label
+                              key={plan.id}
+                              htmlFor={`form-rhf-radiogroup-student-${plan.id}`}
+                              aria-disabled={isDisabled}
+                              className={
+                                isDisabled
+                                  ? "opacity-40 pointer-events-none"
+                                  : ""
+                              }
+                            >
+                              <Field
+                                orientation="horizontal"
+                                data-invalid={fieldState.invalid}
+                              >
+                                <Field.Content>
+                                  <Field.Title>{plan.title}</Field.Title>
+                                  <Field.Description>
+                                    {plan.desc}
+                                  </Field.Description>
+                                </Field.Content>
+                                <RadioGroupItem
+                                  value={plan.id}
+                                  id={`form-rhf-radiogroup-student-${plan.id}`}
+                                  aria-invalid={fieldState.invalid}
+                                  disabled={isDisabled}
+                                />
+                              </Field>
+                            </Field.Label>
+                          );
+                        },
+                      )}
                     </RadioGroup>
                   </FieldSet>
                 )}
@@ -344,7 +384,11 @@ export const ConfigureTermImport: React.FC<DataMigrationProps> = ({
                   <Item.Content>
                     <Item.Title className="">Classroom</Item.Title>
                     <Item.Description className="">
-                      Full migration
+                      {classroomOpt === "copy-all"
+                        ? "Full migration"
+                        : classroomOpt === "select"
+                          ? "Granular selection"
+                          : "None"}
                     </Item.Description>
                   </Item.Content>
                   <Item.Actions>
@@ -430,16 +474,16 @@ export const ConfigureTermImport: React.FC<DataMigrationProps> = ({
   );
 };
 
-const subjectImportOptions = [
+const subjectImportOptions = (count: number) => [
   {
     id: "copy-all",
     title: "Copy All from Previous Term",
-    desc: "Full curriculum for all 120 departments.",
+    desc: `Full curriculum — ${count} subject${count !== 1 ? "s" : ""} from previous term.`,
   },
   {
     id: "select",
     title: "Select Specific Items to Copy",
-    desc: "85 subjects currently selected in configuration list.",
+    desc: "Pick specific subjects to carry over manually.",
   },
   {
     id: "empty",
@@ -447,16 +491,16 @@ const subjectImportOptions = [
     desc: "Manually define new curriculum for this term.",
   },
 ];
-const studentImportOptions = [
+const studentImportOptions = (count: number) => [
   {
     id: "copy-all",
     title: "Copy All from Previous Term",
-    desc: "Transfer all 1,240 active students.",
+    desc: `Transfer all ${count} active student${count !== 1 ? "s" : ""} from previous term.`,
   },
   {
     id: "select",
     title: "Select Specific Items to Copy",
-    desc: "Pick specific students or grades manually.",
+    desc: "Pick specific students or grade levels manually.",
   },
   {
     id: "empty",
@@ -464,16 +508,16 @@ const studentImportOptions = [
     desc: "Wait for new registrations or external sync.",
   },
 ];
-const classroomImportOptions = [
+const classroomImportOptions = (count: number) => [
   {
     id: "copy-all",
     title: "Copy All from Previous Term",
-    desc: "Includes all 42 physical rooms and 15 virtual labs.",
+    desc: `Copy all ${count} classroom${count !== 1 ? "s" : ""} from previous session.`,
   },
   {
     id: "select",
     title: "Select Specific Items to Copy",
-    desc: "Pick specific buildings or room types manually.",
+    desc: "Pick specific classrooms or room types manually.",
   },
   {
     id: "empty",

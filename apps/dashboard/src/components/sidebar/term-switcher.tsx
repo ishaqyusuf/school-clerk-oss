@@ -29,7 +29,7 @@ export function TermSwitcher() {
           {sb?.isExpanded
             ? `${currentTerm ? currentTerm.sessionName + " - " + currentTerm.title : "Select Term"}`
             : currentTerm
-              ? currentTerm.title
+              ? `${[currentTerm.sessionName, currentTerm.title]?.filter(Boolean).join(" - ")}`
               : "Select Term"}
           {/* {`${currentTerm ? currentTerm.sessionName + " - " + currentTerm.title : "Select Term"}`} */}
         </Button>

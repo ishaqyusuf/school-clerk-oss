@@ -17,7 +17,14 @@ import {
   getClassroomsSchema,
 } from "@api/db/queries/classroom";
 import { z } from "zod";
-import { addYears, constructNow, differenceInDays, sub, subDays } from "date-fns";
+import {
+  addYears,
+  constructNow,
+  differenceInDays,
+  format,
+  sub,
+  subDays,
+} from "date-fns";
 import { consoleLog } from "@school-clerk/utils";
 
 export const academicsRouter = createTRPCRouter({
@@ -59,15 +66,21 @@ export const academicsRouter = createTRPCRouter({
         },
       },
     });
+    const now = new Date();
+    // A term is "active" if it has no endDate yet, or its endDate hasn't passed
     const currentTerm = sessions
       .map((a) => a.terms)
       .flat()
-      .find((a) => {
-        return !a.endDate || differenceInDays(new Date(), a.endDate) > 0;
-      });
+      .find((a) => !a.endDate || differenceInDays(a.endDate, now) >= 0);
     return {
       sessions: sessions.map((session) => {
         const isCurrent = currentTerm?.sessionId == session.id;
+        const duration =
+          session.startDate && session.endDate
+            ? `${format(session.startDate, "MMM yyyy")} - ${format(session.endDate, "MMM yyyy")}`
+            : session.startDate
+              ? `From ${format(session.startDate, "MMM yyyy")}`
+              : "Not scheduled";
         return {
           id: session.id,
           currentTerm: isCurrent ? currentTerm : null,
@@ -77,12 +90,19 @@ export const academicsRouter = createTRPCRouter({
               ? "planning"
               : "archived",
           name: session.title,
-          duration: `Sept 2023 - Jul 2024`,
-          activeTerm: "Not started", // "x term ended"
+          duration,
+          activeTerm: isCurrent ? currentTerm?.title ?? "Not started" : "—",
           terms: session.terms.map((term) => {
+            const isCurrentTerm = currentTerm?.id === term.id;
+            const isCompleted =
+              !!term.endDate && differenceInDays(now, term.endDate) > 0;
             return {
               id: term.id,
-              status: currentTerm?.id == term.id ? "current" : "upcoming",
+              status: isCurrentTerm
+                ? "current"
+                : isCompleted
+                  ? "completed"
+                  : "upcoming",
               title: term.title,
               startDate: term.startDate,
               endDate: term.endDate,
@@ -580,9 +600,7 @@ export const academicsRouter = createTRPCRouter({
         },
         select: { studentId: true, id: true },
       });
-      const promotedStudentIds = new Set(
-        promotedForms.map((f) => f.studentId),
-      );
+      const promotedStudentIds = new Set(promotedForms.map((f) => f.studentId));
       const promotedFormMap = new Map(
         promotedForms.map((f) => [f.studentId, f.id]),
       );

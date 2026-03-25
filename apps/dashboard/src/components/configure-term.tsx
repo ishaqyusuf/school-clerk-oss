@@ -59,7 +59,7 @@ export const ConfigureTerm = ({ termId }) => {
   });
   useEffect(() => {
     if (dashboardData && termId) {
-      const term = dashboardData
+      const term = dashboardData?.sessions?
         .map((a) =>
           a.terms.map((t) => ({
             ...t,

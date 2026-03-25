@@ -8,11 +8,11 @@ import {
   MoreVertical,
   Edit2,
   CheckCircle2,
-  Hourglass,
   Settings,
   ExternalLink,
   Filter,
   Download,
+  ArrowUpCircle,
 } from "lucide-react";
 import { Card } from "@school-clerk/ui/composite";
 import { Button } from "@school-clerk/ui/button";
@@ -49,6 +49,18 @@ const Dashboard = () => {
     _trpc.academics.dashboard.queryOptions({}),
   );
   const sessions = dashboard?.sessions || [];
+
+  // Compute promotion IDs for the current session
+  const currentSessionIndex = sessions.findIndex(
+    (s) => s.status === "current",
+  );
+  const currentSession = sessions[currentSessionIndex];
+  const previousSession = sessions[currentSessionIndex + 1];
+  const promotionFirstTermId = currentSession?.terms?.[0]?.id;
+  const promotionLastTermId =
+    previousSession?.terms?.[previousSession.terms.length - 1]?.id;
+  const canPromote = !!(promotionFirstTermId && promotionLastTermId);
+
   return (
     <div className="animate-in fade-in duration-500">
       {/* Page Header */}
@@ -234,14 +246,20 @@ const Dashboard = () => {
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
-                            {session.status === "current" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground"
+                            {session.status === "current" && canPromote && (
+                              <Link
+                                href={`/academic/promotion/${promotionLastTermId}/${promotionFirstTermId}`}
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 gap-1.5 text-primary font-semibold px-2"
+                                >
+                                  <ArrowUpCircle className="h-4 w-4" />
+                                  Promote
+                                </Button>
+                              </Link>
                             )}
                           </>
                         )}
