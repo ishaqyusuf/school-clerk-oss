@@ -47,6 +47,7 @@ export function extractTenantSubdomain(host: string, appRootDomain: string) {
 }
 
 export const DASHBOARD_SUBDOMAIN_PREFIX = "dashboard.";
+export const DASHBOARD_SUBDOMAIN_SUFFIX = ".dashboard";
 
 /**
  * Strips the "dashboard." prefix from a raw subdomain string.
@@ -55,10 +56,22 @@ export const DASHBOARD_SUBDOMAIN_PREFIX = "dashboard.";
  * ""                       → ""             (no-op)
  */
 export function stripDashboardPrefix(subdomain: string): string {
-  if (subdomain.startsWith(DASHBOARD_SUBDOMAIN_PREFIX)) {
-    return subdomain.slice(DASHBOARD_SUBDOMAIN_PREFIX.length);
+  let normalizedSubdomain = subdomain;
+
+  if (normalizedSubdomain.startsWith(DASHBOARD_SUBDOMAIN_PREFIX)) {
+    normalizedSubdomain = normalizedSubdomain.slice(
+      DASHBOARD_SUBDOMAIN_PREFIX.length,
+    );
   }
-  return subdomain;
+
+  if (normalizedSubdomain.endsWith(DASHBOARD_SUBDOMAIN_SUFFIX)) {
+    normalizedSubdomain = normalizedSubdomain.slice(
+      0,
+      -DASHBOARD_SUBDOMAIN_SUFFIX.length,
+    );
+  }
+
+  return normalizedSubdomain;
 }
 
 export function getCustomDomainLookupHost(host: string) {

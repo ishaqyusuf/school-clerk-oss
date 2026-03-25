@@ -25,10 +25,7 @@ export async function getTenantDomain() {
   const host = decodeURIComponent((await headers()).get("host") || "");
   const appRootDomain = resolveDashboardAppRootDomain(env.APP_ROOT_DOMAIN);
 
-  const strippedSubdomain = getCanonicalTenantSlugFromHost(
-    host,
-    appRootDomain,
-  );
+  const strippedSubdomain = getCanonicalTenantSlugFromHost(host, appRootDomain);
 
   if (strippedSubdomain) return { domain: strippedSubdomain };
 
@@ -56,7 +53,7 @@ export async function getAuthCookie() {
 export async function resetCookie({ bearerToken, userId, redirectUrl = null }) {
   let authCookie = await getAuthCookie();
   const { domain } = await getTenantDomain();
-
+  console.log({ domain });
   const school = await prisma.schoolProfile.findFirst({
     where: {
       domains: {
