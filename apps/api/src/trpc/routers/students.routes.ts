@@ -85,4 +85,87 @@ export const studentsRouter = createTRPCRouter({
     .query(async (props) => {
       return studentsRecentRecord(props.ctx, props.input);
     }),
+  getTermFormDetails: publicProcedure
+    .input(deleteTermSheetSchema) // reuse { id: string }
+    .query(async ({ ctx, input }) => {
+      const { db } = ctx;
+      const form = await db.studentTermForm.findUnique({
+        where: { id: input.id },
+        include: {
+          student: { select: { name: true, surname: true, otherName: true } },
+          classroomDepartment: { select: { departmentName: true } },
+          sessionTerm: { select: { title: true } },
+          assessmentRecords: {
+            select: {
+              id: true,
+              obtained: true,
+              classSubjectAssessment: {
+                select: {
+                  title: true,
+                  departmentSubject: {
+                    select: { subject: { select: { title: true } } },
+                  },
+                },
+              },
+            },
+          },
+          studentFees: {
+            select: {
+              id: true,
+              amount: true,
+              pendingAmount: true,
+              deletedAt: true,
+            },
+          },
+          paymentReceipts: {
+            select: { id: true, amount: true, createdAt: true },
+          },
+          attendanceList: {
+            select: { id: true, status: true, date: true },
+          },
+        },
+      });
+      if (!form) return null;
+      return {
+        id: form.id,
+        student: form.student,
+        classroom: form.classroomDepartment?.departmentName ?? null,
+        term: form.sessionTerm?.title ?? null,
+        counts: {
+          assessmentRecords: form.assessmentRecords.filter(
+            (r) => r.obtained !== null,
+          ).length,
+          studentFees: form.studentFees.filter((f) => !f.deletedAt).length,
+          payments: form.paymentReceipts.length,
+          attendance: form.attendanceList.length,
+        },
+        assessmentRecords: form.assessmentRecords
+          .filter((r) => r.obtained !== null)
+          .map((r) => ({
+            id: r.id,
+            obtained: r.obtained,
+            assessmentTitle: r.classSubjectAssessment?.title ?? null,
+            subjectTitle:
+              r.classSubjectAssessment?.departmentSubject?.subject?.title ??
+              null,
+          })),
+        studentFees: form.studentFees
+          .filter((f) => !f.deletedAt)
+          .map((f) => ({
+            id: f.id,
+            amount: f.amount,
+            pendingAmount: f.pendingAmount,
+          })),
+        payments: form.paymentReceipts.map((p) => ({
+          id: p.id,
+          amount: p.amount,
+          createdAt: p.createdAt,
+        })),
+        attendance: form.attendanceList.map((a) => ({
+          id: a.id,
+          status: a.status,
+          date: a.date,
+        })),
+      };
+    }),
 });

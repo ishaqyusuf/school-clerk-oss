@@ -8,6 +8,7 @@ import { Metadata } from "next";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
 import { SearchParams } from "nuqs";
 import { Suspense } from "react";
+import { PageTitle } from "@school-clerk/ui/custom/page-title";
 
 export const metadata: Metadata = {
   title: "Enrollments | School Clerk",
@@ -26,7 +27,8 @@ export default async function Page(props: Props) {
   ]);
 
   return (
-    <div>
+    <div className="flex flex-col gap-6">
+      <PageTitle>Enrollment</PageTitle>
       <ErrorBoundary errorComponent={ErrorFallback}>
         <Suspense fallback={<TableSkeleton />}>
           <DataTable />

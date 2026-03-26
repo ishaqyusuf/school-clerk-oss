@@ -3,6 +3,7 @@ import { ErrorBoundary } from "next/dist/client/components/error-boundary";
 import { ErrorFallback } from "@/components/error-fallback";
 import { TableSkeleton } from "@/components/tables/skeleton";
 import { Table } from "@/components/tables/staffs";
+import { PageTitle } from "@school-clerk/ui/custom/page-title";
 
 import { searchParamsCache } from "./search-params";
 
@@ -15,6 +16,7 @@ export default async function Page({ searchParams, params }) {
   });
   return (
     <div className="flex flex-col gap-6">
+      <PageTitle>Teachers</PageTitle>
       <ErrorBoundary errorComponent={ErrorFallback}>
         <Suspense fallback={<TableSkeleton />} key={loadingKey}>
           <Table query={searchQuery} />

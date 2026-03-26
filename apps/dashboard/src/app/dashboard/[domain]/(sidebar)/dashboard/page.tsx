@@ -17,6 +17,7 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { PageTitle } from "@school-clerk/ui/custom/page-title";
 
 async function getDashboardStats(schoolId: string, sessionId: string) {
   const [students, staff, classes] = await Promise.all([
@@ -96,6 +97,7 @@ export default async function Page({ params }) {
 
   return (
     <div className="space-y-8 py-4">
+      <PageTitle>Dashboard</PageTitle>
       {/* Header */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">

@@ -5,11 +5,13 @@ import { DataTable } from "@/components/tables/students/data-table";
 import { batchPrefetch, trpc } from "@/trpc/server";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
 import { Suspense } from "react";
+import { PageTitle } from "@school-clerk/ui/custom/page-title";
 
 export default async function Page() {
   await batchPrefetch([trpc.students.index.infiniteQueryOptions({})]);
   return (
     <div className="flex flex-col gap-6">
+      <PageTitle>Students</PageTitle>
       {/* <StudentHeader /> */}
       <ErrorBoundary errorComponent={ErrorFallback}>
         <Suspense fallback={<TableSkeleton />}>

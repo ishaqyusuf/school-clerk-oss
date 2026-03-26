@@ -17,6 +17,7 @@ import {
 import { Card } from "@school-clerk/ui/composite";
 import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
+import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { _trpc } from "@/components/static-trpc";
 import { formatDate } from "date-fns";
@@ -53,6 +54,7 @@ const Dashboard = () => {
 
   return (
     <div className="animate-in fade-in duration-500">
+      <PageTitle>Academic Management</PageTitle>
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>

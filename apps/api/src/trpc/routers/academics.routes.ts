@@ -633,7 +633,12 @@ export const academicsRouter = createTRPCRouter({
             select: { id: true, name: true, surname: true },
           },
           classroomDepartment: {
-            select: { id: true, departmentName: true },
+            select: {
+              id: true,
+              departmentName: true,
+              departmentLevel: true,
+              classRoom: { select: { classLevel: true } },
+            },
           },
           assessmentRecords: {
             where: { deletedAt: null },
@@ -671,6 +676,8 @@ export const academicsRouter = createTRPCRouter({
             .join(" "),
           className: form.classroomDepartment?.departmentName ?? null,
           classroomDepartmentId: form.classroomDepartmentId!,
+          classLevel: form.classroomDepartment?.classRoom?.classLevel ?? null,
+          departmentLevel: form.classroomDepartment?.departmentLevel ?? null,
           avgScore,
           isPromoted: promotedStudentIds.has(form.studentId!),
           firstTermFormId: promotedFormMap.get(form.studentId!) ?? null,

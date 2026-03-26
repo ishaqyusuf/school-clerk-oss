@@ -14,7 +14,7 @@ export const createReportPageContext = (defaultTermId?: string) => {
   const { filters } = useStudentReportFilterParams();
   // Use the URL param when present; fall back to the cookie term from the
   // server so queries fire immediately on first render without a round-trip.
-  const effectiveTermId = filters.termId ?? defaultTermId ?? null;
+  const effectiveTermId = defaultTermId ?? null;
   const {
     data: reportData,
     error,
@@ -27,13 +27,13 @@ export const createReportPageContext = (defaultTermId?: string) => {
       },
       {
         enabled: !!filters.departmentId,
-      }
-    )
+      },
+    ),
   );
   const { data: classRooms } = useQuery(
     _trpc.classrooms.all.queryOptions({
       sessionTermId: effectiveTermId,
-    })
+    }),
   );
   const calculatedReport = useMemo(() => {
     const totalStudents = reportData?.studentTermForms.length;
@@ -42,18 +42,18 @@ export const createReportPageContext = (defaultTermId?: string) => {
         const subjectList = reportData?.subjects?.map((subject) => {
           const assessments = subject.assessments.map((_as) => {
             const record = _as.assessmentResults.find(
-              (r) => r.studentTermFormId == tf.id
+              (r) => r.studentTermFormId == tf.id,
             );
             const obtained =
               record?.percentageScore || record?.obtained
                 ? _as?.percentageObtainable === _as?.obtainable
                   ? record?.obtained
                   : _as.percentageObtainable
-                  ? sum([
-                      (record?.obtained / _as.obtainable) *
-                        _as.percentageObtainable,
-                    ])
-                  : null
+                    ? sum([
+                        (record?.obtained / _as.obtainable) *
+                          _as.percentageObtainable,
+                      ])
+                    : null
                 : null;
 
             return {
@@ -112,23 +112,23 @@ export const createReportPageContext = (defaultTermId?: string) => {
                 value: sum(
                   assessments
                     //  .filter((a) => a.assessmentType == "primary")
-                    .map((a) => a.obtained)
+                    .map((a) => a.obtained),
                 ), //.toFixed(2),
               },
             ],
           });
         });
         const rowsCount = sum(
-          Object.values(tables).map((a) => 1 + a.rows.length)
+          Object.values(tables).map((a) => 1 + a.rows.length),
         );
         const grade = {
           obtained: sum(
-            subjectList.map((a) => a.assessments.map((b) => b.obtained)).flat()
+            subjectList.map((a) => a.assessments.map((b) => b.obtained)).flat(),
           ),
           obtainable: sum(
             subjectList
               .map((a) => a.assessments.map((b) => b.obtainable))
-              .flat()
+              .flat(),
           ),
           totalStudents,
           position: 0,
@@ -140,7 +140,7 @@ export const createReportPageContext = (defaultTermId?: string) => {
         const comment = getResultComment(grade.percentage);
         if (
           subjectList.some((sl) =>
-            sl.assessments.some((a) => Math.floor(a.obtained) === 55)
+            sl.assessments.some((a) => Math.floor(a.obtained) === 55),
           )
         ) {
         }
@@ -156,7 +156,7 @@ export const createReportPageContext = (defaultTermId?: string) => {
           summary: {
             subjects: subjectList.length,
             results: subjectList.filter((a) =>
-              a.assessments.some((b) => b.obtained)
+              a.assessments.some((b) => b.obtained),
             ).length,
           },
           //   classroom: { title: tf..classTitle },
@@ -171,7 +171,7 @@ export const createReportPageContext = (defaultTermId?: string) => {
             students.filter((a) => a.grade.obtained > student.grade.obtained)
               ?.length + 1;
           return [student.termFormId, student];
-        })
+        }),
       ),
     };
   }, [reportData]);
@@ -204,7 +204,7 @@ export const useReportPageContext = () => {
   const context = useContext(ReportPageContext);
   if (context === undefined) {
     throw new Error(
-      "useReportPageContext must be used within a ReportPageProvider"
+      "useReportPageContext must be used within a ReportPageProvider",
     );
   }
   return context;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,6 +16,8 @@ import {
   ChevronDown,
   ChevronsUpDown,
   Printer,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 import { Button } from "@school-clerk/ui/button";
@@ -42,7 +44,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@school-clerk/ui/dialog";
+import { Separator } from "@school-clerk/ui/separator";
+import { ScrollArea } from "@school-clerk/ui/scroll-area";
 
 import { useTRPC } from "@/trpc/client";
 import { toast } from "@school-clerk/ui/use-toast";
@@ -150,6 +156,11 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
     null,
   );
   const [viewStudentId, setViewStudentId] = useState<string | null>(null);
+  // { termFormId, studentName } for the pending delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<{
+    termFormId: string;
+    studentName: string;
+  } | null>(null);
   const [newClassName, setNewClassName] = useState("");
   const [showNewClass, setShowNewClass] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -178,19 +189,36 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
   const allStudents = promotionData?.students ?? [];
   const promotionMeta = promotionData?.meta;
 
-  // Derive source classrooms from student data
+  // Derive source classrooms from student data, sorted by classLevel then departmentLevel
   const sourceClassrooms = useMemo(() => {
-    const seen = new Map<string, string>();
+    const seen = new Map<
+      string,
+      { id: string; name: string; classLevel: number | null; departmentLevel: number | null }
+    >();
     for (const s of allStudents) {
       if (!seen.has(s.classroomDepartmentId)) {
-        seen.set(
-          s.classroomDepartmentId,
-          s.className ?? s.classroomDepartmentId,
-        );
+        seen.set(s.classroomDepartmentId, {
+          id: s.classroomDepartmentId,
+          name: s.className ?? s.classroomDepartmentId,
+          classLevel: s.classLevel ?? null,
+          departmentLevel: s.departmentLevel ?? null,
+        });
       }
     }
-    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
+    return Array.from(seen.values()).sort((a, b) => {
+      const cl = (a.classLevel ?? 9999) - (b.classLevel ?? 9999);
+      if (cl !== 0) return cl;
+      return (a.departmentLevel ?? 9999) - (b.departmentLevel ?? 9999);
+    });
   }, [allStudents]);
+
+  // When source classroom changes, auto-select the next classroom in index order
+  useEffect(() => {
+    if (!sourceClassroomId) return;
+    const idx = sourceClassrooms.findIndex((c) => c.id === sourceClassroomId);
+    const next = sourceClassrooms[idx + 1] ?? null;
+    setTargetClassroomId(next?.id ?? null);
+  }, [sourceClassroomId, sourceClassrooms]);
 
   // Classroom report sheet for score calculation
   const { data: reportSheet } = useQuery(
@@ -247,6 +275,20 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
       }
     });
   }, [students, statusFilter, search, sort]);
+
+  // Detect duplicate names across ALL students in the selected classroom
+  const duplicateNames = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of students) {
+      const key = s.name.trim().toLowerCase();
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return new Set(
+      Array.from(counts.entries())
+        .filter(([, n]) => n > 1)
+        .map(([name]) => name),
+    );
+  }, [students]);
 
   const total = students.length;
   const promotedCount = students.filter((s) => s.isPromoted).length;
@@ -315,6 +357,26 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
       },
       onError() {
         toast({ title: "Error", description: "Failed to reverse promotion." });
+      },
+    }),
+  );
+
+  const deleteTermFormMutation = useMutation(
+    trpc.students.deleteTermSheet.mutationOptions({
+      onSuccess() {
+        toast({
+          title: "Deleted",
+          description: "Student term record has been removed.",
+        });
+        setDeleteTarget(null);
+        invalidateStudents();
+      },
+      onError() {
+        toast({
+          title: "Error",
+          description: "Failed to delete student term record.",
+          variant: "destructive",
+        });
       },
     }),
   );
@@ -644,10 +706,17 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
                 {filtered.map((student) => {
                   const pct = student.score?.percentage ?? null;
                   const grade = getGrade(pct);
+                  const isDuplicate = duplicateNames.has(
+                    student.name.trim().toLowerCase(),
+                  );
                   return (
                     <TableRow
-                      key={student.studentId}
-                      className="hover:bg-muted/30 cursor-pointer"
+                      key={student.termFormId}
+                      className={`cursor-pointer ${
+                        isDuplicate
+                          ? "bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-950/50 border-l-2 border-l-amber-400"
+                          : "hover:bg-muted/30"
+                      }`}
                       onClick={() => setViewStudentId(student.studentId)}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -659,7 +728,17 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
                         />
                       </TableCell>
                       <TableCell className="font-medium">
-                        {student.name}
+                        <div className="flex items-center gap-2">
+                          {student.name}
+                          {isDuplicate && (
+                            <Badge
+                              variant="warning"
+                              className="text-[10px] px-1.5 py-0 h-4 shrink-0"
+                            >
+                              duplicate
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         {pct !== null ? (
@@ -706,32 +785,47 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
                         className="text-right"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {student.isPromoted ? (
+                        <div className="flex items-center justify-end gap-1">
+                          {student.isPromoted ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-muted-foreground hover:text-destructive"
+                              disabled={reverseMutation.isPending}
+                              onClick={() =>
+                                reverseMutation.mutate({
+                                  studentId: student.studentId,
+                                  termId: firstTermId,
+                                })
+                              }
+                            >
+                              Reverse
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-primary"
+                              disabled={promoteMutation.isPending}
+                              onClick={() => doPromote([student.studentId])}
+                            >
+                              Promote
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-muted-foreground hover:text-destructive"
-                            disabled={reverseMutation.isPending}
+                            className="text-muted-foreground hover:text-destructive px-2"
                             onClick={() =>
-                              reverseMutation.mutate({
-                                studentId: student.studentId,
-                                termId: firstTermId,
+                              setDeleteTarget({
+                                termFormId: student.termFormId,
+                                studentName: student.name,
                               })
                             }
                           >
-                            Reverse
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-primary"
-                            disabled={promoteMutation.isPending}
-                            onClick={() => doPromote([student.studentId])}
-                          >
-                            Promote
-                          </Button>
-                        )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -750,10 +844,212 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
         sessionTermId={lastTermId}
         onClose={() => setViewStudentId(null)}
       />
+
+      {/* Delete confirmation modal */}
+      <DeleteConfirmModal
+        target={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={(termFormId) =>
+          deleteTermFormMutation.mutate({ id: termFormId })
+        }
+        isPending={deleteTermFormMutation.isPending}
+      />
     </div>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Delete confirmation modal
+// ---------------------------------------------------------------------------
+
+function DeleteConfirmModal({
+  target,
+  onClose,
+  onConfirm,
+  isPending,
+}: {
+  target: { termFormId: string; studentName: string } | null;
+  onClose: () => void;
+  onConfirm: (termFormId: string) => void;
+  isPending: boolean;
+}) {
+  const trpc = useTRPC();
+  const { data: details, isFetching } = useQuery(
+    trpc.students.getTermFormDetails.queryOptions(
+      { id: target?.termFormId ?? "" },
+      { enabled: !!target?.termFormId },
+    ),
+  );
+
+  const hasData =
+    details &&
+    (details.counts.assessmentRecords > 0 ||
+      details.counts.studentFees > 0 ||
+      details.counts.payments > 0 ||
+      details.counts.attendance > 0);
+
+  return (
+    <Dialog open={!!target} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+            Delete Student Term Record
+          </DialogTitle>
+          <DialogDescription>
+            You are about to permanently remove{" "}
+            <span className="font-semibold text-foreground">
+              {target?.studentName}
+            </span>{" "}
+            from this term. This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isFetching ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            Loading record details…
+          </div>
+        ) : details ? (
+          <div className="space-y-4">
+            {/* Summary badges */}
+            <div className="rounded-lg border bg-muted/40 p-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                Records attached to this term form
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex items-center justify-between rounded bg-background border px-3 py-2">
+                  <span className="text-muted-foreground">Assessment scores</span>
+                  <Badge variant={details.counts.assessmentRecords > 0 ? "warning" : "secondary"}>
+                    {details.counts.assessmentRecords}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between rounded bg-background border px-3 py-2">
+                  <span className="text-muted-foreground">Fee records</span>
+                  <Badge variant={details.counts.studentFees > 0 ? "warning" : "secondary"}>
+                    {details.counts.studentFees}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between rounded bg-background border px-3 py-2">
+                  <span className="text-muted-foreground">Payments</span>
+                  <Badge variant={details.counts.payments > 0 ? "warning" : "secondary"}>
+                    {details.counts.payments}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between rounded bg-background border px-3 py-2">
+                  <span className="text-muted-foreground">Attendance</span>
+                  <Badge variant={details.counts.attendance > 0 ? "warning" : "secondary"}>
+                    {details.counts.attendance}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Detail lists */}
+            {hasData && (
+              <ScrollArea className="h-52 rounded-md border">
+                <div className="p-3 space-y-3 text-sm">
+                  {details.assessmentRecords.length > 0 && (
+                    <div>
+                      <p className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                        Assessment Scores
+                      </p>
+                      {details.assessmentRecords.map((r) => (
+                        <div
+                          key={r.id}
+                          className="flex justify-between py-0.5 border-b last:border-0"
+                        >
+                          <span className="text-muted-foreground truncate max-w-[60%]">
+                            {r.subjectTitle} — {r.assessmentTitle}
+                          </span>
+                          <span className="font-medium">{r.obtained}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {details.studentFees.length > 0 && (
+                    <div>
+                      <Separator className="my-2" />
+                      <p className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                        Fee Records
+                      </p>
+                      {details.studentFees.map((f) => (
+                        <div
+                          key={f.id}
+                          className="flex justify-between py-0.5 border-b last:border-0"
+                        >
+                          <span className="text-muted-foreground">Fee</span>
+                          <span className="font-medium">
+                            {f.amount} (pending: {f.pendingAmount})
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {details.payments.length > 0 && (
+                    <div>
+                      <Separator className="my-2" />
+                      <p className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                        Payments
+                      </p>
+                      {details.payments.map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex justify-between py-0.5 border-b last:border-0"
+                        >
+                          <span className="text-muted-foreground text-xs">
+                            {p.createdAt
+                              ? new Date(p.createdAt).toLocaleDateString()
+                              : "—"}
+                          </span>
+                          <span className="font-medium">{p.amount}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {details.attendance.length > 0 && (
+                    <div>
+                      <Separator className="my-2" />
+                      <p className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                        Attendance ({details.counts.attendance} records)
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        All attendance records for this term will be unlinked.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            )}
+
+            {hasData && (
+              <p className="text-xs text-destructive flex items-start gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                The records above are attached to this term form. Deleting it
+                will soft-delete the form only — linked financial and assessment
+                data is preserved in the database.
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={isPending || isFetching}
+            onClick={() => target && onConfirm(target.termFormId)}
+          >
+            {isPending ? "Deleting…" : "Confirm Delete"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 const ASSESSMENT_ORDER = ["الحضور", "الاختبار", "الامتحان"];
 
 type EditingCell = { rowIdx: number; colIdx: number; value: string };

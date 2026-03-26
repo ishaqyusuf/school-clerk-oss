@@ -1,4 +1,5 @@
 import { ConfigureTermImport } from "@/components/configure-term-import";
+import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 
 export default async function Page({ params }) {
   const termId = (await params)?.id as string;
-  return <ConfigureTermImport termId={termId} />;
+  return (
+    <div className="flex flex-col gap-6">
+      <PageTitle>Data Migration</PageTitle>
+      <ConfigureTermImport termId={termId} />
+    </div>
+  );
 }

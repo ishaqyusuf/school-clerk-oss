@@ -17,7 +17,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@school-clerk/ui/tabs";
-import { FileText, Menu, TableIcon } from "lucide-react";
+import { FileText, FolderX, Menu, TableIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 export function StudentReportView({ defaultTermId }: { defaultTermId: string }) {
@@ -46,47 +46,7 @@ export function StudentReportView({ defaultTermId }: { defaultTermId: string }) 
             </Button>
           </div>
           <div className="flex flex-col flex-1">
-            <Tabs
-              value={filters.tab}
-              onValueChange={(v) =>
-                setFilters({ tab: v as typeof filters.tab })
-              }
-              className="flex flex-col flex-1"
-            >
-              <div className="sticky top-0 z-10 bg-background border-b px-4 pt-2 lg:pt-0">
-                <TabsList className="w-full sm:w-auto rounded-lg">
-                  <TabsTrigger
-                    value="print"
-                    className="flex items-center gap-2 rounded-md"
-                  >
-                    <FileText className="size-4" />
-                    Print View
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="classroom-results"
-                    className="flex items-center gap-2 rounded-md"
-                  >
-                    <TableIcon className="size-4" />
-                    Classroom Results
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-              <TabsContent value="print" className="flex-1 mt-0">
-                <div className="flex flex-col justify-center items-center dotted-bg p-4 lg:p-6 xl:p-0">
-                  <div className="flex flex-col w-full py-6 mx-auto lg:max-w-4xl">
-                    <div className="pb-24 lg:pb-0">
-                      <Reports />
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-              <TabsContent
-                value="classroom-results"
-                className="flex-1 mt-0 p-4"
-              >
-                <ClassroomResultTable />
-              </TabsContent>
-            </Tabs>
+            <ReportContent filters={filters} setFilters={setFilters} />
           </div>
         </div>
         <div className="lg:hidden">
@@ -110,6 +70,87 @@ export function StudentReportView({ defaultTermId }: { defaultTermId: string }) 
         <Reports printMode />
       </div>
     </ReportPageProvider>
+  );
+}
+
+function ReportContent({
+  filters,
+  setFilters,
+}: {
+  filters: ReturnType<typeof useStudentReportFilterParams>["filters"];
+  setFilters: ReturnType<typeof useStudentReportFilterParams>["setFilters"];
+}) {
+  const ctx = useReportPageContext();
+
+  // A department is chosen but the report sheet has no subjects/assessments
+  // configured for this term → show the full-screen unavailable state.
+  const unavailable =
+    !!filters.departmentId &&
+    !ctx.reportData?.subjects?.length &&
+    // Don't flash while the query is still loading
+    ctx.reportData !== undefined;
+
+  if (unavailable) {
+    return <ReportUnavailable />;
+  }
+
+  return (
+    <Tabs
+      value={filters.tab}
+      onValueChange={(v) => setFilters({ tab: v as typeof filters.tab })}
+      className="flex flex-col flex-1"
+    >
+      <div className="sticky top-0 z-10 bg-background border-b px-4 pt-2 lg:pt-0">
+        <TabsList className="w-full sm:w-auto rounded-lg">
+          <TabsTrigger
+            value="print"
+            className="flex items-center gap-2 rounded-md"
+          >
+            <FileText className="size-4" />
+            Print View
+          </TabsTrigger>
+          <TabsTrigger
+            value="classroom-results"
+            className="flex items-center gap-2 rounded-md"
+          >
+            <TableIcon className="size-4" />
+            Classroom Results
+          </TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value="print" className="flex-1 mt-0">
+        <div className="flex flex-col justify-center items-center dotted-bg p-4 lg:p-6 xl:p-0">
+          <div className="flex flex-col w-full py-6 mx-auto lg:max-w-4xl">
+            <div className="pb-24 lg:pb-0">
+              <Reports />
+            </div>
+          </div>
+        </div>
+      </TabsContent>
+      <TabsContent value="classroom-results" className="flex-1 mt-0 p-4">
+        <ClassroomResultTable />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function ReportUnavailable() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center h-full min-h-[70vh] gap-6 text-center px-6">
+      <div className="flex items-center justify-center size-20 rounded-full bg-muted">
+        <FolderX className="size-10 text-muted-foreground" />
+      </div>
+      <div className="space-y-2 max-w-sm">
+        <h2 className="text-xl font-semibold tracking-tight">
+          Report Not Available
+        </h2>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          No assessment results have been recorded for this classroom in the
+          selected term. Assessments may not have been configured or scores have
+          not yet been entered.
+        </p>
+      </div>
+    </div>
   );
 }
 

@@ -137,6 +137,11 @@ export const linkModules = [
       createNavLink("Report Cards", "file-text", "/academic/reports").access(
         _role.in("Admin", "Teacher"),
       ).data,
+      createNavLink(
+        "Student Report",
+        "bar-chart-2",
+        "/student-report",
+      ).access(_role.in("Admin", "Teacher")).data,
     ]),
   ]),
 

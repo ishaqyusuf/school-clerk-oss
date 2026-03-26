@@ -3,14 +3,21 @@
 import { useReportPageContext } from "@/hooks/use-report-page";
 import { studentDisplayName } from "@/utils/utils";
 import { cn } from "@school-clerk/ui/cn";
-import { Table } from "@school-clerk/ui/composite";
 import { Spinner } from "@school-clerk/ui/spinner";
 import { sum } from "@school-clerk/utils";
 import { useMutation } from "@tanstack/react-query";
-import { AlertCircle, Check } from "lucide-react";
+import { AlertCircle, Check, Tangent } from "lucide-react";
 import { useDebouncedCallback } from "use-debounce";
 import { Fragment, useDeferredValue, useMemo, useState } from "react";
 import { _qc, _trpc } from "./static-trpc";
+import { Table } from "@school-clerk/ui/composite";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@school-clerk/ui/table";
 
 export function ClassroomResultTable() {
   const ctx = useReportPageContext();
@@ -43,49 +50,49 @@ export function ClassroomResultTable() {
   return (
     <div className="overflow-x-auto">
       <Table>
-        <Table.Header>
-          <Table.Row>
-            <Table.Head
+        <TableHeader>
+          <TableRow>
+            <TableHead
               rowSpan={2}
               className="sticky left-0 z-10 bg-background border-r min-w-[40px] text-center"
             >
               #
-            </Table.Head>
-            <Table.Head
+            </TableHead>
+            <TableHead
               rowSpan={2}
               className="sticky left-[40px] z-10 bg-background border-r min-w-[160px]"
               dir="rtl"
             >
               Student
-            </Table.Head>
+            </TableHead>
             {visibleSubjects.map((subject) => (
-              <Table.Head
+              <TableHead
                 key={subject.id}
                 colSpan={subject.assessments.length + 1}
                 className="text-center border-l font-semibold"
                 dir="rtl"
               >
                 {subject.subject.title}
-              </Table.Head>
+              </TableHead>
             ))}
-            <Table.Head
+            <TableHead
               rowSpan={2}
               className="text-center border-l font-semibold min-w-[60px]"
             >
               Total
-            </Table.Head>
-            <Table.Head
+            </TableHead>
+            <TableHead
               rowSpan={2}
               className="text-center border-l font-semibold min-w-[50px]"
             >
               %
-            </Table.Head>
-          </Table.Row>
-          <Table.Row>
+            </TableHead>
+          </TableRow>
+          <TableRow>
             {visibleSubjects.map((subject) => (
               <Fragment key={subject.id}>
                 {subject.assessments.map((assessment) => (
-                  <Table.Head
+                  <TableHead
                     key={`${subject.id}-${assessment.id}`}
                     className="text-center border-l text-xs min-w-[70px]"
                   >
@@ -93,18 +100,16 @@ export function ClassroomResultTable() {
                     <div className="text-muted-foreground">
                       ({assessment.obtainable})
                     </div>
-                  </Table.Head>
+                  </TableHead>
                 ))}
-                <Table.Head
-                  className="text-center border-l text-xs font-semibold min-w-[60px]"
-                >
+                <Table.Head className="text-center border-l text-xs font-semibold min-w-[60px]">
                   Total
                 </Table.Head>
               </Fragment>
             ))}
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {students.map((student, si) => (
             <StudentResultRow
               key={student.id}
@@ -113,7 +118,7 @@ export function ClassroomResultTable() {
               index={si}
             />
           ))}
-        </Table.Body>
+        </TableBody>
       </Table>
     </div>
   );
@@ -157,13 +162,14 @@ function StudentResultRow({ student, subjects, index }: StudentResultRowProps) {
       let subjectTotal = 0;
       const assessmentScores = subject.assessments.map((assessment) => {
         const result = assessment.assessmentResults.find(
-          (r) => r.studentTermFormId === student.id
+          (r) => r.studentTermFormId === student.id,
         );
         const obtained = result?.obtained ?? null;
         if (obtained !== null) {
           const percentageObtainable = assessment.percentageObtainable;
           const score =
-            percentageObtainable && percentageObtainable !== assessment.obtainable
+            percentageObtainable &&
+            percentageObtainable !== assessment.obtainable
               ? (obtained / assessment.obtainable) * percentageObtainable
               : obtained;
           subjectTotal += score;
@@ -183,11 +189,9 @@ function StudentResultRow({ student, subjects, index }: StudentResultRowProps) {
     (acc, subject) =>
       acc +
       sum(
-        subject.assessments.map(
-          (a) => a.percentageObtainable || a.obtainable
-        )
+        subject.assessments.map((a) => a.percentageObtainable || a.obtainable),
       ),
-    0
+    0,
   );
 
   const percentage =
@@ -196,16 +200,16 @@ function StudentResultRow({ student, subjects, index }: StudentResultRowProps) {
       : 0;
 
   return (
-    <Table.Row>
-      <Table.Cell className="sticky left-0 z-10 bg-background border-r text-center text-muted-foreground text-sm">
+    <TableRow>
+      <TableCell className="sticky left-0 z-10 bg-background border-r text-center text-muted-foreground text-sm">
         {index + 1}
-      </Table.Cell>
-      <Table.Cell
+      </TableCell>
+      <TableCell
         className="sticky left-[40px] z-10 bg-background border-r whitespace-nowrap"
         dir="rtl"
       >
         {studentDisplayName(student.student)}
-      </Table.Cell>
+      </TableCell>
       {subjects.map((subject, si) => {
         const { subjectTotal, assessmentScores } = subjectTotals[si];
         return (
@@ -224,21 +228,19 @@ function StudentResultRow({ student, subjects, index }: StudentResultRowProps) {
                 />
               );
             })}
-            <Table.Cell
-              className="text-center border-l font-medium text-sm"
-            >
+            <TableCell className="text-center border-l font-medium text-sm">
               {subjectTotal > 0 ? subjectTotal.toFixed(1) : "-"}
-            </Table.Cell>
+            </TableCell>
           </Fragment>
         );
       })}
-      <Table.Cell className="text-center border-l font-semibold">
+      <TableCell className="text-center border-l font-semibold">
         {grandTotal > 0 ? grandTotal.toFixed(1) : "-"}
-      </Table.Cell>
-      <Table.Cell className="text-center border-l font-semibold">
+      </TableCell>
+      <TableCell className="text-center border-l font-semibold">
         {percentage > 0 ? `${percentage}%` : "-"}
-      </Table.Cell>
-    </Table.Row>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -248,13 +250,16 @@ interface ScoreCellProps {
   studentTermFormId: string;
   studentId: string | undefined;
   departmentSubjectId: string;
-  result: {
-    id: number;
-    obtained: number | null;
-    percentageScore: number | null;
-    studentTermFormId: string | null;
-    studentId: string | null;
-  } | null | undefined;
+  result:
+    | {
+        id: number;
+        obtained: number | null;
+        percentageScore: number | null;
+        studentTermFormId: string | null;
+        studentId: string | null;
+      }
+    | null
+    | undefined;
 }
 
 function ScoreCell({
@@ -267,7 +272,7 @@ function ScoreCell({
 }: ScoreCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [localValue, setLocalValue] = useState<string>(
-    result?.obtained != null ? String(result.obtained) : ""
+    result?.obtained != null ? String(result.obtained) : "",
   );
   const displayValue = useDeferredValue(localValue);
 
@@ -282,7 +287,7 @@ function ScoreCell({
           reset();
         }, 1500);
       },
-    })
+    }),
   );
 
   const handleSave = useDebouncedCallback((value: string) => {
@@ -299,9 +304,9 @@ function ScoreCell({
 
   if (!isEditing) {
     return (
-      <Table.Cell
+      <TableCell
         className={cn(
-          "text-center border-l cursor-pointer hover:bg-accent/50 transition-colors min-w-[70px] p-0"
+          "text-center border-l cursor-pointer hover:bg-accent/50 transition-colors min-w-[70px] p-0",
         )}
         onClick={() => setIsEditing(true)}
       >
@@ -309,18 +314,18 @@ function ScoreCell({
           <span
             className={cn(
               "text-sm",
-              result?.obtained == null && "text-muted-foreground"
+              result?.obtained == null && "text-muted-foreground",
             )}
           >
             {result?.obtained != null ? result.obtained : "-"}
           </span>
         </div>
-      </Table.Cell>
+      </TableCell>
     );
   }
 
   return (
-    <Table.Cell className="text-center border-l p-0 min-w-[70px]">
+    <TableCell className="text-center border-l p-0 min-w-[70px]">
       <div className="flex items-center gap-1">
         <input
           type="number"
@@ -331,7 +336,7 @@ function ScoreCell({
             "[appearance:textfield]",
             "[&::-webkit-inner-spin-button]:appearance-none",
             "[&::-webkit-outer-spin-button]:appearance-none",
-            +displayValue > obtainable && "text-destructive"
+            +displayValue > obtainable && "text-destructive",
           )}
           defaultValue={displayValue}
           onBlur={() => {
@@ -358,6 +363,6 @@ function ScoreCell({
           ) : null}
         </div>
       </div>
-    </Table.Cell>
+    </TableCell>
   );
 }
