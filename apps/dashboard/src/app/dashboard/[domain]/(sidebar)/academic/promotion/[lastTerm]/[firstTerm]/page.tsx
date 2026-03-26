@@ -17,6 +17,7 @@ export default async function Page({ params }: PageProps) {
       lastTermId: lastTerm,
       firstTermId: firstTerm,
     }),
+    trpc.classrooms.getCurrentSessionClassroom.queryOptions(),
   ]);
   return (
     <div>

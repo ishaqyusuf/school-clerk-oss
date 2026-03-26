@@ -10,8 +10,11 @@ const assessmentOrder = ["الحضور", "الاختبار", "الامتحان"]
 type ReportPageContext = ReturnType<typeof createReportPageContext>;
 export const ReportPageContext = createContext<ReportPageContext>(undefined);
 export const ReportPageProvider = ReportPageContext.Provider;
-export const createReportPageContext = () => {
+export const createReportPageContext = (defaultTermId?: string) => {
   const { filters } = useStudentReportFilterParams();
+  // Use the URL param when present; fall back to the cookie term from the
+  // server so queries fire immediately on first render without a round-trip.
+  const effectiveTermId = filters.termId ?? defaultTermId ?? null;
   const {
     data: reportData,
     error,
@@ -20,7 +23,7 @@ export const createReportPageContext = () => {
     _trpc.assessments.getClassroomReportSheet.queryOptions(
       {
         departmentId: filters.departmentId,
-        sessionTermId: filters.termId,
+        sessionTermId: effectiveTermId,
       },
       {
         enabled: !!filters.departmentId,
@@ -29,7 +32,7 @@ export const createReportPageContext = () => {
   );
   const { data: classRooms } = useQuery(
     _trpc.classrooms.all.queryOptions({
-      sessionTermId: filters.termId,
+      sessionTermId: effectiveTermId,
     })
   );
   const calculatedReport = useMemo(() => {

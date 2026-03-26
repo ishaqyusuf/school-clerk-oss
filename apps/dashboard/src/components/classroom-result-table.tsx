@@ -16,16 +16,29 @@ export function ClassroomResultTable() {
   const ctx = useReportPageContext();
   const reportData = ctx.reportData;
 
-  if (!reportData?.subjects?.length || !reportData?.studentTermForms?.length) {
+  const allSubjects = reportData?.subjects ?? [];
+  const students = reportData?.studentTermForms ?? [];
+
+  // Hide assessment columns where no student has a valid (non-null) score,
+  // and hide entire subject groups if all their assessments are hidden.
+  const visibleSubjects = useMemo(() => {
+    return allSubjects
+      .map((subj) => ({
+        ...subj,
+        assessments: subj.assessments.filter((asmt) =>
+          asmt.assessmentResults.some((r) => r.obtained !== null),
+        ),
+      }))
+      .filter((subj) => subj.assessments.length > 0);
+  }, [allSubjects]);
+
+  if (!visibleSubjects.length || !students.length) {
     return (
       <div className="flex items-center justify-center py-12 text-muted-foreground">
         No result data available. Select a classroom with assessment records.
       </div>
     );
   }
-
-  const subjects = reportData.subjects;
-  const students = reportData.studentTermForms;
 
   return (
     <div className="overflow-x-auto">
@@ -45,7 +58,7 @@ export function ClassroomResultTable() {
             >
               Student
             </Table.Head>
-            {subjects.map((subject) => (
+            {visibleSubjects.map((subject) => (
               <Table.Head
                 key={subject.id}
                 colSpan={subject.assessments.length + 1}
@@ -69,7 +82,7 @@ export function ClassroomResultTable() {
             </Table.Head>
           </Table.Row>
           <Table.Row>
-            {subjects.map((subject) => (
+            {visibleSubjects.map((subject) => (
               <Fragment key={subject.id}>
                 {subject.assessments.map((assessment) => (
                   <Table.Head
@@ -96,7 +109,7 @@ export function ClassroomResultTable() {
             <StudentResultRow
               key={student.id}
               student={student}
-              subjects={subjects}
+              subjects={visibleSubjects}
               index={si}
             />
           ))}

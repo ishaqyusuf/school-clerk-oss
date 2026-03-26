@@ -18,13 +18,23 @@ import {
   TabsTrigger,
 } from "@school-clerk/ui/tabs";
 import { FileText, Menu, TableIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-export default function Page() {
+export function StudentReportView({ defaultTermId }: { defaultTermId: string }) {
   const { filters, setFilters } = useStudentReportFilterParams();
   const [menuOpened, setMenuOpened] = useState(false);
+
+  // Seed termId from the auth cookie if the URL doesn't already carry one
+  useEffect(() => {
+    if (!filters.termId && defaultTermId) {
+      setFilters({ termId: defaultTermId });
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <ReportPageProvider value={createReportPageContext()}>
+    <ReportPageProvider value={createReportPageContext(defaultTermId)}>
       <div className={cn("lg:flex print:hidden")}>
         <div className="hidden lg:block lg:w-56 border lg:h-screen p-2 overflow-auto">
           <StudentReportFilter />
@@ -70,7 +80,10 @@ export default function Page() {
                   </div>
                 </div>
               </TabsContent>
-              <TabsContent value="classroom-results" className="flex-1 mt-0 p-4">
+              <TabsContent
+                value="classroom-results"
+                className="flex-1 mt-0 p-4"
+              >
                 <ClassroomResultTable />
               </TabsContent>
             </Tabs>
@@ -99,6 +112,7 @@ export default function Page() {
     </ReportPageProvider>
   );
 }
+
 function Reports({ printMode = false }) {
   const ctx = useReportPageContext();
   const { filters } = useStudentReportFilterParams();
@@ -117,7 +131,7 @@ function Reports({ printMode = false }) {
             !printMode
               ? "shadow-[0_24px_48px_-12px_rgba(0,0,0,0.3)] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.6)]"
               : "",
-            i > 0 && printMode && "break-before-page "
+            i > 0 && printMode && "break-before-page ",
           )}
         >
           <StudentReportPage studentId={studentId} key={studentId} />

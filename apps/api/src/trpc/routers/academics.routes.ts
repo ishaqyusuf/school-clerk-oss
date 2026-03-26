@@ -67,14 +67,43 @@ export const academicsRouter = createTRPCRouter({
       },
     });
     const now = new Date();
-    // A term is "active" if it has no endDate yet, or its endDate hasn't passed
-    const currentTerm = sessions
-      .map((a) => a.terms)
-      .flat()
-      .find((a) => !a.endDate || differenceInDays(a.endDate, now) >= 0);
+    // Current session is always the one stored in the auth cookie
+    const currentSessionId = ctx.profile.sessionId;
+    // sessions is ordered createdAt desc, so current is first, previous is next
+    const currentSessionIdx = sessions.findIndex(
+      (s) => s.id === currentSessionId,
+    );
+    const currentSession = sessions[currentSessionIdx];
+    const previousSession = sessions[currentSessionIdx + 1];
+    // Active term = most recently started non-null term within the current session
+    const currentTerm =
+      currentSession?.terms
+        .filter((t) => t.startDate !== null)
+        .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0] ??
+      null;
+
+    // Promotion IDs — computed server-side from ordered data
+    // firstTermId: first term of current session in insertion order (index 0, nulls-first = creation order)
+    const promotionFirstTermId = currentSession?.terms[0]?.id ?? null;
+    // lastTermId: most recently started term of previous session; fall back to last in array
+    const promotionLastTermId =
+      previousSession?.terms
+        .filter((t) => t.startDate !== null)
+        .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0]
+        ?.id ??
+      previousSession?.terms[previousSession.terms.length - 1]?.id ??
+      null;
+
     return {
+      promotionIds:
+        promotionFirstTermId && promotionLastTermId
+          ? {
+              lastTermId: promotionLastTermId,
+              firstTermId: promotionFirstTermId,
+            }
+          : null,
       sessions: sessions.map((session) => {
-        const isCurrent = currentTerm?.sessionId == session.id;
+        const isCurrent = session.id === currentSessionId;
         const duration =
           session.startDate && session.endDate
             ? `${format(session.startDate, "MMM yyyy")} - ${format(session.endDate, "MMM yyyy")}`
@@ -91,7 +120,7 @@ export const academicsRouter = createTRPCRouter({
               : "archived",
           name: session.title,
           duration,
-          activeTerm: isCurrent ? currentTerm?.title ?? "Not started" : "—",
+          activeTerm: isCurrent ? (currentTerm?.title ?? "Not started") : "—",
           terms: session.terms.map((term) => {
             const isCurrentTerm = currentTerm?.id === term.id;
             const isCompleted =
@@ -566,14 +595,35 @@ export const academicsRouter = createTRPCRouter({
       };
     }),
   getPromotionStudents: publicProcedure
-    .input(z.object({ lastTermId: z.string(), firstTermId: z.string() }))
+    .input(
+      z.object({
+        lastTermId: z.string(),
+        firstTermId: z.string(),
+        classroomDepartmentId: z.string().optional().nullable(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const db = ctx.db;
+
+      const [lastTerm, firstTerm] = await Promise.all([
+        db.sessionTerm.findFirst({
+          where: { id: input.lastTermId },
+          select: { title: true, session: { select: { title: true } } },
+        }),
+        db.sessionTerm.findFirst({
+          where: { id: input.firstTermId },
+          select: { title: true, session: { select: { title: true } } },
+        }),
+      ]);
+
       const lastTermForms = await db.studentTermForm.findMany({
         where: {
           sessionTermId: input.lastTermId,
           deletedAt: null,
           schoolProfileId: ctx.profile.schoolId,
+          ...(input.classroomDepartmentId
+            ? { classroomDepartmentId: input.classroomDepartmentId }
+            : {}),
         },
         select: {
           id: true,
@@ -605,7 +655,7 @@ export const academicsRouter = createTRPCRouter({
         promotedForms.map((f) => [f.studentId, f.id]),
       );
 
-      return lastTermForms.map((form) => {
+      const students = lastTermForms.map((form) => {
         const scores = form.assessmentRecords
           .map((r) => r.percentageScore)
           .filter((s): s is number => s !== null);
@@ -620,12 +670,22 @@ export const academicsRouter = createTRPCRouter({
             .filter(Boolean)
             .join(" "),
           className: form.classroomDepartment?.departmentName ?? null,
-          classroomDepartmentId: form.classroomDepartmentId,
+          classroomDepartmentId: form.classroomDepartmentId!,
           avgScore,
           isPromoted: promotedStudentIds.has(form.studentId!),
           firstTermFormId: promotedFormMap.get(form.studentId!) ?? null,
         };
       });
+
+      return {
+        students,
+        meta: {
+          fromTerm: lastTerm?.title ?? null,
+          fromSession: lastTerm?.session?.title ?? null,
+          toTerm: firstTerm?.title ?? null,
+          toSession: firstTerm?.session?.title ?? null,
+        },
+      };
     }),
   getStudentTermPerformance: publicProcedure
     .input(z.object({ studentId: z.string(), termId: z.string() }))
@@ -661,7 +721,7 @@ export const academicsRouter = createTRPCRouter({
                   obtainable: true,
                   departmentSubject: {
                     select: {
-                      subject: { select: { name: true } },
+                      subject: { select: { title: true } },
                     },
                   },
                 },
@@ -678,6 +738,7 @@ export const academicsRouter = createTRPCRouter({
         studentIds: z.array(z.string()),
         fromTermId: z.string(),
         toTermId: z.string(),
+        toClassroomDepartmentId: z.string().optional().nullable(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -702,6 +763,8 @@ export const academicsRouter = createTRPCRouter({
       return db.$transaction(async (tx) => {
         for (const form of sourceTermForms) {
           if (!form.studentId) continue;
+          const targetClassroomDepartmentId =
+            input.toClassroomDepartmentId ?? form.classroomDepartmentId;
           let sessionForm = await tx.studentSessionForm.findFirst({
             where: {
               studentId: form.studentId,
@@ -716,7 +779,7 @@ export const academicsRouter = createTRPCRouter({
                 studentId: form.studentId,
                 schoolSessionId: toTerm.sessionId,
                 schoolProfileId: ctx.profile.schoolId,
-                classroomDepartmentId: form.classroomDepartmentId,
+                classroomDepartmentId: targetClassroomDepartmentId,
               },
               select: { id: true },
             });
@@ -733,7 +796,7 @@ export const academicsRouter = createTRPCRouter({
               data: {
                 studentId: form.studentId,
                 studentSessionFormId: sessionForm.id,
-                classroomDepartmentId: form.classroomDepartmentId,
+                classroomDepartmentId: targetClassroomDepartmentId,
                 schoolSessionId: toTerm.sessionId,
                 schoolProfileId: ctx.profile.schoolId,
                 sessionTermId: input.toTermId,

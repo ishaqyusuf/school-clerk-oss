@@ -49,17 +49,7 @@ const Dashboard = () => {
     _trpc.academics.dashboard.queryOptions({}),
   );
   const sessions = dashboard?.sessions || [];
-
-  // Compute promotion IDs for the current session
-  const currentSessionIndex = sessions.findIndex(
-    (s) => s.status === "current",
-  );
-  const currentSession = sessions[currentSessionIndex];
-  const previousSession = sessions[currentSessionIndex + 1];
-  const promotionFirstTermId = currentSession?.terms?.[0]?.id;
-  const promotionLastTermId =
-    previousSession?.terms?.[previousSession.terms.length - 1]?.id;
-  const canPromote = !!(promotionFirstTermId && promotionLastTermId);
+  const promotionIds = dashboard?.promotionIds ?? null;
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -246,9 +236,9 @@ const Dashboard = () => {
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
-                            {session.status === "current" && canPromote && (
+                            {session.status === "current" && promotionIds && (
                               <Link
-                                href={`/academic/promotion/${promotionLastTermId}/${promotionFirstTermId}`}
+                                href={`/academic/promotion/${promotionIds.lastTermId}/${session.currentTerm?.id}`}
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Button
