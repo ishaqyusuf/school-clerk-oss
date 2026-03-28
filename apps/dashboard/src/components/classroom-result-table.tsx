@@ -6,9 +6,16 @@ import { cn } from "@school-clerk/ui/cn";
 import { Spinner } from "@school-clerk/ui/spinner";
 import { sum } from "@school-clerk/utils";
 import { useMutation } from "@tanstack/react-query";
-import { AlertCircle, Check, Tangent } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Check,
+  Tangent,
+} from "lucide-react";
 import { useDebouncedCallback } from "use-debounce";
-import { Fragment, useDeferredValue, useMemo, useState } from "react";
+import { Fragment, useCallback, useDeferredValue, useMemo, useState } from "react";
 import { _qc, _trpc } from "./static-trpc";
 import { Table } from "@school-clerk/ui/composite";
 import {
@@ -19,12 +26,80 @@ import {
   TableRow,
 } from "@school-clerk/ui/table";
 
+type SortColumn = "student" | "grandTotal";
+type SortDirection = "asc" | "desc";
+type SortState = { column: SortColumn; direction: SortDirection } | null;
+
+function computeGrandTotal(
+  studentId: string,
+  subjects: Array<{
+    assessments: Array<{
+      obtainable: number;
+      percentageObtainable: number | null;
+      assessmentResults: Array<{
+        obtained: number | null;
+        studentTermFormId: string | null;
+      }>;
+    }>;
+  }>,
+) {
+  let grandTotal = 0;
+  for (const subject of subjects) {
+    for (const assessment of subject.assessments) {
+      const result = assessment.assessmentResults.find(
+        (r) => r.studentTermFormId === studentId,
+      );
+      const obtained = result?.obtained ?? null;
+      if (obtained !== null) {
+        const percentageObtainable = assessment.percentageObtainable;
+        const score =
+          percentageObtainable &&
+          percentageObtainable !== assessment.obtainable
+            ? (obtained / assessment.obtainable) * percentageObtainable
+            : obtained;
+        grandTotal += score;
+      }
+    }
+  }
+  return grandTotal;
+}
+
+function SortIcon({
+  column,
+  sort,
+}: {
+  column: SortColumn;
+  sort: SortState;
+}) {
+  if (sort?.column !== column) {
+    return <ArrowUpDown className="size-3 ml-1 inline opacity-50" />;
+  }
+  return sort.direction === "asc" ? (
+    <ArrowUp className="size-3 ml-1 inline" />
+  ) : (
+    <ArrowDown className="size-3 ml-1 inline" />
+  );
+}
+
 export function ClassroomResultTable() {
   const ctx = useReportPageContext();
   const reportData = ctx.reportData;
 
   const allSubjects = reportData?.subjects ?? [];
   const students = reportData?.studentTermForms ?? [];
+
+  const [sort, setSort] = useState<SortState>(null);
+
+  const toggleSort = useCallback(
+    (column: SortColumn) => {
+      setSort((prev) => {
+        if (prev?.column !== column) return { column, direction: "asc" };
+        if (prev.direction === "asc") return { column, direction: "desc" };
+        return null;
+      });
+    },
+    [],
+  );
 
   // Hide assessment columns where no student has a valid (non-null) score,
   // and hide entire subject groups if all their assessments are hidden.
@@ -38,6 +113,28 @@ export function ClassroomResultTable() {
       }))
       .filter((subj) => subj.assessments.length > 0);
   }, [allSubjects]);
+
+  const grandTotalsMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const student of students) {
+      map.set(student.id, computeGrandTotal(student.id, visibleSubjects));
+    }
+    return map;
+  }, [students, visibleSubjects]);
+
+  const sortedStudents = useMemo(() => {
+    if (!sort) return students;
+    const sorted = [...students].sort((a, b) => {
+      if (sort.column === "student") {
+        const nameA = studentDisplayName(a.student).toLowerCase();
+        const nameB = studentDisplayName(b.student).toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
+      return (grandTotalsMap.get(a.id) ?? 0) - (grandTotalsMap.get(b.id) ?? 0);
+    });
+    if (sort.direction === "desc") sorted.reverse();
+    return sorted;
+  }, [students, grandTotalsMap, sort]);
 
   if (!visibleSubjects.length || !students.length) {
     return (
@@ -60,10 +157,14 @@ export function ClassroomResultTable() {
             </TableHead>
             <TableHead
               rowSpan={2}
-              className="sticky left-[40px] z-10 bg-background border-r min-w-[160px]"
+              className="sticky left-[40px] z-10 bg-background border-r min-w-[160px] cursor-pointer select-none"
               dir="rtl"
+              onClick={() => toggleSort("student")}
             >
-              Student
+              <span className="inline-flex items-center">
+                Student
+                <SortIcon column="student" sort={sort} />
+              </span>
             </TableHead>
             {visibleSubjects.map((subject) => (
               <TableHead
@@ -77,9 +178,13 @@ export function ClassroomResultTable() {
             ))}
             <TableHead
               rowSpan={2}
-              className="text-center border-l font-semibold min-w-[60px]"
+              className="text-center border-l font-semibold min-w-[60px] cursor-pointer select-none"
+              onClick={() => toggleSort("grandTotal")}
             >
-              Total
+              <span className="inline-flex items-center justify-center">
+                Total
+                <SortIcon column="grandTotal" sort={sort} />
+              </span>
             </TableHead>
             <TableHead
               rowSpan={2}
@@ -110,7 +215,7 @@ export function ClassroomResultTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {students.map((student, si) => (
+          {sortedStudents.map((student, si) => (
             <StudentResultRow
               key={student.id}
               student={student}
