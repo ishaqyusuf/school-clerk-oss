@@ -13,6 +13,8 @@ import {
   deleteStudent,
   deleteTermSheetSchema,
   deleteTermSheet,
+  changeStudentGenderSchema,
+  changeStudentGender,
 } from "../../db/queries/students";
 import {
   getStudentOverviewSchema,
@@ -53,6 +55,11 @@ export const studentsRouter = createTRPCRouter({
     .input(updateStudentBasicProfileSchema)
     .mutation(async (props) => {
       return updateStudentBasicProfile(props.ctx, props.input);
+    }),
+  changeGender: publicProcedure
+    .input(changeStudentGenderSchema)
+    .mutation(async (props) => {
+      return changeStudentGender(props.ctx, props.input);
     }),
   academicsOverview: publicProcedure
     .input(getStudentOverviewSchema)

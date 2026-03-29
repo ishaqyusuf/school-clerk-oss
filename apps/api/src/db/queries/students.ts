@@ -786,6 +786,23 @@ export async function deleteStudent(
   });
 }
 
+export const changeStudentGenderSchema = z.object({
+  id: z.string(),
+  gender: z.enum(["Male", "Female"]),
+});
+export type ChangeStudentGenderSchema = z.infer<typeof changeStudentGenderSchema>;
+
+export async function changeStudentGender(
+  ctx: TRPCContext,
+  query: ChangeStudentGenderSchema
+) {
+  const { db } = ctx;
+  await db.students.update({
+    where: { id: query.id },
+    data: { gender: query.gender },
+  });
+}
+
 export const deleteTermSheetSchema = z.object({
   id: z.string(),
 });
