@@ -1,8 +1,10 @@
 "use client";
 
 import { useReportPageContext } from "@/hooks/use-report-page";
+import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
 import { studentDisplayName } from "@/utils/utils";
 import { cn } from "@school-clerk/ui/cn";
+import { Checkbox } from "@school-clerk/ui/checkbox";
 import { Spinner } from "@school-clerk/ui/spinner";
 import { sum } from "@school-clerk/utils";
 import { useMutation } from "@tanstack/react-query";
@@ -12,7 +14,6 @@ import {
   ArrowUp,
   ArrowUpDown,
   Check,
-  Tangent,
 } from "lucide-react";
 import { useDebouncedCallback } from "use-debounce";
 import { Fragment, useCallback, useDeferredValue, useMemo, useState } from "react";
@@ -84,6 +85,7 @@ function SortIcon({
 export function ClassroomResultTable() {
   const ctx = useReportPageContext();
   const reportData = ctx.reportData;
+  const { filters, setFilters } = useStudentReportFilterParams();
 
   const allSubjects = reportData?.subjects ?? [];
   const students = reportData?.studentTermForms ?? [];
@@ -136,6 +138,35 @@ export function ClassroomResultTable() {
     return sorted;
   }, [students, grandTotalsMap, sort]);
 
+  // Checkbox helpers — selections store the original (unsorted) index
+  const originalIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    students.forEach((s, i) => map.set(s.id, i));
+    return map;
+  }, [students]);
+
+  const selections = filters.selections ?? [];
+  const allSelected = students.length > 0 && students.every((s) => selections.includes(originalIndexMap.get(s.id)!));
+  const someSelected = !allSelected && selections.length > 0;
+
+  const toggleAll = useCallback(() => {
+    if (allSelected) {
+      setFilters({ selections: [] });
+    } else {
+      setFilters({ selections: students.map((_, i) => i) });
+    }
+  }, [allSelected, students, setFilters]);
+
+  const toggleStudent = useCallback(
+    (originalIndex: number) => {
+      const next = [...selections, originalIndex];
+      setFilters({
+        selections: next.filter((a) => next.filter((b) => b === a).length === 1),
+      });
+    },
+    [selections, setFilters],
+  );
+
   if (!visibleSubjects.length || !students.length) {
     return (
       <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -145,19 +176,29 @@ export function ClassroomResultTable() {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-auto max-h-[calc(100vh-180px)]">
       <Table>
-        <TableHeader>
+        <TableHeader className="sticky top-0 z-20">
           <TableRow>
             <TableHead
               rowSpan={2}
-              className="sticky left-0 z-10 bg-background border-r min-w-[40px] text-center"
+              className="sticky left-0 z-30 bg-background border-r min-w-[40px] text-center"
+            >
+              <Checkbox
+                checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                onCheckedChange={toggleAll}
+                aria-label="Select all students"
+              />
+            </TableHead>
+            <TableHead
+              rowSpan={2}
+              className="sticky left-[40px] z-30 bg-background border-r min-w-[40px] text-center"
             >
               #
             </TableHead>
             <TableHead
               rowSpan={2}
-              className="sticky left-[40px] z-10 bg-background border-r min-w-[160px] cursor-pointer select-none"
+              className="sticky left-[80px] z-30 bg-background border-r min-w-[160px] cursor-pointer select-none"
               dir="rtl"
               onClick={() => toggleSort("student")}
             >
@@ -170,7 +211,7 @@ export function ClassroomResultTable() {
               <TableHead
                 key={subject.id}
                 colSpan={subject.assessments.length + 1}
-                className="text-center border-l font-semibold"
+                className="text-center border-l font-semibold bg-background"
                 dir="rtl"
               >
                 {subject.subject.title}
@@ -178,7 +219,7 @@ export function ClassroomResultTable() {
             ))}
             <TableHead
               rowSpan={2}
-              className="text-center border-l font-semibold min-w-[60px] cursor-pointer select-none"
+              className="text-center border-l font-semibold min-w-[60px] cursor-pointer select-none bg-background"
               onClick={() => toggleSort("grandTotal")}
             >
               <span className="inline-flex items-center justify-center">
@@ -188,7 +229,7 @@ export function ClassroomResultTable() {
             </TableHead>
             <TableHead
               rowSpan={2}
-              className="text-center border-l font-semibold min-w-[50px]"
+              className="text-center border-l font-semibold min-w-[50px] bg-background"
             >
               %
             </TableHead>
@@ -199,7 +240,7 @@ export function ClassroomResultTable() {
                 {subject.assessments.map((assessment) => (
                   <TableHead
                     key={`${subject.id}-${assessment.id}`}
-                    className="text-center border-l text-xs min-w-[70px]"
+                    className="text-center border-l text-xs min-w-[70px] bg-background"
                   >
                     <div>{assessment.title}</div>
                     <div className="text-muted-foreground">
@@ -207,7 +248,7 @@ export function ClassroomResultTable() {
                     </div>
                   </TableHead>
                 ))}
-                <Table.Head className="text-center border-l text-xs font-semibold min-w-[60px]">
+                <Table.Head className="text-center border-l text-xs font-semibold min-w-[60px] bg-background">
                   Total
                 </Table.Head>
               </Fragment>
@@ -215,14 +256,20 @@ export function ClassroomResultTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedStudents.map((student, si) => (
-            <StudentResultRow
-              key={student.id}
-              student={student}
-              subjects={visibleSubjects}
-              index={si}
-            />
-          ))}
+          {sortedStudents.map((student, si) => {
+            const originalIndex = originalIndexMap.get(student.id) ?? si;
+            return (
+              <StudentResultRow
+                key={student.id}
+                student={student}
+                subjects={visibleSubjects}
+                index={si}
+                originalIndex={originalIndex}
+                isSelected={selections.includes(originalIndex)}
+                onToggle={toggleStudent}
+              />
+            );
+          })}
         </TableBody>
       </Table>
     </div>
@@ -259,9 +306,12 @@ interface StudentResultRowProps {
     subject: { title: string };
   }>;
   index: number;
+  originalIndex: number;
+  isSelected: boolean;
+  onToggle: (originalIndex: number) => void;
 }
 
-function StudentResultRow({ student, subjects, index }: StudentResultRowProps) {
+function StudentResultRow({ student, subjects, index, originalIndex, isSelected, onToggle }: StudentResultRowProps) {
   const subjectTotals = useMemo(() => {
     return subjects.map((subject) => {
       let subjectTotal = 0;
@@ -305,12 +355,19 @@ function StudentResultRow({ student, subjects, index }: StudentResultRowProps) {
       : 0;
 
   return (
-    <TableRow>
-      <TableCell className="sticky left-0 z-10 bg-background border-r text-center text-muted-foreground text-sm">
+    <TableRow data-selected={isSelected || undefined} className={cn(isSelected && "bg-accent/40")}>
+      <TableCell className="sticky left-0 z-10 bg-background border-r text-center">
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggle(originalIndex)}
+          aria-label="Select student"
+        />
+      </TableCell>
+      <TableCell className="sticky left-[40px] z-10 bg-background border-r text-center text-muted-foreground text-sm">
         {index + 1}
       </TableCell>
       <TableCell
-        className="sticky left-[40px] z-10 bg-background border-r whitespace-nowrap"
+        className="sticky left-[80px] z-10 bg-background border-r whitespace-nowrap"
         dir="rtl"
       >
         {studentDisplayName(student.student)}
