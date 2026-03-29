@@ -113,6 +113,17 @@ export function PrintSelectionFooter() {
           </span>
         </div>
 
+        {/* Clear selection */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 shrink-0 text-muted-foreground hover:text-destructive"
+          onClick={clearAll}
+        >
+          <XIcon className="size-4" />
+          Clear
+        </Button>
+
         {/* Dropdown toggle showing selected students */}
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger asChild>
