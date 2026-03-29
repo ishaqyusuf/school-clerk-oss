@@ -33,3 +33,16 @@ model StudentAssessmentRecord {
 
     @@unique([studentId, studentTermFormId, classSubjectAssessmentId])
 }
+
+model ReportPrintLog {
+    id              String   @id @default(uuid())
+    schoolProfileId String?
+    termId          String?
+    termFormIds     String[]
+    departmentIds   String[]
+    printedAt       DateTime @default(now()) @db.Timestamp(0)
+    createdAt       DateTime @default(now()) @db.Timestamp(0)
+
+    schoolProfile SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
+    sessionTerm   SessionTerm?   @relation(fields: [termId], references: [id])
+}

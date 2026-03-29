@@ -1,5 +1,6 @@
 "use client";
 import { ClassroomResultTable } from "@/components/classroom-result-table";
+import { PrintSelectionFooter } from "@/components/print-selection-footer";
 import { StudentReportFilter } from "@/components/student-report-filters";
 import { StudentReportPage } from "@/components/student-report-page";
 import {
@@ -79,6 +80,8 @@ export function StudentReportView({ defaultTermId }: { defaultTermId: string }) 
           </Sheet>
         </div>
       </div>
+      {/* Sticky footer — only shown when students are selected */}
+      <PrintSelectionFooter />
       <div className="hidden flex-col print:flex">
         <Reports printMode />
       </div>
@@ -134,7 +137,7 @@ function ReportContent({
       <TabsContent value="print" className="flex-1 mt-0">
         <div className="flex flex-col justify-center items-center dotted-bg p-4 lg:p-6 xl:p-0">
           <div className="flex flex-col w-full py-6 mx-auto lg:max-w-4xl">
-            <div className="pb-24 lg:pb-0">
+            <div className="pb-24 lg:pb-28">
               <Reports />
             </div>
           </div>
@@ -170,12 +173,15 @@ function ReportUnavailable() {
 function Reports({ printMode = false }) {
   const ctx = useReportPageContext();
   const { filters } = useStudentReportFilterParams();
+
+  // Use printOrder (ordered termFormIds) — persists across classroom switches
+  const printOrder = filters.printOrder ?? [];
+
+  // Filter to IDs that have loaded report data
   const studentIds = useMemo(() => {
-    if (!ctx.termForms) return [];
-    return ctx.termForms
-      .filter((_, i) => filters.selections?.includes(i))
-      .map((a) => a.id);
-  }, [filters.selections, ctx.termForms]);
+    return printOrder.filter((id) => !!ctx.reportsById?.[id]);
+  }, [printOrder, ctx.reportsById]);
+
   return (
     <>
       {studentIds?.map((studentId, i) => (

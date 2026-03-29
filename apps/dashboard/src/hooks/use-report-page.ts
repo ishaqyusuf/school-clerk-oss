@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo } from "react";
 import { useStudentReportFilterParams } from "./use-student-report-filter-params";
 import { _trpc } from "@/components/static-trpc";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { enToAr, sum } from "@school-clerk/utils";
 import { getResultComment } from "@api/db/queries/first-term-data";
 import { subjectsArray } from "@/app/dashboard/[domain]/migration/constants";
@@ -15,169 +15,203 @@ export const createReportPageContext = (defaultTermId?: string) => {
   // Use the URL param when present; fall back to the cookie term from the
   // server so queries fire immediately on first render without a round-trip.
   const effectiveTermId = defaultTermId ?? null;
-  const {
-    data: reportData,
-    error,
-    isPending,
-  } = useQuery(
-    _trpc.assessments.getClassroomReportSheet.queryOptions(
-      {
-        departmentId: filters.departmentId,
-        sessionTermId: effectiveTermId,
-      },
-      {
-        enabled: !!filters.departmentId,
-      },
+
+  // Collect all department IDs to load:
+  // current department + any that have been activated via multi-class selection
+  const deptsToLoad = useMemo(() => {
+    const depts = new Set<string>();
+    if (filters.departmentId) depts.add(filters.departmentId);
+    filters.activeDepts?.forEach((d) => {
+      if (d) depts.add(d);
+    });
+    return Array.from(depts).filter(Boolean);
+  }, [filters.departmentId, filters.activeDepts]);
+
+  // Fetch report sheets for all active departments in parallel
+  const deptQueries = useQueries({
+    queries: deptsToLoad.map((deptId) =>
+      _trpc.assessments.getClassroomReportSheet.queryOptions(
+        {
+          departmentId: deptId,
+          sessionTermId: effectiveTermId,
+        },
+        {
+          enabled: !!deptId && !!effectiveTermId,
+        },
+      ),
     ),
-  );
+  });
+
+  // Current department's data (for sidebar display)
+  const currentDeptIndex = deptsToLoad.indexOf(filters.departmentId ?? "");
+  const reportData =
+    currentDeptIndex >= 0 ? deptQueries[currentDeptIndex]?.data : undefined;
+
+  // Build a flat map of termFormId -> studentTermForm across all loaded depts
+  const allTermForms = useMemo(() => {
+    return deptQueries.flatMap((q) => q.data?.studentTermForms ?? []);
+  }, [deptQueries]);
+
+  // Map from departmentId to its report data (for lookup in Reports component)
+  const reportDataByDept = useMemo(() => {
+    return Object.fromEntries(
+      deptsToLoad.map((deptId, i) => [deptId, deptQueries[i]?.data]),
+    );
+  }, [deptsToLoad, deptQueries]);
+
   const { data: classRooms } = useQuery(
     _trpc.classrooms.all.queryOptions({
       sessionTermId: effectiveTermId,
     }),
   );
-  const calculatedReport = useMemo(() => {
-    const totalStudents = reportData?.studentTermForms.length;
-    const students =
-      reportData?.studentTermForms?.map((tf, tfi) => {
-        const subjectList = reportData?.subjects?.map((subject) => {
-          const assessments = subject.assessments.map((_as) => {
-            const record = _as.assessmentResults.find(
-              (r) => r.studentTermFormId == tf.id,
-            );
-            const obtained =
-              record?.percentageScore || record?.obtained
-                ? _as?.percentageObtainable === _as?.obtainable
-                  ? record?.obtained
-                  : _as.percentageObtainable
-                    ? sum([
-                        (record?.obtained / _as.obtainable) *
-                          _as.percentageObtainable,
-                      ])
-                    : null
-                : null;
 
+  // Build combined reportsById from all loaded departments
+  const calculatedReport = useMemo(() => {
+    // Process each department's data
+    const allStudents = deptQueries.flatMap((q) => {
+      const data = q.data;
+      if (!data) return [];
+      const totalStudents = data.studentTermForms.length;
+      return (
+        data.studentTermForms?.map((tf) => {
+          const subjectList = data.subjects?.map((subject) => {
+            const assessments = subject.assessments.map((_as) => {
+              const record = _as.assessmentResults.find(
+                (r) => r.studentTermFormId == tf.id,
+              );
+              const obtained =
+                record?.percentageScore || record?.obtained
+                  ? _as?.percentageObtainable === _as?.obtainable
+                    ? record?.obtained
+                    : _as.percentageObtainable
+                      ? sum([
+                          (record?.obtained / _as.obtainable) *
+                            _as.percentageObtainable,
+                        ])
+                      : null
+                  : null;
+
+              return {
+                obtainable: _as.percentageObtainable,
+                obtained,
+                index: _as.index,
+                label: _as.title,
+              };
+            });
             return {
-              obtainable: _as.percentageObtainable,
-              obtained,
-              index: _as.index,
-              label: _as.title,
+              title: subject.subject.title,
+              assessments,
             };
           });
-          return {
-            title: subject.subject.title,
-            assessments,
-            // index: subject.index
-          };
-        });
-        const tables = tableModel();
-        // const response =
-        subjectList.map((subject, si) => {
-          const assessments = subject.assessments
-            .map((a) => {
-              a.index = assessmentOrder.findIndex((b) => b === a.label);
-              return a;
-            })
-            .sort((a, b) => a.index - b.index);
-          const assessmentCode = assessments.map((a) => a.label).join("-");
-          if (!tables[assessmentCode])
-            tables[assessmentCode] = {
-              columns: [
-                {
-                  label: `المواد`,
-                },
-                ...assessments
-                  // ?.filter((a) => a.assessmentType == "primary")
-                  .map((a) => ({
+          const tables = tableModel();
+          subjectList.map((subject, si) => {
+            const assessments = subject.assessments
+              .map((a) => {
+                a.index = assessmentOrder.findIndex((b) => b === a.label);
+                return a;
+              })
+              .sort((a, b) => a.index - b.index);
+            const assessmentCode = assessments.map((a) => a.label).join("-");
+            if (!tables[assessmentCode])
+              tables[assessmentCode] = {
+                columns: [
+                  {
+                    label: `المواد`,
+                  },
+                  ...assessments.map((a) => ({
                     label: a.label,
                     subLabel: `(${a.obtainable ? enToAr(a.obtainable) : "-"})`,
                   })),
+                  {
+                    label: `المجموع الكلي`,
+                    subLabel: `(${enToAr(100)})`,
+                  },
+                ],
+                rows: [],
+              };
+            tables[assessmentCode].rows.push({
+              columns: [
                 {
-                  label: `المجموع الكلي`,
-                  subLabel: `(${enToAr(100)})`,
+                  value: `${enToAr(si + 1)}. ${subject.title}`,
                 },
-              ],
-              rows: [],
-            };
-          tables[assessmentCode].rows.push({
-            columns: [
-              {
-                value: `${enToAr(si + 1)}. ${subject.title}`,
-              },
-              ...assessments
-                //  .filter((a) => a.assessmentType == "primary")
-                .map((a) => ({
+                ...assessments.map((a) => ({
                   value: a.obtained,
                 })),
-              {
-                value: sum(
-                  assessments
-                    //  .filter((a) => a.assessmentType == "primary")
-                    .map((a) => a.obtained),
-                ), //.toFixed(2),
-              },
-            ],
+                {
+                  value: sum(assessments.map((a) => a.obtained)),
+                },
+              ],
+            });
           });
-        });
-        const rowsCount = sum(
-          Object.values(tables).map((a) => 1 + a.rows.length),
-        );
-        const grade = {
-          obtained: sum(
-            subjectList.map((a) => a.assessments.map((b) => b.obtained)).flat(),
-          ),
-          obtainable: sum(
-            subjectList
-              .map((a) => a.assessments.map((b) => b.obtainable))
-              .flat(),
-          ),
-          totalStudents,
-          position: 0,
-          percentage: 0,
-        };
-        grade.percentage = +sum([
-          (grade.obtained / grade.obtainable) * 100,
-        ]).toFixed(1);
-        const comment = getResultComment(grade.percentage);
-        if (
-          subjectList.some((sl) =>
-            sl.assessments.some((a) => Math.floor(a.obtained) === 55),
-          )
-        ) {
-        }
+          const rowsCount = sum(
+            Object.values(tables).map((a) => 1 + a.rows.length),
+          );
+          const grade = {
+            obtained: sum(
+              subjectList.map((a) => a.assessments.map((b) => b.obtained)).flat(),
+            ),
+            obtainable: sum(
+              subjectList
+                .map((a) => a.assessments.map((b) => b.obtainable))
+                .flat(),
+            ),
+            totalStudents,
+            position: 0,
+            percentage: 0,
+          };
+          grade.percentage = +sum([
+            (grade.obtained / grade.obtainable) * 100,
+          ]).toFixed(1);
+          const comment = getResultComment(grade.percentage);
 
-        return {
-          termFormId: tf.id,
-          tables: Object.values(tables),
-          lineCount: rowsCount,
-          grade,
-          subjectList,
-          student: tf.student,
-          comment,
-          summary: {
-            subjects: subjectList.length,
-            results: subjectList.filter((a) =>
-              a.assessments.some((b) => b.obtained),
-            ).length,
-          },
-          //   classroom: { title: tf..classTitle },
-        };
-        // .flat();
-      }) || [];
+          return {
+            termFormId: tf.id,
+            departmentId: tf.classroomDepartmentId,
+            departmentName: data.departmentName,
+            tables: Object.values(tables),
+            lineCount: rowsCount,
+            grade,
+            subjectList,
+            student: tf.student,
+            comment,
+            summary: {
+              subjects: subjectList.length,
+              results: subjectList.filter((a) =>
+                a.assessments.some((b) => b.obtained),
+              ).length,
+            },
+          };
+        }) || []
+      );
+    });
+
+    // Compute positions within each department separately
+    const byDept: Record<string, typeof allStudents> = {};
+    allStudents.forEach((s) => {
+      if (!byDept[s.departmentId ?? "unknown"]) {
+        byDept[s.departmentId ?? "unknown"] = [];
+      }
+      byDept[s.departmentId ?? "unknown"].push(s);
+    });
+    Object.values(byDept).forEach((deptStudents) => {
+      deptStudents.forEach((student) => {
+        student.grade.position =
+          deptStudents.filter((a) => a.grade.obtained > student.grade.obtained)
+            ?.length + 1;
+      });
+    });
 
     return {
       reportsById: Object.fromEntries(
-        students?.map((student) => {
-          student.grade.position =
-            students.filter((a) => a.grade.obtained > student.grade.obtained)
-              ?.length + 1;
-          return [student.termFormId, student];
-        }),
+        allStudents.map((student) => [student.termFormId, student]),
       ),
     };
-  }, [reportData]);
+  }, [deptQueries]);
+
   return {
     classroomName: reportData?.departmentName,
     termForms: reportData?.studentTermForms,
+    allTermForms,
     reportsById: calculatedReport?.reportsById,
     classRooms: classRooms?.data,
     reportData,
@@ -193,7 +227,6 @@ function tableModel() {
       rows: {
         columns: {
           value?;
-          // style?: '
         }[];
       }[];
     };

@@ -1,6 +1,5 @@
 import {
   parseAsArrayOf,
-  parseAsInteger,
   parseAsStringEnum,
   useQueryStates,
 } from "nuqs";
@@ -9,7 +8,10 @@ import { createLoader, parseAsString } from "nuqs/server";
 export const studentReportFilterParams = {
   departmentId: parseAsString,
   termId: parseAsString,
-  selections: parseAsArrayOf(parseAsInteger),
+  // ordered list of termFormIds across all classrooms (replaces index-based selections)
+  printOrder: parseAsArrayOf(parseAsString),
+  // departments that have been visited / have selected students — we load data for all of them
+  activeDepts: parseAsArrayOf(parseAsString),
   tab: parseAsStringEnum(["print", "classroom-results"]).withDefault("print"),
 };
 

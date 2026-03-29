@@ -28,6 +28,51 @@ export function StudentReportFilter() {
       },
     })
   );
+
+  const printOrder = filters.printOrder ?? [];
+
+  function toggleStudent(termFormId: string) {
+    const isSelected = printOrder.includes(termFormId);
+    let newOrder: string[];
+    if (isSelected) {
+      newOrder = printOrder.filter((id) => id !== termFormId);
+    } else {
+      newOrder = [...printOrder, termFormId];
+    }
+
+    // Ensure current department is in activeDepts when selecting
+    const activeDepts = filters.activeDepts ?? [];
+    let newActiveDepts = activeDepts;
+    if (!isSelected && filters.departmentId && !activeDepts.includes(filters.departmentId)) {
+      newActiveDepts = [...activeDepts, filters.departmentId];
+    }
+
+    setFilters({ printOrder: newOrder, activeDepts: newActiveDepts });
+  }
+
+  function selectAll() {
+    const currentIds = ctx?.termForms?.map((tf) => tf.id) ?? [];
+    const others = printOrder.filter((id) => !currentIds.includes(id));
+    const newOrder = [...others, ...currentIds];
+    const activeDepts = filters.activeDepts ?? [];
+    let newActiveDepts = activeDepts;
+    if (filters.departmentId && !activeDepts.includes(filters.departmentId)) {
+      newActiveDepts = [...activeDepts, filters.departmentId];
+    }
+    setFilters({ printOrder: newOrder, activeDepts: newActiveDepts });
+  }
+
+  function deselectAll() {
+    const currentIds = ctx?.termForms?.map((tf) => tf.id) ?? [];
+    setFilters({ printOrder: printOrder.filter((id) => !currentIds.includes(id)) });
+  }
+
+  const currentClassSelected = ctx?.termForms?.filter((tf) =>
+    printOrder.includes(tf.id)
+  ).length ?? 0;
+  const allSelected =
+    !!ctx?.termForms?.length && currentClassSelected === ctx.termForms.length;
+
   return (
     <div className="gap-4 pb-28 flex flex-col">
       <div>
@@ -40,10 +85,7 @@ export function StudentReportFilter() {
             dir="rtl"
             value={filters.departmentId}
             onValueChange={(e) => {
-              setFilters({
-                departmentId: e,
-                selections: null,
-              });
+              setFilters({ departmentId: e });
             }}
           >
             <Select.Trigger>
@@ -74,10 +116,21 @@ export function StudentReportFilter() {
         </a>
       </Item>
       <Item.Separator />
-      <Label>Students</Label>
+      <div className="flex items-center justify-between">
+        <Label>Students</Label>
+        {!!ctx?.termForms?.length && (
+          <button
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            onClick={allSelected ? deselectAll : selectAll}
+          >
+            {allSelected ? "Deselect all" : "Select all"}
+          </button>
+        )}
+      </div>
       <Item.Group dir="rtl">
         {ctx?.termForms?.map((tf, tfi) => {
           const r = ctx?.reportsById?.[tf?.id];
+          const isSelected = printOrder.includes(tf.id);
           return (
             <Fragment key={tf.id}>
               {tfi > 0 && <Separator />}
@@ -85,19 +138,8 @@ export function StudentReportFilter() {
                 <Item.Content>
                   <Item.Title>
                     <Checkbox
-                      checked={filters.selections?.includes(tfi)}
-                      // checked={!!store?.selection?.[tf.id]}
-                      onCheckedChange={(e) => {
-                        // store.update(`selection.${tf.id}`, !!e);
-                        let selections = [...(filters.selections || []), tfi];
-
-                        setFilters({
-                          selections: selections.filter(
-                            (a, i) =>
-                              selections.filter((b) => b === a)?.length == 1
-                          ),
-                        });
-                      }}
+                      checked={isSelected}
+                      onCheckedChange={() => toggleStudent(tf.id)}
                       id={`cb-${tf.id}`}
                     />
                     {studentDisplayName(tf?.student)}

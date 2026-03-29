@@ -29,6 +29,7 @@ model SchoolProfile {
     bills                  Bills[]
     domains                TenantDomain[]
     activities             Activity[]
+    reportPrintLogs        ReportPrintLog[]
 
     @@unique([name, subDomain, slug, deletedAt])
 }
@@ -93,4 +94,5 @@ model SessionTerm {
     wallets            Wallet[]
     staffTermProfiles  StaffTermProfile[]
     bills              Bills[]
+    reportPrintLogs    ReportPrintLog[]
 }
