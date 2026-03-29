@@ -20,6 +20,18 @@ import {
 import { FileText, FolderX, Menu, TableIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+function PageTitleSync() {
+  const ctx = useReportPageContext();
+  useEffect(() => {
+    const base = "Student Report";
+    document.title = ctx.classroomName ? `${ctx.classroomName} — ${base}` : base;
+    return () => {
+      document.title = base;
+    };
+  }, [ctx.classroomName]);
+  return null;
+}
+
 export function StudentReportView({ defaultTermId }: { defaultTermId: string }) {
   const { filters, setFilters } = useStudentReportFilterParams();
   const [menuOpened, setMenuOpened] = useState(false);
@@ -35,6 +47,7 @@ export function StudentReportView({ defaultTermId }: { defaultTermId: string }) 
 
   return (
     <ReportPageProvider value={createReportPageContext(defaultTermId)}>
+      <PageTitleSync />
       <div className={cn("lg:flex print:hidden")}>
         <div className="hidden lg:block lg:w-56 border lg:h-screen p-2 overflow-auto">
           <StudentReportFilter />
