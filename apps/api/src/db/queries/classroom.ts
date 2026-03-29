@@ -30,6 +30,7 @@ export async function getClassrooms(
     select: {
       id: true,
       departmentName: true,
+      departmentLevel: true,
       _count: {
         select: {
           studentSessionForms: {
@@ -60,6 +61,7 @@ export async function getClassrooms(
             },
           },
           name: true,
+          classLevel: true,
           id: true,
         },
       },

@@ -135,6 +135,128 @@ export const classroomRouter = createTRPCRouter({
       schoolSessionId: ctx.profile.sessionId,
     });
   }),
+
+  /** Copy all classrooms from a previous session into the current session. */
+  importFromPreviousSession: publicProcedure
+    .input(z.object({ fromSessionId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const { db, profile } = ctx;
+      const { sessionId, schoolId } = profile;
+
+      // Fetch all non-deleted classrooms+departments from the source session
+      const sourceClassrooms = await db.classRoom.findMany({
+        where: { schoolSessionId: input.fromSessionId, deletedAt: null },
+        include: {
+          classRoomDepartments: {
+            where: { deletedAt: null },
+            orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+          },
+        },
+        orderBy: [{ classLevel: "asc" }, { name: "asc" }],
+      });
+
+      let created = 0;
+      let skipped = 0;
+
+      for (const cls of sourceClassrooms) {
+        const result = await db.classRoom.upsert({
+          where: {
+            schoolSessionId_name: {
+              name: cls.name!,
+              schoolSessionId: sessionId!,
+            },
+          },
+          update: {
+            classLevel: cls.classLevel,
+            classRoomDepartments: {
+              createMany: {
+                data: cls.classRoomDepartments.map((d) => ({
+                  departmentName: d.departmentName,
+                  schoolProfileId: schoolId,
+                  departmentLevel: d.departmentLevel,
+                })),
+                skipDuplicates: true,
+              },
+            },
+          },
+          create: {
+            name: cls.name!,
+            classLevel: cls.classLevel,
+            schoolSessionId: sessionId!,
+            schoolProfileId: schoolId!,
+            classRoomDepartments: {
+              createMany: {
+                data: cls.classRoomDepartments.map((d) => ({
+                  departmentName: d.departmentName,
+                  schoolProfileId: schoolId,
+                  departmentLevel: d.departmentLevel,
+                })),
+              },
+            },
+          },
+          select: { id: true },
+        });
+        created++;
+      }
+
+      return { created, skipped };
+    }),
+
+  /** Register a single classroom (by name) from an old session into the current session. */
+  registerClassroomForSession: publicProcedure
+    .input(
+      z.object({
+        className: z.string(),
+        departmentName: z.string(),
+        classLevel: z.number().optional().nullable(),
+        departmentLevel: z.number().optional().nullable(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { db, profile } = ctx;
+      const { sessionId, schoolId } = profile;
+      return db.classRoom.upsert({
+        where: {
+          schoolSessionId_name: {
+            name: input.className,
+            schoolSessionId: sessionId!,
+          },
+        },
+        update: {
+          classLevel: input.classLevel,
+          classRoomDepartments: {
+            createMany: {
+              data: [
+                {
+                  departmentName: input.departmentName,
+                  schoolProfileId: schoolId,
+                  departmentLevel: input.departmentLevel,
+                },
+              ],
+              skipDuplicates: true,
+            },
+          },
+        },
+        create: {
+          name: input.className,
+          classLevel: input.classLevel,
+          schoolSessionId: sessionId!,
+          schoolProfileId: schoolId!,
+          classRoomDepartments: {
+            createMany: {
+              data: [
+                {
+                  departmentName: input.departmentName,
+                  schoolProfileId: schoolId,
+                  departmentLevel: input.departmentLevel,
+                },
+              ],
+            },
+          },
+        },
+        include: { classRoomDepartments: true },
+      });
+    }),
   getForm: publicProcedure
     .input(
       z.object({

@@ -212,13 +212,56 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
     });
   }, [allStudents]);
 
-  // When source classroom changes, auto-select the next classroom in index order
+  // Target classrooms = new session's classrooms (filtered by firstTermId's session)
+  const { data: targetClassroomsData, refetch: refetchTargetClassrooms } =
+    useQuery(
+      trpc.classrooms.all.queryOptions({ sessionTermId: firstTermId }),
+    );
+  const targetClassrooms = useMemo(() => {
+    const raw = targetClassroomsData?.data ?? [];
+    return raw
+      .map((c) => ({
+        id: c.id,
+        name: c.displayName ?? c.departmentName ?? c.id,
+        departmentName: c.departmentName ?? "",
+        classLevel: (c.classRoom as any)?.classLevel ?? null,
+        departmentLevel: c.departmentLevel ?? null,
+      }))
+      .sort((a, b) => {
+        const cl = (a.classLevel ?? 9999) - (b.classLevel ?? 9999);
+        if (cl !== 0) return cl;
+        return (a.departmentLevel ?? 9999) - (b.departmentLevel ?? 9999);
+      });
+  }, [targetClassroomsData]);
+
+  // When source classroom changes, auto-select the matching classroom in the
+  // new session (same name), or the "next index" classroom, in that order.
   useEffect(() => {
     if (!sourceClassroomId) return;
+    const source = sourceClassrooms.find((c) => c.id === sourceClassroomId);
+    if (!source) return;
+
+    // Prefer exact name match in the new session
+    const nameMatch = targetClassrooms.find(
+      (t) => t.departmentName === source.name,
+    );
+    if (nameMatch) {
+      setTargetClassroomId(nameMatch.id);
+      return;
+    }
+
+    // Fall back: next classroom by index within source list
     const idx = sourceClassrooms.findIndex((c) => c.id === sourceClassroomId);
-    const next = sourceClassrooms[idx + 1] ?? null;
-    setTargetClassroomId(next?.id ?? null);
-  }, [sourceClassroomId, sourceClassrooms]);
+    const nextSource = sourceClassrooms[idx + 1] ?? null;
+    if (!nextSource) {
+      setTargetClassroomId(null);
+      return;
+    }
+    const nextMatch = targetClassrooms.find(
+      (t) => t.departmentName === nextSource.name,
+    );
+    setTargetClassroomId(nextMatch?.id ?? null);
+  }, [sourceClassroomId, sourceClassrooms, targetClassrooms]);
 
   // Classroom report sheet for score calculation
   const { data: reportSheet } = useQuery(
@@ -381,17 +424,39 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
     }),
   );
 
+  const invalidateTargetClassrooms = () =>
+    queryClient.invalidateQueries({
+      queryKey: trpc.classrooms.all.queryKey({ sessionTermId: firstTermId }),
+    });
+
+  const registerClassroomMutation = useMutation(
+    trpc.classrooms.registerClassroomForSession.mutationOptions({
+      onSuccess(data) {
+        const dept = data.classRoomDepartments?.[0];
+        if (dept) setTargetClassroomId(dept.id);
+        invalidateTargetClassrooms();
+        toast({
+          title: "Classroom registered",
+          description: `${data.name} is now available for this session.`,
+        });
+      },
+      onError() {
+        toast({
+          title: "Error",
+          description: "Could not register classroom.",
+          variant: "destructive",
+        });
+      },
+    }),
+  );
+
   const createClassroomMutation = useMutation(
     trpc.classrooms.createClassroom.mutationOptions({
       onSuccess(data) {
         const dept = data.classRoomDepartments?.[0];
         if (dept) {
           setTargetClassroomId(dept.id);
-          queryClient.invalidateQueries({
-            queryKey: trpc.classrooms.all.queryKey({
-              sessionTermId: firstTermId,
-            }),
-          });
+          invalidateTargetClassrooms();
         }
         setShowNewClass(false);
         setNewClassName("");
@@ -513,14 +578,19 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
                 onValueChange={(v) => setTargetClassroomId(v || null)}
               >
                 <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Same as source (default)…" />
+                  <SelectValue placeholder="Choose target classroom…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sourceClassrooms.map((c) => (
+                  {targetClassrooms.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>
                   ))}
+                  {targetClassrooms.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      No classrooms registered for this session yet.
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
               <Button
@@ -530,10 +600,56 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
                 onClick={() => setShowNewClass(true)}
               >
                 <Plus className="h-3.5 w-3.5" />
-                New Class
+                New
               </Button>
             </div>
           )}
+
+          {/* "Not registered" alert when source is selected but has no match in new session */}
+          {(() => {
+            if (!sourceClassroomId || showNewClass) return null;
+            const source = sourceClassrooms.find(
+              (c) => c.id === sourceClassroomId,
+            );
+            if (!source) return null;
+            const alreadyRegistered = targetClassrooms.some(
+              (t) => t.departmentName === source.name,
+            );
+            if (alreadyRegistered) return null;
+            return (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-3 py-2 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                    &ldquo;{source.name}&rdquo; is not registered for this
+                    session yet.
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                    Register it to make it available as a promotion target.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 border-amber-400 text-amber-800 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900"
+                  disabled={registerClassroomMutation.isPending}
+                  onClick={() =>
+                    registerClassroomMutation.mutate({
+                      className: source.name,
+                      departmentName: source.name,
+                      classLevel: source.classLevel,
+                      departmentLevel: source.departmentLevel,
+                    })
+                  }
+                >
+                  {registerClassroomMutation.isPending
+                    ? "Registering…"
+                    : "Register"}
+                </Button>
+              </div>
+            );
+          })()}
+
           {!targetClassroomId && !showNewClass && (
             <p className="text-[11px] text-muted-foreground">
               Leave blank to keep students in their current classroom.
