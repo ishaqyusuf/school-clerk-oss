@@ -194,7 +194,10 @@ bun run typecheck
 
 ## Always Do
 - Update this file (CLAUDE.md) after every session with new patterns, decisions, or status changes
-- Read and update relevant files in the `brain/` folder (decisions, features, tasks, bugs) when working on a feature or making architectural decisions — keep the brain in sync with every session
+- **Before starting any feature or task**: read all relevant files in `brain/` (features/, decisions/, tasks/, bugs/) to load context
+- **During implementation**: update `brain/features/` with the feature plan, progress, and key decisions made
+- **After completing any task**: update `brain/tasks/` with what was done, and `brain/decisions/` for any architectural choices
+- **Keep brain in sync**: every session should leave the brain folder more complete than it started — treat it as the living source of truth for the project
 - Use `@school-clerk/ui` components, never raw HTML for UI
 - Use `getAuthCookie()` to scope all DB queries
 - Use `batchPrefetch` for tRPC server-side data loading
