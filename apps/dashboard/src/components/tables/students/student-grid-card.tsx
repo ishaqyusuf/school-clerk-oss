@@ -30,6 +30,22 @@ export function StudentGridCard({ item: student }: { item: DataItem }) {
       },
     })
   );
+  const { mutate: changeGender } = useMutation(
+    _trpc.students.changeGender.mutationOptions({
+      onSuccess() {
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.index.infiniteQueryKey(),
+        });
+      },
+      meta: {
+        toastTitle: {
+          error: "Unable to update gender",
+          loading: "Updating...",
+          success: "Gender updated.",
+        },
+      },
+    })
+  );
   return (
     <div
       className="group bg-card rounded-xl border border-border p-5 flex flex-col items-center text-center relative hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"
@@ -61,9 +77,25 @@ export function StudentGridCard({ item: student }: { item: DataItem }) {
             >
               View Details
             </DropdownMenu.Item>
-            <DropdownMenu.Item onClick={(e) => e.stopPropagation()}>
-              Edit Student
+            <DropdownMenu.Item
+              disabled={student.gender === "Male"}
+              onClick={(e) => {
+                e.stopPropagation();
+                changeGender({ id: student.id, gender: "Male" });
+              }}
+            >
+              Set as Male
             </DropdownMenu.Item>
+            <DropdownMenu.Item
+              disabled={student.gender === "Female"}
+              onClick={(e) => {
+                e.stopPropagation();
+                changeGender({ id: student.id, gender: "Female" });
+              }}
+            >
+              Set as Female
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator />
             <DropdownMenu.Item
               onClick={(e) => {
                 e.stopPropagation();

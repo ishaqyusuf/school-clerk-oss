@@ -16,7 +16,7 @@ import {
   Check,
 } from "lucide-react";
 import { useDebouncedCallback } from "use-debounce";
-import { Fragment, useCallback, useDeferredValue, useMemo, useState } from "react";
+import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { _qc, _trpc } from "./static-trpc";
 import { Table } from "@school-clerk/ui/composite";
 import {
@@ -138,12 +138,19 @@ export function ClassroomResultTable() {
     return sorted;
   }, [students, grandTotalsMap, sort]);
 
-  // Checkbox helpers — selections store the original (unsorted) index
-  const originalIndexMap = useMemo(() => {
+  // Checkbox helpers — selections store the original (unsorted) index.
+  // The map is computed once when students first load for a given departmentId
+  // so that refetches (e.g. after score edits) or sort changes never shift indices.
+  const stableIndexMapRef = useRef<Map<string, number>>(new Map());
+  const lastDepartmentId = useRef<string | null>(null);
+  const currentDeptId = filters.departmentId ?? null;
+  if (students.length > 0 && currentDeptId !== lastDepartmentId.current) {
+    lastDepartmentId.current = currentDeptId;
     const map = new Map<string, number>();
     students.forEach((s, i) => map.set(s.id, i));
-    return map;
-  }, [students]);
+    stableIndexMapRef.current = map;
+  }
+  const originalIndexMap = stableIndexMapRef.current;
 
   const selections = filters.selections ?? [];
   const allSelected = students.length > 0 && students.every((s) => selections.includes(originalIndexMap.get(s.id)!));

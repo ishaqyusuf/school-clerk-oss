@@ -1,10 +1,12 @@
 "use client";
 
 import type { Item as DataItem } from "./columns";
-import { Eye, Edit2 } from "lucide-react";
+import { Eye, MoreHorizontal } from "lucide-react";
 import { Avatar, DropdownMenu } from "@school-clerk/ui/composite";
 import { getInitials } from "@school-clerk/utils";
 import { Badge } from "@school-clerk/ui/badge";
+import { useMutation } from "@tanstack/react-query";
+import { _qc, _trpc } from "@/components/static-trpc";
 
 interface Props {
   student: DataItem;
@@ -12,6 +14,23 @@ interface Props {
 }
 
 export function StudentListRow({ student, onClick }: Props) {
+  const { mutate: changeGender } = useMutation(
+    _trpc.students.changeGender.mutationOptions({
+      onSuccess() {
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.index.infiniteQueryKey(),
+        });
+      },
+      meta: {
+        toastTitle: {
+          error: "Unable to update gender",
+          loading: "Updating...",
+          success: "Gender updated.",
+        },
+      },
+    })
+  );
+
   return (
     <tr
       className="hover:bg-muted/50 transition-colors group cursor-pointer"
@@ -65,6 +84,36 @@ export function StudentListRow({ student, onClick }: Props) {
           >
             <Eye className="w-4 h-4" />
           </button>
+          <DropdownMenu>
+            <DropdownMenu.Trigger asChild>
+              <button
+                className="p-1.5 text-muted-foreground hover:text-primary hover:bg-muted rounded transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+              <DropdownMenu.Item
+                disabled={student.gender === "Male"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  changeGender({ id: student.id, gender: "Male" });
+                }}
+              >
+                Set as Male
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                disabled={student.gender === "Female"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  changeGender({ id: student.id, gender: "Female" });
+                }}
+              >
+                Set as Female
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu>
         </div>
       </td>
     </tr>
