@@ -10,6 +10,7 @@ model ClassRoom {
     session              SchoolSession         @relation(fields: [schoolSessionId], references: [id])
     school               SchoolProfile         @relation(fields: [schoolProfileId], references: [id])
     classRoomDepartments ClassRoomDepartment[]
+    fees                 Fees[]
 
     @@unique([schoolSessionId, name])
 }

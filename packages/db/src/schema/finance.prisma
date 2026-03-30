@@ -3,6 +3,8 @@ model Wallet {
     name                String
     schoolProfile       SchoolProfile?       @relation(fields: [schoolProfileId], references: [id])
     type                String?
+    // source: "student" | "staff" | null (general)
+    source              String?
     schoolProfileId     String?
     sessionTerm         SessionTerm?         @relation(fields: [sessionTermId], references: [id])
     sessionTermId       String?

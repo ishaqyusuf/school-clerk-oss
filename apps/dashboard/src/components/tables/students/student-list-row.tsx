@@ -1,7 +1,7 @@
 "use client";
 
 import type { Item as DataItem } from "./columns";
-import { Eye, MoreHorizontal } from "lucide-react";
+import { Eye, MoreHorizontal, AlertTriangle } from "lucide-react";
 import { Avatar, DropdownMenu } from "@school-clerk/ui/composite";
 import { getInitials } from "@school-clerk/utils";
 import { Badge } from "@school-clerk/ui/badge";
@@ -51,6 +51,12 @@ export function StudentListRow({ student, onClick }: Props) {
             <p className="font-medium text-foreground">
               {student.studentName}
             </p>
+            {student.hasPreviousBalance && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-red-600 mt-0.5">
+                <AlertTriangle className="h-3 w-3" />
+                Outstanding balance
+              </span>
+            )}
           </div>
         </div>
       </td>

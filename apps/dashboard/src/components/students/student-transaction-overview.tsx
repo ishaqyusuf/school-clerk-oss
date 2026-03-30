@@ -39,7 +39,18 @@ import {
 import { format } from "date-fns";
 import { z } from "zod";
 import { Card, CardContent } from "@school-clerk/ui/card";
-import { Receipt, Wallet, AlertTriangle, Plus, ScrollText, Info } from "lucide-react";
+import {
+  Receipt,
+  Wallet,
+  AlertTriangle,
+  Plus,
+  ScrollText,
+  Info,
+  CheckCircle2,
+  Circle,
+  AlertCircle,
+  ChevronDown,
+} from "lucide-react";
 
 export function StudentTransactionOverview({}) {
   return (
@@ -69,6 +80,33 @@ function Content({}) {
       { studentId: params.studentViewId },
       { enabled: !!params.studentViewId }
     )
+  );
+
+  const { data: feeStatus, refetch: refetchFeeStatus } = useQuery(
+    trpc.transactions.getStudentFeeStatus.queryOptions(
+      { studentTermFormId: params.studentTermSheetId! },
+      { enabled: !!params.studentTermSheetId }
+    )
+  );
+
+  const { mutate: initializeFees, isPending: initializingFees } = useMutation(
+    trpc.transactions.initializeStudentFees.mutationOptions({
+      meta: {
+        toastTitle: {
+          loading: "Initializing fees...",
+          success: "Fees initialized",
+          error: "Failed to initialize fees",
+        },
+      },
+      onSuccess() {
+        refetchFeeStatus();
+        qc.invalidateQueries({
+          queryKey: trpc.transactions.studentAccounting.queryKey({
+            studentId: params.studentViewId,
+          }),
+        });
+      },
+    })
   );
 
   const qc = useQueryClient();
@@ -256,6 +294,71 @@ function Content({}) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Fee Initialization Status */}
+      {params.studentTermSheetId && (feeStatus?.uninitialized?.length ?? 0) > 0 && (
+        <Card className="bg-card rounded-xl shadow-sm overflow-hidden border-amber-100 dark:border-amber-900/30">
+          <div className="px-5 py-4 border-b border-border flex justify-between items-center bg-amber-50/50 dark:bg-amber-900/10">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                Fees Not Initialized ({feeStatus!.uninitialized.length})
+              </h3>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs gap-1"
+              disabled={initializingFees}
+              onClick={() =>
+                initializeFees({
+                  studentTermFormId: params.studentTermSheetId!,
+                })
+              }
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Initialize All
+            </Button>
+          </div>
+          <div className="divide-y divide-border">
+            {feeStatus!.uninitialized.map((fee) => (
+              <div
+                key={fee.feeHistoryId}
+                className="flex items-center gap-3 px-5 py-3"
+              >
+                <Circle className="h-4 w-4 text-amber-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{fee.title}</p>
+                  {fee.classRoomName && (
+                    <p className="text-xs text-muted-foreground">
+                      {fee.classRoomName}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold">
+                    <AnimatedNumber value={fee.amount} currency="NGN" />
+                  </span>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    className="text-xs"
+                    disabled={initializingFees}
+                    onClick={() =>
+                      initializeFees({
+                        studentTermFormId: params.studentTermSheetId!,
+                        feeHistoryIds: [fee.feeHistoryId],
+                      })
+                    }
+                  >
+                    Initialize
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Fee Structure */}
       {data?.fees && data.fees.length > 0 && (

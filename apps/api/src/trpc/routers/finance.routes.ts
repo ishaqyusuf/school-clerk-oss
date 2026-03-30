@@ -132,6 +132,7 @@ export const financeRouter = createTRPCRouter({
           id: true,
           name: true,
           type: true,
+          source: true,
           studentTransactions: {
             where: { status: "success", deletedAt: null },
             select: { amount: true, type: true },
@@ -151,6 +152,7 @@ export const financeRouter = createTRPCRouter({
           id: w.id,
           name: w.name,
           type: w.type,
+          source: w.source,
           totalIn: incoming,
           totalOut: outgoing,
           balance: incoming - outgoing,
@@ -160,15 +162,26 @@ export const financeRouter = createTRPCRouter({
 
   createStream: publicProcedure
     .input(
-      z.object({ name: z.string().min(1), type: z.string().default("fee") })
+      z.object({
+        name: z.string().min(1),
+        type: z.string().default("fee"),
+        source: z.enum(["student", "staff", "general"]).optional().nullable(),
+      })
     )
     .mutation(async ({ input, ctx }) => {
-      return getOrCreateWallet(ctx.db, {
+      const wallet = await getOrCreateWallet(ctx.db, {
         name: input.name,
         type: input.type,
         schoolId: ctx.profile.schoolId!,
         termId: ctx.profile.termId!,
       });
+      if (input.source) {
+        await ctx.db.wallet.update({
+          where: { id: wallet.id },
+          data: { source: input.source },
+        });
+      }
+      return wallet;
     }),
 
   transferFunds: publicProcedure

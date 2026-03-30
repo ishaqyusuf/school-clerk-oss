@@ -17,6 +17,7 @@ import { ClassroomSubjectOverviewSecondary } from "../classroom-subject-secondar
 import { _trpc } from "../static-trpc";
 import { ClassroomAttendance } from "../classroom-attendance";
 import { ClassroomAttendanceForm } from "../classroom-attendance-form";
+import { ClassroomPayments } from "../classroom-payments";
 import { Badge } from "@school-clerk/ui/badge";
 import {
   Users,
@@ -179,7 +180,7 @@ export function Content({}) {
                 <ClassroomAttendance departmentId={viewClassroomId} />
               </TabsContent>
               <TabsContent value="payments" className="h-screen">
-                <ComingSoonPlaceholder tab="Payments" />
+                <ClassroomPayments departmentId={viewClassroomId!} />
               </TabsContent>
               <TabsContent value="performance" className="h-screen">
                 <ComingSoonPlaceholder tab="Performance" />

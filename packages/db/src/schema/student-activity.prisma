@@ -42,6 +42,10 @@ model Fees {
     feeHistory      FeeHistory[]
     schoolProfileId String
     schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id])
+
+    // Optional classroom scope — null means general (school-wide)
+    classRoomId String?
+    classRoom   ClassRoom? @relation(fields: [classRoomId], references: [id])
 }
 
 model FeeHistory {

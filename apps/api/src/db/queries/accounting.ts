@@ -62,6 +62,9 @@ applyPayment: publicProcedure
 export const applyPaymentSchema = z.object({
   amount: z.number(),
   pendingAmount: z.number(),
+  // paymentTermId: the term whose wallet receives the payment (defaults to current
+  // profile term). Allows cross-term routing — a previous-term fee paid now goes
+  // into the current term's stream while decrementing the old StudentFee.
   termId: z.string().optional().nullable(),
   studentId: z.string(),
   studentFeeId: z.string().optional().nullable(),
@@ -284,10 +287,11 @@ export async function getTermFees({ db, profile }: TRPCContext, termId) {
 export const createSchoolFeeSchema = z.object({
   amount: z.number(),
   termId: z.string(),
-  // sessionId: z.string(),
   title: z.string(),
   feeId: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
+  // optional classroom scope — null means general (school-wide)
+  classRoomId: z.string().optional().nullable(),
 });
 export type CreateSchoolFee = z.infer<typeof createSchoolFeeSchema>;
 
@@ -307,6 +311,7 @@ export async function createSchoolFee(
         description: data.description,
         amount: data.amount,
         schoolProfileId: profile.schoolId,
+        classRoomId: data.classRoomId || undefined,
         feeHistory: {
           create: {
             amount: data.amount,
@@ -319,19 +324,16 @@ export async function createSchoolFee(
     });
   } else {
     await db.fees.update({
-      where: {
-        id: data.feeId,
-      },
+      where: { id: data.feeId },
       data: {
         title: data.title,
         description: data.description,
         amount: data.amount,
+        classRoomId: data.classRoomId || undefined,
         feeHistory: {
           updateMany: {
             where: {},
-            data: {
-              current: false,
-            },
+            data: { current: false },
           },
           create: {
             amount: data.amount,
@@ -342,15 +344,6 @@ export async function createSchoolFee(
         },
       },
     });
-    // await db.feeHistory.create({
-    //   data: {
-    //     feeId: data.feeId,
-    //     amount: data.amount,
-    //     schoolSessionId: data.termId,
-    //     termId: data.termId,
-    //     current: true,
-    //   },
-    // });
   }
 }
 

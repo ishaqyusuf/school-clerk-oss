@@ -243,6 +243,11 @@ function Content() {
                   </div>
 
                   <h3 className="text-base font-bold">{stream.name}</h3>
+                  {stream.source && (
+                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                      {SOURCE_LABELS[stream.source] ?? stream.source}
+                    </span>
+                  )}
                   <div className="flex items-baseline gap-2 mt-2">
                     <span className="text-2xl font-bold">
                       <AnimatedNumber value={stream.balance} currency="NGN" />
@@ -288,10 +293,17 @@ function Content() {
   );
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  student: "Student Payments",
+  staff: "Staff Payroll",
+  general: "General",
+};
+
 function CreateStreamForm({ onSuccess }: { onSuccess: () => void }) {
   const trpc = useTRPC();
   const [name, setName] = useState("");
   const [type, setType] = useState("fee");
+  const [source, setSource] = useState<"student" | "staff" | "general">("student");
 
   const { mutate, isPending } = useMutation(
     trpc.finance.createStream.mutationOptions({
@@ -317,11 +329,11 @@ function CreateStreamForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid sm:grid-cols-3 gap-4 items-end">
+        <div className="grid sm:grid-cols-4 gap-4 items-end">
           <div className="grid gap-1.5">
             <Label>Stream Name</Label>
             <Input
-              placeholder="e.g. Uniform Sales"
+              placeholder="e.g. Tuition Fees"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -338,11 +350,24 @@ function CreateStreamForm({ onSuccess }: { onSuccess: () => void }) {
               </SelectContent>
             </Select>
           </div>
+          <div className="grid gap-1.5">
+            <Label>Source</Label>
+            <Select value={source} onValueChange={(v) => setSource(v as any)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="student">Student Payments</SelectItem>
+                <SelectItem value="staff">Staff Payroll</SelectItem>
+                <SelectItem value="general">General</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex gap-2">
             <SubmitButton
               isSubmitting={isPending}
               disabled={!name}
-              onClick={() => mutate({ name, type })}
+              onClick={() => mutate({ name, type, source })}
               type="button"
             >
               Create

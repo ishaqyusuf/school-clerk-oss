@@ -96,6 +96,11 @@ export const linkModules = [
         "file-text",
         "/finance/student-fees",
       ).access(_role.in("Admin", "Accountant")).data,
+      createNavLink(
+        "Payment Portal",
+        "credit-card",
+        "/finance/student-payment-portal",
+      ).access(_role.in("Admin", "Accountant")).data,
       createNavLink("Bills", "file-text", "/finance/bills").access(
         _role.in("Admin", "Accountant"),
       ).data,

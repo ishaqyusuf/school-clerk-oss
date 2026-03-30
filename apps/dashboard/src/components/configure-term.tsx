@@ -8,6 +8,7 @@ import {
   Database,
   CheckCircle,
   HelpCircle,
+  Banknote,
 } from "lucide-react";
 import { Card } from "@school-clerk/ui/composite";
 import { Badge } from "@school-clerk/ui/badge";
@@ -234,6 +235,19 @@ export const ConfigureTerm = ({ termId }) => {
                   Save as Draft
                 </Button>
                 <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                onClick={() =>
+                  router.push(
+                    `/academic/term-getting-started/${termId}/fee-setup`
+                  )
+                }
+              >
+                <Banknote className="h-4 w-4" />
+                Fee Setup
+              </Button>
+              <Button
                   // disabled
                   className="gap-2 bg-primary/50 text-primary-foreground hover:bg-primary/50"
                 >

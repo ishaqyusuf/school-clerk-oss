@@ -48,6 +48,20 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
       surname: true,
       dob: true,
       gender: true,
+      _count: {
+        select: {
+          studentFees: {
+            where: {
+              pendingAmount: { gt: 0 },
+              status: { not: "cancelled" },
+              deletedAt: null,
+              studentTermForm: {
+                sessionTermId: { not: query.sessionTermId || undefined },
+              },
+            },
+          },
+        },
+      },
       sessionForms: {
         where: {
           schoolSessionId: query.sessionId,
@@ -115,6 +129,7 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
         classId: classRoom?.id,
         termFormId,
         termFormSessionTermId,
+        hasPreviousBalance: (student._count?.studentFees ?? 0) > 0,
       };
     })
   );
