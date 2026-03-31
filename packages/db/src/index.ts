@@ -2,6 +2,18 @@ import { PrismaClient } from "@prisma/client";
 
 export * from "@prisma/client";
 // Learn more about instantiating PrismaClient in Next.js here: https://www.prisma.io/docs/data-platform/accelerate/getting-started
+if (
+  process.env.NODE_ENV !== "production" &&
+  process.env.DIRECT_URL &&
+  (!process.env.POSTGRES_URL ||
+    process.env.POSTGRES_URL.includes(".pooler.supabase.com:6543"))
+) {
+  // Local dev is more reliable against Supabase over the direct connection
+  // than the transaction pooler, which is often the first path to fail on
+  // DNS or transient network issues.
+  process.env.POSTGRES_URL = process.env.DIRECT_URL;
+}
+
 const prismaClientSingleton = () => {
   return new PrismaClient({
     log:
