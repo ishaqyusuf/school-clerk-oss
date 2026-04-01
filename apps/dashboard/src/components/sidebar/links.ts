@@ -1,13 +1,12 @@
 import {
   createNavLink,
-  getLinkModules as buildNavLinkModules,
   createNavModule,
   createNavSection,
-  initPermAccess,
+  getLinkModules as buildNavLinkModules,
   initRoleAccess,
   validateLinks as buildValidatedNavLinks,
 } from "@school-clerk/ui/nav/utils";
-type Permission = any | null | string | undefined;
+type Permission = null | string | undefined | unknown;
 
 type Role =
   | "Admin"

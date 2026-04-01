@@ -165,11 +165,13 @@ See `brain/features/student-promotion.md` for full details.
 
 ### Staff/Teacher Status
 - Teachers page search uses `staffPageQuery` and `MiddaySearchFilter` with an explicit filter schema to avoid client-side query-state crashes.
-- `getStaffListAction` now returns an empty list when tenant cookie context lacks `schoolId`, `sessionId`, or `termId`, and scopes teacher list queries to the active tenant and active term.
+- `getStaffListAction` now returns only teacher-role staff records, defaults unmatched legacy staff records to Teacher for compatibility, and still scopes queries to the active tenant/session/term.
 - Teachers can now be created or edited with a role, allowed classrooms, allowed subjects, and an optional onboarding email invite from the dashboard sheets.
 - Staff invites create/update the tenant `User` role and trigger Better Auth password setup via the reset-password email flow.
 - Classroom permissions are stored on `StaffClassroomDepartmentTermProfiles` for the active term profile; subject permissions are stored on `StaffSubject` against active-term `DepartmentSubject` records.
-- The assignment workflow exists now, but downstream teacher-facing modules still need to explicitly enforce these assignments when they add teacher access controls.
+- Teacher day-to-day pages now live under the dashboard route group `(k-12-teachers)` with `/teacher`, `/teacher/classes`, `/teacher/students`, `/teacher/attendance`, `/teacher/assessments`, `/teacher/grading`, `/teacher/reports`, and `/teacher/timetable`.
+- `/staff/teachers` remains the admin-only management surface for onboarding, editing, and assigning teachers; `/staff/non-teaching`, `/staff/departments`, and `/staff/attendance` are now basic tenant-scoped operational pages instead of coming-soon stubs.
+- Teacher workspace pages resolve the signed-in teacher by matching the auth session email to `StaffProfile.email`, then scope classes, students, subjects, and attendance summaries to that teacher's active-term assignments.
 
 ### Attendance System Pattern
 - **Models**: `ClassRoomAttendance` (session) + `StudentAttendance` (per-student record)

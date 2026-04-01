@@ -1,12 +1,9 @@
 // import { ICan, PermissionScope } from "@/types/auth";
-import { IconKeys } from "@school-clerk/ui/custom/icons";
-import { sum } from "@school-clerk/utils";
-import z from "zod";
+import type { IconKeys } from "@school-clerk/ui/custom/icons";
 import {
   createNavLink,
   createNavModule,
   createNavSection,
-  initPermAccess,
   initRoleAccess,
 } from "@school-clerk/ui/nav/utils";
 // import { IconKeys } from "../_v1/icons";
@@ -133,11 +130,9 @@ type Role =
   | "HR"
   | "Staff"
   | "Support";
-type Permission = any | null | string | undefined;
 const _role = initRoleAccess("" as Role);
-const _perm = initPermAccess("" as Permission);
 export function validateRules(accessList: Access[], can?, userId?, _role?) {
-  if (!can) can = {};
+  const permissions = can ?? {};
   const role = typeof _role === "string" ? _role : _role?.name;
   return accessList.every((a) => {
     switch (a.type) {
@@ -148,13 +143,13 @@ export function validateRules(accessList: Access[], can?, userId?, _role?) {
         switch (a.equator) {
           case "every":
           case "is":
-            return a.values?.every((p) => can?.[p]);
+            return a.values?.every((p) => permissions?.[p]);
           case "in":
           case "some":
-            return a.values?.some((p) => can?.[p]);
+            return a.values?.some((p) => permissions?.[p]);
           case "isNot":
           case "notIn":
-            return a.values.every((p) => !can?.[p]);
+            return a.values.every((p) => !permissions?.[p]);
         }
         break;
       case "role":
