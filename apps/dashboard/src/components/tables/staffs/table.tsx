@@ -77,7 +77,7 @@ export function DataTable({ data, loadMore, pageSize, hasNextPage }: Props) {
 							})
 						}
 					>
-						Create staff
+						Create teacher
 					</Button>
 				</div>
 				<Table>

@@ -120,7 +120,7 @@ export async function NonTeachingStaffPanel({
 					},
 					{
 						label: "Attendance-ready staff",
-						value: data.items.filter((item) => item.classroomCount > 0).length,
+						value: data.stats.attendanceReadyCount,
 						icon: CalendarCheck2,
 					},
 				]}
