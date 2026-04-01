@@ -15,9 +15,10 @@ Operational summary of SchoolClerk domains, modules, and runtime boundaries.
 
 ## Key Capabilities
 - Admissions, academics, attendance, finance, communication
+- Finance includes term-scoped accounting streams, classroom-scoped billables, and a receive-payment workflow that searches all students but allocates against the active term sheet.
 
 ## Runtime Boundaries
-- Frontend apps: TBD
-- Backend services: TBD
-- Data stores: TBD
-- External providers: TBD
+- Frontend apps: `apps/dashboard` (authenticated product UI), `apps/web` (marketing)
+- Backend services: `apps/api` tRPC/Hono API, Trigger.dev jobs in `packages/jobs`
+- Data stores: PostgreSQL via Prisma models in `packages/db/src/schema/*.prisma`
+- External providers: Better Auth, Vercel domains, Resend email, Google Fonts (build-time fetch in Next.js)

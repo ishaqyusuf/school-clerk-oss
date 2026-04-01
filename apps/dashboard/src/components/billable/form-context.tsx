@@ -1,18 +1,21 @@
-import { CreateBillableForm } from "@/actions/create-billable-action";
-import { createBillableSchema, createClassroomSchema } from "@/actions/schema";
+import type { CreateBillableForm } from "@/actions/create-billable-action";
+import { createBillableSchema } from "@/actions/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 
 type Type = CreateBillableForm;
 export function FormContext({ children }) {
-  const form = useForm<Type>({
-    resolver: zodResolver(createBillableSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-    },
-  });
+	const form = useForm<Type>({
+		resolver: zodResolver(createBillableSchema),
+		defaultValues: {
+			title: "",
+			description: "",
+			streamId: "",
+			streamName: "",
+			classroomDepartmentIds: [],
+		},
+	});
 
-  return <FormProvider {...form}>{children}</FormProvider>;
+	return <FormProvider {...form}>{children}</FormProvider>;
 }
 export const useBillableFormContext = () => useFormContext<Type>();

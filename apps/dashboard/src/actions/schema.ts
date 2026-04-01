@@ -119,6 +119,9 @@ export const createBillableSchema = z.object({
 	amount: z.number().min(1),
 	description: z.string().optional(),
 	type: z.enum(["SALARY", "MISC", "OTHER"]).default("OTHER"),
+	streamId: z.string().optional(),
+	streamName: z.string().optional(),
+	classroomDepartmentIds: z.array(z.string()).default([]),
 });
 export const createClassroomSchema = z.object({
 	className: z.string().min(1),

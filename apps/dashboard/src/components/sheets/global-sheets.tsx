@@ -6,6 +6,7 @@ import { ClassroomCreateSheet } from "./classroom-create-sheet";
 import { ClassroomOverviewSheet } from "./classroom-overview-sheet";
 import { CreateBillSheet } from "./create-bill-sheet";
 import { QuestionSheet } from "./question-sheet";
+import { ReceivePaymentSheet } from "./receive-payment-sheet";
 import { SchoolFeeCreateSheet } from "./school-fee-create-sheet";
 import { StaffCreateSheet } from "./staff-create-sheet";
 import { StaffOverviewSheet } from "./staff-overview-sheet";
@@ -25,6 +26,7 @@ export function GlobalSheets() {
 			<StudentOverviewSheet />
 			<ClassroomOverviewSheet />
 			<CreateBillSheet />
+			<ReceivePaymentSheet />
 			<QuestionSheet />
 			{/* We preload the invoice data (template, invoice number etc) */}
 			{/* <Suspense fallback={null}>

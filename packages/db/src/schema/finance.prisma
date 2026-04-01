@@ -9,6 +9,7 @@ model Wallet {
     studentTransactions WalletTransactions[]
     bills               Bills[]
     funds               Funds[]
+    billableHistories   BillableHistory[]
     createdAt           DateTime?            @default(now()) @db.Timestamp(0)
     updatedAt           DateTime?            @updatedAt
     deletedAt           DateTime?            @db.Timestamp(0)
@@ -123,6 +124,10 @@ model BillableHistory {
     term   SessionTerm @relation(fields: [termId], references: [id])
     termId String
 
+    wallet   Wallet? @relation(fields: [walletId], references: [id])
+    walletId String?
+
+    classroomDepartments ClassRoomDepartment[]
     bills Bills[]
 
     createdAt DateTime? @default(now()) @db.Timestamp(0)
