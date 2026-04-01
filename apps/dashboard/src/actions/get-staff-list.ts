@@ -26,7 +26,7 @@ export async function getStaffListAction(query: SearchParamsType = {}) {
 	const staff = await prisma.staffProfile.findMany({
 		where: {
 			AND: [
-				where ?? {},
+				where,
 				{
 					termProfiles: {
 						some: {
@@ -64,7 +64,6 @@ export async function getStaffListAction(query: SearchParamsType = {}) {
 		data: staff.map(({ termProfiles, ...staffProfile }) => {
 			return {
 				...staffProfile,
-				staffSessionId: termProfiles?.[0]?.id,
 				staffTermId: termProfiles?.[0]?.id,
 			};
 		}),

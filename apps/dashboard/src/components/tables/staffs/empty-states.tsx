@@ -26,7 +26,7 @@ export function EmptyState() {
 						})
 					}
 				>
-					Create Staff
+					Create Teacher
 				</Button>
 			</div>
 		</div>
