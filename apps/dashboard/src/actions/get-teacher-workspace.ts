@@ -16,7 +16,7 @@ export async function getTeacherWorkspaceAction({
 	const userEmail = session?.user?.email?.trim().toLowerCase();
 
 	if (!schoolId || !sessionId || !termId || !userEmail) {
-		return emptyTeacherWorkspace();
+		return emptyTeacherWorkspace(userEmail ?? null);
 	}
 
 	const staffProfile = await prisma.staffProfile.findFirst({
@@ -143,7 +143,7 @@ export async function getTeacherWorkspaceAction({
 	});
 
 	if (!staffProfile) {
-		return emptyTeacherWorkspace();
+		return emptyTeacherWorkspace(userEmail);
 	}
 
 	const assignedClassrooms = staffProfile.termProfiles[0]?.classroomsProfiles
@@ -242,6 +242,7 @@ export async function getTeacherWorkspaceAction({
 			title: staffProfile.title,
 			email: staffProfile.email,
 		},
+		signedInEmail: userEmail,
 		stats: {
 			classroomCount: assignedClassrooms.length,
 			subjectCount: assignedSubjects.length,
@@ -281,9 +282,10 @@ export async function getTeacherWorkspaceAction({
 	};
 }
 
-function emptyTeacherWorkspace() {
+function emptyTeacherWorkspace(signedInEmail: string | null) {
 	return {
 		teacher: null,
+		signedInEmail,
 		stats: {
 			classroomCount: 0,
 			subjectCount: 0,

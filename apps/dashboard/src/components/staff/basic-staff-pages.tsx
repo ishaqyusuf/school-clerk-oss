@@ -148,7 +148,7 @@ export async function NonTeachingStaffPanel({
 									<TableHead>Name</TableHead>
 									<TableHead>Role</TableHead>
 									<TableHead>Contact</TableHead>
-									<TableHead>Assignments</TableHead>
+									<TableHead>Current assignments</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>

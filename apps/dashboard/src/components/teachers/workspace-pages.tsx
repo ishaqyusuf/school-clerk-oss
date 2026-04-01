@@ -15,14 +15,15 @@ import { BookOpen, CalendarCheck2, Clock3, FileText, Users } from "lucide-react"
 import Link from "next/link";
 import type { ComponentType } from "react";
 
-function TeacherEmptyState() {
+function TeacherEmptyState({ email }: { email?: string | null }) {
 	return (
 		<Card>
 			<CardContent className="flex flex-col items-center gap-3 py-12 text-center">
 				<div className="text-lg font-semibold">Your teacher workspace is not ready</div>
 				<p className="max-w-xl text-sm text-muted-foreground">
 					Ask an administrator to update your staff record with the same email
-					address you use to sign in, then assign your classrooms and subjects.
+					address you use to sign in
+					{email ? ` (${email})` : ""}, then assign your classrooms and subjects.
 				</p>
 				<Button asChild variant="outline">
 					<Link href="/announcements">Go to announcements</Link>
@@ -117,7 +118,7 @@ export async function TeacherDashboardPanel() {
 	const data = await getTeacherWorkspaceAction();
 
 	if (!data.teacher) {
-		return <TeacherEmptyState />;
+		return <TeacherEmptyState email={data.signedInEmail} />;
 	}
 
 	return (
@@ -206,7 +207,7 @@ export async function TeacherClassesPanel() {
 	const data = await getTeacherWorkspaceAction();
 
 	if (!data.teacher) {
-		return <TeacherEmptyState />;
+		return <TeacherEmptyState email={data.signedInEmail} />;
 	}
 
 	return (
@@ -240,7 +241,7 @@ export async function TeacherClassesPanel() {
 						</TableBody>
 					</Table>
 				) : (
-					<TeacherEmptyState />
+					<TeacherEmptyState email={data.signedInEmail} />
 				)}
 			</CardContent>
 		</Card>
@@ -255,7 +256,7 @@ export async function TeacherStudentsPanel({
 	const data = await getTeacherWorkspaceAction({ search });
 
 	if (!data.teacher) {
-		return <TeacherEmptyState />;
+		return <TeacherEmptyState email={data.signedInEmail} />;
 	}
 
 	return (
@@ -292,7 +293,7 @@ export async function TeacherStudentsPanel({
 							</TableBody>
 						</Table>
 					) : (
-						<TeacherEmptyState />
+						<TeacherEmptyState email={data.signedInEmail} />
 					)}
 				</CardContent>
 			</Card>
@@ -304,7 +305,7 @@ export async function TeacherAttendancePanel() {
 	const data = await getTeacherWorkspaceAction();
 
 	if (!data.teacher) {
-		return <TeacherEmptyState />;
+		return <TeacherEmptyState email={data.signedInEmail} />;
 	}
 
 	return (
@@ -381,7 +382,7 @@ export async function TeacherAssessmentsPanel() {
 	const data = await getTeacherWorkspaceAction();
 
 	if (!data.teacher) {
-		return <TeacherEmptyState />;
+		return <TeacherEmptyState email={data.signedInEmail} />;
 	}
 
 	return (
@@ -428,7 +429,7 @@ export async function TeacherGradingPanel() {
 	const data = await getTeacherWorkspaceAction();
 
 	if (!data.teacher) {
-		return <TeacherEmptyState />;
+		return <TeacherEmptyState email={data.signedInEmail} />;
 	}
 
 	return (
@@ -467,7 +468,7 @@ export async function TeacherReportsPanel() {
 	const data = await getTeacherWorkspaceAction();
 
 	if (!data.teacher) {
-		return <TeacherEmptyState />;
+		return <TeacherEmptyState email={data.signedInEmail} />;
 	}
 
 	return (
@@ -504,7 +505,7 @@ export async function TeacherTimetablePanel() {
 	const data = await getTeacherWorkspaceAction();
 
 	if (!data.teacher) {
-		return <TeacherEmptyState />;
+		return <TeacherEmptyState email={data.signedInEmail} />;
 	}
 
 	return (
