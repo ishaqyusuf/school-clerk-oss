@@ -119,7 +119,7 @@ See `brain/decisions/ADR-0003-tenant-domain-model.md` for full rationale.
 - `/students/list`, `/students/enrollment`
 - `/academic` (sessions dashboard), `/academic/classes`, `/academic/subjects`
 - `/academic/term-getting-started/[id]`
-- `/staff/teachers`
+- `/staff/teachers` (searchable list; safely returns empty state when school/session/term cookie context is missing)
 - `/finance`, `/finance/bills`, `/finance/billables`, `/finance/fees-management`, `/finance/student-fees`, `/finance/transactions`
 - `/settings/school-profile` (read-only profile card)
 - `/dashboard` (home dashboard with stat cards)
@@ -162,6 +162,12 @@ See `brain/features/student-promotion.md` for full details.
 - All forms (classroom-form, staff-form, bill-form, school-fee-form, billable-form) now use `useMutation(trpc.*)` instead of `useAction(serverAction)`
 - All table delete actions use `useMutation(trpc.*)` instead of `useAction(serverAction)`
 - Finance table indexes (`billables`, `bills`, `fees-management`, `student-fees`, `transactions`) are client components using `useSuspenseQuery(trpc.*)`
+
+### Staff/Teacher Status
+- Teachers page search uses `staffPageQuery` and `MiddaySearchFilter` with an explicit filter schema to avoid client-side query-state crashes.
+- `getStaffListAction` now returns an empty list when tenant cookie context lacks `schoolId`, `sessionId`, or `termId`, and scopes teacher list queries to the active tenant and active term.
+- Staff onboarding is still manual; there is no email invite + onboarding link flow yet.
+- Classroom- and subject-specific teacher permission tables exist in Prisma (`StaffClassroomDepartmentTermProfiles`, `StaffSubject`), but there is no UI/API workflow enforcing them yet.
 
 ### Attendance System Pattern
 - **Models**: `ClassRoomAttendance` (session) + `StudentAttendance` (per-student record)

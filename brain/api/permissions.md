@@ -42,3 +42,12 @@ Defines access control rules for each API surface.
 - Post-login redirect uses that same first permitted sidebar link for the signed-in account.
 - The dashboard sidebar root page keeps the same redirect target as a server-side fallback.
 - If no permitted dashboard link is found, the app falls back to `/`.
+
+## Teacher/Classroom Authorization Status
+- The data model has teacher-to-classroom and teacher-to-subject assignment tables via `StaffClassroomDepartmentTermProfiles` and `StaffSubject`.
+- The current dashboard/API surface does not expose teacher-specific classroom or subject permission management yet.
+- No server-side authorization layer currently enforces classroom-specific or subject-specific teacher permissions.
+
+## Staff Invite Status
+- There is currently no staff invite flow that captures email plus role and emails an onboarding link to the staff member.
+- Staff onboarding today is manual staff creation from the dashboard.
