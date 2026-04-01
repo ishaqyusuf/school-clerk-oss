@@ -4,752 +4,1552 @@ import { createTRPCRouter, publicProcedure } from "../init";
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
 const streamFilterSchema = z.object({
-  filter: z.enum(["term", "session"]).default("term"),
-  termId: z.string().optional().nullable(),
-  sessionId: z.string().optional().nullable(),
+	filter: z.enum(["term", "session"]).default("term"),
+	termId: z.string().optional().nullable(),
+	sessionId: z.string().optional().nullable(),
 });
 
 const payBillSchema = z.object({
-  billId: z.string(),
-  amount: z.number().positive(),
-  date: z.date().optional().nullable(),
+	billId: z.string(),
+	amount: z.number().positive(),
+	date: z.date().optional().nullable(),
 });
 
-async function getOrCreateWallet(
-  db: any,
-  {
-    name,
-    type,
-    schoolId,
-    termId,
-  }: { name: string; type: string; schoolId: string; termId: string }
+const receivePaymentLineSchema = z.object({
+	source: z.enum(["studentFee", "billable", "manual"]),
+	studentFeeId: z.string().optional().nullable(),
+	billableHistoryId: z.string().optional().nullable(),
+	title: z.string().optional().nullable(),
+	description: z.string().optional().nullable(),
+	amountDue: z.number().positive(),
+	amountToPay: z.number().positive(),
+});
+
+const receivePaymentSchema = z.object({
+	studentId: z.string(),
+	studentTermFormId: z.string(),
+	paymentMethod: z.string().min(1),
+	paymentDate: z.date().optional().nullable(),
+	reference: z.string().optional().nullable(),
+	amountReceived: z.number().positive(),
+	allocations: z.array(receivePaymentLineSchema).min(1),
+});
+
+function getStudentName(student: {
+	name?: string | null;
+	surname?: string | null;
+	otherName?: string | null;
+}) {
+	return [student.name, student.otherName, student.surname]
+		.filter(Boolean)
+		.join(" ");
+}
+
+function getDepartmentName(
+	department?: {
+		departmentName?: string | null;
+		classRoom?: { name?: string | null } | null;
+	} | null,
 ) {
-  return db.wallet.upsert({
-    where: {
-      name_schoolProfileId_sessionTermId_type: {
-        name,
-        schoolProfileId: schoolId,
-        sessionTermId: termId,
-        type,
-      },
-    },
-    update: {},
-    create: { name, type, schoolProfileId: schoolId, sessionTermId: termId },
-    select: { id: true, name: true },
-  });
+	if (!department) return null;
+	if (
+		department.departmentName &&
+		department.classRoom?.name &&
+		department.departmentName.includes(department.classRoom.name)
+	) {
+		return department.departmentName;
+	}
+	return [department.classRoom?.name, department.departmentName]
+		.filter(Boolean)
+		.join(" ");
+}
+
+async function getStudentReceivePaymentData(ctx: any, studentId: string) {
+	const student = await ctx.db.students.findFirstOrThrow({
+		where: {
+			id: studentId,
+			schoolProfileId: ctx.profile.schoolId,
+			deletedAt: null,
+		},
+		select: {
+			id: true,
+			name: true,
+			surname: true,
+			otherName: true,
+			termForms: {
+				where: {
+					sessionTermId: ctx.profile.termId,
+					deletedAt: null,
+				},
+				take: 1,
+				select: {
+					id: true,
+					sessionTermId: true,
+					schoolSessionId: true,
+					classroomDepartmentId: true,
+					classroomDepartment: {
+						select: {
+							id: true,
+							departmentName: true,
+							classRoom: { select: { name: true } },
+						},
+					},
+					sessionTerm: {
+						select: {
+							id: true,
+							title: true,
+							session: { select: { title: true } },
+						},
+					},
+					studentFees: {
+						where: {
+							deletedAt: null,
+							status: { not: "cancelled" },
+						},
+						select: {
+							id: true,
+							feeTitle: true,
+							description: true,
+							billAmount: true,
+							pendingAmount: true,
+							billablePriceId: true,
+							createdAt: true,
+						},
+						orderBy: { createdAt: "asc" },
+					},
+				},
+			},
+		},
+	});
+
+	const currentTermForm = student.termForms[0] ?? null;
+	const latestTermForm = await ctx.db.studentTermForm.findFirst({
+		where: {
+			studentId,
+			deletedAt: null,
+		},
+		orderBy: { createdAt: "desc" },
+		select: {
+			id: true,
+			classroomDepartment: {
+				select: {
+					departmentName: true,
+					classRoom: { select: { name: true } },
+				},
+			},
+			sessionTerm: {
+				select: {
+					title: true,
+					session: { select: { title: true } },
+				},
+			},
+		},
+	});
+
+	const billables = await ctx.db.billable.findMany({
+		where: {
+			schoolProfileId: ctx.profile.schoolId,
+			deletedAt: null,
+			billableHistory: {
+				some: {
+					current: true,
+					termId: ctx.profile.termId,
+					deletedAt: null,
+				},
+			},
+		},
+		select: {
+			id: true,
+			title: true,
+			description: true,
+			billableHistory: {
+				where: {
+					current: true,
+					termId: ctx.profile.termId,
+					deletedAt: null,
+				},
+				take: 1,
+				select: {
+					id: true,
+					amount: true,
+					wallet: { select: { id: true, name: true } },
+					classroomDepartments: {
+						where: { deletedAt: null },
+						select: {
+							id: true,
+							departmentName: true,
+							classRoom: { select: { name: true } },
+						},
+					},
+				},
+			},
+		},
+		orderBy: { title: "asc" },
+	});
+
+	const manualBillables = billables
+		.map((billable) => {
+			const history = billable.billableHistory[0];
+			if (!history) return null;
+			return {
+				billableId: billable.id,
+				historyId: history.id,
+				title: billable.title,
+				description: billable.description,
+				amount: history.amount,
+				streamId: history.wallet?.id ?? null,
+				streamName: history.wallet?.name ?? null,
+				classroomDepartments: history.classroomDepartments.map(
+					(department) => ({
+						id: department.id,
+						name: getDepartmentName(department),
+					}),
+				),
+			};
+		})
+		.filter(
+			(
+				billable,
+			): billable is {
+				billableId: string;
+				historyId: string;
+				title: string;
+				description?: string | null;
+				amount: number;
+				streamId: string | null;
+				streamName: string | null;
+				classroomDepartments: Array<{ id: string; name: string | null }>;
+			} => Boolean(billable),
+		);
+
+	if (!currentTermForm) {
+		return {
+			student: {
+				id: student.id,
+				name: getStudentName(student),
+				currentClassroom: getDepartmentName(
+					latestTermForm?.classroomDepartment,
+				),
+				currentTerm:
+					latestTermForm?.sessionTerm?.title &&
+					latestTermForm?.sessionTerm?.session?.title
+						? `${latestTermForm.sessionTerm.title} • ${latestTermForm.sessionTerm.session.title}`
+						: null,
+			},
+			currentTermForm: null,
+			alert: {
+				variant: "destructive" as const,
+				title: "No current term sheet",
+				description:
+					"This student does not have a term sheet for the active term yet, so payments cannot be recorded here.",
+			},
+			summary: {
+				totalDue: 0,
+				totalPaid: 0,
+				totalPending: 0,
+			},
+			billables: [],
+			otherCharges: [],
+			manualBillables,
+		};
+	}
+
+	const applicableBillables = manualBillables.filter((billable) => {
+		if (!billable.classroomDepartments.length) return true;
+		return billable.classroomDepartments.some(
+			(department) => department.id === currentTermForm.classroomDepartmentId,
+		);
+	});
+
+	const feesByBillableHistoryId = new Map<
+		string,
+		(typeof currentTermForm.studentFees)[number]
+	>(
+		currentTermForm.studentFees
+			.filter(
+				(
+					fee,
+				): fee is (typeof currentTermForm.studentFees)[number] & {
+					billablePriceId: string;
+				} => Boolean(fee.billablePriceId),
+			)
+			.map((fee) => [fee.billablePriceId, fee]),
+	);
+
+	const billableItems = applicableBillables.map((billable) => {
+		const appliedFee = feesByBillableHistoryId.get(billable.historyId);
+		const billAmount = appliedFee?.billAmount ?? billable.amount;
+		const pendingAmount = appliedFee?.pendingAmount ?? billable.amount;
+		const paidAmount = Math.max(billAmount - pendingAmount, 0);
+		const status = !appliedFee
+			? "UNAPPLIED"
+			: pendingAmount <= 0
+				? "PAID"
+				: pendingAmount < billAmount
+					? "PARTIAL"
+					: "PENDING";
+
+		return {
+			key: billable.historyId,
+			source: appliedFee ? "studentFee" : "billable",
+			studentFeeId: appliedFee?.id ?? null,
+			billableHistoryId: billable.historyId,
+			title: billable.title,
+			description: billable.description,
+			amount: billAmount,
+			paidAmount,
+			pendingAmount,
+			status,
+			streamName: billable.streamName,
+			classroomNames: billable.classroomDepartments.map(
+				(department) => department.name,
+			),
+		};
+	});
+
+	const otherCharges = currentTermForm.studentFees
+		.filter((fee) => !fee.billablePriceId)
+		.map((fee) => {
+			const paidAmount = Math.max(
+				(fee.billAmount ?? 0) - (fee.pendingAmount ?? 0),
+				0,
+			);
+			const status =
+				fee.pendingAmount <= 0
+					? "PAID"
+					: fee.pendingAmount < fee.billAmount
+						? "PARTIAL"
+						: "PENDING";
+
+			return {
+				key: fee.id,
+				source: "studentFee" as const,
+				studentFeeId: fee.id,
+				billableHistoryId: null,
+				title: fee.feeTitle || "Charge",
+				description: fee.description,
+				amount: fee.billAmount,
+				paidAmount,
+				pendingAmount: fee.pendingAmount,
+				status,
+				streamName: null,
+				classroomNames: [],
+			};
+		});
+
+	const totalBillableAmount = billableItems.reduce(
+		(sum, item) => sum + item.amount,
+		0,
+	);
+	const totalBillablePending = billableItems.reduce(
+		(sum, item) => sum + item.pendingAmount,
+		0,
+	);
+	const totalOtherPending = otherCharges.reduce(
+		(sum, item) => sum + item.pendingAmount,
+		0,
+	);
+	const missingBillables = billableItems.filter(
+		(item) => item.status === "UNAPPLIED",
+	);
+
+	return {
+		student: {
+			id: student.id,
+			name: getStudentName(student),
+			currentClassroom: getDepartmentName(currentTermForm.classroomDepartment),
+			currentTerm:
+				currentTermForm.sessionTerm?.title &&
+				currentTermForm.sessionTerm?.session?.title
+					? `${currentTermForm.sessionTerm.title} • ${currentTermForm.sessionTerm.session.title}`
+					: null,
+		},
+		currentTermForm: {
+			id: currentTermForm.id,
+			classroomDepartmentId: currentTermForm.classroomDepartmentId,
+			sessionTermId: currentTermForm.sessionTermId,
+		},
+		alert: missingBillables.length
+			? {
+					variant: "warning" as const,
+					title: "Billables still need to be applied",
+					description: `${missingBillables.length} current-term billable${missingBillables.length > 1 ? "s are" : " is"} available for this student but not yet on the term sheet.`,
+				}
+			: null,
+		summary: {
+			totalDue:
+				totalBillableAmount +
+				otherCharges.reduce((sum, item) => sum + item.amount, 0),
+			totalPaid:
+				billableItems.reduce((sum, item) => sum + item.paidAmount, 0) +
+				otherCharges.reduce((sum, item) => sum + item.paidAmount, 0),
+			totalPending: totalBillablePending + totalOtherPending,
+		},
+		billables: billableItems,
+		otherCharges,
+		manualBillables,
+	};
+}
+
+async function getOrCreateWallet(
+	db: any,
+	{
+		name,
+		type,
+		schoolId,
+		termId,
+	}: { name: string; type: string; schoolId: string; termId: string },
+) {
+	return db.wallet.upsert({
+		where: {
+			name_schoolProfileId_sessionTermId_type: {
+				name,
+				schoolProfileId: schoolId,
+				sessionTermId: termId,
+				type,
+			},
+		},
+		update: {},
+		create: { name, type, schoolProfileId: schoolId, sessionTermId: termId },
+		select: { id: true, name: true },
+	});
 }
 
 async function payBill(
-  db: any,
-  {
-    billId,
-    amount,
-    date,
-    schoolId,
-    termId,
-  }: {
-    billId: string;
-    amount: number;
-    date?: Date | null;
-    schoolId: string;
-    termId: string;
-  }
+	db: any,
+	{
+		billId,
+		amount,
+		date,
+		schoolId,
+		termId,
+	}: {
+		billId: string;
+		amount: number;
+		date?: Date | null;
+		schoolId: string;
+		termId: string;
+	},
 ) {
-  const bill = await db.bills.findFirstOrThrow({
-    where: { id: billId, billPaymentId: null },
-    select: { walletId: true, title: true },
-  });
+	const bill = await db.bills.findFirstOrThrow({
+		where: { id: billId, billPaymentId: null },
+		select: { walletId: true, title: true },
+	});
 
-  const walletId =
-    bill.walletId ||
-    (
-      await getOrCreateWallet(db, {
-        name: bill.title || "General",
-        type: "bill",
-        schoolId,
-        termId,
-      })
-    ).id;
+	const walletId =
+		bill.walletId ||
+		(
+			await getOrCreateWallet(db, {
+				name: bill.title || "General",
+				type: "bill",
+				schoolId,
+				termId,
+			})
+		).id;
 
-  const transaction = await db.walletTransactions.create({
-    data: {
-      amount,
-      walletId,
-      type: "debit",
-      status: "success",
-      transactionDate: date ?? new Date(),
-    },
-  });
+	const transaction = await db.walletTransactions.create({
+		data: {
+			amount,
+			walletId,
+			type: "debit",
+			status: "success",
+			transactionDate: date ?? new Date(),
+		},
+	});
 
-  const invoice = await db.billInvoice.create({
-    data: { amount },
-  });
+	const invoice = await db.billInvoice.create({
+		data: { amount },
+	});
 
-  const payment = await db.billPayment.create({
-    data: {
-      amount,
-      transactionId: transaction.id,
-      invoiceId: invoice.id,
-      bills: { connect: { id: billId } },
-    },
-  });
+	const payment = await db.billPayment.create({
+		data: {
+			amount,
+			transactionId: transaction.id,
+			invoiceId: invoice.id,
+			bills: { connect: { id: billId } },
+		},
+	});
 
-  await db.bills.update({
-    where: { id: billId },
-    data: { billPaymentId: payment.id },
-  });
+	await db.bills.update({
+		where: { id: billId },
+		data: { billPaymentId: payment.id },
+	});
 
-  return { success: true, paymentId: payment.id };
+	return { success: true, paymentId: payment.id };
 }
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export const financeRouter = createTRPCRouter({
-  // ── Accounting Streams ──────────────────────────────────────────────────────
+	// ── Accounting Streams ──────────────────────────────────────────────────────
 
-  getStreams: publicProcedure
-    .input(streamFilterSchema)
-    .query(async ({ input, ctx }) => {
-      const termId = input.termId || ctx.profile.termId;
-      const where =
-        input.filter === "session"
-          ? {
-              schoolProfileId: ctx.profile.schoolId,
-              sessionTerm: {
-                session: { id: input.sessionId || ctx.profile.sessionId },
-              },
-              deletedAt: null,
-            }
-          : {
-              schoolProfileId: ctx.profile.schoolId,
-              sessionTermId: termId,
-              deletedAt: null,
-            };
+	getStreams: publicProcedure
+		.input(streamFilterSchema)
+		.query(async ({ input, ctx }) => {
+			const termId = input.termId || ctx.profile.termId;
+			const where =
+				input.filter === "session"
+					? {
+							schoolProfileId: ctx.profile.schoolId,
+							sessionTerm: {
+								session: { id: input.sessionId || ctx.profile.sessionId },
+							},
+							deletedAt: null,
+						}
+					: {
+							schoolProfileId: ctx.profile.schoolId,
+							sessionTermId: termId,
+							deletedAt: null,
+						};
 
-      const wallets = await ctx.db.wallet.findMany({
-        where,
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          studentTransactions: {
-            where: { status: "success", deletedAt: null },
-            select: { amount: true, type: true },
-          },
-        },
-        orderBy: { createdAt: "asc" },
-      });
+			const wallets = await ctx.db.wallet.findMany({
+				where,
+				select: {
+					id: true,
+					name: true,
+					type: true,
+					studentTransactions: {
+						where: { status: "success", deletedAt: null },
+						select: { amount: true, type: true },
+					},
+				},
+				orderBy: { createdAt: "asc" },
+			});
 
-      return wallets.map((w) => {
-        const incoming = w.studentTransactions
-          .filter((t) => t.type !== "transfer-out" && t.type !== "debit")
-          .reduce((s, t) => s + (t.amount || 0), 0);
-        const outgoing = w.studentTransactions
-          .filter((t) => t.type === "transfer-out" || t.type === "debit")
-          .reduce((s, t) => s + (t.amount || 0), 0);
-        return {
-          id: w.id,
-          name: w.name,
-          type: w.type,
-          totalIn: incoming,
-          totalOut: outgoing,
-          balance: incoming - outgoing,
-        };
-      });
-    }),
+			return wallets.map((w) => {
+				const incoming = w.studentTransactions
+					.filter((t) => t.type !== "transfer-out" && t.type !== "debit")
+					.reduce((s, t) => s + (t.amount || 0), 0);
+				const outgoing = w.studentTransactions
+					.filter((t) => t.type === "transfer-out" || t.type === "debit")
+					.reduce((s, t) => s + (t.amount || 0), 0);
+				return {
+					id: w.id,
+					name: w.name,
+					type: w.type,
+					totalIn: incoming,
+					totalOut: outgoing,
+					balance: incoming - outgoing,
+				};
+			});
+		}),
 
-  createStream: publicProcedure
-    .input(
-      z.object({ name: z.string().min(1), type: z.string().default("fee") })
-    )
-    .mutation(async ({ input, ctx }) => {
-      return getOrCreateWallet(ctx.db, {
-        name: input.name,
-        type: input.type,
-        schoolId: ctx.profile.schoolId!,
-        termId: ctx.profile.termId!,
-      });
-    }),
+	createStream: publicProcedure
+		.input(
+			z.object({ name: z.string().min(1), type: z.string().default("fee") }),
+		)
+		.mutation(async ({ input, ctx }) => {
+			return getOrCreateWallet(ctx.db, {
+				name: input.name,
+				type: input.type,
+				schoolId: ctx.profile.schoolId!,
+				termId: ctx.profile.termId!,
+			});
+		}),
 
-  transferFunds: publicProcedure
-    .input(
-      z.object({
-        fromWalletId: z.string(),
-        toWalletId: z.string(),
-        amount: z.number().positive(),
-        description: z.string().optional().nullable(),
-        date: z.date().optional().nullable(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const note = input.description || "Fund transfer";
-      const date = input.date ?? new Date();
-      return ctx.db.$transaction(async (tx) => {
-        await tx.walletTransactions.create({
-          data: {
-            amount: input.amount,
-            walletId: input.fromWalletId,
-            type: "transfer-out",
-            summary: note,
-            status: "success",
-            transactionDate: date,
-          },
-        });
-        await tx.walletTransactions.create({
-          data: {
-            amount: input.amount,
-            walletId: input.toWalletId,
-            type: "transfer-in",
-            summary: note,
-            status: "success",
-            transactionDate: date,
-          },
-        });
-        return { success: true };
-      });
-    }),
+	transferFunds: publicProcedure
+		.input(
+			z.object({
+				fromWalletId: z.string(),
+				toWalletId: z.string(),
+				amount: z.number().positive(),
+				description: z.string().optional().nullable(),
+				date: z.date().optional().nullable(),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			const note = input.description || "Fund transfer";
+			const date = input.date ?? new Date();
+			return ctx.db.$transaction(async (tx) => {
+				await tx.walletTransactions.create({
+					data: {
+						amount: input.amount,
+						walletId: input.fromWalletId,
+						type: "transfer-out",
+						summary: note,
+						status: "success",
+						transactionDate: date,
+					},
+				});
+				await tx.walletTransactions.create({
+					data: {
+						amount: input.amount,
+						walletId: input.toWalletId,
+						type: "transfer-in",
+						summary: note,
+						status: "success",
+						transactionDate: date,
+					},
+				});
+				return { success: true };
+			});
+		}),
 
-  // ── Service Payments ────────────────────────────────────────────────────────
+	// ── Service Payments ────────────────────────────────────────────────────────
 
-  getServicePayments: publicProcedure
-    .input(z.object({ termId: z.string().optional().nullable() }))
-    .query(async ({ input, ctx }) => {
-      const termId = input.termId || ctx.profile.termId;
-      return ctx.db.bills.findMany({
-        where: {
-          schoolProfileId: ctx.profile.schoolId,
-          sessionTermId: termId!,
-          staffTermProfileId: null,
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          amount: true,
-          billPaymentId: true,
-          createdAt: true,
-          billable: { select: { title: true, type: true } },
-          billPayment: {
-            select: {
-              amount: true,
-              transaction: { select: { transactionDate: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    }),
+	getServicePayments: publicProcedure
+		.input(z.object({ termId: z.string().optional().nullable() }))
+		.query(async ({ input, ctx }) => {
+			const termId = input.termId || ctx.profile.termId;
+			return ctx.db.bills.findMany({
+				where: {
+					schoolProfileId: ctx.profile.schoolId,
+					sessionTermId: termId!,
+					staffTermProfileId: null,
+					deletedAt: null,
+				},
+				select: {
+					id: true,
+					title: true,
+					description: true,
+					amount: true,
+					billPaymentId: true,
+					createdAt: true,
+					billable: { select: { title: true, type: true } },
+					billPayment: {
+						select: {
+							amount: true,
+							transaction: { select: { transactionDate: true } },
+						},
+					},
+				},
+				orderBy: { createdAt: "desc" },
+			});
+		}),
 
-  createServicePayment: publicProcedure
-    .input(
-      z.object({
-        title: z.string().min(1),
-        description: z.string().optional().nullable(),
-        amount: z.number().positive(),
-        date: z.date().optional().nullable(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const wallet = await getOrCreateWallet(ctx.db, {
-        name: "Services",
-        type: "bill",
-        schoolId: ctx.profile.schoolId!,
-        termId: ctx.profile.termId!,
-      });
+	createServicePayment: publicProcedure
+		.input(
+			z.object({
+				title: z.string().min(1),
+				description: z.string().optional().nullable(),
+				amount: z.number().positive(),
+				date: z.date().optional().nullable(),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			const wallet = await getOrCreateWallet(ctx.db, {
+				name: "Services",
+				type: "bill",
+				schoolId: ctx.profile.schoolId!,
+				termId: ctx.profile.termId!,
+			});
 
-      return ctx.db.bills.create({
-        data: {
-          title: input.title,
-          description: input.description,
-          amount: input.amount,
-          schoolProfileId: ctx.profile.schoolId!,
-          schoolSessionId: ctx.profile.sessionId!,
-          sessionTermId: ctx.profile.termId!,
-          walletId: wallet.id,
-        },
-        select: { id: true },
-      });
-    }),
+			return ctx.db.bills.create({
+				data: {
+					title: input.title,
+					description: input.description,
+					amount: input.amount,
+					schoolProfileId: ctx.profile.schoolId!,
+					schoolSessionId: ctx.profile.sessionId!,
+					sessionTermId: ctx.profile.termId!,
+					walletId: wallet.id,
+				},
+				select: { id: true },
+			});
+		}),
 
-  payServiceBill: publicProcedure
-    .input(payBillSchema)
-    .mutation(async ({ input, ctx }) => {
-      return ctx.db.$transaction(async (tx) => {
-        return payBill(tx, {
-          billId: input.billId,
-          amount: input.amount,
-          date: input.date,
-          schoolId: ctx.profile.schoolId!,
-          termId: ctx.profile.termId!,
-        });
-      });
-    }),
+	payServiceBill: publicProcedure
+		.input(payBillSchema)
+		.mutation(async ({ input, ctx }) => {
+			return ctx.db.$transaction(async (tx) => {
+				return payBill(tx, {
+					billId: input.billId,
+					amount: input.amount,
+					date: input.date,
+					schoolId: ctx.profile.schoolId!,
+					termId: ctx.profile.termId!,
+				});
+			});
+		}),
 
-  // ── Payroll ─────────────────────────────────────────────────────────────────
+	// ── Payroll ─────────────────────────────────────────────────────────────────
 
-  getPayroll: publicProcedure
-    .input(z.object({ termId: z.string().optional().nullable() }))
-    .query(async ({ input, ctx }) => {
-      const termId = input.termId || ctx.profile.termId;
-      return ctx.db.bills.findMany({
-        where: {
-          schoolProfileId: ctx.profile.schoolId,
-          sessionTermId: termId!,
-          staffTermProfileId: { not: null },
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          amount: true,
-          billPaymentId: true,
-          createdAt: true,
-          staffTermProfile: {
-            select: {
-              id: true,
-              staffProfile: {
-                select: { id: true, name: true, title: true },
-              },
-            },
-          },
-          billPayment: {
-            select: {
-              amount: true,
-              transaction: { select: { transactionDate: true } },
-            },
-          },
-        },
-        orderBy: [
-          {
-            staffTermProfile: {
-              staffProfile: { name: "asc" },
-            },
-          },
-          { createdAt: "desc" },
-        ],
-      });
-    }),
+	getPayroll: publicProcedure
+		.input(z.object({ termId: z.string().optional().nullable() }))
+		.query(async ({ input, ctx }) => {
+			const termId = input.termId || ctx.profile.termId;
+			return ctx.db.bills.findMany({
+				where: {
+					schoolProfileId: ctx.profile.schoolId,
+					sessionTermId: termId!,
+					staffTermProfileId: { not: null },
+					deletedAt: null,
+				},
+				select: {
+					id: true,
+					title: true,
+					description: true,
+					amount: true,
+					billPaymentId: true,
+					createdAt: true,
+					staffTermProfile: {
+						select: {
+							id: true,
+							staffProfile: {
+								select: { id: true, name: true, title: true },
+							},
+						},
+					},
+					billPayment: {
+						select: {
+							amount: true,
+							transaction: { select: { transactionDate: true } },
+						},
+					},
+				},
+				orderBy: [
+					{
+						staffTermProfile: {
+							staffProfile: { name: "asc" },
+						},
+					},
+					{ createdAt: "desc" },
+				],
+			});
+		}),
 
-  createStaffBill: publicProcedure
-    .input(
-      z.object({
-        staffProfileId: z.string(),
-        title: z.string().min(1),
-        description: z.string().optional().nullable(),
-        amount: z.number().positive(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      return ctx.db.$transaction(async (tx) => {
-        let termProfile = await tx.staffTermProfile.findFirst({
-          where: {
-            staffProfileId: input.staffProfileId,
-            sessionTermId: ctx.profile.termId!,
-            schoolSessionId: ctx.profile.sessionId!,
-            deletedAt: null,
-          },
-          select: { id: true },
-        });
+	createStaffBill: publicProcedure
+		.input(
+			z.object({
+				staffProfileId: z.string(),
+				title: z.string().min(1),
+				description: z.string().optional().nullable(),
+				amount: z.number().positive(),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			return ctx.db.$transaction(async (tx) => {
+				let termProfile = await tx.staffTermProfile.findFirst({
+					where: {
+						staffProfileId: input.staffProfileId,
+						sessionTermId: ctx.profile.termId!,
+						schoolSessionId: ctx.profile.sessionId!,
+						deletedAt: null,
+					},
+					select: { id: true },
+				});
 
-        if (!termProfile) {
-          termProfile = await tx.staffTermProfile.create({
-            data: {
-              staffProfileId: input.staffProfileId,
-              sessionTermId: ctx.profile.termId!,
-              schoolSessionId: ctx.profile.sessionId!,
-            },
-            select: { id: true },
-          });
-        }
+				if (!termProfile) {
+					termProfile = await tx.staffTermProfile.create({
+						data: {
+							staffProfileId: input.staffProfileId,
+							sessionTermId: ctx.profile.termId!,
+							schoolSessionId: ctx.profile.sessionId!,
+						},
+						select: { id: true },
+					});
+				}
 
-        const wallet = await getOrCreateWallet(tx, {
-          name: "Payroll",
-          type: "bill",
-          schoolId: ctx.profile.schoolId!,
-          termId: ctx.profile.termId!,
-        });
+				const wallet = await getOrCreateWallet(tx, {
+					name: "Payroll",
+					type: "bill",
+					schoolId: ctx.profile.schoolId!,
+					termId: ctx.profile.termId!,
+				});
 
-        return tx.bills.create({
-          data: {
-            title: input.title,
-            description: input.description,
-            amount: input.amount,
-            schoolProfileId: ctx.profile.schoolId!,
-            schoolSessionId: ctx.profile.sessionId!,
-            sessionTermId: ctx.profile.termId!,
-            staffTermProfileId: termProfile.id,
-            walletId: wallet.id,
-          },
-          select: { id: true },
-        });
-      });
-    }),
+				return tx.bills.create({
+					data: {
+						title: input.title,
+						description: input.description,
+						amount: input.amount,
+						schoolProfileId: ctx.profile.schoolId!,
+						schoolSessionId: ctx.profile.sessionId!,
+						sessionTermId: ctx.profile.termId!,
+						staffTermProfileId: termProfile.id,
+						walletId: wallet.id,
+					},
+					select: { id: true },
+				});
+			});
+		}),
 
-  payStaffBill: publicProcedure
-    .input(payBillSchema)
-    .mutation(async ({ input, ctx }) => {
-      return ctx.db.$transaction(async (tx) => {
-        return payBill(tx, {
-          billId: input.billId,
-          amount: input.amount,
-          date: input.date,
-          schoolId: ctx.profile.schoolId!,
-          termId: ctx.profile.termId!,
-        });
-      });
-    }),
+	payStaffBill: publicProcedure
+		.input(payBillSchema)
+		.mutation(async ({ input, ctx }) => {
+			return ctx.db.$transaction(async (tx) => {
+				return payBill(tx, {
+					billId: input.billId,
+					amount: input.amount,
+					date: input.date,
+					schoolId: ctx.profile.schoolId!,
+					termId: ctx.profile.termId!,
+				});
+			});
+		}),
 
-  // ── Staff list (for payroll form) ───────────────────────────────────────────
+	// ── Staff list (for payroll form) ───────────────────────────────────────────
 
-  getStaff: publicProcedure.query(async ({ ctx }) => {
-    return ctx.db.staffProfile.findMany({
-      where: { schoolProfileId: ctx.profile.schoolId, deletedAt: null },
-      select: { id: true, name: true, title: true },
-      orderBy: { name: "asc" },
-    });
-  }),
+	getStaff: publicProcedure.query(async ({ ctx }) => {
+		return ctx.db.staffProfile.findMany({
+			where: { schoolProfileId: ctx.profile.schoolId, deletedAt: null },
+			select: { id: true, name: true, title: true },
+			orderBy: { name: "asc" },
+		});
+	}),
 
-  // ── Student Payments ────────────────────────────────────────────────────────
+	// ── Student Payments ────────────────────────────────────────────────────────
 
-  getStudentPayments: publicProcedure
-    .input(z.object({ studentId: z.string().optional().nullable() }))
-    .query(async ({ input, ctx }) => {
-      if (!input.studentId) return [];
-      return ctx.db.studentPayment.findMany({
-        where: {
-          schoolProfileId: ctx.profile.schoolId,
-          studentTermForm: { student: { id: input.studentId } },
-        },
-        select: {
-          id: true,
-          amount: true,
-          status: true,
-          paymentType: true,
-          description: true,
-          type: true,
-          createdAt: true,
-          studentFee: { select: { feeTitle: true } },
-          walletTransaction: {
-            select: {
-              id: true,
-              transactionDate: true,
-              status: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    }),
+	searchStudentsForPayment: publicProcedure
+		.input(z.object({ query: z.string().optional().nullable() }).optional())
+		.query(async ({ input, ctx }) => {
+			const query = input?.query?.trim();
+			const students = await ctx.db.students.findMany({
+				where: {
+					schoolProfileId: ctx.profile.schoolId,
+					deletedAt: null,
+					...(query
+						? {
+								OR: [
+									{ name: { contains: query, mode: "insensitive" } },
+									{ surname: { contains: query, mode: "insensitive" } },
+									{ otherName: { contains: query, mode: "insensitive" } },
+								],
+							}
+						: {}),
+				},
+				take: 12,
+				orderBy: [{ name: "asc" }, { surname: "asc" }],
+				select: {
+					id: true,
+					name: true,
+					surname: true,
+					otherName: true,
+					termForms: {
+						where: {
+							sessionTermId: ctx.profile.termId,
+							deletedAt: null,
+						},
+						take: 1,
+						select: {
+							id: true,
+							classroomDepartment: {
+								select: {
+									departmentName: true,
+									classRoom: { select: { name: true } },
+								},
+							},
+							sessionTerm: {
+								select: {
+									title: true,
+									session: { select: { title: true } },
+								},
+							},
+						},
+					},
+				},
+			});
 
-  reverseStudentPayment: publicProcedure
-    .input(
-      z.object({
-        studentPaymentId: z.string(),
-        transactionId: z.string(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      return ctx.db.$transaction(async (tx) => {
-        await tx.walletTransactions.update({
-          where: { id: input.transactionId },
-          data: { status: "cancelled" },
-        });
-        const payment = await tx.studentPayment.update({
-          where: { id: input.studentPaymentId },
-          data: { status: "cancelled" },
-          select: {
-            amount: true,
-            studentFee: { select: { id: true } },
-          },
-        });
-        if (payment.studentFee?.id && payment.amount) {
-          await tx.studentFee.update({
-            where: { id: payment.studentFee.id },
-            data: { pendingAmount: { increment: payment.amount } },
-          });
-        }
-        return { success: true };
-      });
-    }),
+			return Promise.all(
+				students.map(async (student) => {
+					const currentTermForm = student.termForms[0];
+					const latestTermForm =
+						currentTermForm ||
+						(await ctx.db.studentTermForm.findFirst({
+							where: {
+								studentId: student.id,
+								deletedAt: null,
+							},
+							orderBy: { createdAt: "desc" },
+							select: {
+								id: true,
+								classroomDepartment: {
+									select: {
+										departmentName: true,
+										classRoom: { select: { name: true } },
+									},
+								},
+								sessionTerm: {
+									select: {
+										title: true,
+										session: { select: { title: true } },
+									},
+								},
+							},
+						}));
 
-  // ── Billables ───────────────────────────────────────────────────────────────
+					return {
+						id: student.id,
+						name: getStudentName(student),
+						classroom: getDepartmentName(latestTermForm?.classroomDepartment),
+						currentTermLabel:
+							latestTermForm?.sessionTerm?.title &&
+							latestTermForm?.sessionTerm?.session?.title
+								? `${latestTermForm.sessionTerm.title} • ${latestTermForm.sessionTerm.session.title}`
+								: null,
+						hasCurrentTermSheet: Boolean(currentTermForm),
+					};
+				}),
+			);
+		}),
 
-  getBillables: publicProcedure
-    .input(z.object({ termId: z.string().optional().nullable() }).optional())
-    .query(async ({ input, ctx }) => {
-      const termId = input?.termId || ctx.profile.termId;
-      const billables = await ctx.db.billable.findMany({
-        where: {
-          schoolProfileId: ctx.profile.schoolId,
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          amount: true,
-          type: true,
-          billableHistory: {
-            where: { current: true, termId: termId || undefined },
-            take: 1,
-            select: { id: true, amount: true },
-          },
-        },
-        orderBy: { title: "asc" },
-      });
-      return billables.map((b) => ({
-        id: b.id,
-        title: b.title,
-        description: b.description,
-        amount: b.billableHistory?.[0]?.amount ?? b.amount,
-        type: b.type,
-        historyId: b.billableHistory?.[0]?.id,
-      }));
-    }),
+	getReceivePaymentData: publicProcedure
+		.input(z.object({ studentId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			return getStudentReceivePaymentData(ctx, input.studentId);
+		}),
 
-  createBillable: publicProcedure
-    .input(
-      z.object({
-        title: z.string().min(1),
-        amount: z.number().min(1),
-        description: z.string().optional().nullable(),
-        type: z.enum(["SALARY", "MISC", "OTHER"]).default("OTHER"),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      return ctx.db.billable.create({
-        data: {
-          title: input.title,
-          amount: input.amount,
-          description: input.description,
-          type: input.type,
-          schoolProfileId: ctx.profile.schoolId!,
-          billableHistory: {
-            create: {
-              amount: input.amount,
-              current: true,
-              schoolSessionId: ctx.profile.sessionId!,
-              termId: ctx.profile.termId!,
-            },
-          },
-        },
-      });
-    }),
+	getStudentPayments: publicProcedure
+		.input(z.object({ studentId: z.string().optional().nullable() }))
+		.query(async ({ input, ctx }) => {
+			if (!input.studentId) return [];
+			return ctx.db.studentPayment.findMany({
+				where: {
+					schoolProfileId: ctx.profile.schoolId,
+					studentTermForm: { student: { id: input.studentId } },
+				},
+				select: {
+					id: true,
+					amount: true,
+					status: true,
+					paymentType: true,
+					description: true,
+					type: true,
+					createdAt: true,
+					studentFee: { select: { feeTitle: true } },
+					walletTransaction: {
+						select: {
+							id: true,
+							transactionDate: true,
+							status: true,
+						},
+					},
+				},
+				orderBy: { createdAt: "desc" },
+			});
+		}),
 
-  // ── Bills ────────────────────────────────────────────────────────────────────
+	reverseStudentPayment: publicProcedure
+		.input(
+			z.object({
+				studentPaymentId: z.string(),
+				transactionId: z.string(),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			return ctx.db.$transaction(async (tx) => {
+				await tx.walletTransactions.update({
+					where: { id: input.transactionId },
+					data: { status: "cancelled" },
+				});
+				const payment = await tx.studentPayment.update({
+					where: { id: input.studentPaymentId },
+					data: { status: "cancelled" },
+					select: {
+						amount: true,
+						studentFee: { select: { id: true } },
+					},
+				});
+				if (payment.studentFee?.id && payment.amount) {
+					await tx.studentFee.update({
+						where: { id: payment.studentFee.id },
+						data: { pendingAmount: { increment: payment.amount } },
+					});
+				}
+				return { success: true };
+			});
+		}),
 
-  getBills: publicProcedure
-    .input(z.object({ termId: z.string().optional().nullable() }).optional())
-    .query(async ({ input, ctx }) => {
-      const termId = input?.termId || ctx.profile.termId;
-      const bills = await ctx.db.bills.findMany({
-        where: {
-          schoolProfileId: ctx.profile.schoolId,
-          sessionTermId: termId!,
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          title: true,
-          amount: true,
-          description: true,
-          billPaymentId: true,
-          billable: { select: { description: true } },
-          staffTermProfile: {
-            select: { staffProfile: { select: { name: true, id: true } } },
-          },
-          sessionTerm: { select: { title: true, id: true } },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-      return bills.map((b) => ({
-        id: b.id,
-        title: b.staffTermProfile
-          ? b.staffTermProfile.staffProfile?.name
-          : b.title,
-        description: b.description,
-        amount: b.amount,
-        status: b.billPaymentId ? "PAID" : "PENDING",
-        termTitle: b.sessionTerm?.title,
-      }));
-    }),
+	receiveStudentPayment: publicProcedure
+		.input(receivePaymentSchema)
+		.mutation(async ({ input, ctx }) => {
+			const totalAllocated = input.allocations.reduce(
+				(sum, allocation) => sum + allocation.amountToPay,
+				0,
+			);
 
-  createBill: publicProcedure
-    .input(
-      z.object({
-        title: z.string().min(1),
-        amount: z.number().min(1),
-        billableId: z.string().optional().nullable(),
-        billableHistoryId: z.string().optional().nullable(),
-        staffTermProfileId: z.string().optional().nullable(),
-        description: z.string().optional().nullable(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const wallet = await getOrCreateWallet(ctx.db, {
-        name: input.title || "General",
-        type: "bill",
-        schoolId: ctx.profile.schoolId!,
-        termId: ctx.profile.termId!,
-      });
-      return ctx.db.bills.create({
-        data: {
-          title: input.title,
-          description: input.description,
-          amount: input.amount,
-          sessionTermId: ctx.profile.termId!,
-          schoolProfileId: ctx.profile.schoolId!,
-          schoolSessionId: ctx.profile.sessionId!,
-          walletId: wallet.id,
-          billableId: input.billableId || undefined,
-          billableHistoryId: input.billableHistoryId || undefined,
-          staffTermProfileId: input.staffTermProfileId || undefined,
-        },
-      });
-    }),
+			if (Math.abs(totalAllocated - input.amountReceived) > 0.001) {
+				throw new Error("Allocated total must match the amount received.");
+			}
 
-  // ── Transactions ─────────────────────────────────────────────────────────────
+			return ctx.db.$transaction(async (tx) => {
+				const studentTermForm = await tx.studentTermForm.findFirstOrThrow({
+					where: {
+						id: input.studentTermFormId,
+						studentId: input.studentId,
+						schoolProfileId: ctx.profile.schoolId,
+						deletedAt: null,
+					},
+					select: {
+						id: true,
+						studentId: true,
+						schoolSessionId: true,
+						sessionTermId: true,
+					},
+				});
 
-  getTransactions: publicProcedure
-    .input(z.object({ termId: z.string().optional().nullable() }).optional())
-    .query(async ({ input, ctx }) => {
-      const termId = input?.termId || ctx.profile.termId;
-      const txs = await ctx.db.walletTransactions.findMany({
-        where: {
-          wallet: {
-            schoolProfileId: ctx.profile.schoolId,
-            sessionTermId: termId!,
-          },
-          OR: [
-            { billPayment: { deletedAt: null } },
-            {
-              studentPayment: {
-                deletedAt: null,
-                studentTermForm: { student: { deletedAt: null } },
-              },
-            },
-          ],
-        },
-        select: {
-          id: true,
-          amount: true,
-          summary: true,
-          type: true,
-          createdAt: true,
-          wallet: {
-            select: {
-              sessionTerm: {
-                select: {
-                  title: true,
-                  session: { select: { title: true } },
-                },
-              },
-            },
-          },
-          studentPayment: {
-            select: {
-              studentTermForm: {
-                select: {
-                  sessionTerm: {
-                    select: {
-                      title: true,
-                      session: { select: { title: true } },
-                    },
-                  },
-                  student: {
-                    select: { name: true, otherName: true, surname: true },
-                  },
-                },
-              },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-      return txs.map((tx) => ({
-        id: tx.id,
-        amount: tx.amount,
-        type: tx.type,
-        createdAt: tx.createdAt,
-        student: tx.studentPayment?.studentTermForm?.student,
-        billTerm: tx.studentPayment?.studentTermForm?.sessionTerm,
-        invoiceTerm: tx.wallet?.sessionTerm,
-      }));
-    }),
+				const createdPayments: Array<{
+					id: string;
+					amount: number | null;
+					paymentType: string;
+				}> = [];
 
-  // ── Student Purchase (stationary, uniform, etc.) ────────────────────────────
+				for (const allocation of input.allocations) {
+					let studentFeeId = allocation.studentFeeId || null;
+					let feeTitle = allocation.title || "Payment";
+					let walletId: string | null = null;
 
-  createStudentPurchase: publicProcedure
-    .input(
-      z.object({
-        studentId: z.string(),
-        studentTermFormId: z.string(),
-        title: z.string().min(1),
-        description: z.string().optional().nullable(),
-        amount: z.number().positive(),
-        paid: z.boolean().default(false),
-        paymentMethod: z.string().optional().nullable(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      return ctx.db.$transaction(async (tx) => {
-        const wallet = await getOrCreateWallet(tx, {
-          name: "Sales",
-          type: "fee",
-          schoolId: ctx.profile.schoolId!,
-          termId: ctx.profile.termId!,
-        });
+					if (allocation.source === "studentFee") {
+						const fee = await tx.studentFee.findFirstOrThrow({
+							where: {
+								id: allocation.studentFeeId || undefined,
+								studentTermFormId: studentTermForm.id,
+								deletedAt: null,
+								status: { not: "cancelled" },
+							},
+							select: {
+								id: true,
+								feeTitle: true,
+								pendingAmount: true,
+								billAmount: true,
+							},
+						});
 
-        if (!input.paid) {
-          const purchase = await tx.studentPurchase.create({
-            data: { title: input.title, description: input.description, amount: input.amount, paid: false },
-          });
-          await tx.studentPayment.create({
-            data: {
-              type: "PURCHASE",
-              paymentType: input.title,
-              amount: input.amount,
-              status: "draft",
-              description: input.paymentMethod || input.description,
-              schoolProfileId: ctx.profile.schoolId!,
-              studentTermFormId: input.studentTermFormId,
-              studentPurchaseId: purchase.id,
-            },
-          });
-          return { success: true };
-        }
+						if (allocation.amountToPay > fee.pendingAmount) {
+							throw new Error(
+								`Payment for ${fee.feeTitle || "charge"} exceeds the pending amount.`,
+							);
+						}
 
-        const walletTx = await tx.walletTransactions.create({
-          data: {
-            amount: input.amount,
-            walletId: wallet.id,
-            type: "credit",
-            status: "success",
-            transactionDate: new Date(),
-          },
-        });
+						studentFeeId = fee.id;
+						feeTitle = fee.feeTitle || feeTitle;
 
-        const purchase = await tx.studentPurchase.create({
-          data: { title: input.title, description: input.description, amount: input.amount, paid: true },
-        });
+						const fallbackWallet = await getOrCreateWallet(tx, {
+							name: feeTitle || "General",
+							type: "fee",
+							schoolId: ctx.profile.schoolId!,
+							termId: ctx.profile.termId!,
+						});
+						walletId = fallbackWallet.id;
+					}
 
-        await tx.studentPayment.create({
-          data: {
-            type: "PURCHASE",
-            paymentType: input.title,
-            amount: input.amount,
-            status: "success",
-            description: input.paymentMethod || input.description,
-            schoolProfileId: ctx.profile.schoolId!,
-            studentTermFormId: input.studentTermFormId,
-            walletTransactionId: walletTx.id,
-            studentPurchaseId: purchase.id,
-          },
-        });
+					if (allocation.source === "billable") {
+						const history = await tx.billableHistory.findFirstOrThrow({
+							where: {
+								id: allocation.billableHistoryId || undefined,
+								termId: ctx.profile.termId,
+								current: true,
+								deletedAt: null,
+							},
+							select: {
+								id: true,
+								amount: true,
+								walletId: true,
+								billable: {
+									select: {
+										title: true,
+										description: true,
+									},
+								},
+							},
+						});
 
-        return { success: true };
-      });
-    }),
+						let existingFee = await tx.studentFee.findFirst({
+							where: {
+								studentTermFormId: studentTermForm.id,
+								billablePriceId: history.id,
+								deletedAt: null,
+								status: { not: "cancelled" },
+							},
+							select: {
+								id: true,
+								pendingAmount: true,
+								feeTitle: true,
+							},
+						});
+
+						if (!existingFee) {
+							existingFee = await tx.studentFee.create({
+								data: {
+									billAmount: history.amount,
+									pendingAmount: history.amount,
+									feeTitle: history.billable.title,
+									description: history.billable.description,
+									billablePriceId: history.id,
+									schoolProfileId: ctx.profile.schoolId!,
+									studentTermFormId: studentTermForm.id,
+									schoolSessionId: studentTermForm.schoolSessionId,
+									studentId: input.studentId,
+									status: "active",
+								},
+								select: {
+									id: true,
+									pendingAmount: true,
+									feeTitle: true,
+								},
+							});
+						}
+
+						if (allocation.amountToPay > existingFee.pendingAmount) {
+							throw new Error(
+								`Payment for ${existingFee.feeTitle || history.billable.title} exceeds the pending amount.`,
+							);
+						}
+
+						const fallbackWallet =
+							history.walletId ||
+							(
+								await getOrCreateWallet(tx, {
+									name: history.billable.title || "General",
+									type: "fee",
+									schoolId: ctx.profile.schoolId!,
+									termId: ctx.profile.termId!,
+								})
+							).id;
+
+						walletId = fallbackWallet;
+						studentFeeId = existingFee.id;
+						feeTitle =
+							existingFee.feeTitle || history.billable.title || feeTitle;
+					}
+
+					if (allocation.source === "manual") {
+						const manualFee = await tx.studentFee.create({
+							data: {
+								billAmount: allocation.amountDue,
+								pendingAmount: allocation.amountDue,
+								feeTitle: allocation.title || "Manual Charge",
+								description: allocation.description,
+								schoolProfileId: ctx.profile.schoolId!,
+								studentTermFormId: studentTermForm.id,
+								schoolSessionId: studentTermForm.schoolSessionId,
+								studentId: input.studentId,
+								status: "active",
+							},
+							select: {
+								id: true,
+								feeTitle: true,
+								pendingAmount: true,
+							},
+						});
+
+						studentFeeId = manualFee.id;
+						feeTitle = manualFee.feeTitle || feeTitle;
+						walletId = (
+							await getOrCreateWallet(tx, {
+								name: "Sales",
+								type: "fee",
+								schoolId: ctx.profile.schoolId!,
+								termId: ctx.profile.termId!,
+							})
+						).id;
+					}
+
+					if (!studentFeeId || !walletId) {
+						throw new Error("Could not resolve the selected payment line.");
+					}
+
+					const walletTransaction = await tx.walletTransactions.create({
+						data: {
+							amount: allocation.amountToPay,
+							walletId,
+							type: "credit",
+							summary: [input.paymentMethod, input.reference]
+								.filter(Boolean)
+								.join(" • "),
+							status: "success",
+							transactionDate: input.paymentDate ?? new Date(),
+							studentWalletTransaction: {
+								create: {
+									studentId: input.studentId,
+									amount: allocation.amountToPay,
+									transactionType: "debit",
+									status: "success",
+									description: feeTitle,
+									transactionDate: input.paymentDate ?? new Date(),
+								},
+							},
+						},
+						select: { id: true },
+					});
+
+					const payment = await tx.studentPayment.create({
+						data: {
+							type: "FEE",
+							paymentType: feeTitle,
+							amount: allocation.amountToPay,
+							status: "success",
+							description: [input.paymentMethod, input.reference]
+								.filter(Boolean)
+								.join(" • "),
+							schoolProfileId: ctx.profile.schoolId!,
+							studentTermFormId: studentTermForm.id,
+							studentBillPaymentsId: studentFeeId,
+							walletTransactionsId: walletTransaction.id,
+						},
+						select: {
+							id: true,
+							amount: true,
+							paymentType: true,
+						},
+					});
+
+					await tx.studentFee.update({
+						where: { id: studentFeeId },
+						data: {
+							pendingAmount: {
+								decrement: allocation.amountToPay,
+							},
+						},
+					});
+
+					createdPayments.push(payment);
+				}
+
+				return {
+					success: true,
+					count: createdPayments.length,
+					totalAllocated,
+				};
+			});
+		}),
+
+	// ── Billables ───────────────────────────────────────────────────────────────
+
+	getBillables: publicProcedure
+		.input(z.object({ termId: z.string().optional().nullable() }).optional())
+		.query(async ({ input, ctx }) => {
+			const termId = input?.termId || ctx.profile.termId;
+			const billables = await ctx.db.billable.findMany({
+				where: {
+					schoolProfileId: ctx.profile.schoolId,
+					deletedAt: null,
+				},
+				select: {
+					id: true,
+					title: true,
+					description: true,
+					amount: true,
+					type: true,
+					billableHistory: {
+						where: { current: true, termId: termId || undefined },
+						take: 1,
+						select: {
+							id: true,
+							amount: true,
+							wallet: { select: { id: true, name: true } },
+							classroomDepartments: {
+								where: { deletedAt: null },
+								select: {
+									id: true,
+									departmentName: true,
+									classRoom: { select: { name: true } },
+								},
+							},
+						},
+					},
+				},
+				orderBy: { title: "asc" },
+			});
+			return billables.map((b) => ({
+				id: b.id,
+				title: b.title,
+				description: b.description,
+				amount: b.billableHistory?.[0]?.amount ?? b.amount,
+				type: b.type,
+				historyId: b.billableHistory?.[0]?.id,
+				streamId: b.billableHistory?.[0]?.wallet?.id ?? null,
+				streamName: b.billableHistory?.[0]?.wallet?.name ?? null,
+				classroomDepartments:
+					b.billableHistory?.[0]?.classroomDepartments.map((department) => ({
+						id: department.id,
+						name: getDepartmentName(department),
+					})) ?? [],
+			}));
+		}),
+
+	createBillable: publicProcedure
+		.input(
+			z.object({
+				title: z.string().min(1),
+				amount: z.number().min(1),
+				description: z.string().optional().nullable(),
+				type: z.enum(["SALARY", "MISC", "OTHER"]).default("OTHER"),
+				streamId: z.string().optional().nullable(),
+				streamName: z.string().optional().nullable(),
+				classroomDepartmentIds: z.array(z.string()).default([]),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			const wallet = input.streamId
+				? await ctx.db.wallet.findFirst({
+						where: {
+							id: input.streamId,
+							schoolProfileId: ctx.profile.schoolId,
+							sessionTermId: ctx.profile.termId,
+							deletedAt: null,
+						},
+						select: { id: true },
+					})
+				: null;
+
+			const resolvedWallet =
+				wallet ||
+				(input.streamName?.trim()
+					? await getOrCreateWallet(ctx.db, {
+							name: input.streamName.trim(),
+							type: "fee",
+							schoolId: ctx.profile.schoolId!,
+							termId: ctx.profile.termId!,
+						})
+					: null);
+
+			return ctx.db.billable.create({
+				data: {
+					title: input.title,
+					amount: input.amount,
+					description: input.description,
+					type: input.type,
+					schoolProfileId: ctx.profile.schoolId!,
+					billableHistory: {
+						create: {
+							amount: input.amount,
+							current: true,
+							schoolSessionId: ctx.profile.sessionId!,
+							termId: ctx.profile.termId!,
+							walletId: resolvedWallet?.id,
+							classroomDepartments: input.classroomDepartmentIds.length
+								? {
+										connect: input.classroomDepartmentIds.map((id) => ({ id })),
+									}
+								: undefined,
+						},
+					},
+				},
+			});
+		}),
+
+	// ── Bills ────────────────────────────────────────────────────────────────────
+
+	getBills: publicProcedure
+		.input(z.object({ termId: z.string().optional().nullable() }).optional())
+		.query(async ({ input, ctx }) => {
+			const termId = input?.termId || ctx.profile.termId;
+			const bills = await ctx.db.bills.findMany({
+				where: {
+					schoolProfileId: ctx.profile.schoolId,
+					sessionTermId: termId!,
+					deletedAt: null,
+				},
+				select: {
+					id: true,
+					title: true,
+					amount: true,
+					description: true,
+					billPaymentId: true,
+					billable: { select: { description: true } },
+					staffTermProfile: {
+						select: { staffProfile: { select: { name: true, id: true } } },
+					},
+					sessionTerm: { select: { title: true, id: true } },
+				},
+				orderBy: { createdAt: "desc" },
+			});
+			return bills.map((b) => ({
+				id: b.id,
+				title: b.staffTermProfile
+					? b.staffTermProfile.staffProfile?.name
+					: b.title,
+				description: b.description,
+				amount: b.amount,
+				status: b.billPaymentId ? "PAID" : "PENDING",
+				termTitle: b.sessionTerm?.title,
+			}));
+		}),
+
+	createBill: publicProcedure
+		.input(
+			z.object({
+				title: z.string().min(1),
+				amount: z.number().min(1),
+				billableId: z.string().optional().nullable(),
+				billableHistoryId: z.string().optional().nullable(),
+				staffTermProfileId: z.string().optional().nullable(),
+				description: z.string().optional().nullable(),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			const wallet = await getOrCreateWallet(ctx.db, {
+				name: input.title || "General",
+				type: "bill",
+				schoolId: ctx.profile.schoolId!,
+				termId: ctx.profile.termId!,
+			});
+			return ctx.db.bills.create({
+				data: {
+					title: input.title,
+					description: input.description,
+					amount: input.amount,
+					sessionTermId: ctx.profile.termId!,
+					schoolProfileId: ctx.profile.schoolId!,
+					schoolSessionId: ctx.profile.sessionId!,
+					walletId: wallet.id,
+					billableId: input.billableId || undefined,
+					billableHistoryId: input.billableHistoryId || undefined,
+					staffTermProfileId: input.staffTermProfileId || undefined,
+				},
+			});
+		}),
+
+	// ── Transactions ─────────────────────────────────────────────────────────────
+
+	getTransactions: publicProcedure
+		.input(z.object({ termId: z.string().optional().nullable() }).optional())
+		.query(async ({ input, ctx }) => {
+			const termId = input?.termId || ctx.profile.termId;
+			const txs = await ctx.db.walletTransactions.findMany({
+				where: {
+					wallet: {
+						schoolProfileId: ctx.profile.schoolId,
+						sessionTermId: termId!,
+					},
+					OR: [
+						{ billPayment: { deletedAt: null } },
+						{
+							studentPayment: {
+								deletedAt: null,
+								studentTermForm: { student: { deletedAt: null } },
+							},
+						},
+					],
+				},
+				select: {
+					id: true,
+					amount: true,
+					summary: true,
+					type: true,
+					createdAt: true,
+					wallet: {
+						select: {
+							sessionTerm: {
+								select: {
+									title: true,
+									session: { select: { title: true } },
+								},
+							},
+						},
+					},
+					studentPayment: {
+						select: {
+							studentTermForm: {
+								select: {
+									sessionTerm: {
+										select: {
+											title: true,
+											session: { select: { title: true } },
+										},
+									},
+									student: {
+										select: { name: true, otherName: true, surname: true },
+									},
+								},
+							},
+						},
+					},
+				},
+				orderBy: { createdAt: "desc" },
+			});
+			return txs.map((tx) => ({
+				id: tx.id,
+				amount: tx.amount,
+				type: tx.type,
+				createdAt: tx.createdAt,
+				student: tx.studentPayment?.studentTermForm?.student,
+				billTerm: tx.studentPayment?.studentTermForm?.sessionTerm,
+				invoiceTerm: tx.wallet?.sessionTerm,
+			}));
+		}),
+
+	// ── Student Purchase (stationary, uniform, etc.) ────────────────────────────
+
+	createStudentPurchase: publicProcedure
+		.input(
+			z.object({
+				studentId: z.string(),
+				studentTermFormId: z.string(),
+				title: z.string().min(1),
+				description: z.string().optional().nullable(),
+				amount: z.number().positive(),
+				paid: z.boolean().default(false),
+				paymentMethod: z.string().optional().nullable(),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			return ctx.db.$transaction(async (tx) => {
+				const wallet = await getOrCreateWallet(tx, {
+					name: "Sales",
+					type: "fee",
+					schoolId: ctx.profile.schoolId!,
+					termId: ctx.profile.termId!,
+				});
+
+				if (!input.paid) {
+					const draftWalletTx = await tx.walletTransactions.create({
+						data: {
+							amount: 0,
+							walletId: wallet.id,
+							type: "credit",
+							status: "draft",
+							transactionDate: new Date(),
+						},
+					});
+					const purchase = await tx.studentPurchase.create({
+						data: {
+							title: input.title,
+							description: input.description ?? "",
+							amount: input.amount,
+							paid: 0,
+						},
+					});
+					await tx.studentPayment.create({
+						data: {
+							type: "PURCHASE",
+							paymentType: input.title,
+							amount: input.amount,
+							status: "draft",
+							description: input.paymentMethod || input.description,
+							schoolProfileId: ctx.profile.schoolId!,
+							studentTermFormId: input.studentTermFormId,
+							walletTransactionsId: draftWalletTx.id,
+							studentPurchaseId: purchase.id,
+						},
+					});
+					return { success: true };
+				}
+
+				const walletTx = await tx.walletTransactions.create({
+					data: {
+						amount: input.amount,
+						walletId: wallet.id,
+						type: "credit",
+						status: "success",
+						transactionDate: new Date(),
+					},
+				});
+
+				const purchase = await tx.studentPurchase.create({
+					data: {
+						title: input.title,
+						description: input.description ?? "",
+						amount: input.amount,
+						paid: input.amount,
+					},
+				});
+
+				await tx.studentPayment.create({
+					data: {
+						type: "PURCHASE",
+						paymentType: input.title,
+						amount: input.amount,
+						status: "success",
+						description: input.paymentMethod || input.description,
+						schoolProfileId: ctx.profile.schoolId!,
+						studentTermFormId: input.studentTermFormId,
+						walletTransactionsId: walletTx.id,
+						studentPurchaseId: purchase.id,
+					},
+				});
+
+				return { success: true };
+			});
+		}),
 });

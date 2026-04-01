@@ -1,13 +1,12 @@
 import {
   createNavLink,
-  getLinkModules as buildNavLinkModules,
   createNavModule,
   createNavSection,
-  initPermAccess,
+  getLinkModules as buildNavLinkModules,
   initRoleAccess,
   validateLinks as buildValidatedNavLinks,
 } from "@school-clerk/ui/nav/utils";
-type Permission = any | null | string | undefined;
+type Permission = null | string | undefined | unknown;
 
 type Role =
   | "Admin"
@@ -22,6 +21,39 @@ type Role =
 const _role = initRoleAccess("" as Role);
 
 export const linkModules = [
+  createNavModule("Teachers", "graduation-cap", "Teacher Workspace", [
+    createNavSection("dashboard", null, [
+      createNavLink("Overview", "dashboard", "/teacher")
+        .access(_role.is("Teacher"))
+        .childPaths("/teacher").data,
+    ]),
+    createNavSection("main", "Classroom Work", [
+      createNavLink("My Classes", "list", "/teacher/classes").access(
+        _role.is("Teacher"),
+      ).data,
+      createNavLink("My Students", "users", "/teacher/students").access(
+        _role.is("Teacher"),
+      ).data,
+      createNavLink("Attendance", "calendar-check", "/teacher/attendance").access(
+        _role.is("Teacher"),
+      ).data,
+    ]),
+    createNavSection("main", "Assessment", [
+      createNavLink("Assessments", "clipboard-list", "/teacher/assessments").access(
+        _role.is("Teacher"),
+      ).data,
+      createNavLink("Grading", "award", "/teacher/grading").access(
+        _role.is("Teacher"),
+      ).data,
+      createNavLink("Reports", "file-text", "/teacher/reports").access(
+        _role.is("Teacher"),
+      ).data,
+      createNavLink("Timetable", "calendar", "/teacher/timetable").access(
+        _role.is("Teacher"),
+      ).data,
+    ]),
+  ]),
+
   createNavModule("Community", "school", "School Management", [
     createNavSection("main", "General", [
       createNavLink("Dashboard", "dashboard", "/dashboard").access(
@@ -31,7 +63,7 @@ export const linkModules = [
         _role.in("Admin", "Teacher"),
       ).data,
       createNavLink("Calendar", "calendar", "/calendar").access(
-        _role.in("Admin", "Staff"),
+        _role.in("Admin", "Teacher", "Staff"),
       ).data,
     ]),
   ]),
@@ -45,9 +77,9 @@ export const linkModules = [
         "Non-Teaching Staff",
         "users",
         "/staff/non-teaching",
-      ).access(_role.is("Admin")).data,
+      ).access(_role.in("Admin", "HR")).data,
       createNavLink("Departments", "building", "/staff/departments").access(
-        _role.is("Admin"),
+        _role.in("Admin", "HR"),
       ).data,
       createNavLink("Attendance", "calendar-check", "/staff/attendance").access(
         _role.in("Admin", "HR"),
@@ -112,36 +144,36 @@ export const linkModules = [
     //   _role.in("Admin", "Teacher"),
     // ).data,
     createNavSection("main", "Students", [
-      createNavLink("Student List", "users", "/students/list").access(
-        _role.in("Admin", "Teacher"),
-      ).data,
+      createNavLink("Student List", "users", "/students/list").access(_role.is(
+        "Admin",
+      )).data,
       createNavLink("Enrollment", "user-plus", "/students/enrollment").access(
         _role.in("Admin", "Registrar"),
       ).data,
-      createNavLink("Classes", "list", "/academic/classes").access(
-        _role.in("Admin", "Teacher"),
-      ).data,
-      createNavLink("Subjects", "book", "/academic/subjects").access(
-        _role.in("Admin", "Teacher"),
-      ).data,
+      createNavLink("Classes", "list", "/academic/classes").access(_role.is(
+        "Admin",
+      )).data,
+      createNavLink("Subjects", "book", "/academic/subjects").access(_role.is(
+        "Admin",
+      )).data,
     ]),
     createNavSection("main", "Assessment", [
       createNavLink(
         "Tests & Exams",
         "clipboard-list",
         "/academic/assessments",
-      ).access(_role.in("Admin", "Teacher")).data,
-      createNavLink("Grading", "award", "/academic/grading").access(
-        _role.in("Admin", "Teacher"),
-      ).data,
+      ).access(_role.is("Admin")).data,
+      createNavLink("Grading", "award", "/academic/grading").access(_role.is(
+        "Admin",
+      )).data,
       createNavLink("Report Cards", "file-text", "/academic/reports").access(
-        _role.in("Admin", "Teacher"),
+        _role.is("Admin"),
       ).data,
       createNavLink(
         "Student Report",
         "bar-chart-2",
         "/student-report",
-      ).access(_role.in("Admin", "Teacher")).data,
+      ).access(_role.is("Admin")).data,
     ]),
   ]),
 
