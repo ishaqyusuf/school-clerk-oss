@@ -1,14 +1,7 @@
+import { STAFF_ROLES } from "@school-clerk/utils/constants";
 import { z } from "zod";
 
-export const staffRoleSchema = z.enum([
-	"Admin",
-	"Teacher",
-	"Accountant",
-	"Registrar",
-	"HR",
-	"Staff",
-	"Support",
-]);
+export const staffRoleSchema = z.enum(STAFF_ROLES);
 
 export const createAcadSessionSchema = z.object({
 	title: z.string().min(1),

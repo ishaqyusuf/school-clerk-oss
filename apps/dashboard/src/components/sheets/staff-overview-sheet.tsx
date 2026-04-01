@@ -3,6 +3,7 @@
 import { useStaffParams } from "@/hooks/use-staff-params";
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
+import type { ComponentProps } from "react";
 
 import { Badge } from "@school-clerk/ui/badge";
 import {
@@ -15,6 +16,10 @@ import { Skeleton } from "@school-clerk/ui/skeleton";
 import { CustomSheet, CustomSheetContent } from "../custom-sheet-content";
 import { Form } from "../forms/staff-form";
 import { FormContext } from "../staffs/form-context";
+
+type StaffFormValues = NonNullable<
+	ComponentProps<typeof FormContext>["values"]
+>;
 
 export function StaffOverviewSheet() {
 	const { staffViewId, setParams } = useStaffParams();
@@ -51,7 +56,17 @@ export function StaffOverviewSheet() {
 	);
 }
 
-function Content({ data }) {
+function Content({
+	data,
+}: {
+	data: {
+		staff: StaffFormValues & {
+			id: string;
+			name: string;
+			role: string;
+		};
+	};
+}) {
 	if (!data?.staff) return null;
 
 	return (

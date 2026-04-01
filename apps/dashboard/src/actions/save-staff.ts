@@ -261,10 +261,11 @@ export const saveStaffAction = actionClient
 				});
 				invited = true;
 			} catch (error) {
+				console.error("[staff-invite] Failed to send invite email", error);
 				inviteError =
 					error instanceof Error
 						? error.message
-						: "Failed to send invite email.";
+						: "Failed to send invite email. Please verify the email address and try again.";
 			}
 		}
 

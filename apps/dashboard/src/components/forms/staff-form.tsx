@@ -66,11 +66,11 @@ export function Form({
 			}
 
 			if (data.inviteError) {
-				toast.error("Staff saved, but invite email could not be sent.");
+				toast.error("Teacher saved, but invite email could not be sent.");
 			} else if (data.invited) {
 				toast.success("Invite email sent.");
 			} else {
-				toast.success(staffId ? "Staff updated." : "Teacher created.");
+				toast.success(staffId ? "Teacher updated." : "Teacher created.");
 			}
 
 			if (closeOnSuccess) {

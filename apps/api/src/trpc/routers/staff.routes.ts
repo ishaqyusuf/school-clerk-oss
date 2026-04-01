@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import { STAFF_ROLES } from "@school-clerk/utils/constants";
 import { createTRPCRouter, publicProcedure } from "../init";
 
 const createStaffSchema = z.object({
@@ -182,15 +183,7 @@ export const staffRouter = createTRPCRouter({
 				: null;
 
 			return {
-				roles: [
-					"Admin",
-					"Teacher",
-					"Accountant",
-					"Registrar",
-					"HR",
-					"Staff",
-					"Support",
-				],
+				roles: [...STAFF_ROLES],
 				classrooms: classrooms.map((classroom) => ({
 					label: [classroom.classRoom?.name, classroom.departmentName]
 						.filter(Boolean)
