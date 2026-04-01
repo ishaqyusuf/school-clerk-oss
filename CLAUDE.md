@@ -166,8 +166,10 @@ See `brain/features/student-promotion.md` for full details.
 ### Staff/Teacher Status
 - Teachers page search uses `staffPageQuery` and `MiddaySearchFilter` with an explicit filter schema to avoid client-side query-state crashes.
 - `getStaffListAction` now returns an empty list when tenant cookie context lacks `schoolId`, `sessionId`, or `termId`, and scopes teacher list queries to the active tenant and active term.
-- Staff onboarding is still manual; there is no email invite + onboarding link flow yet.
-- Classroom- and subject-specific teacher permission tables exist in Prisma (`StaffClassroomDepartmentTermProfiles`, `StaffSubject`), but there is no UI/API workflow enforcing them yet.
+- Teachers can now be created or edited with a role, allowed classrooms, allowed subjects, and an optional onboarding email invite from the dashboard sheets.
+- Staff invites create/update the tenant `User` role and trigger Better Auth password setup via the reset-password email flow.
+- Classroom permissions are stored on `StaffClassroomDepartmentTermProfiles` for the active term profile; subject permissions are stored on `StaffSubject` against active-term `DepartmentSubject` records.
+- The assignment workflow exists now, but downstream teacher-facing modules still need to explicitly enforce these assignments when they add teacher access controls.
 
 ### Attendance System Pattern
 - **Models**: `ClassRoomAttendance` (session) + `StudentAttendance` (per-student record)

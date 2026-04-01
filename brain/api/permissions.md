@@ -45,9 +45,10 @@ Defines access control rules for each API surface.
 
 ## Teacher/Classroom Authorization Status
 - The data model has teacher-to-classroom and teacher-to-subject assignment tables via `StaffClassroomDepartmentTermProfiles` and `StaffSubject`.
-- The current dashboard/API surface does not expose teacher-specific classroom or subject permission management yet.
-- No server-side authorization layer currently enforces classroom-specific or subject-specific teacher permissions.
+- The dashboard now lets admins assign allowed classrooms and allowed subjects per staff member from the teachers create/edit sheets.
+- Assigned classroom permissions are stored against the active `StaffTermProfile`, and subject permissions are stored against active-term `DepartmentSubject` records.
+- The assignment workflow is implemented, but broad server-side feature enforcement outside this workflow still needs to be layered onto teacher-facing modules as they adopt permission checks.
 
 ## Staff Invite Status
-- There is currently no staff invite flow that captures email plus role and emails an onboarding link to the staff member.
-- Staff onboarding today is manual staff creation from the dashboard.
+- Staff create/edit now supports role assignment plus a "Send onboarding email" option.
+- Invites create or update the tenant user record and trigger Better Auth's reset-password flow so the staff member receives a link to set their password.
