@@ -1,10 +1,27 @@
+import { Suspense } from "react";
+import { ErrorBoundary } from "next/dist/client/components/error-boundary";
+import { ErrorFallback } from "@/components/error-fallback";
+import { TableSkeleton } from "@/components/tables/skeleton";
+import { StaffAttendancePanel } from "@/components/staff/basic-staff-pages";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 
-export default function Page() {
-  return (
-    <div className="py-8">
-      <PageTitle>Staff Attendance</PageTitle>
-      <p className="mt-2 text-sm text-muted-foreground">Coming soon.</p>
-    </div>
-  );
+export default async function Page({
+	searchParams,
+}: {
+	searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+	const params = await searchParams;
+	const search =
+		typeof params.search === "string" ? params.search.trim() : undefined;
+
+	return (
+		<div className="flex flex-col gap-6">
+			<PageTitle>Staff Attendance</PageTitle>
+			<ErrorBoundary errorComponent={ErrorFallback}>
+				<Suspense fallback={<TableSkeleton />}>
+					<StaffAttendancePanel search={search} />
+				</Suspense>
+			</ErrorBoundary>
+		</div>
+	);
 }
