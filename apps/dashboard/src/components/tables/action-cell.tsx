@@ -1,8 +1,8 @@
 import { cn } from "@school-clerk/ui/cn";
 
-import { useTable } from ".";
-import ConfirmBtn from "../confirm-button";
-import { Menu } from "../menu";
+// import { useTable } from ".";
+// import ConfirmBtn from "../confirm-button";
+// import { Menu } from "../menu";
 
 interface Props {
   Menu?;
@@ -11,11 +11,11 @@ interface Props {
   children?;
 }
 export function ActionCell(props: Props) {
-  const { tableMeta } = useTable();
-  const deletable = props?.trash && !!tableMeta?.deleteAction;
+  // const { tableMeta } = useTable();
+  // const deletable = props?.trash && !!tableMeta?.deleteAction;
   return (
     <div className="flex items-center justify-end gap-2">
-      {deletable ? (
+      {/* {deletable ? (
         <div className="hidden sm:block">
           <ConfirmBtn
             trash
@@ -27,7 +27,7 @@ export function ActionCell(props: Props) {
         </div>
       ) : (
         <></>
-      )}
+      )} */}
       {/* {!!props.Menu || deletable ? (
         <div className={cn(!props.Menu && "sm:hidden")}>
           <Menu>

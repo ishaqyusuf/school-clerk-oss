@@ -1,9 +1,8 @@
 import { ErrorFallback } from "@/components/error-fallback";
-import { DataTable } from "@/components/tables/enrollments/table";
+import { DataTable } from "@/components/tables/enrollments/data-table";
 import { TableSkeleton } from "@/components/tables/skeleton";
 import { loadStudentFilterParams } from "@/hooks/use-student-filter-params";
-import { batchPrefetch, trpc } from "@/trpc/server";
-import { prisma } from "@school-clerk/db";
+import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server";
 import { Metadata } from "next";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
 import { SearchParams } from "nuqs";
@@ -21,19 +20,21 @@ export default async function Page(props: Props) {
   const filter = loadStudentFilterParams(searchParams);
 
   await batchPrefetch([
-    trpc.enrollments.index.queryOptions({
+    trpc.enrollments.index.infiniteQueryOptions({
       ...(filter as any),
     }),
   ]);
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageTitle>Enrollment</PageTitle>
-      <ErrorBoundary errorComponent={ErrorFallback}>
-        <Suspense fallback={<TableSkeleton />}>
-          <DataTable />
-        </Suspense>
-      </ErrorBoundary>
-    </div>
+    <HydrateClient>
+      <div className="flex flex-col gap-6">
+        <PageTitle>Enrollment</PageTitle>
+        <ErrorBoundary errorComponent={ErrorFallback}>
+          <Suspense fallback={<TableSkeleton />}>
+            <DataTable />
+          </Suspense>
+        </ErrorBoundary>
+      </div>
+    </HydrateClient>
   );
 }
