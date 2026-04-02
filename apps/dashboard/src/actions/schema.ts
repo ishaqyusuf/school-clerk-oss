@@ -101,9 +101,13 @@ export const createSubjectSchema = z.object({
 	// amount: z.number(),
 });
 export const createSchoolFeeSchema = z.object({
+	feeId: z.string().optional(),
 	title: z.string(),
 	description: z.string().optional(),
 	amount: z.number(),
+	streamId: z.string().optional(),
+	streamName: z.string().optional(),
+	classroomDepartmentIds: z.array(z.string()).default([]),
 });
 export const createBillSchema = z.object({
 	title: z.string().min(1),

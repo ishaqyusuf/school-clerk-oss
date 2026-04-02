@@ -16,9 +16,10 @@ const payBillSchema = z.object({
 });
 
 const receivePaymentLineSchema = z.object({
-	source: z.enum(["studentFee", "billable", "manual"]),
+	source: z.enum(["studentFee", "billable", "manual", "feeHistory"]),
 	studentFeeId: z.string().optional().nullable(),
 	billableHistoryId: z.string().optional().nullable(),
+	feeHistoryId: z.string().optional().nullable(),
 	title: z.string().optional().nullable(),
 	description: z.string().optional().nullable(),
 	amountDue: z.number().positive(),
@@ -113,6 +114,7 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 							billAmount: true,
 							pendingAmount: true,
 							billablePriceId: true,
+							feeHistoryId: true,
 							createdAt: true,
 						},
 						orderBy: { createdAt: "asc" },
@@ -222,6 +224,26 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 			} => Boolean(billable),
 		);
 
+	// Load current-term FeeHistory records (student-side fees)
+	const allFeeHistories = await ctx.db.feeHistory.findMany({
+		where: {
+			termId: ctx.profile.termId,
+			current: true,
+			deletedAt: null,
+			fee: { schoolProfileId: ctx.profile.schoolId, deletedAt: null },
+		},
+		select: {
+			id: true,
+			amount: true,
+			fee: { select: { title: true, description: true } },
+			wallet: { select: { id: true, name: true } },
+			classroomDepartments: {
+				where: { deletedAt: null },
+				select: { id: true },
+			},
+		},
+	});
+
 	if (!currentTermForm) {
 		return {
 			student: {
@@ -251,6 +273,7 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 			billables: [],
 			otherCharges: [],
 			manualBillables,
+			manualFeeHistories: [],
 		};
 	}
 
@@ -260,6 +283,29 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 			(department) => department.id === currentTermForm.classroomDepartmentId,
 		);
 	});
+
+	// Build manualFeeHistories: applicable fee histories not yet applied to this student
+	const applicableFeeHistories = allFeeHistories.filter((fh) => {
+		if (!fh.classroomDepartments.length) return true;
+		return fh.classroomDepartments.some(
+			(d) => d.id === currentTermForm.classroomDepartmentId,
+		);
+	});
+	const appliedFeeHistoryIds = new Set(
+		currentTermForm.studentFees
+			.map((sf) => sf.feeHistoryId)
+			.filter((id): id is string => Boolean(id)),
+	);
+	const manualFeeHistories = applicableFeeHistories
+		.filter((fh) => !appliedFeeHistoryIds.has(fh.id))
+		.map((fh) => ({
+			feeHistoryId: fh.id,
+			title: fh.fee.title,
+			description: fh.fee.description,
+			amount: fh.amount,
+			streamId: fh.wallet?.id ?? null,
+			streamName: fh.wallet?.name ?? null,
+		}));
 
 	const feesByBillableHistoryId = new Map<
 		string,
@@ -308,7 +354,7 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 	});
 
 	const otherCharges = currentTermForm.studentFees
-		.filter((fee) => !fee.billablePriceId)
+		.filter((fee) => !fee.billablePriceId && !fee.feeHistoryId)
 		.map((fee) => {
 			const paidAmount = Math.max(
 				(fee.billAmount ?? 0) - (fee.pendingAmount ?? 0),
@@ -337,6 +383,39 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 			};
 		});
 
+	// FeeHistory-linked StudentFee records (applied via applyFeeToClass)
+	const feeItems = currentTermForm.studentFees
+		.filter(
+			(
+				fee,
+			): fee is (typeof currentTermForm.studentFees)[number] & {
+				feeHistoryId: string;
+			} => Boolean(fee.feeHistoryId),
+		)
+		.map((fee) => {
+			const paidAmount = Math.max(
+				(fee.billAmount ?? 0) - (fee.pendingAmount ?? 0),
+				0,
+			);
+			const status: "PAID" | "PARTIAL" | "PENDING" =
+				(fee.pendingAmount ?? 0) <= 0
+					? "PAID"
+					: (fee.pendingAmount ?? 0) < (fee.billAmount ?? 0)
+						? "PARTIAL"
+						: "PENDING";
+			return {
+				key: fee.id,
+				studentFeeId: fee.id,
+				feeHistoryId: fee.feeHistoryId,
+				title: fee.feeTitle || "Fee",
+				description: fee.description,
+				amount: fee.billAmount ?? 0,
+				paidAmount,
+				pendingAmount: fee.pendingAmount ?? 0,
+				status,
+			};
+		});
+
 	const totalBillableAmount = billableItems.reduce(
 		(sum, item) => sum + item.amount,
 		0,
@@ -349,9 +428,18 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 		(sum, item) => sum + item.pendingAmount,
 		0,
 	);
+	const totalFeeItemsPending = feeItems.reduce(
+		(sum, item) => sum + item.pendingAmount,
+		0,
+	);
+	const totalManualFeeHistoryAmount = manualFeeHistories.reduce(
+		(sum, item) => sum + item.amount,
+		0,
+	);
 	const missingBillables = billableItems.filter(
 		(item) => item.status === "UNAPPLIED",
 	);
+	const totalUnapplied = missingBillables.length + manualFeeHistories.length;
 
 	return {
 		student: {
@@ -369,25 +457,35 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 			classroomDepartmentId: currentTermForm.classroomDepartmentId,
 			sessionTermId: currentTermForm.sessionTermId,
 		},
-		alert: missingBillables.length
-			? {
-					variant: "warning" as const,
-					title: "Billables still need to be applied",
-					description: `${missingBillables.length} current-term billable${missingBillables.length > 1 ? "s are" : " is"} available for this student but not yet on the term sheet.`,
-				}
-			: null,
+		alert:
+			totalUnapplied > 0
+				? {
+						variant: "warning" as const,
+						title: "Charges still need to be applied",
+						description: `${totalUnapplied} current-term charge${totalUnapplied > 1 ? "s are" : " is"} available for this student but not yet on the term sheet.`,
+					}
+				: null,
 		summary: {
 			totalDue:
 				totalBillableAmount +
-				otherCharges.reduce((sum, item) => sum + item.amount, 0),
+				otherCharges.reduce((sum, item) => sum + item.amount, 0) +
+				feeItems.reduce((sum, item) => sum + item.amount, 0) +
+				totalManualFeeHistoryAmount,
 			totalPaid:
 				billableItems.reduce((sum, item) => sum + item.paidAmount, 0) +
-				otherCharges.reduce((sum, item) => sum + item.paidAmount, 0),
-			totalPending: totalBillablePending + totalOtherPending,
+				otherCharges.reduce((sum, item) => sum + item.paidAmount, 0) +
+				feeItems.reduce((sum, item) => sum + item.paidAmount, 0),
+			totalPending:
+				totalBillablePending +
+				totalOtherPending +
+				totalFeeItemsPending +
+				totalManualFeeHistoryAmount,
 		},
 		billables: billableItems,
+		feeItems,
 		otherCharges,
 		manualBillables,
+		manualFeeHistories,
 	};
 }
 
@@ -1102,6 +1200,87 @@ export const financeRouter = createTRPCRouter({
 							existingFee.feeTitle || history.billable.title || feeTitle;
 					}
 
+					if (allocation.source === "feeHistory") {
+						const fh = await tx.feeHistory.findFirstOrThrow({
+							where: {
+								id: allocation.feeHistoryId || undefined,
+								termId: ctx.profile.termId,
+								current: true,
+								deletedAt: null,
+							},
+							select: {
+								id: true,
+								amount: true,
+								walletId: true,
+								classroomDepartments: {
+									where: { deletedAt: null },
+									select: { id: true },
+								},
+								fee: { select: { title: true, description: true } },
+							},
+						});
+
+						if (
+							fh.classroomDepartments.length > 0 &&
+							!fh.classroomDepartments.some(
+								(department) =>
+									department.id === studentTermForm.classroomDepartmentId,
+							)
+						) {
+							throw new Error(
+								"This fee does not apply to the student's current classroom.",
+							);
+						}
+
+						let existingFee = await tx.studentFee.findFirst({
+							where: {
+								studentTermFormId: studentTermForm.id,
+								feeHistoryId: fh.id,
+								deletedAt: null,
+								status: { not: "cancelled" },
+							},
+							select: { id: true, pendingAmount: true, feeTitle: true },
+						});
+
+						if (!existingFee) {
+							existingFee = await tx.studentFee.create({
+								data: {
+									billAmount: fh.amount,
+									pendingAmount: fh.amount,
+									feeTitle: fh.fee.title,
+									description: fh.fee.description,
+									feeHistoryId: fh.id,
+									schoolProfileId: ctx.profile.schoolId!,
+									studentTermFormId: studentTermForm.id,
+									schoolSessionId: studentTermForm.schoolSessionId,
+									studentId: input.studentId,
+									status: "active",
+								},
+								select: { id: true, pendingAmount: true, feeTitle: true },
+							});
+						}
+
+						if (allocation.amountToPay > existingFee.pendingAmount) {
+							throw new Error(
+								`Payment for ${existingFee.feeTitle || fh.fee.title} exceeds the pending amount.`,
+							);
+						}
+
+						walletId =
+							fh.walletId ||
+							(
+								await getOrCreateWallet(tx, {
+									name: fh.fee.title || "General",
+									type: "fee",
+									schoolId: ctx.profile.schoolId!,
+									termId: ctx.profile.termId!,
+								})
+							).id;
+
+						studentFeeId = existingFee.id;
+						feeTitle = existingFee.feeTitle || fh.fee.title || feeTitle;
+					}
+
 					if (allocation.source === "manual") {
 						const manualFee = await tx.studentFee.create({
 							data: {
@@ -1199,6 +1378,7 @@ export const financeRouter = createTRPCRouter({
 					success: true,
 					count: createdPayments.length,
 					totalAllocated,
+					paymentIds: createdPayments.map((payment) => payment.id),
 				};
 			});
 		}),

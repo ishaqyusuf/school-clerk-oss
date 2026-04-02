@@ -50,6 +50,12 @@ type ManualRow = {
 	streamName?: string | null;
 };
 
+type PaymentReceiptState = {
+	paymentIds: string[];
+	count: number;
+	totalAllocated: number;
+};
+
 export function ReceivePaymentSheet() {
 	const {
 		receivePayment: receivePaymentOpen,
@@ -69,20 +75,37 @@ export function ReceivePaymentSheet() {
 	const [amountReceived, setAmountReceived] = useState("");
 	const [selection, setSelection] = useState<SelectionState>({});
 	const [extraBillableIds, setExtraBillableIds] = useState<string[]>([]);
+	const [extraFeeHistoryIds, setExtraFeeHistoryIds] = useState<string[]>([]);
 	const [manualRows, setManualRows] = useState<ManualRow[]>([]);
 	const [manualTitle, setManualTitle] = useState("");
 	const [manualDescription, setManualDescription] = useState("");
 	const [manualAmount, setManualAmount] = useState("");
+	const [receiptState, setReceiptState] = useState<PaymentReceiptState | null>(
+		null,
+	);
 	const selectedStudentId = receivePaymentStudentId || "";
 
 	const resetSheetState = () => {
 		setSelection({});
 		setExtraBillableIds([]);
+		setExtraFeeHistoryIds([]);
 		setManualRows([]);
 		setAmountReceived("");
 		setReference("");
 		setPaymentMethod("Bank Transfer");
 		setPaymentDate(format(new Date(), "yyyy-MM-dd"));
+	};
+
+	const openReceipt = (paymentIds: string[], download = false) => {
+		if (!paymentIds.length) return;
+		const params = new URLSearchParams({
+			paymentIds: paymentIds.join(","),
+		});
+		if (download) params.set("download", "true");
+		window.open(
+			`/api/pdf/student-payment-receipt?${params.toString()}`,
+			"_blank",
+		);
 	};
 
 	const { data: searchResults = [] } = useQuery(
@@ -154,9 +177,39 @@ export function ReceivePaymentSheet() {
 			}));
 	}, [baseRows, data, extraBillableIds]);
 
+	const addedFeeHistoryRows = useMemo(() => {
+		const existingKeys = new Set(baseRows.map((row) => row.key));
+		return (data?.manualFeeHistories ?? [])
+			.filter(
+				(fh) =>
+					extraFeeHistoryIds.includes(fh.feeHistoryId) &&
+					!existingKeys.has(fh.feeHistoryId),
+			)
+			.map((fh) => ({
+				key: fh.feeHistoryId,
+				source: "feeHistory" as const,
+				studentFeeId: null as string | null,
+				billableHistoryId: null as string | null,
+				feeHistoryId: fh.feeHistoryId,
+				title: fh.title,
+				description: fh.description,
+				amount: fh.amount,
+				paidAmount: 0,
+				pendingAmount: fh.amount,
+				status: "UNAPPLIED",
+				streamName: fh.streamName,
+				classroomNames: [] as string[],
+			}));
+	}, [baseRows, data, extraFeeHistoryIds]);
+
 	const rows = useMemo(
-		() => [...baseRows, ...addedBillableRows, ...manualRows],
-		[addedBillableRows, baseRows, manualRows],
+		() => [
+			...baseRows,
+			...addedBillableRows,
+			...addedFeeHistoryRows,
+			...manualRows,
+		],
+		[addedBillableRows, addedFeeHistoryRows, baseRows, manualRows],
 	);
 
 	const selectedTotal = rows.reduce((sum, row) => {
@@ -177,6 +230,10 @@ export function ReceivePaymentSheet() {
 			),
 	);
 
+	const availableManualFeeHistories = (data?.manualFeeHistories ?? []).filter(
+		(fh) => !rows.some((row) => row.key === fh.feeHistoryId),
+	);
+
 	const receivePaymentMutation = useMutation(
 		trpc.finance.receiveStudentPayment.mutationOptions({
 			meta: {
@@ -186,7 +243,7 @@ export function ReceivePaymentSheet() {
 					error: "Could not record payment",
 				},
 			},
-			onSuccess() {
+			onSuccess(result) {
 				if (!receivePaymentStudentId) return;
 				qc.invalidateQueries({
 					queryKey: trpc.finance.getReceivePaymentData.queryKey({
@@ -208,6 +265,11 @@ export function ReceivePaymentSheet() {
 				});
 				qc.invalidateQueries({
 					queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),
+				});
+				setReceiptState({
+					paymentIds: result.paymentIds,
+					count: result.count,
+					totalAllocated: result.totalAllocated,
 				});
 				resetSheetState();
 			},
@@ -293,6 +355,7 @@ export function ReceivePaymentSheet() {
 						studentFeeId: "studentFeeId" in row ? row.studentFeeId : undefined,
 						billableHistoryId:
 							"billableHistoryId" in row ? row.billableHistoryId : undefined,
+						feeHistoryId: "feeHistoryId" in row ? row.feeHistoryId : undefined,
 						title: row.title,
 						description: row.description,
 						amountDue: Number(row.pendingAmount || row.amount || 0),
@@ -309,6 +372,7 @@ export function ReceivePaymentSheet() {
 			onOpenChange={(open) => {
 				if (!open) {
 					resetSheetState();
+					setReceiptState(null);
 					setParams({ receivePayment: null, receivePaymentStudentId: null });
 				}
 			}}
@@ -332,6 +396,7 @@ export function ReceivePaymentSheet() {
 								onSearch={setStudentSearch}
 								onSelect={(student) => {
 									resetSheetState();
+									setReceiptState(null);
 									setParams({
 										receivePayment: true,
 										receivePaymentStudentId: student.id,
@@ -385,6 +450,45 @@ export function ReceivePaymentSheet() {
 							<AlertTriangle className="h-4 w-4" />
 							<AlertTitle>{data.alert.title}</AlertTitle>
 							<AlertDescription>{data.alert.description}</AlertDescription>
+						</Alert>
+					) : null}
+
+					{receiptState ? (
+						<Alert>
+							<CheckCircle2 className="h-4 w-4" />
+							<AlertTitle>Payment recorded successfully</AlertTitle>
+							<AlertDescription className="space-y-3">
+								<p>
+									{receiptState.count} allocation
+									{receiptState.count !== 1 ? "s" : ""} recorded for NGN{" "}
+									{receiptState.totalAllocated.toLocaleString()}.
+								</p>
+								<div className="flex flex-wrap gap-2">
+									<Button
+										type="button"
+										size="sm"
+										onClick={() => openReceipt(receiptState.paymentIds)}
+									>
+										Print Receipt
+									</Button>
+									<Button
+										type="button"
+										size="sm"
+										variant="outline"
+										onClick={() => openReceipt(receiptState.paymentIds, true)}
+									>
+										Download PDF
+									</Button>
+									<Button
+										type="button"
+										size="sm"
+										variant="ghost"
+										onClick={() => setReceiptState(null)}
+									>
+										Record another payment
+									</Button>
+								</div>
+							</AlertDescription>
 						</Alert>
 					) : null}
 
@@ -582,12 +686,12 @@ export function ReceivePaymentSheet() {
 						) : null}
 					</div>
 
-					<div className="grid gap-4 lg:grid-cols-2">
+					<div className="grid gap-4 lg:grid-cols-3">
 						<Card>
 							<CardContent className="space-y-3 p-4">
 								<div className="flex items-center justify-between">
 									<h3 className="text-sm font-semibold">
-										Add another billable
+										Add legacy billable charge
 									</h3>
 									<Badge variant="secondary">
 										{availableManualBillables.length}
@@ -600,8 +704,8 @@ export function ReceivePaymentSheet() {
 										description: billable.description,
 										amount: billable.amount,
 									}))}
-									placeholder="Select billable"
-									searchPlaceholder="Search billables..."
+									placeholder="Select legacy billable"
+									searchPlaceholder="Search legacy billables..."
 									onSelect={(billable) =>
 										setExtraBillableIds((prev) =>
 											prev.includes(billable.id)
@@ -623,6 +727,54 @@ export function ReceivePaymentSheet() {
 										</div>
 									)}
 								/>
+								<p className="text-sm text-muted-foreground">
+									For legacy student charges only. New student fees should be
+									created as school fees.
+								</p>
+							</CardContent>
+						</Card>
+
+						<Card>
+							<CardContent className="space-y-3 p-4">
+								<div className="flex items-center justify-between">
+									<h3 className="text-sm font-semibold">Add school fee</h3>
+									<Badge variant="secondary">
+										{availableManualFeeHistories.length}
+									</Badge>
+								</div>
+								<ComboboxDropdown
+									items={availableManualFeeHistories.map((fh) => ({
+										id: fh.feeHistoryId,
+										label: fh.title,
+										description: fh.description,
+										amount: fh.amount,
+									}))}
+									placeholder="Select fee"
+									searchPlaceholder="Search fees..."
+									onSelect={(fh) =>
+										setExtraFeeHistoryIds((prev) =>
+											prev.includes(fh.id) ? prev : [...prev, fh.id],
+										)
+									}
+									renderListItem={({ item }) => (
+										<div className="flex w-full items-center justify-between gap-3">
+											<div className="flex flex-col">
+												<span className="font-medium">{item.label}</span>
+												{item.description && (
+													<span className="text-xs text-muted-foreground">
+														{item.description}
+													</span>
+												)}
+											</div>
+											<span className="text-xs font-medium">
+												NGN {Number(item.amount || 0).toLocaleString()}
+											</span>
+										</div>
+									)}
+								/>
+								<p className="text-sm text-muted-foreground">
+									School fees applicable to this student but not yet collected.
+								</p>
 							</CardContent>
 						</Card>
 

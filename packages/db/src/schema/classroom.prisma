@@ -33,6 +33,7 @@ model ClassRoomDepartment {
     staffTermProfiles     StaffClassroomDepartmentTermProfiles[]
     studentTermForms      StudentTermForm[]
     billableHistories     BillableHistory[]
+    feeHistories          FeeHistory[]
 
     @@unique([classRoomsId, departmentName])
 }

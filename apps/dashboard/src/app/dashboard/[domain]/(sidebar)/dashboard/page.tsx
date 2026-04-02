@@ -1,4 +1,5 @@
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { ReceiveFeeButton } from "@/components/dashboard/receive-fee-button";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import {
@@ -142,7 +143,7 @@ export default async function Page({ params }) {
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Quick Links
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {quickLinks.map((l) => (
             <Button
               key={l.label}
@@ -156,6 +157,7 @@ export default async function Page({ params }) {
               </Link>
             </Button>
           ))}
+          <ReceiveFeeButton />
         </div>
       </div>
     </div>

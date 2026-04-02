@@ -9,6 +9,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./payment-receipt-template": "./src/payment-receipt/index.tsx",
     "./result-template": "./src/result/index.tsx",
     "./utils/*": "./src/utils/*.ts"
   },

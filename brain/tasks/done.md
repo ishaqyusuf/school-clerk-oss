@@ -56,3 +56,43 @@ Record of completed tasks and delivery outcomes.
 - Outcome: Added the `(k-12-teachers)` dashboard route group with a dedicated `/teacher` workspace, moved teacher sidebar navigation into its own guarded module, tightened teacher visibility in admin navigation, and replaced the remaining staff coming-soon stubs with tenant-scoped overview pages for non-teaching staff, departments, and staff attendance readiness.
 - Related changes: `apps/dashboard/src/components/sidebar/links.ts`, `apps/dashboard/src/sidebar/utils.ts`, `apps/dashboard/src/actions/get-staff-list.ts`, `apps/dashboard/src/actions/get-staff-pages.ts`, `apps/dashboard/src/actions/get-teacher-workspace.ts`, `apps/dashboard/src/components/staff/basic-staff-pages.tsx`, `apps/dashboard/src/components/teachers/workspace-pages.tsx`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/(k-12-teachers)/layout.tsx`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/(k-12-teachers)/teacher/**`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/staff/non-teaching/page.tsx`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/staff/departments/page.tsx`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/staff/attendance/page.tsx`, `brain/api/permissions.md`, `CLAUDE.md`
 - Owner: Copilot
+
+## Completed Task
+- ID: FIN-001
+- Title: Bulk fee application — apply fee to all eligible students in a class
+- Completed: 2026-04-02
+- Outcome: Added fee-application preview plus confirmation from the fees-management table and implemented idempotent class-wide StudentFee creation for current-term FeeHistory records, so admins can apply a fee to all eligible students in scope without duplicating charges.
+- Related changes: `apps/api/src/trpc/routers/transaction.routes.ts`, `apps/dashboard/src/components/tables/fees-management/data-table.tsx`, `apps/dashboard/src/components/tables/fees-management/columns.tsx`, `brain/features/student-fees.md`
+- Owner: Codex
+
+## Completed Task
+- ID: FIN-002
+- Title: Student payment tab (StudentTransactionOverview) upgrade
+- Completed: 2026-04-02
+- Outcome: Replaced the legacy student fee display with current-term FeeHistory-backed status rows, surfaced unapplied school fees in outstanding totals, preloaded the receive-payment sheet from the student view, and enforced classroom scope validation for fee-history allocations on the server.
+- Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/students/student-transaction-overview.tsx`, `apps/dashboard/src/components/sheets/receive-payment-sheet.tsx`, `brain/features/student-fees.md`
+- Owner: Codex
+
+## Completed Task
+- ID: FIN-003
+- Title: Fees management — edit, soft-delete, and prefetch fix
+- Completed: 2026-04-02
+- Outcome: Added row-level edit and current-term removal actions for fees, updated fee editing to modify the active term FeeHistory instead of blindly versioning, and ensured the fees-management page prefetches previous-term fees for instant import-sheet loading.
+- Related changes: `apps/api/src/db/queries/accounting.ts`, `apps/api/src/trpc/routers/transaction.routes.ts`, `apps/dashboard/src/components/school-fee/form-context.tsx`, `apps/dashboard/src/components/forms/school-fee-form.tsx`, `apps/dashboard/src/components/sheets/school-fee-create-sheet.tsx`, `apps/dashboard/src/components/tables/fees-management/data-table.tsx`, `apps/dashboard/src/components/tables/fees-management/columns.tsx`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/finance/fees-management/page.tsx`, `brain/features/student-fees.md`
+- Owner: Codex
+
+## Completed Task
+- ID: FIN-004
+- Title: Post-payment receipt PDF generation
+- Completed: 2026-04-02
+- Outcome: Added a payment-receipt PDF template and authenticated receipt route, returned payment IDs from the receive-payment mutation, and exposed print/download actions in both the receive-payment success state and student payment history.
+- Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/sheets/receive-payment-sheet.tsx`, `apps/dashboard/src/components/students/student-transaction-overview.tsx`, `apps/dashboard/src/app/api/pdf/student-payment-receipt/route.ts`, `packages/pdf/package.json`, `packages/pdf/src/payment-receipt/index.tsx`, `brain/features/student-fees.md`, `brain/api/contracts.md`
+- Owner: Codex
+
+## Completed Task
+- ID: FIN-005
+- Title: Billables page relabelling — clarify staff/service-only purpose
+- Completed: 2026-04-02
+- Outcome: Renamed the billables workspace to Service Billables across navigation, page title, create sheet, empty states, and form copy, and updated student-payment UI text to mark legacy billable additions as backward-compatibility behavior rather than the preferred path for student fees.
+- Related changes: `apps/dashboard/src/components/sidebar/links.ts`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/finance/billables/page.tsx`, `apps/dashboard/src/components/sheets/billable-create-sheet.tsx`, `apps/dashboard/src/components/forms/billable-form.tsx`, `apps/dashboard/src/components/tables/billables/data-table.tsx`, `apps/dashboard/src/components/tables/billables/columns.tsx`, `apps/dashboard/src/components/tables/billables/empty-states.tsx`, `apps/dashboard/src/components/tables/bills/empty-states.tsx`, `apps/dashboard/src/components/tables/fees-management/empty-states.tsx`, `apps/dashboard/src/components/sheets/receive-payment-sheet.tsx`, `brain/features/student-fees.md`
+- Owner: Codex

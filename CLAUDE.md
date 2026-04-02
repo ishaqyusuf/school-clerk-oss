@@ -147,19 +147,24 @@ See `brain/features/student-promotion.md` for full details.
 
 ### Finance System Pattern
 - **Accounting Streams**: `Wallet` model — named buckets scoped to term+school. `finance.getStreams` returns balances. `finance.transferFunds` moves money between wallets.
-- **Billables**: current-term `BillableHistory` can now target a specific incoming `Wallet` stream and optional `ClassRoomDepartment[]`; empty classroom selection means the billable is all-inclusive for the term.
+- **Student Fees** ⭐: `Fees` + `FeeHistory` — the correct model for charges billed to students. `FeeHistory` now supports `walletId` (accounting stream) and `classroomDepartments[]` M:N (empty = all classes). See `brain/features/student-fees.md` for full lifecycle.
+  - `transaction.createSchoolFee` — creates/updates fee with stream + classroom targeting
+  - `transaction.getPreviousTermFees` — lists importable fees from prior terms
+  - `transaction.importFees` — copies selected fees into current term (preserves stream + classrooms)
+  - **Import button** on fees management page; **"Receive Fee" button** on main dashboard
+- **Billables** (staff/service ONLY): `Billable` + `BillableHistory` — for staff payroll and service payments (`BillType: SALARY | MISC | OTHER`). Targets `Wallet` stream + optional classrooms. Do NOT use for student charges.
 - **Service Payments**: `Bills` where `staffTermProfileId = null`. `finance.createServicePayment` → `finance.payServiceBill` (creates WalletTransaction + BillInvoice + BillPayment).
 - **Payroll**: `Bills` where `staffTermProfileId != null`. `finance.createStaffBill` auto-creates `StaffTermProfile`. `finance.payStaffBill` pays salary.
-- **Student Payment**: finance dashboard now opens a receive-payment sheet that searches all students, loads current-term billables/charges, warns about unapplied classroom billables, and records targeted allocations with `finance.receiveStudentPayment`. `finance.reverseStudentPayment` restores `StudentFee.pendingAmount`.
-- **Pages**: `/finance`, `/finance/billables`, `/finance/payments` (service), `/staff/payroll`
-- **Router file**: `apps/api/src/trpc/routers/finance.routes.ts`
+- **Student Payment**: receive-payment sheet searches all students, loads current-term fees (via `manualFeeHistories`) + billables, warns about unapplied charges, records targeted allocations via `finance.receiveStudentPayment` (supports sources: `studentFee`, `billable`, `feeHistory`, `manual`). `finance.reverseStudentPayment` restores `StudentFee.pendingAmount`.
+- **Pages**: `/finance`, `/finance/fees-management`, `/finance/billables`, `/finance/payments` (service), `/staff/payroll`
+- **Router files**: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/api/src/trpc/routers/transaction.routes.ts`
 - **Additional procedures**: `getBillables`, `createBillable`, `getBills`, `createBill`, `getTransactions`, `searchStudentsForPayment`, `getReceivePaymentData`, `receiveStudentPayment` in finance router
 
 ### tRPC Router Coverage (all server actions migrated)
 - **`staff.routes.ts`** — `createStaff`, `deleteStaff`, `getStaffList` (NEW)
 - **`classroom.routes.ts`** — added `createClassroom`, `deleteClassroomDepartment`
 - **`finance.routes.ts`** — added `getBillables`, `createBillable`, `getBills`, `createBill`, `getTransactions`, `searchStudentsForPayment`, `getReceivePaymentData`, `receiveStudentPayment`
-- **`transaction.routes.ts`** — added `getSchoolFees`, `getStudentFees`
+- **`transaction.routes.ts`** — added `getSchoolFees`, `getStudentFees`, `getPreviousTermFees`, `importFees`
 - All forms (classroom-form, staff-form, bill-form, school-fee-form, billable-form) now use `useMutation(trpc.*)` instead of `useAction(serverAction)`
 - All table delete actions use `useMutation(trpc.*)` instead of `useAction(serverAction)`
 - Finance table indexes (`billables`, `bills`, `fees-management`, `student-fees`, `transactions`) are client components using `useSuspenseQuery(trpc.*)`

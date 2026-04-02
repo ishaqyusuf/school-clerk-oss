@@ -65,7 +65,11 @@ export function Form() {
 
 	return (
 		<div className="grid gap-4">
-			<FormInput name="title" label="Billable Title" control={control} />
+			<FormInput
+				name="title"
+				label="Service Billable Title"
+				control={control}
+			/>
 			<FormInput
 				name="description"
 				label="Description"
@@ -89,11 +93,12 @@ export function Form() {
 						setValue("streamName", value.trim());
 					}}
 					renderOnCreate={(value) => (
-						<span>Create new incoming stream “{value}”</span>
+						<span>Create new service stream "{value}"</span>
 					)}
 				/>
 				<p className="text-sm text-muted-foreground">
-					New streams created here default to incoming revenue streams.
+					Use service billables for staff or operational costs, not student
+					fees.
 				</p>
 			</div>
 			<FormMultipleSelector

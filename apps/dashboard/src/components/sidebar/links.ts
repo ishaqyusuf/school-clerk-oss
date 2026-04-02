@@ -1,260 +1,262 @@
 import {
-  createNavLink,
-  createNavModule,
-  createNavSection,
-  getLinkModules as buildNavLinkModules,
-  initRoleAccess,
-  validateLinks as buildValidatedNavLinks,
+	getLinkModules as buildNavLinkModules,
+	validateLinks as buildValidatedNavLinks,
+	createNavLink,
+	createNavModule,
+	createNavSection,
+	initRoleAccess,
 } from "@school-clerk/ui/nav/utils";
 type Permission = null | string | undefined | unknown;
 
 type Role =
-  | "Admin"
-  | "Teacher"
-  | "Student"
-  | "Parent"
-  | "Accountant"
-  | "Registrar"
-  | "HR"
-  | "Staff"
-  | "Support";
+	| "Admin"
+	| "Teacher"
+	| "Student"
+	| "Parent"
+	| "Accountant"
+	| "Registrar"
+	| "HR"
+	| "Staff"
+	| "Support";
 const _role = initRoleAccess("" as Role);
 
 export const linkModules = [
-  createNavModule("Teachers", "graduation-cap", "Teacher Workspace", [
-    createNavSection("dashboard", null, [
-      createNavLink("Overview", "dashboard", "/teacher")
-        .access(_role.is("Teacher"))
-        .childPaths("/teacher").data,
-    ]),
-    createNavSection("main", "Classroom Work", [
-      createNavLink("My Classes", "list", "/teacher/classes").access(
-        _role.is("Teacher"),
-      ).data,
-      createNavLink("My Students", "users", "/teacher/students").access(
-        _role.is("Teacher"),
-      ).data,
-      createNavLink("Attendance", "calendar-check", "/teacher/attendance").access(
-        _role.is("Teacher"),
-      ).data,
-    ]),
-    createNavSection("main", "Assessment", [
-      createNavLink("Assessments", "clipboard-list", "/teacher/assessments").access(
-        _role.is("Teacher"),
-      ).data,
-      createNavLink("Grading", "award", "/teacher/grading").access(
-        _role.is("Teacher"),
-      ).data,
-      createNavLink("Reports", "file-text", "/teacher/reports").access(
-        _role.is("Teacher"),
-      ).data,
-      createNavLink("Timetable", "calendar", "/teacher/timetable").access(
-        _role.is("Teacher"),
-      ).data,
-    ]),
-  ]),
+	createNavModule("Teachers", "graduation-cap", "Teacher Workspace", [
+		createNavSection("dashboard", null, [
+			createNavLink("Overview", "dashboard", "/teacher")
+				.access(_role.is("Teacher"))
+				.childPaths("/teacher").data,
+		]),
+		createNavSection("main", "Classroom Work", [
+			createNavLink("My Classes", "list", "/teacher/classes").access(
+				_role.is("Teacher"),
+			).data,
+			createNavLink("My Students", "users", "/teacher/students").access(
+				_role.is("Teacher"),
+			).data,
+			createNavLink(
+				"Attendance",
+				"calendar-check",
+				"/teacher/attendance",
+			).access(_role.is("Teacher")).data,
+		]),
+		createNavSection("main", "Assessment", [
+			createNavLink(
+				"Assessments",
+				"clipboard-list",
+				"/teacher/assessments",
+			).access(_role.is("Teacher")).data,
+			createNavLink("Grading", "award", "/teacher/grading").access(
+				_role.is("Teacher"),
+			).data,
+			createNavLink("Reports", "file-text", "/teacher/reports").access(
+				_role.is("Teacher"),
+			).data,
+			createNavLink("Timetable", "calendar", "/teacher/timetable").access(
+				_role.is("Teacher"),
+			).data,
+		]),
+	]),
 
-  createNavModule("Community", "school", "School Management", [
-    createNavSection("main", "General", [
-      createNavLink("Dashboard", "dashboard", "/dashboard").access(
-        _role.in("Admin", "Staff"),
-      ).data,
-      createNavLink("Announcements", "speaker", "/announcements").access(
-        _role.in("Admin", "Teacher"),
-      ).data,
-      createNavLink("Calendar", "calendar", "/calendar").access(
-        _role.in("Admin", "Teacher", "Staff"),
-      ).data,
-    ]),
-  ]),
+	createNavModule("Community", "school", "School Management", [
+		createNavSection("main", "General", [
+			createNavLink("Dashboard", "dashboard", "/dashboard").access(
+				_role.in("Admin", "Staff"),
+			).data,
+			createNavLink("Announcements", "speaker", "/announcements").access(
+				_role.in("Admin", "Teacher"),
+			).data,
+			createNavLink("Calendar", "calendar", "/calendar").access(
+				_role.in("Admin", "Teacher", "Staff"),
+			).data,
+		]),
+	]),
 
-  createNavModule("HRM", "users", "HR & Staff", [
-    createNavSection("main", "Staff Management", [
-      createNavLink("Teachers", "users", "/staff/teachers").access(
-        _role.is("Admin"),
-      ).data,
-      createNavLink(
-        "Non-Teaching Staff",
-        "users",
-        "/staff/non-teaching",
-      ).access(_role.in("Admin", "HR")).data,
-      createNavLink("Departments", "building", "/staff/departments").access(
-        _role.in("Admin", "HR"),
-      ).data,
-      createNavLink("Attendance", "calendar-check", "/staff/attendance").access(
-        _role.in("Admin", "HR"),
-      ).data,
-      createNavLink("Payroll", "wallet", "/staff/payroll").access(
-        _role.is("Admin"),
-      ).data,
-    ]),
-  ]),
+	createNavModule("HRM", "users", "HR & Staff", [
+		createNavSection("main", "Staff Management", [
+			createNavLink("Teachers", "users", "/staff/teachers").access(
+				_role.is("Admin"),
+			).data,
+			createNavLink(
+				"Non-Teaching Staff",
+				"users",
+				"/staff/non-teaching",
+			).access(_role.in("Admin", "HR")).data,
+			createNavLink("Departments", "building", "/staff/departments").access(
+				_role.in("Admin", "HR"),
+			).data,
+			createNavLink("Attendance", "calendar-check", "/staff/attendance").access(
+				_role.in("Admin", "HR"),
+			).data,
+			createNavLink("Payroll", "wallet", "/staff/payroll").access(
+				_role.is("Admin"),
+			).data,
+		]),
+	]),
 
-  createNavModule("Bursary", "wallet", "Finance & Payments", [
-    createNavSection("dashboard", null, [
-      createNavLink("Dashboard", "dashboard", "/finance").access(
-        _role.is("Admin"),
-      ).data,
-    ]),
-    createNavSection("main", "Accounting", [
-      createNavLink("Accounting", "layers", "/finance/streams", [
-        createNavLink("Account Streams", null, "/finance/streams").access(
-          _role.is("Admin"),
-        ).data,
-        createNavLink("Remuneration", null, "/finance/payments").access(
-          _role.in("Admin", "Accountant"),
-        ).data,
-        createNavLink("Payroll", null, "/staff/payroll").access(
-          _role.is("Admin"),
-        ).data,
-        createNavLink("Transactions", null, "/finance/transactions").access(
-          _role.in("Admin", "Accountant"),
-        ).data,
-      ]).access(_role.is("Admin")).data,
-    ]),
-    createNavSection("main", "Finance Managment", [
-      createNavLink(
-        "Fee Management",
-        "coins",
-        "/finance/fees-management",
-      ).access(_role.is("Admin")).data,
-      createNavLink("Billables", "coins", "/finance/billables").access(
-        _role.is("Admin"),
-      ).data,
-    ]),
-    createNavSection("main", "Fees", [
-      createNavLink(
-        "Student Fees",
-        "file-text",
-        "/finance/student-fees",
-      ).access(_role.in("Admin", "Accountant")).data,
-      createNavLink("Bills", "file-text", "/finance/bills").access(
-        _role.in("Admin", "Accountant"),
-      ).data,
-    ]),
-  ]),
+	createNavModule("Bursary", "wallet", "Finance & Payments", [
+		createNavSection("dashboard", null, [
+			createNavLink("Dashboard", "dashboard", "/finance").access(
+				_role.is("Admin"),
+			).data,
+		]),
+		createNavSection("main", "Accounting", [
+			createNavLink("Accounting", "layers", "/finance/streams", [
+				createNavLink("Account Streams", null, "/finance/streams").access(
+					_role.is("Admin"),
+				).data,
+				createNavLink("Remuneration", null, "/finance/payments").access(
+					_role.in("Admin", "Accountant"),
+				).data,
+				createNavLink("Payroll", null, "/staff/payroll").access(
+					_role.is("Admin"),
+				).data,
+				createNavLink("Transactions", null, "/finance/transactions").access(
+					_role.in("Admin", "Accountant"),
+				).data,
+			]).access(_role.is("Admin")).data,
+		]),
+		createNavSection("main", "Finance Managment", [
+			createNavLink(
+				"Fee Management",
+				"coins",
+				"/finance/fees-management",
+			).access(_role.is("Admin")).data,
+			createNavLink("Service Billables", "coins", "/finance/billables").access(
+				_role.is("Admin"),
+			).data,
+		]),
+		createNavSection("main", "Fees", [
+			createNavLink(
+				"Student Fees",
+				"file-text",
+				"/finance/student-fees",
+			).access(_role.in("Admin", "Accountant")).data,
+			createNavLink("Bills", "file-text", "/finance/bills").access(
+				_role.in("Admin", "Accountant"),
+			).data,
+		]),
+	]),
 
-  createNavModule("Academic", "graduation-cap", "Academic", [
-    createNavSection("dashboard", null, [
-      createNavLink("Dashboard", "dashboard", "/academic")
-        .access(_role.is("Admin"))
-        .childPaths("/academic").data,
-    ]),
-    // createNavLink("Student List", "users", "/students/list").access(
-    //   _role.in("Admin", "Teacher"),
-    // ).data,
-    createNavSection("main", "Students", [
-      createNavLink("Student List", "users", "/students/list").access(_role.is(
-        "Admin",
-      )).data,
-      createNavLink("Enrollment", "user-plus", "/students/enrollment").access(
-        _role.in("Admin", "Registrar"),
-      ).data,
-      createNavLink("Classes", "list", "/academic/classes").access(_role.is(
-        "Admin",
-      )).data,
-      createNavLink("Subjects", "book", "/academic/subjects").access(_role.is(
-        "Admin",
-      )).data,
-    ]),
-    createNavSection("main", "Assessment", [
-      createNavLink(
-        "Tests & Exams",
-        "clipboard-list",
-        "/academic/assessments",
-      ).access(_role.is("Admin")).data,
-      createNavLink("Grading", "award", "/academic/grading").access(_role.is(
-        "Admin",
-      )).data,
-      createNavLink("Report Cards", "file-text", "/academic/reports").access(
-        _role.is("Admin"),
-      ).data,
-      createNavLink(
-        "Student Report",
-        "bar-chart-2",
-        "/student-report",
-      ).access(_role.is("Admin")).data,
-    ]),
-  ]),
+	createNavModule("Academic", "graduation-cap", "Academic", [
+		createNavSection("dashboard", null, [
+			createNavLink("Dashboard", "dashboard", "/academic")
+				.access(_role.is("Admin"))
+				.childPaths("/academic").data,
+		]),
+		// createNavLink("Student List", "users", "/students/list").access(
+		//   _role.in("Admin", "Teacher"),
+		// ).data,
+		createNavSection("main", "Students", [
+			createNavLink("Student List", "users", "/students/list").access(
+				_role.is("Admin"),
+			).data,
+			createNavLink("Enrollment", "user-plus", "/students/enrollment").access(
+				_role.in("Admin", "Registrar"),
+			).data,
+			createNavLink("Classes", "list", "/academic/classes").access(
+				_role.is("Admin"),
+			).data,
+			createNavLink("Subjects", "book", "/academic/subjects").access(
+				_role.is("Admin"),
+			).data,
+		]),
+		createNavSection("main", "Assessment", [
+			createNavLink(
+				"Tests & Exams",
+				"clipboard-list",
+				"/academic/assessments",
+			).access(_role.is("Admin")).data,
+			createNavLink("Grading", "award", "/academic/grading").access(
+				_role.is("Admin"),
+			).data,
+			createNavLink("Report Cards", "file-text", "/academic/reports").access(
+				_role.is("Admin"),
+			).data,
+			createNavLink("Student Report", "bar-chart-2", "/student-report").access(
+				_role.is("Admin"),
+			).data,
+		]),
+	]),
 
-  createNavModule("PTA", "user", "Parent Portal", [
-    createNavSection("main", "Engagement", [
-      createNavLink(
-        "Student Performance",
-        "bar-chart",
-        "/parents/performance",
-      ).access(_role.is("Parent")).data,
-      createNavLink(
-        "Communication",
-        "message-square",
-        "/parents/messages",
-      ).access(_role.is("Parent")).data,
-      createNavLink("Payments", "credit-card", "/parents/payments").access(
-        _role.is("Parent"),
-      ).data,
-    ]),
-  ]),
+	createNavModule("PTA", "user", "Parent Portal", [
+		createNavSection("main", "Engagement", [
+			createNavLink(
+				"Student Performance",
+				"bar-chart",
+				"/parents/performance",
+			).access(_role.is("Parent")).data,
+			createNavLink(
+				"Communication",
+				"message-square",
+				"/parents/messages",
+			).access(_role.is("Parent")).data,
+			createNavLink("Payments", "credit-card", "/parents/payments").access(
+				_role.is("Parent"),
+			).data,
+		]),
+	]),
 
-  createNavModule("Settings", "settings", "Settings", [
-    createNavSection("main", "Configuration", [
-      createNavLink(
-        "School Profile",
-        "settings",
-        "/settings/school-profile",
-      ).access(_role.is("Admin")).data,
-      createNavLink(
-        "Academic Session",
-        "calendar",
-        "/settings/sessions",
-      ).access(_role.is("Admin")).data,
-      createNavLink("Roles & Permissions", "shield", "/settings/roles").access(
-        _role.is("Admin"),
-      ).data,
-    ]),
-  ]),
+	createNavModule("Settings", "settings", "Settings", [
+		createNavSection("main", "Configuration", [
+			createNavLink(
+				"School Profile",
+				"settings",
+				"/settings/school-profile",
+			).access(_role.is("Admin")).data,
+			createNavLink(
+				"Academic Session",
+				"calendar",
+				"/settings/sessions",
+			).access(_role.is("Admin")).data,
+			createNavLink("Roles & Permissions", "shield", "/settings/roles").access(
+				_role.is("Admin"),
+			).data,
+		]),
+	]),
 ];
 
 export function getFirstPermittedHref({
-  can,
-  role,
-  userId,
+	can,
+	role,
+	userId,
 }: {
-  can?: Record<string, boolean>;
-  role?: string | null;
-  userId?: string | null;
+	can?: Record<string, boolean>;
+	role?: string | null;
+	userId?: string | null;
 }) {
-  const validLinks = buildNavLinkModules(
-    buildValidatedNavLinks({
-      linkModules: structuredClone(linkModules),
-      role,
-      can,
-      userId,
-    }),
-  );
+	const validLinks = buildNavLinkModules(
+		buildValidatedNavLinks({
+			linkModules: structuredClone(linkModules),
+			role,
+			can,
+			userId,
+		}),
+	);
 
-  return validLinks.defaultLink || "/";
+	return validLinks.defaultLink || "/";
 }
 
 export function getLinkModules() {
-  let i = {
-    section: 0,
-    links: 0,
-    subLinks: 0,
-  };
-  const modules = linkModules.map((m, mi) => {
-    m.index = mi;
-    m.sections = m.sections.map((s, si) => {
-      s.index = si;
-      s.globalIndex = i.section++;
-      // i.section += 1;
-      s.links = s.links.map((l, li) => {
-        l.index = li;
-        l.globalIndex = i.links++;
-        return l;
-      });
-      return s;
-    });
-    return m;
-  });
-  return modules;
+	const i = {
+		section: 0,
+		links: 0,
+		subLinks: 0,
+	};
+	const modules = linkModules.map((m, mi) => {
+		m.index = mi;
+		m.sections = m.sections.map((s, si) => {
+			s.index = si;
+			s.globalIndex = i.section++;
+			// i.section += 1;
+			s.links = s.links.map((l, li) => {
+				l.index = li;
+				l.globalIndex = i.links++;
+				return l;
+			});
+			return s;
+		});
+		return m;
+	});
+	return modules;
 }

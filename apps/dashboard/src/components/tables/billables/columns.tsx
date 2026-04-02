@@ -14,7 +14,7 @@ export type Item = {
 };
 export const columns: ColumnDef<Item>[] = [
 	{
-		header: "Billable",
+		header: "Service Billable",
 		accessorKey: "billable",
 		cell: ({ row: { original: item } }) => (
 			<div>

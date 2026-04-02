@@ -22,6 +22,10 @@ Describes entity relationships and cardinality constraints.
 - `Students` N:M `Guardians` via `StudentGuardians`
 - `StudentTermForm` 1:N `StudentAttendance`, `StudentFee`, `StudentPayment`, `StudentAssessmentRecord`
 - `Wallet` 1:N `WalletTransactions`; `WalletTransactions` links to `StudentPayment` and `BillPayment`
+- `Wallet` 1:N `FeeHistory` (via `walletId` — accounting stream for student fees)
+- `Wallet` 1:N `BillableHistory` (via `walletId` — accounting stream for staff/service billables)
+- `FeeHistory` N:M `ClassRoomDepartment` via implicit join `_ClassRoomDepartmentToFeeHistory` (empty = all classes)
+- `BillableHistory` N:M `ClassRoomDepartment` via implicit join `_BillableHistoryToClassRoomDepartment` (empty = all classes)
 - `BillInvoice` 1:1 `BillPayment`; `Bills` may link to `BillInvoice`, `BillPayment`, `Billable`, `Wallet`
 
 ## Integrity Rules

@@ -45,6 +45,16 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 - `Fees`, `FeeHistory`, `StudentFee`, `StudentPayment`, `StudentPurchase`
 - `Billable`, `BillableHistory`, `Bills`, `BillInvoice`, `BillPayment`
 
+### FeeHistory (updated — session 2025-04)
+| Field | Type | Notes |
+|-------|------|-------|
+| `walletId` | String? | FK → Wallet. Routes payments to the correct accounting stream for this fee |
+| `classroomDepartments` | ClassRoomDepartment[] | Implicit M:N via `_ClassRoomDepartmentToFeeHistory`. Empty = applies to all classrooms |
+
+### Concept Clarification (session 2025-04)
+- **`Fees` / `FeeHistory`** — Student-facing fees. Supports per-term pricing, accounting stream targeting, and optional classroom scoping. The correct model for anything billed to students (tuition, levies, etc.)
+- **`Billable` / `BillableHistory`** — Staff/service-facing charges only. `BillType: SALARY | MISC | OTHER`. Drives `Bills` for payroll and operational expenses. Do NOT use for student fees.
+
 ## Other
 - `Guardians`, `Activity`, `Posts`
 
