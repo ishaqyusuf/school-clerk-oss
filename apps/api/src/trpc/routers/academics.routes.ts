@@ -17,6 +17,7 @@ import {
   getClassroomsSchema,
 } from "@api/db/queries/classroom";
 import { z } from "zod";
+import { applyFeeHistoriesToStudentTermForm } from "@api/db/queries/student-fee-application";
 import {
   addYears,
   constructNow,
@@ -799,7 +800,7 @@ export const academicsRouter = createTRPCRouter({
             },
           });
           if (!existing) {
-            await tx.studentTermForm.create({
+            const termForm = await tx.studentTermForm.create({
               data: {
                 studentId: form.studentId,
                 studentSessionFormId: sessionForm.id,
@@ -808,6 +809,15 @@ export const academicsRouter = createTRPCRouter({
                 schoolProfileId: ctx.profile.schoolId,
                 sessionTermId: input.toTermId,
               },
+            });
+
+            await applyFeeHistoriesToStudentTermForm(tx, {
+              schoolProfileId: ctx.profile.schoolId,
+              studentId: form.studentId,
+              studentTermFormId: termForm.id,
+              schoolSessionId: toTerm.sessionId,
+              sessionTermId: input.toTermId,
+              classroomDepartmentId: targetClassroomDepartmentId,
             });
           }
         }

@@ -48,6 +48,7 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 - Wallet resolution: finds existing wallet by `streamId`, or find-or-creates by `streamName` (type="fee").
 - `termId` falls back to `ctx.profile.termId`.
 - When `feeId` targets an existing fee in the current term, the active `FeeHistory` row is updated in place (amount, stream, classrooms) instead of creating a duplicate current-term history.
+- After a fee is created for the current term, the dashboard can immediately prompt staff to apply that fee to every matching `StudentTermForm` in the term.
 
 ### `transactions.getPreviousTermFees`
 - Returns `FeeHistory` records (current=true) from past terms whose `feeId` does NOT yet have a `FeeHistory` in the current term.
@@ -62,6 +63,17 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 - Soft-deletes the current-term `FeeHistory` row for a fee.
 - Removes the fee from the active term list without deleting the base `Fees` record or earlier term history.
 
+### `transactions.getFeeApplyPreview`
+- Returns a preview for a `FeeHistory` application run:
+  - eligible students
+  - already applied count
+  - remaining students to apply
+  - classroom scope
+
+### `transactions.applyFeeToClass`
+- Applies a current-term `FeeHistory` to all matching active `StudentTermForm` rows in the term.
+- Idempotent: skips students who already have a non-cancelled `StudentFee` for that `feeHistoryId`.
+
 ### `finance.getReceivePaymentData`
 - Returns `manualFeeHistories[]` alongside `manualBillables[]`.
 - These are applicable `FeeHistory` records for the current term that haven't yet been applied to the student (no `StudentFee.feeHistoryId` match).
@@ -75,6 +87,7 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
   - Resolves wallet from `FeeHistory.walletId` or creates one by fee title.
   - Records `WalletTransactions` + `StudentPayment`.
   - Rejects payment attempts for fee histories that do not apply to the student's current classroom.
+- Runs inside an extended interactive transaction timeout because payment flows can create wallets, charges, ledger entries, and receipts in one request.
 - Returns the created `paymentIds[]` so the dashboard can open a printable/downloadable receipt immediately after a payment is recorded.
 
 ## UI
@@ -111,6 +124,19 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 
 ### Student Payment History
 - Each successful payment row now exposes receipt actions so staff can print or download a receipt later from the student overview.
+
+### Student Billing Form
+- Creating a student fee from the student finance tab now opens the same "apply fee to students" confirmation modal used on fees management when the fee is backed by a `FeeHistory`.
+- This lets staff decide whether a fee created for one student should also be propagated to all matching students in the same term/class scope.
+
+### Enrollment and Promotion
+- When a student is enrolled into a term or promoted into a new term, all matching current-term `FeeHistory` records are automatically applied to the new `StudentTermForm`.
+- Matching follows classroom targeting rules:
+  - empty classroom list means all classes
+  - targeted classroom fees only apply when the student's `classroomDepartmentId` matches
+
+### Receive Payment Sheet
+- The selected student summary now includes an **Open student overview** CTA that closes the payment sheet and opens the student's overview on the finance tab for the active term.
 
 ## Billables vs Fees (Clarification)
 

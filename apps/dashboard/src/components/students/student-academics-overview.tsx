@@ -2,13 +2,9 @@ import { useTRPC } from "@/trpc/client";
 import {
   useMutation,
   useQuery,
-  useQueryClient,
-  useSuspenseQuery,
 } from "@tanstack/react-query";
 import { TableSkeleton } from "../tables/skeleton";
 import { Suspense } from "react";
-import { useClassroomParams } from "@/hooks/use-classroom-params";
-import { useStudentParams } from "@/hooks/use-student-params";
 
 import { useZodForm } from "@/hooks/use-zod-form";
 import { entrollStudentToTermSchema } from "@api/db/queries/enrollment-query";
@@ -17,9 +13,11 @@ import { useDebugToast } from "@/hooks/use-debug-console";
 import { SubmitButton } from "../submit-button";
 import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
 import { FormDebugBtn } from "../form-debug-btn";
-import { createClassroomSchema, createSignupSchema } from "@/actions/schema";
 import { FormCombobox } from "@school-clerk/ui/controls/form-combobox";
 import { selectOptions } from "@school-clerk/utils";
+import { Card, CardContent } from "@school-clerk/ui/card";
+import { Badge } from "@school-clerk/ui/badge";
+import { GraduationCap, Layers3, Info } from "lucide-react";
 
 export function StudentAcademicsOverview({}) {
   return (
@@ -29,53 +27,105 @@ export function StudentAcademicsOverview({}) {
   );
 }
 function Content({}) {
-  const { setParams, ...params } = useStudentParams();
-
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  // const { data, error, isLoading } = useSuspenseQuery(
-  //   trpc.students.academicsOverview.queryOptions(
-  //     {
-  //       studentId: params.studentViewId,
-  //       termSheetId: params.studentTermSheetId,
-  //       termId: params.studentViewTermId,
-  //     },
-  //     {
-  //       enabled: !!params.studentTermSheetId,
-  //       staleTime: 60 * 1000,
-  //     }
-  //   )
-  // );
-  // useDebugConsole({ data, error });
-  const ctx = useClassroomParams();
   const svc = useStudentOverviewSheet();
-  if (!svc?.overviewData?.id) return null;
-  // return <>abc</>;
-  if (
-    // (!isLoading && !data?.term?.studentTermId) ||
-    !params.studentTermSheetId
-  )
-    return (
-      <NotEntrolled
-      // data={data}
-      />
-    );
+  if (!svc?.overviewData?.student?.id) return null;
+
+  if (!svc.activeStudentTerm?.studentTermId) return <NotEntrolled />;
+  const term = svc.activeStudentTerm;
+
   return (
-    <>
-      {/* <div>{JSON.stringify(data)}</div> */}
-      <div className="">Entrolled</div>
-    </>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="rounded-xl border-border shadow-sm">
+          <CardContent className="p-5">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <GraduationCap className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Enrollment Status
+                </p>
+                <p className="text-sm font-semibold text-foreground">
+                  Active for selected term
+                </p>
+              </div>
+            </div>
+            <Badge
+              variant="outline"
+              className="border-primary/20 bg-primary/10 text-primary"
+            >
+              Enrolled
+            </Badge>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-xl border-border shadow-sm">
+          <CardContent className="p-5">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+                <Layers3 className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Current Class
+                </p>
+                <p className="text-sm font-semibold text-foreground">
+                  {term?.departmentName || "--"}
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {term?.term || "No active term selected"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-xl border-border shadow-sm">
+          <CardContent className="p-5">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Info className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Session Link
+                </p>
+                <p className="text-sm font-semibold text-foreground">
+                  {term?.studentSessionId ? "Connected" : "Pending"}
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Academic records, billing, and attendance will follow this term
+              selection.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="rounded-xl border-border shadow-sm">
+        <CardContent className="p-5">
+          <h3 className="text-base font-semibold text-foreground">
+            Academic Summary
+          </h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This student is enrolled for the selected term. Use the term picker
+            in the header to review other enrollment periods, or move to the
+            attendance and payments tabs for operational details tied to this
+            selection.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 function NotEntrolled() {
   const svc = useStudentOverviewSheet();
-  const { setParams, ...params } = useStudentParams();
-  const term = svc?.overviewData?.studentTerms?.find(
-    (t) => t.termId === params.studentViewTermId
-  );
+  const term = svc?.activeStudentTerm;
   const form = useZodForm(entrollStudentToTermSchema, {
     defaultValues: {
-      studentId: svc.overviewData?.student?.id! || params?.studentViewId!,
+      studentId: svc.studentId || svc.overviewData?.student?.id!,
       schoolSessionId: term?.termSessionId,
       sessionTermId: term?.termId,
       // termId: term?.termId,
@@ -87,7 +137,6 @@ function NotEntrolled() {
   });
 
   const trpc = useTRPC();
-  const qc = useQueryClient();
   const {
     mutate,
     data: enrolledData,

@@ -39,3 +39,9 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Response schema: `{ success: true, count: number, totalAllocated: number, paymentIds: string[] }`
 - Error cases: allocation total mismatch, overpayment against pending amount, fee history outside the student's classroom scope
 - Notes: `paymentIds` powers receipt printing/downloading immediately after payment capture
+
+- Route: `finance.getStreamDetails`
+- Request schema: `streamId`
+- Response schema: `{ id, name, type, createdAt, periodLabel, totalIn, totalOut, balance, transactions[] }` where each transaction includes `id`, `reference`, `partyName`, `studentClassroom`, `title`, `description`, `amount`, `type`, `direction`, `status`, and `transactionDate`
+- Error cases: stream not found for current tenant, missing tenant context
+- Notes: used by `/finance/streams/[streamId]` to open a stream from the finance accounting grid into a statement-style detail page

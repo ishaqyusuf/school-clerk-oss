@@ -34,6 +34,7 @@ import {
 	Wallet,
 	X,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Suspense, useState } from "react";
 import { AnimatedNumber } from "./animated-number";
 import { SubmitButton } from "./submit-button";
@@ -50,6 +51,7 @@ export function AccountingStreams() {
 function Content() {
 	const trpc = useTRPC();
 	const qc = useQueryClient();
+	const router = useRouter();
 	const { setParams } = useReceivePaymentParams();
 	const [filter, setFilter] = useState<"term" | "session">("term");
 	const [showCreate, setShowCreate] = useState(false);
@@ -305,6 +307,21 @@ function Content() {
 								<Card
 									key={stream.id}
 									className="p-5 flex flex-col hover:shadow-md transition-shadow cursor-pointer group"
+									onClick={() =>
+										router.push(
+											`/finance/streams/${stream.id}`,
+										)
+									}
+									onKeyDown={(event) => {
+										if (event.key === "Enter" || event.key === " ") {
+											event.preventDefault();
+											router.push(
+												`/finance/streams/${stream.id}`,
+											);
+										}
+									}}
+									role="button"
+									tabIndex={0}
 								>
 									<div className="flex justify-between items-start mb-4">
 										<div
@@ -360,6 +377,14 @@ function Content() {
 											variant={isRevenue ? "default" : "secondary"}
 											size="sm"
 											className="flex-1 text-xs font-bold"
+											onClick={(event) => {
+												event.stopPropagation();
+												if (isRevenue) {
+													setParams({ receivePayment: true });
+													return;
+												}
+												router.push(`/finance/payments`);
+											}}
 										>
 											{isRevenue ? "New Transaction" : "Manage Expense"}
 										</Button>
@@ -367,6 +392,10 @@ function Content() {
 											variant="outline"
 											size="sm"
 											className="text-xs font-bold"
+											onClick={(event) => {
+												event.stopPropagation();
+												router.push(`/finance/streams/${stream.id}`);
+											}}
 										>
 											Statement
 										</Button>

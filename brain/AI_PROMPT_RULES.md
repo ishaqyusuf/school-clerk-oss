@@ -21,3 +21,4 @@ Prompting guidelines to keep AI outputs consistent, safe, and architecture-align
 - Keep API and DB changes synchronized in docs.
 - Prefer small, reviewable diffs.
 - Document non-trivial decisions and tradeoffs.
+- For product-app links and client navigation, use canonical app-relative routes like `/finance/...` or `/students/...`; avoid prefixing paths with `/dashboard/...` unless the task explicitly requires infrastructure-level routing work.

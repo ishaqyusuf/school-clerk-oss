@@ -14,6 +14,11 @@ Tracks architectural patterns, boundaries, and major design choices.
 - API style: Type-safe RPC via tRPC routers
 - Product behavior model: Configuration-driven per tenant (institution type + enabled modules + academic hierarchy)
 
+## Reference Inspiration
+- The Midday reference at `/Users/M1PRO/Documents/code/_kitchen_sink/midday` should inform architectural direction and performance-sensitive implementation choices.
+- Reuse its proven thinking around module boundaries, file/folder structure, page composition, analytics instrumentation, widget organization, trackers, and observability-oriented UI patterns where they fit SchoolClerk.
+- Treat departures from those patterns as deliberate decisions that should have clear product, domain, or technical justification.
+
 ## Architecture Layers
 - UI Layer: Next.js App Router apps for landing and dashboard experiences
 - API Layer: tRPC routers

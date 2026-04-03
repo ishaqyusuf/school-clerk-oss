@@ -43,6 +43,7 @@ Academic Dashboard
 | `apps/dashboard/src/app/.../promotion/[lastTerm]/[firstTerm]/page.tsx` | Server page |
 | `apps/dashboard/src/app/.../promotion/[lastTerm]/[firstTerm]/promotion-client.tsx` | Interactive client |
 | `apps/dashboard/src/app/.../promotion/[lastTerm]/[firstTerm]/student-performance-modal.tsx` | Score modal |
+| `apps/dashboard/src/hooks/use-student-overview-sheet.ts` | Syncs the student sheet's active term params with promoted/enrolled term records from `students.overview` |
 
 ## tRPC Procedures
 
@@ -68,3 +69,7 @@ On successful session creation, the active session cookie is immediately updated
 ## Promotion Logic
 - `batchPromote`: For each student, find or create `StudentSessionForm` for the new session, then create `StudentTermForm` for the first term. Idempotent (skips if already promoted).
 - `reversePromotion`: Soft-deletes `StudentTermForm` (sets `deletedAt = now()`). Leaves `StudentSessionForm` intact.
+
+## Student Overview Integration
+- The student overview sheet now derives its active term from `students.overview.studentTerms` and syncs `studentViewTermId` plus `studentTermSheetId` back into query state.
+- This prevents promoted students from being shown as "not enrolled for this term" when the UI opens with stale or empty term params.

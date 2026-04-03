@@ -47,6 +47,9 @@ Catalog of API routes and responsibilities.
 - `GET /invoices`
 - `POST /invoices`
 - `POST /payments`
+- `trpc.finance.getStreams`
+- `trpc.finance.getStreamDetails`
+- `trpc.finance.transferFunds`
 
 ### Notifications
 - `POST /notifications`

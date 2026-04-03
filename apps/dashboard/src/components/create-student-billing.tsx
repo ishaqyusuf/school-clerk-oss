@@ -1,11 +1,6 @@
 import { useZodForm } from "@/hooks/use-zod-form";
 import { useTRPC } from "@/trpc/client";
-import {
-  createSchoolFeeSchema,
-  createStudentFeeSchema,
-} from "@api/db/queries/accounting";
-import { FormInput } from "@school-clerk/ui/controls/form-input";
-import { FormSelect } from "@school-clerk/ui/controls/form-select";
+import { createStudentFeeSchema } from "@api/db/queries/accounting";
 import { FormCombobox } from "@school-clerk/ui/controls/form-combobox";
 import { Form } from "@school-clerk/ui/form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,16 +13,18 @@ import { CreateSchoolBill } from "./create-school-billing";
 import { AnimatedNumber } from "./animated-number";
 import { SubmitButton } from "./submit-button";
 import { FormDebugBtn } from "./form-debug-btn";
-import { useStudentFilterParams } from "@/hooks/use-student-filter-params";
 import { useStudentParams } from "@/hooks/use-student-params";
+import { ApplyFeeDialog } from "./fees/apply-fee-dialog";
 
 interface Props {
   studentId: string;
   termId: string;
+  studentTermId?: string | null;
 }
 
 export function CreateStudentBilling(props: Props) {
   const trpc = useTRPC();
+  const [applyFeeHistoryId, setApplyFeeHistoryId] = useState<string | null>(null);
   const { data: termFeeData, refetch } = useQuery(
     trpc.transactions.getTermFees.queryOptions({
       termId: props.termId,
@@ -45,14 +42,25 @@ export function CreateStudentBilling(props: Props) {
       onSuccess(data, variables, context) {
         qc.invalidateQueries({
           queryKey: trpc.transactions.studentAccounting.queryKey({
-            studentId: params.studentViewId,
+            studentId: props.studentId,
           }),
         });
+        qc.invalidateQueries({
+          queryKey: trpc.transactions.getStudentFees.queryKey(),
+        });
+        qc.invalidateQueries({
+          queryKey: trpc.students.overview.queryKey({
+            studentId: props.studentId,
+          }),
+        });
+        if (variables.feeHistoryId) {
+          setApplyFeeHistoryId(variables.feeHistoryId);
+        }
       },
     })
   );
   const qc = useQueryClient();
-  const { setParams, ...params } = useStudentParams();
+  const { studentTermSheetId } = useStudentParams();
   const form = useZodForm(createStudentFeeSchema, {
     defaultValues: {
       //   termId: props.termId,
@@ -61,15 +69,13 @@ export function CreateStudentBilling(props: Props) {
       //   payable: null,
       //   paymentTermId: props.termId,
       studentId: props.studentId,
-      studentTermId: params.studentTermSheetId,
+      studentTermId: props.studentTermId ?? studentTermSheetId,
     },
   });
 
   const onSubmit = (data) => {
     saveFee.mutate(data);
   };
-  const onCreate = (title) => {};
-  const onEdit = (item) => {};
   //   const [schoolBill,setSchoolBill] = useState()
   const sbForm = useForm({
     defaultValues: {
@@ -81,6 +87,10 @@ export function CreateStudentBilling(props: Props) {
   const sbData = sbForm.watch();
   return (
     <div>
+      <ApplyFeeDialog
+        feeHistoryId={applyFeeHistoryId}
+        onClose={() => setApplyFeeHistoryId(null)}
+      />
       {!sbData?.opened ? (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -106,7 +116,7 @@ export function CreateStudentBilling(props: Props) {
                 label={"Fee"}
                 name="feeHistoryId"
                 comboProps={{
-                  onCreate(value) {},
+                  onCreate() {},
                   renderSelectedItem(item) {
                     return (
                       <div className="flex items-center justify-between w-full group gap-2 flex-1">
@@ -126,7 +136,7 @@ export function CreateStudentBilling(props: Props) {
                       <div className="flex items-center space-x-2">
                         <button
                           type="button"
-                          onClick={() => onCreate?.(name)}
+                          onClick={() => {}}
                         >{`Create "${name}"`}</button>
                       </div>
                     );
@@ -162,13 +172,6 @@ export function CreateStudentBilling(props: Props) {
                             currency="NGN"
                           />
                           <div className="flex-1"></div>
-                          {/* <button
-                          type="button"
-                          onClick={() => onEdit?.(item.item.id)}
-                          className="text-xs opacity-0 group-hover:opacity-50 hover:opacity-100"
-                        >
-                          Edit
-                        </button> */}
                         </div>
                       </div>
                     );

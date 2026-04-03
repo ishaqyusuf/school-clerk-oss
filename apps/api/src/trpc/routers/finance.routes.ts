@@ -632,6 +632,160 @@ export const financeRouter = createTRPCRouter({
 			});
 		}),
 
+	getStreamDetails: publicProcedure
+		.input(z.object({ streamId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			const wallet = await ctx.db.wallet.findFirst({
+				where: {
+					id: input.streamId,
+					schoolProfileId: ctx.profile.schoolId,
+					deletedAt: null,
+				},
+				select: {
+					id: true,
+					name: true,
+					type: true,
+					createdAt: true,
+					sessionTerm: {
+						select: {
+							title: true,
+							session: { select: { title: true } },
+						},
+					},
+					studentTransactions: {
+						where: {
+							deletedAt: null,
+							status: { not: "cancelled" },
+						},
+						select: {
+							id: true,
+							amount: true,
+							summary: true,
+							type: true,
+							status: true,
+							transactionDate: true,
+							createdAt: true,
+							billPayment: {
+								select: {
+									bills: {
+										where: { deletedAt: null },
+										take: 1,
+										orderBy: { createdAt: "desc" },
+										select: {
+											id: true,
+											title: true,
+											description: true,
+										},
+									},
+								},
+							},
+							studentPayment: {
+								select: {
+									id: true,
+									description: true,
+									status: true,
+									studentTermForm: {
+										select: {
+											student: {
+												select: {
+													name: true,
+													otherName: true,
+													surname: true,
+												},
+											},
+											classroomDepartment: {
+												select: {
+													departmentName: true,
+													classRoom: { select: { name: true } },
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						orderBy: [{ transactionDate: "desc" }, { createdAt: "desc" }],
+					},
+				},
+			});
+
+			if (!wallet) {
+				throw new Error("Account stream not found");
+			}
+
+			const totalIn = wallet.studentTransactions
+				.filter((transaction) => {
+					return (
+						transaction.status === "success" &&
+						transaction.type !== "transfer-out" && transaction.type !== "debit"
+					);
+				})
+				.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
+
+			const totalOut = wallet.studentTransactions
+				.filter((transaction) => {
+					return (
+						transaction.status === "success" &&
+						(transaction.type === "transfer-out" || transaction.type === "debit")
+					);
+				})
+				.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
+
+			return {
+				id: wallet.id,
+				name: wallet.name,
+				type: wallet.type,
+				createdAt: wallet.createdAt,
+				totalIn,
+				totalOut,
+				balance: totalIn - totalOut,
+				periodLabel:
+					wallet.sessionTerm?.title && wallet.sessionTerm.session?.title
+						? `${wallet.sessionTerm.session.title} • ${wallet.sessionTerm.title}`
+						: null,
+				transactions: wallet.studentTransactions.map((transaction) => {
+					const bill = transaction.billPayment?.bills[0] ?? null;
+					const student =
+						transaction.studentPayment?.studentTermForm?.student ?? null;
+					const studentClassroom = getDepartmentName(
+						transaction.studentPayment?.studentTermForm?.classroomDepartment,
+					);
+					const direction =
+						transaction.type === "transfer-out" || transaction.type === "debit"
+							? "out"
+							: "in";
+
+					return {
+						id: transaction.id,
+						amount: transaction.amount,
+						type: transaction.type,
+						status: transaction.status ?? "success",
+						direction,
+						summary: transaction.summary,
+						transactionDate:
+							transaction.transactionDate ?? transaction.createdAt ?? null,
+						createdAt: transaction.createdAt ?? null,
+						title:
+							transaction.summary ||
+							bill?.title ||
+							(student ? "Student payment" : "Account transaction"),
+						description:
+							transaction.studentPayment?.description ||
+							bill?.description ||
+							transaction.summary ||
+							null,
+						partyName: student
+							? getStudentName(student)
+							: transaction.type?.startsWith("transfer")
+								? "Internal transfer"
+								: bill?.title || "School account",
+						studentClassroom,
+						reference: transaction.id.slice(0, 8).toUpperCase(),
+					};
+				}),
+			};
+		}),
+
 	createStream: publicProcedure
 		.input(
 			z.object({ name: z.string().min(1), type: z.string().default("fee") }),
@@ -680,6 +834,9 @@ export const financeRouter = createTRPCRouter({
 					},
 				});
 				return { success: true };
+			}, {
+				maxWait: 10000,
+				timeout: 20000,
 			});
 		}),
 
@@ -1072,6 +1229,7 @@ export const financeRouter = createTRPCRouter({
 						studentId: true,
 						schoolSessionId: true,
 						sessionTermId: true,
+						classroomDepartmentId: true,
 					},
 				});
 
@@ -1380,6 +1538,9 @@ export const financeRouter = createTRPCRouter({
 					totalAllocated,
 					paymentIds: createdPayments.map((payment) => payment.id),
 				};
+			}, {
+				maxWait: 10000,
+				timeout: 20000,
 			});
 		}),
 
@@ -1641,6 +1802,54 @@ export const financeRouter = createTRPCRouter({
 
 	// ── Student Purchase (stationary, uniform, etc.) ────────────────────────────
 
+	getStudentPurchaseSuggestions: publicProcedure
+		.input(
+			z
+				.object({
+					query: z.string().optional().nullable(),
+				})
+				.optional(),
+		)
+		.query(async ({ input, ctx }) => {
+			const query = input?.query?.trim();
+			const purchases = await ctx.db.studentPurchase.findMany({
+				where: {
+					deletedAt: null,
+					payments: {
+						some: {
+							schoolProfileId: ctx.profile.schoolId,
+							deletedAt: null,
+							type: "PURCHASE",
+						},
+					},
+					...(query
+						? {
+								OR: [
+									{ title: { contains: query, mode: "insensitive" } },
+									{ description: { contains: query, mode: "insensitive" } },
+								],
+							}
+						: {}),
+				},
+				distinct: ["title", "description", "amount"],
+				orderBy: { createdAt: "desc" },
+				take: 20,
+				select: {
+					id: true,
+					title: true,
+					description: true,
+					amount: true,
+				},
+			});
+
+			return purchases.map((purchase) => ({
+				id: purchase.id,
+				title: purchase.title,
+				description: purchase.description,
+				amount: purchase.amount,
+			}));
+		}),
+
 	createStudentPurchase: publicProcedure
 		.input(
 			z.object({
@@ -1730,6 +1939,9 @@ export const financeRouter = createTRPCRouter({
 				});
 
 				return { success: true };
+			}, {
+				maxWait: 10000,
+				timeout: 20000,
 			});
 		}),
 });

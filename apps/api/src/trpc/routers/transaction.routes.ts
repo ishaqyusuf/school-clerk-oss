@@ -373,7 +373,11 @@ export const transactionRoutes = createTRPCRouter({
       const data = await ctx.db.studentFee.findMany({
         where: {
           schoolProfileId: ctx.profile.schoolId,
-          sessionTermId: termId!,
+          studentTermForm: termId
+            ? {
+                sessionTermId: termId,
+              }
+            : undefined,
           deletedAt: null,
         },
         select: {

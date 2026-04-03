@@ -1,14 +1,13 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { Suspense } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { useStudentParams } from "@/hooks/use-student-params";
 import { useTRPC } from "@/trpc/client";
 import { TableSkeleton } from "../tables/skeleton";
-import { Badge } from "@school-clerk/ui/badge";
 import { format } from "date-fns";
 import { Card, CardContent } from "@school-clerk/ui/card";
 import { CheckCircle2, XCircle, Clock, TrendingUp, Info } from "lucide-react";
+import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
 
 export function StudentAttendanceHistory() {
   return (
@@ -19,12 +18,12 @@ export function StudentAttendanceHistory() {
 }
 
 function Content() {
-  const { studentViewId } = useStudentParams();
+  const { studentId } = useStudentOverviewSheet();
   const trpc = useTRPC();
   const { data: records } = useSuspenseQuery(
     trpc.attendance.getStudentAttendanceHistory.queryOptions(
-      { studentId: studentViewId },
-      { enabled: !!studentViewId }
+      { studentId: studentId ?? "" },
+      { enabled: !!studentId }
     )
   );
 

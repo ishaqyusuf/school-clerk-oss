@@ -1,10 +1,15 @@
-import { useTRPC } from "@/trpc/client";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { TableSkeleton } from "../tables/skeleton";
 import { Suspense } from "react";
-import { useStudentParams } from "@/hooks/use-student-params";
 import { Card, CardContent } from "@school-clerk/ui/card";
-import { IdCard, GraduationCap, CalendarDays, User } from "lucide-react";
+import {
+  CalendarDays,
+  GraduationCap,
+  IdCard,
+  Info,
+  User,
+} from "lucide-react";
+import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
+import { cn } from "@school-clerk/ui/cn";
 
 export function StudentOverview({}) {
   return (
@@ -14,36 +19,19 @@ export function StudentOverview({}) {
   );
 }
 function Content({}) {
-  const { setParams, ...params } = useStudentParams();
+  const { overviewData, activeStudentTerm, selectTerm } =
+    useStudentOverviewSheet();
 
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  const { data, error, isLoading } = useSuspenseQuery(
-    trpc.students.overview.queryOptions(
-      {
-        studentId: params.studentViewId,
-        termSheetId: params.studentTermSheetId,
-      },
-      {
-        enabled: true,
-        staleTime: 60 * 1000,
-      }
-    )
-  );
-
-  const student = data?.student;
-  const currentTerm = data?.studentTerms?.find(
-    (t) => t?.termId == params?.studentViewTermId
-  );
+  const student = overviewData?.student;
+  const currentTerm = activeStudentTerm;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      {/* Quick Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="bg-card rounded-xl shadow-sm">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="rounded-xl border-border shadow-sm">
           <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-10 w-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-primary">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <IdCard className="w-5 h-5" />
               </div>
               <div>
@@ -58,10 +46,10 @@ function Content({}) {
           </CardContent>
         </Card>
 
-        <Card className="bg-card rounded-xl shadow-sm">
+        <Card className="rounded-xl border-border shadow-sm">
           <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-10 w-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-600">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
                 <GraduationCap className="w-5 h-5" />
               </div>
               <div>
@@ -76,10 +64,10 @@ function Content({}) {
           </CardContent>
         </Card>
 
-        <Card className="bg-card rounded-xl shadow-sm">
+        <Card className="rounded-xl border-border shadow-sm">
           <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-10 w-10 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                 <CalendarDays className="w-5 h-5" />
               </div>
               <div>
@@ -94,10 +82,10 @@ function Content({}) {
           </CardContent>
         </Card>
 
-        <Card className="bg-card rounded-xl shadow-sm">
+        <Card className="rounded-xl border-border shadow-sm">
           <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-10 w-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-600">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                 <User className="w-5 h-5" />
               </div>
               <div>
@@ -113,52 +101,114 @@ function Content({}) {
         </Card>
       </div>
 
-      {/* Term History */}
-      {data?.studentTerms && data.studentTerms.length > 0 && (
-        <Card className="bg-card rounded-xl shadow-sm">
-          <CardContent className="p-0">
-            <div className="px-5 py-4 border-b border-border">
-              <h3 className="text-base font-bold text-foreground">
-                Term Enrollment History
-              </h3>
-            </div>
-            <div className="divide-y divide-border">
-              {data.studentTerms.map((term, index) => (
-                <div
-                  key={index}
-                  className="px-5 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => {
-                    setParams({
-                      studentViewTermId: term.termId,
-                      studentTermSheetId: term.studentTermId || null,
-                    });
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`size-2.5 rounded-full ${
-                        term?.studentTermId ? "bg-green-500" : "bg-red-400"
-                      }`}
-                    ></div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {term?.term}
-                      </p>
-                      {term?.departmentName && (
-                        <p className="text-xs text-muted-foreground">
-                          {term.departmentName}
-                        </p>
+      {overviewData?.studentTerms && overviewData.studentTerms.length > 0 && (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
+          <Card className="rounded-xl border-border shadow-sm">
+            <CardContent className="p-0">
+              <div className="border-b border-border px-5 py-4">
+                <h3 className="text-base font-bold text-foreground">
+                  Term Enrollment History
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Review the student&apos;s academic timeline and switch between
+                  enrolled terms.
+                </p>
+              </div>
+              <div className="divide-y divide-border">
+                {overviewData.studentTerms.map((term, index) => {
+                  const isActive = currentTerm?.termId === term.termId;
+
+                  return (
+                    <button
+                      key={index}
+                      className={cn(
+                        "flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-muted/40",
+                        isActive && "bg-muted/50"
                       )}
-                    </div>
+                      onClick={() =>
+                        selectTerm(term.termId, term.studentTermId || null)
+                      }
+                      type="button"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={cn(
+                            "size-2.5 rounded-full",
+                            term.studentTermId
+                              ? "bg-primary"
+                              : "bg-muted-foreground/40"
+                          )}
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {term.term}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {term.departmentName || "Class pending assignment"}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-xs font-medium",
+                          term.studentTermId
+                            ? "border-primary/20 bg-primary/10 text-primary"
+                            : "border-border bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {term.studentTermId ? "Enrolled" : "Not enrolled"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-xl border-border shadow-sm">
+            <CardContent className="flex h-full flex-col gap-4 p-5">
+              <div>
+                <h3 className="text-base font-bold text-foreground">
+                  Current Selection
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Active term details used across attendance, academics, and
+                  payments.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/30 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  Selected Term
+                </p>
+                <p className="mt-2 text-lg font-semibold text-foreground">
+                  {currentTerm?.term || "--"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {currentTerm?.departmentName || "No class assigned yet"}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-border bg-background p-4">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-full bg-primary/10 p-2 text-primary">
+                    <Info className="h-4 w-4" />
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    {term?.studentTermId ? "Enrolled" : "Not enrolled"}
-                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Overview Notes
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Enrollment status is resolved from the student&apos;s term
+                      form records, so promoted students remain available across
+                      the active term experience.
+                    </p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

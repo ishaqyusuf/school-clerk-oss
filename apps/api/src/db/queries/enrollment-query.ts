@@ -4,6 +4,7 @@ import type { EnrollmentQuery } from "@api/trpc/schemas/schemas";
 import type { PageFilterData } from "@api/type";
 import { composeQuery } from "@api/utils";
 import type { Prisma } from "@school-clerk/db";
+import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 
 import { z } from "zod";
 
@@ -242,7 +243,7 @@ export async function entrollStudentToTerm(
       });
       data.studentSessionFormId = ssf.id;
     }
-    await tx.studentTermForm.create({
+    const termForm = await tx.studentTermForm.create({
       data: {
         classroomDepartmentId: data.classroomDepartmentId,
         schoolSessionId: data.schoolSessionId,
@@ -251,6 +252,15 @@ export async function entrollStudentToTerm(
         schoolProfileId: profile.schoolId,
         studentSessionFormId: data.studentSessionFormId!,
       },
+    });
+
+    await applyFeeHistoriesToStudentTermForm(tx, {
+      schoolProfileId: profile.schoolId,
+      studentId: data.studentId,
+      studentTermFormId: termForm.id,
+      schoolSessionId: data.schoolSessionId,
+      sessionTermId: data.sessionTermId,
+      classroomDepartmentId: data.classroomDepartmentId,
     });
     // throw new Error("CREATED DEBUG!");
   });

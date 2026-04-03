@@ -11,6 +11,7 @@ import { ErrorBoundary } from "next/dist/client/components/error-boundary";
 import { ErrorFallback } from "@/components/error-fallback";
 import { StudentHeader } from "@/components/student-header";
 import { StudentStatsCards } from "@/components/tables/students/student-stats-cards";
+import { PromotionCta } from "@/components/students/promotion-cta";
 
 export const metadata: Metadata = {
   title: "Students",
@@ -26,6 +27,7 @@ export default async function Page(props: Props) {
     trpc.students.index.infiniteQueryOptions({
       ...filter,
     }),
+    trpc.academics.dashboard.queryOptions({}),
   ]);
 
   return (
@@ -35,6 +37,7 @@ export default async function Page(props: Props) {
         <div className="py-6">
           <StudentHeader />
         </div>
+        <PromotionCta />
         <StudentStatsCards />
         <div className="flex flex-col gap-6 mt-8">
           <ErrorBoundary errorComponent={ErrorFallback}>

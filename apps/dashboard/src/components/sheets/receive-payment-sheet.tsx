@@ -1,6 +1,7 @@
 "use client";
 
 import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
+import { useStudentParams } from "@/hooks/use-student-params";
 import { useTRPC } from "@/trpc/client";
 import { Alert, AlertDescription, AlertTitle } from "@school-clerk/ui/alert";
 import { Badge } from "@school-clerk/ui/badge";
@@ -62,6 +63,7 @@ export function ReceivePaymentSheet() {
 		receivePaymentStudentId,
 		setParams,
 	} = useReceivePaymentParams();
+	const { setParams: setStudentParams } = useStudentParams();
 	const isOpen = Boolean(receivePaymentOpen);
 	const trpc = useTRPC();
 	const qc = useQueryClient();
@@ -440,6 +442,29 @@ export function ReceivePaymentSheet() {
 									<p className="text-2xl font-bold">
 										NGN {data.summary.totalPending.toLocaleString()}
 									</p>
+									<Button
+										type="button"
+										variant="link"
+										className="h-auto px-0 text-sm"
+										onClick={() => {
+											if (!data.currentTermForm?.id || !receivePaymentStudentId) {
+												return;
+											}
+
+											setParams({
+												receivePayment: null,
+												receivePaymentStudentId: null,
+											});
+											setStudentParams({
+												studentViewId: receivePaymentStudentId,
+												studentTermSheetId: data.currentTermForm.id,
+												studentViewTermId: data.currentTermForm.sessionTermId,
+												studentViewTab: "finance",
+											});
+										}}
+									>
+										Open student overview
+									</Button>
 								</div>
 							</CardContent>
 						</Card>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
-import { useStudentParams } from "@/hooks/use-student-params";
+import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
@@ -13,6 +13,7 @@ import { Button } from "@school-clerk/ui/button";
 import { Card, CardContent } from "@school-clerk/ui/card";
 import { cn } from "@school-clerk/ui/cn";
 import { Collapsible, CollapsibleContent } from "@school-clerk/ui/collapsible";
+import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
 import { FormInput } from "@school-clerk/ui/controls/form-input";
 import { Form } from "@school-clerk/ui/form";
 import { Label } from "@school-clerk/ui/label";
@@ -159,23 +160,24 @@ function FeeItemRow({
 // ── Main Content ──────────────────────────────────────────────────────────────
 
 function Content() {
-	const { setParams, ...params } = useStudentParams();
 	const trpc = useTRPC();
 	const qc = useQueryClient();
 	const { setParams: setReceivePaymentParams } = useReceivePaymentParams();
 	const [openForm, setOpenForm] = useState<"bill" | "purchase">();
+	const { activeStudentTerm, studentId } = useStudentOverviewSheet();
+	const hasActiveTerm = Boolean(activeStudentTerm?.termId && studentId);
 
 	const { data: rpData } = useQuery(
 		trpc.finance.getReceivePaymentData.queryOptions(
-			{ studentId: params.studentViewId },
-			{ enabled: !!params.studentViewId },
+			{ studentId: studentId ?? "" },
+			{ enabled: !!studentId },
 		),
 	);
 
 	const { data: payments } = useQuery(
 		trpc.finance.getStudentPayments.queryOptions(
-			{ studentId: params.studentViewId },
-			{ enabled: !!params.studentViewId },
+			{ studentId: studentId ?? "" },
+			{ enabled: !!studentId },
 		),
 	);
 
@@ -191,7 +193,7 @@ function Content() {
 			onSuccess() {
 				qc.invalidateQueries({
 					queryKey: trpc.finance.getReceivePaymentData.queryKey({
-						studentId: params.studentViewId,
+						studentId,
 					}),
 				});
 			},
@@ -220,7 +222,7 @@ function Content() {
 	const handleCollectPayment = () => {
 		setReceivePaymentParams({
 			receivePayment: true,
-			receivePaymentStudentId: params.studentViewId,
+			receivePaymentStudentId: studentId,
 		});
 	};
 
@@ -310,10 +312,18 @@ function Content() {
 			{/* Bill form */}
 			<Collapsible open={openForm === "bill"}>
 				<CollapsibleContent>
-					<CreateStudentBilling
-						termId={params.studentViewTermId}
-						studentId={params.studentViewId}
-					/>
+					{hasActiveTerm ? (
+						<CreateStudentBilling
+							termId={activeStudentTerm!.termId}
+							studentId={studentId!}
+							studentTermId={activeStudentTerm?.studentTermId}
+						/>
+					) : (
+						<div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+							Student must be enrolled in an active term before new fees can be
+							created.
+						</div>
+					)}
 				</CollapsibleContent>
 			</Collapsible>
 
@@ -321,13 +331,13 @@ function Content() {
 			<Collapsible open={openForm === "purchase"}>
 				<CollapsibleContent>
 					<StudentPurchaseForm
-						studentId={params.studentViewId}
-						studentTermFormId={params.studentTermSheetId}
+						studentId={studentId}
+						studentTermFormId={activeStudentTerm?.studentTermId}
 						onSuccess={() => {
 							setOpenForm(undefined);
 							qc.invalidateQueries({
 								queryKey: trpc.finance.getStudentPayments.queryKey({
-									studentId: params.studentViewId,
+									studentId,
 								}),
 							});
 						}}
@@ -671,6 +681,17 @@ function StudentPurchaseForm({
 	const [amount, setAmount] = useState("");
 	const [method, setMethod] = useState("Cash");
 	const [description, setDescription] = useState("");
+	const [purchaseSearch, setPurchaseSearch] = useState("");
+	const { data: purchaseSuggestions = [] } = useQuery(
+		trpc.finance.getStudentPurchaseSuggestions.queryOptions(
+			{
+				query: purchaseSearch || undefined,
+			},
+			{
+				enabled: Boolean(studentTermFormId),
+			},
+		),
+	);
 
 	const { mutate, isPending } = useMutation(
 		trpc.finance.createStudentPurchase.mutationOptions({
@@ -722,12 +743,57 @@ function StudentPurchaseForm({
 			<div className="grid grid-cols-2 gap-3">
 				<div className="grid gap-1.5">
 					<Label className="text-sm">Item</Label>
-					<input
-						className="flex h-9 w-full rounded-md border border-border bg-transparent px-3 py-1 text-sm shadow-sm"
+					<ComboboxDropdown
+						items={purchaseSuggestions.map((item) => ({
+							id: item.id,
+							label: item.title,
+							description: item.description,
+							amount: item.amount,
+						}))}
+						selectedItem={
+							title
+								? {
+										id: title,
+										label: title,
+										description,
+										amount: Number(amount || 0),
+									}
+								: null
+						}
 						placeholder="e.g. School Uniform"
-						value={title}
-						onChange={(e) => setTitle(e.target.value)}
+						searchPlaceholder="Search previous inventory items..."
+						onSearch={setPurchaseSearch}
+						onSelect={(item) => {
+							setTitle(item.label);
+							setDescription(item.description || "");
+							setAmount(String(item.amount ?? ""));
+						}}
+						onCreate={(value) => {
+							setTitle(value.trim());
+						}}
+						renderOnCreate={(value) => (
+							<span>Use "{value}" as a new item</span>
+						)}
+						renderSelectedItem={(item) => <span>{item.label}</span>}
+						renderListItem={({ item }) => (
+							<div className="flex w-full items-center justify-between gap-3">
+								<div className="flex flex-col">
+									<span className="font-medium">{item.label}</span>
+									{item.description ? (
+										<span className="text-xs text-muted-foreground">
+											{item.description}
+										</span>
+									) : null}
+								</div>
+								<span className="text-xs font-medium">
+									NGN {Number(item.amount || 0).toLocaleString()}
+								</span>
+							</div>
+						)}
 					/>
+					<p className="text-xs text-muted-foreground">
+						Selecting a previous item fills title, description, and amount.
+					</p>
 				</div>
 				<div className="grid gap-1.5">
 					<Label className="text-sm">Amount (NGN)</Label>

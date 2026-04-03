@@ -1,37 +1,52 @@
 import type { TRPCContext } from "@api/trpc/init";
 import type { GetStudentOverviewSchema } from "@api/trpc/schemas/schemas";
-import { getStudent } from "./students";
 import { getStudentTermsList } from "./academic-terms";
+import { studentDisplayName } from "./enrollment-query";
 
 export async function studentsOverview(
   ctx: TRPCContext,
   query: GetStudentOverviewSchema
 ) {
   const { termSheetId, studentId } = query;
-  const termSheet = await ctx.db.studentTermForm.findFirstOrThrow({
-    where:
-      termSheetId && studentId
+  const [termSheet, studentRecord, studentTerms] = await Promise.all([
+    ctx.db.studentTermForm.findFirst({
+      where: termSheetId
         ? {
-            OR: [
-              {
-                id: query.termSheetId!,
-              },
-              {
-                studentId: query.studentId,
-              },
-            ],
+            id: termSheetId,
+            studentId,
+            deletedAt: null,
           }
         : {
-            studentId: query.studentId,
+            studentId,
+            deletedAt: null,
           },
-    select: {
-      id: true,
-    },
-  });
-  const student = await getStudent(ctx, { studentId: query.studentId });
-  const studentTerms = await getStudentTermsList(ctx, {
-    studentId: query.studentId,
-  });
+      select: {
+        id: true,
+      },
+    }),
+    ctx.db.students.findFirstOrThrow({
+      where: {
+        id: studentId,
+      },
+      select: {
+        id: true,
+        name: true,
+        surname: true,
+        otherName: true,
+        gender: true,
+      },
+    }),
+    getStudentTermsList(ctx, {
+      studentId,
+    }),
+  ]);
+
+  const student = {
+    id: studentRecord.id,
+    gender: studentRecord.gender,
+    studentName: studentDisplayName(studentRecord),
+  };
+
   return {
     id: termSheet?.id,
     student,
