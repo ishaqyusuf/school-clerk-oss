@@ -165,6 +165,18 @@ function NotEntrolled() {
       enabled: !!term?.termSessionId,
     })
   );
+  const selectedClassroomDepartmentId = form.watch("classroomDepartmentId");
+  const { data: applicableFeesPreview } = useQuery(
+    trpc.academics.previewApplicableFeeHistories.queryOptions(
+      {
+        sessionTermId: term?.termId || "",
+        classroomDepartmentId: selectedClassroomDepartmentId || null,
+      },
+      {
+        enabled: Boolean(term?.termId),
+      }
+    )
+  );
 
   // build nice student not enrolled for this term card, with enrollement formˆ
   return (
@@ -236,6 +248,39 @@ function NotEntrolled() {
         </Menu> */}
           {/* add form select, onselect update classroomId and departmentId */}
           <SubmitButton isSubmitting={isPending}>Enroll</SubmitButton>
+          <div className="rounded-lg border border-border p-3">
+            <h4 className="text-sm font-medium">
+              Fees that will be applied on save
+            </h4>
+            {!applicableFeesPreview?.length ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                No active term fees match this class selection.
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {applicableFeesPreview.map((fee) => (
+                  <li key={fee.feeHistoryId} className="rounded-md border p-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{fee.title}</span>
+                      <span className="text-sm">
+                        {new Intl.NumberFormat("en-NG", {
+                          style: "currency",
+                          currency: "NGN",
+                        }).format(fee.amount)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {fee.description || "No description"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Scope: {fee.scope} • Stream:{" "}
+                      {fee.streamName || "Unassigned"}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <FormDebugBtn />
         </form>
       </Form>

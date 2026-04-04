@@ -39,6 +39,19 @@ export function Form({}) {
   const { setParams, ...params } = useStudentParams();
   const auth = useAuth();
   const name = watch("name");
+  const classRoomId = watch("classRoomId");
+  const { data: applicableFeesPreview } = useQuery(
+    trpc.academics.previewApplicableFeeHistories.queryOptions(
+      {
+        sessionTermId: auth?.profile?.termId || "",
+        classroomDepartmentId: classRoomId || null,
+      },
+      {
+        enabled: Boolean(auth?.profile?.termId),
+      }
+    )
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <FormInput name="name" label="Name" control={control} />
@@ -62,6 +75,36 @@ export function Form({}) {
         label="Class"
         titleKey="displayName"
       />
+      <div className="rounded-lg border border-border p-3">
+        <h4 className="text-sm font-medium">Fees that will be applied on save</h4>
+        {!applicableFeesPreview?.length ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            No active term fees match this class selection.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {applicableFeesPreview.map((fee) => (
+              <li key={fee.feeHistoryId} className="rounded-md border p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{fee.title}</span>
+                  <span className="text-sm">
+                    {new Intl.NumberFormat("en-NG", {
+                      style: "currency",
+                      currency: "NGN",
+                    }).format(fee.amount)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {fee.description || "No description"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Scope: {fee.scope} • Stream: {fee.streamName || "Unassigned"}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <div className="">
         <CollapseForm label="Parent">
           <FormInput name="guardian.name" label="Name" control={control} />

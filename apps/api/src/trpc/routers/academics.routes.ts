@@ -28,6 +28,11 @@ import {
 } from "date-fns";
 import { consoleLog } from "@school-clerk/utils";
 
+const previewApplicableFeeHistoriesSchema = z.object({
+  sessionTermId: z.string(),
+  classroomDepartmentId: z.string().optional().nullable(),
+});
+
 export const academicsRouter = createTRPCRouter({
   dashboard: publicProcedure.input(z.object({})).query(async (props) => {
     const { ctx, input } = props;
@@ -447,6 +452,66 @@ export const academicsRouter = createTRPCRouter({
     .input(getClassroomsSchema)
     .query(async (props) => {
       return getClassroomDepartments(props.ctx, props.input);
+    }),
+  previewApplicableFeeHistories: publicProcedure
+    .input(previewApplicableFeeHistoriesSchema)
+    .query(async ({ ctx, input }) => {
+      const feeHistories = await ctx.db.feeHistory.findMany({
+        where: {
+          termId: input.sessionTermId,
+          current: true,
+          deletedAt: null,
+          fee: {
+            schoolProfileId: ctx.profile.schoolId,
+            deletedAt: null,
+          },
+          OR: [
+            { classroomDepartments: { none: {} } },
+            ...(input.classroomDepartmentId
+              ? [
+                  {
+                    classroomDepartments: {
+                      some: {
+                        id: input.classroomDepartmentId,
+                      },
+                    },
+                  },
+                ]
+              : []),
+          ],
+        },
+        select: {
+          id: true,
+          amount: true,
+          fee: {
+            select: {
+              title: true,
+              description: true,
+            },
+          },
+          wallet: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          classroomDepartments: {
+            where: { deletedAt: null },
+            select: { id: true },
+          },
+        },
+        orderBy: [{ fee: { title: "asc" } }, { createdAt: "asc" }],
+      });
+
+      return feeHistories.map((feeHistory) => ({
+        feeHistoryId: feeHistory.id,
+        title: feeHistory.fee.title,
+        description: feeHistory.fee.description,
+        amount: feeHistory.amount,
+        streamId: feeHistory.wallet?.id ?? null,
+        streamName: feeHistory.wallet?.name ?? null,
+        scope: feeHistory.classroomDepartments.length ? "classroom" : "general",
+      }));
     }),
   migrateTermData: publicProcedure
     .input(
