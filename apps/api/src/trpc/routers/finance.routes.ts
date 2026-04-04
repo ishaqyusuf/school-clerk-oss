@@ -813,6 +813,12 @@ export const financeRouter = createTRPCRouter({
 									id: true,
 									description: true,
 									status: true,
+									studentFee: {
+										select: {
+											feeTitle: true,
+											description: true,
+										},
+									},
 									studentTermForm: {
 										select: {
 											student: {
@@ -897,9 +903,11 @@ export const financeRouter = createTRPCRouter({
 						createdAt: transaction.createdAt ?? null,
 						title:
 							transaction.summary ||
+							transaction.studentPayment?.studentFee?.feeTitle ||
 							bill?.title ||
 							(student ? "Student payment" : "Account transaction"),
 						description:
+							transaction.studentPayment?.studentFee?.description ||
 							transaction.studentPayment?.description ||
 							bill?.description ||
 							transaction.summary ||
@@ -1823,7 +1831,7 @@ export const financeRouter = createTRPCRouter({
 						feeTitle = manualFee.feeTitle || feeTitle;
 						walletId = (
 							await getOrCreateWallet(tx, {
-								name: "Sales",
+								name: allocation.title || manualFee.feeTitle || "Sales",
 								type: "fee",
 								schoolId: ctx.profile.schoolId!,
 								termId: ctx.profile.termId!,
@@ -2243,7 +2251,7 @@ export const financeRouter = createTRPCRouter({
 		.mutation(async ({ input, ctx }) => {
 			return ctx.db.$transaction(async (tx) => {
 				const wallet = await getOrCreateWallet(tx, {
-					name: "Sales",
+					name: input.title.trim(),
 					type: "fee",
 					schoolId: ctx.profile.schoolId!,
 					termId: ctx.profile.termId!,

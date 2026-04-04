@@ -82,6 +82,7 @@ export function ReceivePaymentSheet() {
   const [manualTitle, setManualTitle] = useState("");
   const [manualDescription, setManualDescription] = useState("");
   const [manualAmount, setManualAmount] = useState("");
+  const [manualSearch, setManualSearch] = useState("");
   const [receiptState, setReceiptState] = useState<PaymentReceiptState | null>(
     null,
   );
@@ -92,6 +93,10 @@ export function ReceivePaymentSheet() {
     setExtraBillableIds([]);
     setExtraFeeHistoryIds([]);
     setManualRows([]);
+    setManualTitle("");
+    setManualDescription("");
+    setManualAmount("");
+    setManualSearch("");
     setAmountReceived("");
     setReference("");
     setPaymentMethod("Bank Transfer");
@@ -125,6 +130,16 @@ export function ReceivePaymentSheet() {
         studentId: selectedStudentId,
       },
       { enabled: isOpen && Boolean(selectedStudentId) },
+    ),
+  );
+  const { data: purchaseSuggestions = [] } = useQuery(
+    trpc.finance.getStudentPurchaseSuggestions.queryOptions(
+      {
+        query: manualSearch || undefined,
+      },
+      {
+        enabled: isOpen && Boolean(data?.currentTermForm?.id),
+      },
     ),
   );
 
@@ -338,6 +353,7 @@ export function ReceivePaymentSheet() {
     setManualTitle("");
     setManualDescription("");
     setManualAmount("");
+    setManualSearch("");
   };
 
   const submit = () => {
@@ -816,11 +832,61 @@ export function ReceivePaymentSheet() {
                 <h3 className="text-sm font-semibold">
                   Add inventory / manual charge
                 </h3>
-                <Input
-                  value={manualTitle}
-                  onChange={(event) => setManualTitle(event.target.value)}
-                  placeholder="Item title (e.g. Book)"
-                />
+                <div className="space-y-2">
+                  <Label>Item</Label>
+                  <ComboboxDropdown
+                    items={purchaseSuggestions.map((item) => ({
+                      id: item.id,
+                      label: item.title,
+                      description: item.description,
+                      amount: item.amount,
+                    }))}
+                    selectedItem={
+                      manualTitle
+                        ? {
+                            id: manualTitle,
+                            label: manualTitle,
+                            description: manualDescription,
+                            amount: Number(manualAmount || 0),
+                          }
+                        : null
+                    }
+                    placeholder="Item title (e.g. Book)"
+                    searchPlaceholder="Search previous inventory items..."
+                    onSearch={setManualSearch}
+                    onSelect={(item) => {
+                      setManualTitle(item.label);
+                      setManualDescription(item.description || "");
+                      setManualAmount(String(item.amount ?? ""));
+                    }}
+                    onCreate={(value) => {
+                      setManualTitle(value.trim());
+                    }}
+                    renderOnCreate={(value) => (
+                      <span>Use "{value}" as a new item</span>
+                    )}
+                    renderSelectedItem={(item) => <span>{item.label}</span>}
+                    renderListItem={({ item }) => (
+                      <div className="flex w-full items-center justify-between gap-3">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{item.label}</span>
+                          {item.description ? (
+                            <span className="text-xs text-muted-foreground">
+                              {item.description}
+                            </span>
+                          ) : null}
+                        </div>
+                        <span className="text-xs font-medium">
+                          NGN {Number(item.amount || 0).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Selecting a previous item fills title, description, and
+                    amount.
+                  </p>
+                </div>
                 <Input
                   type="number"
                   min="0"

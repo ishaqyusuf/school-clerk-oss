@@ -45,7 +45,10 @@ export function CreateSchoolBill(props: Props) {
     })
   );
   const onSubmit = (data) => {
-    mutate(data);
+    mutate({
+      ...data,
+      streamName: data.title?.trim() || undefined,
+    });
   };
   return (
     <Form {...form}>
@@ -66,10 +69,10 @@ export function CreateSchoolBill(props: Props) {
           )}
         </div>
         <div className="text-sm">
-          Tips: Fees should have a general name for example, Uniform, followed
-          by detailed (specific name) in description eg; Size XL, Size 2XL, etc.
-          <br /> Other examples: Books, Hadith, Hadith 2, Arobiyyah 1,
-          Arrobiyyah 2 etc.
+          Tips: The title becomes the account stream automatically. Example:
+          title <strong>Books</strong> creates or uses the <strong>Books</strong>{" "}
+          stream, while description can hold details like Mathematics JSS 2 or
+          Size 4.
         </div>
         <FormInput label="Title" control={form.control} name="title" />
         <FormInput

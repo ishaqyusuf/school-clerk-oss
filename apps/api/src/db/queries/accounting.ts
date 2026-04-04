@@ -302,9 +302,10 @@ export async function createSchoolFee(ctx: TRPCContext, data: CreateSchoolFee) {
 
 	// Resolve wallet (find existing by id, or find-or-create by name)
 	let walletId: string | undefined = data.streamId || undefined;
-	if (!walletId && data.streamName?.trim()) {
+	const resolvedStreamName = data.streamName?.trim() || data.title?.trim();
+	if (!walletId && resolvedStreamName) {
 		const w = await getSchoolWallet(ctx, {
-			name: data.streamName.trim(),
+			name: resolvedStreamName,
 			sessionTermId: termId,
 			type: "fee",
 		});
