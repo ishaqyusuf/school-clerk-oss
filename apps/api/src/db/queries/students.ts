@@ -5,6 +5,7 @@ import type { PageFilterData } from "@api/type";
 import { composeQuery, txContext } from "@api/utils";
 import type { Prisma } from "@school-clerk/db";
 import { studentDisplayName } from "./enrollment-query";
+import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
 import { z } from "zod";
 
@@ -470,9 +471,45 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
       },
     },
   });
+
+  const initialSessionForm =
+    student.sessionForms.find((form) => form.schoolSessionId === profile.sessionId) ??
+    student.sessionForms[0];
+  const initialTermForm =
+    initialSessionForm?.termForms.find((form) => form.sessionTermId === profile.termId) ??
+    initialSessionForm?.termForms[0];
+
+  let feeHistoryApplication:
+    | Awaited<ReturnType<typeof applyFeeHistoriesToStudentTermForm>>
+    | null = null;
+
+  if (initialSessionForm && initialTermForm) {
+    await tx.studentTermForm.update({
+      where: { id: initialTermForm.id },
+      data: {
+        studentId: student.id,
+      },
+    });
+
+    feeHistoryApplication = await applyFeeHistoriesToStudentTermForm(tx, {
+      schoolProfileId: profile.schoolId,
+      studentId: student.id,
+      studentTermFormId: initialTermForm.id,
+      schoolSessionId: initialTermForm.schoolSessionId || profile.sessionId,
+      sessionTermId: initialTermForm.sessionTermId || profile.termId,
+      classroomDepartmentId:
+        initialTermForm.classroomDepartmentId ??
+        initialSessionForm.classroomDepartmentId ??
+        data.classRoomId,
+    });
+  }
+
   await updateStudentTermFormStudentId(ctx);
 
-  return student;
+  return {
+    ...student,
+    feeHistoryApplication,
+  };
 }
 export async function updateStudentTermFormStudentId(ctx: TRPCContext) {
   const students = await ctx.db.students.findMany({
