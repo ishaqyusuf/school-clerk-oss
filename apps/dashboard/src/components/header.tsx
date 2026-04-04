@@ -5,6 +5,7 @@ import { ThemeSwitch } from "./theme-switch";
 import { MobileMenu } from "@school-clerk/ui/nav/mobile-menu";
 import { SiteNav } from "@school-clerk/site-nav";
 import { TermSwitcher } from "./sidebar/term-switcher";
+import { NotificationBell } from "./notifications/notification-bell";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -31,6 +32,7 @@ export function Header() {
         <div className="flex-1"></div>
         <div className="mx-4 flex gap-4 " id="navRightSlot"></div>
         <div className="inline-flex gap-4" id="actionNav"></div>
+        <NotificationBell />
         <ThemeSwitch />
         {/* <UserNav /> */}
       </div>

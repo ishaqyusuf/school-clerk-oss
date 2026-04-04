@@ -28,9 +28,12 @@ import { format } from "date-fns";
 import {
 	AlertTriangle,
 	CreditCard,
+	Filter,
 	Info,
 	Plus,
+	Printer,
 	Receipt,
+	ScrollText,
 	Wallet,
 } from "lucide-react";
 import { NumericFormat } from "react-number-format";
@@ -176,8 +179,11 @@ function Content() {
 
 	const { data: payments } = useQuery(
 		trpc.finance.getStudentPayments.queryOptions(
-			{ studentId: studentId ?? "" },
-			{ enabled: !!studentId },
+			{
+				studentId: studentId ?? "",
+				termId: activeStudentTerm?.termId ?? undefined,
+			},
+			{ enabled: !!studentId && !!activeStudentTerm?.termId },
 		),
 	);
 
@@ -194,6 +200,12 @@ function Content() {
 				qc.invalidateQueries({
 					queryKey: trpc.finance.getReceivePaymentData.queryKey({
 						studentId,
+					}),
+				});
+				qc.invalidateQueries({
+					queryKey: trpc.finance.getStudentPayments.queryKey({
+						studentId,
+						termId: activeStudentTerm?.termId ?? undefined,
 					}),
 				});
 			},
@@ -213,6 +225,14 @@ function Content() {
 		summary.totalDue > 0
 			? Math.round((summary.totalPaid / summary.totalDue) * 100)
 			: 0;
+	const successfulPayments = (payments ?? []).filter(
+		(payment) => payment.status === "success",
+	);
+	const receivedTotal = successfulPayments.reduce(
+		(sum, payment) => sum + (payment.amount ?? 0),
+		0,
+	);
+	const transactionCount = payments?.length ?? 0;
 
 	const hasFees =
 		(rpData?.billables?.length ?? 0) > 0 ||
@@ -274,11 +294,22 @@ function Content() {
 			{/* Header & Actions */}
 			<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
 				<div className="flex flex-col gap-1">
-					<h3 className="text-lg font-bold tracking-tight text-foreground">
+					<h3 className="text-2xl font-bold tracking-tight text-foreground">
 						Financial Overview
 					</h3>
+					<p className="text-sm text-muted-foreground">
+						Payment records for{" "}
+						<span className="font-medium text-foreground">
+							{activeStudentTerm?.termTitle || "the selected term"}
+						</span>
+						.
+					</p>
 				</div>
 				<div className="flex gap-2 flex-wrap">
+					<Button variant="outline" size="sm" type="button" disabled>
+						<ScrollText className="w-4 h-4 mr-1" />
+						Statement
+					</Button>
 					<Button
 						onClick={() => _openForm("bill")}
 						variant={openForm === "bill" ? "default" : "outline"}
@@ -338,6 +369,12 @@ function Content() {
 							qc.invalidateQueries({
 								queryKey: trpc.finance.getStudentPayments.queryKey({
 									studentId,
+									termId: activeStudentTerm?.termId ?? undefined,
+								}),
+							});
+							qc.invalidateQueries({
+								queryKey: trpc.finance.getReceivePaymentData.queryKey({
+									studentId,
 								}),
 							});
 						}}
@@ -362,7 +399,7 @@ function Content() {
 							<AnimatedNumber value={summary.totalDue} currency="NGN" />
 						</p>
 						<p className="text-xs text-muted-foreground mt-1">
-							All fees and charges
+							All fees and charges in this term
 						</p>
 					</CardContent>
 				</Card>
@@ -379,7 +416,7 @@ function Content() {
 							</p>
 						</div>
 						<p className="text-foreground text-2xl font-bold">
-							<AnimatedNumber value={summary.totalPaid} currency="NGN" />
+							<AnimatedNumber value={receivedTotal} currency="NGN" />
 						</p>
 						<div className="w-full bg-muted h-1.5 rounded-full mt-2 overflow-hidden">
 							<div
@@ -387,6 +424,10 @@ function Content() {
 								style={{ width: `${paidPercentage}%` }}
 							/>
 						</div>
+						<p className="text-xs text-muted-foreground mt-1">
+							{successfulPayments.length} recorded payment
+							{successfulPayments.length === 1 ? "" : "s"}
+						</p>
 					</CardContent>
 				</Card>
 
@@ -410,96 +451,107 @@ function Content() {
 				</Card>
 			</div>
 
-			{/* Fee Structure */}
-			{hasFees && (
-				<Card className="bg-card rounded-xl shadow-sm overflow-hidden">
-					<div className="px-5 py-4 border-b border-border flex justify-between items-center bg-muted/30">
-						<h3 className="text-foreground text-base font-bold">
-							Fee Structure
-						</h3>
-					</div>
-					<div className="p-5 flex flex-col gap-4">
-						{/* Service billables (BillableHistory-linked) */}
-						{rpData?.billables?.map((item) => (
-							<FeeItemRow
-								key={item.key}
-								item={{
-									key: item.key,
-									title: item.title,
-									description: item.description,
-									amount: item.amount,
-									paidAmount: item.paidAmount,
-									pendingAmount: item.pendingAmount,
-									status: item.status,
-									studentFeeId: item.studentFeeId,
-								}}
-								onCancel={
-									item.studentFeeId
-										? (id) => cancelFeeMutate({ id, reason: "" })
-										: undefined
-								}
-								cancelPending={cancelFeePending}
-							/>
-						))}
-						{/* School fees (FeeHistory-linked) */}
-						{rpData?.feeItems?.map((item) => (
-							<FeeItemRow
-								key={item.key}
-								item={item}
-								onCancel={(id) => cancelFeeMutate({ id, reason: "" })}
-								cancelPending={cancelFeePending}
-							/>
-						))}
-						{rpData?.manualFeeHistories?.map((item) => (
-							<FeeItemRow
-								key={item.feeHistoryId}
-								item={{
-									key: item.feeHistoryId,
-									title: item.title,
-									description: item.description,
-									amount: item.amount,
-									paidAmount: 0,
-									pendingAmount: item.amount,
-									status: "UNAPPLIED",
-								}}
-							/>
-						))}
-						{/* Other one-off charges */}
-						{rpData?.otherCharges?.map((item) => (
-							<FeeItemRow
-								key={item.key}
-								item={{
-									key: item.key,
-									title: item.title,
-									description: item.description,
-									amount: item.amount,
-									paidAmount: item.paidAmount,
-									pendingAmount: item.pendingAmount,
-									status: item.status,
-									studentFeeId: item.studentFeeId,
-								}}
-								onCancel={(id) => cancelFeeMutate({ id, reason: "" })}
-								cancelPending={cancelFeePending}
-							/>
-						))}
-					</div>
-				</Card>
-			)}
+			<div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+				{hasFees && (
+					<Card className="bg-card rounded-xl shadow-sm overflow-hidden xl:col-span-2">
+						<div className="px-5 py-4 border-b border-border flex justify-between items-center bg-muted/30">
+							<h3 className="text-foreground text-base font-bold">
+								Fee Structure
+							</h3>
+							<Badge variant="secondary">Current term</Badge>
+						</div>
+						<div className="p-5 flex flex-col gap-4">
+							{rpData?.billables?.map((item) => (
+								<FeeItemRow
+									key={item.key}
+									item={{
+										key: item.key,
+										title: item.title,
+										description: item.description,
+										amount: item.amount,
+										paidAmount: item.paidAmount,
+										pendingAmount: item.pendingAmount,
+										status: item.status,
+										studentFeeId: item.studentFeeId,
+									}}
+									onCancel={
+										item.studentFeeId
+											? (id) => cancelFeeMutate({ id, reason: "" })
+											: undefined
+									}
+									cancelPending={cancelFeePending}
+								/>
+							))}
+							{rpData?.feeItems?.map((item) => (
+								<FeeItemRow
+									key={item.key}
+									item={item}
+									onCancel={(id) => cancelFeeMutate({ id, reason: "" })}
+									cancelPending={cancelFeePending}
+								/>
+							))}
+							{rpData?.manualFeeHistories?.map((item) => (
+								<FeeItemRow
+									key={item.feeHistoryId}
+									item={{
+										key: item.feeHistoryId,
+										title: item.title,
+										description: item.description,
+										amount: item.amount,
+										paidAmount: 0,
+										pendingAmount: item.amount,
+										status: "UNAPPLIED",
+									}}
+								/>
+							))}
+							{rpData?.otherCharges?.map((item) => (
+								<FeeItemRow
+									key={item.key}
+									item={{
+										key: item.key,
+										title: item.title,
+										description: item.description,
+										amount: item.amount,
+										paidAmount: item.paidAmount,
+										pendingAmount: item.pendingAmount,
+										status: item.status,
+										studentFeeId: item.studentFeeId,
+									}}
+									onCancel={(id) => cancelFeeMutate({ id, reason: "" })}
+									cancelPending={cancelFeePending}
+								/>
+							))}
+						</div>
+					</Card>
+				)}
 
-			{/* Payment History */}
-			{payments && payments.length > 0 && (
-				<Card className="bg-card rounded-xl shadow-sm overflow-hidden">
+				<Card className="bg-card rounded-xl shadow-sm overflow-hidden xl:col-span-3">
 					<div className="px-5 py-4 border-b border-border flex justify-between items-center">
-						<h3 className="text-foreground text-base font-bold">
-							Payment History
-						</h3>
+						<div>
+							<h3 className="text-foreground text-base font-bold">
+								Transaction History
+							</h3>
+							<p className="text-xs text-muted-foreground mt-1">
+								{transactionCount} transaction
+								{transactionCount === 1 ? "" : "s"} in this term
+							</p>
+						</div>
+						<div className="flex items-center gap-2">
+							<Button variant="ghost" size="icon" type="button" disabled>
+								<Filter className="w-4 h-4" />
+							</Button>
+							<Button variant="ghost" size="icon" type="button" disabled>
+								<Printer className="w-4 h-4" />
+							</Button>
+						</div>
 					</div>
 					<PaymentHistoryList
-						payments={payments}
-						studentId={params.studentViewId}
+						payments={payments ?? []}
+						studentId={studentId ?? ""}
+						termId={activeStudentTerm?.termId ?? undefined}
 					/>
 				</Card>
-			)}
+			</div>
 
 			{/* Info Box */}
 			<div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-lg p-4 flex gap-3">
@@ -523,22 +575,26 @@ function Content() {
 function PaymentHistoryList({
 	payments,
 	studentId,
+	termId,
 }: {
 	payments: Array<{
 		id: string;
 		amount: number;
 		status?: string | null;
+		type?: "FEE" | "PURCHASE" | null;
 		paymentType?: string | null;
 		description?: string | null;
 		createdAt?: Date | string | null;
 		studentFee?: { feeTitle?: string | null } | null;
 		walletTransaction?: {
 			id?: string | null;
+			summary?: string | null;
 			transactionDate?: Date | string | null;
 			status?: string | null;
 		} | null;
 	}>;
 	studentId: string;
+	termId?: string | null;
 }) {
 	const trpc = useTRPC();
 	const qc = useQueryClient();
@@ -557,14 +613,17 @@ function PaymentHistoryList({
 		trpc.finance.reverseStudentPayment.mutationOptions({
 			meta: {
 				toastTitle: {
-					loading: "Reversing payment...",
-					success: "Payment reversed",
-					error: "Failed to reverse",
+					loading: "Cancelling payment...",
+					success: "Payment cancelled",
+					error: "Failed to cancel payment",
 				},
 			},
 			onSuccess() {
 				qc.invalidateQueries({
-					queryKey: trpc.finance.getStudentPayments.queryKey({ studentId }),
+					queryKey: trpc.finance.getStudentPayments.queryKey({
+						studentId,
+						termId: termId ?? undefined,
+					}),
 				});
 				qc.invalidateQueries({
 					queryKey: trpc.finance.getReceivePaymentData.queryKey({ studentId }),
@@ -574,85 +633,126 @@ function PaymentHistoryList({
 	);
 
 	return (
-		<div className="divide-y divide-border">
-			{payments.map((p) => {
-				const date = p.walletTransaction?.transactionDate || p.createdAt;
-				const canReverse =
-					p.status === "success" &&
-					p.walletTransaction?.status === "success" &&
-					p.walletTransaction?.id;
+		<div>
+			{payments.length === 0 ? (
+				<div className="px-5 py-10 text-center text-sm text-muted-foreground">
+					No recorded payments yet for this term.
+				</div>
+			) : (
+				<div className="overflow-x-auto">
+					<table className="w-full text-sm text-left">
+						<thead className="text-xs text-muted-foreground uppercase bg-muted/40">
+							<tr>
+								<th className="px-5 py-3 font-medium">Date</th>
+								<th className="px-5 py-3 font-medium">Ref ID</th>
+								<th className="px-5 py-3 font-medium">Description</th>
+								<th className="px-5 py-3 font-medium">Method</th>
+								<th className="px-5 py-3 font-medium">Amount</th>
+								<th className="px-5 py-3 font-medium">Status</th>
+								<th className="px-5 py-3 font-medium text-right">Actions</th>
+							</tr>
+						</thead>
+						<tbody className="divide-y divide-border">
+							{payments.map((p) => {
+								const date = p.walletTransaction?.transactionDate || p.createdAt;
+								const canReverse =
+									p.status === "success" &&
+									p.walletTransaction?.status === "success" &&
+									p.walletTransaction?.id;
+								const method =
+									p.description?.split("•")[0]?.trim() ||
+									p.walletTransaction?.summary?.split("•")[0]?.trim() ||
+									(p.type === "PURCHASE" ? "Purchase" : "Payment");
+								const refId = p.walletTransaction?.id
+									? `#${p.walletTransaction.id.slice(0, 8).toUpperCase()}`
+									: `#${p.id.slice(0, 8).toUpperCase()}`;
 
-				return (
-					<div
-						key={p.id}
-						className="py-3 px-5 flex items-center gap-3 hover:bg-muted/20 transition-colors"
-					>
-						<div className="flex-1">
-							<p className="text-sm font-medium text-foreground">
-								{p.studentFee?.feeTitle || p.paymentType || "Payment"}
-							</p>
-							{p.description && (
-								<p className="text-xs text-muted-foreground">{p.description}</p>
-							)}
-							<p className="text-xs text-muted-foreground">
-								{date ? format(new Date(date), "dd MMM yyyy") : ""}
-							</p>
-						</div>
-						<div className="text-right">
-							<div className="text-sm font-mono font-medium text-foreground">
-								<AnimatedNumber value={p.amount} currency="NGN" />
-							</div>
-							<Badge
-								variant="outline"
-								className={cn(
-									"text-xs mt-0.5",
-									p.status === "success"
-										? "border-green-300 text-green-600 dark:border-green-800 dark:text-green-400"
-										: "border-red-300 text-red-500 dark:border-red-800 dark:text-red-400",
-								)}
-							>
-								{p.status}
-							</Badge>
-						</div>
-						{p.status === "success" && (
-							<div className="flex items-center gap-1">
-								<Button
-									variant="ghost"
-									size="xs"
-									type="button"
-									onClick={() => openReceipt(p.id)}
-								>
-									Print
-								</Button>
-								<Button
-									variant="ghost"
-									size="xs"
-									type="button"
-									onClick={() => openReceipt(p.id, true)}
-								>
-									Download
-								</Button>
-							</div>
-						)}
-						{canReverse && (
-							<Button
-								variant="ghost"
-								size="xs"
-								type="button"
-								disabled={isPending}
-								onClick={() =>
-									reverse({
-										studentPaymentId: p.id,
-										transactionId: p.walletTransaction.id,
-									})
-								}
-							>
-								Reverse
-							</Button>
-						)}
-					</div>
-				);
-			})}
+								return (
+									<tr key={p.id} className="hover:bg-muted/20 transition-colors">
+										<td className="px-5 py-4 whitespace-nowrap text-foreground">
+											{date ? format(new Date(date), "dd MMM yyyy") : ""}
+										</td>
+										<td className="px-5 py-4 font-mono text-xs text-muted-foreground">
+											{refId}
+										</td>
+										<td className="px-5 py-4">
+											<p className="font-medium text-foreground">
+												{p.studentFee?.feeTitle || p.paymentType || "Payment"}
+											</p>
+											{p.description ? (
+												<p className="text-xs text-muted-foreground mt-1">
+													{p.description}
+												</p>
+											) : null}
+										</td>
+										<td className="px-5 py-4 text-muted-foreground">
+											{method}
+										</td>
+										<td className="px-5 py-4 font-semibold text-foreground whitespace-nowrap">
+											<AnimatedNumber value={p.amount} currency="NGN" />
+										</td>
+										<td className="px-5 py-4">
+											<Badge
+												variant="outline"
+												className={cn(
+													"text-xs",
+													p.status === "success"
+														? "border-green-300 text-green-600 dark:border-green-800 dark:text-green-400"
+														: p.status === "draft"
+															? "border-yellow-300 text-yellow-700 dark:border-yellow-800 dark:text-yellow-400"
+															: "border-red-300 text-red-500 dark:border-red-800 dark:text-red-400",
+												)}
+											>
+												{p.status}
+											</Badge>
+										</td>
+										<td className="px-5 py-4">
+											<div className="flex items-center justify-end gap-1">
+												{p.status === "success" && (
+													<>
+														<Button
+															variant="ghost"
+															size="xs"
+															type="button"
+															onClick={() => openReceipt(p.id)}
+														>
+															Print
+														</Button>
+														<Button
+															variant="ghost"
+															size="xs"
+															type="button"
+															onClick={() => openReceipt(p.id, true)}
+														>
+															Download
+														</Button>
+													</>
+												)}
+												{canReverse && (
+													<Button
+														variant="ghost"
+														size="xs"
+														type="button"
+														disabled={isPending}
+														onClick={() =>
+															reverse({
+																studentPaymentId: p.id,
+																transactionId: p.walletTransaction.id,
+															})
+														}
+													>
+														Cancel
+													</Button>
+												)}
+											</div>
+										</td>
+									</tr>
+								);
+							})}
+						</tbody>
+					</table>
+				</div>
+			)}
 		</div>
 	);
 }

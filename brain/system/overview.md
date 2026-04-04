@@ -15,12 +15,13 @@ Operational summary of SchoolClerk domains, modules, and runtime boundaries.
 
 ## Key Capabilities
 - Admissions, academics, attendance, finance, communication
-- Finance includes term-scoped accounting streams, classroom-scoped billables, a stream-detail view for per-wallet transaction statements, and a receive-payment workflow that searches all students but allocates against the active term sheet.
+- Finance includes term-scoped accounting streams, classroom-scoped billables, a stream-detail view for per-wallet transaction statements, a receive-payment workflow that searches all students but allocates against the active term sheet, and cancellable service/payroll/student payment flows that preserve cancelled ledger history for reporting and re-payment.
+- Notifications now include tenant-scoped in-app persistence plus email delivery, with typed notification definitions in `packages/notifications`, reusable email templates in `packages/email`, header bell access in the dashboard shell, and deep links into finance pages for payment events.
 
 ## Runtime Boundaries
 - Frontend apps: `apps/dashboard` (authenticated product UI), `apps/web` (marketing)
 - Backend services: `apps/api` tRPC/Hono API, Trigger.dev jobs in `packages/jobs`
-- Data stores: PostgreSQL via Prisma models in `packages/db/src/schema/*.prisma`
+- Data stores: PostgreSQL via Prisma models in `packages/db/src/schema/*.prisma`, including tenant/user-scoped `Notification` and `NotificationPreference` records
 - External providers: Better Auth, Vercel domains, Resend email, Google Fonts (build-time fetch in Next.js)
 - Tenant/domain proxying owns the dashboard mount, so product pages should navigate with app-relative paths like `/finance/...` instead of hardcoding `/dashboard/...`.
 

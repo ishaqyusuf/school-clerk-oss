@@ -38,10 +38,46 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `studentId`, `studentTermFormId`, `paymentMethod`, optional `paymentDate`, optional `reference`, `amountReceived`, `allocations[]`
 - Response schema: `{ success: true, count: number, totalAllocated: number, paymentIds: string[] }`
 - Error cases: allocation total mismatch, overpayment against pending amount, fee history outside the student's classroom scope
-- Notes: `paymentIds` powers receipt printing/downloading immediately after payment capture
+- Notes: `paymentIds` powers receipt printing/downloading immediately after payment capture, and successful student payment capture now also dispatches tenant-scoped in-app plus email notifications using a typed notification registry
 
 - Route: `finance.getStreamDetails`
 - Request schema: `streamId`
 - Response schema: `{ id, name, type, createdAt, periodLabel, totalIn, totalOut, balance, transactions[] }` where each transaction includes `id`, `reference`, `partyName`, `studentClassroom`, `title`, `description`, `amount`, `type`, `direction`, `status`, and `transactionDate`
 - Error cases: stream not found for current tenant, missing tenant context
 - Notes: used by `/finance/streams/[streamId]` to open a stream from the finance accounting grid into a statement-style detail page
+
+- Route: `finance.cancelServiceBillPayment`
+- Request schema: `billId`
+- Response schema: `{ success: true, amount: number, title: string | null, staffName: string | null }`
+- Error cases: bill not found, no active/cancelled-compatible payment on the bill, missing tenant context
+- Notes: cancels the linked wallet transaction without erasing bill history, so finance UIs can render a `Cancelled` state and still allow a later re-payment
+
+- Route: `finance.cancelStaffBillPayment`
+- Request schema: `billId`
+- Response schema: `{ success: true, amount: number, title: string | null, staffName: string | null }`
+- Error cases: bill not found, no active/cancelled-compatible payment on the bill, missing tenant context
+- Notes: mirrors service-payment cancellation semantics for payroll and dispatches payroll cancellation notifications
+
+- Route: `notifications.list`
+- Request schema: `take`, `onlyUnread`
+- Response schema: `Notification[]` scoped to the authenticated tenant user and ordered newest-first
+- Error cases: missing tenant session context
+- Notes: powers the bell popover and the full `/notifications` page
+
+- Route: `notifications.unreadCount`
+- Request schema: none
+- Response schema: `number`
+- Error cases: missing tenant session context
+- Notes: badge source for header notification bell
+
+- Route: `notifications.markRead`
+- Request schema: `notificationId`
+- Response schema: updated `Notification`
+- Error cases: notification not found for the current tenant user, missing tenant session context
+- Notes: ownership check is enforced before marking a notification as read
+
+- Route: `notifications.markAllRead`
+- Request schema: none
+- Response schema: Prisma `updateMany` result
+- Error cases: missing tenant session context
+- Notes: bulk read action for bell and notifications page

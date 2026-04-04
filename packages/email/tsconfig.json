@@ -1,12 +1,10 @@
 {
-  "extends": "@school-clerk/tsconfig/base.json",
-  "include": ["emails", "components"],
-  "exclude": ["node_modules"],
+  "extends": "../tsconfig/react-library.json",
   "compilerOptions": {
     "baseUrl": ".",
     "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "jsx": "react-jsx",
-    "jsxImportSource": "react"
-  }
+    "moduleResolution": "NodeNext"
+  },
+  "include": ["index.ts", "render.ts", "emails/**/*", "components/**/*"],
+  "exclude": ["node_modules"]
 }

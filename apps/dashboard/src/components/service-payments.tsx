@@ -36,6 +36,7 @@ function Content() {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const { data: bills } = useSuspenseQuery(
@@ -45,8 +46,15 @@ function Content() {
   const invalidate = () =>
     qc.invalidateQueries({ queryKey: trpc.finance.getServicePayments.queryKey({}) });
 
-  const pending = bills.filter((b) => !b.billPaymentId);
-  const paid = bills.filter((b) => b.billPaymentId);
+  const paid = bills.filter(
+    (b) => b.billPaymentId && b.billPayment?.transaction?.status === "success"
+  );
+  const cancelled = bills.filter(
+    (b) => b.billPaymentId && b.billPayment?.transaction?.status === "cancelled"
+  );
+  const pending = bills.filter(
+    (b) => !b.billPaymentId || b.billPayment?.transaction?.status === "cancelled"
+  );
 
   const filtered = bills.filter((b) => {
     if (!search) return true;
@@ -112,7 +120,9 @@ function Content() {
             <Clock className="text-muted-foreground h-5 w-5" />
           </div>
           <p className="text-2xl font-bold">{bills.length} Total</p>
-          <p className="text-muted-foreground text-xs font-semibold">All time records</p>
+          <p className="text-muted-foreground text-xs font-semibold">
+            {cancelled.length} cancelled
+          </p>
         </Card>
       </div>
 
@@ -171,14 +181,19 @@ function Content() {
                       <AnimatedNumber value={bill.amount} currency="NGN" />
                     </td>
                     <td className="px-6 py-4 text-center">
-                      {bill.billPaymentId ? (
+                      {bill.billPaymentId && bill.billPayment?.transaction?.status === "success" ? (
                         <Badge className="bg-green-100 text-green-700 border-green-200">Paid</Badge>
+                      ) : bill.billPaymentId && bill.billPayment?.transaction?.status === "cancelled" ? (
+                        <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50">
+                          Cancelled
+                        </Badge>
                       ) : (
                         <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">Pending</Badge>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {!bill.billPaymentId && (
+                      {(!bill.billPaymentId ||
+                        bill.billPayment?.transaction?.status === "cancelled") && (
                         <div className="flex items-center justify-end gap-2">
                           {payingId === bill.id ? (
                             <PayInlineForm
@@ -194,6 +209,29 @@ function Content() {
                               onClick={() => setPayingId(bill.id)}
                             >
                               Pay Now
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      {bill.billPaymentId && bill.billPayment?.transaction?.status === "success" && (
+                        <div className="flex items-center justify-end gap-2">
+                          {cancellingId === bill.id ? (
+                            <CancelServicePaymentButton
+                              billId={bill.id}
+                              onCancel={() => setCancellingId(null)}
+                              onSuccess={() => {
+                                setCancellingId(null);
+                                invalidate();
+                              }}
+                            />
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-xs text-rose-600 hover:text-rose-700"
+                              onClick={() => setCancellingId(bill.id)}
+                            >
+                              Cancel payment
                             </Button>
                           )}
                         </div>
@@ -218,6 +256,47 @@ function Content() {
           </div>
         </Card>
       )}
+    </div>
+  );
+}
+
+function CancelServicePaymentButton({
+  billId,
+  onCancel,
+  onSuccess,
+}: {
+  billId: string;
+  onCancel: () => void;
+  onSuccess: () => void;
+}) {
+  const trpc = useTRPC();
+  const { mutate, isPending } = useMutation(
+    trpc.finance.cancelServiceBillPayment.mutationOptions({
+      meta: {
+        toastTitle: {
+          loading: "Cancelling payment...",
+          success: "Payment cancelled",
+          error: "Cancellation failed",
+        },
+      },
+      onSuccess,
+    })
+  );
+
+  return (
+    <div className="flex items-center gap-2">
+      <SubmitButton
+        isSubmitting={isPending}
+        type="button"
+        size="sm"
+        variant="destructive"
+        onClick={() => mutate({ billId })}
+      >
+        Confirm
+      </SubmitButton>
+      <Button variant="ghost" size="sm" type="button" onClick={onCancel}>
+        <X className="h-4 w-4" />
+      </Button>
     </div>
   );
 }

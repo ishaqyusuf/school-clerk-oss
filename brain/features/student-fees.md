@@ -89,6 +89,12 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
   - Rejects payment attempts for fee histories that do not apply to the student's current classroom.
 - Runs inside an extended interactive transaction timeout because payment flows can create wallets, charges, ledger entries, and receipts in one request.
 - Returns the created `paymentIds[]` so the dashboard can open a printable/downloadable receipt immediately after a payment is recorded.
+- Also dispatches typed finance notifications for successful payment receipt, with both in-app rows and registered email templates.
+
+### `finance.reverseStudentPayment`
+- Cancels an existing successful student payment by marking both the wallet transaction and the `StudentPayment` row as `cancelled`.
+- Restores the linked `StudentFee.pendingAmount` so the student balance reopens correctly.
+- Dispatches typed finance notifications for payment cancellation, including an email template registration for the event.
 
 ## UI
 
@@ -124,6 +130,7 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 
 ### Student Payment History
 - Each successful payment row now exposes receipt actions so staff can print or download a receipt later from the student overview.
+- The cancellation action is now labeled `Cancel` instead of `Reverse`, matching the new cancellation wording used across finance and notifications.
 
 ### Student Billing Form
 - Creating a student fee from the student finance tab now opens the same "apply fee to students" confirmation modal used on fees management when the fee is backed by a `FeeHistory`.

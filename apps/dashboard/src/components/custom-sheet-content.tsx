@@ -5,7 +5,13 @@ import { cva, VariantProps } from "class-variance-authority";
 
 import { cn } from "@school-clerk/ui/cn";
 import { ScrollArea } from "@school-clerk/ui/scroll-area";
-import { Sheet, SheetContent, SheetContentProps } from "@school-clerk/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetContentProps,
+  SheetHeader,
+  SheetTitle,
+} from "@school-clerk/ui/sheet";
 import { useMediaQuery } from "react-responsive";
 import Portal from "./portal";
 import { Label } from "@school-clerk/ui/label";
@@ -41,11 +47,10 @@ const sheetContentVariant = cva(
       rounded: false,
       size: "default",
     },
-  }
+  },
 );
 interface Props
-  extends SheetContentProps,
-    VariantProps<typeof sheetContentVariant> {
+  extends SheetContentProps, VariantProps<typeof sheetContentVariant> {
   children?;
   open?: boolean;
   onOpenChange?;
@@ -57,7 +62,7 @@ const { Provider: SheetProvider, useContext: useSheet } = createContextFactory(
       nodeId: ["csc", sheetName]?.filter(Boolean).join("-"),
       scrollContentId: ["cssc", sheetName]?.filter(Boolean).join("-"),
     };
-  }
+  },
 );
 export function CustomSheet(props: Props) {
   return (
@@ -87,9 +92,12 @@ export function CustomSheetBase({
             ...(props as any),
             floating,
             rounded,
-          })
+          }),
         )}
       >
+        <SheetHeader>
+          <SheetTitle></SheetTitle>
+        </SheetHeader>
         {children}
       </SheetContent>
     </Sheet>
@@ -142,7 +150,7 @@ export function MultiSheetContent({
       <div
         className={cn(
           "overflow-hidden flex flex-col flex-1",
-          secondaryOpened && "pr-4"
+          secondaryOpened && "pr-4",
         )}
       >
         {Header}

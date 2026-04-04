@@ -1,4 +1,9 @@
 import { z } from "@hono/zod-openapi";
+import {
+	dispatchSchoolNotification,
+	getCurrentUserContext,
+	tryGetCurrentUserContext,
+} from "../../lib/notifications";
 import { createTRPCRouter, publicProcedure } from "../init";
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
@@ -29,6 +34,10 @@ const payBillSchema = z.object({
 	billId: z.string(),
 	amount: z.number().positive(),
 	date: z.date().optional().nullable(),
+});
+
+const cancelBillPaymentSchema = z.object({
+	billId: z.string(),
 });
 
 const receivePaymentLineSchema = z.object({
@@ -79,6 +88,13 @@ function getDepartmentName(
 	return [department.classRoom?.name, department.departmentName]
 		.filter(Boolean)
 		.join(" ");
+}
+
+function formatNaira(amount: number) {
+	return new Intl.NumberFormat("en-NG", {
+		style: "currency",
+		currency: "NGN",
+	}).format(amount);
 }
 
 async function getStudentReceivePaymentData(ctx: any, studentId: string) {
@@ -546,8 +562,32 @@ async function payBill(
 	},
 ) {
 	const bill = await db.bills.findFirstOrThrow({
-		where: { id: billId, billPaymentId: null },
-		select: { walletId: true, title: true },
+		where: {
+			id: billId,
+			deletedAt: null,
+			OR: [
+				{ billPaymentId: null },
+				{
+					billPayment: {
+						transaction: {
+							status: "cancelled",
+						},
+					},
+				},
+			],
+		},
+		select: {
+			amount: true,
+			staffTermProfile: {
+				select: {
+					staffProfile: {
+						select: { name: true },
+					},
+				},
+			},
+			title: true,
+			walletId: true,
+		},
 	});
 
 	const walletId =
@@ -589,7 +629,70 @@ async function payBill(
 		data: { billPaymentId: payment.id },
 	});
 
-	return { success: true, paymentId: payment.id };
+	return {
+		amount,
+		paymentId: payment.id,
+		staffName: bill.staffTermProfile?.staffProfile?.name ?? null,
+		success: true,
+		title: bill.title,
+	};
+}
+
+async function cancelBillPayment(
+	db: any,
+	{
+		billId,
+	}: {
+		billId: string;
+	},
+) {
+	const bill = await db.bills.findFirstOrThrow({
+		where: {
+			id: billId,
+			billPaymentId: { not: null },
+			deletedAt: null,
+		},
+		select: {
+			amount: true,
+			billPaymentId: true,
+			staffTermProfile: {
+				select: {
+					staffProfile: {
+						select: { name: true },
+					},
+				},
+			},
+			title: true,
+		},
+	});
+
+	const payment = await db.billPayment.findFirstOrThrow({
+		where: {
+			id: bill.billPaymentId!,
+			deletedAt: null,
+		},
+		select: {
+			id: true,
+			transactionId: true,
+		},
+	});
+
+	await db.walletTransactions.update({
+		where: { id: payment.transactionId },
+		data: { status: "cancelled" },
+	});
+
+	await db.billPayment.update({
+		where: { id: payment.id },
+		data: { deletedAt: new Date() },
+	});
+
+	return {
+		amount: bill.amount ?? 0,
+		staffName: bill.staffTermProfile?.staffProfile?.name ?? null,
+		success: true,
+		title: bill.title,
+	};
 }
 
 // ─── Router ───────────────────────────────────────────────────────────────────
@@ -961,8 +1064,11 @@ export const financeRouter = createTRPCRouter({
 					billable: { select: { title: true, type: true } },
 					billPayment: {
 						select: {
+							id: true,
 							amount: true,
-							transaction: { select: { transactionDate: true } },
+							transaction: {
+								select: { id: true, transactionDate: true, status: true },
+							},
 						},
 					},
 				},
@@ -1004,7 +1110,8 @@ export const financeRouter = createTRPCRouter({
 	payServiceBill: publicProcedure
 		.input(payBillSchema)
 		.mutation(async ({ input, ctx }) => {
-			return ctx.db.$transaction(async (tx) => {
+			const current = await tryGetCurrentUserContext(ctx);
+			const result = await ctx.db.$transaction(async (tx) => {
 				return payBill(tx, {
 					billId: input.billId,
 					amount: input.amount,
@@ -1013,6 +1120,49 @@ export const financeRouter = createTRPCRouter({
 					termId: ctx.profile.termId!,
 				});
 			});
+
+			if (current) {
+				await dispatchSchoolNotification(ctx, {
+					audience: "finance",
+					type: "service_payment_recorded",
+					payload: {
+						actorName: current.user.name,
+						amount: formatNaira(result.amount),
+						expenseTitle: result.title || "Service payment",
+						link: "/finance/payments",
+						schoolName: current.school.name,
+					},
+				});
+			}
+
+			return result;
+		}),
+
+	cancelServiceBillPayment: publicProcedure
+		.input(cancelBillPaymentSchema)
+		.mutation(async ({ input, ctx }) => {
+			const current = await tryGetCurrentUserContext(ctx);
+			const result = await ctx.db.$transaction(async (tx) => {
+				return cancelBillPayment(tx, {
+					billId: input.billId,
+				});
+			});
+
+			if (current) {
+				await dispatchSchoolNotification(ctx, {
+					audience: "finance",
+					type: "service_payment_cancelled",
+					payload: {
+						actorName: current.user.name,
+						amount: formatNaira(result.amount),
+						expenseTitle: result.title || "Service payment",
+						link: "/finance/payments",
+						schoolName: current.school.name,
+					},
+				});
+			}
+
+			return result;
 		}),
 
 	// ── Payroll ─────────────────────────────────────────────────────────────────
@@ -1045,8 +1195,11 @@ export const financeRouter = createTRPCRouter({
 					},
 					billPayment: {
 						select: {
+							id: true,
 							amount: true,
-							transaction: { select: { transactionDate: true } },
+							transaction: {
+								select: { id: true, transactionDate: true, status: true },
+							},
 						},
 					},
 				},
@@ -1119,7 +1272,8 @@ export const financeRouter = createTRPCRouter({
 	payStaffBill: publicProcedure
 		.input(payBillSchema)
 		.mutation(async ({ input, ctx }) => {
-			return ctx.db.$transaction(async (tx) => {
+			const current = await tryGetCurrentUserContext(ctx);
+			const result = await ctx.db.$transaction(async (tx) => {
 				return payBill(tx, {
 					billId: input.billId,
 					amount: input.amount,
@@ -1128,6 +1282,49 @@ export const financeRouter = createTRPCRouter({
 					termId: ctx.profile.termId!,
 				});
 			});
+
+			if (current) {
+				await dispatchSchoolNotification(ctx, {
+					audience: "payroll",
+					type: "payroll_payment_recorded",
+					payload: {
+						actorName: current.user.name,
+						amount: formatNaira(result.amount),
+						link: "/staff/payroll",
+						schoolName: current.school.name,
+						staffName: result.staffName || result.title || "Staff member",
+					},
+				});
+			}
+
+			return result;
+		}),
+
+	cancelStaffBillPayment: publicProcedure
+		.input(cancelBillPaymentSchema)
+		.mutation(async ({ input, ctx }) => {
+			const current = await tryGetCurrentUserContext(ctx);
+			const result = await ctx.db.$transaction(async (tx) => {
+				return cancelBillPayment(tx, {
+					billId: input.billId,
+				});
+			});
+
+			if (current) {
+				await dispatchSchoolNotification(ctx, {
+					audience: "payroll",
+					type: "payroll_payment_cancelled",
+					payload: {
+						actorName: current.user.name,
+						amount: formatNaira(result.amount),
+						link: "/staff/payroll",
+						schoolName: current.school.name,
+						staffName: result.staffName || result.title || "Staff member",
+					},
+				});
+			}
+
+			return result;
 		}),
 
 	// ── Staff list (for payroll form) ───────────────────────────────────────────
@@ -1242,13 +1439,22 @@ export const financeRouter = createTRPCRouter({
 		}),
 
 	getStudentPayments: publicProcedure
-		.input(z.object({ studentId: z.string().optional().nullable() }))
+		.input(
+			z.object({
+				studentId: z.string().optional().nullable(),
+				termId: z.string().optional().nullable(),
+			}),
+		)
 		.query(async ({ input, ctx }) => {
 			if (!input.studentId) return [];
 			return ctx.db.studentPayment.findMany({
 				where: {
 					schoolProfileId: ctx.profile.schoolId,
-					studentTermForm: { student: { id: input.studentId } },
+					deletedAt: null,
+					studentTermForm: {
+						student: { id: input.studentId },
+						sessionTermId: input.termId || undefined,
+					},
 				},
 				select: {
 					id: true,
@@ -1262,12 +1468,13 @@ export const financeRouter = createTRPCRouter({
 					walletTransaction: {
 						select: {
 							id: true,
+							summary: true,
 							transactionDate: true,
 							status: true,
 						},
 					},
 				},
-				orderBy: { createdAt: "desc" },
+				orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 			});
 		}),
 
@@ -1279,7 +1486,8 @@ export const financeRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
-			return ctx.db.$transaction(async (tx) => {
+			const current = await tryGetCurrentUserContext(ctx);
+			const result = await ctx.db.$transaction(async (tx) => {
 				await tx.walletTransactions.update({
 					where: { id: input.transactionId },
 					data: { status: "cancelled" },
@@ -1289,6 +1497,17 @@ export const financeRouter = createTRPCRouter({
 					data: { status: "cancelled" },
 					select: {
 						amount: true,
+						studentTermForm: {
+							select: {
+								student: {
+									select: {
+										name: true,
+										otherName: true,
+										surname: true,
+									},
+								},
+							},
+						},
 						studentFee: { select: { id: true } },
 					},
 				});
@@ -1298,8 +1517,28 @@ export const financeRouter = createTRPCRouter({
 						data: { pendingAmount: { increment: payment.amount } },
 					});
 				}
-				return { success: true };
+				return {
+					amount: payment.amount ?? 0,
+					studentName: getStudentName(payment.studentTermForm.student),
+					success: true,
+				};
 			});
+
+			if (current) {
+				await dispatchSchoolNotification(ctx, {
+					audience: "finance",
+					type: "student_payment_cancelled",
+					payload: {
+						actorName: current.user.name,
+						amount: formatNaira(result.amount),
+						link: "/finance/transactions",
+						schoolName: current.school.name,
+						studentName: result.studentName,
+					},
+				});
+			}
+
+			return result;
 		}),
 
 	receiveStudentPayment: publicProcedure
@@ -1314,7 +1553,8 @@ export const financeRouter = createTRPCRouter({
 				throw new Error("Allocated total must match the amount received.");
 			}
 
-			return ctx.db.$transaction(async (tx) => {
+			const current = await tryGetCurrentUserContext(ctx);
+			const result = await ctx.db.$transaction(async (tx) => {
 				const studentTermForm = await tx.studentTermForm.findFirstOrThrow({
 					where: {
 						id: input.studentTermFormId,
@@ -1328,6 +1568,13 @@ export const financeRouter = createTRPCRouter({
 						schoolSessionId: true,
 						sessionTermId: true,
 						classroomDepartmentId: true,
+						student: {
+							select: {
+								name: true,
+								otherName: true,
+								surname: true,
+							},
+						},
 					},
 				});
 
@@ -1633,6 +1880,7 @@ export const financeRouter = createTRPCRouter({
 				return {
 					success: true,
 					count: createdPayments.length,
+					studentName: getStudentName(studentTermForm.student),
 					totalAllocated,
 					paymentIds: createdPayments.map((payment) => payment.id),
 				};
@@ -1640,6 +1888,23 @@ export const financeRouter = createTRPCRouter({
 				maxWait: 10000,
 				timeout: 20000,
 			});
+
+			if (current) {
+				await dispatchSchoolNotification(ctx, {
+					audience: "finance",
+					type: "student_payment_received",
+					payload: {
+						actorName: current.user.name,
+						amount: formatNaira(result.totalAllocated),
+						link: "/finance/transactions",
+						paymentMethod: input.paymentMethod,
+						schoolName: current.school.name,
+						studentName: result.studentName,
+					},
+				});
+			}
+
+			return result;
 		}),
 
 	// ── Billables ───────────────────────────────────────────────────────────────

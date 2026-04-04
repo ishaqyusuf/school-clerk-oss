@@ -28,6 +28,8 @@ model User {
     saasAccountId String?
     sessions      Session[]
     accounts      Account[]
+    notifications Notification[]
+    notificationPreferences NotificationPreference[]
 }
 
 model Session {

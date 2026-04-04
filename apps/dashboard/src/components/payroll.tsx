@@ -43,6 +43,7 @@ function Content() {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const { data: bills } = useSuspenseQuery(
@@ -52,8 +53,12 @@ function Content() {
   const invalidate = () =>
     qc.invalidateQueries({ queryKey: trpc.finance.getPayroll.queryKey({ termId: undefined }) });
 
-  const pending = bills.filter((b) => !b.billPaymentId);
-  const paid = bills.filter((b) => b.billPaymentId);
+  const paid = bills.filter(
+    (b) => b.billPaymentId && b.billPayment?.transaction?.status === "success"
+  );
+  const pending = bills.filter(
+    (b) => !b.billPaymentId || b.billPayment?.transaction?.status === "cancelled"
+  );
   const totalPending = pending.reduce((s, b) => s + (b.amount || 0), 0);
   const totalPaid = paid.reduce((s, b) => s + (b.billPayment?.amount || b.amount || 0), 0);
 
@@ -178,7 +183,12 @@ function Content() {
                     const initials = staff?.name
                       ? staff.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
                       : "??";
-                    const isPaid = !!bill.billPaymentId;
+                    const isPaid =
+                      !!bill.billPaymentId &&
+                      bill.billPayment?.transaction?.status === "success";
+                    const isCancelled =
+                      !!bill.billPaymentId &&
+                      bill.billPayment?.transaction?.status === "cancelled";
 
                     return (
                       <tr key={bill.id} className="hover:bg-muted/30 transition-colors">
@@ -204,6 +214,10 @@ function Content() {
                           {isPaid ? (
                             <Badge className="bg-green-100 text-green-700 border-green-200">
                               <CheckCircle className="h-3 w-3 mr-1" /> Paid
+                            </Badge>
+                          ) : isCancelled ? (
+                            <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50">
+                              Cancelled
                             </Badge>
                           ) : (
                             <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">
@@ -232,9 +246,30 @@ function Content() {
                               )
                             )}
                             {isPaid && bill.createdAt && (
-                              <span className="text-xs text-muted-foreground">
-                                {format(new Date(bill.createdAt), "MMM dd")}
-                              </span>
+                              <>
+                                {cancellingId === bill.id ? (
+                                  <CancelPayrollPaymentButton
+                                    billId={bill.id}
+                                    onCancel={() => setCancellingId(null)}
+                                    onSuccess={() => {
+                                      setCancellingId(null);
+                                      invalidate();
+                                    }}
+                                  />
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-xs text-rose-600 hover:text-rose-700"
+                                    onClick={() => setCancellingId(bill.id)}
+                                  >
+                                    Cancel payment
+                                  </Button>
+                                )}
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(bill.createdAt), "MMM dd")}
+                                </span>
+                              </>
                             )}
                           </div>
                         </td>
@@ -259,6 +294,47 @@ function Content() {
           </>
         )}
       </Card>
+    </div>
+  );
+}
+
+function CancelPayrollPaymentButton({
+  billId,
+  onCancel,
+  onSuccess,
+}: {
+  billId: string;
+  onCancel: () => void;
+  onSuccess: () => void;
+}) {
+  const trpc = useTRPC();
+  const { mutate, isPending } = useMutation(
+    trpc.finance.cancelStaffBillPayment.mutationOptions({
+      meta: {
+        toastTitle: {
+          loading: "Cancelling payment...",
+          success: "Payment cancelled",
+          error: "Cancellation failed",
+        },
+      },
+      onSuccess,
+    })
+  );
+
+  return (
+    <div className="flex items-center gap-2">
+      <SubmitButton
+        isSubmitting={isPending}
+        type="button"
+        size="sm"
+        variant="destructive"
+        onClick={() => mutate({ billId })}
+      >
+        Confirm
+      </SubmitButton>
+      <Button variant="ghost" size="sm" type="button" onClick={onCancel}>
+        <X className="h-4 w-4" />
+      </Button>
     </div>
   );
 }

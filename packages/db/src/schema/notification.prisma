@@ -1,0 +1,37 @@
+model Notification {
+    id              String        @id @default(uuid())
+    type            String
+    title           String
+    body            String?
+    link            String?
+    isRead          Boolean       @default(false)
+    createdAt       DateTime?     @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?     @updatedAt
+    deletedAt       DateTime?     @db.Timestamp(0)
+    schoolProfileId String
+    userId          String
+
+    schoolProfile SchoolProfile @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+    user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([schoolProfileId, userId])
+    @@index([schoolProfileId, userId, isRead])
+}
+
+model NotificationPreference {
+    id              String        @id @default(uuid())
+    type            String
+    inApp           Boolean       @default(true)
+    email           Boolean       @default(true)
+    createdAt       DateTime?     @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?     @updatedAt
+    deletedAt       DateTime?     @db.Timestamp(0)
+    schoolProfileId String
+    userId          String
+
+    schoolProfile SchoolProfile @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+    user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([schoolProfileId, userId, type])
+    @@index([schoolProfileId, userId])
+}

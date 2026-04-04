@@ -30,6 +30,8 @@ model SchoolProfile {
     domains                TenantDomain[]
     activities             Activity[]
     reportPrintLogs        ReportPrintLog[]
+    notifications          Notification[]
+    notificationPreferences NotificationPreference[]
 
     @@unique([name, subDomain, slug, deletedAt])
 }

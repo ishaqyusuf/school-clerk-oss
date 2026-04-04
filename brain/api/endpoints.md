@@ -50,6 +50,17 @@ Catalog of API routes and responsibilities.
 - `trpc.finance.getStreams`
 - `trpc.finance.getStreamDetails`
 - `trpc.finance.transferFunds`
+- `trpc.finance.getServicePayments`
+- `trpc.finance.payServiceBill`
+- `trpc.finance.cancelServiceBillPayment`
+- `trpc.finance.getPayroll`
+- `trpc.finance.payStaffBill`
+- `trpc.finance.cancelStaffBillPayment`
+- `trpc.finance.receiveStudentPayment`
+- `trpc.finance.reverseStudentPayment`
 
 ### Notifications
-- `POST /notifications`
+- `trpc.notifications.list`
+- `trpc.notifications.unreadCount`
+- `trpc.notifications.markRead`
+- `trpc.notifications.markAllRead`

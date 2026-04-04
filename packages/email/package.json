@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "main": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./render": "./render.ts",
+    "./emails/finance-notification": "./emails/finance-notification.tsx"
+  },
   "scripts": {
     "clean": "rm -rf .turbo node_modules",
     "lint": "biome check .",
@@ -23,6 +28,11 @@
     "responsive-react-email": "^0.0.5"
   },
   "devDependencies": {
+    "@school-clerk/tsconfig": "workspace:*",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "typescript": "^5.9.2"
   }
 }

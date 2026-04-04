@@ -25,6 +25,8 @@
     "@hono/zod-validator": "^0.7.0",
     "@scalar/hono-api-reference": "^0.9.1",
     "@school-clerk/db": "workspace:*",
+    "@school-clerk/email": "workspace:*",
+    "@school-clerk/notifications": "workspace:*",
     "@school-clerk/utils": "workspace:*",
     "@sindresorhus/slugify": "^2.2.1",
     "@trigger.dev/sdk": "3.3.17",

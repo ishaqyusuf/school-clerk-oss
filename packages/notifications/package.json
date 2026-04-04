@@ -1,0 +1,23 @@
+{
+  "name": "@school-clerk/notifications",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "clean": "rm -rf .turbo node_modules",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@school-clerk/email": "workspace:*",
+    "react": "^19.2.0",
+    "zod": "^3.25.64"
+  },
+  "devDependencies": {
+    "@school-clerk/tsconfig": "workspace:*",
+    "@types/react": "^19.2.2",
+    "typescript": "^5.9.2"
+  }
+}

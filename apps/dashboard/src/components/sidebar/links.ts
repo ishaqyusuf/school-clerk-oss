@@ -63,6 +63,17 @@ export const linkModules = [
 			createNavLink("Dashboard", "dashboard", "/dashboard").access(
 				_role.in("Admin", "Staff"),
 			).data,
+			createNavLink("Notifications", "bell", "/notifications").access(
+				_role.in(
+					"Admin",
+					"Teacher",
+					"Accountant",
+					"Registrar",
+					"HR",
+					"Staff",
+					"Support",
+				),
+			).data,
 			createNavLink("Announcements", "speaker", "/announcements").access(
 				_role.in("Admin", "Teacher"),
 			).data,
