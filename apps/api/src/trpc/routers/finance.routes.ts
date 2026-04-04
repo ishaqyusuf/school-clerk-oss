@@ -147,6 +147,11 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 							pendingAmount: true,
 							billablePriceId: true,
 							feeHistoryId: true,
+							feeHistory: {
+								select: {
+									wallet: { select: { id: true, name: true } },
+								},
+							},
 							createdAt: true,
 						},
 						orderBy: { createdAt: "asc" },
@@ -445,6 +450,8 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 				paidAmount,
 				pendingAmount: fee.pendingAmount ?? 0,
 				status,
+				streamId: fee.feeHistory?.wallet?.id ?? null,
+				streamName: fee.feeHistory?.wallet?.name ?? null,
 			};
 		});
 
@@ -1602,6 +1609,11 @@ export const financeRouter = createTRPCRouter({
 								feeTitle: true,
 								pendingAmount: true,
 								billAmount: true,
+								feeHistory: {
+									select: {
+										walletId: true,
+									},
+								},
 							},
 						});
 
@@ -1614,13 +1626,16 @@ export const financeRouter = createTRPCRouter({
 						studentFeeId = fee.id;
 						feeTitle = fee.feeTitle || feeTitle;
 
-						const fallbackWallet = await getOrCreateWallet(tx, {
-							name: feeTitle || "General",
-							type: "fee",
-							schoolId: ctx.profile.schoolId!,
-							termId: ctx.profile.termId!,
-						});
-						walletId = fallbackWallet.id;
+						walletId =
+							fee.feeHistory?.walletId ||
+							(
+								await getOrCreateWallet(tx, {
+									name: feeTitle || "General",
+									type: "fee",
+									schoolId: ctx.profile.schoolId!,
+									termId: ctx.profile.termId!,
+								})
+							).id;
 					}
 
 					if (allocation.source === "billable") {
