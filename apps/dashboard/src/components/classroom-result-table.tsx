@@ -3,8 +3,10 @@
 import { useReportPageContext } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
 import { studentDisplayName } from "@/utils/utils";
+import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
 import { Checkbox } from "@school-clerk/ui/checkbox";
+import { Switch } from "@school-clerk/ui/switch";
 import { Spinner } from "@school-clerk/ui/spinner";
 import { sum } from "@school-clerk/utils";
 import { useMutation } from "@tanstack/react-query";
@@ -14,9 +16,19 @@ import {
   ArrowUp,
   ArrowUpDown,
   Check,
+  FileSpreadsheet,
+  Printer,
 } from "lucide-react";
 import { useDebouncedCallback } from "use-debounce";
-import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useDeferredValue,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { toast } from "sonner";
 import { _qc, _trpc } from "./static-trpc";
 import { Table } from "@school-clerk/ui/composite";
 import {
@@ -30,6 +42,14 @@ import {
 type SortColumn = "student" | "grandTotal";
 type SortDirection = "asc" | "desc";
 type SortState = { column: SortColumn; direction: SortDirection } | null;
+
+function csvCell(value: string | number) {
+  const text = String(value ?? "");
+  if (/[",\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
 
 function computeGrandTotal(
   studentId: string,
@@ -54,8 +74,7 @@ function computeGrandTotal(
       if (obtained !== null) {
         const percentageObtainable = assessment.percentageObtainable;
         const score =
-          percentageObtainable &&
-          percentageObtainable !== assessment.obtainable
+          percentageObtainable && percentageObtainable !== assessment.obtainable
             ? (obtained / assessment.obtainable) * percentageObtainable
             : obtained;
         grandTotal += score;
@@ -65,13 +84,7 @@ function computeGrandTotal(
   return grandTotal;
 }
 
-function SortIcon({
-  column,
-  sort,
-}: {
-  column: SortColumn;
-  sort: SortState;
-}) {
+function SortIcon({ column, sort }: { column: SortColumn; sort: SortState }) {
   if (sort?.column !== column) {
     return <ArrowUpDown className="size-3 ml-1 inline opacity-50" />;
   }
@@ -91,17 +104,15 @@ export function ClassroomResultTable() {
   const students = reportData?.studentTermForms ?? [];
 
   const [sort, setSort] = useState<SortState>(null);
+  const [totalsOnly, setTotalsOnly] = useState(false);
 
-  const toggleSort = useCallback(
-    (column: SortColumn) => {
-      setSort((prev) => {
-        if (prev?.column !== column) return { column, direction: "asc" };
-        if (prev.direction === "asc") return { column, direction: "desc" };
-        return null;
-      });
-    },
-    [],
-  );
+  const toggleSort = useCallback((column: SortColumn) => {
+    setSort((prev) => {
+      if (prev?.column !== column) return { column, direction: "asc" };
+      if (prev.direction === "asc") return { column, direction: "desc" };
+      return null;
+    });
+  }, []);
 
   // Hide assessment columns where no student has a valid (non-null) score,
   // and hide entire subject groups if all their assessments are hidden.
@@ -138,6 +149,194 @@ export function ClassroomResultTable() {
     return sorted;
   }, [students, grandTotalsMap, sort]);
 
+  const reportRows = useMemo(() => {
+    const totalObtainable = visibleSubjects.reduce(
+      (acc, subject) =>
+        acc +
+        sum(
+          subject.assessments.map(
+            (a) => a.percentageObtainable || a.obtainable,
+          ),
+        ),
+      0,
+    );
+    return sortedStudents.map((student, index) => {
+      const subjectTotals = visibleSubjects.map((subject) => {
+        const assessmentScores = subject.assessments.map((assessment) => {
+          const result = assessment.assessmentResults.find(
+            (r) => r.studentTermFormId === student.id,
+          );
+          const obtained = result?.obtained ?? null;
+          if (obtained === null) return null;
+          const percentageObtainable = assessment.percentageObtainable;
+          return percentageObtainable &&
+            percentageObtainable !== assessment.obtainable
+            ? (obtained / assessment.obtainable) * percentageObtainable
+            : obtained;
+        });
+        return {
+          subject,
+          assessmentScores,
+          subjectTotal: assessmentScores.reduce(
+            (acc, score) => acc + (score ?? 0),
+            0,
+          ),
+        };
+      });
+
+      const grandTotal = subjectTotals.reduce(
+        (acc, item) => acc + item.subjectTotal,
+        0,
+      );
+      const percentage =
+        totalObtainable > 0
+          ? +((grandTotal / totalObtainable) * 100).toFixed(1)
+          : 0;
+      return {
+        studentName: studentDisplayName(student.student),
+        index,
+        subjectTotals,
+        grandTotal,
+        percentage,
+      };
+    });
+  }, [sortedStudents, visibleSubjects]);
+
+  const exportToExcel = useCallback(() => {
+    if (!reportRows.length) return;
+    const headers = ["S/N", "Student"];
+    if (!totalsOnly) {
+      for (const subject of visibleSubjects) {
+        for (const assessment of subject.assessments) {
+          headers.push(`${subject.subject.title} - ${assessment.title}`);
+        }
+        headers.push(`${subject.subject.title} Total`);
+      }
+    } else {
+      for (const subject of visibleSubjects) {
+        headers.push(`${subject.subject.title} Total`);
+      }
+    }
+    headers.push("Grand Total", "Percentage");
+
+    const lines = [
+      headers.map(csvCell).join(","),
+      ...reportRows.map((row) => {
+        const values: Array<string | number> = [row.index + 1, row.studentName];
+        for (const subjectRow of row.subjectTotals) {
+          if (!totalsOnly) {
+            values.push(
+              ...subjectRow.assessmentScores.map((score) =>
+                score != null ? score.toFixed(1) : "",
+              ),
+            );
+          }
+          values.push(
+            subjectRow.subjectTotal > 0
+              ? subjectRow.subjectTotal.toFixed(1)
+              : "",
+          );
+        }
+        values.push(
+          row.grandTotal > 0 ? row.grandTotal.toFixed(1) : "",
+          row.percentage > 0 ? `${row.percentage}%` : "",
+        );
+        return values.map(csvCell).join(",");
+      }),
+    ];
+
+    const blob = new Blob([`\uFEFF${lines.join("\n")}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const classroomName =
+      ctx.classroomName?.replace(/\s+/g, "-").toLowerCase() ?? "classroom";
+    link.href = url;
+    link.download = `${classroomName}-results-${totalsOnly ? "totals-only" : "full"}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success("Spreadsheet export started");
+  }, [ctx.classroomName, reportRows, totalsOnly, visibleSubjects]);
+
+  const printSpreadsheet = useCallback(() => {
+    if (!reportRows.length) return;
+    const headers = [
+      "<th>S/N</th>",
+      "<th>Student</th>",
+      ...visibleSubjects.flatMap((subject) => {
+        if (totalsOnly) return [`<th>${subject.subject.title} Total</th>`];
+        return [
+          ...subject.assessments.map(
+            (assessment) =>
+              `<th>${subject.subject.title} - ${assessment.title}</th>`,
+          ),
+          `<th>${subject.subject.title} Total</th>`,
+        ];
+      }),
+      "<th>Grand Total</th>",
+      "<th>%</th>",
+    ];
+
+    const rows = reportRows
+      .map((row) => {
+        const cells = [
+          `<td>${row.index + 1}</td>`,
+          `<td>${row.studentName}</td>`,
+        ];
+        for (const subjectRow of row.subjectTotals) {
+          if (!totalsOnly) {
+            cells.push(
+              ...subjectRow.assessmentScores.map(
+                (score) => `<td>${score != null ? score.toFixed(1) : "-"}</td>`,
+              ),
+            );
+          }
+          cells.push(
+            `<td>${subjectRow.subjectTotal > 0 ? subjectRow.subjectTotal.toFixed(1) : "-"}</td>`,
+          );
+        }
+        cells.push(
+          `<td>${row.grandTotal > 0 ? row.grandTotal.toFixed(1) : "-"}</td>`,
+          `<td>${row.percentage > 0 ? `${row.percentage}%` : "-"}</td>`,
+        );
+        return `<tr>${cells.join("")}</tr>`;
+      })
+      .join("");
+
+    const printWindow = window.open("", "_blank", "width=1200,height=800");
+    if (!printWindow) {
+      toast.error("Unable to open print window");
+      return;
+    }
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${ctx.classroomName ?? "Classroom"} Results</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 16px; }
+            h2 { margin-bottom: 10px; }
+            table { border-collapse: collapse; width: 100%; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
+            th { background: #f7f7f7; }
+            td:nth-child(2), th:nth-child(2) { text-align: left; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <h2>${ctx.classroomName ?? "Classroom"} Result Spreadsheet</h2>
+          <table>
+            <thead><tr>${headers.join("")}</tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  }, [ctx.classroomName, reportRows, totalsOnly, visibleSubjects]);
+
   // Checkbox helpers — selections store the original (unsorted) index.
   // The map is computed once when students first load for a given departmentId
   // so that refetches (e.g. after score edits) or sort changes never shift indices.
@@ -153,7 +352,9 @@ export function ClassroomResultTable() {
   const originalIndexMap = stableIndexMapRef.current;
 
   const selections = filters.selections ?? [];
-  const allSelected = students.length > 0 && students.every((s) => selections.includes(originalIndexMap.get(s.id)!));
+  const allSelected =
+    students.length > 0 &&
+    students.every((s) => selections.includes(originalIndexMap.get(s.id)!));
   const someSelected = !allSelected && selections.length > 0;
 
   const toggleAll = useCallback(() => {
@@ -168,7 +369,9 @@ export function ClassroomResultTable() {
     (originalIndex: number) => {
       const next = [...selections, originalIndex];
       setFilters({
-        selections: next.filter((a) => next.filter((b) => b === a).length === 1),
+        selections: next.filter(
+          (a) => next.filter((b) => b === a).length === 1,
+        ),
       });
     },
     [selections, setFilters],
@@ -183,102 +386,129 @@ export function ClassroomResultTable() {
   }
 
   return (
-    <div className="overflow-auto max-h-[calc(100vh-180px)]">
-      <Table>
-        <TableHeader className="sticky top-0 z-20">
-          <TableRow>
-            <TableHead
-              rowSpan={2}
-              className="sticky left-0 z-30 bg-background border-r min-w-[40px] text-center"
-            >
-              <Checkbox
-                checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                onCheckedChange={toggleAll}
-                aria-label="Select all students"
-              />
-            </TableHead>
-            <TableHead
-              rowSpan={2}
-              className="sticky left-[40px] z-30 bg-background border-r min-w-[40px] text-center"
-            >
-              #
-            </TableHead>
-            <TableHead
-              rowSpan={2}
-              className="sticky left-[80px] z-30 bg-background border-r min-w-[160px] cursor-pointer select-none"
-              dir="rtl"
-              onClick={() => toggleSort("student")}
-            >
-              <span className="inline-flex items-center">
-                Student
-                <SortIcon column="student" sort={sort} />
-              </span>
-            </TableHead>
-            {visibleSubjects.map((subject) => (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm">
+          <Switch checked={totalsOnly} onCheckedChange={setTotalsOnly} />
+          <span>Totals only (hide assessment columns)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={printSpreadsheet}
+          >
+            <Printer className="size-4" />
+            Print Spreadsheet
+          </Button>
+          <Button size="sm" className="gap-2" onClick={exportToExcel}>
+            <FileSpreadsheet className="size-4" />
+            Export Excel
+          </Button>
+        </div>
+      </div>
+      <div className="overflow-auto max-h-[calc(100vh-180px)]">
+        <Table>
+          <TableHeader className="sticky top-0 z-20">
+            <TableRow>
               <TableHead
-                key={subject.id}
-                colSpan={subject.assessments.length + 1}
-                className="text-center border-l font-semibold bg-background"
-                dir="rtl"
+                rowSpan={2}
+                className="sticky left-0 z-30 bg-background border-r min-w-[40px] text-center"
               >
-                {subject.subject.title}
+                <Checkbox
+                  checked={
+                    allSelected ? true : someSelected ? "indeterminate" : false
+                  }
+                  onCheckedChange={toggleAll}
+                  aria-label="Select all students"
+                />
               </TableHead>
-            ))}
-            <TableHead
-              rowSpan={2}
-              className="text-center border-l font-semibold min-w-[60px] cursor-pointer select-none bg-background"
-              onClick={() => toggleSort("grandTotal")}
-            >
-              <span className="inline-flex items-center justify-center">
-                Total
-                <SortIcon column="grandTotal" sort={sort} />
-              </span>
-            </TableHead>
-            <TableHead
-              rowSpan={2}
-              className="text-center border-l font-semibold min-w-[50px] bg-background"
-            >
-              %
-            </TableHead>
-          </TableRow>
-          <TableRow>
-            {visibleSubjects.map((subject) => (
-              <Fragment key={subject.id}>
-                {subject.assessments.map((assessment) => (
-                  <TableHead
-                    key={`${subject.id}-${assessment.id}`}
-                    className="text-center border-l text-xs min-w-[70px] bg-background"
-                  >
-                    <div>{assessment.title}</div>
-                    <div className="text-muted-foreground">
-                      ({assessment.obtainable})
-                    </div>
-                  </TableHead>
-                ))}
-                <Table.Head className="text-center border-l text-xs font-semibold min-w-[60px] bg-background">
+              <TableHead
+                rowSpan={2}
+                className="sticky left-[40px] z-30 bg-background border-r min-w-[40px] text-center"
+              >
+                #
+              </TableHead>
+              <TableHead
+                rowSpan={2}
+                className="sticky left-[80px] z-30 bg-background border-r min-w-[160px] cursor-pointer select-none"
+                dir="rtl"
+                onClick={() => toggleSort("student")}
+              >
+                <span className="inline-flex items-center">
+                  Student
+                  <SortIcon column="student" sort={sort} />
+                </span>
+              </TableHead>
+              {visibleSubjects.map((subject) => (
+                <TableHead
+                  key={subject.id}
+                  colSpan={totalsOnly ? 1 : subject.assessments.length + 1}
+                  className="text-center border-l font-semibold bg-background"
+                  dir="rtl"
+                >
+                  {subject.subject.title}
+                </TableHead>
+              ))}
+              <TableHead
+                rowSpan={2}
+                className="text-center border-l font-semibold min-w-[60px] cursor-pointer select-none bg-background"
+                onClick={() => toggleSort("grandTotal")}
+              >
+                <span className="inline-flex items-center justify-center">
                   Total
-                </Table.Head>
-              </Fragment>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedStudents.map((student, si) => {
-            const originalIndex = originalIndexMap.get(student.id) ?? si;
-            return (
-              <StudentResultRow
-                key={student.id}
-                student={student}
-                subjects={visibleSubjects}
-                index={si}
-                originalIndex={originalIndex}
-                isSelected={selections.includes(originalIndex)}
-                onToggle={toggleStudent}
-              />
-            );
-          })}
-        </TableBody>
-      </Table>
+                  <SortIcon column="grandTotal" sort={sort} />
+                </span>
+              </TableHead>
+              <TableHead
+                rowSpan={2}
+                className="text-center border-l font-semibold min-w-[50px] bg-background"
+              >
+                %
+              </TableHead>
+            </TableRow>
+            <TableRow>
+              {visibleSubjects.map((subject) => (
+                <Fragment key={subject.id}>
+                  {!totalsOnly &&
+                    subject.assessments.map((assessment) => (
+                      <TableHead
+                        key={`${subject.id}-${assessment.id}`}
+                        className="text-center border-l text-xs min-w-[70px] bg-background"
+                      >
+                        <div>{assessment.title}</div>
+                        <div className="text-muted-foreground">
+                          ({assessment.obtainable})
+                        </div>
+                      </TableHead>
+                    ))}
+                  <Table.Head className="text-center border-l text-xs font-semibold min-w-[60px] bg-background">
+                    Total
+                  </Table.Head>
+                </Fragment>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedStudents.map((student, si) => {
+              const originalIndex = originalIndexMap.get(student.id) ?? si;
+              return (
+                <StudentResultRow
+                  key={student.id}
+                  student={student}
+                  subjects={visibleSubjects}
+                  showAssessments={!totalsOnly}
+                  index={si}
+                  originalIndex={originalIndex}
+                  isSelected={selections.includes(originalIndex)}
+                  onToggle={toggleStudent}
+                />
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -312,13 +542,22 @@ interface StudentResultRowProps {
     }>;
     subject: { title: string };
   }>;
+  showAssessments: boolean;
   index: number;
   originalIndex: number;
   isSelected: boolean;
   onToggle: (originalIndex: number) => void;
 }
 
-function StudentResultRow({ student, subjects, index, originalIndex, isSelected, onToggle }: StudentResultRowProps) {
+function StudentResultRow({
+  student,
+  subjects,
+  showAssessments,
+  index,
+  originalIndex,
+  isSelected,
+  onToggle,
+}: StudentResultRowProps) {
   const subjectTotals = useMemo(() => {
     return subjects.map((subject) => {
       let subjectTotal = 0;
@@ -362,7 +601,10 @@ function StudentResultRow({ student, subjects, index, originalIndex, isSelected,
       : 0;
 
   return (
-    <TableRow data-selected={isSelected || undefined} className={cn(isSelected && "bg-accent/40")}>
+    <TableRow
+      data-selected={isSelected || undefined}
+      className={cn(isSelected && "bg-accent/40")}
+    >
       <TableCell className="sticky left-0 z-10 bg-background border-r text-center">
         <Checkbox
           checked={isSelected}
@@ -383,20 +625,21 @@ function StudentResultRow({ student, subjects, index, originalIndex, isSelected,
         const { subjectTotal, assessmentScores } = subjectTotals[si];
         return (
           <Fragment key={subject.id}>
-            {subject.assessments.map((assessment, ai) => {
-              const { result } = assessmentScores[ai];
-              return (
-                <ScoreCell
-                  key={`${student.id}-${assessment.id}`}
-                  assessmentId={assessment.id}
-                  obtainable={assessment.obtainable}
-                  studentTermFormId={student.id}
-                  studentId={student.student?.id}
-                  departmentSubjectId={subject.id}
-                  result={result}
-                />
-              );
-            })}
+            {showAssessments &&
+              subject.assessments.map((assessment, ai) => {
+                const { result } = assessmentScores[ai];
+                return (
+                  <ScoreCell
+                    key={`${student.id}-${assessment.id}`}
+                    assessmentId={assessment.id}
+                    obtainable={assessment.obtainable}
+                    studentTermFormId={student.id}
+                    studentId={student.student?.id}
+                    departmentSubjectId={subject.id}
+                    result={result}
+                  />
+                );
+              })}
             <TableCell className="text-center border-l font-medium text-sm">
               {subjectTotal > 0 ? subjectTotal.toFixed(1) : "-"}
             </TableCell>
