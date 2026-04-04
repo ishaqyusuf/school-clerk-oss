@@ -13,6 +13,12 @@ const _defaultValues = {
   dob: null,
   classRoomId: null,
   fees: [],
+  recordInitialPayment: false,
+  initialPaymentAmount: undefined,
+  initialPaymentMethod: "Bank Transfer",
+  initialPaymentReference: "",
+  initialPaymentDate: null,
+  initialPaymentAllocations: [],
   termForms: [],
   guardian: {
     id: null,

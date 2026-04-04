@@ -2,12 +2,13 @@ import { composeQueryData } from "@api/query-response";
 import type { TRPCContext } from "@api/trpc/init";
 import type { GetStudentsSchema } from "@api/trpc/schemas/schemas";
 import type { PageFilterData } from "@api/type";
-import { composeQuery, txContext } from "@api/utils";
+import { composeQuery } from "@api/utils";
 import type { Prisma } from "@school-clerk/db";
 import { studentDisplayName } from "./enrollment-query";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
 import { z } from "zod";
+import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 
 import { subDays } from "date-fns";
 const emptySearchQuery = (q: GetStudentsSchema) =>
@@ -384,6 +385,19 @@ export const createStudentSchema = z.object({
   dob: z.date().nullable().optional(),
   classRoomId: z.string().nullable(),
   fees: z.array(studentFeeSchema).optional(),
+  recordInitialPayment: z.boolean().default(false),
+  initialPaymentAmount: z.coerce.number().optional(),
+  initialPaymentMethod: z.string().optional().nullable(),
+  initialPaymentReference: z.string().optional().nullable(),
+  initialPaymentDate: z.date().optional().nullable(),
+  initialPaymentAllocations: z
+    .array(
+      z.object({
+        studentFeeId: z.string(),
+        amount: z.coerce.number().positive(),
+      })
+    )
+    .optional(),
   guardian: guardianSchema.optional().nullable(),
   termForms: z
     .array(
@@ -396,120 +410,269 @@ export const createStudentSchema = z.object({
     .nullable(),
 });
 type CreateStudent = typeof createStudentSchema._type;
+async function getOrCreateWallet(
+  db: TRPCContext["db"],
+  {
+    name,
+    type,
+    schoolId,
+    termId,
+  }: { name: string; type: string; schoolId: string; termId: string }
+) {
+  return db.wallet.upsert({
+    where: {
+      name_schoolProfileId_sessionTermId_type: {
+        name,
+        schoolProfileId: schoolId,
+        sessionTermId: termId,
+        type,
+      },
+    },
+    update: {},
+    create: { name, type, schoolProfileId: schoolId, sessionTermId: termId },
+    select: { id: true, name: true },
+  });
+}
+
 export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
   const profile = ctx.profile;
   const tx = ctx.db;
-  const student = await tx.students.create({
-    data: {
-      gender: data.gender,
-      name: data.name,
-      otherName: data.otherName,
-      surname: data.surname,
-      schoolProfileId: profile.schoolId,
-      dob: data.dob,
-      guardians:
-        !data.guardian || (!data.guardian?.name && !data?.guardian?.phone)
-          ? undefined
-          : {
-              create: {
-                guardian: {
-                  connectOrCreate: {
-                    where: {
-                      name_phone_schoolProfileId: {
-                        name: data.guardian.name!,
-                        phone: data.guardian.phone!,
-                        schoolProfileId: profile.schoolId,
+  const amountToReceive = Number(data.initialPaymentAmount || 0);
+
+  const result = await tx.$transaction(async (txdb) => {
+    const student = await txdb.students.create({
+      data: {
+        gender: data.gender,
+        name: data.name,
+        otherName: data.otherName,
+        surname: data.surname,
+        schoolProfileId: profile.schoolId,
+        dob: data.dob,
+        guardians:
+          !data.guardian || (!data.guardian?.name && !data?.guardian?.phone)
+            ? undefined
+            : {
+                create: {
+                  guardian: {
+                    connectOrCreate: {
+                      where: {
+                        name_phone_schoolProfileId: {
+                          name: data.guardian.name!,
+                          phone: data.guardian.phone!,
+                          schoolProfileId: profile.schoolId,
+                        },
                       },
-                    },
-                    create: {
-                      name: data.guardian.name! || "",
-                      phone: data.guardian.phone! || "",
-                      phone2: data.guardian.phone2! || "",
-                      schoolProfileId: profile.schoolId!,
+                      create: {
+                        name: data.guardian.name! || "",
+                        phone: data.guardian.phone! || "",
+                        phone2: data.guardian.phone2! || "",
+                        schoolProfileId: profile.schoolId!,
+                      },
                     },
                   },
                 },
               },
-            },
-      sessionForms: {
-        create: {
-          schoolSessionId: profile.sessionId,
-          schoolProfileId: profile.schoolId,
-          classroomDepartmentId: data.classRoomId || undefined,
-          termForms: data?.termForms?.length
-            ? {
-                createMany: {
-                  data: data.termForms.map((termForm) => ({
-                    ...termForm,
+        sessionForms: {
+          create: {
+            schoolSessionId: profile.sessionId,
+            schoolProfileId: profile.schoolId,
+            classroomDepartmentId: data.classRoomId || undefined,
+            termForms: data?.termForms?.length
+              ? {
+                  createMany: {
+                    data: data.termForms.map((termForm) => ({
+                      ...termForm,
+                      schoolProfileId: profile.schoolId,
+                      classroomDepartmentId: data.classRoomId || undefined,
+                    })),
+                  },
+                }
+              : {
+                  create: {
                     schoolProfileId: profile.schoolId,
+                    sessionTermId: profile.termId,
+                    schoolSessionId: profile.sessionId,
                     classroomDepartmentId: data.classRoomId || undefined,
-                  })),
+                  },
                 },
-              }
-            : {
-                create: {
-                  schoolProfileId: profile.schoolId,
-                  sessionTermId: profile.termId,
-                  schoolSessionId: profile.sessionId,
-                  classroomDepartmentId: data.classRoomId || undefined,
-                },
-              },
+          },
         },
       },
-    },
-    include: {
-      guardians: {
-        include: {
-          guardian: true,
+      include: {
+        guardians: {
+          include: {
+            guardian: true,
+          },
+        },
+        sessionForms: {
+          include: {
+            classroomDepartment: true,
+            termForms: true,
+          },
         },
       },
-      sessionForms: {
-        include: {
-          classroomDepartment: true,
-          termForms: true,
-        },
+    });
+
+    const termFormIds = student.sessionForms.flatMap((sf) =>
+      sf.termForms.map((tf) => tf.id)
+    );
+    await txdb.studentTermForm.updateMany({
+      where: {
+        id: { in: termFormIds },
+        studentId: null,
       },
-    },
-  });
-
-  const initialSessionForm =
-    student.sessionForms.find((form) => form.schoolSessionId === profile.sessionId) ??
-    student.sessionForms[0];
-  const initialTermForm =
-    initialSessionForm?.termForms.find((form) => form.sessionTermId === profile.termId) ??
-    initialSessionForm?.termForms[0];
-
-  let feeHistoryApplication:
-    | Awaited<ReturnType<typeof applyFeeHistoriesToStudentTermForm>>
-    | null = null;
-
-  if (initialSessionForm && initialTermForm) {
-    await tx.studentTermForm.update({
-      where: { id: initialTermForm.id },
       data: {
         studentId: student.id,
       },
     });
 
-    feeHistoryApplication = await applyFeeHistoriesToStudentTermForm(tx, {
-      schoolProfileId: profile.schoolId,
-      studentId: student.id,
-      studentTermFormId: initialTermForm.id,
-      schoolSessionId: initialTermForm.schoolSessionId || profile.sessionId,
-      sessionTermId: initialTermForm.sessionTermId || profile.termId,
-      classroomDepartmentId:
-        initialTermForm.classroomDepartmentId ??
-        initialSessionForm.classroomDepartmentId ??
-        data.classRoomId,
-    });
-  }
+    const currentTermForm =
+      student.sessionForms
+        .flatMap((sessionForm) => sessionForm.termForms)
+        .find((form) => form.sessionTermId === profile.termId) ||
+      student.sessionForms.flatMap((sessionForm) => sessionForm.termForms)[0];
 
-  await updateStudentTermFormStudentId(ctx);
+    let appliedFees = { applied: 0, skipped: 0, total: 0 };
+    if (currentTermForm) {
+      appliedFees = await applyFeeHistoriesToStudentTermForm(txdb, {
+        schoolProfileId: profile.schoolId,
+        studentId: student.id,
+        studentTermFormId: currentTermForm.id,
+        schoolSessionId: currentTermForm.schoolSessionId!,
+        sessionTermId: currentTermForm.sessionTermId!,
+        classroomDepartmentId: currentTermForm.classroomDepartmentId,
+      });
+    }
 
-  return {
-    ...student,
-    feeHistoryApplication,
-  };
+    let paymentReceipt: null | {
+      count: number;
+      totalAllocated: number;
+      paymentIds: string[];
+    } = null;
+
+    if (data.recordInitialPayment && amountToReceive > 0 && currentTermForm) {
+      const pendingFees = await txdb.studentFee.findMany({
+        where: {
+          studentTermFormId: currentTermForm.id,
+          deletedAt: null,
+          status: { not: "cancelled" },
+          pendingAmount: { gt: 0 },
+        },
+        select: {
+          id: true,
+          feeTitle: true,
+          pendingAmount: true,
+          feeHistory: {
+            select: {
+              walletId: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
+      const requestedAllocations = data.initialPaymentAllocations ?? [];
+      const allocations =
+        requestedAllocations.length > 0
+          ? requestedAllocations
+          : (() => {
+              let remaining = amountToReceive;
+              return pendingFees
+                .map((fee) => {
+                  if (remaining <= 0) return null;
+                  const amount = Math.min(remaining, Number(fee.pendingAmount || 0));
+                  remaining -= amount;
+                  return amount > 0 ? { studentFeeId: fee.id, amount } : null;
+                })
+                .filter(Boolean) as { studentFeeId: string; amount: number }[];
+            })();
+
+      const totalAllocated = allocations.reduce(
+        (sum, allocation) => sum + allocation.amount,
+        0
+      );
+      if (Math.abs(totalAllocated - amountToReceive) > 0.001) {
+        throw new Error("Initial payment allocations must match payment amount.");
+      }
+
+      const createdPayments: string[] = [];
+      for (const allocation of allocations) {
+        const fee = pendingFees.find((f) => f.id === allocation.studentFeeId);
+        if (!fee) throw new Error("Selected fee allocation is invalid.");
+        if (allocation.amount > fee.pendingAmount) {
+          throw new Error("Initial payment allocation exceeds pending amount.");
+        }
+        const wallet =
+          fee.feeHistory?.walletId
+            ? { id: fee.feeHistory.walletId }
+            : await getOrCreateWallet(txdb, {
+                name: fee.feeTitle || "General",
+                type: "fee",
+                schoolId: profile.schoolId,
+                termId: profile.termId!,
+              });
+
+        const description = [data.initialPaymentMethod, data.initialPaymentReference]
+          .filter(Boolean)
+          .join(" • ");
+
+        const walletTransaction = await txdb.walletTransactions.create({
+          data: {
+            amount: allocation.amount,
+            walletId: wallet.id,
+            type: "credit",
+            summary: description,
+            status: "success",
+            transactionDate: data.initialPaymentDate ?? new Date(),
+            studentWalletTransaction: {
+              create: {
+                studentId: student.id,
+                amount: allocation.amount,
+                transactionType: "debit",
+                status: "success",
+                description: fee.feeTitle || "Payment",
+                transactionDate: data.initialPaymentDate ?? new Date(),
+              },
+            },
+          },
+          select: { id: true },
+        });
+
+        const payment = await txdb.studentPayment.create({
+          data: {
+            type: "FEE",
+            paymentType: fee.feeTitle || "Payment",
+            amount: allocation.amount,
+            status: "success",
+            description,
+            schoolProfileId: profile.schoolId!,
+            studentTermFormId: currentTermForm.id,
+            studentBillPaymentsId: fee.id,
+            walletTransactionsId: walletTransaction.id,
+          },
+          select: { id: true },
+        });
+
+        await txdb.studentFee.update({
+          where: { id: fee.id },
+          data: {
+            pendingAmount: { decrement: allocation.amount },
+          },
+        });
+        createdPayments.push(payment.id);
+      }
+
+      paymentReceipt = {
+        count: createdPayments.length,
+        totalAllocated,
+        paymentIds: createdPayments,
+      };
+    }
+
+    return { student, appliedFees, paymentReceipt };
+  });
+
+  return result;
 }
 export async function updateStudentTermFormStudentId(ctx: TRPCContext) {
   const students = await ctx.db.students.findMany({
@@ -585,12 +748,8 @@ export async function createStudentForm(
   ctx: TRPCContext,
   data: typeof createStudentSchema._type
 ) {
-  const student = await ctx.db.$transaction(async (tx) => {
-    if (!data?.guardian?.name) data.guardian = null;
-    const student = await createStudent(txContext(ctx, tx), data);
-    return { student };
-  });
-  return student;
+  if (!data?.guardian?.name) data.guardian = null;
+  return createStudent(ctx, data);
 }
 
 /*

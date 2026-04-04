@@ -61,6 +61,19 @@ export const createStudentSchema = z.object({
 	dob: z.date().nullable(),
 	classRoomId: z.string().nullable(),
 	fees: z.array(studentFeeSchema).optional(),
+	recordInitialPayment: z.boolean().default(false),
+	initialPaymentAmount: z.coerce.number().optional(),
+	initialPaymentMethod: z.string().optional().nullable(),
+	initialPaymentReference: z.string().optional().nullable(),
+	initialPaymentDate: z.date().optional().nullable(),
+	initialPaymentAllocations: z
+		.array(
+			z.object({
+				studentFeeId: z.string(),
+				amount: z.coerce.number().positive(),
+			}),
+		)
+		.optional(),
 	guardian: guardianSchema.optional().nullable(),
 	termForms: z
 		.array(
