@@ -3,7 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import {
+	useMutation,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
 	ArrowDownRight,
@@ -12,21 +16,247 @@ import {
 	CheckCircle2,
 	CreditCard,
 	FileText,
+	MinusCircle,
+	PlusCircle,
 	ReceiptText,
 	Search,
 	TrendingDown,
 	TrendingUp,
 	Wallet,
+	X,
 } from "lucide-react";
 import { useTRPC } from "@/trpc/client";
 import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
 import { AnimatedNumber } from "./animated-number";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
-import { Card } from "@school-clerk/ui/card";
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from "@school-clerk/ui/card";
 import { cn } from "@school-clerk/ui/cn";
 import { Input } from "@school-clerk/ui/input";
+import { Label } from "@school-clerk/ui/label";
+import { SubmitButton } from "./submit-button";
 import { formatAmount } from "@school-clerk/utils/format";
+
+function StreamAddFundForm({
+	walletId,
+	onSuccess,
+	onCancel,
+}: {
+	walletId: string;
+	onSuccess: () => void;
+	onCancel: () => void;
+}) {
+	const trpc = useTRPC();
+	const [title, setTitle] = useState("");
+	const [amount, setAmount] = useState("");
+	const [description, setDescription] = useState("");
+	const [date, setDate] = useState("");
+
+	const { mutate, isPending } = useMutation(
+		trpc.finance.addFund.mutationOptions({
+			meta: {
+				toastTitle: {
+					loading: "Adding fund...",
+					success: "Fund added",
+					error: "Failed to add fund",
+				},
+			},
+			onSuccess,
+		}),
+	);
+
+	return (
+		<Card className="border-dashed border-green-300 dark:border-green-800">
+			<CardHeader>
+				<div className="flex items-center justify-between">
+					<CardTitle className="text-sm flex items-center gap-2">
+						<PlusCircle className="h-4 w-4 text-green-600" />
+						Add Fund to Stream
+					</CardTitle>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-7 w-7 p-0"
+						onClick={onCancel}
+					>
+						<X className="h-4 w-4" />
+					</Button>
+				</div>
+			</CardHeader>
+			<CardContent>
+				<div className="grid sm:grid-cols-4 gap-4 items-end">
+					<div className="grid gap-1.5">
+						<Label>Title</Label>
+						<Input
+							placeholder="e.g. Donation received"
+							value={title}
+							onChange={(e) => setTitle(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-1.5">
+						<Label>Amount (NGN)</Label>
+						<Input
+							type="number"
+							placeholder="0.00"
+							value={amount}
+							onChange={(e) => setAmount(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-1.5">
+						<Label>Description</Label>
+						<Input
+							placeholder="Optional note"
+							value={description}
+							onChange={(e) => setDescription(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-1.5">
+						<Label>Date</Label>
+						<Input
+							type="date"
+							value={date}
+							onChange={(e) => setDate(e.target.value)}
+						/>
+					</div>
+				</div>
+				<div className="flex gap-2 mt-4">
+					<SubmitButton
+						isSubmitting={isPending}
+						disabled={!title || !amount}
+						onClick={() =>
+							mutate({
+								walletId,
+								title,
+								amount: Number.parseFloat(amount),
+								description: description || null,
+								date: date ? new Date(date) : null,
+							})
+						}
+						type="button"
+					>
+						Add Fund
+					</SubmitButton>
+					<Button variant="ghost" type="button" onClick={onCancel}>
+						Cancel
+					</Button>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+function StreamWithdrawForm({
+	walletId,
+	onSuccess,
+	onCancel,
+}: {
+	walletId: string;
+	onSuccess: () => void;
+	onCancel: () => void;
+}) {
+	const trpc = useTRPC();
+	const [title, setTitle] = useState("");
+	const [amount, setAmount] = useState("");
+	const [description, setDescription] = useState("");
+	const [date, setDate] = useState("");
+
+	const { mutate, isPending } = useMutation(
+		trpc.finance.withdrawFund.mutationOptions({
+			meta: {
+				toastTitle: {
+					loading: "Processing withdrawal...",
+					success: "Withdrawal recorded",
+					error: "Failed to record withdrawal",
+				},
+			},
+			onSuccess,
+		}),
+	);
+
+	return (
+		<Card className="border-dashed border-rose-300 dark:border-rose-800">
+			<CardHeader>
+				<div className="flex items-center justify-between">
+					<CardTitle className="text-sm flex items-center gap-2">
+						<MinusCircle className="h-4 w-4 text-rose-600" />
+						Withdraw from Stream
+					</CardTitle>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-7 w-7 p-0"
+						onClick={onCancel}
+					>
+						<X className="h-4 w-4" />
+					</Button>
+				</div>
+			</CardHeader>
+			<CardContent>
+				<div className="grid sm:grid-cols-4 gap-4 items-end">
+					<div className="grid gap-1.5">
+						<Label>Title</Label>
+						<Input
+							placeholder="e.g. Cash disbursement"
+							value={title}
+							onChange={(e) => setTitle(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-1.5">
+						<Label>Amount (NGN)</Label>
+						<Input
+							type="number"
+							placeholder="0.00"
+							value={amount}
+							onChange={(e) => setAmount(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-1.5">
+						<Label>Description</Label>
+						<Input
+							placeholder="Optional note"
+							value={description}
+							onChange={(e) => setDescription(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-1.5">
+						<Label>Date</Label>
+						<Input
+							type="date"
+							value={date}
+							onChange={(e) => setDate(e.target.value)}
+						/>
+					</div>
+				</div>
+				<div className="flex gap-2 mt-4">
+					<SubmitButton
+						isSubmitting={isPending}
+						disabled={!title || !amount}
+						onClick={() =>
+							mutate({
+								walletId,
+								title,
+								amount: Number.parseFloat(amount),
+								description: description || null,
+								date: date ? new Date(date) : null,
+							})
+						}
+						type="button"
+					>
+						Withdraw
+					</SubmitButton>
+					<Button variant="ghost" type="button" onClick={onCancel}>
+						Cancel
+					</Button>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
 
 const statusTone = {
 	success: "bg-green-100 text-green-700 border-green-200",
@@ -50,14 +280,22 @@ function humanizeType(type?: string | null) {
 
 export function AccountStreamDetail({ streamId }: { streamId: string }) {
 	const trpc = useTRPC();
+	const qc = useQueryClient();
 	const router = useRouter();
 	const { setParams } = useReceivePaymentParams();
 	const [search, setSearch] = useState("");
 	const [statusFilter, setStatusFilter] = useState("all");
+	const [showAddFund, setShowAddFund] = useState(false);
+	const [showWithdraw, setShowWithdraw] = useState(false);
 
 	const { data } = useSuspenseQuery(
 		trpc.finance.getStreamDetails.queryOptions({ streamId }),
 	);
+
+	const invalidate = () =>
+		qc.invalidateQueries({
+			queryKey: trpc.finance.getStreamDetails.queryKey({ streamId }),
+		});
 
 	const filteredTransactions = useMemo(() => {
 		return data.transactions.filter((transaction) => {
@@ -107,12 +345,12 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 							variant="outline"
 							className={cn(
 								"uppercase tracking-[0.2em]",
-								data.type === "fee"
+								data.defaultType === "incoming"
 									? "bg-emerald-50 text-emerald-700 border-emerald-200"
 									: "bg-rose-50 text-rose-700 border-rose-200",
 							)}
 						>
-							{data.type === "fee" ? "Revenue" : "Expense"}
+							{data.defaultType === "incoming" ? "Incoming" : "Outgoing"}
 						</Badge>
 					</div>
 					<p className="text-sm text-muted-foreground">
@@ -131,25 +369,59 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 						<FileText className="h-4 w-4" />
 						All Transactions
 					</Button>
-					{data.type === "fee" ? (
-						<Button
-							className="gap-2"
-							onClick={() => setParams({ receivePayment: true })}
-						>
-							<CreditCard className="h-4 w-4" />
-							Receive Payment
-						</Button>
-					) : (
-						<Button
-							className="gap-2"
-							onClick={() => router.push(`/finance/payments`)}
-						>
-							<ReceiptText className="h-4 w-4" />
-							Manage Expense
-						</Button>
-					)}
+					<Button
+						variant="outline"
+						className="gap-2"
+						onClick={() => setParams({ receivePayment: true })}
+					>
+						<CreditCard className="h-4 w-4" />
+						Receive Payment
+					</Button>
+					<Button
+						variant={data.defaultType === "incoming" ? "default" : "outline"}
+						className="gap-2"
+						onClick={() => {
+							setShowWithdraw(false);
+							setShowAddFund(!showAddFund);
+						}}
+					>
+						<PlusCircle className="h-4 w-4" />
+						Add Fund
+					</Button>
+					<Button
+						variant={data.defaultType === "outgoing" ? "default" : "outline"}
+						className="gap-2"
+						onClick={() => {
+							setShowAddFund(false);
+							setShowWithdraw(!showWithdraw);
+						}}
+					>
+						<MinusCircle className="h-4 w-4" />
+						Withdraw
+					</Button>
 				</div>
 			</div>
+
+			{showAddFund && (
+				<StreamAddFundForm
+					walletId={streamId}
+					onSuccess={() => {
+						setShowAddFund(false);
+						invalidate();
+					}}
+					onCancel={() => setShowAddFund(false)}
+				/>
+			)}
+			{showWithdraw && (
+				<StreamWithdrawForm
+					walletId={streamId}
+					onSuccess={() => {
+						setShowWithdraw(false);
+						invalidate();
+					}}
+					onCancel={() => setShowWithdraw(false)}
+				/>
+			)}
 
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 				<Card className="p-5">

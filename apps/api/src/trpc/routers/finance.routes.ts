@@ -9,6 +9,22 @@ const streamFilterSchema = z.object({
 	sessionId: z.string().optional().nullable(),
 });
 
+const addFundSchema = z.object({
+	walletId: z.string(),
+	amount: z.number().positive(),
+	title: z.string().min(1),
+	description: z.string().optional().nullable(),
+	date: z.date().optional().nullable(),
+});
+
+const withdrawFundSchema = z.object({
+	walletId: z.string(),
+	amount: z.number().positive(),
+	title: z.string().min(1),
+	description: z.string().optional().nullable(),
+	date: z.date().optional().nullable(),
+});
+
 const payBillSchema = z.object({
 	billId: z.string(),
 	amount: z.number().positive(),
@@ -606,6 +622,7 @@ export const financeRouter = createTRPCRouter({
 					id: true,
 					name: true,
 					type: true,
+					defaultType: true,
 					studentTransactions: {
 						where: { status: "success", deletedAt: null },
 						select: { amount: true, type: true },
@@ -625,6 +642,7 @@ export const financeRouter = createTRPCRouter({
 					id: w.id,
 					name: w.name,
 					type: w.type,
+					defaultType: (w as any).defaultType ?? "incoming",
 					totalIn: incoming,
 					totalOut: outgoing,
 					balance: incoming - outgoing,
@@ -645,6 +663,7 @@ export const financeRouter = createTRPCRouter({
 					id: true,
 					name: true,
 					type: true,
+					defaultType: true,
 					createdAt: true,
 					sessionTerm: {
 						select: {
@@ -735,6 +754,7 @@ export const financeRouter = createTRPCRouter({
 				id: wallet.id,
 				name: wallet.name,
 				type: wallet.type,
+				defaultType: (wallet as any).defaultType ?? "incoming",
 				createdAt: wallet.createdAt,
 				totalIn,
 				totalOut,
@@ -788,14 +808,31 @@ export const financeRouter = createTRPCRouter({
 
 	createStream: publicProcedure
 		.input(
-			z.object({ name: z.string().min(1), type: z.string().default("fee") }),
+			z.object({
+				name: z.string().min(1),
+				type: z.string().default("fee"),
+				defaultType: z.enum(["incoming", "outgoing"]).default("incoming"),
+			}),
 		)
 		.mutation(async ({ input, ctx }) => {
-			return getOrCreateWallet(ctx.db, {
-				name: input.name,
-				type: input.type,
-				schoolId: ctx.profile.schoolId!,
-				termId: ctx.profile.termId!,
+			return ctx.db.wallet.upsert({
+				where: {
+					name_schoolProfileId_sessionTermId_type: {
+						name: input.name,
+						schoolProfileId: ctx.profile.schoolId!,
+						sessionTermId: ctx.profile.termId!,
+						type: input.type,
+					},
+				},
+				update: { defaultType: input.defaultType } as any,
+				create: {
+					name: input.name,
+					type: input.type,
+					defaultType: input.defaultType,
+					schoolProfileId: ctx.profile.schoolId!,
+					sessionTermId: ctx.profile.termId!,
+				} as any,
+				select: { id: true, name: true },
 			});
 		}),
 
@@ -838,6 +875,67 @@ export const financeRouter = createTRPCRouter({
 				maxWait: 10000,
 				timeout: 20000,
 			});
+		}),
+
+	addFund: publicProcedure
+		.input(addFundSchema)
+		.mutation(async ({ input, ctx }) => {
+			await ctx.db.wallet.findFirstOrThrow({
+				where: {
+					id: input.walletId,
+					schoolProfileId: ctx.profile.schoolId,
+					deletedAt: null,
+				},
+			});
+
+			const fund = await ctx.db.funds.create({
+				data: {
+					title: input.title,
+					description: input.description ?? "",
+					amount: input.amount,
+					pendingAmount: 0,
+					walletId: input.walletId,
+				},
+			});
+
+			await ctx.db.walletTransactions.create({
+				data: {
+					amount: input.amount,
+					walletId: input.walletId,
+					type: "credit",
+					summary: input.title,
+					status: "success",
+					transactionDate: input.date ?? new Date(),
+					fundId: fund.id,
+				},
+			});
+
+			return { success: true };
+		}),
+
+	withdrawFund: publicProcedure
+		.input(withdrawFundSchema)
+		.mutation(async ({ input, ctx }) => {
+			await ctx.db.wallet.findFirstOrThrow({
+				where: {
+					id: input.walletId,
+					schoolProfileId: ctx.profile.schoolId,
+					deletedAt: null,
+				},
+			});
+
+			await ctx.db.walletTransactions.create({
+				data: {
+					amount: input.amount,
+					walletId: input.walletId,
+					type: "debit",
+					summary: input.title,
+					status: "success",
+					transactionDate: input.date ?? new Date(),
+				},
+			});
+
+			return { success: true };
 		}),
 
 	// ── Service Payments ────────────────────────────────────────────────────────

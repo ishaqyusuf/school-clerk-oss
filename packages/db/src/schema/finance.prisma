@@ -3,6 +3,7 @@ model Wallet {
     name                String
     schoolProfile       SchoolProfile?       @relation(fields: [schoolProfileId], references: [id])
     type                String?
+    defaultType         String?              @default("incoming")
     schoolProfileId     String?
     sessionTerm         SessionTerm?         @relation(fields: [sessionTermId], references: [id])
     sessionTermId       String?
