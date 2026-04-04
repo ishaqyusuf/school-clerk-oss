@@ -29,6 +29,8 @@ import {
 	ArrowDownRight,
 	ArrowUpRight,
 	CreditCard,
+	MinusCircle,
+	PlusCircle,
 	TrendingDown,
 	TrendingUp,
 	Wallet,
@@ -56,6 +58,10 @@ function Content() {
 	const [filter, setFilter] = useState<"term" | "session">("term");
 	const [showCreate, setShowCreate] = useState(false);
 	const [showTransfer, setShowTransfer] = useState(false);
+	const [addFundStreamId, setAddFundStreamId] = useState<string | null>(null);
+	const [withdrawFundStreamId, setWithdrawFundStreamId] = useState<
+		string | null
+	>(null);
 
 	const { data: streams } = useSuspenseQuery(
 		trpc.finance.getStreams.queryOptions({ filter }),
@@ -66,10 +72,10 @@ function Content() {
 			queryKey: trpc.finance.getStreams.queryKey({ filter }),
 		});
 
-	const feeStreams = streams.filter((s) => s.type === "fee");
-	const billStreams = streams.filter((s) => s.type !== "fee");
-	const totalInflow = feeStreams.reduce((s, w) => s + w.totalIn, 0);
-	const totalOutflow = billStreams.reduce((s, w) => s + w.totalOut, 0);
+	const incomingStreams = streams.filter((s) => s.defaultType === "incoming");
+	const outgoingStreams = streams.filter((s) => s.defaultType !== "incoming");
+	const totalInflow = incomingStreams.reduce((s, w) => s + w.totalIn, 0);
+	const totalOutflow = outgoingStreams.reduce((s, w) => s + w.totalOut, 0);
 	const netPosition = totalInflow - totalOutflow;
 
 	const streamColors = [
@@ -100,6 +106,13 @@ function Content() {
 			bar: "bg-orange-600",
 		},
 	];
+
+	const closeAllForms = () => {
+		setAddFundStreamId(null);
+		setWithdrawFundStreamId(null);
+		setShowCreate(false);
+		setShowTransfer(false);
+	};
 
 	return (
 		<div className="space-y-8">
@@ -145,8 +158,8 @@ function Content() {
 						size="sm"
 						className="gap-2"
 						onClick={() => {
-							setShowTransfer(!showTransfer);
-							setShowCreate(false);
+							closeAllForms();
+							setShowTransfer(true);
 						}}
 					>
 						<ArrowUpRight className="h-4 w-4" />
@@ -156,8 +169,8 @@ function Content() {
 						size="sm"
 						className="gap-2"
 						onClick={() => {
-							setShowCreate(!showCreate);
-							setShowTransfer(false);
+							closeAllForms();
+							setShowCreate(true);
 						}}
 					>
 						Add Stream
@@ -176,7 +189,7 @@ function Content() {
 							variant="outline"
 							className="text-xs text-green-700 border-green-200 bg-green-50"
 						>
-							Revenue
+							Incoming
 						</Badge>
 					</div>
 					<div className="mt-4">
@@ -198,7 +211,7 @@ function Content() {
 							variant="outline"
 							className="text-xs text-rose-700 border-rose-200 bg-rose-50"
 						>
-							Expenses
+							Outgoing
 						</Badge>
 					</div>
 					<div className="mt-4">
@@ -260,6 +273,7 @@ function Content() {
 						setShowCreate(false);
 						invalidate();
 					}}
+					onCancel={() => setShowCreate(false)}
 				/>
 			)}
 			{showTransfer && (
@@ -269,6 +283,29 @@ function Content() {
 						setShowTransfer(false);
 						invalidate();
 					}}
+					onCancel={() => setShowTransfer(false)}
+				/>
+			)}
+			{addFundStreamId && (
+				<AddFundForm
+					walletId={addFundStreamId}
+					streamName={streams.find((s) => s.id === addFundStreamId)?.name}
+					onSuccess={() => {
+						setAddFundStreamId(null);
+						invalidate();
+					}}
+					onCancel={() => setAddFundStreamId(null)}
+				/>
+			)}
+			{withdrawFundStreamId && (
+				<WithdrawFundForm
+					walletId={withdrawFundStreamId}
+					streamName={streams.find((s) => s.id === withdrawFundStreamId)?.name}
+					onSuccess={() => {
+						setWithdrawFundStreamId(null);
+						invalidate();
+					}}
+					onCancel={() => setWithdrawFundStreamId(null)}
 				/>
 			)}
 
@@ -298,9 +335,9 @@ function Content() {
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 						{streams.map((stream, idx) => {
 							const colorSet = streamColors[idx % streamColors.length];
-							const isRevenue = stream.type === "fee";
+							const isIncoming = stream.defaultType === "incoming";
 							const target = Math.max(stream.totalIn, stream.totalOut, 1);
-							const current = isRevenue ? stream.totalIn : stream.totalOut;
+							const current = isIncoming ? stream.totalIn : stream.totalOut;
 							const progress = Math.min((current / target) * 100, 100);
 
 							return (
@@ -308,16 +345,12 @@ function Content() {
 									key={stream.id}
 									className="p-5 flex flex-col hover:shadow-md transition-shadow cursor-pointer group"
 									onClick={() =>
-										router.push(
-											`/finance/streams/${stream.id}`,
-										)
+										router.push(`/finance/streams/${stream.id}`)
 									}
 									onKeyDown={(event) => {
 										if (event.key === "Enter" || event.key === " ") {
 											event.preventDefault();
-											router.push(
-												`/finance/streams/${stream.id}`,
-											);
+											router.push(`/finance/streams/${stream.id}`);
 										}
 									}}
 									role="button"
@@ -327,7 +360,7 @@ function Content() {
 										<div
 											className={`h-10 w-10 rounded-full flex items-center justify-center ${colorSet.bg} ${colorSet.color}`}
 										>
-											{isRevenue ? (
+											{isIncoming ? (
 												<ArrowUpRight className="h-5 w-5" />
 											) : (
 												<ArrowDownRight className="h-5 w-5" />
@@ -335,12 +368,12 @@ function Content() {
 										</div>
 										<span
 											className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
-												isRevenue
-													? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+												isIncoming
+													? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
 													: "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
 											}`}
 										>
-											{isRevenue ? "revenue" : "expense"}
+											{isIncoming ? "incoming" : "outgoing"}
 										</span>
 									</div>
 
@@ -374,19 +407,30 @@ function Content() {
 
 									<div className="flex gap-2 mt-5 pt-4 border-t border-border">
 										<Button
-											variant={isRevenue ? "default" : "secondary"}
+											variant={isIncoming ? "default" : "outline"}
 											size="sm"
-											className="flex-1 text-xs font-bold"
+											className="flex-1 text-xs font-bold gap-1"
 											onClick={(event) => {
 												event.stopPropagation();
-												if (isRevenue) {
-													setParams({ receivePayment: true });
-													return;
-												}
-												router.push(`/finance/payments`);
+												closeAllForms();
+												setAddFundStreamId(stream.id);
 											}}
 										>
-											{isRevenue ? "New Transaction" : "Manage Expense"}
+											<PlusCircle className="h-3 w-3" />
+											Add Fund
+										</Button>
+										<Button
+											variant={isIncoming ? "outline" : "default"}
+											size="sm"
+											className="flex-1 text-xs font-bold gap-1"
+											onClick={(event) => {
+												event.stopPropagation();
+												closeAllForms();
+												setWithdrawFundStreamId(stream.id);
+											}}
+										>
+											<MinusCircle className="h-3 w-3" />
+											Withdraw
 										</Button>
 										<Button
 											variant="outline"
@@ -410,10 +454,19 @@ function Content() {
 	);
 }
 
-function CreateStreamForm({ onSuccess }: { onSuccess: () => void }) {
+function CreateStreamForm({
+	onSuccess,
+	onCancel,
+}: {
+	onSuccess: () => void;
+	onCancel: () => void;
+}) {
 	const trpc = useTRPC();
 	const [name, setName] = useState("");
 	const [type, setType] = useState("fee");
+	const [defaultType, setDefaultType] = useState<"incoming" | "outgoing">(
+		"incoming",
+	);
 
 	const { mutate, isPending } = useMutation(
 		trpc.finance.createStream.mutationOptions({
@@ -437,14 +490,14 @@ function CreateStreamForm({ onSuccess }: { onSuccess: () => void }) {
 						variant="ghost"
 						size="sm"
 						className="h-7 w-7 p-0"
-						onClick={onSuccess}
+						onClick={onCancel}
 					>
 						<X className="h-4 w-4" />
 					</Button>
 				</div>
 			</CardHeader>
 			<CardContent>
-				<div className="grid sm:grid-cols-3 gap-4 items-end">
+				<div className="grid sm:grid-cols-4 gap-4 items-end">
 					<div className="grid gap-1.5">
 						<Label>Stream Name</Label>
 						<Input
@@ -465,16 +518,33 @@ function CreateStreamForm({ onSuccess }: { onSuccess: () => void }) {
 							</SelectContent>
 						</Select>
 					</div>
+					<div className="grid gap-1.5">
+						<Label>Direction</Label>
+						<Select
+							value={defaultType}
+							onValueChange={(v) =>
+								setDefaultType(v as "incoming" | "outgoing")
+							}
+						>
+							<SelectTrigger>
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="incoming">Incoming (Revenue)</SelectItem>
+								<SelectItem value="outgoing">Outgoing (Expense)</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
 					<div className="flex gap-2">
 						<SubmitButton
 							isSubmitting={isPending}
 							disabled={!name}
-							onClick={() => mutate({ name, type })}
+							onClick={() => mutate({ name, type, defaultType })}
 							type="button"
 						>
 							Create
 						</SubmitButton>
-						<Button variant="ghost" type="button" onClick={onSuccess}>
+						<Button variant="ghost" type="button" onClick={onCancel}>
 							Cancel
 						</Button>
 					</div>
@@ -487,9 +557,11 @@ function CreateStreamForm({ onSuccess }: { onSuccess: () => void }) {
 function TransferFundsForm({
 	streams,
 	onSuccess,
+	onCancel,
 }: {
 	streams: { id: string; name: string }[];
 	onSuccess: () => void;
+	onCancel: () => void;
 }) {
 	const trpc = useTRPC();
 	const [from, setFrom] = useState("");
@@ -531,7 +603,7 @@ function TransferFundsForm({
 						variant="ghost"
 						size="sm"
 						className="h-7 w-7 p-0"
-						onClick={onSuccess}
+						onClick={onCancel}
 					>
 						<X className="h-4 w-4" />
 					</Button>
@@ -598,7 +670,243 @@ function TransferFundsForm({
 					>
 						Transfer
 					</SubmitButton>
-					<Button variant="ghost" type="button" onClick={onSuccess}>
+					<Button variant="ghost" type="button" onClick={onCancel}>
+						Cancel
+					</Button>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+function AddFundForm({
+	walletId,
+	streamName,
+	onSuccess,
+	onCancel,
+}: {
+	walletId: string;
+	streamName?: string;
+	onSuccess: () => void;
+	onCancel: () => void;
+}) {
+	const trpc = useTRPC();
+	const [title, setTitle] = useState("");
+	const [amount, setAmount] = useState("");
+	const [description, setDescription] = useState("");
+	const [date, setDate] = useState("");
+
+	const { mutate, isPending } = useMutation(
+		trpc.finance.addFund.mutationOptions({
+			meta: {
+				toastTitle: {
+					loading: "Adding fund...",
+					success: "Fund added",
+					error: "Failed to add fund",
+				},
+			},
+			onSuccess,
+		}),
+	);
+
+	const handleSubmit = () => {
+		if (!title || !amount) return;
+		mutate({
+			walletId,
+			title,
+			amount: Number.parseFloat(amount),
+			description: description || null,
+			date: date ? new Date(date) : null,
+		});
+	};
+
+	return (
+		<Card className="border-dashed border-green-300 dark:border-green-800">
+			<CardHeader>
+				<div className="flex items-center justify-between">
+					<CardTitle className="text-sm flex items-center gap-2">
+						<PlusCircle className="h-4 w-4 text-green-600" />
+						Add Fund
+						{streamName && (
+							<span className="text-muted-foreground font-normal">
+								→ {streamName}
+							</span>
+						)}
+					</CardTitle>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-7 w-7 p-0"
+						onClick={onCancel}
+					>
+						<X className="h-4 w-4" />
+					</Button>
+				</div>
+			</CardHeader>
+			<CardContent>
+				<div className="grid sm:grid-cols-4 gap-4 items-end">
+					<div className="grid gap-1.5">
+						<Label>Title</Label>
+						<Input
+							placeholder="e.g. Donation received"
+							value={title}
+							onChange={(e) => setTitle(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-1.5">
+						<Label>Amount (NGN)</Label>
+						<Input
+							type="number"
+							placeholder="0.00"
+							value={amount}
+							onChange={(e) => setAmount(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-1.5">
+						<Label>Description</Label>
+						<Input
+							placeholder="Optional note"
+							value={description}
+							onChange={(e) => setDescription(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-1.5">
+						<Label>Date</Label>
+						<Input
+							type="date"
+							value={date}
+							onChange={(e) => setDate(e.target.value)}
+						/>
+					</div>
+				</div>
+				<div className="flex gap-2 mt-4">
+					<SubmitButton
+						isSubmitting={isPending}
+						disabled={!title || !amount}
+						onClick={handleSubmit}
+						type="button"
+					>
+						Add Fund
+					</SubmitButton>
+					<Button variant="ghost" type="button" onClick={onCancel}>
+						Cancel
+					</Button>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+function WithdrawFundForm({
+	walletId,
+	streamName,
+	onSuccess,
+	onCancel,
+}: {
+	walletId: string;
+	streamName?: string;
+	onSuccess: () => void;
+	onCancel: () => void;
+}) {
+	const trpc = useTRPC();
+	const [title, setTitle] = useState("");
+	const [amount, setAmount] = useState("");
+	const [description, setDescription] = useState("");
+	const [date, setDate] = useState("");
+
+	const { mutate, isPending } = useMutation(
+		trpc.finance.withdrawFund.mutationOptions({
+			meta: {
+				toastTitle: {
+					loading: "Processing withdrawal...",
+					success: "Withdrawal recorded",
+					error: "Failed to record withdrawal",
+				},
+			},
+			onSuccess,
+		}),
+	);
+
+	const handleSubmit = () => {
+		if (!title || !amount) return;
+		mutate({
+			walletId,
+			title,
+			amount: Number.parseFloat(amount),
+			description: description || null,
+			date: date ? new Date(date) : null,
+		});
+	};
+
+	return (
+		<Card className="border-dashed border-rose-300 dark:border-rose-800">
+			<CardHeader>
+				<div className="flex items-center justify-between">
+					<CardTitle className="text-sm flex items-center gap-2">
+						<MinusCircle className="h-4 w-4 text-rose-600" />
+						Withdraw Fund
+						{streamName && (
+							<span className="text-muted-foreground font-normal">
+								← {streamName}
+							</span>
+						)}
+					</CardTitle>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-7 w-7 p-0"
+						onClick={onCancel}
+					>
+						<X className="h-4 w-4" />
+					</Button>
+				</div>
+			</CardHeader>
+			<CardContent>
+				<div className="grid sm:grid-cols-4 gap-4 items-end">
+					<div className="grid gap-1.5">
+						<Label>Title</Label>
+						<Input
+							placeholder="e.g. Cash disbursement"
+							value={title}
+							onChange={(e) => setTitle(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-1.5">
+						<Label>Amount (NGN)</Label>
+						<Input
+							type="number"
+							placeholder="0.00"
+							value={amount}
+							onChange={(e) => setAmount(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-1.5">
+						<Label>Description</Label>
+						<Input
+							placeholder="Optional note"
+							value={description}
+							onChange={(e) => setDescription(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-1.5">
+						<Label>Date</Label>
+						<Input
+							type="date"
+							value={date}
+							onChange={(e) => setDate(e.target.value)}
+						/>
+					</div>
+				</div>
+				<div className="flex gap-2 mt-4">
+					<SubmitButton
+						isSubmitting={isPending}
+						disabled={!title || !amount}
+						onClick={handleSubmit}
+						type="button"
+					>
+						Withdraw
+					</SubmitButton>
+					<Button variant="ghost" type="button" onClick={onCancel}>
 						Cancel
 					</Button>
 				</div>
