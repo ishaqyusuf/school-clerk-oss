@@ -60,9 +60,19 @@ model FeeHistory {
     walletId             String?
     classroomDepartments ClassRoomDepartment[]
 
+    dueDate   DateTime? @db.Timestamp(0)
+
     createdAt DateTime? @default(now()) @db.Timestamp(0)
     updatedAt DateTime? @updatedAt
     deletedAt DateTime? @db.Timestamp(0)
+}
+
+enum CollectionStatus {
+    PENDING
+    PARTIAL
+    PAID
+    WAIVED
+    OVERDUE
 }
 
 model StudentFee {
@@ -85,8 +95,23 @@ model StudentFee {
     feeHistory        FeeHistory?      @relation(fields: [feeHistoryId], references: [id])
     feeHistoryId      String?
     status            String?
+    collectionStatus  CollectionStatus @default(PENDING)
     student           Students?        @relation(fields: [studentId], references: [id])
     studentId         String?
+    discounts         FeeDiscount[]
+}
+
+model FeeDiscount {
+    id           String     @id @default(uuid())
+    amount       Float
+    reason       String?
+    approvedBy   String?
+    createdAt    DateTime?  @default(now()) @db.Timestamp(0)
+    updatedAt    DateTime?  @updatedAt
+    deletedAt    DateTime?  @db.Timestamp(0)
+
+    studentFee   StudentFee @relation(fields: [studentFeeId], references: [id])
+    studentFeeId String
 }
 
 model StudentPurchase {

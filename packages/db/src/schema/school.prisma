@@ -32,6 +32,8 @@ model SchoolProfile {
     reportPrintLogs        ReportPrintLog[]
     notifications          Notification[]
     notificationPreferences NotificationPreference[]
+    inventoryItems         Inventory[]
+    inventoryIssuances     InventoryIssuance[]
 
     @@unique([name, subDomain, slug, deletedAt])
 }

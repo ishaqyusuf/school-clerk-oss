@@ -143,7 +143,20 @@ export const linkModules = [
 				"file-text",
 				"/finance/student-fees",
 			).access(_role.in("Admin", "Accountant")).data,
+			createNavLink(
+				"Collections",
+				"trending-up",
+				"/finance/collections",
+			).access(_role.in("Admin", "Accountant")).data,
 			createNavLink("Bills", "file-text", "/finance/bills").access(
+				_role.in("Admin", "Accountant"),
+			).data,
+		]),
+	]),
+
+	createNavModule("Inventory", "package", "Inventory", [
+		createNavSection("main", "Stock Management", [
+			createNavLink("Items", "package", "/inventory").access(
 				_role.in("Admin", "Accountant"),
 			).data,
 		]),

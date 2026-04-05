@@ -387,6 +387,7 @@ export const transactionRoutes = createTRPCRouter({
           updatedAt: true,
           feeTitle: true,
           description: true,
+          collectionStatus: true,
           studentTermForm: {
             select: {
               sessionForm: {
@@ -415,6 +416,7 @@ export const transactionRoutes = createTRPCRouter({
         description: d.description,
         billAmount: d.billAmount,
         pendingAmount: d.pendingAmount,
+        collectionStatus: d.collectionStatus,
         studentName:
           d.studentTermForm?.student?.name ||
           d.studentTermForm?.sessionForm?.student?.name,

@@ -1,0 +1,42 @@
+enum InventoryType {
+    SUPPLY
+    TEXTBOOK
+    EQUIPMENT
+    UNIFORM
+    OTHER
+}
+
+model Inventory {
+    id              String        @id @default(uuid())
+    title           String
+    description     String?
+    type            InventoryType @default(OTHER)
+    quantity        Int           @default(0)
+    unitPrice       Float         @default(0)
+    lowStockAlert   Int           @default(5)
+    createdAt       DateTime?     @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?     @updatedAt
+    deletedAt       DateTime?     @db.Timestamp(0)
+
+    schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+
+    issuances       InventoryIssuance[]
+}
+
+model InventoryIssuance {
+    id          String    @id @default(uuid())
+    quantity    Int
+    note        String?
+    issuedTo    String?   // free-text name or "studentId:<id>" / "staffId:<id>"
+    issuedDate  DateTime? @db.Timestamp(0)
+    createdAt   DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt   DateTime? @updatedAt
+    deletedAt   DateTime? @db.Timestamp(0)
+
+    inventory   Inventory @relation(fields: [inventoryId], references: [id])
+    inventoryId String
+
+    schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+}
