@@ -2322,4 +2322,290 @@ export const financeRouter = createTRPCRouter({
 				timeout: 20000,
 			});
 		}),
+
+	// ── Collection Management ───────────────────────────────────────────────────
+
+	getCollectionSummary: publicProcedure
+		.input(
+			z.object({
+				termId: z.string().optional().nullable(),
+				feeHistoryId: z.string().optional().nullable(),
+			}),
+		)
+		.query(async ({ input, ctx }) => {
+			const termId = input.termId || ctx.profile.termId;
+
+			// Get all classrooms active in this term
+			const departments = await ctx.db.classRoomDepartment.findMany({
+				where: {
+					schoolProfileId: ctx.profile.schoolId,
+					deletedAt: null,
+					termForms: {
+						some: { sessionTermId: termId!, deletedAt: null },
+					},
+				},
+				select: {
+					id: true,
+					departmentName: true,
+					classRoom: { select: { name: true } },
+					termForms: {
+						where: { sessionTermId: termId!, deletedAt: null },
+						select: {
+							id: true,
+							studentFees: {
+								where: {
+									deletedAt: null,
+									status: { not: "cancelled" },
+									schoolSessionId: ctx.profile.sessionId!,
+									...(input.feeHistoryId
+										? { feeHistoryId: input.feeHistoryId }
+										: {}),
+								},
+								select: {
+									id: true,
+									billAmount: true,
+									pendingAmount: true,
+									collectionStatus: true,
+								},
+							},
+						},
+					},
+				},
+				orderBy: { departmentName: "asc" },
+			});
+
+			return departments.map((dept) => {
+				const allFees = dept.termForms.flatMap((tf) => tf.studentFees);
+				const studentCount = dept.termForms.length;
+				const totalBilled = allFees.reduce((s, f) => s + f.billAmount, 0);
+				const totalPaid = allFees.reduce(
+					(s, f) => s + Math.max(f.billAmount - f.pendingAmount, 0),
+					0,
+				);
+				const totalPending = allFees.reduce((s, f) => s + f.pendingAmount, 0);
+				const paidCount = allFees.filter((f) => f.pendingAmount <= 0).length;
+				const partialCount = allFees.filter(
+					(f) => f.pendingAmount > 0 && f.pendingAmount < f.billAmount,
+				).length;
+				const unpaidCount = allFees.filter(
+					(f) => f.pendingAmount >= f.billAmount && f.billAmount > 0,
+				).length;
+
+				return {
+					classroomId: dept.id,
+					classroomName: getDepartmentName(dept),
+					studentCount,
+					totalBilled,
+					totalPaid,
+					totalPending,
+					collectionRate:
+						totalBilled > 0
+							? Math.round((totalPaid / totalBilled) * 100)
+							: 0,
+					paidCount,
+					partialCount,
+					unpaidCount,
+				};
+			});
+		}),
+
+	getCollectionStudents: publicProcedure
+		.input(
+			z.object({
+				classroomId: z.string(),
+				termId: z.string().optional().nullable(),
+				feeHistoryId: z.string().optional().nullable(),
+				collectionStatus: z
+					.enum(["ALL", "PENDING", "PARTIAL", "PAID", "WAIVED", "OVERDUE"])
+					.default("ALL"),
+			}),
+		)
+		.query(async ({ input, ctx }) => {
+			const termId = input.termId || ctx.profile.termId;
+
+			const termForms = await ctx.db.studentTermForm.findMany({
+				where: {
+					sessionTermId: termId!,
+					classroomDepartmentId: input.classroomId,
+					schoolProfileId: ctx.profile.schoolId,
+					deletedAt: null,
+				},
+				select: {
+					id: true,
+					student: {
+						select: {
+							id: true,
+							name: true,
+							surname: true,
+							otherName: true,
+						},
+					},
+					studentFees: {
+						where: {
+							deletedAt: null,
+							status: { not: "cancelled" },
+							...(input.feeHistoryId
+								? { feeHistoryId: input.feeHistoryId }
+								: {}),
+						},
+						select: {
+							id: true,
+							feeTitle: true,
+							billAmount: true,
+							pendingAmount: true,
+							collectionStatus: true,
+							feeHistory: {
+								select: { fee: { select: { title: true } }, dueDate: true },
+							},
+						},
+					},
+				},
+				orderBy: { student: { surname: "asc" } },
+			});
+
+			const result = termForms.map((tf) => {
+				const totalBilled = tf.studentFees.reduce(
+					(s, f) => s + f.billAmount,
+					0,
+				);
+				const totalPaid = tf.studentFees.reduce(
+					(s, f) => s + Math.max(f.billAmount - f.pendingAmount, 0),
+					0,
+				);
+				const totalPending = tf.studentFees.reduce(
+					(s, f) => s + f.pendingAmount,
+					0,
+				);
+
+				const computedStatus =
+					totalBilled === 0
+						? "NO_FEES"
+						: totalPending <= 0
+							? "PAID"
+							: totalPaid > 0
+								? "PARTIAL"
+								: "PENDING";
+
+				return {
+					studentId: tf.student?.id,
+					studentTermFormId: tf.id,
+					studentName: getStudentName(tf.student as any),
+					totalBilled,
+					totalPaid,
+					totalPending,
+					collectionStatus: computedStatus,
+					fees: tf.studentFees.map((f) => ({
+						id: f.id,
+						title: f.feeTitle || f.feeHistory?.fee?.title || "Fee",
+						billAmount: f.billAmount,
+						pendingAmount: f.pendingAmount,
+						paidAmount: Math.max(f.billAmount - f.pendingAmount, 0),
+						collectionStatus: f.collectionStatus,
+						dueDate: f.feeHistory?.dueDate ?? null,
+					})),
+				};
+			});
+
+			if (input.collectionStatus !== "ALL") {
+				return result.filter(
+					(r) => r.collectionStatus === input.collectionStatus,
+				);
+			}
+			return result;
+		}),
+
+	waiveFee: publicProcedure
+		.input(
+			z.object({
+				studentFeeId: z.string(),
+				reason: z.string().optional().nullable(),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			const fee = await ctx.db.studentFee.findFirstOrThrow({
+				where: {
+					id: input.studentFeeId,
+					schoolProfileId: ctx.profile.schoolId,
+					deletedAt: null,
+					status: { not: "cancelled" },
+				},
+				select: { id: true, pendingAmount: true },
+			});
+
+			await ctx.db.$transaction(async (tx) => {
+				await tx.studentFee.update({
+					where: { id: fee.id },
+					data: {
+						collectionStatus: "WAIVED",
+						pendingAmount: 0,
+					} as any,
+				});
+				if (input.reason) {
+					await tx.feeDiscount.create({
+						data: {
+							studentFeeId: fee.id,
+							amount: fee.pendingAmount,
+							reason: input.reason,
+							approvedBy: ctx.profile.userId,
+						} as any,
+					});
+				}
+			}, { maxWait: 10000, timeout: 20000 });
+
+			return { success: true };
+		}),
+
+	applyDiscount: publicProcedure
+		.input(
+			z.object({
+				studentFeeId: z.string(),
+				amount: z.number().positive(),
+				reason: z.string().optional().nullable(),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			const fee = await ctx.db.studentFee.findFirstOrThrow({
+				where: {
+					id: input.studentFeeId,
+					schoolProfileId: ctx.profile.schoolId,
+					deletedAt: null,
+					status: { not: "cancelled" },
+				},
+				select: { id: true, pendingAmount: true, billAmount: true },
+			});
+
+			if (input.amount > fee.pendingAmount) {
+				throw new Error(
+					`Discount amount (${input.amount}) exceeds pending amount (${fee.pendingAmount})`,
+				);
+			}
+
+			const newPending = fee.pendingAmount - input.amount;
+			const newStatus =
+				newPending <= 0
+					? "PAID"
+					: newPending < fee.billAmount
+						? "PARTIAL"
+						: "PENDING";
+
+			await ctx.db.$transaction(async (tx) => {
+				await tx.studentFee.update({
+					where: { id: fee.id },
+					data: {
+						pendingAmount: newPending,
+						collectionStatus: newStatus,
+					} as any,
+				});
+				await tx.feeDiscount.create({
+					data: {
+						studentFeeId: fee.id,
+						amount: input.amount,
+						reason: input.reason,
+						approvedBy: ctx.profile.userId,
+					} as any,
+				});
+			}, { maxWait: 10000, timeout: 20000 });
+
+			return { success: true, newPendingAmount: newPending };
+		}),
 });

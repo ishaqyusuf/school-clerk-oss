@@ -15,6 +15,7 @@ import { attendanceRouter } from "./attendance.routes";
 import { financeRouter } from "./finance.routes";
 import { staffRouter } from "./staff.routes";
 import { notificationsRouter } from "./notifications.routes";
+import { inventoryRouter } from "./inventory.routes";
 export const appRouter = createTRPCRouter({
   assessments: assessmentRouter,
   auth: authRouter,
@@ -31,6 +32,7 @@ export const appRouter = createTRPCRouter({
   finance: financeRouter,
   staff: staffRouter,
   notifications: notificationsRouter,
+  inventory: inventoryRouter,
 });
 
 export type AppRouter = typeof appRouter;

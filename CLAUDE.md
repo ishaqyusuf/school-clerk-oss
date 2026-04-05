@@ -125,8 +125,11 @@ See `brain/decisions/ADR-0003-tenant-domain-model.md` for full rationale.
 - `/dashboard` (home dashboard with stat cards)
 - `onboarding/create-school` (confirmation page)
 - **Attendance system** (classroom sheet → Attendance tab + Take Attendance secondary panel; student sheet → Attendance tab with history + stats)
-- **Finance system** (`/finance` accounting streams + receive-payment sheet; `/finance/payments` service expenses; `/staff/payroll` staff salary bills + payments)
+- **Finance system** (`/finance` accounting streams + receive-payment sheet; `/finance/payments` service expenses; `/staff/payroll` staff salary bills + payments; `/finance/collections` collection dashboard)
 - **Student finance** (enhanced: payment method, payment history, reverse payment, billable-aware collection flow)
+- **Collection Management** (`/finance/collections`): per-class collection summary with drill-down to student-level, collection rate badges, waive-fee dialog
+- **Inventory Management** (`/inventory`): stock items (SUPPLY/TEXTBOOK/EQUIPMENT/UNIFORM/OTHER), issuance tracking, low-stock alerts, CRUD sheets
+- **Fee Discounts**: `applyDiscount` + `waiveFee` procedures on `finance` router; `FeeDiscount` model; Discount button on student-fees table
 
 **Coming Soon stubs (placeholder):**
 - `/announcements`, `/calendar`
@@ -147,7 +150,10 @@ See `brain/features/student-promotion.md` for full details.
 
 ### Finance System Pattern
 - **Accounting Streams**: `Wallet` model — named buckets scoped to term+school. `finance.getStreams` returns balances. `finance.transferFunds` moves money between wallets.
-- **Student Fees** ⭐: `Fees` + `FeeHistory` — the correct model for charges billed to students. `FeeHistory` now supports `walletId` (accounting stream) and `classroomDepartments[]` M:N (empty = all classes). See `brain/features/student-fees.md` for full lifecycle.
+- **Collection Management**: `StudentFee.collectionStatus` enum (PENDING/PARTIAL/PAID/WAIVED/OVERDUE). `FeeHistory.dueDate` optional. `/finance/collections` shows per-class collection rates with drill-down + waive/discount actions.
+- **Inventory Management**: `Inventory` + `InventoryIssuance` models in `packages/db/src/schema/inventory.prisma`. Scoped to school. `/inventory` page with full CRUD, issuance log, low-stock alerts.
+- **Fee Discounts**: `FeeDiscount` model (linked to `StudentFee`). `finance.applyDiscount` reduces `pendingAmount` + creates audit record. `finance.waiveFee` zeroes balance + sets `collectionStatus = WAIVED`.
+- **Student Fees** ⭐: `Fees` + `FeeHistory` — the correct model for charges billed to students. `FeeHistory` now supports `walletId` (accounting stream), `classroomDepartments[]` M:N (empty = all classes), and `dueDate` (optional). See `brain/features/student-fees.md` for full lifecycle.
   - `transaction.createSchoolFee` — creates/updates fee with stream + classroom targeting
   - `transaction.getPreviousTermFees` — lists importable fees from prior terms
   - `transaction.importFees` — copies selected fees into current term (preserves stream + classrooms)
@@ -158,7 +164,8 @@ See `brain/features/student-promotion.md` for full details.
 - **Student Payment**: receive-payment sheet searches all students, loads current-term fees (via `manualFeeHistories`) + billables, warns about unapplied charges, records targeted allocations via `finance.receiveStudentPayment` (supports sources: `studentFee`, `billable`, `feeHistory`, `manual`). `finance.reverseStudentPayment` restores `StudentFee.pendingAmount`.
 - **Pages**: `/finance`, `/finance/fees-management`, `/finance/billables`, `/finance/payments` (service), `/staff/payroll`
 - **Router files**: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/api/src/trpc/routers/transaction.routes.ts`
-- **Additional procedures**: `getBillables`, `createBillable`, `getBills`, `createBill`, `getTransactions`, `searchStudentsForPayment`, `getReceivePaymentData`, `receiveStudentPayment` in finance router
+- **Additional procedures**: `getBillables`, `createBillable`, `getBills`, `createBill`, `getTransactions`, `searchStudentsForPayment`, `getReceivePaymentData`, `receiveStudentPayment` in finance router; `getCollectionSummary`, `getCollectionStudents`, `waiveFee`, `applyDiscount` in finance router
+- **Inventory router** (`apps/api/src/trpc/routers/inventory.routes.ts`): `getItems`, `createItem`, `deleteItem`, `issueItem`, `getIssuanceHistory`
 
 ### tRPC Router Coverage (all server actions migrated)
 - **`staff.routes.ts`** — `createStaff`, `deleteStaff`, `getStaffList` (NEW)
