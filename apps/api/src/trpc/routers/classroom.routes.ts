@@ -356,7 +356,9 @@ export const classroomRouter = createTRPCRouter({
   all: publicProcedure
     .input(classroomQuerySchema)
     .query(async ({ input, ctx }) => {
-      if (!input.schoolSessionId) input.schoolSessionId = ctx.profile.sessionId;
+      if (!input.schoolSessionId && !input.sessionTermId) {
+        input.schoolSessionId = ctx.profile.sessionId;
+      }
       const result = await getClassrooms(ctx, input);
       return result;
     }),

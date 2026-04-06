@@ -152,6 +152,22 @@ export function ClassroomResultTable({
 			.filter((subj) => subj.assessments.length > 0);
 	}, [allSubjects]);
 
+  const duplicateNames = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const student of students) {
+      const name = studentDisplayName(student.student)?.trim().toLowerCase();
+      if (!name) continue;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+
+    return new Set(
+      Array.from(counts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([name]) => name),
+    );
+  }, [students]);
+
 	const grandTotalsMap = useMemo(() => {
 		const map = new Map<string, number>();
 		for (const student of students) {
@@ -380,47 +396,48 @@ export function ClassroomResultTable({
 		printWindow.print();
 	}, [ctx.classroomName, isRtl, reportRows, totalsOnly, visibleSubjects]);
 
-	// Checkbox helpers — selections store the original (unsorted) index.
-	// The map is computed once when students first load for a given departmentId
-	// so that refetches (e.g. after score edits) or sort changes never shift indices.
-	const stableIndexMapRef = useRef<Map<string, number>>(new Map());
-	const lastDepartmentId = useRef<string | null>(null);
-	const currentDeptId = filters.departmentId ?? null;
-	if (students.length > 0 && currentDeptId !== lastDepartmentId.current) {
-		lastDepartmentId.current = currentDeptId;
-		const map = new Map<string, number>();
-		students.forEach((s, i) => map.set(s.id, i));
-		stableIndexMapRef.current = map;
-	}
-	const originalIndexMap = stableIndexMapRef.current;
-
-	const selections = filters.selections ?? [];
+	const printOrder = filters.printOrder ?? [];
+	const activeDepts = filters.activeDepts ?? [];
 	const allSelected =
-		students.length > 0 &&
-		students.every((s) => {
-			const originalIndex = originalIndexMap.get(s.id);
-			return originalIndex != null && selections.includes(originalIndex);
-		});
-	const someSelected = !allSelected && selections.length > 0;
+		students.length > 0 && students.every((student) => printOrder.includes(student.id));
+	const someSelected =
+		!allSelected && students.some((student) => printOrder.includes(student.id));
 
 	const toggleAll = useCallback(() => {
 		if (allSelected) {
-			setFilters({ selections: [] });
-		} else {
-			setFilters({ selections: students.map((_, i) => i) });
-		}
-	}, [allSelected, students, setFilters]);
-
-	const toggleStudent = useCallback(
-		(originalIndex: number) => {
-			const next = [...selections, originalIndex];
 			setFilters({
-				selections: next.filter(
-					(a) => next.filter((b) => b === a).length === 1,
+				printOrder: printOrder.filter(
+					(termFormId) => !students.some((student) => student.id === termFormId),
 				),
 			});
+		} else {
+			const otherSelections = printOrder.filter(
+				(termFormId) => !students.some((student) => student.id === termFormId),
+			);
+			setFilters({
+				printOrder: [...otherSelections, ...students.map((student) => student.id)],
+				activeDepts:
+					filters.departmentId && !activeDepts.includes(filters.departmentId)
+						? [...activeDepts, filters.departmentId]
+						: activeDepts,
+			});
+		}
+	}, [activeDepts, allSelected, filters.departmentId, printOrder, setFilters, students]);
+
+	const toggleStudent = useCallback(
+		(termFormId: string) => {
+			const isSelected = printOrder.includes(termFormId);
+			setFilters({
+				printOrder: isSelected
+					? printOrder.filter((id) => id !== termFormId)
+					: [...printOrder, termFormId],
+				activeDepts:
+					!isSelected && filters.departmentId && !activeDepts.includes(filters.departmentId)
+						? [...activeDepts, filters.departmentId]
+						: activeDepts,
+			});
 		},
-		[selections, setFilters],
+		[activeDepts, filters.departmentId, printOrder, setFilters],
 	);
 
 	if (!visibleSubjects.length || !students.length) {
@@ -667,7 +684,6 @@ export function ClassroomResultTable({
 							</TableHeader>
 							<TableBody>
 								{sortedStudents.map((student, si) => {
-									const originalIndex = originalIndexMap.get(student.id) ?? si;
 									return (
 										<StudentResultRow
 											key={student.id}
@@ -675,11 +691,13 @@ export function ClassroomResultTable({
 											subjects={visibleSubjects}
 											showAssessments={!totalsOnly}
 											index={si}
-											originalIndex={originalIndex}
-											isSelected={selections.includes(originalIndex)}
+											isSelected={printOrder.includes(student.id)}
 											onToggle={toggleStudent}
 											isRtl={isRtl}
 											dividerClass={dividerClass}
+                      isDuplicateName={duplicateNames.has(
+                        studentDisplayName(student.student).trim().toLowerCase(),
+                      )}
 										/>
 									);
 								})}
@@ -723,11 +741,11 @@ interface StudentResultRowProps {
 	}>;
 	showAssessments: boolean;
 	index: number;
-	originalIndex: number;
 	isSelected: boolean;
-	onToggle: (originalIndex: number) => void;
+	onToggle: (termFormId: string) => void;
 	isRtl: boolean;
 	dividerClass: string;
+  isDuplicateName: boolean;
 }
 
 function StudentResultRow({
@@ -735,11 +753,11 @@ function StudentResultRow({
 	subjects,
 	showAssessments,
 	index,
-	originalIndex,
 	isSelected,
 	onToggle,
 	isRtl,
 	dividerClass,
+  isDuplicateName,
 }: StudentResultRowProps) {
 	const subjectTotals = useMemo(() => {
 		return subjects.map((subject) => {
@@ -796,7 +814,7 @@ function StudentResultRow({
 			>
 				<Checkbox
 					checked={isSelected}
-					onCheckedChange={() => onToggle(originalIndex)}
+					onCheckedChange={() => onToggle(student.id)}
 					aria-label="Select student"
 				/>
 			</TableCell>
@@ -817,7 +835,14 @@ function StudentResultRow({
 				)}
 				dir={isRtl ? "rtl" : "ltr"}
 			>
-				{studentDisplayName(student.student)}
+        <div className="flex items-center gap-2">
+				  <span>{studentDisplayName(student.student)}</span>
+          {isDuplicateName ? (
+            <Badge variant="warning" className="text-[10px] uppercase">
+              duplicate
+            </Badge>
+          ) : null}
+        </div>
 			</TableCell>
 			{subjects.map((subject, si) => {
 				const { subjectTotal, assessmentScores } = subjectTotals[si];

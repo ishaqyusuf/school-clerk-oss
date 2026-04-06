@@ -2,6 +2,7 @@ import { useReportPageContext } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
 import { studentDisplayName } from "@/utils/utils";
 import { Checkbox } from "@school-clerk/ui/checkbox";
+import { Button } from "@school-clerk/ui/button";
 import { Field, Item, Select } from "@school-clerk/ui/composite";
 import { Label } from "@school-clerk/ui/label";
 import { Separator } from "@school-clerk/ui/separator";
@@ -12,7 +13,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { _trpc } from "./static-trpc";
 import { Menu } from "@school-clerk/ui/custom/menu";
 
-export function StudentReportFilter() {
+export function StudentReportFilter({
+  controlsOnly = false,
+}: {
+  controlsOnly?: boolean;
+}) {
   const { setFilters, filters } = useStudentReportFilterParams();
   const ctx = useReportPageContext();
   const trpc = _trpc!;
@@ -75,12 +80,9 @@ export function StudentReportFilter() {
   const allSelected =
     !!ctx?.termForms?.length && currentClassSelected === ctx.termForms.length;
 
-  return (
-    <div className="gap-4 pb-28 flex flex-col">
-      <div>
-        <ThemeSwitch />
-      </div>
-      <Field.Group>
+  const controls = (
+    <>
+      <Field.Group className={controlsOnly ? "grid gap-3 md:grid-cols-[minmax(0,220px)_minmax(0,260px)_auto] md:items-end" : undefined}>
         <Field>
           <Field.Label>Term</Field.Label>
           <Select
@@ -128,21 +130,31 @@ export function StudentReportFilter() {
             </Select.Content>
           </Select>
         </Field>
+        <div className={controlsOnly ? "flex items-end" : undefined}>
+          <Button asChild variant="outline" className="gap-2">
+            <a
+              href={`/assessment-recording?deptId=${filters.departmentId}&permission=all&termId=${filters.termId}`}
+              target="_blank"
+            >
+              <ExternalLinkIcon className="size-4" />
+              Result Entry
+            </a>
+          </Button>
+        </div>
       </Field.Group>
-      <Item.Separator />
-      <Item asChild>
-        <a
-          href={`/assessment-recording?deptId=${filters.departmentId}&permission=all&termId=${filters.termId}`}
-          target="_blank"
-        >
-          <Item.Content>
-            <Item.Title>Result Entry</Item.Title>
-          </Item.Content>
-          <Item.Actions>
-            <ExternalLinkIcon className="size-4" />
-          </Item.Actions>
-        </a>
-      </Item>
+    </>
+  );
+
+  if (controlsOnly) {
+    return <div className="space-y-4">{controls}</div>;
+  }
+
+  return (
+    <div className="gap-4 pb-28 flex flex-col">
+      <div>
+        <ThemeSwitch />
+      </div>
+      {controls}
       <Item.Separator />
       <div className="flex items-center justify-between">
         <Label>Students</Label>

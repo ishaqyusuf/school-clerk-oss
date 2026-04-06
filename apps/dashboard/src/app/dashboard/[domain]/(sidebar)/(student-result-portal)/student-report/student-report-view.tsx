@@ -9,17 +9,15 @@ import {
   useReportPageContext,
 } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
-import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
-import { Sheet } from "@school-clerk/ui/composite";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@school-clerk/ui/tabs";
-import { FileText, FolderX, Menu, TableIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { FileText, FolderX, TableIcon } from "lucide-react";
+import { useEffect, useMemo } from "react";
 
 function PageTitleSync() {
   const ctx = useReportPageContext();
@@ -41,7 +39,6 @@ export function StudentReportView({
   defaultClassroomLayout: "ltr" | "rtl";
 }) {
   const { filters, setFilters } = useStudentReportFilterParams();
-  const [menuOpened, setMenuOpened] = useState(false);
 
   // Seed termId from the auth cookie if the URL doesn't already carry one
   useEffect(() => {
@@ -55,39 +52,13 @@ export function StudentReportView({
   return (
     <ReportPageProvider value={createReportPageContext(defaultTermId)}>
       <PageTitleSync />
-      <div className={cn("lg:flex print:hidden")}>
-        <div className="hidden lg:block lg:w-56 border lg:h-screen p-2 overflow-auto">
-          <StudentReportFilter />
-        </div>
-        <div className="min-h-screen flex-1 lg:h-screen overflow-auto flex flex-col">
-          <div className="h-16 lg:hidden fixed flex items-center top-0 border-border gap-4 border-b w-full z-20 bg-background px-2">
-            <Button onClick={() => setMenuOpened(true)} size="sm">
-              <Menu className="size-4" />
-            </Button>
-          </div>
-          <div className="flex flex-col flex-1">
-            <ReportContent
-              filters={filters}
-              setFilters={setFilters}
-              defaultClassroomLayout={defaultClassroomLayout}
-            />
-          </div>
-        </div>
-        <div className="lg:hidden">
-          <Sheet
-            open={menuOpened}
-            onOpenChange={(e) => {
-              setMenuOpened(e);
-            }}
-          >
-            <Sheet.Header>
-              <Sheet.Title></Sheet.Title>
-              <Sheet.Description></Sheet.Description>
-            </Sheet.Header>
-            <Sheet.Content className="p-2 h-screen gap-4 overflow-auto">
-              <StudentReportFilter />
-            </Sheet.Content>
-          </Sheet>
+      <div className={cn("min-h-screen print:hidden")}>
+        <div className="flex min-h-screen flex-col">
+          <ReportContent
+            filters={filters}
+            setFilters={setFilters}
+            defaultClassroomLayout={defaultClassroomLayout}
+          />
         </div>
       </div>
       {/* Sticky footer — only shown when students are selected */}
@@ -128,7 +99,9 @@ function ReportContent({
       onValueChange={(v) => setFilters({ tab: v as typeof filters.tab })}
       className="flex flex-col flex-1"
     >
-      <div className="sticky top-0 z-10 bg-background border-b px-4 pt-2 lg:pt-0">
+      <div className="sticky top-0 z-10 border-b bg-background px-4 py-3">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
+          <StudentReportFilter controlsOnly />
         <TabsList className="w-full sm:w-auto rounded-lg">
           <TabsTrigger
             value="print"
@@ -145,6 +118,7 @@ function ReportContent({
             Classroom Results
           </TabsTrigger>
         </TabsList>
+        </div>
       </div>
       <TabsContent value="print" className="flex-1 mt-0">
         <div className="flex flex-col justify-center items-center dotted-bg p-4 lg:p-6 xl:p-0">

@@ -1,4 +1,8 @@
-import { parseAsArrayOf, parseAsStringEnum, useQueryStates } from "nuqs";
+import {
+  parseAsArrayOf,
+  parseAsStringEnum,
+  useQueryStates,
+} from "nuqs";
 import { createLoader, parseAsString } from "nuqs/server";
 
 export const studentReportFilterParams = {
