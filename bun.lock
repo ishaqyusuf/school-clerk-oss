@@ -67,6 +67,7 @@
         "@school-clerk/api": "workspace:*",
         "@school-clerk/auth": "workspace:*",
         "@school-clerk/db": "workspace:*",
+        "@school-clerk/navigation": "workspace:*",
         "@school-clerk/pdf": "workspace:*",
         "@school-clerk/site-nav": "workspace:*",
         "@school-clerk/ui": "workspace:*",
@@ -224,6 +225,21 @@
       "devDependencies": {
         "@types/heic-convert": "2.1.0",
         "trigger.dev": "3.3.17",
+      },
+    },
+    "packages/navigation": {
+      "name": "@school-clerk/navigation",
+      "version": "1.0.0",
+      "dependencies": {
+        "@school-clerk/ui": "workspace:*",
+      },
+      "devDependencies": {
+        "@school-clerk/tsconfig": "workspace:*",
+        "@types/react": "^19.2.2",
+        "@types/react-dom": "^19.2.2",
+        "react": "^19.2.0",
+        "react-dom": "^19.2.0",
+        "typescript": "^5.9.2",
       },
     },
     "packages/notifications": {
@@ -1356,6 +1372,8 @@
     "@school-clerk/email": ["@school-clerk/email@workspace:packages/email"],
 
     "@school-clerk/jobs": ["@school-clerk/jobs@workspace:packages/jobs"],
+
+    "@school-clerk/navigation": ["@school-clerk/navigation@workspace:packages/navigation"],
 
     "@school-clerk/notifications": ["@school-clerk/notifications@workspace:packages/notifications"],
 
@@ -4210,6 +4228,8 @@
     "@school-clerk/dashboard/vercel": ["vercel@48.9.0", "", { "dependencies": { "@vercel/backends": "0.0.5", "@vercel/blob": "1.0.2", "@vercel/build-utils": "13.0.0", "@vercel/detect-agent": "1.0.0", "@vercel/elysia": "0.1.3", "@vercel/express": "0.1.6", "@vercel/fastify": "0.1.6", "@vercel/fun": "1.1.6", "@vercel/go": "3.2.3", "@vercel/h3": "0.1.12", "@vercel/hono": "0.2.6", "@vercel/hydrogen": "1.3.1", "@vercel/next": "4.15.2", "@vercel/node": "5.5.5", "@vercel/python": "6.0.2", "@vercel/redwood": "2.4.1", "@vercel/remix-builder": "5.5.1", "@vercel/ruby": "2.2.1", "@vercel/static-build": "2.8.5", "chokidar": "4.0.0", "jose": "5.9.6" }, "bin": { "vc": "dist/vc.js", "vercel": "dist/vc.js" } }, "sha512-DaCn7z/9/b0QGSvpxyTJM7PYMsKGPL5Vasso3jXl9sOHqCKZ5e51nP5DSsgQ6/f0mW9fPoiq+1wIST4b6dPP5A=="],
 
     "@school-clerk/email/@types/react-dom": ["@types/react-dom@19.2.2", "", { "peerDependencies": { "@types/react": "^19.2.0" } }, "sha512-9KQPoO6mZCi7jcIStSnlOWn2nEF3mNmyr3rIAsGnAbQKYbRLyqmeSc39EVgtxXVia+LMT8j3knZLAZAh+xLmrw=="],
+
+    "@school-clerk/navigation/@types/react-dom": ["@types/react-dom@19.2.2", "", { "peerDependencies": { "@types/react": "^19.2.0" } }, "sha512-9KQPoO6mZCi7jcIStSnlOWn2nEF3mNmyr3rIAsGnAbQKYbRLyqmeSc39EVgtxXVia+LMT8j3knZLAZAh+xLmrw=="],
 
     "@school-clerk/pdf/zod": ["zod@4.3.6", "", {}, "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="],
 

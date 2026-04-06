@@ -33,6 +33,7 @@ export function useClassroomParams(options?: { shallow: boolean }) {
   const [params, setParams] = useQueryStates(
     {
       createClassroom: parseAsBoolean,
+      editClassroomId: parseAsString,
       viewClassroomId: parseAsString,
       subjectOverviewId: parseAsString,
       classroomTab: parseAsStringEnum<TabType>(tabs as any),

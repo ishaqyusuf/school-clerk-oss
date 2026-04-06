@@ -19,6 +19,7 @@ Map of key repository areas so contributors and AI can navigate the codebase qui
 - `apps/dashboard`: SaaS application (authenticated product app)
 - `apps/api`: API application surface
 - `packages/db`: Prisma/PostgreSQL data layer package
+- `packages/navigation`: shared navigation schema, builders, and sidebar adapters
 - `packages/api`: tRPC API package
 - `packages/ui`: shared UI components package
 

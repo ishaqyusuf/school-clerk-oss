@@ -22,6 +22,7 @@
     "@school-clerk/api": "workspace:*",
     "@school-clerk/auth": "workspace:*",
     "@school-clerk/db": "workspace:*",
+    "@school-clerk/navigation": "workspace:*",
     "@school-clerk/site-nav": "workspace:*",
     "@school-clerk/pdf": "workspace:*",
     "@school-clerk/ui": "workspace:*",

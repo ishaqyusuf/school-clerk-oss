@@ -64,7 +64,7 @@ export const ConfigureTermImport: React.FC<DataMigrationProps> = ({
         // return;
         if (migrationStat?.promotional && migrationStat?.previousTerm?.id) {
           router.push(
-            `/academic/promotion/${migrationStat.previousTerm.id}/${termId}`,
+            `/academic/progression/${migrationStat.previousTerm.id}/${termId}`,
           );
         }
       },

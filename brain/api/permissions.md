@@ -47,14 +47,20 @@ Defines access control rules for each API surface.
 
 ## Teacher/Classroom Authorization Status
 - The data model has teacher-to-classroom and teacher-to-subject assignment tables via `StaffClassroomDepartmentTermProfiles` and `StaffSubject`.
-- The dashboard now lets admins assign allowed classrooms and allowed subjects per staff member from the teachers create/edit sheets.
+- The dashboard now lets admins assign allowed classrooms and allowed subjects per staff member from the staff invite/edit sheets.
 - Assigned classroom permissions are stored against the active `StaffTermProfile`, and subject permissions are stored against active-term `DepartmentSubject` records.
 - Teacher workspace summaries now consume those assignments to scope visible classes, students, subjects, and attendance history for the signed-in teacher.
 - Full server-side authorization for downstream assessment/report mutation surfaces still needs to be layered on as those teacher workflows mature.
 
+## Staff Role and Onboarding Rules
+- The admin staff form is invite-first: admins only enter the staff email, role, and teaching assignments.
+- Classroom and subject assignment should remain teacher-only for now; non-teaching roles persist with empty assignment sets even if the client tries to submit classroom data.
+- Pending onboarding is a first-class staff-management state and supports resend from the staff directory.
+- Staff complete their profile details on the onboarding/reset-password screen after setting their password.
+
 ## Staff Invite Status
-- Staff create/edit now supports role assignment plus a "Send onboarding email" option.
-- Invites create or update the tenant user record and trigger Better Auth's reset-password flow so the staff member receives a link to set their password.
+- Staff save now sends onboarding automatically when needed instead of relying on an explicit "Send onboarding email" toggle.
+- Invites create or update the tenant user record and trigger Better Auth's reset-password flow with a staff-scoped onboarding link so the staff member can set a password and fill their own profile details.
 
 ## Staff Management Navigation Split
 - `/staff/teachers` remains the admin teacher-management page.

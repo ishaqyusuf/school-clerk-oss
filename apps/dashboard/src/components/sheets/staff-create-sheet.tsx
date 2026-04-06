@@ -21,11 +21,11 @@ export function StaffCreateSheet() {
 			sheetName="create-staff"
 		>
 			<SheetHeader>
-				<SheetTitle>Teacher Form</SheetTitle>
+				<SheetTitle>Invite staff</SheetTitle>
 			</SheetHeader>
 			<CustomSheetContent className="flex flex-col gap-2">
 				<FormContext>
-					<Form submitLabel="Create teacher" closeOnSuccess />
+					<Form submitLabel="Send onboarding" closeOnSuccess />
 				</FormContext>
 			</CustomSheetContent>
 		</CustomSheet>

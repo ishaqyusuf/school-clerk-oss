@@ -54,6 +54,7 @@ Tracks architectural patterns, boundaries, and major design choices.
 - `apps/web`: SaaS landing page (public marketing site)
 - `apps/dashboard`: SaaS application (authenticated product app)
 - `apps/api`: API application surface
+- `packages/navigation`: shared navigation schema and registry-to-sidebar adapter layer
 - `packages/api`: shared tRPC routers/contracts
 - `packages/db`: Prisma schema/client and data access utilities
 - `packages/ui`: shared UI components
@@ -73,6 +74,7 @@ Tracks architectural patterns, boundaries, and major design choices.
 - Observability and logging
 - Performance and scaling
 - Data privacy and isolation
+- Navigation should be configuration-driven by workspace, institution type, and enabled modules rather than hardcoded per page tree.
 
 ## Related ADRs
 - [ADR-0001: Baseline System Stack and Layered Architecture](/Users/M1PRO/Documents/code/school-clerk/brain/decisions/ADR-0001-baseline-system-stack-and-layered-architecture.md)

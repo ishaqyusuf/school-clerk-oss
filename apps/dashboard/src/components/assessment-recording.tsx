@@ -62,7 +62,9 @@ export function AssessmentRecording() {
                 </Menu>
               </>
             )}
-            <Card.Title>{department?.departmentName}</Card.Title>
+            <Card.Title>
+              {department?.displayName ?? department?.departmentName}
+            </Card.Title>
             {/* <Separator orientation="vertical" className="h-full" /> */}
             {!permissions.subjects || (
               <DropdownMenu dir="rtl">

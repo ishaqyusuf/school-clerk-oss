@@ -24,6 +24,71 @@ export async function createClassroom(
         name: data.className,
       },
     ];
+  if (data.classRoomId) {
+    return tx.$transaction(async (_tx) => {
+      await _tx.classRoom.update({
+        where: { id: data.classRoomId! },
+        data: {
+          name: data.className,
+          classLevel: data.classLevel,
+        },
+      });
+
+      const existingDepartments = await _tx.classRoomDepartment.findMany({
+        where: {
+          classRoomsId: data.classRoomId!,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      const submittedIds = new Set(
+        data.departments
+          ?.map((department) => department.id)
+          .filter((id): id is string => !!id) ?? [],
+      );
+
+      for (const department of data.departments ?? []) {
+        if (department.id) {
+          await _tx.classRoomDepartment.update({
+            where: { id: department.id },
+            data: {
+              departmentName: department.name,
+              departmentLevel: department.departmentLevel,
+            },
+          });
+          continue;
+        }
+
+        await _tx.classRoomDepartment.create({
+          data: {
+            classRoomsId: data.classRoomId!,
+            departmentName: department.name,
+            departmentLevel: department.departmentLevel,
+            schoolProfileId: profile.schoolId,
+          },
+        });
+      }
+
+      for (const department of existingDepartments) {
+        if (!submittedIds.has(department.id)) {
+          await _tx.classRoomDepartment.update({
+            where: { id: department.id },
+            data: { deletedAt: new Date() },
+          });
+        }
+      }
+
+      return _tx.classRoom.findUniqueOrThrow({
+        where: { id: data.classRoomId! },
+        include: {
+          classRoomDepartments: {
+            where: { deletedAt: null },
+          },
+        },
+      });
+    });
+  }
   // const classRoom = await tx.classRoom.findFirst({
   //   where: {
   //     name: data.className,
@@ -66,6 +131,7 @@ export async function createClassroom(
       },
     },
     update: {
+      classLevel: data.classLevel,
       classRoomDepartments: {
         createMany: {
           data: data.departments?.map((d) => ({
@@ -79,6 +145,7 @@ export async function createClassroom(
     },
     create: {
       name: data.className,
+      classLevel: data.classLevel,
       schoolSessionId: profile.sessionId,
       schoolProfileId: profile.schoolId,
       classRoomDepartments: {

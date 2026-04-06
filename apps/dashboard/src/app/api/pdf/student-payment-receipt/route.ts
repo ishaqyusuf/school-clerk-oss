@@ -2,6 +2,7 @@ import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { prisma } from "@school-clerk/db";
 import { renderToStream } from "@school-clerk/pdf";
 import { PaymentReceiptTemplate } from "@school-clerk/pdf/payment-receipt-template";
+import { classroomDisplayName } from "@school-clerk/utils";
 import { format } from "date-fns";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -40,9 +41,10 @@ const getClassroomName = (
 	} | null,
 ) => {
 	if (!department) return null;
-	return [department.classRoom?.name, department.departmentName]
-		.filter(Boolean)
-		.join(" ");
+	return classroomDisplayName({
+		className: department.classRoom?.name,
+		departmentName: department.departmentName,
+	});
 };
 
 export async function GET(req: NextRequest) {

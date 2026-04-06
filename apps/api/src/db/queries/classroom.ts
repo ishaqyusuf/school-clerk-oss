@@ -5,6 +5,7 @@ import {
   type ClassroomQuery,
 } from "@api/trpc/schemas/schemas";
 import type { Prisma } from "@school-clerk/db";
+import { classroomDisplayName } from "@school-clerk/utils";
 import { z } from "zod";
 
 export async function getClassrooms(
@@ -66,14 +67,26 @@ export async function getClassrooms(
         },
       },
     },
+    orderBy: [
+      {
+        classRoom: {
+          classLevel: "asc",
+        },
+      },
+      {
+        departmentLevel: "asc",
+      },
+      {
+        departmentName: "asc",
+      },
+    ],
   });
   return {
     data: classRoomDepartments.map(({ ...a }) => {
-      const displayName = a.departmentName?.includes(
-        a.classRoom?.name as string
-      )
-        ? a.departmentName
-        : `${a.classRoom?.name} ${a.departmentName}`;
+      const displayName = classroomDisplayName({
+        className: a.classRoom?.name,
+        departmentName: a.departmentName,
+      });
       return {
         ...a,
         displayName,
@@ -159,6 +172,7 @@ export async function getClassroomDepartments(
               id: true,
             },
           },
+          classLevel: true,
           name: true,
           id: true,
         },
@@ -169,9 +183,10 @@ export async function getClassroomDepartments(
 
   return await response(
     data.map((a) => {
-      const displayName = a.departmentName?.includes(a.classRoom?.name!)
-        ? a.departmentName
-        : `${a.classRoom?.name} ${a.departmentName}`;
+      const displayName = classroomDisplayName({
+        className: a.classRoom?.name,
+        departmentName: a.departmentName,
+      });
       return {
         ...a,
         displayName,

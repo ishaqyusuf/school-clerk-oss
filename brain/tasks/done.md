@@ -18,6 +18,14 @@ Record of completed tasks and delivery outcomes.
 - Owner:
 
 ## Completed Task
+- ID: TASK-2026-04-06-staff-management-onboarding-redesign
+- Title: Redesign staff management around invite-first onboarding, richer status tracking, and mobile-responsive staff directory
+- Completed: 2026-04-06
+- Outcome: Reworked staff admin from a full-profile teacher form into an invite-first flow, added teacher-only classroom and subject assignment rows, surfaced pending onboarding and resend behavior in a richer mobile-responsive staff directory, and turned the reset-password screen into a staff onboarding completion step that captures profile details after password setup.
+- Related changes: `packages/db/src/schema/staffs.prisma`, `packages/utils/src/constants.ts`, `apps/dashboard/src/actions/schema.ts`, `apps/dashboard/src/actions/save-staff.ts`, `apps/dashboard/src/actions/create-staff.ts`, `apps/api/src/trpc/routers/staff.routes.ts`, `apps/dashboard/src/components/forms/staff-form.tsx`, `apps/dashboard/src/components/tables/staffs/data-table.tsx`, `apps/dashboard/src/components/sheets/staff-create-sheet.tsx`, `apps/dashboard/src/components/sheets/staff-overview-sheet.tsx`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/staff/teachers/page.tsx`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/staff/teachers/search-params.ts`, `apps/dashboard/src/app/dashboard/[domain]/(auth)/reset-password/client.tsx`, `apps/dashboard/src/components/forms/bill-form.tsx`, `brain/database/schema.md`, `brain/database/migrations.md`, `brain/api/endpoints.md`, `brain/api/contracts.md`, `brain/api/permissions.md`
+- Owner: Codex
+
+## Completed Task
 - ID: TASK-2026-03-16-auth-navigation-hardening
 - Title: Harden tenant auth flow and align dashboard redirects with permitted navigation
 - Completed: 2026-03-16

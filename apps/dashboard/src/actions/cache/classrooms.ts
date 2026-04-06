@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 import { whereClassroom } from "@/utils/where.classroom";
 
 import { prisma } from "@school-clerk/db";
+import { classroomDisplayName } from "@school-clerk/utils";
 
 import { getAuthCookie } from "../cookies/auth-cookie";
 import { getStudentsListAction } from "../get-students-list";
@@ -29,9 +30,10 @@ export async function getCachedClassRooms(termId, sessionId) {
             return {
               departmentId: d.id,
               classId: c.id,
-              name: Array.from(new Set([c.name, d.departmentName]))
-                .filter(Boolean)
-                .join(" "),
+              name: classroomDisplayName({
+                className: c.name,
+                departmentName: d.departmentName,
+              }),
             };
           });
         })

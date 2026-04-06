@@ -165,7 +165,7 @@ export async function TeacherDashboardPanel() {
 									className="rounded-xl border p-4 text-sm text-muted-foreground"
 								>
 									<div className="font-medium text-foreground">
-										{classroom.className} {classroom.departmentName}
+										{classroom.displayName}
 									</div>
 									<div className="mt-1">
 										{classroom.studentCount} students · {classroom.subjectCount} subjects
@@ -228,11 +228,8 @@ export async function TeacherClassesPanel() {
 						<TableBody>
 							{data.classrooms.map((classroom) => (
 								<TableRow key={classroom.id}>
-									<TableCell>
-										<div className="font-medium">{classroom.className}</div>
-										<div className="text-xs text-muted-foreground">
-											{classroom.departmentName}
-										</div>
+									<TableCell className="font-medium">
+										{classroom.displayName}
 									</TableCell>
 									<TableCell>{classroom.studentCount}</TableCell>
 									<TableCell>{classroom.subjectCount}</TableCell>
@@ -409,8 +406,7 @@ export async function TeacherAssessmentsPanel() {
 							{data.subjects.map((subject) => (
 								<TableRow key={subject.id}>
 									<TableCell className="font-medium">{subject.title}</TableCell>
-									<TableCell>{subject.className}</TableCell>
-									<TableCell>{subject.departmentName}</TableCell>
+									<TableCell colSpan={2}>{subject.displayName}</TableCell>
 								</TableRow>
 							))}
 						</TableBody>
@@ -485,7 +481,7 @@ export async function TeacherReportsPanel() {
 					{data.classrooms.map((classroom) => (
 						<div key={classroom.id} className="rounded-xl border p-4">
 							<div className="font-medium text-foreground">
-								{classroom.className} {classroom.departmentName}
+								{classroom.displayName}
 							</div>
 							<div className="mt-1">
 								{classroom.studentCount} students · {classroom.subjectCount} subjects
@@ -548,7 +544,7 @@ export async function TeacherTimetablePanel() {
 						<div className="flex flex-wrap gap-2">
 							{data.subjects.map((subject) => (
 								<Badge key={subject.id} variant="outline">
-									{subject.title} · {subject.className} {subject.departmentName}
+									{subject.title} · {subject.displayName}
 								</Badge>
 							))}
 						</div>

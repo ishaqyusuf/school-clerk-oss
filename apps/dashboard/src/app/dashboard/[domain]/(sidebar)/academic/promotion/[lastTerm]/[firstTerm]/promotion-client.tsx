@@ -951,7 +951,7 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
                               disabled={reverseMutation.isPending}
                               onClick={() =>
                                 reverseMutation.mutate({
-                                  studentId: student.studentId,
+                                  studentIds: [student.studentId],
                                   termId: firstTermId,
                                 })
                               }

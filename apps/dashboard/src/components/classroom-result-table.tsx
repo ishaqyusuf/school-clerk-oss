@@ -1,5 +1,6 @@
 "use client";
 
+import { updateStudentReportCookieByName } from "@/actions/cookies/student-report";
 import { useReportPageContext } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
 import { studentDisplayName } from "@/utils/utils";
@@ -41,6 +42,7 @@ import {
 	useMemo,
 	useRef,
 	useState,
+  useTransition,
 } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { _qc, _trpc } from "./static-trpc";
@@ -101,21 +103,33 @@ function SortIcon({ column, sort }: { column: SortColumn; sort: SortState }) {
 	);
 }
 
-export function ClassroomResultTable() {
+export function ClassroomResultTable({
+  defaultClassroomLayout,
+}: {
+  defaultClassroomLayout: "ltr" | "rtl";
+}) {
 	const ctx = useReportPageContext();
 	const reportData = ctx.reportData;
 	const { filters, setFilters } = useStudentReportFilterParams();
+  const [, startSavingLayout] = useTransition();
 
 	const allSubjects = reportData?.subjects ?? [];
 	const students = reportData?.studentTermForms ?? [];
 
 	const [sort, setSort] = useState<SortState>(null);
 	const [totalsOnly, setTotalsOnly] = useState(false);
-	const isRtl = filters.classroomLayout === "rtl";
+  const [classroomLayout, setClassroomLayout] = useState<"ltr" | "rtl">(
+    defaultClassroomLayout,
+  );
+	const isRtl = classroomLayout === "rtl";
 	const stickyEdgeClass = isRtl ? "right-0" : "left-0";
 	const stickyIndexClass = isRtl ? "right-[40px]" : "left-[40px]";
 	const stickyNameClass = isRtl ? "right-[80px]" : "left-[80px]";
 	const dividerClass = isRtl ? "border-r" : "border-l";
+
+  useEffect(() => {
+    setClassroomLayout(defaultClassroomLayout);
+  }, [defaultClassroomLayout]);
 
 	const toggleSort = useCallback((column: SortColumn) => {
 		setSort((prev) => {
@@ -476,10 +490,17 @@ export function ClassroomResultTable() {
 								</div>
 								<ToggleGroup
 									type="single"
-									value={filters.classroomLayout}
+									value={classroomLayout}
 									onValueChange={(value) => {
 										if (!value) return;
-										setFilters({ classroomLayout: value as "ltr" | "rtl" });
+                    const nextLayout = value as "ltr" | "rtl";
+                    setClassroomLayout(nextLayout);
+                    startSavingLayout(() => {
+                      updateStudentReportCookieByName(
+                        "classroomLayout",
+                        nextLayout,
+                      );
+                    });
 									}}
 									variant="outline"
 									className="grid w-full grid-cols-2"

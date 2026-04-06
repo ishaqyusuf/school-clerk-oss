@@ -81,3 +81,34 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Response schema: Prisma `updateMany` result
 - Error cases: missing tenant session context
 - Notes: bulk read action for bell and notifications page
+
+## Staff Contracts
+- Route: `staff.getStaffList`
+- Request schema: optional `q`, optional `status` in `all | pending | active | failed`
+- Response schema: `{ items[], stats }` where each item includes role, onboarding status, invite timestamps, classroom count, subject count, and resend eligibility
+- Error cases: missing tenant school/session/term context
+- Notes: onboarding status is resolved from invite fields plus available auth credentials so existing staff can appear active even before explicit backfill
+
+- Route: `staff.getFormData`
+- Request schema: optional `staffId`
+- Response schema: `{ roles[], classrooms[], subjectsByClassroom, staff }`
+- Error cases: staff not found for current tenant, missing tenant context
+- Notes: `subjectsByClassroom` supports the invite-first assignment UI where admins choose one or more classrooms and then multiple subjects inside each classroom
+
+- Route: `action.saveStaffAction`
+- Request schema: `email`, `role`, `assignments[]` where each assignment is `{ classRoomDepartmentId, departmentSubjectIds[] }`
+- Response schema: `{ invited, inviteError, staffId }`
+- Error cases: invalid classroom/subject combinations, missing tenant context, invite delivery failure
+- Notes: creates or updates the staff record, syncs tenant user role, persists teacher-only assignments, and automatically sends onboarding when required
+
+- Route: `action.resendStaffOnboardingAction`
+- Request schema: `staffId`
+- Response schema: `{ invited: true }`
+- Error cases: missing tenant context, no staff email, onboarding already completed, invite delivery failure
+- Notes: resets invite state to pending and records resend timestamp
+
+- Route: `action.completeStaffOnboardingAction`
+- Request schema: `staffId`, `email`, `name`, optional `title`, optional `phone`, optional `phone2`, optional `address`
+- Response schema: `{ staffId, completed: true }`
+- Error cases: onboarding link no longer matches a staff record
+- Notes: used after password reset in the onboarding link flow to complete the staff profile and mark onboarding active

@@ -7,17 +7,10 @@ import type { z } from "zod";
 
 type Type = z.infer<typeof createStaffSchema>;
 const defaultValues: Type = {
-	address: undefined,
-	classRoomDepartmentIds: [],
-	departmentSubjectIds: [],
 	email: undefined,
-	name: "",
-	phone: undefined,
-	phone2: undefined,
+	assignments: [],
 	role: "Teacher",
-	sendInvite: false,
 	staffId: undefined,
-	title: "",
 };
 
 export function FormContext({

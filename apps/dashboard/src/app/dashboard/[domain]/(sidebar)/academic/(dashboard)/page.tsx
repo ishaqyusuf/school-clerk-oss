@@ -240,7 +240,7 @@ const Dashboard = () => {
                             </Button>
                             {session.status === "current" && promotionIds && (
                               <Link
-                                href={`/academic/promotion/${promotionIds.lastTermId}/${session.currentTerm?.id}`}
+                                href={`/academic/progression/${promotionIds.lastTermId}/${session.currentTerm?.id}`}
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Button
@@ -249,7 +249,7 @@ const Dashboard = () => {
                                   className="h-8 gap-1.5 text-primary font-semibold px-2"
                                 >
                                   <ArrowUpCircle className="h-4 w-4" />
-                                  Promote
+                                  Progress
                                 </Button>
                               </Link>
                             )}

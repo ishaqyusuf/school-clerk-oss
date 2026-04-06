@@ -8,10 +8,21 @@ import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@school-clerk/ui/cn";
 
 import { useAuth } from "@/hooks/use-auth";
+import { useClassroomParams } from "@/hooks/use-classroom-params";
 import Link from "next/link";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
-import { _qc, _trpc } from "@/components/static-trpc";
+import { useMemo, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@school-clerk/ui/alert-dialog";
 
 export type Item = RouterOutputs["academics"]["getClassrooms"]["data"][number];
 interface ItemProps {
@@ -38,10 +49,25 @@ export const columns: Column[] = [
     ),
   },
   {
+    header: "Level",
+    accessorKey: "level",
+    meta: {
+      className: "w-[12%]",
+    },
+    cell: ({ row: { original: item } }) => {
+      const classLevel = item?.classRoom?.classLevel;
+      return (
+        <span className="inline-flex min-w-14 items-center justify-center rounded-full border border-border px-2.5 py-1 text-xs font-medium">
+          {classLevel ?? "—"}
+        </span>
+      );
+    },
+  },
+  {
     header: "Students",
     accessorKey: "department",
     meta: {
-      className: "w-[25%]",
+      className: "w-[23%]",
     },
     cell: ({ row: { original: item } }) => {
       const count = item?._count?.studentSessionForms ?? 0;
@@ -110,12 +136,37 @@ export const columns: Column[] = [
   },
 ];
 
-function Actions({ item }: ItemProps) {
+export function Actions({ item }: ItemProps) {
   const isMobile = useIsMobile();
   const auth = useAuth();
+  const trpc = useTRPC();
+  const qc = useQueryClient();
+  const { setParams } = useClassroomParams();
+  const [moveTargetId, setMoveTargetId] = useState<string | null>(null);
+  const { data: allClassroomsData } = useQuery(
+    trpc.classrooms.getCurrentSessionClassroom.queryOptions(),
+  );
+  const moveTargets = Array.from(
+    new Map(
+      (allClassroomsData?.data ?? [])
+        .filter((row) => row.classRoom?.id && row.classRoom?.id !== item.classRoom?.id)
+        .map((row) => [row.classRoom.id, row]),
+    ).values(),
+  );
+  const selectedMoveTarget = useMemo(
+    () => moveTargets.find((target) => target.classRoom?.id === moveTargetId) ?? null,
+    [moveTargetId, moveTargets],
+  );
   const { mutate: deleteClassroomDepartmentGrade } = useMutation(
-    useTRPC().classrooms.deleteClassroomTermDepartment.mutationOptions({
-      onSuccess(data, variables, onMutateResult, context) {},
+    trpc.classrooms.deleteClassroomTermDepartment.mutationOptions({
+      onSuccess() {
+        qc.invalidateQueries({
+          queryKey: trpc.classrooms.all.queryKey({}),
+        });
+        qc.invalidateQueries({
+          queryKey: trpc.academics.getClassrooms.infiniteQueryKey({}),
+        });
+      },
       meta: {
         toastTitle: {
           error: "Unable to complete",
@@ -125,6 +176,50 @@ function Actions({ item }: ItemProps) {
       },
     }),
   );
+  const { mutate: updateClassroomLevel, isPending: isUpdatingLevel } =
+    useMutation(
+      trpc.classrooms.updateClassroomLevel.mutationOptions({
+        onSuccess() {
+          qc.invalidateQueries({
+            queryKey: trpc.classrooms.all.queryKey({}),
+          });
+          qc.invalidateQueries({
+            queryKey: trpc.academics.getClassrooms.infiniteQueryKey({}),
+          });
+        },
+        meta: {
+          toastTitle: {
+            error: "Unable to update level",
+            loading: "Updating level...",
+            success: "Class level updated",
+          },
+        },
+    }),
+  );
+  const { mutate: moveClassroomStreams, isPending: isMovingClassroomStreams } =
+    useMutation(
+      trpc.classrooms.moveClassroomStreams.mutationOptions({
+        onSuccess(data) {
+          qc.invalidateQueries({
+            queryKey: trpc.classrooms.all.queryKey({}),
+          });
+          qc.invalidateQueries({
+            queryKey: trpc.classrooms.getCurrentSessionClassroom.queryKey(),
+          });
+          qc.invalidateQueries({
+            queryKey: trpc.academics.getClassrooms.infiniteQueryKey({}),
+          });
+          setMoveTargetId(null);
+        },
+        meta: {
+          toastTitle: {
+            error: "Unable to move streams",
+            loading: "Moving streams...",
+            success: "Streams moved successfully",
+          },
+        },
+      }),
+    );
   return (
     <div className="relative flex justify-end z-10">
       <Menu
@@ -136,22 +231,63 @@ function Actions({ item }: ItemProps) {
         }
       >
         <Menu.Item
+          onClick={() =>
+            setParams({
+              editClassroomId: item.classRoom.id,
+            })
+          }
+        >
+          Edit Class
+        </Menu.Item>
+        <Menu.Item
           SubMenu={
             <>
-              {[...Array(10)].map((a, i) => (
+              {[...Array(12)].map((a, i) => (
                 <Menu.Item
+                  disabled={isUpdatingLevel}
                   onClick={(e) => {
-                    //  updateClassroomDepartmentGrade(item.id, i + 1);
+                    updateClassroomLevel({
+                      classRoomId: item.classRoom.id,
+                      classLevel: i + 1,
+                    });
                   }}
                   key={i}
                 >
-                  Grade {i + 1}
+                  Level {i + 1}
+                </Menu.Item>
+              ))}
+              <Menu.Item
+                disabled={isUpdatingLevel}
+                onClick={() =>
+                  updateClassroomLevel({
+                    classRoomId: item.classRoom.id,
+                    classLevel: null,
+                  })
+                }
+              >
+                Clear Level
+              </Menu.Item>
+            </>
+          }
+        >
+          Arrange Class Level
+        </Menu.Item>
+        <Menu.Item
+          SubMenu={
+            <>
+              {moveTargets.map((target) => (
+                <Menu.Item
+                  key={target.id}
+                  disabled={isMovingClassroomStreams}
+                  onClick={() => setMoveTargetId(target.classRoom.id)}
+                >
+                  {target.classRoom?.name}
                 </Menu.Item>
               ))}
             </>
           }
         >
-          Update Class Grade
+          Move &gt; Other Classrooms
         </Menu.Item>
 
         <Link
@@ -162,19 +298,79 @@ function Actions({ item }: ItemProps) {
         </Link>
         <Menu.Item
           icon="trash"
-          onClick={(e) => {
+          onClick={() => {
             deleteClassroomDepartmentGrade({ departmentId: item.id });
-            _qc.invalidateQueries({
-              queryKey: _trpc.classrooms.all.queryKey(),
-            });
-            // _qc.invalidateQueries({
-            //   queryKey: _trpc.classrooms.all.
-            // });
           }}
         >
           Delete Classroom
         </Menu.Item>
       </Menu>
+      <AlertDialog
+        open={Boolean(moveTargetId)}
+        onOpenChange={(open) => !open && setMoveTargetId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move streams to another class?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  This will move all streams in{" "}
+                  <span className="font-semibold">{item.classRoom?.name}</span> to{" "}
+                  <span className="font-semibold">
+                    {selectedMoveTarget?.classRoom?.name ?? "the selected class"}
+                  </span>{" "}
+                  and then delete the source class.
+                </p>
+                <div className="rounded-lg border bg-muted/40 p-3">
+                  <p className="font-medium text-foreground">
+                    Do you want to walk back the higher grades after the move?
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    If yes, every class above level{" "}
+                    <span className="font-medium text-foreground">
+                      {item.classRoom?.classLevel ?? "this class"}
+                    </span>{" "}
+                    will shift down by one level to close the gap left by this class.
+                  </p>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setMoveTargetId(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              variant="outline"
+              disabled={isMovingClassroomStreams || !selectedMoveTarget}
+              onClick={() => {
+                if (!selectedMoveTarget?.classRoom?.id) return;
+                moveClassroomStreams({
+                  sourceClassRoomId: item.classRoom.id,
+                  targetClassRoomId: selectedMoveTarget.classRoom.id,
+                  walkBackHigherGrades: false,
+                });
+              }}
+            >
+              {isMovingClassroomStreams ? "Moving..." : "No, move only"}
+            </Button>
+            <AlertDialogAction
+              disabled={isMovingClassroomStreams || !selectedMoveTarget}
+              onClick={() => {
+                if (!selectedMoveTarget?.classRoom?.id) return;
+                moveClassroomStreams({
+                  sourceClassRoomId: item.classRoom.id,
+                  targetClassRoomId: selectedMoveTarget.classRoom.id,
+                  walkBackHigherGrades: true,
+                });
+              }}
+            >
+              {isMovingClassroomStreams ? "Moving..." : "Yes, walk back"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -193,6 +389,7 @@ export const mobileColumn: ColumnDef<Item>[] = [
 function ItemCard({ item }: ItemProps) {
   const count = item?._count?.studentSessionForms ?? 0;
   const termTitle = item?.classRoom?.session?.title;
+  const classLevel = item?.classRoom?.classLevel;
   return (
     <div className="p-4 flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -207,6 +404,9 @@ function ItemCard({ item }: ItemProps) {
         <Actions item={item} />
       </div>
       <div className="flex items-center gap-4 text-sm">
+        <span className="text-muted-foreground">
+          Level <span className="font-medium text-foreground">{classLevel ?? "—"}</span>
+        </span>
         <span className="text-muted-foreground">
           <span className="font-medium text-foreground">{count}</span> students
         </span>

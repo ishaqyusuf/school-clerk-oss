@@ -44,6 +44,18 @@ export function ClassroomHeader({}) {
         />
       </div>
       <div className="flex gap-2 shrink-0">
+        <Select
+          value={filters.view ?? "stream"}
+          onValueChange={(value) => setFilters({ view: value as any })}
+        >
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="View mode" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="stream">View by Stream</SelectItem>
+            <SelectItem value="class">View by Class</SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           variant="outline"
           className="gap-2"

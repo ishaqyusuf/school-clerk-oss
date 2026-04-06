@@ -32,3 +32,14 @@ export const STAFF_ROLES = [
 ] as const;
 
 export type StaffRole = (typeof STAFF_ROLES)[number];
+
+export const STAFF_ASSIGNMENT_ROLES = ["Teacher"] as const;
+
+export const STAFF_INVITE_STATUSES = [
+	"NOT_SENT",
+	"PENDING",
+	"ACTIVE",
+	"FAILED",
+] as const;
+
+export type StaffInviteStatus = (typeof STAFF_INVITE_STATUSES)[number];

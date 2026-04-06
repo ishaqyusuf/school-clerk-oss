@@ -3,6 +3,7 @@
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { getSession } from "@/auth/server";
 import { prisma } from "@school-clerk/db";
+import { classroomDisplayName } from "@school-clerk/utils";
 
 export async function getTeacherWorkspaceAction({
 	search,
@@ -153,6 +154,10 @@ export async function getTeacherWorkspaceAction({
 			id: department.id,
 			className: department.classRoom?.name ?? "—",
 			departmentName: department.departmentName ?? "—",
+      displayName: classroomDisplayName({
+        className: department.classRoom?.name,
+        departmentName: department.departmentName,
+      }),
 			studentCount: department._count.studentSessionForms,
 			subjectCount: department._count.subjects,
 		})) ?? [];
@@ -233,6 +238,10 @@ export async function getTeacherWorkspaceAction({
 			title: subject.subject.title,
 			className: subject.classRoomDepartment?.classRoom?.name ?? "—",
 			departmentName: subject.classRoomDepartment?.departmentName ?? "—",
+      displayName: classroomDisplayName({
+        className: subject.classRoomDepartment?.classRoom?.name,
+        departmentName: subject.classRoomDepartment?.departmentName,
+      }),
 		}));
 
 	return {
@@ -262,8 +271,10 @@ export async function getTeacherWorkspaceAction({
 				.join(" "),
 			gender: studentForm.student?.gender ?? "—",
 			classroom: [
-				studentForm.classroomDepartment?.classRoom?.name,
-				studentForm.classroomDepartment?.departmentName,
+				classroomDisplayName({
+					className: studentForm.classroomDepartment?.classRoom?.name,
+					departmentName: studentForm.classroomDepartment?.departmentName,
+				}),
 			]
 				.filter(Boolean)
 				.join(" "),
@@ -272,8 +283,10 @@ export async function getTeacherWorkspaceAction({
 			id: attendance.id,
 			title: attendance.attendanceTitle,
 			classroom: [
-				attendance.department?.classRoom?.name,
-				attendance.department?.departmentName,
+				classroomDisplayName({
+					className: attendance.department?.classRoom?.name,
+					departmentName: attendance.department?.departmentName,
+				}),
 			]
 				.filter(Boolean)
 				.join(" "),
@@ -296,6 +309,7 @@ function emptyTeacherWorkspace(signedInEmail: string | null) {
 			id: string;
 			className: string;
 			departmentName: string;
+      displayName: string;
 			studentCount: number;
 			subjectCount: number;
 		}>,
@@ -304,6 +318,7 @@ function emptyTeacherWorkspace(signedInEmail: string | null) {
 			title: string;
 			className: string;
 			departmentName: string;
+      displayName: string;
 		}>,
 		students: [] as Array<{
 			id: string;

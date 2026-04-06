@@ -30,9 +30,9 @@ export function PromotionCta() {
 				</span>
 				<Button asChild className="shrink-0">
 					<Link
-						href={`/academic/promotion/${promotionIds.lastTermId}/${promotionIds.firstTermId}`}
+						href={`/academic/progression/${promotionIds.lastTermId}/${promotionIds.firstTermId}`}
 					>
-						Open Promotion
+						Open Progression
 					</Link>
 				</Button>
 			</AlertDescription>

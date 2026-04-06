@@ -4,6 +4,7 @@ import { AsyncFnType, PageItemData } from "@/types";
 import { SearchParamsType } from "@/utils/search-params";
 
 import { prisma } from "@school-clerk/db";
+import { classroomDisplayName } from "@school-clerk/utils";
 
 import { getAuthCookie } from "./cookies/auth-cookie";
 import { revalidatePath } from "next/cache";
@@ -55,9 +56,10 @@ export async function getClassRooms(params: SearchParamsType) {
   });
   return {
     data: classRooms.map(({ ...a }) => {
-      const displayName = a.departmentName?.includes(a.classRoom?.name)
-        ? a.departmentName
-        : `${a.classRoom?.name} ${a.departmentName}`;
+      const displayName = classroomDisplayName({
+        className: a.classRoom?.name,
+        departmentName: a.departmentName,
+      });
       return {
         ...a,
         displayName,

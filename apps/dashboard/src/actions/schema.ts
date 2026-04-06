@@ -75,26 +75,54 @@ export const createStudentSchema = z.object({
 export const createStaffSchema = z
 	.object({
 		staffId: z.string().optional().nullable(),
-		title: z.string(),
-		name: z.string().min(1),
-		email: z.string().email().optional().or(z.literal("")),
-		phone: z.string().optional(),
-		phone2: z.string().optional(),
-		address: z.string().optional(),
+		email: z.string().email(),
 		role: staffRoleSchema.default("Teacher"),
-		sendInvite: z.boolean().default(false),
-		classRoomDepartmentIds: z.array(z.string()).default([]),
-		departmentSubjectIds: z.array(z.string()).default([]),
+		assignments: z
+			.array(
+				z.object({
+					classRoomDepartmentId: z.string().min(1),
+					departmentSubjectIds: z.array(z.string()).default([]),
+				}),
+			)
+			.default([]),
 	})
 	.superRefine((value, ctx) => {
-		if (value.sendInvite && !value.email) {
+		if (!value.email) {
 			ctx.addIssue({
 				code: "custom",
-				message: "Email is required to send an invite.",
+				message: "Email is required to send an onboarding invite.",
 				path: ["email"],
 			});
 		}
+
+		if (value.role === "Teacher" && !value.assignments.length) {
+			ctx.addIssue({
+				code: "custom",
+				message: "Assign at least one classroom for teachers.",
+				path: ["assignments"],
+			});
+		}
+
+		value.assignments.forEach((assignment, index) => {
+			if (value.role === "Teacher" && !assignment.departmentSubjectIds.length) {
+				ctx.addIssue({
+					code: "custom",
+					message: "Select at least one subject for each classroom.",
+					path: ["assignments", index, "departmentSubjectIds"],
+				});
+			}
+		});
 	});
+
+export const completeStaffOnboardingSchema = z.object({
+	staffId: z.string(),
+	email: z.string().email(),
+	name: z.string().min(1),
+	title: z.string().optional(),
+	phone: z.string().optional(),
+	phone2: z.string().optional(),
+	address: z.string().optional(),
+});
 export const createSubjectSchema = z.object({
 	title: z.string(),
 	// description: z.string().optional(),
@@ -129,11 +157,18 @@ export const createBillableSchema = z.object({
 	classroomDepartmentIds: z.array(z.string()).default([]),
 });
 export const createClassroomSchema = z.object({
+	classRoomId: z.string().optional().nullable(),
 	className: z.string().min(1),
+	classLevel: z.number().optional().nullable(),
+	hasSubClass: z.boolean().default(false),
+	progressionMode: z
+		.enum(["classroom", "department"])
+		.default("classroom"),
 	departments: z
 		.array(
 			z
 				.object({
+					id: z.string().optional().nullable(),
 					name: z.string(),
 					departmentLevel: z.number().optional().nullable(),
 				})

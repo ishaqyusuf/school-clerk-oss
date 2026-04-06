@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo } from "react";
 import { useStudentReportFilterParams } from "./use-student-report-filter-params";
 import { _trpc } from "@/components/static-trpc";
 import { useQuery, useQueries } from "@tanstack/react-query";
-import { enToAr, sum } from "@school-clerk/utils";
+import { classroomDisplayName, enToAr, sum } from "@school-clerk/utils";
 import { getResultComment } from "@api/db/queries/first-term-data";
 import { subjectsArray } from "@/app/dashboard/[domain]/migration/constants";
 
@@ -14,7 +14,7 @@ export const createReportPageContext = (defaultTermId?: string) => {
   const { filters } = useStudentReportFilterParams();
   // Use the URL param when present; fall back to the cookie term from the
   // server so queries fire immediately on first render without a round-trip.
-  const effectiveTermId = defaultTermId ?? null;
+  const effectiveTermId = filters.termId ?? defaultTermId ?? null;
 
   // Collect all department IDs to load:
   // current department + any that have been activated via multi-class selection
@@ -64,6 +64,11 @@ export const createReportPageContext = (defaultTermId?: string) => {
       sessionTermId: effectiveTermId,
     }),
   );
+  const normalizedClassroomName = classroomDisplayName({
+    className: classRooms?.data?.find((room) => room.id === filters.departmentId)?.classRoom
+      ?.name,
+    departmentName: reportData?.departmentName,
+  });
 
   // Build combined reportsById from all loaded departments
   const calculatedReport = useMemo(() => {
@@ -167,7 +172,12 @@ export const createReportPageContext = (defaultTermId?: string) => {
           return {
             termFormId: tf.id,
             departmentId: tf.classroomDepartmentId,
-            departmentName: data.departmentName,
+            departmentName: classroomDisplayName({
+              className: classRooms?.data?.find(
+                (room) => room.id === tf.classroomDepartmentId,
+              )?.classRoom?.name,
+              departmentName: data.departmentName,
+            }),
             tables: Object.values(tables),
             lineCount: rowsCount,
             grade,
@@ -206,10 +216,10 @@ export const createReportPageContext = (defaultTermId?: string) => {
         allStudents.map((student) => [student.termFormId, student]),
       ),
     };
-  }, [deptQueries]);
+  }, [classRooms?.data, deptQueries]);
 
   return {
-    classroomName: reportData?.departmentName,
+    classroomName: normalizedClassroomName,
     termForms: reportData?.studentTermForms,
     allTermForms,
     reportsById: calculatedReport?.reportsById,

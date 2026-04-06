@@ -73,12 +73,12 @@ function Content({
 		<>
 			<SheetHeader>
 				<SheetTitle className="flex items-center gap-3">
-					<span>{data.staff.name}</span>
+					<span>{data.staff.name || data.staff.email}</span>
 					<Badge variant="outline">{data.staff.role}</Badge>
 				</SheetTitle>
 				<SheetDescription>
-					Manage classroom access, subject permissions, and onboarding details
-					for this staff member.
+					Manage role access, classroom assignments, and onboarding details for
+					this staff member.
 				</SheetDescription>
 			</SheetHeader>
 			<CustomSheetContent className="flex flex-col gap-2">

@@ -3,15 +3,77 @@
 import { staffChanged } from "@/actions/cache/cache-control";
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { actionClient } from "@/actions/safe-action";
-import { createStaffSchema } from "@/actions/schema";
+import {
+	completeStaffOnboardingSchema,
+	createStaffSchema,
+	staffRoleSchema,
+} from "@/actions/schema";
 import { auth } from "@/auth/server";
 import { headers } from "next/headers";
+import { z } from "zod";
 
 import { prisma } from "@school-clerk/db";
+import {
+	STAFF_ASSIGNMENT_ROLES,
+	type StaffInviteStatus,
+} from "@school-clerk/utils/constants";
 
 function emptyToUndefined(value?: string | null) {
 	const normalized = value?.trim();
 	return normalized ? normalized : undefined;
+}
+
+function normalizeEmail(email: string) {
+	return email.trim().toLowerCase();
+}
+
+function roleSupportsAssignments(role: string) {
+	return STAFF_ASSIGNMENT_ROLES.includes(
+		role as (typeof STAFF_ASSIGNMENT_ROLES)[number],
+	);
+}
+
+function buildPendingStaffName(email: string) {
+	const localPart = email.split("@")[0] ?? "staff";
+	const formatted = localPart
+		.replace(/[._-]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+
+	if (!formatted) {
+		return "Pending staff";
+	}
+
+	return formatted.replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function dedupeAssignments(
+	assignments: Array<{
+		classRoomDepartmentId: string;
+		departmentSubjectIds: string[];
+	}>,
+) {
+	const map = new Map<string, Set<string>>();
+
+	for (const assignment of assignments) {
+		const classroomId = assignment.classRoomDepartmentId?.trim();
+		if (!classroomId) continue;
+
+		const subjects = map.get(classroomId) ?? new Set<string>();
+		for (const subjectId of assignment.departmentSubjectIds ?? []) {
+			if (subjectId?.trim()) {
+				subjects.add(subjectId);
+			}
+		}
+		map.set(classroomId, subjects);
+	}
+
+	return Array.from(map.entries()).map(
+		([classRoomDepartmentId, departmentSubjectIds]) => ({
+			classRoomDepartmentId,
+			departmentSubjectIds: Array.from(departmentSubjectIds),
+		}),
+	);
 }
 
 async function getCurrentOrigin() {
@@ -25,118 +87,225 @@ async function getCurrentOrigin() {
 	return `${proto}://${host}`;
 }
 
+async function sendOnboardingInvite({
+	email,
+	staffId,
+}: {
+	email: string;
+	staffId: string;
+}) {
+	const currentOrigin = await getCurrentOrigin();
+	const requestHeaders = new Headers(await headers());
+	requestHeaders.set("origin", currentOrigin);
+
+	const redirectTo = new URL(`${currentOrigin}/reset-password`);
+	redirectTo.searchParams.set("onboarding", "1");
+	redirectTo.searchParams.set("staffId", staffId);
+	redirectTo.searchParams.set("email", email);
+
+	await auth.api.requestPasswordReset({
+		body: {
+			email,
+			redirectTo: redirectTo.toString(),
+		},
+		headers: requestHeaders,
+	});
+}
+
+function inviteErrorMessage(error: unknown) {
+	return error instanceof Error
+		? error.message
+		: "Failed to send onboarding email. Please verify the email address and try again.";
+}
+
+async function syncInviteState({
+	staffId,
+	status,
+	error,
+	resent,
+}: {
+	staffId: string;
+	status: StaffInviteStatus;
+	error?: string | null;
+	resent?: boolean;
+}) {
+	const now = new Date();
+	await prisma.staffProfile.update({
+		where: {
+			id: staffId,
+		},
+		data: {
+			inviteStatus: status,
+			inviteSentAt: status === "PENDING" ? now : undefined,
+			inviteResentAt: resent ? now : undefined,
+			lastInviteError: error ?? null,
+		},
+	});
+}
+
+async function getSchoolContext() {
+	const profile = await getAuthCookie();
+
+	if (!profile.schoolId || !profile.sessionId || !profile.termId) {
+		throw new Error("Missing active school session context.");
+	}
+
+	const school = await prisma.schoolProfile.findUnique({
+		where: {
+			id: profile.schoolId,
+		},
+		select: {
+			id: true,
+			accountId: true,
+		},
+	});
+
+	if (!school) {
+		throw new Error("School not found.");
+	}
+
+	return {
+		profile,
+		school,
+	};
+}
+
 export const saveStaffAction = actionClient
 	.schema(createStaffSchema)
 	.action(async ({ parsedInput }) => {
-		const profile = await getAuthCookie();
+		const { profile, school } = await getSchoolContext();
 
-		if (!profile.schoolId || !profile.sessionId || !profile.termId) {
-			throw new Error("Missing active school session context.");
-		}
-
-		const school = await prisma.schoolProfile.findUnique({
-			where: {
-				id: profile.schoolId,
-			},
-			select: {
-				id: true,
-				accountId: true,
-			},
-		});
-
-		if (!school) {
-			throw new Error("School not found.");
-		}
-
-		const payload = {
-			...parsedInput,
-			email: emptyToUndefined(parsedInput.email),
-			phone: emptyToUndefined(parsedInput.phone),
-			phone2: emptyToUndefined(parsedInput.phone2),
-			address: emptyToUndefined(parsedInput.address),
-			classRoomDepartmentIds: [...new Set(parsedInput.classRoomDepartmentIds)],
-			departmentSubjectIds: [...new Set(parsedInput.departmentSubjectIds)],
-		};
+		const email = normalizeEmail(parsedInput.email);
+		const assignments = roleSupportsAssignments(parsedInput.role)
+			? dedupeAssignments(parsedInput.assignments)
+			: [];
 
 		const savedStaff = await prisma.$transaction(async (tx) => {
-			if (payload.staffId) {
-				const existingStaff = await tx.staffProfile.findFirst({
-					where: {
-						id: payload.staffId,
-						schoolProfileId: profile.schoolId,
-						deletedAt: null,
-					},
-					select: {
-						id: true,
-					},
-				});
+			const existingStaff = parsedInput.staffId
+				? await tx.staffProfile.findFirst({
+						where: {
+							id: parsedInput.staffId,
+							schoolProfileId: profile.schoolId,
+							deletedAt: null,
+						},
+						select: {
+							id: true,
+							email: true,
+							name: true,
+							inviteStatus: true,
+						},
+					})
+				: null;
 
-				if (!existingStaff) {
-					throw new Error("Staff record not found.");
+			if (parsedInput.staffId && !existingStaff) {
+				throw new Error("Staff record not found.");
+			}
+
+			const requestedClassroomIds = assignments.map(
+				(item) => item.classRoomDepartmentId,
+			);
+			const requestedSubjectIds = assignments.flatMap(
+				(item) => item.departmentSubjectIds,
+			);
+
+			const [validClassrooms, validSubjects] = await Promise.all([
+				requestedClassroomIds.length
+					? tx.classRoomDepartment.findMany({
+							where: {
+								id: {
+									in: requestedClassroomIds,
+								},
+								deletedAt: null,
+								schoolProfileId: profile.schoolId,
+								classRoom: {
+									schoolSessionId: profile.sessionId,
+									deletedAt: null,
+								},
+							},
+							select: {
+								id: true,
+							},
+						})
+					: Promise.resolve([]),
+				requestedSubjectIds.length
+					? tx.departmentSubject.findMany({
+							where: {
+								id: {
+									in: requestedSubjectIds,
+								},
+								deletedAt: null,
+								sessionTermId: profile.termId,
+								classRoomDepartment: {
+									deletedAt: null,
+									schoolProfileId: profile.schoolId,
+								},
+							},
+							select: {
+								id: true,
+								classRoomDepartmentId: true,
+							},
+						})
+					: Promise.resolve([]),
+			]);
+
+			if (validClassrooms.length !== requestedClassroomIds.length) {
+				throw new Error("One or more selected classrooms are no longer valid.");
+			}
+
+			if (validSubjects.length !== requestedSubjectIds.length) {
+				throw new Error("One or more selected subjects are no longer valid.");
+			}
+
+			const subjectToClassroom = new Map(
+				validSubjects.map((subject) => [
+					subject.id,
+					subject.classRoomDepartmentId,
+				]),
+			);
+
+			for (const assignment of assignments) {
+				for (const subjectId of assignment.departmentSubjectIds) {
+					if (
+						subjectToClassroom.get(subjectId) !==
+						assignment.classRoomDepartmentId
+					) {
+						throw new Error(
+							"Subjects must belong to the selected classroom assignment.",
+						);
+					}
 				}
 			}
 
-			const [validClassroomIds, validSubjectIds] = await Promise.all([
-				tx.classRoomDepartment.findMany({
-					where: {
-						id: {
-							in: payload.classRoomDepartmentIds,
-						},
-						deletedAt: null,
-						schoolProfileId: profile.schoolId,
-						classRoom: {
-							schoolSessionId: profile.sessionId,
-							deletedAt: null,
-						},
-					},
-					select: {
-						id: true,
-					},
-				}),
-				tx.departmentSubject.findMany({
-					where: {
-						id: {
-							in: payload.departmentSubjectIds,
-						},
-						deletedAt: null,
-						sessionTermId: profile.termId,
-						classRoomDepartment: {
-							deletedAt: null,
-							schoolProfileId: profile.schoolId,
-						},
-					},
-					select: {
-						id: true,
-					},
-				}),
-			]);
+			const resolvedName =
+				existingStaff?.name?.trim() || buildPendingStaffName(email);
+			const emailChanged =
+				Boolean(existingStaff?.email) && existingStaff?.email !== email;
+			const shouldSendInvite =
+				!existingStaff ||
+				emailChanged ||
+				existingStaff.inviteStatus === "NOT_SENT" ||
+				existingStaff.inviteStatus === "FAILED";
 
-			const classroomIds = validClassroomIds.map((item) => item.id);
-			const subjectIds = validSubjectIds.map((item) => item.id);
-
-			const staffProfile = payload.staffId
+			const staffProfile = existingStaff
 				? await tx.staffProfile.update({
 						where: {
-							id: payload.staffId,
+							id: existingStaff.id,
 						},
 						data: {
-							title: payload.title,
-							name: payload.name,
-							email: payload.email,
-							phone: payload.phone,
-							phone2: payload.phone2,
-							address: payload.address,
+							email,
+							name: resolvedName,
+							inviteStatus: shouldSendInvite
+								? "PENDING"
+								: existingStaff.inviteStatus,
+							onboardedAt: emailChanged ? null : undefined,
 						},
 					})
 				: await tx.staffProfile.create({
 						data: {
-							title: payload.title,
-							name: payload.name,
-							email: payload.email,
-							phone: payload.phone,
-							phone2: payload.phone2,
-							address: payload.address,
+							email,
+							name: resolvedName,
 							schoolProfileId: profile.schoolId,
+							inviteStatus: "PENDING",
 						},
 					});
 
@@ -173,9 +342,9 @@ export const saveStaffAction = actionClient
 				},
 			});
 
-			if (classroomIds.length) {
+			if (assignments.length) {
 				await tx.staffClassroomDepartmentTermProfiles.createMany({
-					data: classroomIds.map((classRoomDepartmentId) => ({
+					data: assignments.map(({ classRoomDepartmentId }) => ({
 						staffTermProfileId: termProfile.id,
 						classRoomDepartmentId,
 					})),
@@ -195,77 +364,88 @@ export const saveStaffAction = actionClient
 				},
 			});
 
-			if (subjectIds.length) {
+			if (requestedSubjectIds.length) {
 				await tx.staffSubject.createMany({
-					data: subjectIds.map((departmentSubjectId) => ({
+					data: requestedSubjectIds.map((departmentSubjectId) => ({
 						staffProfilesId: staffProfile.id,
 						departmentSubjectId,
 					})),
 				});
 			}
 
-			if (payload.email) {
-				const existingUser = await tx.user.findFirst({
+			const existingUser = await tx.user.findFirst({
+				where: {
+					saasAccountId: school.accountId,
+					deletedAt: null,
+					OR: [
+						{
+							email,
+						},
+						...(existingStaff?.email
+							? [
+									{
+										email: existingStaff.email,
+									},
+								]
+							: []),
+					],
+				},
+				select: {
+					id: true,
+				},
+			});
+
+			if (existingUser) {
+				await tx.user.update({
 					where: {
-						email: payload.email,
-						saasAccountId: school.accountId,
-						deletedAt: null,
+						id: existingUser.id,
 					},
-					select: {
-						id: true,
+					data: {
+						name: resolvedName,
+						email,
+						role: parsedInput.role,
 					},
 				});
-
-				if (existingUser) {
-					await tx.user.update({
-						where: {
-							id: existingUser.id,
-						},
-						data: {
-							name: payload.name,
-							role: payload.role,
-						},
-					});
-				} else {
-					await tx.user.create({
-						data: {
-							name: payload.name,
-							email: payload.email,
-							role: payload.role,
-							saasAccountId: school.accountId,
-						},
-					});
-				}
+			} else {
+				await tx.user.create({
+					data: {
+						name: resolvedName,
+						email,
+						role: parsedInput.role,
+						saasAccountId: school.accountId,
+					},
+				});
 			}
 
 			return {
 				id: staffProfile.id,
+				email,
+				shouldSendInvite,
 			};
 		});
 
 		let invited = false;
 		let inviteError: string | null = null;
 
-		if (payload.sendInvite && payload.email) {
+		if (savedStaff.shouldSendInvite) {
 			try {
-				const currentOrigin = await getCurrentOrigin();
-				const requestHeaders = new Headers(await headers());
-				requestHeaders.set("origin", currentOrigin);
-
-				await auth.api.requestPasswordReset({
-					body: {
-						email: payload.email,
-						redirectTo: `${currentOrigin}/reset-password`,
-					},
-					headers: requestHeaders,
+				await sendOnboardingInvite({
+					email: savedStaff.email,
+					staffId: savedStaff.id,
 				});
 				invited = true;
+				await syncInviteState({
+					staffId: savedStaff.id,
+					status: "PENDING",
+				});
 			} catch (error) {
 				console.error("[staff-invite] Failed to send invite email", error);
-				inviteError =
-					error instanceof Error
-						? error.message
-						: "Failed to send invite email. Please verify the email address and try again.";
+				inviteError = inviteErrorMessage(error);
+				await syncInviteState({
+					staffId: savedStaff.id,
+					status: "FAILED",
+					error: inviteError,
+				});
 			}
 		}
 
@@ -275,5 +455,144 @@ export const saveStaffAction = actionClient
 			invited,
 			inviteError,
 			staffId: savedStaff.id,
+		};
+	});
+
+export const resendStaffOnboardingAction = actionClient
+	.schema(
+		z.object({
+			staffId: z.string(),
+		}),
+	)
+	.action(async ({ parsedInput }) => {
+		const { profile, school } = await getSchoolContext();
+
+		const staff = await prisma.staffProfile.findFirst({
+			where: {
+				id: parsedInput.staffId,
+				schoolProfileId: profile.schoolId,
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+				email: true,
+				onboardedAt: true,
+			},
+		});
+
+		if (!staff?.email) {
+			throw new Error("This staff member does not have an onboarding email.");
+		}
+
+		if (staff.onboardedAt) {
+			throw new Error("This staff member has already completed onboarding.");
+		}
+
+		const user = await prisma.user.findFirst({
+			where: {
+				email: staff.email,
+				saasAccountId: school.accountId,
+				deletedAt: null,
+			},
+			select: {
+				role: true,
+			},
+		});
+
+		staffRoleSchema.parse(user?.role ?? "Teacher");
+
+		try {
+			await sendOnboardingInvite({
+				email: staff.email,
+				staffId: staff.id,
+			});
+			await syncInviteState({
+				staffId: staff.id,
+				status: "PENDING",
+				resent: true,
+			});
+			staffChanged();
+			return {
+				invited: true,
+			};
+		} catch (error) {
+			console.error("[staff-invite] Failed to resend invite email", error);
+			const message = inviteErrorMessage(error);
+			await syncInviteState({
+				staffId: staff.id,
+				status: "FAILED",
+				error: message,
+				resent: true,
+			});
+			throw new Error(message);
+		}
+	});
+
+export const completeStaffOnboardingAction = actionClient
+	.schema(completeStaffOnboardingSchema)
+	.action(async ({ parsedInput }) => {
+		const payload = {
+			...parsedInput,
+			title: emptyToUndefined(parsedInput.title),
+			phone: emptyToUndefined(parsedInput.phone),
+			phone2: emptyToUndefined(parsedInput.phone2),
+			address: emptyToUndefined(parsedInput.address),
+		};
+
+		const staff = await prisma.staffProfile.findFirst({
+			where: {
+				id: payload.staffId,
+				email: payload.email,
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+				schoolProfile: {
+					select: {
+						accountId: true,
+					},
+				},
+			},
+		});
+
+		if (!staff) {
+			throw new Error("This onboarding link no longer matches a staff record.");
+		}
+
+		await prisma.$transaction(async (tx) => {
+			await tx.staffProfile.update({
+				where: {
+					id: staff.id,
+				},
+				data: {
+					name: payload.name.trim(),
+					title: payload.title,
+					phone: payload.phone,
+					phone2: payload.phone2,
+					address: payload.address,
+					inviteStatus: "ACTIVE",
+					onboardedAt: new Date(),
+					lastInviteError: null,
+				},
+			});
+
+			await tx.user.updateMany({
+				where: {
+					email: payload.email,
+					saasAccountId: staff.schoolProfile?.accountId,
+					deletedAt: null,
+				},
+				data: {
+					name: payload.name.trim(),
+					emailVerified: true,
+				},
+			});
+		});
+
+		staffChanged();
+
+		return {
+			staffId: staff.id,
+			completed: true,
 		};
 	});

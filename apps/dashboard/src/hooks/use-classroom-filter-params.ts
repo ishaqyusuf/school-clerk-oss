@@ -8,6 +8,7 @@ type FilterKeys = keyof Exclude<
 
 export const classroomFilterParams = {
   q: parseAsString,
+  view: parseAsString.withDefault("stream"),
 } satisfies Partial<Record<FilterKeys, any>>;
 
 export function useClassroomFilterParams() {

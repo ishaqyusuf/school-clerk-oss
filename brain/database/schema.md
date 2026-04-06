@@ -36,6 +36,22 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 - `Students`, `StudentSessionForm`, `StudentTermForm`
 - `StaffProfile`, `StaffTermProfile`, `StaffClassroomDepartmentTermProfiles`, `StaffSubject`
 
+### StaffProfile (updated — session 2026-04)
+| Field | Type | Notes |
+|-------|------|-------|
+| `name` | String | Placeholder display name is derived from email until onboarding is completed |
+| `email` | String? | Required by the current invite-first staff admin flow |
+| `inviteStatus` | String? | `NOT_SENT`, `PENDING`, `ACTIVE`, `FAILED` |
+| `inviteSentAt` | DateTime? | Latest onboarding email send timestamp |
+| `inviteResentAt` | DateTime? | Latest resend timestamp |
+| `lastInviteError` | String? | Last delivery failure message for admin follow-up |
+| `onboardedAt` | DateTime? | Timestamp set after staff completes password + profile onboarding |
+
+### Staff Assignment Shape (updated — session 2026-04)
+- Admin-side staff creation is now invite-first: email + role + teaching assignments.
+- Teaching assignments are modeled as repeated classroom entries, each with multiple term-scoped `DepartmentSubject` selections.
+- Only teacher-role staff should receive classroom and subject assignment payloads; non-teaching roles persist with empty assignment sets.
+
 ## Attendance and Assessment
 - `ClassRoomAttendance`, `StudentAttendance`
 - `ClassroomSubjectAssessment`, `StudentAssessmentRecord`

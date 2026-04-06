@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import { classroomDisplayName } from "@school-clerk/utils";
 import {
 	dispatchSchoolNotification,
 	getCurrentUserContext,
@@ -78,16 +79,10 @@ function getDepartmentName(
 	} | null,
 ) {
 	if (!department) return null;
-	if (
-		department.departmentName &&
-		department.classRoom?.name &&
-		department.departmentName.includes(department.classRoom.name)
-	) {
-		return department.departmentName;
-	}
-	return [department.classRoom?.name, department.departmentName]
-		.filter(Boolean)
-		.join(" ");
+	return classroomDisplayName({
+		className: department.classRoom?.name,
+		departmentName: department.departmentName,
+	});
 }
 
 function formatNaira(amount: number) {

@@ -8,15 +8,17 @@ import { Separator } from "@school-clerk/ui/separator";
 import { Fragment } from "react";
 import { ThemeSwitch } from "./theme-switch";
 import { ExternalLinkIcon } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { _trpc } from "./static-trpc";
 import { Menu } from "@school-clerk/ui/custom/menu";
 
 export function StudentReportFilter() {
   const { setFilters, filters } = useStudentReportFilterParams();
   const ctx = useReportPageContext();
+  const trpc = _trpc!;
+  const { data: terms } = useQuery(trpc.academics.getReportTerms.queryOptions());
   const { mutate: deleteTermForm, isPending: isDeleting } = useMutation(
-    _trpc.students.deleteTermSheet.mutationOptions({
+    trpc.students.deleteTermSheet.mutationOptions({
       onSuccess(data, variables, onMutateResult, context) {},
       onError(error, variables, onMutateResult, context) {},
       meta: {
@@ -80,6 +82,32 @@ export function StudentReportFilter() {
       </div>
       <Field.Group>
         <Field>
+          <Field.Label>Term</Field.Label>
+          <Select
+            value={filters.termId}
+            onValueChange={(e) => {
+              const nextTermId = e || null;
+              setFilters({
+                termId: nextTermId,
+                departmentId: null,
+                printOrder: [],
+                activeDepts: [],
+              });
+            }}
+          >
+            <Select.Trigger>
+              <Select.Value placeholder="Select term" />
+            </Select.Trigger>
+            <Select.Content>
+              {terms?.map((term) => (
+                <Select.Item value={term.id} key={term.id}>
+                  {term.label}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select>
+        </Field>
+        <Field>
           <Field.Label>Classroom</Field.Label>
           <Select
             dir="rtl"
@@ -89,12 +117,12 @@ export function StudentReportFilter() {
             }}
           >
             <Select.Trigger>
-              <Select.Value />
+              <Select.Value placeholder="Select classroom" />
             </Select.Trigger>
             <Select.Content>
               {ctx?.classRooms?.map((c) => (
                 <Select.Item value={c?.id} key={c?.id}>
-                  {c?.departmentName}
+                  {c?.displayName ?? c?.departmentName}
                 </Select.Item>
               ))}
             </Select.Content>

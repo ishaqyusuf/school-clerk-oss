@@ -13,6 +13,7 @@ import {
   subWeeks,
 } from "date-fns";
 import util from "util";
+export * from "./classroom-name";
 export function stripSpecialCharacters(inputString: string) {
   // Remove special characters and spaces, keep alphanumeric, hyphens/underscores, and dots
   return inputString

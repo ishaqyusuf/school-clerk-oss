@@ -9,7 +9,6 @@ export const studentReportFilterParams = {
 	// departments that have been visited / have selected students — we load data for all of them
 	activeDepts: parseAsArrayOf(parseAsString),
 	tab: parseAsStringEnum(["print", "classroom-results"]).withDefault("print"),
-	classroomLayout: parseAsStringEnum(["ltr", "rtl"]).withDefault("ltr"),
 };
 
 export function useStudentReportFilterParams() {

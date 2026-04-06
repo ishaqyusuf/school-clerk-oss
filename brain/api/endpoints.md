@@ -64,3 +64,12 @@ Catalog of API routes and responsibilities.
 - `trpc.notifications.unreadCount`
 - `trpc.notifications.markRead`
 - `trpc.notifications.markAllRead`
+
+### Staff Management
+- `trpc.staff.getStaffList`
+- `trpc.staff.getFormData`
+- `trpc.staff.createStaff`
+- `trpc.staff.deleteStaff`
+- `action.saveStaffAction`
+- `action.resendStaffOnboardingAction`
+- `action.completeStaffOnboardingAction`

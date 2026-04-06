@@ -28,21 +28,21 @@ export function PromotionQuickLink() {
 			disabled={!isEnabled}
 			title={
 				isEnabled
-					? "Open promotion"
-					: "Promotion is available only in the first term of the session"
+					? "Open student progression"
+					: "Student progression is available only in the first term of the session"
 			}
 		>
 			{isEnabled ? (
 				<Link
-					href={`/academic/promotion/${promotionIds.lastTermId}/${promotionIds.firstTermId}`}
+					href={`/academic/progression/${promotionIds.lastTermId}/${promotionIds.firstTermId}`}
 				>
 					<ArrowUpCircle className="h-5 w-5" />
-					<span className="text-sm font-medium">Promotion</span>
+					<span className="text-sm font-medium">Progression</span>
 				</Link>
 			) : (
 				<span>
 					<ArrowUpCircle className="h-5 w-5" />
-					<span className="text-sm font-medium">Promotion</span>
+					<span className="text-sm font-medium">Progression</span>
 				</span>
 			)}
 		</Button>

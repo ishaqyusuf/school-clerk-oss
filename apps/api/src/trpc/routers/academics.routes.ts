@@ -11,6 +11,7 @@ import {
 import {
   entrollStudentToTerm,
   entrollStudentToTermSchema,
+  studentDisplayName,
 } from "@api/db/queries/enrollment-query";
 import {
   getClassroomDepartments,
@@ -26,7 +27,7 @@ import {
   sub,
   subDays,
 } from "date-fns";
-import { consoleLog } from "@school-clerk/utils";
+import { classroomDisplayName, consoleLog } from "@school-clerk/utils";
 
 const previewApplicableFeeHistoriesSchema = z.object({
   sessionTermId: z.string(),
@@ -34,6 +35,46 @@ const previewApplicableFeeHistoriesSchema = z.object({
 });
 
 export const academicsRouter = createTRPCRouter({
+  getReportTerms: publicProcedure.input(z.object({}).optional()).query(async ({ ctx }) => {
+    const terms = await ctx.db.sessionTerm.findMany({
+      where: {
+        schoolId: ctx.profile.schoolId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        startDate: true,
+        endDate: true,
+        session: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+      },
+      orderBy: [
+        {
+          startDate: {
+            sort: "desc",
+            nulls: "last",
+          },
+        },
+        {
+          createdAt: "desc",
+        },
+      ],
+    });
+
+    return terms.map((term) => ({
+      id: term.id,
+      title: term.title,
+      sessionTitle: term.session?.title ?? null,
+      label: [term.session?.title, term.title].filter(Boolean).join(" • "),
+      startDate: term.startDate,
+      endDate: term.endDate,
+    }));
+  }),
   dashboard: publicProcedure.input(z.object({})).query(async (props) => {
     const { ctx, input } = props;
     const db = ctx.db;
@@ -696,14 +737,15 @@ export const academicsRouter = createTRPCRouter({
           studentId: true,
           classroomDepartmentId: true,
           student: {
-            select: { id: true, name: true, surname: true },
+            select: { id: true, name: true, surname: true, otherName: true },
           },
           classroomDepartment: {
             select: {
+              classRoomsId: true,
               id: true,
               departmentName: true,
               departmentLevel: true,
-              classRoom: { select: { classLevel: true } },
+              classRoom: { select: { id: true, name: true, classLevel: true } },
             },
           },
           assessmentRecords: {
@@ -719,14 +761,26 @@ export const academicsRouter = createTRPCRouter({
           deletedAt: null,
           schoolProfileId: ctx.profile.schoolId,
         },
-        select: { studentId: true, id: true },
+        select: {
+          studentId: true,
+          id: true,
+          classroomDepartmentId: true,
+          classroomDepartment: {
+            select: {
+              classRoomsId: true,
+              departmentName: true,
+              departmentLevel: true,
+              classRoom: { select: { id: true, name: true, classLevel: true } },
+            },
+          },
+        },
       });
-      const promotedStudentIds = new Set(promotedForms.map((f) => f.studentId));
       const promotedFormMap = new Map(
-        promotedForms.map((f) => [f.studentId, f.id]),
+        promotedForms.map((f) => [f.studentId, f]),
       );
 
       const students = lastTermForms.map((form) => {
+        const targetForm = promotedFormMap.get(form.studentId!);
         const scores = form.assessmentRecords
           .map((r) => r.percentageScore)
           .filter((s): s is number => s !== null);
@@ -734,24 +788,125 @@ export const academicsRouter = createTRPCRouter({
           scores.length > 0
             ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
             : null;
+        const sourceClassLevel =
+          form.classroomDepartment?.classRoom?.classLevel ?? null;
+        const sourceDepartmentLevel =
+          form.classroomDepartment?.departmentLevel ?? null;
+        const targetClassLevel =
+          targetForm?.classroomDepartment?.classRoom?.classLevel ?? null;
+        const targetDepartmentLevel =
+          targetForm?.classroomDepartment?.departmentLevel ?? null;
+        const progressionStatus =
+          !targetForm
+            ? "undecided"
+            : targetClassLevel === sourceClassLevel &&
+                targetDepartmentLevel === sourceDepartmentLevel
+              ? "repeated"
+              : "promoted";
+
         return {
           termFormId: form.id,
           studentId: form.studentId!,
-          name: [form.student?.name, form.student?.surname]
-            .filter(Boolean)
-            .join(" "),
+          name: studentDisplayName(form.student),
           className: form.classroomDepartment?.departmentName ?? null,
+          classRoomId: form.classroomDepartment?.classRoom?.id ?? null,
+          classRoomName: form.classroomDepartment?.classRoom?.name ?? null,
           classroomDepartmentId: form.classroomDepartmentId!,
-          classLevel: form.classroomDepartment?.classRoom?.classLevel ?? null,
-          departmentLevel: form.classroomDepartment?.departmentLevel ?? null,
+          classLevel: sourceClassLevel,
+          departmentLevel: sourceDepartmentLevel,
           avgScore,
-          isPromoted: promotedStudentIds.has(form.studentId!),
-          firstTermFormId: promotedFormMap.get(form.studentId!) ?? null,
+          isPromoted: !!targetForm,
+          progressionStatus,
+          firstTermFormId: targetForm?.id ?? null,
+          targetClassroomDepartmentId: targetForm?.classroomDepartmentId ?? null,
+          targetClassName: targetForm?.classroomDepartment?.departmentName ?? null,
+          targetClassLevel,
+          targetDepartmentLevel,
         };
       });
 
       return {
         students,
+        meta: {
+          fromTerm: lastTerm?.title ?? null,
+          fromSession: lastTerm?.session?.title ?? null,
+          toTerm: firstTerm?.title ?? null,
+          toSession: firstTerm?.session?.title ?? null,
+        },
+      };
+    }),
+  getPromotionClassrooms: publicProcedure
+    .input(
+      z.object({
+        lastTermId: z.string(),
+        firstTermId: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const db = ctx.db;
+
+      const [lastTerm, firstTerm, classroomForms] = await Promise.all([
+        db.sessionTerm.findFirst({
+          where: { id: input.lastTermId },
+          select: { title: true, session: { select: { title: true } } },
+        }),
+        db.sessionTerm.findFirst({
+          where: { id: input.firstTermId },
+          select: { title: true, session: { select: { title: true } } },
+        }),
+        db.studentTermForm.findMany({
+          where: {
+            sessionTermId: input.lastTermId,
+            deletedAt: null,
+            schoolProfileId: ctx.profile.schoolId,
+          },
+          select: {
+            classroomDepartmentId: true,
+            classroomDepartment: {
+              select: {
+                classRoomsId: true,
+                departmentName: true,
+                departmentLevel: true,
+                classRoom: { select: { id: true, name: true, classLevel: true } },
+              },
+            },
+          },
+          distinct: ["classroomDepartmentId"],
+        }),
+      ]);
+
+      const classrooms = classroomForms
+        .filter((form) => form.classroomDepartmentId)
+        .map((form) => ({
+          id: form.classroomDepartmentId!,
+          classRoomId:
+            form.classroomDepartment?.classRoom?.id ??
+            form.classroomDepartment?.classRoomsId ??
+            form.classroomDepartmentId!,
+          classRoomName:
+            form.classroomDepartment?.classRoom?.name ??
+            form.classroomDepartment?.departmentName ??
+            form.classroomDepartmentId!,
+          name: classroomDisplayName({
+            className: form.classroomDepartment?.classRoom?.name,
+            departmentName:
+              form.classroomDepartment?.departmentName ??
+              form.classroomDepartmentId!,
+          }),
+          departmentName:
+            form.classroomDepartment?.departmentName ??
+            form.classroomDepartmentId!,
+          classLevel: form.classroomDepartment?.classRoom?.classLevel ?? null,
+          departmentLevel: form.classroomDepartment?.departmentLevel ?? null,
+        }))
+        .sort((a, b) => {
+          const classLevelOrder = (a.classLevel ?? 9999) - (b.classLevel ?? 9999);
+          if (classLevelOrder !== 0) return classLevelOrder;
+          return (a.departmentLevel ?? 9999) - (b.departmentLevel ?? 9999);
+        });
+
+      return {
+        classrooms,
         meta: {
           fromTerm: lastTerm?.title ?? null,
           fromSession: lastTerm?.session?.title ?? null,
@@ -811,6 +966,7 @@ export const academicsRouter = createTRPCRouter({
         studentIds: z.array(z.string()),
         fromTermId: z.string(),
         toTermId: z.string(),
+        mode: z.enum(["promote", "repeat"]).default("promote"),
         toClassroomDepartmentId: z.string().optional().nullable(),
       }),
     )
@@ -886,22 +1042,22 @@ export const academicsRouter = createTRPCRouter({
             });
           }
         }
-        return { promoted: sourceTermForms.length };
+        return { promoted: sourceTermForms.length, mode: input.mode };
       });
     }),
   reversePromotion: publicProcedure
-    .input(z.object({ studentId: z.string(), termId: z.string() }))
+    .input(z.object({ studentIds: z.array(z.string()), termId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const db = ctx.db;
-      await db.studentTermForm.updateMany({
+      const result = await db.studentTermForm.updateMany({
         where: {
-          studentId: input.studentId,
+          studentId: { in: input.studentIds },
           sessionTermId: input.termId,
           deletedAt: null,
           schoolProfileId: ctx.profile.schoolId,
         },
         data: { deletedAt: new Date() },
       });
-      return { success: true };
+      return { success: true, reversed: result.count };
     }),
 });

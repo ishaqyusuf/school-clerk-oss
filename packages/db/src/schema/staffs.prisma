@@ -1,12 +1,17 @@
 model StaffProfile {
-    id       String  @id @default(uuid())
-    name     String
-    title    String?
-    email    String?
-    password String?
-    phone    String?
-    phone2   String?
-    address  String?
+    id              String    @id @default(uuid())
+    name            String
+    title           String?
+    email           String?
+    password        String?
+    phone           String?
+    phone2          String?
+    address         String?
+    inviteStatus    String?   @default("NOT_SENT")
+    inviteSentAt    DateTime? @db.Timestamp(0)
+    inviteResentAt  DateTime? @db.Timestamp(0)
+    lastInviteError String?
+    onboardedAt     DateTime? @db.Timestamp(0)
 
     classRoomAttendanceList ClassRoomAttendance[]
     schoolProfile           SchoolProfile?        @relation(fields: [schoolProfileId], references: [id])

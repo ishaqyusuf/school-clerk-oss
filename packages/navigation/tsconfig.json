@@ -1,0 +1,10 @@
+{
+  "extends": "@school-clerk/tsconfig/react-library.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "strict": false,
+    "noImplicitAny": false
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
+}

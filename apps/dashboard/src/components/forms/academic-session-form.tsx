@@ -102,7 +102,7 @@ export function AcademicSessionForm() {
             termTitle: firstTerm.title,
           });
           setParams(null);
-          router.push(`/academic/promotion/${lastTermId}/${firstTerm.id}`);
+          router.push(`/academic/progression/${lastTermId}/${firstTerm.id}`);
         } else {
           setParams(null);
         }

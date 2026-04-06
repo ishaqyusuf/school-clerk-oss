@@ -33,7 +33,13 @@ function PageTitleSync() {
   return null;
 }
 
-export function StudentReportView({ defaultTermId }: { defaultTermId: string }) {
+export function StudentReportView({
+  defaultTermId,
+  defaultClassroomLayout,
+}: {
+  defaultTermId: string;
+  defaultClassroomLayout: "ltr" | "rtl";
+}) {
   const { filters, setFilters } = useStudentReportFilterParams();
   const [menuOpened, setMenuOpened] = useState(false);
 
@@ -60,7 +66,11 @@ export function StudentReportView({ defaultTermId }: { defaultTermId: string }) 
             </Button>
           </div>
           <div className="flex flex-col flex-1">
-            <ReportContent filters={filters} setFilters={setFilters} />
+            <ReportContent
+              filters={filters}
+              setFilters={setFilters}
+              defaultClassroomLayout={defaultClassroomLayout}
+            />
           </div>
         </div>
         <div className="lg:hidden">
@@ -92,9 +102,11 @@ export function StudentReportView({ defaultTermId }: { defaultTermId: string }) 
 function ReportContent({
   filters,
   setFilters,
+  defaultClassroomLayout,
 }: {
   filters: ReturnType<typeof useStudentReportFilterParams>["filters"];
   setFilters: ReturnType<typeof useStudentReportFilterParams>["setFilters"];
+  defaultClassroomLayout: "ltr" | "rtl";
 }) {
   const ctx = useReportPageContext();
 
@@ -144,7 +156,7 @@ function ReportContent({
         </div>
       </TabsContent>
       <TabsContent value="classroom-results" className="flex-1 mt-0 p-4">
-        <ClassroomResultTable />
+        <ClassroomResultTable defaultClassroomLayout={defaultClassroomLayout} />
       </TabsContent>
     </Tabs>
   );
