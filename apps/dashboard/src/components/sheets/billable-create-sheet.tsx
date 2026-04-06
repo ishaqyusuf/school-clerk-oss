@@ -12,7 +12,7 @@ import { CustomSheet, CustomSheetContent } from "../custom-sheet-content";
 import { Form } from "../forms/billable-form";
 
 export function BillableCreateSheet() {
-	const { createTermBillable, setParams } = useTermBillableParams();
+	const { createTermBillable, billableId, setParams } = useTermBillableParams();
 	const isOpen = createTermBillable;
 	if (!isOpen) return null;
 
@@ -27,7 +27,11 @@ export function BillableCreateSheet() {
 				sheetName="billable"
 			>
 				<SheetHeader>
-					<SheetTitle>Create Service Billable</SheetTitle>
+					<SheetTitle>
+						{billableId
+							? "Service Billable Overview"
+							: "Create Service Billable"}
+					</SheetTitle>
 				</SheetHeader>
 				<CustomSheetContent className="flex flex-col gap-2">
 					<Form />

@@ -2,7 +2,9 @@
 
 import { NumberInput } from "@/components/currency-input";
 import { Badge } from "@school-clerk/ui/badge";
+import { Button } from "@school-clerk/ui/button";
 import type { ColumnDef } from "@tanstack/react-table";
+import { Eye, Trash2 } from "lucide-react";
 
 export type Item = {
 	id: string;
@@ -12,6 +14,12 @@ export type Item = {
 	streamName?: string | null;
 	classroomDepartments?: Array<{ id: string; name: string | null }>;
 };
+
+export type BillableTableMeta = {
+	onOpenBillable?: (billableId: string) => void;
+	onDeleteBillable?: (args: { billableId: string; title: string }) => void;
+};
+
 export const columns: ColumnDef<Item>[] = [
 	{
 		header: "Service Billable",
@@ -46,7 +54,7 @@ export const columns: ColumnDef<Item>[] = [
 			),
 	},
 	{
-		header: "Classrooms",
+		header: "Staff Classrooms",
 		accessorKey: "classroomDepartments",
 		cell: ({ row: { original: item } }) =>
 			item.classroomDepartments?.length ? (
@@ -62,11 +70,44 @@ export const columns: ColumnDef<Item>[] = [
 			),
 	},
 	{
+		id: "actions",
 		header: "",
-		accessorKey: "action",
 		meta: {
-			className: "",
+			className: "w-28",
 		},
-		cell: ({ row: { original: item } }) => <div />,
+		cell: ({ row, table }) => {
+			const item = row.original;
+			const meta = table.options.meta as BillableTableMeta | undefined;
+
+			return (
+				<div className="flex items-center justify-end gap-2">
+					<Button
+						size="icon"
+						variant="outline"
+						className="h-8 w-8"
+						onClick={(event) => {
+							event.stopPropagation();
+							meta?.onOpenBillable?.(item.id);
+						}}
+					>
+						<Eye className="h-4 w-4" />
+					</Button>
+					<Button
+						size="icon"
+						variant="outline"
+						className="h-8 w-8 text-destructive"
+						onClick={(event) => {
+							event.stopPropagation();
+							meta?.onDeleteBillable?.({
+								billableId: item.id,
+								title: item.title,
+							});
+						}}
+					>
+						<Trash2 className="h-4 w-4" />
+					</Button>
+				</div>
+			);
+		},
 	},
 ];

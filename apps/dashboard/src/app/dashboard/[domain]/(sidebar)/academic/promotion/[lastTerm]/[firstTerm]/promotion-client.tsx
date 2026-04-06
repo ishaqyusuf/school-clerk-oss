@@ -18,6 +18,8 @@ import {
   Printer,
   Trash2,
   AlertTriangle,
+  FileText,
+  PanelRightOpen,
 } from "lucide-react";
 
 import { Button } from "@school-clerk/ui/button";
@@ -51,6 +53,7 @@ import { Separator } from "@school-clerk/ui/separator";
 import { ScrollArea } from "@school-clerk/ui/scroll-area";
 
 import { useTRPC } from "@/trpc/client";
+import { useStudentParams } from "@/hooks/use-student-params";
 import { toast } from "@school-clerk/ui/use-toast";
 
 interface Props {
@@ -148,6 +151,7 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const { domain } = useParams<{ domain: string }>();
+  const { setParams: setStudentParams } = useStudentParams();
 
   const [sourceClassroomId, setSourceClassroomId] = useState<string | null>(
     null,
@@ -895,13 +899,50 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
                           </Badge>
                         ) : (
                           <Badge variant="warning">Pending</Badge>
-                        )}
-                      </TableCell>
+                          )}
+                        </TableCell>
                       <TableCell
                         className="text-right"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground"
+                            title="Open result"
+                            aria-label={`Open ${student.name}'s result`}
+                            onClick={() => {
+                              const params = new URLSearchParams({
+                                departmentId: sourceClassroomId ?? "",
+                                activeDepts: sourceClassroomId ?? "",
+                                termId: lastTermId,
+                                printOrder: student.termFormId,
+                                tab: "print",
+                                permission: "all",
+                              });
+                              window.open(`/student-report?${params}`, "_blank");
+                            }}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground"
+                            title="Open student overview"
+                            aria-label={`Open ${student.name}'s overview`}
+                            onClick={() =>
+                              setStudentParams({
+                                studentViewId: student.studentId,
+                                studentViewTab: "academics",
+                                studentViewTermId: lastTermId,
+                                studentTermSheetId: student.termFormId,
+                              })
+                            }
+                          >
+                            <PanelRightOpen className="h-4 w-4" />
+                          </Button>
                           {student.isPromoted ? (
                             <Button
                               variant="ghost"

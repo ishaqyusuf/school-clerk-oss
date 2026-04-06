@@ -15,7 +15,7 @@ import { CustomSheetContentPortal } from "../custom-sheet-content";
 import { SubmitButton } from "../submit-button";
 
 export function Form() {
-	const { setParams } = useTermBillableParams();
+	const { billableId, setParams } = useTermBillableParams();
 	const { control, handleSubmit, watch, setValue } = useBillableFormContext();
 	const trpc = useTRPC();
 	const qc = useQueryClient();
@@ -104,9 +104,9 @@ export function Form() {
 			<FormMultipleSelector
 				control={control}
 				name="classroomDepartmentIds"
-				label="Classroom departments"
+				label="Applicable Staff Classrooms"
 				options={classroomOptions}
-				placeholder="Leave empty to make this billable all-inclusive"
+				placeholder="Leave empty to make this billable available across staff classrooms"
 			/>
 			<CustomSheetContentPortal>
 				<form
@@ -114,7 +114,9 @@ export function Form() {
 					onSubmit={handleSubmit((data) => mutate(data))}
 				>
 					<div className="flex justify-end">
-						<SubmitButton isSubmitting={isPending}>Submit</SubmitButton>
+						<SubmitButton isSubmitting={isPending}>
+							{billableId ? "Update Billable" : "Create Billable"}
+						</SubmitButton>
 					</div>
 				</form>
 			</CustomSheetContentPortal>

@@ -168,7 +168,7 @@ export function FilterList({ loading, filterList, filters, onRemove }) {
         </div>
       )}
       {!loading &&
-        Object.entries(filters)
+        Object.entries(filters || {})
           .filter(([key, value]) => value !== null && key !== "end")
           .map(([key, value]) => {
             return (

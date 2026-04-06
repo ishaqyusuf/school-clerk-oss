@@ -1,21 +1,17 @@
-import {
-  parseAsBoolean,
-  parseAsString,
-  useQueryStates,
-} from "nuqs";
+import { parseAsBoolean, parseAsString, useQueryStates } from "nuqs";
+
+export const schoolFeeFilterParams = {
+	createSchoolFee: parseAsBoolean,
+	schoolFeeId: parseAsString,
+	importSchoolFee: parseAsBoolean,
+	search: parseAsString,
+};
 
 export function useSchoolFeeParams(options?: { shallow: boolean }) {
-  const [params, setParams] = useQueryStates(
-    {
-      createSchoolFee: parseAsBoolean,
-      schoolFeeId: parseAsString,
-      importSchoolFee: parseAsBoolean,
-    },
-    options
-  );
+	const [params, setParams] = useQueryStates(schoolFeeFilterParams, options);
 
-  return {
-    ...params,
-    setParams,
-  };
+	return {
+		...params,
+		setParams,
+	};
 }

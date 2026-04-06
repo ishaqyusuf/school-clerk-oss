@@ -1,11 +1,14 @@
-import { constructMetadata } from "@/utils/construct-metadata";
+import { buildTenantPageMetadata } from "@/utils/tenant-page-metadata";
 import { Client } from "./client";
 
-export async function generateMetadata() {
-  return constructMetadata({
-    title: `Forgot Password - GND Storefront`,
-  });
+export async function generateMetadata({ params }) {
+	const { domain } = await params;
+	return buildTenantPageMetadata({
+		domain,
+		pathname: "/reset-password",
+		noIndex: true,
+	});
 }
 export default async function Page() {
-  return <Client />;
+	return <Client />;
 }

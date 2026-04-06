@@ -235,7 +235,6 @@ function Content() {
 	const transactionCount = payments?.length ?? 0;
 
 	const hasFees =
-		(rpData?.billables?.length ?? 0) > 0 ||
 		(rpData?.feeItems?.length ?? 0) > 0 ||
 		(rpData?.otherCharges?.length ?? 0) > 0;
 
@@ -343,10 +342,10 @@ function Content() {
 			{/* Bill form */}
 			<Collapsible open={openForm === "bill"}>
 				<CollapsibleContent>
-					{hasActiveTerm ? (
+					{hasActiveTerm && studentId ? (
 						<CreateStudentBilling
-							termId={activeStudentTerm!.termId}
-							studentId={studentId!}
+							termId={activeStudentTerm?.termId ?? ""}
+							studentId={studentId}
 							studentTermId={activeStudentTerm?.studentTermId}
 						/>
 					) : (
@@ -461,27 +460,6 @@ function Content() {
 							<Badge variant="secondary">Current term</Badge>
 						</div>
 						<div className="p-5 flex flex-col gap-4">
-							{rpData?.billables?.map((item) => (
-								<FeeItemRow
-									key={item.key}
-									item={{
-										key: item.key,
-										title: item.title,
-										description: item.description,
-										amount: item.amount,
-										paidAmount: item.paidAmount,
-										pendingAmount: item.pendingAmount,
-										status: item.status,
-										studentFeeId: item.studentFeeId,
-									}}
-									onCancel={
-										item.studentFeeId
-											? (id) => cancelFeeMutate({ id, reason: "" })
-											: undefined
-									}
-									cancelPending={cancelFeePending}
-								/>
-							))}
 							{rpData?.feeItems?.map((item) => (
 								<FeeItemRow
 									key={item.key}
@@ -654,7 +632,8 @@ function PaymentHistoryList({
 						</thead>
 						<tbody className="divide-y divide-border">
 							{payments.map((p) => {
-								const date = p.walletTransaction?.transactionDate || p.createdAt;
+								const date =
+									p.walletTransaction?.transactionDate || p.createdAt;
 								const canReverse =
 									p.status === "success" &&
 									p.walletTransaction?.status === "success" &&
@@ -668,7 +647,10 @@ function PaymentHistoryList({
 									: `#${p.id.slice(0, 8).toUpperCase()}`;
 
 								return (
-									<tr key={p.id} className="hover:bg-muted/20 transition-colors">
+									<tr
+										key={p.id}
+										className="hover:bg-muted/20 transition-colors"
+									>
 										<td className="px-5 py-4 whitespace-nowrap text-foreground">
 											{date ? format(new Date(date), "dd MMM yyyy") : ""}
 										</td>
@@ -871,9 +853,7 @@ function StudentPurchaseForm({
 						onCreate={(value) => {
 							setTitle(value.trim());
 						}}
-						renderOnCreate={(value) => (
-							<span>Use "{value}" as a new item</span>
-						)}
+						renderOnCreate={(value) => <span>Use "{value}" as a new item</span>}
 						renderSelectedItem={(item) => <span>{item.label}</span>}
 						renderListItem={({ item }) => (
 							<div className="flex w-full items-center justify-between gap-3">

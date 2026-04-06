@@ -1,9 +1,11 @@
 "use client";
 
-import { MiddaySearchFilter } from "@/components/midday-search-filter/search-filter";
-import { useSchoolFeeParams } from "@/hooks/use-school-fee-params";
-import { useTRPC } from "@/trpc/client";
 import { ApplyFeeDialog } from "@/components/fees/apply-fee-dialog";
+import {
+	schoolFeeFilterParams,
+	useSchoolFeeParams,
+} from "@/hooks/use-school-fee-params";
+import { useTRPC } from "@/trpc/client";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -18,6 +20,7 @@ import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { Checkbox } from "@school-clerk/ui/checkbox";
 import { Table } from "@school-clerk/ui/data-table";
+import { SearchFilter } from "@school-clerk/ui/search-filter";
 import {
 	Sheet,
 	SheetContent,
@@ -25,6 +28,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@school-clerk/ui/sheet";
+import { toast } from "@school-clerk/ui/use-toast";
 import {
 	useMutation,
 	useQuery,
@@ -32,7 +36,6 @@ import {
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useState } from "react";
-import { toast } from "sonner";
 import { columns } from "./columns";
 import { EmptyState } from "./empty-states";
 
@@ -57,9 +60,11 @@ function ImportFeesSheet() {
 				qc.invalidateQueries({
 					queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),
 				});
-				toast.success(
-					`${data.imported} fee${data.imported !== 1 ? "s" : ""} imported successfully.`,
-				);
+				toast({
+					title: "Fees imported",
+					description: `${data.imported} fee${data.imported !== 1 ? "s" : ""} imported successfully.`,
+					variant: "success",
+				});
 				setSelected([]);
 				setParams({ importSchoolFee: null });
 			},
@@ -208,7 +213,7 @@ export function DataTable() {
 	const { data } = useSuspenseQuery(
 		trpc.transactions.getSchoolFees.queryOptions(),
 	);
-	const { setParams } = useSchoolFeeParams();
+	const { setParams, ...params } = useSchoolFeeParams();
 	const [applyFeeHistoryId, setApplyFeeHistoryId] = useState<string | null>(
 		null,
 	);
@@ -227,7 +232,11 @@ export function DataTable() {
 				qc.invalidateQueries({
 					queryKey: trpc.transactions.getPreviousTermFees.queryKey(),
 				});
-				toast.success(`${data.title} removed from the current term.`);
+				toast({
+					title: "Fee removed",
+					description: `${data.title} removed from the current term.`,
+					variant: "success",
+				});
 				setDeleteFee(null);
 			},
 		}),
@@ -266,6 +275,7 @@ export function DataTable() {
 				args={[
 					{
 						setParams,
+						params,
 						columns,
 						tableMeta: {
 							deleteAction() {},
@@ -282,7 +292,10 @@ export function DataTable() {
 			>
 				<div className="flex flex-col gap-4">
 					<div className="flex">
-						<MiddaySearchFilter
+						<SearchFilter
+							filterSchema={schoolFeeFilterParams}
+							filters={params}
+							setFilters={setParams}
 							placeholder="Search"
 							filterList={[{ value: "search", icon: "Search", type: "input" }]}
 						/>

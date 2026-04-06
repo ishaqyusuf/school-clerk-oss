@@ -113,7 +113,7 @@ export function MiddaySearchFilter({
     setFilters({ search: prompt.length > 0 ? prompt : null });
   };
   const hasValidFilters =
-    Object.entries(filters).filter(
+    Object.entries(filters || {}).filter(
       ([key, value]) => value !== null && key !== "q"
     ).length > 0;
   function optionSelected(qk, { label, value }) {
@@ -172,7 +172,7 @@ export function MiddaySearchFilter({
           loading={streaming}
           onRemove={(obj) => {
             setFilters(obj);
-            const clearPrompt = Object.entries(obj).find(
+            const clearPrompt = Object.entries(obj || {}).find(
               ([k, v]) => k == "search" || k == "_q"
             )?.[0];
             if (clearPrompt) setPrompt("");
