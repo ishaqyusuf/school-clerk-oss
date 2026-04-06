@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpCircle } from "lucide-react";
 import Link from "next/link";
@@ -9,14 +10,11 @@ import { Button } from "@school-clerk/ui/button";
 
 export function PromotionQuickLink() {
 	const { data } = useQuery(_trpc.academics.dashboard.queryOptions({}));
+	const auth = useAuth();
 
 	const promotionIds = data?.promotionIds ?? null;
-	const currentSession = data?.sessions.find(
-		(session) => session.status === "current",
-	);
-	const isEnabled =
-		!!promotionIds &&
-		currentSession?.currentTerm?.id === promotionIds.firstTermId;
+	const activeTermId = auth.profile?.termId;
+	const isEnabled = !!promotionIds && activeTermId === promotionIds.firstTermId;
 
 	if (!promotionIds) {
 		return null;

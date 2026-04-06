@@ -1,43 +1,58 @@
 "use client";
 
-import { useState } from "react";
-import { ThemeSwitch } from "./theme-switch";
-import { MobileMenu } from "@school-clerk/ui/nav/mobile-menu";
 import { SiteNav } from "@school-clerk/site-nav";
-import { TermSwitcher } from "./sidebar/term-switcher";
 import { NotificationBell } from "./notifications/notification-bell";
+import { TermSwitcher } from "./sidebar/term-switcher";
+import { ThemeSwitch } from "./theme-switch";
 
 export function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+	return (
+		<header className="print:hidden">
+			<div className="sticky top-0 z-50 border-b border-border/80 bg-background/85 px-4 backdrop-blur-xl supports-[backdrop-filter]:bg-background/75 md:px-6 desktop:rounded-t-[10px]">
+				<div className="flex min-h-[72px] flex-col gap-3 py-3 md:min-h-[78px] md:flex-row md:items-center">
+					<div className="flex min-w-0 items-center gap-3">
+						<SiteNav.MobileSidebar />
+						<div className="min-w-0">
+							<div
+								id="pageTitle"
+								className="font-bold"
+								role="heading"
+								aria-level={1}
+								aria-live="polite"
+							/>
+							<div
+								id="headerTitleSlot"
+								className="flex min-w-0 items-center space-x-1"
+							/>
+						</div>
+					</div>
 
-  return (
-    <header className="print:hidden">
-      <div className="md:m-0 z-50 px-6 md:border-b border-border h-[70px] flex justify-between items-center desktop:sticky desktop:top-0 desktop:bg-background sticky md:static top-0 backdrop-filter backdrop-blur-xl md:backdrop-filter md:backdrop-blur-none bg-opacity-70 desktop:rounded-t-[10px]">
-        <SiteNav.MobileSidebar />
-        <div className="md:hidden">
-          {/* <MobileMenu
-                  value={{
-                    ...value,
-                  }}
-                /> */}
-        </div>
-        <div className="flex items-center space-x-4 lg:space-x-0">
-          <h1 className="font-bold" id="pageTitle"></h1>
-        </div>
-        <div id="headerTitleSlot" className="flex items-center space-x-1" />
-        <div id="headerNav" className="flex items-center space-x-1" />
-        <div id="breadCrumb" className="flex items-center space-x-1"></div>
-        {/* <OpenSearchButton /> */}
-        <TermSwitcher />
-        <div className="flex-1"></div>
-        <div className="mx-4 flex gap-4 " id="navRightSlot"></div>
-        <div className="inline-flex gap-4" id="actionNav"></div>
-        <NotificationBell />
-        <ThemeSwitch />
-        {/* <UserNav /> */}
-      </div>
-      <div className="dark:bg-muted" id="pageTab"></div>
-      <div className="overflow-auto" id="tab"></div>
-    </header>
-  );
+					<div className="flex min-w-0 flex-1 flex-col gap-3 md:flex-row md:items-center md:justify-end">
+						<div
+							id="headerNav"
+							className="flex min-w-0 items-center space-x-1"
+						/>
+						<div
+							id="breadCrumb"
+							className="flex min-w-0 items-center space-x-1 overflow-hidden"
+						/>
+						<div className="w-full md:w-auto">
+							<TermSwitcher />
+						</div>
+						<div
+							id="navRightSlot"
+							className="flex items-center gap-3 md:mx-2"
+						/>
+						<div id="actionNav" className="flex items-center gap-3" />
+						<div className="ml-auto flex items-center gap-3 md:ml-0">
+							<NotificationBell />
+							<ThemeSwitch />
+						</div>
+					</div>
+				</div>
+			</div>
+			<div className="dark:bg-muted" id="pageTab" />
+			<div className="overflow-auto" id="tab" />
+		</header>
+	);
 }

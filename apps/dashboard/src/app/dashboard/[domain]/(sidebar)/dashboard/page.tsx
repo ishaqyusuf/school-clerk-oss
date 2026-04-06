@@ -1,4 +1,5 @@
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { AddStudentQuickLink } from "@/components/dashboard/add-student-quick-link";
 import { PromotionQuickLink } from "@/components/dashboard/promotion-quick-link";
 import { ReceiveFeeButton } from "@/components/dashboard/receive-fee-button";
 import { prisma } from "@school-clerk/db";
@@ -15,7 +16,6 @@ import {
 	BookOpen,
 	GraduationCap,
 	LayoutDashboard,
-	PlusCircle,
 	Users,
 	Wallet,
 } from "lucide-react";
@@ -77,7 +77,6 @@ const statCards = [
 ];
 
 const quickLinks = [
-	{ label: "Add Student", icon: PlusCircle, href: "/students/list" },
 	{ label: "Academic", icon: GraduationCap, href: "/academic" },
 	{ label: "Finance", icon: Wallet, href: "/finance" },
 	{ label: "Classes", icon: LayoutDashboard, href: "/academic/classes" },
@@ -145,6 +144,7 @@ export default async function Page({ params }) {
 					Quick Links
 				</h2>
 				<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+					<AddStudentQuickLink />
 					{quickLinks.map((l) => (
 						<Button
 							key={l.label}
