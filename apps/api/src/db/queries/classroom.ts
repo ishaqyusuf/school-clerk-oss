@@ -12,20 +12,22 @@ export async function getClassrooms(
   { db, profile }: TRPCContext,
   params: ClassroomQuery
 ) {
+  const effectiveTermId = params?.sessionTermId || profile?.termId;
   const classRoomDepartments = await db.classRoomDepartment.findMany({
     where: {
       id: !params?.departmentId ? undefined : params.departmentId,
       classRoom: {
         schoolSessionId: params.schoolSessionId || undefined,
         name: params.className ? params.className : undefined,
-        session: {
-          id: params.schoolSessionId!,
-          terms: {
-            some: {
-              id: params?.sessionTermId || profile?.termId,
-            },
-          },
-        },
+        session: effectiveTermId
+          ? {
+              terms: {
+                some: {
+                  id: effectiveTermId,
+                },
+              },
+            }
+          : undefined,
       },
     },
     select: {
@@ -49,7 +51,7 @@ export async function getClassrooms(
             select: {
               terms: {
                 where: {
-                  id: params?.sessionTermId || profile?.termId,
+                  id: effectiveTermId,
                 },
                 take: 1,
                 select: {
