@@ -845,6 +845,13 @@ export const deleteTermSheetSchema = z.object({
 });
 export type DeleteTermSheetSchema = z.infer<typeof deleteTermSheetSchema>;
 
+export const bulkDeleteTermSheetsSchema = z.object({
+  ids: z.array(z.string()).min(1),
+});
+export type BulkDeleteTermSheetsSchema = z.infer<
+  typeof bulkDeleteTermSheetsSchema
+>;
+
 export async function deleteTermSheet(
   ctx: TRPCContext,
   query: DeleteTermSheetSchema
@@ -856,4 +863,25 @@ export async function deleteTermSheet(
       deletedAt: new Date(),
     },
   });
+}
+
+export async function bulkDeleteTermSheets(
+  ctx: TRPCContext,
+  query: BulkDeleteTermSheetsSchema
+) {
+  const { db } = ctx;
+  const result = await db.studentTermForm.updateMany({
+    where: {
+      id: { in: query.ids },
+      deletedAt: null,
+      schoolProfileId: ctx.profile.schoolId,
+    },
+    data: {
+      deletedAt: new Date(),
+    },
+  });
+
+  return {
+    count: result.count,
+  };
 }

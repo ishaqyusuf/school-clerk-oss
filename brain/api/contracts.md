@@ -21,6 +21,13 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases:
 - Notes:
 
+## Student Contracts
+- Route: `students.bulkDeleteTermSheets`
+- Request schema: `ids[]` where each id is a `StudentTermForm.id`
+- Response schema: `{ count: number }`
+- Error cases: empty selection, invalid term form ids, missing tenant context
+- Notes: soft-deletes multiple student term records in one request for classroom results batch removal, scoped to the active school tenant and limited to non-deleted rows
+
 ## Finance Contracts
 - Route: `transactions.createSchoolFee`
 - Request schema: `title`, `amount`, optional `description`, optional `feeId`, optional `streamId`/`streamName`, `classroomDepartmentIds[]`

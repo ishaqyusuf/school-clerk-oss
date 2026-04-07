@@ -3,13 +3,25 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@school-clerk/ui/alert-dialog";
+import {
   ArrowRight,
+  AlertTriangle,
   CheckCircle2,
   Clock,
   FileText,
   PanelRightOpen,
   Printer,
   Search,
+  Trash2,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -332,6 +344,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
     id: string;
     name: string;
   } | null>(null);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
 
   const toggleSort = (key: SortKey) => {
     setSort((previous) =>
@@ -477,6 +490,10 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
   const undecidedStudentIds = students
     .filter((student) => student.status === "undecided")
     .map((student) => student.studentId);
+  const selectedStudents = students.filter((student) =>
+    selected.has(student.studentId),
+  );
+  const selectedTermFormIds = selectedStudents.map((student) => student.termFormId);
 
   const averageScores = students
     .map((student) => student.score?.percentage)
@@ -584,6 +601,29 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
       },
     }),
   );
+  const bulkDeleteTermFormsMutation = useMutation(
+    trpc.students.bulkDeleteTermSheets.mutationOptions({
+      onSuccess(data) {
+        toast({
+          title: "Removed",
+          description:
+            data.count === 1
+              ? "The selected term record was removed successfully."
+              : `${data.count} term records were removed successfully.`,
+        });
+        setSelected(new Set());
+        setBatchDeleteOpen(false);
+        invalidateStudents();
+      },
+      onError() {
+        toast({
+          title: "Error",
+          description: "Unable to remove the selected term records.",
+          variant: "destructive",
+        });
+      },
+    }),
+  );
   const doProgress = (
     mode: ProgressMode,
     studentIds: string[],
@@ -668,6 +708,11 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
     }
 
     deleteTermFormMutation.mutate({ id: student.termFormId });
+  };
+
+  const removeSelectedTermRecords = () => {
+    if (!selectedTermFormIds.length) return;
+    bulkDeleteTermFormsMutation.mutate({ ids: selectedTermFormIds });
   };
 
   return (
@@ -869,6 +914,17 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                 onClick={() => doDemote(Array.from(selected))}
               >
                 Demote Selected
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={
+                  selectedCount === 0 || bulkDeleteTermFormsMutation.isPending
+                }
+                onClick={() => setBatchDeleteOpen(true)}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                Delete Selected ({selectedCount})
               </Button>
               <Button
                 size="sm"
@@ -1196,6 +1252,68 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
           onClose={() => setViewStudent(null)}
         />
       ) : null}
+
+      <AlertDialog
+        open={batchDeleteOpen}
+        onOpenChange={(open) => {
+          if (!bulkDeleteTermFormsMutation.isPending) {
+            setBatchDeleteOpen(open);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete selected term records
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  This will remove{" "}
+                  <span className="font-semibold text-foreground">
+                    {selectedCount} selected student
+                    {selectedCount === 1 ? "" : "s"}
+                  </span>{" "}
+                  from the previous-term classroom results list.
+                </p>
+                <p>
+                  Their term records will be soft-deleted, and this action cannot
+                  be undone from this screen.
+                </p>
+                <div className="rounded-lg border bg-muted/40 p-3">
+                  <p className="font-medium text-foreground">Students</p>
+                  <p className="mt-1 text-muted-foreground">
+                    {selectedStudents
+                      .slice(0, 5)
+                      .map((student) => student.name)
+                      .join(", ")}
+                    {selectedStudents.length > 5
+                      ? ` and ${selectedStudents.length - 5} more`
+                      : ""}
+                  </p>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleteTermFormsMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={
+                selectedCount === 0 || bulkDeleteTermFormsMutation.isPending
+              }
+              onClick={removeSelectedTermRecords}
+            >
+              {bulkDeleteTermFormsMutation.isPending
+                ? "Deleting..."
+                : `Delete ${selectedCount} selected`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
