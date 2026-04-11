@@ -4,6 +4,11 @@ import type {
 } from "@school-clerk/pdf/result-template";
 import { configs } from "@/configs";
 
+const legacyCalligraphOverrides = {
+	...configs["caligraphs"],
+	...configs["caligraphs2"],
+};
+
 export const previewResultTemplateConfig: ResultTemplateConfig = {
 	schoolName: configs.schoolName,
 	schoolAddress: configs.schoolAddress,
@@ -13,10 +18,7 @@ export const previewResultTemplateConfig: ResultTemplateConfig = {
 	directorSignature: configs.directorSignature,
 	teacherSignature: configs.teacherSignature,
 	signatureImageSrc: "/signature.png",
-	calligraphs: {
-		...configs.caligraphs,
-		...configs.caligraphs2,
-	},
+	calligraphs: legacyCalligraphOverrides,
 };
 
 export const previewResultTemplateReports: ResultTemplateReport[] = [
