@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 	} catch (error) {
 		return NextResponse.json(
 			{
-				msg:
+				error:
 					error instanceof Error
 						? error.message
 						: "Unable to generate result PDF.",
