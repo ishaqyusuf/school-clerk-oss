@@ -48,7 +48,7 @@ export function getGradePositionText(report: ResultTemplateReport) {
 	const position = report.grade?.position;
 	const totalStudents = report.grade?.totalStudents;
 
-	if (!position || !totalStudents) {
+	if (position == null || totalStudents == null) {
 		return "-";
 	}
 

@@ -1,4 +1,4 @@
-import { renderToStream } from "@school-clerk/pdf";
+import { renderToBuffer } from "@school-clerk/pdf";
 import { ResultTemplate } from "@school-clerk/pdf/result-template";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -34,15 +34,13 @@ export async function GET(req: NextRequest) {
 	});
 
 	try {
-		const stream = await renderToStream(document);
-		if (!stream) {
+		const buffer = await renderToBuffer(document);
+		if (!buffer) {
 			return NextResponse.json(
 				{ error: "Failed to render PDF stream" },
 				{ status: 500 },
 			);
 		}
-
-		const blob = await new Response(stream as BodyInit).blob();
 
 		const headers: Record<string, string> = {
 			"Content-Type": "application/pdf",
@@ -56,7 +54,7 @@ export async function GET(req: NextRequest) {
 			headers["Content-Disposition"] = `inline; filename="${safeTitle}.pdf"`;
 		}
 
-		return new Response(blob, { headers });
+		return new Response(buffer, { headers });
 	} catch (error) {
 		return NextResponse.json(
 			{
