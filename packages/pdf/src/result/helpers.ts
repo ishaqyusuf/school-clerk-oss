@@ -85,7 +85,7 @@ export function getDensity(lineCount: number) {
 	};
 }
 
-function getStudentCountNoun(totalStudents: number) {
+export function getStudentCountNoun(totalStudents: number) {
 	if (totalStudents === 1) {
 		return "طالب";
 	}
