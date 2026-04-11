@@ -72,7 +72,11 @@
     "@vercel/speed-insights": "^1.1.0",
     "posthog-js": "1.105.0",
     "posthog-node": "3.6.2",
-    "fetch-ponyfill": "7.1.0"
+    "fetch-ponyfill": "7.1.0",
+    "ai": "^6.0.158",
+    "@ai-sdk/anthropic": "^3.0.69",
+    "@ai-sdk/openai": "^3.0.52",
+    "@ai-sdk/google": "^3.0.61"
   },
   "devDependencies": {
     "@school-clerk/tsconfig": "workspace:*",

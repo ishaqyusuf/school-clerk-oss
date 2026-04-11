@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Header } from "./header";
 import { linkModules } from "./sidebar/links";
 import Link from "next/link";
+import { ChatWidget } from "./chat/chat-widget";
 
 export function NavLayoutClient({ children }) {
   const auth = useAuth();
@@ -38,6 +39,7 @@ export function NavLayoutClient({ children }) {
           <Header />
           <div className="px-6">{children}</div>
         </SiteNav.Shell>
+        <ChatWidget />
       </div>
     </SiteNav.Provider>
   );
