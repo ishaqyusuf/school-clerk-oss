@@ -2,15 +2,38 @@ import { Font } from "@react-pdf/renderer";
 
 Font.register({
   family: "Amiri",
-  src: "/fonts/Amiri-Regular.ttf", // public folder or fileURL
+  fonts: [
+    {
+      src: "/fonts/Amiri-Regular.ttf",
+      fontWeight: 400,
+    },
+    {
+      src: "/fonts/Amiri-Bold.ttf",
+      fontWeight: 700,
+    },
+  ],
 });
 
 Font.register({
   family: "DancingScript",
-  src: "/fonts/DancingScript-Regular.ttf",
+  fonts: [
+    {
+      src: "/fonts/DancingScript-Regular.ttf",
+      fontWeight: 400,
+    },
+    {
+      src: "/fonts/DancingScript-Bold.ttf",
+      fontWeight: 700,
+    },
+  ],
 });
 
 Font.register({
   family: "MoonDance",
-  src: "/fonts/MoonDance-Regular.ttf",
+  fonts: [
+    {
+      src: "/fonts/MoonDance-Regular.ttf",
+      fontWeight: 400,
+    },
+  ],
 });

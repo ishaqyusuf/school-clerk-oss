@@ -1,41 +1,38 @@
-import path from "path";
+import {
+  previewResultTemplateConfig,
+  previewResultTemplateReports,
+} from "@/features/result-pdf/preview-data";
 import { NextRequest, NextResponse } from "next/server";
 
 import { renderToStream } from "@school-clerk/pdf";
 import { ResultTemplate } from "@school-clerk/pdf/result-template";
 import { z } from "zod";
 
-import { notFound } from "next/navigation";
-
-// import sharp from "sharp";
 const paramsSchema = z.object({
-  // id: z.string().uuid().optional(),
-  // token: z.string().optional(),
-  // slugs: z.array(z.number()),
-  token: z.string(),
-  // templateSlug: z.string().optional().nullable(),
-  preview: z.preprocess((val) => val === "true", z.boolean().default(false)),
+  template: z.enum(["template-1"]).default("template-1"),
+  download: z.preprocess((val) => val === "true", z.boolean().default(false)),
 });
+
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
-  // const session = await getServerSession(authOptions);
-  //   const result = paramsSchema.safeParse(
-  //     Object.fromEntries(requestUrl.searchParams.entries())
-  //   );
-  const preview = true;
-  const safeTitle = "sample";
+  const parsed = paramsSchema.safeParse(
+    Object.fromEntries(requestUrl.searchParams.entries()),
+  );
 
-  const strm = await ResultTemplate({
-    //   pages,
-    //   watermark,
-    //   title: safeTitle,
-    //   template: {
-    //     size: "A4",
-    //   },
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid result PDF request." }, { status: 400 });
+  }
+
+  const safeTitle = `student-result-${parsed.data.template}`;
+  const document = ResultTemplate({
+    config: previewResultTemplateConfig,
+    reports: previewResultTemplateReports,
+    template: parsed.data.template,
+    title: safeTitle,
   });
 
   try {
-    const stream = await renderToStream(strm);
+    const stream = await renderToStream(document);
     if (!stream) {
       return NextResponse.json(
         { error: "Failed to render PDF stream" },
@@ -43,17 +40,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // return NextResponse.json({ data: "Testing Sentry Error...!", printData });
-
-    // @ts-expect-error - stream is not assignable to BodyInit
-    const blob = await new Response(stream).blob();
+    const blob = await new Response(stream as BodyInit).blob();
 
     const headers: Record<string, string> = {
       "Content-Type": "application/pdf",
       "Cache-Control": "no-store, max-age=0",
     };
 
-    if (!preview) {
+    if (parsed.data.download) {
       headers[
         "Content-Disposition"
       ] = `attachment; filename="${safeTitle}.pdf"`;
@@ -65,7 +59,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       {
-        msg: error.message,
+        msg: error instanceof Error ? error.message : "Unable to generate result PDF.",
       },
       { status: 500 }
     );
