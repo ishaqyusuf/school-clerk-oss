@@ -18,6 +18,14 @@ Record of completed tasks and delivery outcomes.
 - Owner:
 
 ## Completed Task
+- ID: TASK-2026-04-11-result-pdf-template-architecture
+- Title: Build reusable result PDF template architecture and port the existing print layout as template-1
+- Completed: 2026-04-11
+- Outcome: Replaced the placeholder result PDF stub with a shared result-template registry in `packages/pdf`, added reusable result-print types and helpers, ported the current student result print layout into `template-1`, and updated the dashboard preview/result PDF route to render the new template API with shared sample data.
+- Related changes: `packages/pdf/src/result/index.tsx`, `packages/pdf/src/result/types.ts`, `packages/pdf/src/result/helpers.ts`, `packages/pdf/src/result/templates/template-1.tsx`, `packages/pdf/src/fonts.ts`, `apps/dashboard/src/features/result-pdf/preview-data.ts`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/(student-result-portal)/result/page.tsx`, `apps/dashboard/src/app/api/pdf/result/route.ts`, `CLAUDE.md`
+- Owner: Copilot
+
+## Completed Task
 - ID: TASK-2026-04-06-staff-management-onboarding-redesign
 - Title: Redesign staff management around invite-first onboarding, richer status tracking, and mobile-responsive staff directory
 - Completed: 2026-04-06

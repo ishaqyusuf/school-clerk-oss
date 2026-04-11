@@ -53,6 +53,12 @@ packages/
 - Styles: import `@school-clerk/ui/globals.css` (OKLCH color tokens)
 - `transpilePackages: ["@school-clerk/ui"]` required in next.config.ts
 
+### PDF Templates
+- `packages/pdf/src/result` now uses a reusable template registry: shared result-print types/helpers in `types.ts` and `helpers.ts`, with concrete templates under `templates/`
+- The existing student result print layout is now `template-1` in `packages/pdf/src/result/templates/template-1.tsx`
+- `@school-clerk/pdf/result-template` exports `ResultTemplate`, `ResultTemplate1`, `resultTemplateSlugs`, and the shared result template types
+- Dashboard preview/sample wiring for result PDFs lives in `apps/dashboard/src/features/result-pdf/preview-data.ts`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/(student-result-portal)/result/page.tsx`, and `apps/dashboard/src/app/api/pdf/result/route.ts`
+
 ### Dashboard Page Pattern
 ```tsx
 // Server component page
