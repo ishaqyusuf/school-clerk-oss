@@ -18,10 +18,26 @@ Documents how the monorepo is organized and where code belongs.
 - `apps/dashboard`: SaaS application (authenticated product experience)
 - `apps/api`: API application surface
 - `apps/school-site`: public tenant website runtime for published school website templates
+- `packages/auth`: Better Auth configuration and helpers
 - `packages/db`: Prisma database package (schema/client/repositories) 
+- `packages/email`: React Email templates and mail composition
+- `packages/jobs`: Trigger.dev background jobs
 - `packages/navigation`: shared navigation schema/builders for workspace-aware product navigation
+- `packages/notifications`: typed notification definitions and delivery helpers
+- `packages/pdf`: PDF generation
+- `packages/react-pdf-style`: shared React PDF styling utilities
+- `packages/site-nav`: sidebar/navigation UI helpers
+- `packages/tsconfig`: shared TypeScript config package
 - `packages/ui`: shared UI components
+- `packages/utils`: shared utility functions and constants
 - `packages/template-registry`: school website template registry, template manifests, preview/editor utilities, and shared website blocks
+
+## Dashboard Route Groups
+- `(sidebar)/`: authenticated pages mounted inside the tenant dashboard shell
+- `(auth)/`: login, forgot-password, reset-password, signout
+- `(public)/`: routes that do not require dashboard auth
+- `(temp)/`: temporary/dev-only surfaces
+- `onboarding/`: create-school and create-academic-session flows
 
 ## Placement Rules
 - App-specific code stays within each app.

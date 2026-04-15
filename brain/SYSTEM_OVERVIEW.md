@@ -77,8 +77,11 @@ High-level description of the SchoolClerk platform architecture, core domains, a
 - Transactional email: Resend
 
 ## Implementation Reference Guidance
-- System design and performance work should regularly draw inspiration from `/Users/M1PRO/Documents/code/_kitchen_sink/midday`.
-- During architecture or UI implementation, inspect that reference for established patterns in code structure, folder layout, page implementation, analytics, widgets, trackers, and adjacent performance techniques.
+- System design and performance work should regularly draw inspiration from these reference projects:
+- `/Users/M1PRO/Documents/code/_kitchen_sink/midday`
+- `/Users/M1PRO/Documents/code/plot-keys`
+- `/Users/M1PRO/Documents/code/_turbo/gnd`
+- During architecture or UI implementation, inspect the most relevant reference for established patterns in code structure, folder layout, page implementation, analytics, widgets, trackers, and adjacent performance techniques.
 - Use that inspiration to strengthen consistency and execution quality without copying features that do not match SchoolClerk's domain needs.
 
 ## Open Items

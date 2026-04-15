@@ -73,3 +73,14 @@ Catalog of API routes and responsibilities.
 - `action.saveStaffAction`
 - `action.resendStaffOnboardingAction`
 - `action.completeStaffOnboardingAction`
+
+## Router Ownership Map
+- `trpc.students.*`: student listing, detail, overview, and student-centric workflows
+- `trpc.classrooms.*`: classroom lists, overview, and classroom-scoped actions
+- `trpc.academics.*`: academic session, term, enrollment, and promotion flows
+- `trpc.transactions.*`: fee definitions, fee imports, and other transaction-oriented finance writes
+- `trpc.finance.*`: streams, bills, payroll, receive-payment, and finance reporting workflows
+- `trpc.attendance.*`: classroom attendance capture and student attendance history
+- `trpc.staff.*`: staff list/form data and staff-management APIs
+- `trpc.notifications.*`: notification list/read/count actions
+- `trpc.subjects.*`, `trpc.enrollments.*`, `trpc.assessments.*`, `trpc.filters.*`, `trpc.auth.*`: domain-specific supporting routers

@@ -24,3 +24,17 @@ Defines implementation standards for consistency, maintainability, and reliabili
 - Enforce tenant context on every data access.
 - Avoid cross-tenant joins unless explicitly safe.
 - Include tenant-aware tests.
+
+## Product App Standards
+- Use `getAuthCookie()` to scope dashboard-side data access to the active school, session, and term.
+- Prefer app-relative product routes like `/finance/...`, `/students/...`, and `/academic/...` instead of hardcoding `/dashboard/...`.
+- Use shared `@school-clerk/ui` components instead of raw one-off HTML primitives where an approved component already exists.
+
+## Dashboard Page Standards
+- Add `PageTitle` to new dashboard pages.
+- Wrap async data surfaces with `ErrorBoundary` and `Suspense`.
+- Use `batchPrefetch(...)` for server-side tRPC data preloading on page entry where the page pattern supports it.
+
+## tRPC And Actions
+- Keep API reads and writes on the established tRPC/router path unless there is a clear reason to use a server action.
+- When server actions are still used from the dashboard, keep them tenant-aware and aligned with the same validation rules as the router layer.

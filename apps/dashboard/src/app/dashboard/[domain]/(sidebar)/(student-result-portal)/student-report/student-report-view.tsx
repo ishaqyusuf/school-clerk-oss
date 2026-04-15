@@ -89,10 +89,6 @@ function ReportContent({
     // Don't flash while the query is still loading
     ctx.reportData !== undefined;
 
-  if (unavailable) {
-    return <ReportUnavailable />;
-  }
-
   return (
     <Tabs
       value={filters.tab}
@@ -121,24 +117,37 @@ function ReportContent({
         </div>
       </div>
       <TabsContent value="print" className="flex-1 mt-0">
-        <div className="flex flex-col justify-center items-center dotted-bg p-4 lg:p-6 xl:p-0">
-          <div className="flex flex-col w-full py-6 mx-auto lg:max-w-4xl">
-            <div className="pb-24 lg:pb-28">
-              <Reports />
+        {unavailable ? (
+          <ReportUnavailable />
+        ) : (
+          <div className="flex flex-col justify-center items-center dotted-bg p-4 lg:p-6 xl:p-0">
+            <div className="flex flex-col w-full py-6 mx-auto lg:max-w-4xl">
+              <div className="pb-24 lg:pb-28">
+                <Reports />
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </TabsContent>
       <TabsContent value="classroom-results" className="flex-1 mt-0 p-4">
-        <ClassroomResultTable defaultClassroomLayout={defaultClassroomLayout} />
+        {unavailable ? (
+          <ReportUnavailable compact />
+        ) : (
+          <ClassroomResultTable defaultClassroomLayout={defaultClassroomLayout} />
+        )}
       </TabsContent>
     </Tabs>
   );
 }
 
-function ReportUnavailable() {
+function ReportUnavailable({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center h-full min-h-[70vh] gap-6 text-center px-6">
+    <div
+      className={cn(
+        "flex flex-1 flex-col items-center justify-center h-full gap-6 text-center px-6",
+        compact ? "min-h-[50vh]" : "min-h-[70vh]",
+      )}
+    >
       <div className="flex items-center justify-center size-20 rounded-full bg-muted">
         <FolderX className="size-10 text-muted-foreground" />
       </div>

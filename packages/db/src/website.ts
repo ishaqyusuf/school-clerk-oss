@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client";
-import { prisma } from "./index";
+import { prisma } from "./prisma";
 
 export type WebsiteConfigRecord = Prisma.WebsiteTemplateConfigGetPayload<{
   select: {

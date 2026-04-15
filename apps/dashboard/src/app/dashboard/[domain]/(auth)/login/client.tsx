@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { Button } from "@school-clerk/ui/button";
+import { Checkbox } from "@school-clerk/ui/checkbox";
 import { Input } from "@school-clerk/ui/input";
 import { Label } from "@school-clerk/ui/label";
 import {
@@ -28,6 +29,7 @@ export function Client() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
+    rememberMe: false,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,6 +49,7 @@ export function Client() {
       const resp = await authClient.signIn.email({
         email: formData.email,
         password: formData.password,
+        rememberMe: formData.rememberMe,
       });
 
       if (resp.error) {
@@ -168,7 +171,23 @@ export function Client() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
+                  <label
+                    htmlFor="remember-me"
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                  >
+                    <Checkbox
+                      id="remember-me"
+                      checked={formData.rememberMe}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          rememberMe: checked === true,
+                        }))
+                      }
+                    />
+                    <span>Remember me</span>
+                  </label>
                   <Link
                     href="/forgot-password"
                     className="text-sm text-amber-600 hover:text-amber-700"
