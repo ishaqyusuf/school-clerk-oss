@@ -1,10 +1,11 @@
+import type { ReactNode } from "react";
 import { Text } from "@react-pdf/renderer";
 import { View } from "@school-clerk/react-pdf";
 
 interface Props {
   className?: string;
-  children;
-  title;
+  children?: ReactNode;
+  title?: ReactNode;
 }
 
 export function MetaData(props: Props) {

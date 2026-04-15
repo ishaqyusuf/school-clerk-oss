@@ -15,6 +15,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import {
   ChevronUpIcon,
+  FileTextIcon,
   GripVerticalIcon,
   PrinterIcon,
   XIcon,
@@ -81,6 +82,38 @@ export function PrintSelectionFooter() {
     });
 
     window.print();
+  }
+
+  function handlePrintV2() {
+    const departmentIds = [
+      ...new Set(
+        selectedStudents.map((s) => {
+          const report = ctx.reportsById?.[s.termFormId];
+          return report?.departmentId ?? "";
+        }),
+      ),
+    ].filter(Boolean);
+
+    savePrintLog({
+      termFormIds: printOrder,
+      departmentIds,
+      termId: filters.termId ?? undefined,
+    });
+
+    const params = new URLSearchParams({
+      termFormIds: printOrder.join(","),
+    });
+
+    if (filters.termId) {
+      params.set("termId", filters.termId);
+    }
+
+    const url = `/api/pdf/result?${params.toString()}`;
+    const popup = window.open(url, "_blank", "noopener,noreferrer");
+
+    if (!popup) {
+      window.location.href = url;
+    }
   }
 
   function removeStudent(termFormId: string) {
@@ -202,6 +235,17 @@ export function PrintSelectionFooter() {
         </Popover>
 
         {/* Print button */}
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-2 shrink-0"
+          onClick={handlePrintV2}
+          disabled={isSaving}
+        >
+          <FileTextIcon className="size-4" />
+          Print v2
+        </Button>
+
         <Button
           size="sm"
           className="gap-2 shrink-0"

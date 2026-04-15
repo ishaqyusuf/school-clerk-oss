@@ -2,11 +2,8 @@ import { createContext, useContext, useMemo } from "react";
 import { useStudentReportFilterParams } from "./use-student-report-filter-params";
 import { _trpc } from "@/components/static-trpc";
 import { useQuery, useQueries } from "@tanstack/react-query";
-import { classroomDisplayName, enToAr, sum } from "@school-clerk/utils";
-import { getResultComment } from "@api/db/queries/first-term-data";
-import { subjectsArray } from "@/app/dashboard/[domain]/migration/constants";
-
-const assessmentOrder = ["الحضور", "الاختبار", "الامتحان"];
+import { classroomDisplayName } from "@school-clerk/utils";
+import { buildStudentReportsById } from "@/features/student-report/report-model";
 type ReportPageContext = ReturnType<typeof createReportPageContext>;
 export const ReportPageContext = createContext<ReportPageContext>(undefined);
 export const ReportPageProvider = ReportPageContext.Provider;
@@ -72,149 +69,13 @@ export const createReportPageContext = (defaultTermId?: string) => {
 
   // Build combined reportsById from all loaded departments
   const calculatedReport = useMemo(() => {
-    // Process each department's data
-    const allStudents = deptQueries.flatMap((q) => {
-      const data = q.data;
-      if (!data) return [];
-      const totalStudents = data.studentTermForms.length;
-      return (
-        data.studentTermForms?.map((tf) => {
-          const subjectList = data.subjects?.map((subject) => {
-            const assessments = subject.assessments.map((_as) => {
-              const record = _as.assessmentResults.find(
-                (r) => r.studentTermFormId == tf.id,
-              );
-              const obtained =
-                record?.percentageScore || record?.obtained
-                  ? _as?.percentageObtainable === _as?.obtainable
-                    ? record?.obtained
-                    : _as.percentageObtainable
-                      ? sum([
-                          (record?.obtained / _as.obtainable) *
-                            _as.percentageObtainable,
-                        ])
-                      : null
-                  : null;
-
-              return {
-                obtainable: _as.percentageObtainable,
-                obtained,
-                index: _as.index,
-                label: _as.title,
-              };
-            });
-            return {
-              title: subject.subject.title,
-              assessments,
-            };
-          });
-          const tables = tableModel();
-          subjectList.map((subject, si) => {
-            const assessments = subject.assessments
-              .map((a) => {
-                a.index = assessmentOrder.findIndex((b) => b === a.label);
-                return a;
-              })
-              .sort((a, b) => a.index - b.index);
-            const assessmentCode = assessments.map((a) => a.label).join("-");
-            if (!tables[assessmentCode])
-              tables[assessmentCode] = {
-                columns: [
-                  {
-                    label: `المواد`,
-                  },
-                  ...assessments.map((a) => ({
-                    label: a.label,
-                    subLabel: `(${a.obtainable ? enToAr(a.obtainable) : "-"})`,
-                  })),
-                  {
-                    label: `المجموع الكلي`,
-                    subLabel: `(${enToAr(100)})`,
-                  },
-                ],
-                rows: [],
-              };
-            tables[assessmentCode].rows.push({
-              columns: [
-                {
-                  value: `${enToAr(si + 1)}. ${subject.title}`,
-                },
-                ...assessments.map((a) => ({
-                  value: a.obtained,
-                })),
-                {
-                  value: sum(assessments.map((a) => a.obtained)),
-                },
-              ],
-            });
-          });
-          const rowsCount = sum(
-            Object.values(tables).map((a) => 1 + a.rows.length),
-          );
-          const grade = {
-            obtained: sum(
-              subjectList.map((a) => a.assessments.map((b) => b.obtained)).flat(),
-            ),
-            obtainable: sum(
-              subjectList
-                .map((a) => a.assessments.map((b) => b.obtainable))
-                .flat(),
-            ),
-            totalStudents,
-            position: 0,
-            percentage: 0,
-          };
-          grade.percentage = +sum([
-            (grade.obtained / grade.obtainable) * 100,
-          ]).toFixed(1);
-          const comment = getResultComment(grade.percentage);
-
-          return {
-            termFormId: tf.id,
-            departmentId: tf.classroomDepartmentId,
-            departmentName: classroomDisplayName({
-              className: classRooms?.data?.find(
-                (room) => room.id === tf.classroomDepartmentId,
-              )?.classRoom?.name,
-              departmentName: data.departmentName,
-            }),
-            tables: Object.values(tables),
-            lineCount: rowsCount,
-            grade,
-            subjectList,
-            student: tf.student,
-            comment,
-            summary: {
-              subjects: subjectList.length,
-              results: subjectList.filter((a) =>
-                a.assessments.some((b) => b.obtained),
-              ).length,
-            },
-          };
-        }) || []
-      );
-    });
-
-    // Compute positions within each department separately
-    const byDept: Record<string, typeof allStudents> = {};
-    allStudents.forEach((s) => {
-      if (!byDept[s.departmentId ?? "unknown"]) {
-        byDept[s.departmentId ?? "unknown"] = [];
-      }
-      byDept[s.departmentId ?? "unknown"].push(s);
-    });
-    Object.values(byDept).forEach((deptStudents) => {
-      deptStudents.forEach((student) => {
-        student.grade.position =
-          deptStudents.filter((a) => a.grade.obtained > student.grade.obtained)
-            ?.length + 1;
-      });
-    });
-
     return {
-      reportsById: Object.fromEntries(
-        allStudents.map((student) => [student.termFormId, student]),
-      ),
+      reportsById: buildStudentReportsById({
+        departmentSheets: deptQueries
+          .map((q) => q.data)
+          .filter(Boolean) as Array<(typeof deptQueries)[number]["data"]>,
+        classrooms: classRooms?.data,
+      }),
     };
   }, [classRooms?.data, deptQueries]);
 
@@ -227,22 +88,6 @@ export const createReportPageContext = (defaultTermId?: string) => {
     reportData,
   };
 };
-function tableModel() {
-  const tables: {
-    [tk in string]: {
-      columns: {
-        label?: string;
-        subLabel?: string;
-      }[];
-      rows: {
-        columns: {
-          value?;
-        }[];
-      }[];
-    };
-  } = {};
-  return tables;
-}
 export const useReportPageContext = () => {
   const context = useContext(ReportPageContext);
   if (context === undefined) {

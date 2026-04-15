@@ -32,6 +32,12 @@ Documents how the monorepo is organized and where code belongs.
 - `packages/utils`: shared utility functions and constants
 - `packages/template-registry`: school website template registry, template manifests, preview/editor utilities, and shared website blocks
 
+## PDF Result Template Architecture
+- Result PDF templates should live under `packages/pdf/src/result/`.
+- Organize result templates by school system first, then by named template design.
+- Keep shared types, registries, and font/setup helpers outside individual template files so additional school systems and template variants can be added without rewriting route logic.
+- School-specific preference resolution should select from the registry, not import individual template files directly in app routes.
+
 ## Dashboard Route Groups
 - `(sidebar)/`: authenticated pages mounted inside the tenant dashboard shell
 - `(auth)/`: login, forgot-password, reset-password, signout

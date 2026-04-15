@@ -74,6 +74,10 @@ Catalog of API routes and responsibilities.
 - `action.resendStaffOnboardingAction`
 - `action.completeStaffOnboardingAction`
 
+### PDF Output
+- `GET /api/pdf/student-payment-receipt`
+- `GET /api/pdf/result`
+
 ## Router Ownership Map
 - `trpc.students.*`: student listing, detail, overview, and student-centric workflows
 - `trpc.classrooms.*`: classroom lists, overview, and classroom-scoped actions

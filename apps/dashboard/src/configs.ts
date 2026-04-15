@@ -2,6 +2,10 @@ export const configs = {
   schoolName: `مدرسـة دار الحديث لتحفيـظ القرآن والسنـة`,
   schoolAddress:
     " Sannushehu Street, Isale-koko, Ojagboro, Isale Gambari, Ilorin, Kwara State, Nigeria.",
+  resultTemplates: {
+    schoolSystem: "k12" as const,
+    preferredTemplateId: "k12-scholar",
+  },
   comment: "الملاحظة",
   teacherSignature: `توقيع المدرس`,
   directorSignature: `توقيع المدير`,
