@@ -17,6 +17,7 @@ Tracks logical and physical schema for SchoolClerk data entities.
 ## Tenant and Identity
 - `SaasAccount`, `User`, `Session`, `Account`, `Verification`, `EmailTokenLogin`
 - `SchoolProfile`, `TenantDomain`, `SchoolSession`, `SessionTerm`
+- Planned public website models: `WebsiteTemplateConfig`, `WebsitePublishedConfig`
 
 ### TenantDomain (schema: `packages/db/src/schema/school.prisma`)
 | Field | Type | Notes |
@@ -30,6 +31,41 @@ Tracks logical and physical schema for SchoolClerk data entities.
 | `saasAccountId` | String? | FK → SaasAccount (denormalized for fast account-level queries) |
 
 Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.school-clerk.com`
+
+### Planned WebsiteTemplateConfig (design target for `WEB-002`)
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | String (uuid) | PK |
+| `schoolProfileId` | String | FK → SchoolProfile. Tenant ownership boundary |
+| `templateId` | String | Registry template identifier such as `k12-plus-template-1` |
+| `name` | String | Tenant-facing draft/published config label |
+| `status` | Enum | `DRAFT`, `PUBLISHED`, `ARCHIVED` |
+| `contentJson` | Json | Saved editable field values by stable field key |
+| `sectionJson` | Json | Section visibility map by stable section key |
+| `themeJson` | Json | Colors, fonts, radius, density, style preset, and other visual config |
+| `seoJson` | Json? | Site-wide and page-level SEO overrides |
+| `analyticsJson` | Json? | Public tracking/meta settings |
+| `templateVersion` | Int | Enables template migration/version compatibility rules |
+| `createdByUserId` | String? | Optional author/auditing user link |
+| `updatedByUserId` | String? | Optional last editor user link |
+| `publishedAt` | DateTime? | Timestamp of the last publish event for this config |
+| `createdAt` | DateTime | Audit field |
+| `updatedAt` | DateTime | Audit field |
+
+### Planned WebsitePublishedConfig (design target for `WEB-002`)
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | String (uuid) | PK |
+| `schoolProfileId` | String unique | Exactly one published pointer per tenant |
+| `websiteConfigId` | String unique | FK → WebsiteTemplateConfig. Active live website config |
+| `publishedAt` | DateTime | Publish event timestamp |
+
+### Public Website Persistence Notes
+- Website configuration data should be stored in dedicated website tables rather than inflating `SchoolProfile` with large website JSON blobs.
+- `WebsiteTemplateConfig` is the durable draft/published document for a tenant website configuration.
+- `WebsitePublishedConfig` is the fast lookup pointer used by `apps/school-site` to resolve the live public website.
+- `templateVersion` should be captured at save/publish time so future manifest migrations can be deterministic.
+- Page content, section visibility, and theme settings are intentionally JSON-backed because template field sets vary by template and page.
 
 ## Academic Structure
 - `ClassRoom`, `ClassRoomDepartment`, `DepartmentSubject`, `Subject`
@@ -82,4 +118,6 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 - Tenant key strategy in active models: `schoolProfileId` is widely used for tenant scoping.
 - Soft delete pattern: most models use nullable `deletedAt`; legacy models use `deleted_at`.
 - Auditing fields: `createdAt` and `updatedAt` present across most active models.
+- Planned website config uniqueness rule: multiple configs per tenant are allowed, but only one row in `WebsitePublishedConfig` may point to the active live config for that tenant.
+- Planned website config status rule: `PUBLISHED` should only be assigned as part of a publish transaction that also updates `WebsitePublishedConfig`.
 - TODO: document which models are production-active vs transitional legacy.

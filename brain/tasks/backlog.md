@@ -71,3 +71,48 @@ Prioritized list of tasks not yet started.
 - Scope: Add result capture/import, candidate result history, pass-rate analytics, and score distribution dashboards.
 - Dependencies: EXAM-002
 - Owner: TBD
+
+## Task Item
+- ID: WEB-001
+- Title: Design school website template registry architecture
+- Type: feature
+- Priority: P1
+- Scope: Define template manifest typing, preview vs production rendering model, editable field schema, template config model, and boundaries between `packages/template-registry` and `apps/school-site`.
+- Dependencies: ADR-0001, ADR-0002
+- Owner: TBD
+
+## Task Item
+- ID: WEB-002
+- Title: Design tenant website configuration persistence model
+- Type: feature
+- Priority: P1
+- Scope: Define storage for multi-template draft configurations, published configuration selection, section visibility, theme settings, SEO settings, and future versioning support.
+- Dependencies: WEB-001
+- Owner: TBD
+
+## Task Item
+- ID: WEB-003
+- Title: Implement template registry and multi-page preview flow
+- Type: feature
+- Priority: P1
+- Scope: Build template listing, filtering by institution type and plan, multi-page preview, click guards, and template manifest loading in a production-like preview experience.
+- Dependencies: WEB-001
+- Owner: TBD
+
+## Task Item
+- ID: WEB-004
+- Title: Implement inline editable fields and AI-assisted content actions
+- Type: feature
+- Priority: P1
+- Scope: Add schema-driven editable regions, inline editing boundaries, validation, AI field context generation, and draft-save behavior for template customization.
+- Dependencies: WEB-001, WEB-002, WEB-003
+- Owner: TBD
+
+## Task Item
+- ID: WEB-005
+- Title: Implement public school website runtime
+- Type: feature
+- Priority: P1
+- Scope: Add tenant resolution, published configuration loading, template renderer resolution, live tenant data merging, and public multi-page rendering in `apps/school-site`.
+- Dependencies: WEB-002, WEB-003
+- Owner: TBD

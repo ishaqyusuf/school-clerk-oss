@@ -1,0 +1,23 @@
+{
+  "name": "@school-clerk/template-registry",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "sideEffects": false,
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@school-clerk/tsconfig": "workspace:*",
+    "@types/react": "^19.2.2",
+    "typescript": "^5.9.3"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

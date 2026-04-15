@@ -28,6 +28,9 @@ model SchoolProfile {
     billables              Billable[]
     bills                  Bills[]
     domains                TenantDomain[]
+    websiteMediaAssets     WebsiteMediaAsset[]
+    websiteConfigs         WebsiteTemplateConfig[]
+    websitePublishedConfig WebsitePublishedConfig?
     activities             Activity[]
     reportPrintLogs        ReportPrintLog[]
     notifications          Notification[]

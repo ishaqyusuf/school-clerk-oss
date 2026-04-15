@@ -25,6 +25,8 @@ export const env = createEnv({
     VERCEL_PROJECT_SLUG: z.string().min(1),
     VERCEL_PROJECT_ID: z.string().min(1),
     VERCEL_BEARER_TOKEN: z.string().min(1),
+    BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
+    OPENAI_API_KEY: z.string().min(1).optional(),
   },
   client: {
     // BETTER_AUTH_SECRET: z.string().min(1),

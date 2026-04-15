@@ -41,6 +41,13 @@ Tracks phased product delivery and strategic milestones.
 - SMS notification add-on
 - White-label mobile app add-on
 
+## Phase 4: Public Website Platform
+- School website template registry grouped by institution type and subscription plan
+- Multi-page public school website runtime backed by published tenant template configurations
+- Inline content editing with AI-assisted field generation
+- Theme configuration, section visibility controls, and publish workflow for tenant-managed public websites
+- Shared shadcn-based website component foundation with template-specific presentation layers
+
 ## Commercial Model
 - Setup fee: NGN 50,000 to NGN 200,000
 - Monthly SaaS: NGN 10,000 to NGN 50,000 per school

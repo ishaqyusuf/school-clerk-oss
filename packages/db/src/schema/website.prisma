@@ -1,0 +1,62 @@
+enum WebsiteTemplateConfigStatus {
+    DRAFT
+    PUBLISHED
+    ARCHIVED
+}
+
+model WebsiteTemplateConfig {
+    id              String                      @id @default(uuid())
+    schoolProfileId String
+    templateId      String
+    name            String
+    status          WebsiteTemplateConfigStatus @default(DRAFT)
+    contentJson     Json
+    sectionJson     Json
+    themeJson       Json
+    seoJson         Json?
+    analyticsJson   Json?
+    templateVersion Int                         @default(1)
+    createdByUserId String?
+    updatedByUserId String?
+    publishedAt     DateTime?                   @db.Timestamp(0)
+    createdAt       DateTime                    @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime                    @updatedAt
+    deletedAt       DateTime?                   @db.Timestamp(0)
+
+    schoolProfile   SchoolProfile          @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+    publishedRecord WebsitePublishedConfig?
+
+    @@index([schoolProfileId, status])
+    @@index([schoolProfileId, templateId])
+}
+
+model WebsiteMediaAsset {
+    id              String   @id @default(uuid())
+    schoolProfileId String
+    name            String
+    kind            String   @default("IMAGE")
+    sourceUrl       String
+    altText         String?
+    storageProvider String?
+    storageKey      String?
+    mimeType        String?
+    createdByUserId String?
+    createdAt       DateTime @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime @updatedAt
+    deletedAt       DateTime? @db.Timestamp(0)
+
+    schoolProfile SchoolProfile @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+
+    @@index([schoolProfileId, kind])
+}
+
+model WebsitePublishedConfig {
+    id              String   @id @default(uuid())
+    schoolProfileId String   @unique
+    websiteConfigId String   @unique
+    publishedAt     DateTime @default(now()) @db.Timestamp(0)
+    deletedAt       DateTime? @db.Timestamp(0)
+
+    schoolProfile SchoolProfile        @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+    websiteConfig WebsiteTemplateConfig @relation(fields: [websiteConfigId], references: [id], onDelete: Cascade)
+}

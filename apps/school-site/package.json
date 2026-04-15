@@ -1,0 +1,33 @@
+{
+  "name": "@school-clerk/school-site",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@school-clerk/db": "workspace:*",
+    "@school-clerk/template-registry": "workspace:*",
+    "@school-clerk/tsconfig": "workspace:*",
+    "@school-clerk/ui": "workspace:*",
+    "@school-clerk/utils": "workspace:*",
+    "next": "^16.0.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^24.7.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.5",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.3"
+  }
+}

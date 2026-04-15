@@ -18,10 +18,12 @@ Map of key repository areas so contributors and AI can navigate the codebase qui
 - `apps/web`: SaaS landing page (marketing/public website)
 - `apps/dashboard`: SaaS application (authenticated product app)
 - `apps/api`: API application surface
+- `apps/school-site`: public school website runtime for tenant-published template configurations
 - `packages/db`: Prisma/PostgreSQL data layer package
 - `packages/navigation`: shared navigation schema, builders, and sidebar adapters
 - `packages/api`: tRPC API package
 - `packages/ui`: shared UI components package
+- `packages/template-registry`: website template manifests, registry helpers, example templates, and shared render contracts
 
 ## Documentation Map
 - `brain/system/`: architecture and system internals

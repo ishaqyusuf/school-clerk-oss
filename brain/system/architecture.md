@@ -54,10 +54,12 @@ Tracks architectural patterns, boundaries, and major design choices.
 - `apps/web`: SaaS landing page (public marketing site)
 - `apps/dashboard`: SaaS application (authenticated product app)
 - `apps/api`: API application surface
+- `apps/school-site`: tenant-resolved public school website runtime backed by published template configurations
 - `packages/navigation`: shared navigation schema and registry-to-sidebar adapter layer
 - `packages/api`: shared tRPC routers/contracts
 - `packages/db`: Prisma schema/client and data access utilities
 - `packages/ui`: shared UI components
+- `packages/template-registry`: website template registry, manifests, preview/editor engine, shared website blocks, hooks, guards, and production/preview render utilities
 
 ## Data Flow
 1. Tenant user authenticates
@@ -68,6 +70,36 @@ Tracks architectural patterns, boundaries, and major design choices.
 6. Service calls Prisma repositories with tenant constraints
 7. PostgreSQL persists and returns tenant-scoped data
 8. Auditable response returned to client
+
+## Public Website Template Platform
+- School public websites are configuration-driven per tenant rather than hardcoded per institution.
+- Each tenant may own multiple website template configurations, but only one configuration is published at a time.
+- `packages/template-registry` defines:
+  - template manifests and registry metadata
+  - shared shadcn-based website primitives and reusable website blocks
+  - preview/editor mode helpers, click guards, and editable field boundaries
+  - resolvers that switch between preview/demo data and live tenant production data
+- `apps/school-site` is responsible for:
+  - resolving tenant identity by domain or subdomain
+  - loading the published website configuration
+  - resolving the correct template renderer
+  - merging saved content, theme config, section visibility, SEO settings, and live tenant resources
+  - rendering the public website and its nested pages
+
+## Template Rendering Modes
+- Preview/editor mode:
+  - used during registry browsing, template selection, inline editing, and draft review
+  - renders production-like pages using safe preview data plus selected tenant-aware resources where allowed
+  - applies navigation and click guards to prevent accidental exit while editing
+- Production mode:
+  - used by `apps/school-site` for the public tenant website
+  - resolves live tenant data directly and renders only the published configuration
+  - must remain isolated from draft edits and editor-only affordances
+
+## Design System Rule
+- The website template platform uses a shared shadcn-based design foundation.
+- Templates are presentation layers composed from shared primitives and website blocks, not isolated design systems.
+- Template-specific identity should come from composition, theming, typography, spacing, and section presentation while preserving shared accessibility and editor compatibility.
 
 ## Cross-Cutting Concerns
 - Security and authorization

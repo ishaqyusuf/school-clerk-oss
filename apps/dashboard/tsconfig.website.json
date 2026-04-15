@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/actions/website-config.ts",
+    "src/app/dashboard/[domain]/(sidebar)/settings/website/page.tsx",
+    "src/app/dashboard/[domain]/(sidebar)/settings/website/[configId]/page.tsx"
+  ],
+  "exclude": ["node_modules", ".next"]
+}

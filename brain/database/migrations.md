@@ -26,3 +26,21 @@ Change log for database schema migrations and rollout notes.
 - Backfill required: Yes
 - Rollback plan: Drop or ignore the new invite tracking columns after removing the invite-first UI and onboarding completion flow.
 - Owner: Codex
+
+## Migration Entry
+- Date: 2026-04-08
+- ID: WEB-2026-04-08-website-template-config-models
+- Summary: Added Prisma schema definitions for tenant website draft/published configuration storage and repository helpers for published-config lookup plus draft/publish operations.
+- Affected entities: `WebsiteTemplateConfig`, `WebsitePublishedConfig`, `SchoolProfile`
+- Backfill required: No for greenfield rollout; existing tenants can remain without a published website config until onboarding.
+- Rollback plan: Remove website runtime reads, delete the new models, and revert `SchoolProfile` relation fields before applying migration rollback.
+- Owner: Codex
+
+## Migration Entry
+- Date: 2026-04-08
+- ID: WEB-2026-04-08-website-media-blob-fields
+- Summary: Extended tenant website media assets with storage metadata for Vercel Blob uploads and introduced runtime asset-reference resolution for template content.
+- Affected entities: `WebsiteMediaAsset`
+- Backfill required: No; existing imported URL assets continue to work without storage metadata.
+- Rollback plan: Revert blob upload flows, remove storage metadata columns, and keep legacy URL-based media selection for website templates.
+- Owner: Codex
