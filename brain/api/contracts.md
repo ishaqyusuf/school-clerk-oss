@@ -119,3 +119,34 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Response schema: `{ staffId, completed: true }`
 - Error cases: onboarding link no longer matches a staff record
 - Notes: used after password reset in the onboarding link flow to complete the staff profile and mark onboarding active
+
+## Assistant Contracts
+- Route: `POST /api/chat`
+- Request schema: `{ conversationId, input }` where `input` is either `{ kind: "text", text }` or `{ kind: "workflow", action }`
+- Response schema: AI SDK UI message stream response, plus response headers `x-school-clerk-conversation-id`, `x-school-clerk-run-id`, `x-school-clerk-provider`, and `x-school-clerk-model`
+- Error cases: unauthorized tenant/user, assistant disabled, role not allowed, conversation not found, invalid workflow payload
+- Notes: persists the incoming user message, creates an `AssistantRun`, enforces role/capability checks, and records tool execution telemetry
+
+- Route: `GET /api/chat/conversations`
+- Request schema: none
+- Response schema: `{ conversations[], capabilities[], config }`
+- Error cases: unauthorized tenant/user
+- Notes: returns tenant-user scoped history summary for the widget
+
+- Route: `POST /api/chat/conversations/:conversationId/messages`
+- Request schema: `{ role: "assistant" | "system", content, parts[] }`
+- Response schema: `{ message }`
+- Error cases: unauthorized tenant/user, conversation not found, invalid message part payload
+- Notes: used by the client to persist the final assistant UI message after streaming completes
+
+- Route: `POST /api/chat/settings`
+- Request schema: assistant config payload including `enabled`, provider/model preferences, allowed roles, enabled/disabled capabilities, analytics/feedback flags, and `maxSteps`
+- Response schema: `{ config }`
+- Error cases: unauthorized tenant/user, non-admin access, invalid config payload
+- Notes: assistant settings are tenant-scoped and currently admin-managed
+
+- Route: `GET /api/chat/analytics`
+- Request schema: none
+- Response schema: `{ analytics }` including conversation count, run count, failed runs, top tool usage, average rating, recent runs, and unresolved demand samples
+- Error cases: unauthorized tenant/user, analytics disabled
+- Notes: analytics are currently user-scoped within the tenant widget experience

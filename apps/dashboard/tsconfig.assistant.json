@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/app/api/chat/**/*.ts",
+    "src/components/chat/**/*.ts",
+    "src/components/chat/**/*.tsx",
+    "src/lib/assistant/**/*.ts"
+  ],
+  "exclude": ["node_modules", ".next", "src/components/configure-term.tsx"]
+}

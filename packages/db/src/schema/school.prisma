@@ -37,6 +37,12 @@ model SchoolProfile {
     notificationPreferences NotificationPreference[]
     inventoryItems         Inventory[]
     inventoryIssuances     InventoryIssuance[]
+    assistantConversations AssistantConversation[]
+    assistantMessages      AssistantMessage[]
+    assistantRuns          AssistantRun[]
+    assistantToolExecutions AssistantToolExecution[]
+    assistantConfig        SchoolAssistantConfig?
+    assistantFeedback      AssistantFeedback[]
 
     @@unique([name, subDomain, slug, deletedAt])
 }

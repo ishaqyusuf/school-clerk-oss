@@ -109,6 +109,22 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 
 ## Other
 - `Guardians`, `Activity`, `Posts`
+- `AssistantConversation`, `AssistantMessage`, `AssistantRun`, `AssistantToolExecution`, `SchoolAssistantConfig`, `AssistantFeedback`
+
+### Assistant Data Model (session 2026-04)
+| Model | Purpose |
+|------|---------|
+| `AssistantConversation` | Tenant-user scoped conversation shell with title, locale, summary, and last-message timestamp |
+| `AssistantMessage` | Durable user/assistant/system messages with stored UI parts and workflow state |
+| `AssistantRun` | One assistant request/response cycle with provider, model, prompt summary, usage, and status |
+| `AssistantToolExecution` | Per-tool audit row inside a run, including blocked/completed/failed status and mutation flag |
+| `SchoolAssistantConfig` | Per-tenant assistant controls for rollout, provider/model selection, allowed roles, enabled/disabled capabilities, analytics, and feedback |
+| `AssistantFeedback` | Tenant-user feedback linked to a conversation and/or run |
+
+### Assistant Audit Notes
+- Assistant persistence is tenant-scoped through `schoolProfileId`.
+- Assistant run and tool records complement, rather than replace, broader `Activity` audit rows.
+- Risky assistant mutations use confirmation tokens and emit assistant-specific activity events before or after execution.
 
 ## Legacy/Parallel Models Detected
 - `schema.prisma` also contains lowercase legacy models: `school`, `guardian`, `session_class`.

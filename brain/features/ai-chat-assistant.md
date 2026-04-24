@@ -1,7 +1,7 @@
 # AI Chat Assistant
 
 ## Status
-In progress: initial dashboard chat assistant is implemented, but it is still an early operational slice rather than a production-complete feature.
+In progress: the assistant now has durable conversation history, typed workflow confirmations, assistant run/tool logging, role-aware capability gating, analytics/feedback endpoints, and dashboard views for chat history, insights, and settings. Database migration rollout and full end-to-end validation still remain.
 
 ## Goal
 Provide a tenant-aware AI assistant inside the dashboard that helps school staff complete real operational tasks in natural language with safe tool execution, clear confirmations, and auditable outcomes.
@@ -18,6 +18,10 @@ Provide a tenant-aware AI assistant inside the dashboard that helps school staff
 - Client-side streaming/message state via `apps/dashboard/src/components/chat/use-school-chat.ts`
 - Tool-aware message rendering via `apps/dashboard/src/components/chat/chat-message.tsx`
 - Server route and tool execution via `apps/dashboard/src/app/api/chat/route.ts`
+- Conversation/history endpoints via `apps/dashboard/src/app/api/chat/conversations/**`
+- Settings, analytics, and feedback endpoints via `apps/dashboard/src/app/api/chat/{settings,analytics,feedback}/route.ts`
+- Shared assistant server logic via `apps/dashboard/src/lib/assistant/server.ts`
+- Shared assistant capability/workflow definitions via `apps/dashboard/src/lib/assistant/shared.ts`
 
 ## Current Capabilities
 - Search students for the active tenant
@@ -28,16 +32,23 @@ Provide a tenant-aware AI assistant inside the dashboard that helps school staff
 - Search inventory items
 - Create inventory items
 - Record inventory issuance
+- Search staff members
+- Fetch teacher workspace summary
+- Fetch student attendance history
+- Search guardian contacts
 - Stream assistant responses into the dashboard UI
 - Render tool results as interactive cards for student selection, classroom selection, fee confirmation, and success receipts
+- Persist conversations and messages per tenant user
+- Capture assistant run and tool execution telemetry
+- Collect assistant feedback and expose usage analytics
+- Manage assistant rollout/settings from the widget
 
 ## Current Constraints
-- Conversations are in-memory on the client and are lost on refresh
-- No durable conversation history, transcript search, or handoff
-- Tool coverage is still narrow and focused on a few admin flows
-- The route executes actions directly, but the UX still needs stronger confirmation and reversal patterns for risky mutations
-- There is no documented evaluation harness, analytics layer, or assistant quality monitoring
-- Provider/model selection is environment-driven and not yet productized per tenant, role, or workload
+- Prisma schema changes require migration rollout before the new assistant persistence layer can work outside codegen/type-check level
+- The route now enforces confirmation for risky mutations, but undo/reversal workflows are still domain-specific and not yet generalized
+- There is no automated eval harness yet; validation is currently based on isolated type-check coverage and runtime instrumentation design
+- Provider/model selection is configurable per tenant assistant config, but cost/performance routing is still static rather than intent-aware
+- Tenant module gating is assistant-config-backed for now and should later align with the broader platform module engine
 
 ## UX Notes
 - The assistant is embedded into the dashboard shell rather than exposed as a standalone page
@@ -143,9 +154,9 @@ Provide a tenant-aware AI assistant inside the dashboard that helps school staff
   - Roadmap prioritization reflects unresolved demand rather than intuition alone
 
 ## Recommended Sequence
-- Start with Phase 1, Phase 2, and Phase 3 before broadening tool coverage
-- Move to Phase 4 through Phase 6 once safety, persistence, and observability are stable
-- Use Phase 7 through Phase 10 to turn the assistant from a useful prototype into a productized add-on
+- Phase 1 through Phase 7 now have concrete implementation scaffolding in the dashboard and Prisma schema layer
+- Phase 8 through Phase 10 now have analytics/feedback surfaces and focused validation setup, but still need deeper automated eval coverage and rollout hardening
+- Migration rollout plus live tenant validation should be the next operational checkpoint before broader release
 
 ## Open Questions
 - Should assistant conversation history be visible only to the initiating user, or shared with authorized staff in the same tenant?

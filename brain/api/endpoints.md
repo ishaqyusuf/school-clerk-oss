@@ -78,6 +78,17 @@ Catalog of API routes and responsibilities.
 - `GET /api/pdf/student-payment-receipt`
 - `GET /api/pdf/result`
 
+### AI Assistant
+- `POST /api/chat`
+- `GET /api/chat/conversations`
+- `POST /api/chat/conversations`
+- `GET /api/chat/conversations/:conversationId`
+- `POST /api/chat/conversations/:conversationId/messages`
+- `GET /api/chat/settings`
+- `POST /api/chat/settings`
+- `GET /api/chat/analytics`
+- `POST /api/chat/feedback`
+
 ## Router Ownership Map
 - `trpc.students.*`: student listing, detail, overview, and student-centric workflows
 - `trpc.classrooms.*`: classroom lists, overview, and classroom-scoped actions
@@ -88,3 +99,4 @@ Catalog of API routes and responsibilities.
 - `trpc.staff.*`: staff list/form data and staff-management APIs
 - `trpc.notifications.*`: notification list/read/count actions
 - `trpc.subjects.*`, `trpc.enrollments.*`, `trpc.assessments.*`, `trpc.filters.*`, `trpc.auth.*`: domain-specific supporting routers
+- `app/api/chat/*`: dashboard assistant history, execution, settings, analytics, and feedback surfaces

@@ -1,0 +1,173 @@
+model AssistantConversation {
+    id              String   @id @default(cuid())
+    schoolProfileId String
+    createdByUserId String
+    title           String?
+    locale          String?
+    status          AssistantConversationStatus @default(active)
+    summary         String?
+    lastMessageAt   DateTime? @db.Timestamp(0)
+    meta            Json?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    schoolProfile SchoolProfile @relation(fields: [schoolProfileId], references: [id])
+    createdBy    User          @relation("AssistantConversationCreatedBy", fields: [createdByUserId], references: [id])
+    messages     AssistantMessage[]
+    runs         AssistantRun[]
+    feedback     AssistantFeedback[]
+    toolExecutions AssistantToolExecution[]
+
+    @@index([schoolProfileId, createdByUserId, lastMessageAt])
+}
+
+model AssistantMessage {
+    id              String   @id @default(cuid())
+    conversationId  String
+    schoolProfileId String
+    createdByUserId String?
+    role            AssistantMessageRole
+    content         String?
+    parts           Json?
+    workflowState   Json?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+    schoolProfile SchoolProfile         @relation(fields: [schoolProfileId], references: [id])
+    createdBy     User?                 @relation("AssistantMessageCreatedBy", fields: [createdByUserId], references: [id])
+
+    @@index([conversationId, createdAt])
+    @@index([schoolProfileId, role, createdAt])
+}
+
+model AssistantRun {
+    id              String   @id @default(cuid())
+    conversationId  String
+    schoolProfileId String
+    userId          String
+    status          AssistantRunStatus @default(running)
+    provider        String?
+    model           String?
+    requestType     String?
+    locale          String?
+    promptSummary   String?
+    usage           Json?
+    metrics         Json?
+    error           String?
+    workflowAction  Json?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    conversation   AssistantConversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+    schoolProfile  SchoolProfile           @relation(fields: [schoolProfileId], references: [id])
+    user           User                    @relation("AssistantRunUser", fields: [userId], references: [id])
+    toolExecutions AssistantToolExecution[]
+    feedback       AssistantFeedback[]
+
+    @@index([conversationId, createdAt])
+    @@index([schoolProfileId, status, createdAt])
+}
+
+model AssistantToolExecution {
+    id              String   @id @default(cuid())
+    runId           String
+    conversationId  String
+    schoolProfileId String
+    toolName        String
+    capability      String?
+    status          AssistantToolExecutionStatus @default(started)
+    isMutation      Boolean @default(false)
+    input           Json?
+    output          Json?
+    error           String?
+    startedAt       DateTime? @default(now()) @db.Timestamp(0)
+    completedAt     DateTime? @db.Timestamp(0)
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    run          AssistantRun          @relation(fields: [runId], references: [id], onDelete: Cascade)
+    conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+    schoolProfile SchoolProfile        @relation(fields: [schoolProfileId], references: [id])
+
+    @@index([runId, createdAt])
+    @@index([schoolProfileId, toolName, createdAt])
+}
+
+model SchoolAssistantConfig {
+    id                 String  @id @default(cuid())
+    schoolProfileId    String  @unique
+    enabled            Boolean @default(true)
+    preferredProvider  String?
+    preferredModel     String?
+    allowedRoles       Json?
+    enabledCapabilities Json?
+    disabledCapabilities Json?
+    analyticsEnabled   Boolean @default(true)
+    feedbackEnabled    Boolean @default(true)
+    maxSteps           Int     @default(5)
+    systemPromptExtra  String?
+    rolloutStage       String?
+    featureFlags       Json?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    schoolProfile SchoolProfile @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+}
+
+model AssistantFeedback {
+    id              String   @id @default(cuid())
+    schoolProfileId String
+    userId          String
+    conversationId  String?
+    runId           String?
+    rating          Int?
+    comment         String?
+    meta            Json?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    schoolProfile SchoolProfile         @relation(fields: [schoolProfileId], references: [id])
+    user         User                   @relation("AssistantFeedbackUser", fields: [userId], references: [id])
+    conversation AssistantConversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+    run          AssistantRun?          @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+    @@index([schoolProfileId, createdAt])
+}
+
+enum AssistantConversationStatus {
+    active
+    archived
+}
+
+enum AssistantMessageRole {
+    user
+    assistant
+    system
+}
+
+enum AssistantRunStatus {
+    running
+    completed
+    failed
+    cancelled
+}
+
+enum AssistantToolExecutionStatus {
+    started
+    completed
+    blocked
+    failed
+}

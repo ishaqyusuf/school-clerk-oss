@@ -35,4 +35,9 @@ enum ActivityType {
 
     student_term_created
     student_term_cancelled
+
+    assistant_run
+    assistant_action_requested
+    assistant_action_completed
+    assistant_action_blocked
 }

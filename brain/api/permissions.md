@@ -29,6 +29,7 @@ Defines access control rules for each API surface.
 - Role checks happen server-side.
 - Tenant membership required for all tenant routes.
 - Sensitive actions require audit logging.
+- Assistant mutation tools require explicit confirmation before execution.
 
 ## Current Dashboard Auth Behavior
 - Better Auth trusted origins are resolved per request and include the exact incoming origin for tenant subdomains in development.
@@ -66,3 +67,19 @@ Defines access control rules for each API surface.
 - `/staff/teachers` remains the admin teacher-management page.
 - `/staff/non-teaching`, `/staff/departments`, and `/staff/attendance` are now basic tenant-scoped admin/HR overview pages.
 - Broad teacher access was removed from the Academic sidebar module; teacher day-to-day navigation now lives in the dedicated teacher workspace instead.
+
+## Assistant Permission Snapshot (session 2026-04)
+- Assistant access is tenant-scoped and tied to the authenticated Better Auth user plus tenant cookie context.
+- Tenant admins can update assistant settings through `POST /api/chat/settings`.
+- Assistant capability exposure is server-filtered by role and tenant assistant config before tools are made available to the model.
+- Current default role access:
+  - `students.read`: Admin, Registrar, Teacher, Accountant, Staff
+  - `students.enrollment`: Admin, Registrar
+  - `finance.read`: Admin, Accountant
+  - `finance.write`: Admin, Accountant
+  - `inventory.read`: Admin, Accountant, Staff
+  - `inventory.write`: Admin, Accountant, Staff
+  - `staff.read`: Admin, HR, Teacher
+  - `attendance.read`: Admin, Teacher, Registrar
+  - `parents.read`: Admin, Registrar, Staff
+- If the assistant is disabled, analytics are disabled, feedback is disabled, or a capability is removed in `SchoolAssistantConfig`, the corresponding route/tool is blocked server-side regardless of client state.

@@ -1,29 +1,68 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export type ChatMessagePart =
-  | { type: "text"; text: string; state?: "streaming" | "done" }
-  | {
-      type: "tool-invocation";
-      toolName: string;
-      toolCallId: string;
-      state: "input-available" | "output-available";
-      input: unknown;
-      output?: unknown;
-    };
+import type {
+  AssistantMessagePart,
+  WorkflowAction,
+} from "@/lib/assistant/shared";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type ChatMessage = {
   id: string;
-  role: "user" | "assistant";
-  parts: ChatMessagePart[];
+  role: "user" | "assistant" | "system";
+  parts: AssistantMessagePart[];
+  content?: string | null;
+  createdAt?: string | null;
+};
+
+export type ConversationListItem = {
+  id: string;
+  title: string;
+  status: string;
+  locale: string | null;
+  summary: string | null;
+  lastMessageAt: string | null;
+  preview: string;
+  lastRunStatus: string | null;
+};
+
+export type AssistantAnalytics = {
+  conversationCount: number;
+  runCount: number;
+  failedRuns: number;
+  toolUsage: Record<string, number>;
+  avgRating: number | null;
+  recentRuns: {
+    id: string;
+    status: string;
+    requestType: string | null;
+    promptSummary: string | null;
+    createdAt: string | null;
+    toolCount: number;
+  }[];
+  unresolvedDemand: {
+    id: string;
+    promptSummary: string | null;
+    status: string;
+    createdAt: string | null;
+    failedTools: string[];
+  }[];
+};
+
+export type AssistantSettings = {
+  enabled: boolean;
+  preferredProvider?: string | null;
+  preferredModel?: string | null;
+  allowedRoles?: string[] | null;
+  enabledCapabilities?: string[] | null;
+  disabledCapabilities?: string[] | null;
+  analyticsEnabled: boolean;
+  feedbackEnabled: boolean;
+  maxSteps: number;
+  systemPromptExtra?: string | null;
+  rolloutStage?: string | null;
 };
 
 type Status = "idle" | "loading" | "streaming" | "error";
-
-// ── SSE stream reader for AI SDK v6 UIMessageChunk format ────────────────────
 
 async function readUIStream(
   stream: ReadableStream<Uint8Array>,
@@ -49,10 +88,9 @@ async function readUIStream(
         const data = trimmed.slice(6);
         if (data === "[DONE]") break;
         try {
-          const chunk = JSON.parse(data);
-          onChunk(chunk);
+          onChunk(JSON.parse(data));
         } catch {
-          // ignore malformed lines
+          // Ignore malformed SSE chunks.
         }
       }
     }
@@ -62,69 +100,167 @@ async function readUIStream(
   }
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
-
 export function useSchoolChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [conversations, setConversations] = useState<ConversationListItem[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [capabilities, setCapabilities] = useState<string[]>([]);
+  const [settings, setSettings] = useState<AssistantSettings | null>(null);
+  const [analytics, setAnalytics] = useState<AssistantAnalytics | null>(null);
+  const [lastRunId, setLastRunId] = useState<string | null>(null);
+
   const abortRef = useRef<AbortController | null>(null);
 
-  const setMessages_ = useCallback(setMessages, []);
+  const refreshConversations = useCallback(async () => {
+    const res = await fetch("/api/chat/conversations", { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to load conversations.");
+    const data = (await res.json()) as {
+      conversations: ConversationListItem[];
+      capabilities: string[];
+      config: AssistantSettings;
+    };
+    setConversations(data.conversations);
+    setCapabilities(data.capabilities);
+    setSettings((prev) => ({ ...(prev ?? {}), ...data.config }));
 
-  const sendMessage = useCallback(
-    async (text: string) => {
-      if (!text.trim()) return;
+    if (!activeConversationId && data.conversations[0]?.id) {
+      setActiveConversationId(data.conversations[0].id);
+    }
+    return data.conversations;
+  }, [activeConversationId]);
 
-      // Abort any ongoing request
+  const refreshAnalytics = useCallback(async () => {
+    const res = await fetch("/api/chat/analytics", { cache: "no-store" });
+    if (!res.ok) return;
+    const data = (await res.json()) as { analytics: AssistantAnalytics };
+    setAnalytics(data.analytics);
+  }, []);
+
+  const refreshSettings = useCallback(async () => {
+    const res = await fetch("/api/chat/settings", { cache: "no-store" });
+    if (!res.ok) return;
+    const data = (await res.json()) as {
+      config: AssistantSettings;
+    };
+    setSettings(data.config);
+  }, []);
+
+  const loadConversation = useCallback(async (conversationId: string) => {
+    const res = await fetch(`/api/chat/conversations/${conversationId}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error("Failed to load conversation.");
+    const data = (await res.json()) as {
+      conversation: {
+        messages: ChatMessage[];
+        runs: { id: string }[];
+      };
+    };
+    setMessages(data.conversation.messages);
+    setLastRunId(data.conversation.runs[0]?.id ?? null);
+  }, []);
+
+  useEffect(() => {
+    void refreshConversations();
+    void refreshSettings();
+    void refreshAnalytics();
+  }, [refreshAnalytics, refreshConversations, refreshSettings]);
+
+  useEffect(() => {
+    if (!activeConversationId) return;
+    void loadConversation(activeConversationId);
+  }, [activeConversationId, loadConversation]);
+
+  const createConversation = useCallback(async () => {
+    const res = await fetch("/api/chat/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) throw new Error("Failed to create conversation.");
+    const data = (await res.json()) as { conversation: { id: string } };
+    await refreshConversations();
+    setActiveConversationId(data.conversation.id);
+    setMessages([]);
+    setLastRunId(null);
+    return data.conversation.id;
+  }, [refreshConversations]);
+
+  const persistAssistantMessage = useCallback(
+    async (conversationId: string, message: ChatMessage) => {
+      await fetch(`/api/chat/conversations/${conversationId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: message.role,
+          content:
+            message.parts
+              .filter((part) => part.type === "text")
+              .map((part) => part.text)
+              .join("") || message.content ||
+            "",
+          parts: message.parts,
+        }),
+      });
+    },
+    [],
+  );
+
+  const sendInput = useCallback(
+    async (
+      input:
+        | {
+            kind: "text";
+            text: string;
+          }
+        | {
+            kind: "workflow";
+            action: WorkflowAction;
+          },
+    ) => {
+      const text =
+        input.kind === "text"
+          ? input.text.trim()
+          : input.action.type === "confirm-tool"
+            ? input.action.summary
+            : input.action.type === "confirm-payment"
+              ? `Confirm payment for ${input.action.studentName}`
+              : input.action.type === "select-student"
+                ? `Selected ${input.action.studentName}`
+                : `Selected ${input.action.classroomName}`;
+
+      if (!text) return;
+
       abortRef.current?.abort();
       const abortController = new AbortController();
       abortRef.current = abortController;
 
+      let conversationId = activeConversationId;
+      if (!conversationId) {
+        conversationId = await createConversation();
+      }
+
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
         role: "user",
-        parts: [{ type: "text", text: text.trim() }],
+        parts: [{ type: "text", text, state: "done" }],
+        content: text,
       };
 
-      // Optimistically add user message
-      const nextMessages: ChatMessage[] = [...messages, userMessage];
-      setMessages_(nextMessages);
+      setMessages((prev) => [...prev, userMessage]);
       setStatus("loading");
       setError(null);
-
-      // Build UIMessage[] format for v6 API
-      const uiMessages = nextMessages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        parts: m.parts.map((p) => {
-          if (p.type === "text") return { type: "text" as const, text: p.text };
-          if (p.type === "tool-invocation") {
-            if (p.state === "output-available") {
-              return {
-                type: `tool-${p.toolName}` as const,
-                toolCallId: p.toolCallId,
-                input: p.input,
-                output: p.output,
-                state: "output-available" as const,
-              };
-            }
-            return {
-              type: `tool-${p.toolName}` as const,
-              toolCallId: p.toolCallId,
-              input: p.input,
-              state: "input-available" as const,
-            };
-          }
-          return { type: "text" as const, text: "" };
-        }),
-      }));
 
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: uiMessages }),
+          body: JSON.stringify({
+            conversationId,
+            input,
+          }),
           signal: abortController.signal,
         });
 
@@ -135,102 +271,97 @@ export function useSchoolChat() {
 
         if (!res.body) throw new Error("No response body");
 
+        const runId = res.headers.get("x-school-clerk-run-id");
+        if (runId) setLastRunId(runId);
+
         setStatus("streaming");
 
-        // Build the assistant message incrementally
         const assistantId = `assistant-${Date.now()}`;
-        const assistantMsg: ChatMessage = { id: assistantId, role: "assistant", parts: [] };
         const currentToolCalls = new Map<
           string,
           { toolName: string; toolCallId: string; inputText: string }
         >();
+        const assistantMsg: ChatMessage = {
+          id: assistantId,
+          role: "assistant",
+          parts: [],
+        };
 
-        setMessages_((prev) => [...prev, { ...assistantMsg }]);
+        setMessages((prev) => [...prev, assistantMsg]);
 
         await readUIStream(
           res.body,
           (chunk) => {
-            setMessages_((prev) => {
-              const idx = prev.findIndex((m) => m.id === assistantId);
-              if (idx === -1) return prev;
-              const updated = { ...prev[idx], parts: [...prev[idx].parts] };
+            setMessages((prev) => {
+              const index = prev.findIndex((m) => m.id === assistantId);
+              if (index === -1) return prev;
 
+              const updated = { ...prev[index], parts: [...prev[index].parts] };
               const type = chunk.type as string;
 
               if (type === "text-start") {
-                updated.parts = [
-                  ...updated.parts,
-                  { type: "text", text: "", state: "streaming" as const },
-                ];
+                updated.parts.push({ type: "text", text: "", state: "streaming" });
               } else if (type === "text-delta") {
-                const lastIdx = updated.parts.length - 1;
-                const last = updated.parts[lastIdx];
+                const last = updated.parts[updated.parts.length - 1];
                 if (last?.type === "text") {
-                  updated.parts = [
-                    ...updated.parts.slice(0, lastIdx),
-                    { ...last, text: last.text + (chunk.delta as string) },
-                  ];
+                  last.text += String(chunk.delta ?? "");
                 }
               } else if (type === "text-end") {
-                const lastIdx = updated.parts.length - 1;
-                const last = updated.parts[lastIdx];
+                const last = updated.parts[updated.parts.length - 1];
                 if (last?.type === "text") {
-                  updated.parts = [
-                    ...updated.parts.slice(0, lastIdx),
-                    { ...last, state: "done" as const },
-                  ];
+                  last.state = "done";
                 }
               } else if (type === "tool-input-start") {
-                const toolCallId = chunk.toolCallId as string;
-                const toolName = chunk.toolName as string;
-                currentToolCalls.set(toolCallId, { toolName, toolCallId, inputText: "" });
+                currentToolCalls.set(String(chunk.toolCallId), {
+                  toolName: String(chunk.toolName),
+                  toolCallId: String(chunk.toolCallId),
+                  inputText: "",
+                });
               } else if (type === "tool-input-delta") {
-                const toolCallId = chunk.toolCallId as string;
-                const tc = currentToolCalls.get(toolCallId);
-                if (tc) {
-                  tc.inputText += chunk.inputTextDelta as string;
+                const call = currentToolCalls.get(String(chunk.toolCallId));
+                if (call) {
+                  call.inputText += String(chunk.inputTextDelta ?? "");
                 }
               } else if (type === "tool-input-available") {
-                const toolCallId = chunk.toolCallId as string;
-                const tc = currentToolCalls.get(toolCallId);
-                const toolName = (tc?.toolName ?? chunk.toolName) as string;
-                let input: unknown = {};
+                const call = currentToolCalls.get(String(chunk.toolCallId));
+                let inputValue: unknown = {};
                 try {
-                  input = JSON.parse(tc?.inputText || "{}");
+                  inputValue = JSON.parse(call?.inputText || "{}");
                 } catch {
-                  input = {};
+                  inputValue = {};
                 }
-                updated.parts = [
-                  ...updated.parts,
-                  {
-                    type: "tool-invocation" as const,
-                    toolName,
-                    toolCallId,
-                    state: "input-available" as const,
-                    input,
-                  },
-                ];
+                updated.parts.push({
+                  type: "tool-invocation",
+                  toolName: call?.toolName ?? String(chunk.toolName),
+                  toolCallId: String(chunk.toolCallId),
+                  state: "input-available",
+                  input: inputValue,
+                });
               } else if (type === "tool-output-available") {
-                const toolCallId = chunk.toolCallId as string;
-                const partIdx = updated.parts.findIndex(
-                  (p) =>
-                    p.type === "tool-invocation" && (p as any).toolCallId === toolCallId,
+                const partIndex = updated.parts.findIndex(
+                  (part) =>
+                    part.type === "tool-invocation" &&
+                    part.toolCallId === String(chunk.toolCallId),
                 );
-                if (partIdx !== -1) {
-                  const part = updated.parts[partIdx] as Extract<
-                    ChatMessagePart,
-                    { type: "tool-invocation" }
-                  >;
-                  updated.parts = [
-                    ...updated.parts.slice(0, partIdx),
-                    { ...part, state: "output-available" as const, output: chunk.output },
-                    ...updated.parts.slice(partIdx + 1),
-                  ];
+                if (partIndex !== -1) {
+                  const part = updated.parts[partIndex];
+                  if (part.type === "tool-invocation") {
+                    updated.parts[partIndex] = {
+                      ...part,
+                      state: "output-available",
+                      output: chunk.output,
+                    };
+                  }
                 }
               }
 
               const next = [...prev];
-              next[idx] = updated;
+              next[index] = updated;
+              assistantMsg.parts = updated.parts;
+              assistantMsg.content = updated.parts
+                .filter((part) => part.type === "text")
+                .map((part) => part.text)
+                .join("");
               return next;
             });
           },
@@ -238,42 +369,110 @@ export function useSchoolChat() {
             setStatus("idle");
           },
         );
+
+        if (assistantMsg.parts.length > 0) {
+          await persistAssistantMessage(conversationId, assistantMsg);
+        }
+
+        await refreshConversations();
+        await refreshAnalytics();
+        await loadConversation(conversationId);
       } catch (err: unknown) {
         if ((err as Error)?.name === "AbortError") {
           setStatus("idle");
           return;
         }
-        const msg = err instanceof Error ? err.message : "An error occurred";
-        setError(msg);
+        setError(err instanceof Error ? err.message : "An error occurred");
         setStatus("error");
       }
     },
-    [messages, setMessages_],
+    [
+      activeConversationId,
+      createConversation,
+      loadConversation,
+      persistAssistantMessage,
+      refreshAnalytics,
+      refreshConversations,
+    ],
   );
 
-  const append = useCallback(
-    (text: string) => {
-      sendMessage(text);
+  const sendMessage = useCallback(
+    async (text: string) => {
+      await sendInput({ kind: "text", text });
     },
-    [sendMessage],
+    [sendInput],
   );
 
-  const clearMessages = useCallback(() => {
-    abortRef.current?.abort();
-    setMessages_([]);
-    setStatus("idle");
-    setError(null);
-  }, [setMessages_]);
+  const sendWorkflowAction = useCallback(
+    async (action: WorkflowAction) => {
+      await sendInput({ kind: "workflow", action });
+    },
+    [sendInput],
+  );
+
+  const submitFeedback = useCallback(
+    async (rating: number, comment?: string) => {
+      await fetch("/api/chat/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: activeConversationId,
+          runId: lastRunId,
+          rating,
+          comment: comment ?? null,
+        }),
+      });
+      await refreshAnalytics();
+    },
+    [activeConversationId, lastRunId, refreshAnalytics],
+  );
+
+  const saveSettings = useCallback(async (nextSettings: AssistantSettings) => {
+    const res = await fetch("/api/chat/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(nextSettings),
+    });
+    if (!res.ok) throw new Error("Failed to save assistant settings.");
+    const data = (await res.json()) as { config: AssistantSettings };
+    setSettings(data.config);
+    await refreshConversations();
+  }, [refreshConversations]);
+
+  const selectConversation = useCallback((conversationId: string) => {
+    setActiveConversationId(conversationId);
+  }, []);
 
   const isLoading = status === "loading" || status === "streaming";
+  const topTools = useMemo(
+    () =>
+      analytics
+        ? Object.entries(analytics.toolUsage)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+        : [],
+    [analytics],
+  );
 
   return {
     messages,
+    conversations,
+    activeConversationId,
     status,
     error,
     isLoading,
+    capabilities,
+    settings,
+    analytics,
+    topTools,
+    lastRunId,
     sendMessage,
-    append,
-    clearMessages,
+    sendWorkflowAction,
+    createConversation,
+    selectConversation,
+    refreshConversations,
+    refreshAnalytics,
+    saveSettings,
+    submitFeedback,
   };
 }
