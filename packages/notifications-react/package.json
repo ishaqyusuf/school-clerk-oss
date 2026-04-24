@@ -1,0 +1,25 @@
+{
+	"name": "@school-clerk/notifications-react",
+	"private": true,
+	"exports": {
+		".": "./src/index.ts",
+		"./provider": "./src/provider.tsx",
+		"./viewport": "./src/viewport.tsx"
+	},
+	"scripts": {
+		"lint": "biome check .",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@school-clerk/notifications": "workspace:*",
+		"@school-clerk/ui": "workspace:*",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0"
+	},
+	"devDependencies": {
+		"@school-clerk/tsconfig": "workspace:*",
+		"@types/node": "^24.7.2",
+		"@types/react": "^19.2.2",
+		"@types/react-dom": "^19.2.2"
+	}
+}

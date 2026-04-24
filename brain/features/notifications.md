@@ -5,7 +5,7 @@ SchoolClerk now has a tenant-scoped notification system for in-app alerts and em
 
 ## Architecture
 - `packages/notifications` owns the typed notification registry, payload validation, channel registration, and email template attachment for each notification type.
-- `packages/email` owns reusable React Email templates, including the finance notification template used by the registry.
+- `packages/email` owns reusable React Email templates and shared email components. Follow the `midday` package structure reference at `/Users/M1PRO/Documents/code/_kitchen_sink/midday/packages/email` when adding or refactoring email templates.
 - `apps/api/src/lib/notifications.ts` resolves the current tenant user, targets recipients by role group, creates persistent notifications, applies stored preferences, and sends email through Resend when configured.
 - `apps/api/src/trpc/routers/notifications.routes.ts` exposes list/count/read APIs for the dashboard.
 - `apps/dashboard` renders notifications in the header bell and a full `/notifications` page.

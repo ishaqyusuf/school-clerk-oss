@@ -52,6 +52,7 @@
       "devDependencies": {
         "@types/bun": "^1.2.16",
         "@types/node": "^24.7.2",
+        "bun-types": "^1.3.2",
         "vercel": "^44.2.7",
       },
     },
@@ -71,6 +72,7 @@
         "@school-clerk/auth": "workspace:*",
         "@school-clerk/db": "workspace:*",
         "@school-clerk/navigation": "workspace:*",
+        "@school-clerk/notifications-react": "workspace:*",
         "@school-clerk/pdf": "workspace:*",
         "@school-clerk/site-nav": "workspace:*",
         "@school-clerk/template-registry": "workspace:*",
@@ -284,6 +286,21 @@
         "@school-clerk/tsconfig": "workspace:*",
         "@types/react": "^19.2.2",
         "typescript": "^5.9.2",
+      },
+    },
+    "packages/notifications-react": {
+      "name": "@school-clerk/notifications-react",
+      "dependencies": {
+        "@school-clerk/notifications": "workspace:*",
+        "@school-clerk/ui": "workspace:*",
+        "react": "^19.2.0",
+        "react-dom": "^19.2.0",
+      },
+      "devDependencies": {
+        "@school-clerk/tsconfig": "workspace:*",
+        "@types/node": "^24.7.2",
+        "@types/react": "^19.2.2",
+        "@types/react-dom": "^19.2.2",
       },
     },
     "packages/pdf": {
@@ -1433,6 +1450,8 @@
     "@school-clerk/navigation": ["@school-clerk/navigation@workspace:packages/navigation"],
 
     "@school-clerk/notifications": ["@school-clerk/notifications@workspace:packages/notifications"],
+
+    "@school-clerk/notifications-react": ["@school-clerk/notifications-react@workspace:packages/notifications-react"],
 
     "@school-clerk/pdf": ["@school-clerk/pdf@workspace:packages/pdf"],
 
@@ -4309,6 +4328,8 @@
     "@school-clerk/email/@types/react-dom": ["@types/react-dom@19.2.2", "", { "peerDependencies": { "@types/react": "^19.2.0" } }, "sha512-9KQPoO6mZCi7jcIStSnlOWn2nEF3mNmyr3rIAsGnAbQKYbRLyqmeSc39EVgtxXVia+LMT8j3knZLAZAh+xLmrw=="],
 
     "@school-clerk/navigation/@types/react-dom": ["@types/react-dom@19.2.2", "", { "peerDependencies": { "@types/react": "^19.2.0" } }, "sha512-9KQPoO6mZCi7jcIStSnlOWn2nEF3mNmyr3rIAsGnAbQKYbRLyqmeSc39EVgtxXVia+LMT8j3knZLAZAh+xLmrw=="],
+
+    "@school-clerk/notifications-react/@types/react-dom": ["@types/react-dom@19.2.2", "", { "peerDependencies": { "@types/react": "^19.2.0" } }, "sha512-9KQPoO6mZCi7jcIStSnlOWn2nEF3mNmyr3rIAsGnAbQKYbRLyqmeSc39EVgtxXVia+LMT8j3knZLAZAh+xLmrw=="],
 
     "@school-clerk/pdf/zod": ["zod@4.3.6", "", {}, "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="],
 

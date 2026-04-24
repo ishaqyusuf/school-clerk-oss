@@ -2,7 +2,16 @@
   "name": "@school-clerk/notifications",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./contacts": "./src/contacts.ts",
+    "./core-types": "./src/core-types.ts",
+    "./delivery": "./src/delivery.ts",
+    "./memory-store": "./src/memory-store.ts",
+    "./notification-types": "./src/notification-types.ts",
+    "./payload-utils": "./src/payload-utils.ts",
+    "./services": "./src/services/triggers.ts",
+    "./store": "./src/store.ts",
+    "./types": "./src/types/registry.ts"
   },
   "scripts": {
     "clean": "rm -rf .turbo node_modules",

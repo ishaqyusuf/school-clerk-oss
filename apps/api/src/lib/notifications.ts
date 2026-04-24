@@ -3,7 +3,7 @@ import {
 	createNotificationFromType,
 	type SchoolClerkNotificationType,
 } from "@school-clerk/notifications";
-import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
+import { getRecipient, resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 import type { TRPCContext } from "../trpc/init";
 
@@ -66,7 +66,7 @@ async function sendEmail({
 		},
 		body: JSON.stringify({
 			from: getNotificationEmailFrom(),
-			to: [to],
+			to: [getRecipient(to)],
 			subject,
 			html,
 		}),

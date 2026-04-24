@@ -30,6 +30,10 @@ Defines implementation standards for consistency, maintainability, and reliabili
 - Prefer app-relative product routes like `/finance/...`, `/students/...`, and `/academic/...` instead of hardcoding `/dashboard/...`.
 - Use shared `@school-clerk/ui` components instead of raw one-off HTML primitives where an approved component already exists.
 
+## Email Standards
+- Build emails on the shared `packages/email/components` foundation and keep that structure aligned with the `midday` reference package under `/Users/M1PRO/Documents/code/_kitchen_sink/midday/packages/email`.
+- New email templates should compose `EmailThemeProvider`, `Logo`, `Footer`, and the shared email `Button` instead of redefining layout primitives inline.
+
 ## Dashboard Page Standards
 - Add `PageTitle` to new dashboard pages.
 - Wrap async data surfaces with `ErrorBoundary` and `Suspense`.

@@ -8,10 +8,10 @@ export function Logo() {
   return (
     <Section className="mt-[32px]">
       <Img
-        src={`${baseUrl}/email/logo.png`}
+        src={`${baseUrl}/logo_mini.png`}
         width="45"
         height="45"
-        alt="GndMillwork"
+        alt="School Clerk"
         className="mx-auto my-0 block"
       />
     </Section>

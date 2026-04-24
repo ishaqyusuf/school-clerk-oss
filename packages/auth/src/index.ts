@@ -1,5 +1,5 @@
 import { prisma } from "@school-clerk/db";
-import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
+import { getRecipient, resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import type { BetterAuthOptions } from "better-auth";
 // import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
@@ -33,7 +33,7 @@ async function sendAuthEmail({
 		},
 		body: JSON.stringify({
 			from,
-			to: [to],
+			to: [getRecipient(to)],
 			subject,
 			html,
 		}),

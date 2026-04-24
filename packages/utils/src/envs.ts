@@ -13,6 +13,26 @@ export function getAppUrl() {
   return "http://localhost:3000";
 }
 
+function getDevelopmentTestEmail() {
+  const testEmail = process.env.TEST_EMAIL?.trim();
+
+  if (!testEmail) {
+    throw new Error(
+      "TEST_EMAIL must be configured in development before sending email.",
+    );
+  }
+
+  return testEmail;
+}
+
+export function getRecipient(recipient: string | string[]) {
+  if (process.env.NODE_ENV === "development") {
+    return getDevelopmentTestEmail();
+  }
+
+  return recipient;
+}
+
 export function getEmailUrl() {
   if (process.env.NODE_ENV === "development") {
     return "http://localhost:3000";

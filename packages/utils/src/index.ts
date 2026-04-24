@@ -14,6 +14,7 @@ import {
 } from "date-fns";
 import util from "util";
 export * from "./classroom-name";
+export * from "./envs";
 export function stripSpecialCharacters(inputString: string) {
   // Remove special characters and spaces, keep alphanumeric, hyphens/underscores, and dots
   return inputString

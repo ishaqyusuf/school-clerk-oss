@@ -13,6 +13,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 
 import { prisma } from "@school-clerk/db";
+import { createNotificationFromType } from "@school-clerk/notifications";
 import {
 	STAFF_ASSIGNMENT_ROLES,
 	type StaffInviteStatus,
@@ -143,6 +144,52 @@ async function syncInviteState({
 	});
 }
 
+async function createStaffInvitationNotification(input: {
+	payload: {
+		inviteLink?: string | null;
+		invitedByName?: string | null;
+		recipientEmail: string;
+		roleLabel: string;
+		schoolName: string;
+		staffName: string;
+	};
+	schoolProfileId: string;
+	userId: string;
+}) {
+	const preference = await prisma.notificationPreference.findFirst({
+		where: {
+			deletedAt: null,
+			schoolProfileId: input.schoolProfileId,
+			type: "staff_invitation",
+			userId: input.userId,
+		},
+		select: {
+			inApp: true,
+		},
+	});
+
+	if (preference?.inApp === false) {
+		return;
+	}
+
+	const notification = createNotificationFromType("staff_invitation", input.payload);
+
+	if (!notification.channels.includes("in_app")) {
+		return;
+	}
+
+	await prisma.notification.create({
+		data: {
+			body: notification.body,
+			link: notification.link,
+			schoolProfileId: input.schoolProfileId,
+			title: notification.title,
+			type: notification.type,
+			userId: input.userId,
+		},
+	});
+}
+
 async function getSchoolContext() {
 	const profile = await getAuthCookie();
 
@@ -157,14 +204,28 @@ async function getSchoolContext() {
 		select: {
 			id: true,
 			accountId: true,
+			name: true,
 		},
 	});
+
+	const actor = profile.auth?.userId
+		? await prisma.user.findFirst({
+				where: {
+					deletedAt: null,
+					id: profile.auth.userId,
+				},
+				select: {
+					name: true,
+				},
+			})
+		: null;
 
 	if (!school) {
 		throw new Error("School not found.");
 	}
 
 	return {
+		actor,
 		profile,
 		school,
 	};
@@ -173,7 +234,7 @@ async function getSchoolContext() {
 export const saveStaffAction = actionClient
 	.schema(createStaffSchema)
 	.action(async ({ parsedInput }) => {
-		const { profile, school } = await getSchoolContext();
+		const { actor, profile, school } = await getSchoolContext();
 
 		const email = normalizeEmail(parsedInput.email);
 		const assignments = roleSupportsAssignments(parsedInput.role)
@@ -395,8 +456,10 @@ export const saveStaffAction = actionClient
 				},
 			});
 
+			let userId: string;
+
 			if (existingUser) {
-				await tx.user.update({
+				const updatedUser = await tx.user.update({
 					where: {
 						id: existingUser.id,
 					},
@@ -405,22 +468,32 @@ export const saveStaffAction = actionClient
 						email,
 						role: parsedInput.role,
 					},
+					select: {
+						id: true,
+					},
 				});
+				userId = updatedUser.id;
 			} else {
-				await tx.user.create({
+				const createdUser = await tx.user.create({
 					data: {
 						name: resolvedName,
 						email,
 						role: parsedInput.role,
 						saasAccountId: school.accountId,
 					},
+					select: {
+						id: true,
+					},
 				});
+				userId = createdUser.id;
 			}
 
 			return {
 				id: staffProfile.id,
 				email,
+				name: resolvedName,
 				shouldSendInvite,
+				userId,
 			};
 		});
 
@@ -437,6 +510,18 @@ export const saveStaffAction = actionClient
 				await syncInviteState({
 					staffId: savedStaff.id,
 					status: "PENDING",
+				});
+				await createStaffInvitationNotification({
+					payload: {
+						inviteLink: null,
+						invitedByName: actor?.name ?? null,
+						recipientEmail: savedStaff.email,
+						roleLabel: parsedInput.role,
+						schoolName: school.name,
+						staffName: savedStaff.name,
+					},
+					schoolProfileId: profile.schoolId!,
+					userId: savedStaff.userId,
 				});
 			} catch (error) {
 				console.error("[staff-invite] Failed to send invite email", error);
@@ -465,7 +550,7 @@ export const resendStaffOnboardingAction = actionClient
 		}),
 	)
 	.action(async ({ parsedInput }) => {
-		const { profile, school } = await getSchoolContext();
+		const { actor, profile, school } = await getSchoolContext();
 
 		const staff = await prisma.staffProfile.findFirst({
 			where: {
@@ -476,6 +561,7 @@ export const resendStaffOnboardingAction = actionClient
 			select: {
 				id: true,
 				email: true,
+				name: true,
 				onboardedAt: true,
 			},
 		});
@@ -495,6 +581,7 @@ export const resendStaffOnboardingAction = actionClient
 				deletedAt: null,
 			},
 			select: {
+				id: true,
 				role: true,
 			},
 		});
@@ -511,6 +598,20 @@ export const resendStaffOnboardingAction = actionClient
 				status: "PENDING",
 				resent: true,
 			});
+			if (user?.id) {
+				await createStaffInvitationNotification({
+					payload: {
+						inviteLink: null,
+						invitedByName: actor?.name ?? null,
+						recipientEmail: staff.email,
+						roleLabel: user.role ?? "Teacher",
+						schoolName: school.name,
+						staffName: staff.name ?? buildPendingStaffName(staff.email),
+					},
+					schoolProfileId: profile.schoolId!,
+					userId: user.id,
+				});
+			}
 			staffChanged();
 			return {
 				invited: true,

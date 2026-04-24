@@ -11,9 +11,12 @@ import {
 	useQueryClient,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
+import { getInitials } from "@school-clerk/utils";
 import { useAction } from "next-safe-action/hooks";
+import { usePathname, useRouter } from "next/navigation";
 import { useQueryStates } from "nuqs";
 
+import { Avatar, AvatarFallback } from "@school-clerk/ui/avatar";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import {
@@ -30,6 +33,13 @@ import {
 	TableHeader,
 	TableRow,
 } from "@school-clerk/ui/table";
+import {
+	AlertTriangle,
+	Clock3,
+	School,
+	ShieldCheck,
+	Users2,
+} from "lucide-react";
 
 type Props = {
 	search?: string | null;
@@ -81,6 +91,8 @@ function statusLabel(status: string) {
 
 export function DataTable({ search, status }: Props) {
 	const { setParams } = useStaffParams();
+	const router = useRouter();
+	const pathname = usePathname();
 	const [, setFilters] = useQueryStates(staffPageQuery, {
 		shallow: false,
 	});
@@ -119,37 +131,91 @@ export function DataTable({ search, status }: Props) {
 		},
 	});
 
+	const staffBasePath = pathname.split("/").slice(0, -1).join("/");
+	const openOverviewPage = (staffId: string) =>
+		router.push(`${staffBasePath}/${staffId}`);
+
 	return (
 		<div className="flex flex-col gap-6">
 			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-				<StatCard label="Total staff" value={data.stats.total} />
-				<StatCard label="Pending onboardings" value={data.stats.pending} />
-				<StatCard label="Active staff" value={data.stats.active} />
+				<StatCard
+					label="Total staff"
+					value={data.stats.total}
+					helper="People records in this school workspace"
+					icon={Users2}
+				/>
+				<StatCard
+					label="Pending onboardings"
+					value={data.stats.pending}
+					helper="Staff still waiting to complete sign-in"
+					icon={Clock3}
+				/>
+				<StatCard
+					label="Active staff"
+					value={data.stats.active}
+					helper="Accounts with completed onboarding"
+					icon={ShieldCheck}
+				/>
 				<StatCard
 					label="Teachers needing assignments"
 					value={data.stats.teachersNeedingAssignments}
+					helper="Teachers missing classroom or subject coverage"
+					icon={AlertTriangle}
 				/>
 			</div>
 
-			<Card>
+			<Card className="overflow-hidden rounded-3xl border-border shadow-sm">
 				<CardHeader className="gap-4">
-					<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+					<div className="rounded-2xl border border-border bg-muted/25 p-5">
+						<div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+							<div className="space-y-2">
+								<div className="inline-flex items-center gap-2 rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+									<School className="h-3.5 w-3.5" />
+									Staff directory
+								</div>
+								<CardTitle className="text-2xl tracking-tight">
+									Staff directory and overview hub
+								</CardTitle>
+								<p className="max-w-2xl text-sm text-muted-foreground">
+									Use the redesigned directory to jump into the full overview
+									page, keep onboarding healthy, and quickly open the sheet for
+									in-context edits.
+								</p>
+							</div>
+							<div className="flex flex-wrap gap-2">
+								<Button
+									variant="outline"
+									onClick={() =>
+										setFilters({
+											status: "pending",
+										})
+									}
+								>
+									Review pending invites
+								</Button>
+								<Button
+									onClick={() =>
+										setParams({
+											createStaff: true,
+										})
+									}
+								>
+									Invite staff
+								</Button>
+							</div>
+						</div>
+					</div>
+
+					<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 						<div className="space-y-1">
-							<CardTitle>Staff directory</CardTitle>
+							<p className="text-sm font-medium text-foreground">
+								Search, filter, and launch profiles
+							</p>
 							<p className="text-sm text-muted-foreground">
-								Manage pending onboarding, resend invite emails, and review
-								classroom or subject coverage from one place.
+								The overview page opens full-width, while quick view keeps the
+								same experience inside a sheet.
 							</p>
 						</div>
-						<Button
-							onClick={() =>
-								setParams({
-									createStaff: true,
-								})
-							}
-						>
-							Invite staff
-						</Button>
 					</div>
 
 					<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -204,14 +270,28 @@ export function DataTable({ search, status }: Props) {
 									</TableHeader>
 									<TableBody>
 										{data.items.map((item) => (
-											<TableRow key={item.id}>
+											<TableRow key={item.id} className="hover:bg-muted/20">
 												<TableCell>
-													<div className="space-y-1">
-														<div className="font-medium">
-															{item.name || item.email || "Pending staff"}
-														</div>
-														<div className="text-sm text-muted-foreground">
-															{item.email || "No email"}
+													<div className="flex items-center gap-3">
+														<Avatar className="h-11 w-11 border border-border">
+															<AvatarFallback className="bg-primary/10 font-semibold text-primary">
+																{getInitials(
+																	item.name || item.email || "Staff",
+																)}
+															</AvatarFallback>
+														</Avatar>
+														<div className="space-y-1">
+															<div className="font-medium">
+																{item.name || item.email || "Pending staff"}
+															</div>
+															<div className="text-sm text-muted-foreground">
+																{item.email || "No email"}
+															</div>
+															{item.title ? (
+																<div className="text-xs text-muted-foreground">
+																	{item.title}
+																</div>
+															) : null}
 														</div>
 													</div>
 												</TableCell>
@@ -255,6 +335,12 @@ export function DataTable({ search, status }: Props) {
 													<div className="flex justify-end gap-2">
 														<Button
 															size="sm"
+															onClick={() => openOverviewPage(item.id)}
+														>
+															Overview
+														</Button>
+														<Button
+															size="sm"
 															variant="outline"
 															onClick={() =>
 																setParams({
@@ -262,7 +348,7 @@ export function DataTable({ search, status }: Props) {
 																})
 															}
 														>
-															Open
+															Quick view
 														</Button>
 														{item.canResend ? (
 															<Button
@@ -293,16 +379,30 @@ export function DataTable({ search, status }: Props) {
 
 							<div className="grid gap-4 md:hidden">
 								{data.items.map((item) => (
-									<Card key={item.id} className="border">
+									<Card key={item.id} className="border shadow-sm">
 										<CardContent className="space-y-4 p-4">
 											<div className="flex items-start justify-between gap-3">
-												<div className="space-y-1">
-													<p className="font-medium">
-														{item.name || item.email || "Pending staff"}
-													</p>
-													<p className="text-sm text-muted-foreground">
-														{item.email || "No email"}
-													</p>
+												<div className="flex items-start gap-3">
+													<Avatar className="h-11 w-11 border border-border">
+														<AvatarFallback className="bg-primary/10 font-semibold text-primary">
+															{getInitials(
+																item.name || item.email || "Staff",
+															)}
+														</AvatarFallback>
+													</Avatar>
+													<div className="space-y-1">
+														<p className="font-medium">
+															{item.name || item.email || "Pending staff"}
+														</p>
+														<p className="text-sm text-muted-foreground">
+															{item.email || "No email"}
+														</p>
+														{item.title ? (
+															<p className="text-xs text-muted-foreground">
+																{item.title}
+															</p>
+														) : null}
+													</div>
 												</div>
 												<Badge variant="outline">{item.role}</Badge>
 											</div>
@@ -344,6 +444,12 @@ export function DataTable({ search, status }: Props) {
 											<div className="flex flex-wrap gap-2">
 												<Button
 													size="sm"
+													onClick={() => openOverviewPage(item.id)}
+												>
+													Overview
+												</Button>
+												<Button
+													size="sm"
 													variant="outline"
 													onClick={() =>
 														setParams({
@@ -351,7 +457,7 @@ export function DataTable({ search, status }: Props) {
 														})
 													}
 												>
-													Open
+													Quick view
 												</Button>
 												{item.canResend ? (
 													<Button
@@ -385,13 +491,29 @@ export function DataTable({ search, status }: Props) {
 	);
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({
+	label,
+	value,
+	helper,
+	icon: Icon,
+}: {
+	label: string;
+	value: number;
+	helper: string;
+	icon: typeof Users2;
+}) {
 	return (
-		<Card>
-			<CardHeader className="pb-2">
-				<CardTitle className="text-sm font-medium text-muted-foreground">
-					{label}
-				</CardTitle>
+		<Card className="rounded-2xl border-border shadow-sm">
+			<CardHeader className="flex flex-row items-start justify-between pb-2">
+				<div className="space-y-1">
+					<CardTitle className="text-sm font-medium text-muted-foreground">
+						{label}
+					</CardTitle>
+					<p className="text-xs text-muted-foreground">{helper}</p>
+				</div>
+				<div className="rounded-xl bg-primary/10 p-2 text-primary">
+					<Icon className="h-4 w-4" />
+				</div>
 			</CardHeader>
 			<CardContent>
 				<div className="text-3xl font-semibold">{value}</div>

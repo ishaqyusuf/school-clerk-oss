@@ -4,6 +4,7 @@ import { TailwindIndicator } from "@/components/tailwind-indicator";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 import { cn } from "@school-clerk/ui/cn";
+import { NotificationsProvider } from "@school-clerk/notifications-react";
 import { Toaster } from "@school-clerk/ui/toaster";
 import { Providers } from "./providers";
 
@@ -49,10 +50,12 @@ export default function RootLayout({
 				)}
 			>
 				<NuqsAdapter>
-					<Providers locale="en">
-						<StaticTrpc />
-						{children}
-					</Providers>
+					<NotificationsProvider>
+						<Providers locale="en">
+							<StaticTrpc />
+							{children}
+						</Providers>
+					</NotificationsProvider>
 					<Toaster />
 
 					<TailwindIndicator />

@@ -6,7 +6,8 @@
   "exports": {
     ".": "./index.ts",
     "./render": "./render.ts",
-    "./emails/finance-notification": "./emails/finance-notification.tsx"
+    "./emails/finance-notification": "./emails/finance-notification.tsx",
+    "./emails/staff-invitation": "./emails/staff-invitation.tsx"
   },
   "scripts": {
     "clean": "rm -rf .turbo node_modules",

@@ -1,15 +1,20 @@
 import * as React from "react";
 import {
 	Body,
-	Button,
 	Container,
-	Head,
 	Heading,
-	Html,
 	Preview,
 	Section,
 	Text,
 } from "@react-email/components";
+import { Footer } from "../components/footer";
+import { Logo } from "../components/logo";
+import {
+	Button,
+	EmailThemeProvider,
+	getEmailInlineStyles,
+	getEmailThemeClasses,
+} from "../components/theme";
 
 export type FinanceNotificationEmailProps = {
 	amount?: string;
@@ -36,49 +41,85 @@ export function FinanceNotificationEmail({
 	subtitle,
 	title,
 }: FinanceNotificationEmailProps) {
+	const themeClasses = getEmailThemeClasses();
+	const lightStyles = getEmailInlineStyles("light");
+
 	return (
-		<Html>
-			<Head />
-			<Preview>{title}</Preview>
+		<EmailThemeProvider preview={<Preview>{title}</Preview>}>
 			<Body style={body}>
-				<Container style={container}>
-					<Section style={eyebrowWrap}>
-						<Text style={eyebrow}>{eventLabel}</Text>
+				<Container
+					className={`my-[40px] mx-auto p-[32px] max-w-[560px] ${themeClasses.container}`}
+					style={{
+						...container,
+						borderColor: lightStyles.container.borderColor,
+					}}
+				>
+					<Logo />
+					<Section className="mt-[18px] mb-[12px]">
+						<Text className="m-0 text-[12px] font-bold uppercase tracking-[0.08em] text-[#7c5f10]">
+							{eventLabel}
+						</Text>
 					</Section>
-					<Heading style={heading}>{title}</Heading>
-					<Text style={paragraph}>
+					<Heading
+						className={`mx-0 my-[16px] text-[28px] leading-[34px] ${themeClasses.heading}`}
+						style={{ color: lightStyles.text.color }}
+					>
+						{title}
+					</Heading>
+					<Text className={`text-[15px] leading-[24px] ${themeClasses.text}`} style={{ color: lightStyles.text.color }}>
 						Hello {greetingName || "there"},
 					</Text>
-					<Text style={paragraph}>{message}</Text>
-					{subtitle ? <Text style={muted}>{subtitle}</Text> : null}
+					<Text className={`text-[15px] leading-[24px] ${themeClasses.text}`} style={{ color: lightStyles.text.color }}>
+						{message}
+					</Text>
+					{subtitle ? (
+						<Text
+							className={`text-[13px] leading-[20px] ${themeClasses.mutedText}`}
+							style={{ color: lightStyles.mutedText.color }}
+						>
+							{subtitle}
+						</Text>
+					) : null}
 					{amount ? (
-						<Section style={amountCard}>
-							<Text style={amountLabel}>Amount</Text>
-							<Text style={amountValue}>{amount}</Text>
+						<Section style={amountCard} className="email-border">
+							<Text style={amountLabel} className={themeClasses.mutedText}>
+								Amount
+							</Text>
+							<Text style={amountValue} className={themeClasses.text}>
+								{amount}
+							</Text>
 						</Section>
 					) : null}
 					{metadata.length > 0 ? (
-						<Section style={metaCard}>
+						<Section style={metaCard} className="email-border">
 							{metadata.map((item) => (
-								<Text key={`${item.label}:${item.value}`} style={metaItem}>
+								<Text
+									key={`${item.label}:${item.value}`}
+									style={metaItem}
+									className={themeClasses.text}
+								>
 									<strong>{item.label}:</strong> {item.value}
 								</Text>
 							))}
 						</Section>
 					) : null}
 					{ctaHref ? (
-						<Section style={buttonWrap}>
-							<Button href={ctaHref} style={button}>
+						<Section className="mb-[12px] mt-[24px] text-center">
+							<Button href={ctaHref}>
 								{ctaLabel}
 							</Button>
 						</Section>
 					) : null}
-					<Text style={footer}>
+					<Text
+						className={`mt-[28px] text-[12px] leading-[18px] ${themeClasses.secondaryText}`}
+						style={{ color: lightStyles.secondaryText.color }}
+					>
 						This message was sent by {schoolName} via School Clerk.
 					</Text>
+					<Footer />
 				</Container>
 			</Body>
-		</Html>
+		</EmailThemeProvider>
 	);
 }
 
@@ -96,40 +137,6 @@ const container = {
 	margin: "0 auto",
 	maxWidth: "560px",
 	padding: "32px",
-};
-
-const eyebrowWrap = {
-	marginBottom: "12px",
-};
-
-const eyebrow = {
-	color: "#7c5f10",
-	fontSize: "12px",
-	fontWeight: "700",
-	letterSpacing: "0.08em",
-	margin: 0,
-	textTransform: "uppercase" as const,
-};
-
-const heading = {
-	color: "#141414",
-	fontSize: "28px",
-	lineHeight: "34px",
-	margin: "0 0 16px",
-};
-
-const paragraph = {
-	color: "#333333",
-	fontSize: "15px",
-	lineHeight: "24px",
-	margin: "0 0 12px",
-};
-
-const muted = {
-	color: "#6b7280",
-	fontSize: "13px",
-	lineHeight: "20px",
-	margin: "0 0 12px",
 };
 
 const amountCard = {
@@ -169,26 +176,4 @@ const metaItem = {
 	fontSize: "14px",
 	lineHeight: "22px",
 	margin: "0 0 6px",
-};
-
-const buttonWrap = {
-	margin: "24px 0 12px",
-};
-
-const button = {
-	backgroundColor: "#111827",
-	borderRadius: "10px",
-	color: "#ffffff",
-	display: "inline-block",
-	fontSize: "14px",
-	fontWeight: "700",
-	padding: "12px 18px",
-	textDecoration: "none",
-};
-
-const footer = {
-	color: "#71717a",
-	fontSize: "12px",
-	lineHeight: "18px",
-	marginTop: "28px",
 };
