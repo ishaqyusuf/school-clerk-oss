@@ -118,6 +118,8 @@ import {
 import { Cross2Icon, DashboardIcon } from "@radix-ui/react-icons";
 
 import { cva, VariantProps } from "class-variance-authority";
+import Image from "next/image";
+import Link from "next/link";
 import { cn } from "../../utils";
 
 export type Icon = LucideIcon;
@@ -514,30 +516,58 @@ export const Icons = {
   //
   // box: Box,
 
-  // Logo: () => <Image alt="" src={logo2} width={48} height={48} />,
-  // LogoLg: () => <Image alt="" src={logo2} width={120} />,
-  // logoLg: ({ width = 120 }) => (
-  //   <Link href="/">
-  //     <Image alt="" src={logo2} width={width} />
-  //   </Link>
-  // ),
+  Logo: () => (
+    <Image
+      alt="School Clerk"
+      src="/logo_mini.png"
+      width={48}
+      height={48}
+      unoptimized
+    />
+  ),
+  LogoLg: () => (
+    <Image
+      alt="School Clerk"
+      src="/logo.png"
+      height={48}
+      width={120}
+      unoptimized
+    />
+  ),
+  logoLg: ({ width = 120 }: { width?: number }) => (
+    <Link href="/">
+      <Image
+        alt="School Clerk"
+        src="/logo.png"
+        height={48}
+        width={width}
+        unoptimized
+      />
+    </Link>
+  ),
 
-  // logo: () => (
-  //   <Link href="/">
-  //     <Image alt="" src={logo} width={48} height={48} />
-  //   </Link>
-  // ),
-  // PrintLogo: () => (
-  //   <Link href="/">
-  //     <Image
-  //       alt=""
-  //       onLoadingComplete={(img) => {}}
-  //       width={178}
-  //       height={80}
-  //       src={logo2}
-  //     />
-  //   </Link>
-  // ),
+  logo: () => (
+    <Link href="/">
+      <Image
+        alt="School Clerk"
+        src="/logo_mini.png"
+        width={48}
+        height={48}
+        unoptimized
+      />
+    </Link>
+  ),
+  PrintLogo: () => (
+    <Link href="/">
+      <Image
+        alt="School Clerk"
+        width={178}
+        height={80}
+        src="/logo.png"
+        unoptimized
+      />
+    </Link>
+  ),
   Transactions2: (props: any) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"

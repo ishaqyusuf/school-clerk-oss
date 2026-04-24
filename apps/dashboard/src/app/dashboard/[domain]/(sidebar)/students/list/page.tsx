@@ -31,6 +31,7 @@ export default async function Page(props: Props) {
 		trpc.students.index.infiniteQueryOptions({
 			...filter,
 		}),
+		trpc.students.analytics.queryOptions({}),
 		trpc.academics.dashboard.queryOptions({}),
 	]);
 

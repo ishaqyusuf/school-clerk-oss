@@ -19,6 +19,9 @@ export function StudentGridCard({ item: student }: { item: DataItem }) {
         _qc.invalidateQueries({
           queryKey: _trpc.students.index.infiniteQueryKey(),
         });
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.analytics.queryKey(),
+        });
       },
       onError(error, variables, onMutateResult, context) {},
       meta: {

@@ -103,6 +103,7 @@ export const academicsRouter = createTRPCRouter({
             title: true,
             startDate: true,
             endDate: true,
+            createdAt: true,
           },
           orderBy: {
             startDate: {
@@ -126,18 +127,33 @@ export const academicsRouter = createTRPCRouter({
     );
     const currentSession = sessions[currentSessionIdx];
     const previousSession = sessions[currentSessionIdx + 1];
-
-    // Promotion IDs — computed server-side from ordered data
-    // firstTermId: first term of current session in insertion order (index 0, nulls-first = creation order)
-    const promotionFirstTermId = currentSession?.terms[0]?.id ?? null;
-    // lastTermId: most recently started term of previous session; fall back to last in array
-    const promotionLastTermId =
-      previousSession?.terms
-        .filter((t) => t.startDate !== null)
-        .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0]
-        ?.id ??
-      previousSession?.terms[previousSession.terms.length - 1]?.id ??
+    const getFirstScheduledTerm = (
+      terms: (typeof sessions)[number]["terms"],
+    ) =>
+      terms
+        .filter((term) => term.startDate !== null)
+        .sort((a, b) => a.startDate!.getTime() - b.startDate!.getTime())[0] ??
+      [...terms].sort(
+        (a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0),
+      )[0] ??
       null;
+    const getLastScheduledTerm = (
+      terms: (typeof sessions)[number]["terms"],
+    ) =>
+      terms
+        .filter((term) => term.startDate !== null)
+        .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0] ??
+      [...terms].sort(
+        (a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
+      )[0] ??
+      null;
+
+    const promotionFirstTermId = currentSession
+      ? getFirstScheduledTerm(currentSession.terms)?.id
+      : null;
+    const promotionLastTermId = previousSession
+      ? getLastScheduledTerm(previousSession.terms)?.id
+      : null;
 
     return {
       promotionIds:
@@ -762,7 +778,15 @@ export const academicsRouter = createTRPCRouter({
         select: {
           studentId: true,
           id: true,
+          createdAt: true,
           classroomDepartmentId: true,
+          _count: {
+            select: {
+              assessmentRecords: true,
+              paymentReceipts: true,
+              studentFees: true,
+            },
+          },
           classroomDepartment: {
             select: {
               classRoomsId: true,
@@ -773,9 +797,31 @@ export const academicsRouter = createTRPCRouter({
           },
         },
       });
-      const promotedFormMap = new Map(
-        promotedForms.map((f) => [f.studentId, f]),
-      );
+      const promotedFormMap = new Map<string, (typeof promotedForms)[number]>();
+      for (const form of promotedForms) {
+        if (!form.studentId) continue;
+        const existing = promotedFormMap.get(form.studentId);
+        if (!existing) {
+          promotedFormMap.set(form.studentId, form);
+          continue;
+        }
+        const formRelations =
+          form._count.assessmentRecords +
+          form._count.paymentReceipts +
+          form._count.studentFees;
+        const existingRelations =
+          existing._count.assessmentRecords +
+          existing._count.paymentReceipts +
+          existing._count.studentFees;
+        if (
+          formRelations > existingRelations ||
+          (formRelations === existingRelations &&
+            (form.createdAt?.getTime() ?? 0) <
+              (existing.createdAt?.getTime() ?? 0))
+        ) {
+          promotedFormMap.set(form.studentId, form);
+        }
+      }
 
       const students = lastTermForms.map((form) => {
         const targetForm = promotedFormMap.get(form.studentId!);
@@ -790,15 +836,36 @@ export const academicsRouter = createTRPCRouter({
           form.classroomDepartment?.classRoom?.classLevel ?? null;
         const sourceDepartmentLevel =
           form.classroomDepartment?.departmentLevel ?? null;
+        const sourceClassRoomId =
+          form.classroomDepartment?.classRoom?.id ?? null;
+        const sourceClassRoomName =
+          form.classroomDepartment?.classRoom?.name ?? null;
+        const sourceDepartmentName =
+          form.classroomDepartment?.departmentName ?? null;
         const targetClassLevel =
           targetForm?.classroomDepartment?.classRoom?.classLevel ?? null;
         const targetDepartmentLevel =
           targetForm?.classroomDepartment?.departmentLevel ?? null;
+        const targetClassRoomId =
+          targetForm?.classroomDepartment?.classRoom?.id ?? null;
+        const targetClassRoomName =
+          targetForm?.classroomDepartment?.classRoom?.name ?? null;
+        const targetDepartmentName =
+          targetForm?.classroomDepartment?.departmentName ?? null;
+        const isRepeatedTarget =
+          targetForm?.classroomDepartmentId === form.classroomDepartmentId ||
+          (!!targetForm &&
+            targetClassLevel === sourceClassLevel &&
+            targetDepartmentLevel === sourceDepartmentLevel &&
+            ((targetClassRoomId !== null &&
+              targetClassRoomId === sourceClassRoomId) ||
+              (targetClassRoomName !== null &&
+                targetClassRoomName === sourceClassRoomName)) &&
+            targetDepartmentName === sourceDepartmentName);
         const progressionStatus =
           !targetForm
             ? "undecided"
-            : targetClassLevel === sourceClassLevel &&
-                targetDepartmentLevel === sourceDepartmentLevel
+            : isRepeatedTarget
               ? "repeated"
               : "promoted";
 
@@ -998,7 +1065,7 @@ export const academicsRouter = createTRPCRouter({
               schoolSessionId: toTerm.sessionId,
               deletedAt: null,
             },
-            select: { id: true },
+            select: { id: true, classroomDepartmentId: true },
           });
           if (!sessionForm) {
             sessionForm = await tx.studentSessionForm.create({
@@ -1008,37 +1075,90 @@ export const academicsRouter = createTRPCRouter({
                 schoolProfileId: ctx.profile.schoolId,
                 classroomDepartmentId: targetClassroomDepartmentId,
               },
-              select: { id: true },
+              select: { id: true, classroomDepartmentId: true },
+            });
+          } else if (
+            sessionForm.classroomDepartmentId !== targetClassroomDepartmentId
+          ) {
+            sessionForm = await tx.studentSessionForm.update({
+              where: { id: sessionForm.id },
+              data: {
+                classroomDepartmentId: targetClassroomDepartmentId,
+              },
+              select: { id: true, classroomDepartmentId: true },
             });
           }
-          const existing = await tx.studentTermForm.findFirst({
+          const existingForms = await tx.studentTermForm.findMany({
             where: {
               studentId: form.studentId,
               sessionTermId: input.toTermId,
               deletedAt: null,
+              schoolProfileId: ctx.profile.schoolId,
+            },
+            select: {
+              id: true,
+              createdAt: true,
+              _count: {
+                select: {
+                  assessmentRecords: true,
+                  paymentReceipts: true,
+                  studentFees: true,
+                },
+              },
             },
           });
-          if (!existing) {
-            const termForm = await tx.studentTermForm.create({
-              data: {
-                studentId: form.studentId,
-                studentSessionFormId: sessionForm.id,
-                classroomDepartmentId: targetClassroomDepartmentId,
-                schoolSessionId: toTerm.sessionId,
-                schoolProfileId: ctx.profile.schoolId,
-                sessionTermId: input.toTermId,
+          const [existing, ...duplicates] = existingForms.sort((a, b) => {
+            const aRelations =
+              a._count.assessmentRecords +
+              a._count.paymentReceipts +
+              a._count.studentFees;
+            const bRelations =
+              b._count.assessmentRecords +
+              b._count.paymentReceipts +
+              b._count.studentFees;
+            if (aRelations !== bRelations) return bRelations - aRelations;
+            return (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0);
+          });
+          if (duplicates.length) {
+            await tx.studentTermForm.updateMany({
+              where: {
+                id: { in: duplicates.map((duplicate) => duplicate.id) },
               },
-            });
-
-            await applyFeeHistoriesToStudentTermForm(tx, {
-              schoolProfileId: ctx.profile.schoolId,
-              studentId: form.studentId,
-              studentTermFormId: termForm.id,
-              schoolSessionId: toTerm.sessionId,
-              sessionTermId: input.toTermId,
-              classroomDepartmentId: targetClassroomDepartmentId,
+              data: { deletedAt: new Date() },
             });
           }
+
+          const termForm = existing
+            ? await tx.studentTermForm.update({
+                where: { id: existing.id },
+                data: {
+                  studentSessionFormId: sessionForm.id,
+                  classroomDepartmentId: targetClassroomDepartmentId,
+                  schoolSessionId: toTerm.sessionId,
+                  schoolProfileId: ctx.profile.schoolId,
+                },
+                select: { id: true },
+              })
+            : await tx.studentTermForm.create({
+                data: {
+                  studentId: form.studentId,
+                  studentSessionFormId: sessionForm.id,
+                  classroomDepartmentId: targetClassroomDepartmentId,
+                  schoolSessionId: toTerm.sessionId,
+                  schoolProfileId: ctx.profile.schoolId,
+                  sessionTermId: input.toTermId,
+                },
+                select: { id: true },
+              });
+
+          await applyFeeHistoriesToStudentTermForm(tx, {
+            schoolProfileId: ctx.profile.schoolId,
+            studentId: form.studentId,
+            studentTermFormId: termForm.id,
+            schoolSessionId: toTerm.sessionId,
+            sessionTermId: input.toTermId,
+            classroomDepartmentId: targetClassroomDepartmentId,
+          });
         }
         return { promoted: sourceTermForms.length, mode: input.mode };
       });

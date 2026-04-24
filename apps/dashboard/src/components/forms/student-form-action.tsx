@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { _trpc } from "../static-trpc";
+import { _qc, _trpc } from "../static-trpc";
 import { useStudentFormContext } from "../students/form-context";
 import { toast } from "@school-clerk/ui/use-toast";
 import { ButtonGroup } from "@school-clerk/ui/button-group";
@@ -17,7 +17,14 @@ export function StudentFormAction({}) {
           success: "Success",
         },
       },
-      onSuccess(data, variables, context) {},
+      onSuccess(data, variables, context) {
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.index.infiniteQueryKey(),
+        });
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.analytics.queryKey(),
+        });
+      },
     })
   );
   const { control, handleSubmit } = useStudentFormContext();

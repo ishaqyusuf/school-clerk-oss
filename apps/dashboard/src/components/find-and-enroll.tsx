@@ -25,6 +25,9 @@ export function FindAndEnroll(props: Props) {
         _qc.invalidateQueries({
           queryKey: _trpc.students.index.infiniteQueryKey(),
         });
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.analytics.queryKey(),
+        });
       },
       meta: {
         toastTitle: {

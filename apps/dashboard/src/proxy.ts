@@ -10,7 +10,9 @@ import {
 } from "./utils/tenant-host";
 
 export const config = {
-	matcher: ["/((?!api|_next/static|_next/image|favicon.ico|fonts).*)"],
+	matcher: [
+		"/((?!api/|_next/|_static/|__nextjs|_vercel|fonts/|[\\w-]+\\.\\w+).*)",
+	],
 };
 
 export default async function proxy(req: NextRequest) {

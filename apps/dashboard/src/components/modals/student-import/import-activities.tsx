@@ -149,6 +149,9 @@ export function ImportActivity({ classrooms, students }: Props) {
           queryKey: _trpc.students.index.infiniteQueryKey(),
         });
         _qc.invalidateQueries({
+          queryKey: _trpc.students.analytics.queryKey(),
+        });
+        _qc.invalidateQueries({
           queryKey: _trpc.students.studentsRecentRecord.queryKey(),
         });
       },
@@ -166,6 +169,9 @@ export function ImportActivity({ classrooms, students }: Props) {
       onSuccess(data, variables, onMutateResult, context) {
         _qc.invalidateQueries({
           queryKey: _trpc.students.index.infiniteQueryKey(),
+        });
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.analytics.queryKey(),
         });
         _qc.invalidateQueries({
           queryKey: _trpc.students.studentsRecentRecord.queryKey(),

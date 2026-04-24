@@ -26,6 +26,7 @@ const secondaryTabs = [
   "student-overview",
   "subject-overview",
   "attendance-form",
+  "attendance-overview",
 ] as const;
 export type TabType = (typeof tabs)[number];
 export type SecondaryTabTypes = (typeof secondaryTabs)[number];
@@ -35,6 +36,7 @@ export function useClassroomParams(options?: { shallow: boolean }) {
       createClassroom: parseAsBoolean,
       editClassroomId: parseAsString,
       viewClassroomId: parseAsString,
+      attendanceSessionId: parseAsString,
       subjectOverviewId: parseAsString,
       classroomTab: parseAsStringEnum<TabType>(tabs as any),
       secondaryTab: parseAsStringEnum<SecondaryTabTypes>(secondaryTabs as any),

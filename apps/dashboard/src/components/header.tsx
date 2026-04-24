@@ -8,7 +8,7 @@ import { ThemeSwitch } from "./theme-switch";
 export function Header() {
 	return (
 		<header className="print:hidden">
-			<div className="sticky top-0 z-50 border-b border-border/70 bg-background/90 px-3 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80 md:px-5 desktop:rounded-t-[10px]">
+			<div className="sticky top-0 z-10 border-b border-border/70 bg-background/90 px-3 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80 md:px-5 desktop:rounded-t-[10px]">
 				<div className="flex min-h-14 gap-3 py-2 md:min-h-16 md:flex-row md:items-center">
 					<div className="flex min-w-0 items-center gap-3">
 						<SiteNav.MobileSidebar />

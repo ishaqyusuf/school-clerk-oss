@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-const prod = process.env.NODE_ENV === "production";
 export function constructMetadata({
 	title = `${process.env.NEXT_PUBLIC_APP_NAME} | School Operations Platform`,
 	description = `${process.env.NEXT_PUBLIC_APP_NAME} helps schools manage academics, finance, staff, and student records in one workspace.`,
@@ -8,20 +7,14 @@ export function constructMetadata({
 	icons = [
 		{
 			rel: "apple-touch-icon",
-			sizes: "32x32",
-			url: `/apple-touch-icon${prod ? ".png" : ".dev.jpg"}`,
+			sizes: "128x128",
+			url: "/favicon.png",
 		},
 		{
 			rel: "icon",
 			type: "image/png",
-			sizes: "32x32",
-			url: `/favicon-32x32${prod ? ".png" : ".dev.jpg"}`,
-		},
-		{
-			rel: "icon",
-			type: "image/png",
-			sizes: "16x16",
-			url: `/favicon-16x16${prod ? ".png" : ".dev.jpg"}`,
+			sizes: "128x128",
+			url: "/favicon.png",
 		},
 	],
 	noIndex = false,

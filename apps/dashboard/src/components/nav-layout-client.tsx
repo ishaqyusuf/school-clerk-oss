@@ -1,6 +1,7 @@
 "use client";
 import { useAuth } from "@/hooks/use-auth";
 import { createSiteNavContext, SiteNav } from "@school-clerk/site-nav";
+import { Icons } from "@school-clerk/ui/custom/icons";
 import { usePathname } from "next/navigation";
 import { Header } from "./header";
 import { linkModules } from "./sidebar/links";
@@ -22,8 +23,8 @@ export function NavLayoutClient({ children }) {
     >
       <div className="relative ">
         <SiteNav.Sidebar>
-          {/* <SiteNav.Logo Icon={Icons.LogoLg} /> */}
-          {/* <SiteNav.LogoSm Icon={Icons.Logo} /> */}
+          <SiteNav.Logo Icon={Icons.LogoLg} />
+          <SiteNav.LogoSm Icon={Icons.Logo} />
           {/* <TermSwitcher /> */}
           {/* <ModuleSwitcher /> */}
           <div className="absolute bottom-4 left-0 right-0 z-10 px-2 w-full flex items-center justify-center md:justify-start md:px-2">

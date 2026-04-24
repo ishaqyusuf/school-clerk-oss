@@ -1,9 +1,19 @@
 "use client";
 
+import { useTRPC } from "@/trpc/client";
 import { Card, CardContent } from "@school-clerk/ui/card";
+import { useQuery } from "@tanstack/react-query";
 import { Users, UserCheck, UserPlus, AlertTriangle } from "lucide-react";
 
 export function StudentStatsCards() {
+  const trpc = useTRPC();
+  const { data: analytics, isLoading } = useQuery(
+    trpc.students.analytics.queryOptions({})
+  );
+
+  const formatStat = (value?: number) =>
+    isLoading ? "--" : (value ?? 0).toLocaleString();
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <Card className="bg-card p-5 rounded-xl shadow-sm">
@@ -16,7 +26,9 @@ export function StudentStatsCards() {
               <Users className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-foreground">--</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatStat(analytics?.totalStudents)}
+          </p>
           <p className="text-xs text-muted-foreground mt-1">
             All enrolled students
           </p>
@@ -33,7 +45,9 @@ export function StudentStatsCards() {
               <UserCheck className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-foreground">--</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatStat(analytics?.activeThisTerm)}
+          </p>
           <p className="text-xs text-muted-foreground mt-1">
             Registered this term
           </p>
@@ -50,7 +64,9 @@ export function StudentStatsCards() {
               <UserPlus className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-foreground">--</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatStat(analytics?.newAdmissions)}
+          </p>
           <p className="text-xs text-muted-foreground mt-1">
             This academic period
           </p>
@@ -67,7 +83,9 @@ export function StudentStatsCards() {
               <AlertTriangle className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-foreground">--</p>
+          <p className="text-2xl font-bold text-foreground">
+            {formatStat(analytics?.pendingFees)}
+          </p>
           <p className="text-xs text-red-500 font-medium mt-1">
             Outstanding balances
           </p>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { parseAsString, useQueryStates } from "nuqs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -330,9 +331,10 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
   const { setParams: setClassroomParams } = useClassroomParams();
   const { setParams: setStudentParams } = useStudentParams();
 
-  const [sourceClassroomId, setSourceClassroomId] = useState<string | null>(
-    null,
-  );
+  const [progressionParams, setProgressionParams] = useQueryStates({
+    previousClassroomId: parseAsString,
+  });
+  const sourceClassroomId = progressionParams.previousClassroomId;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -408,10 +410,18 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
   }, [targetClassroomsData]);
 
   useEffect(() => {
-    if (!sourceClassroomId && sourceClassrooms.length > 0) {
-      setSourceClassroomId(sourceClassrooms[0]?.id ?? null);
+    if (!sourceClassrooms.length) return;
+
+    const hasSelectedClassroom = sourceClassrooms.some(
+      (classroom) => classroom.id === sourceClassroomId,
+    );
+
+    if (!sourceClassroomId || !hasSelectedClassroom) {
+      setProgressionParams({
+        previousClassroomId: sourceClassrooms[0]?.id ?? null,
+      });
     }
-  }, [sourceClassroomId, sourceClassrooms]);
+  }, [sourceClassroomId, sourceClassrooms, setProgressionParams]);
 
   useEffect(() => {
     if (!sourceClassroomId) return;
@@ -564,11 +574,11 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
     }),
   );
 
-  const demoteMutation = useMutation(
+  const resetProgressionMutation = useMutation(
     trpc.academics.reversePromotion.mutationOptions({
       onSuccess() {
         toast({
-          title: "Demoted",
+          title: "Reset",
           description: "Selected students were returned to undecided.",
         });
         setSelected(new Set());
@@ -577,7 +587,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
       onError() {
         toast({
           title: "Error",
-          description: "Unable to demote the selected students.",
+          description: "Unable to reset the selected students.",
         });
       },
     }),
@@ -664,7 +674,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
     setClassroomParams({ createClassroom: true });
   };
 
-  const doDemote = (studentIds: string[]) => {
+  const resetProgression = (studentIds: string[]) => {
     const decidedIds = studentIds.filter((studentId) => {
       const student = students.find((item) => item.studentId === studentId);
       return student && student.status !== "undecided";
@@ -672,7 +682,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
 
     if (!decidedIds.length) return;
 
-    demoteMutation.mutate({
+    resetProgressionMutation.mutate({
       studentIds: decidedIds,
       termId: firstTermId,
     });
@@ -737,7 +747,9 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
           </p>
           <Select
             value={sourceClassroomId ?? ""}
-            onValueChange={(value) => setSourceClassroomId(value || null)}
+            onValueChange={(value) =>
+              setProgressionParams({ previousClassroomId: value || null })
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="Select a class…" />
@@ -910,10 +922,12 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={selectedCount === 0 || demoteMutation.isPending}
-                onClick={() => doDemote(Array.from(selected))}
+                disabled={
+                  selectedCount === 0 || resetProgressionMutation.isPending
+                }
+                onClick={() => resetProgression(Array.from(selected))}
               >
-                Demote Selected
+                Reset Selected
               </Button>
               <Button
                 size="sm"
@@ -1092,13 +1106,42 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                                 Repeat
                               </Button>
                             </>
+                          ) : student.status === "repeated" ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={
+                                  !automaticPromoteTarget ||
+                                  progressMutation.isPending
+                                }
+                                onClick={() =>
+                                  doProgress("promote", [student.studentId])
+                                }
+                              >
+                                Promote
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={resetProgressionMutation.isPending}
+                                onClick={() =>
+                                  resetProgression([student.studentId])
+                                }
+                              >
+                                Reset
+                              </Button>
+                            </>
                           ) : (
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => doDemote([student.studentId])}
+                              disabled={resetProgressionMutation.isPending}
+                              onClick={() =>
+                                resetProgression([student.studentId])
+                              }
                             >
-                              Demote
+                              Reset
                             </Button>
                           )}
                           <Button
@@ -1213,13 +1256,37 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                             Repeat
                           </Button>
                         </>
+                      ) : student.status === "repeated" ? (
+                        <>
+                          <Button
+                            size="sm"
+                            disabled={
+                              !automaticPromoteTarget ||
+                              progressMutation.isPending
+                            }
+                            onClick={() =>
+                              doProgress("promote", [student.studentId])
+                            }
+                          >
+                            Promote
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={resetProgressionMutation.isPending}
+                            onClick={() => resetProgression([student.studentId])}
+                          >
+                            Reset
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => doDemote([student.studentId])}
+                          disabled={resetProgressionMutation.isPending}
+                          onClick={() => resetProgression([student.studentId])}
                         >
-                          Demote
+                          Reset
                         </Button>
                       )}
                       <Button

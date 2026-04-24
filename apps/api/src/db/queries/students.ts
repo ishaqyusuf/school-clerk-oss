@@ -315,7 +315,7 @@ export async function getStudentsQueryParams(ctx: TRPCContext) {
         )
         .flat(),
       type: "checkbox",
-      value: "sessionId",
+      value: "sessionTermId",
     },
     {
       label: "Departments",
@@ -600,6 +600,144 @@ export const studentsRecentRecordSchema = z.object({});
 export type StudentsRecentRecordSchema = z.infer<
   typeof studentsRecentRecordSchema
 >;
+
+export const studentsAnalyticsSchema = z.object({});
+export type StudentsAnalyticsSchema = z.infer<typeof studentsAnalyticsSchema>;
+
+export async function studentsAnalytics(
+  ctx: TRPCContext,
+  _query: StudentsAnalyticsSchema
+) {
+  const { db, profile } = ctx;
+  const now = new Date();
+
+  const currentTerm = await db.sessionTerm.findFirst({
+    where: {
+      deletedAt: null,
+      schoolId: profile.schoolId,
+      startDate: {
+        lte: now,
+      },
+    },
+    orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      title: true,
+      startDate: true,
+      endDate: true,
+      sessionId: true,
+      session: {
+        select: {
+          id: true,
+          title: true,
+          startDate: true,
+          endDate: true,
+        },
+      },
+    },
+  });
+
+  const currentSessionId = currentTerm?.sessionId ?? profile.sessionId;
+  const currentTermId = currentTerm?.id ?? profile.termId;
+  const activeTermWhere = currentTermId
+    ? { sessionTermId: currentTermId }
+    : { id: "__missing-current-term__" };
+
+  const [totalStudents, activeTermForms, fallbackSessionForms, pendingFeeRows] =
+    await Promise.all([
+      db.students.count({
+        where: {
+          schoolProfileId: profile.schoolId,
+          deletedAt: null,
+        },
+      }),
+      db.studentTermForm.findMany({
+        where: {
+          schoolProfileId: profile.schoolId,
+          ...activeTermWhere,
+          deletedAt: null,
+          studentId: {
+            not: null,
+          },
+        },
+        distinct: ["studentId"],
+        select: {
+          studentId: true,
+        },
+      }),
+      db.studentSessionForm.findMany({
+        where: {
+          schoolProfileId: profile.schoolId,
+          schoolSessionId: currentSessionId,
+          deletedAt: null,
+          studentId: {
+            not: null,
+          },
+        },
+        distinct: ["studentId"],
+        select: {
+          studentId: true,
+        },
+      }),
+      db.studentFee.findMany({
+        where: {
+          schoolProfileId: profile.schoolId,
+          deletedAt: null,
+          pendingAmount: {
+            gt: 0,
+          },
+          OR: [{ status: null }, { status: { not: "cancelled" } }],
+          studentId: {
+            not: null,
+          },
+          studentTermForm: {
+            deletedAt: null,
+            ...activeTermWhere,
+          },
+        },
+        distinct: ["studentId"],
+        select: {
+          studentId: true,
+        },
+      }),
+    ]);
+
+  const sessionStart = currentTerm?.session?.startDate;
+  const sessionEnd = currentTerm?.session?.endDate;
+  const newAdmissions = sessionStart
+    ? await db.students.count({
+        where: {
+          schoolProfileId: profile.schoolId,
+          deletedAt: null,
+          createdAt: {
+            gte: sessionStart,
+            ...(sessionEnd ? { lte: sessionEnd } : {}),
+          },
+        },
+      })
+    : fallbackSessionForms.length;
+
+  return {
+    totalStudents,
+    activeThisTerm: activeTermForms.length,
+    newAdmissions,
+    pendingFees: pendingFeeRows.length,
+    currentTerm: currentTerm
+      ? {
+          id: currentTerm.id,
+          title: currentTerm.title,
+          startDate: currentTerm.startDate,
+          endDate: currentTerm.endDate,
+        }
+      : null,
+    currentSession: currentTerm?.session
+      ? {
+          id: currentTerm.session.id,
+          title: currentTerm.session.title,
+        }
+      : null,
+  };
+}
 
 export async function studentsRecentRecord(
   ctx: TRPCContext,

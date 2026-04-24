@@ -7,6 +7,8 @@ import {
   createStudent,
   studentsRecentRecordSchema,
   studentsRecentRecord,
+  studentsAnalyticsSchema,
+  studentsAnalytics,
   updateStudentBasicProfileSchema,
   updateStudentBasicProfile,
   deleteStudentSchema,
@@ -67,6 +69,11 @@ export const studentsRouter = createTRPCRouter({
     .input(changeStudentGenderSchema)
     .mutation(async (props) => {
       return changeStudentGender(props.ctx, props.input);
+    }),
+  analytics: publicProcedure
+    .input(studentsAnalyticsSchema)
+    .query(async (props) => {
+      return studentsAnalytics(props.ctx, props.input);
     }),
   academicsOverview: publicProcedure
     .input(getStudentOverviewSchema)

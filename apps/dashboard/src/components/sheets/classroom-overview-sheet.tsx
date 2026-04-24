@@ -34,7 +34,7 @@ export function ClassroomOverviewSheet({}) {
   const isOpen = Boolean(params.viewClassroomId);
   return (
     <Sheet
-      primarySize="xl"
+      primarySize="3xl"
       secondarySize="5xl"
       open={isOpen}
       onOpenChange={() => setParams(null)}

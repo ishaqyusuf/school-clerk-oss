@@ -1,7 +1,11 @@
 "use client";
 
 import { Suspense } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@school-clerk/ui/button";
@@ -11,9 +15,11 @@ import { format } from "date-fns";
 import {
   Calendar,
   CheckCircle2,
-  XCircle,
+  ChevronRight,
   TrendingUp,
+  XCircle,
 } from "lucide-react";
+import ConfirmBtn from "./confirm-button";
 
 export function ClassroomAttendance({
   departmentId,
@@ -28,13 +34,49 @@ export function ClassroomAttendance({
 }
 
 function Content({ departmentId }: { departmentId?: string | null }) {
-  const { setParams } = useClassroomParams();
+  const { attendanceSessionId, setParams } = useClassroomParams();
   const trpc = useTRPC();
+  const qc = useQueryClient();
   const { data: sessions } = useSuspenseQuery(
     trpc.attendance.getClassroomAttendance.queryOptions(
       { departmentId: departmentId || "-" },
       { enabled: !!departmentId }
     )
+  );
+  const { mutate: deleteSession, isPending: isDeletingSession } = useMutation(
+    trpc.attendance.deleteAttendanceSession.mutationOptions({
+      meta: {
+        toastTitle: {
+          loading: "Deleting attendance session...",
+          success: "Attendance session deleted",
+          error: "Failed to delete attendance session",
+        },
+      },
+      onSuccess(_, variables) {
+        if (!variables?.attendanceId) return;
+
+        qc.invalidateQueries({
+          queryKey: trpc.attendance.getClassroomAttendance.queryKey({
+            departmentId: departmentId || "-",
+          }),
+        });
+        qc.invalidateQueries({
+          queryKey: trpc.attendance.getStudentAttendanceHistory.queryKey(),
+        });
+        qc.invalidateQueries({
+          queryKey: trpc.attendance.getAttendanceSession.queryKey({
+            attendanceId: variables.attendanceId,
+          }),
+        });
+
+        if (attendanceSessionId === variables.attendanceId) {
+          setParams({
+            attendanceSessionId: null,
+            secondaryTab: null,
+          });
+        }
+      },
+    })
   );
 
   const totalSessions = sessions.length;
@@ -116,7 +158,12 @@ function Content({ departmentId }: { departmentId?: string | null }) {
         </h3>
         <Button
           size="xs"
-          onClick={() => setParams({ secondaryTab: "attendance-form" })}
+          onClick={() =>
+            setParams({
+              attendanceSessionId: null,
+              secondaryTab: "attendance-form",
+            })
+          }
         >
           Take Attendance
         </Button>
@@ -136,11 +183,17 @@ function Content({ departmentId }: { departmentId?: string | null }) {
                 <th className="px-4 py-3 font-semibold text-foreground">
                   Session
                 </th>
+                <th className="px-4 py-3 font-semibold text-muted-foreground">
+                  Taken By
+                </th>
                 <th className="px-4 py-3 font-semibold text-muted-foreground text-center">
                   Present
                 </th>
                 <th className="px-4 py-3 font-semibold text-muted-foreground text-center">
                   Absent
+                </th>
+                <th className="px-4 py-3 font-semibold text-muted-foreground text-right">
+                  Actions
                 </th>
                 <th className="px-4 py-3 font-semibold text-muted-foreground text-right">
                   Rate
@@ -156,7 +209,13 @@ function Content({ departmentId }: { departmentId?: string | null }) {
                 return (
                   <tr
                     key={session.id}
-                    className="hover:bg-muted/30 transition-colors"
+                    className="cursor-pointer hover:bg-muted/30 transition-colors"
+                    onClick={() =>
+                      setParams({
+                        attendanceSessionId: session.id,
+                        secondaryTab: "attendance-overview",
+                      })
+                    }
                   >
                     <td className="px-4 py-3">
                       <p className="font-medium text-foreground">
@@ -169,6 +228,11 @@ function Content({ departmentId }: { departmentId?: string | null }) {
                               "dd MMM yyyy"
                             )
                           : ""}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-muted-foreground">
+                        {session.staffName || "Unknown staff"}
                       </p>
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -186,6 +250,35 @@ function Content({ departmentId }: { departmentId?: string | null }) {
                       >
                         {session.absent}
                       </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <ConfirmBtn
+                          size="xs"
+                          variant="ghost"
+                          trash
+                          isDeleting={isDeletingSession}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            deleteSession({ attendanceId: session.id });
+                          }}
+                        />
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="gap-1 text-muted-foreground hover:text-foreground"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setParams({
+                              attendanceSessionId: session.id,
+                              secondaryTab: "attendance-overview",
+                            });
+                          }}
+                        >
+                          Open
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">

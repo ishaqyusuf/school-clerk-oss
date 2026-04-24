@@ -31,7 +31,7 @@ import { Form, FormField } from "@school-clerk/ui/form";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { _qc, _trpc } from "@/components/static-trpc";
-import { formatDate } from "date-fns";
+import { differenceInCalendarDays, formatDate } from "date-fns";
 import Link from "next/link";
 import { useAcademicParams } from "@/hooks/use-academic-params";
 import { AcademicSessionSheet } from "@/components/sheets/academic-session-sheet";
@@ -83,6 +83,43 @@ const Dashboard = () => {
   );
   const sessions = dashboard?.sessions || [];
   const promotionIds = dashboard?.promotionIds ?? null;
+  const currentSession = sessions.find(
+    (session) => session.status === "current",
+  );
+  const currentTerm = currentSession?.currentTerm ?? null;
+  const totalTerms = sessions.reduce(
+    (count, session) => count + session.terms.length,
+    0,
+  );
+  const currentTermStartDate = currentTerm?.startDate
+    ? new Date(currentTerm.startDate)
+    : null;
+  const currentTermEndDate = currentTerm?.endDate
+    ? new Date(currentTerm.endDate)
+    : null;
+  const daysRemaining = currentTermEndDate
+    ? Math.max(0, differenceInCalendarDays(currentTermEndDate, new Date()))
+    : null;
+  const termProgress =
+    currentTermStartDate && currentTermEndDate
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            Math.round(
+              (differenceInCalendarDays(new Date(), currentTermStartDate) /
+                Math.max(
+                  1,
+                  differenceInCalendarDays(
+                    currentTermEndDate,
+                    currentTermStartDate,
+                  ),
+                )) *
+                100,
+            ),
+          ),
+        )
+      : null;
   const { mutate: saveTermDates, isPending: isSavingTermDates } = useMutation(
     _trpc.academics.saveTermMetaData.mutationOptions({
       onSuccess() {
@@ -159,16 +196,20 @@ const Dashboard = () => {
             <span className="text-sm font-medium text-muted-foreground">
               Current Session Status
             </span>
-            <Badge variant="success">ACTIVE</Badge>
+            <Badge variant={currentSession ? "success" : "outline"}>
+              {currentSession ? "ACTIVE" : "NONE"}
+            </Badge>
           </div>
           <div>
             <p className="text-2xl font-bold tracking-tight">
-              2023/2024 Academic Year
+              {currentSession?.name ?? "No active session"}
             </p>
           </div>
-          <div className="flex items-center gap-2 text-green-600">
+          <div className="flex items-center gap-2 text-muted-foreground">
             <TrendingUp className="h-4 w-4" />
-            <span className="text-xs font-bold uppercase">In Progress</span>
+            <span className="text-xs font-bold uppercase">
+              {currentTerm ? `${currentTerm.title} in progress` : "Not started"}
+            </span>
           </div>
         </Card.Root>
 
@@ -176,20 +217,32 @@ const Dashboard = () => {
           <span className="text-sm font-medium text-muted-foreground">
             Total Terms Created
           </span>
-          <p className="text-2xl font-bold tracking-tight">12 Terms Recorded</p>
+          <p className="text-2xl font-bold tracking-tight">
+            {totalTerms} {totalTerms === 1 ? "Term" : "Terms"} Recorded
+          </p>
           <div className="flex items-center gap-2 text-muted-foreground">
             <History className="h-4 w-4" />
-            <span className="text-xs font-medium">Across 4 years</span>
+            <span className="text-xs font-medium">
+              Across {sessions.length}{" "}
+              {sessions.length === 1 ? "session" : "sessions"}
+            </span>
           </div>
         </Card>
 
         <Card className="p-6 flex flex-col gap-4">
           <span className="text-sm font-medium text-muted-foreground">
-            Days Remaining (2nd Term)
+            Days Remaining {currentTerm ? `(${currentTerm.title})` : ""}
           </span>
-          <p className="text-2xl font-bold tracking-tight">45 Days Left</p>
+          <p className="text-2xl font-bold tracking-tight">
+            {daysRemaining === null
+              ? "No end date"
+              : `${daysRemaining} ${daysRemaining === 1 ? "Day" : "Days"} Left`}
+          </p>
           <div className="w-full bg-secondary h-1.5 rounded-full mt-1">
-            <div className="bg-primary h-1.5 rounded-full w-[65%]"></div>
+            <div
+              className="bg-primary h-1.5 rounded-full"
+              style={{ width: `${termProgress ?? 0}%` }}
+            ></div>
           </div>
         </Card>
       </div>
@@ -408,7 +461,10 @@ const Dashboard = () => {
         </div>
 
         <div className="px-6 py-4 bg-muted/20 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-          <p>Showing 3 academic sessions</p>
+          <p>
+            Showing {sessions.length} academic{" "}
+            {sessions.length === 1 ? "session" : "sessions"}
+          </p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="h-8">
               Previous
