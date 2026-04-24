@@ -33,6 +33,10 @@ export type WebsiteMediaAssetRecord = {
 };
 
 const websiteMediaClient = prisma as unknown as PrismaClient;
+type WebsitePublishTransactionClient = Pick<
+  typeof prisma,
+  "websiteTemplateConfig" | "websitePublishedConfig"
+>;
 
 function appendAuditEntry(
   analyticsJson: unknown,
@@ -397,7 +401,7 @@ export async function publishWebsiteTemplateConfig(input: {
   schoolProfileId: string;
   publishedByUserId?: string;
 }) {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: WebsitePublishTransactionClient) => {
     const existing = await tx.websiteTemplateConfig.findFirst({
       where: {
         id: input.id,
