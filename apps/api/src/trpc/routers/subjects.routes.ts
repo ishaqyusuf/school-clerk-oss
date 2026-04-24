@@ -5,6 +5,8 @@ import {
   formDataSchema,
   getAllSubjects,
   getClassroomSubjects,
+  importSubjects,
+  importSubjectsSchema,
   getQuickAddSubjects,
   getQuickAddSubjectsSchema,
   getSubjects,
@@ -53,6 +55,11 @@ export const subjectsRouter = createTRPCRouter({
     .input(saveSubjectSchema)
     .mutation(async (props) => {
       return saveSubject(props.ctx, props.input);
+    }),
+  importSubjects: publicProcedure
+    .input(importSubjectsSchema)
+    .mutation(async (props) => {
+      return importSubjects(props.ctx, props.input);
     }),
   overview: publicProcedure
     .input(subjectOverviewSchema)

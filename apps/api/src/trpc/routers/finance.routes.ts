@@ -1856,6 +1856,8 @@ export const financeRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
+			let savedBillableId: string;
+
 			const existingBillable = input.billableId
 				? await ctx.db.billable.findFirst({
 						where: {
@@ -1903,6 +1905,7 @@ export const financeRouter = createTRPCRouter({
 
 			if (existingBillable) {
 				const currentHistory = existingBillable.billableHistory[0];
+				savedBillableId = existingBillable.id;
 
 				await ctx.db.billable.update({
 					where: { id: existingBillable.id },
@@ -1915,7 +1918,7 @@ export const financeRouter = createTRPCRouter({
 				});
 
 				if (currentHistory) {
-					return ctx.db.billableHistory.update({
+					await ctx.db.billableHistory.update({
 						where: { id: currentHistory.id },
 						data: {
 							amount: input.amount,
@@ -1925,9 +1928,8 @@ export const financeRouter = createTRPCRouter({
 							},
 						},
 					});
-				}
-
-				return ctx.db.billable.update({
+				} else {
+					await ctx.db.billable.update({
 					where: { id: existingBillable.id },
 					data: {
 						billableHistory: {
@@ -1947,32 +1949,88 @@ export const financeRouter = createTRPCRouter({
 							},
 						},
 					},
+					});
+				}
+			} else {
+				const createdBillable = await ctx.db.billable.create({
+					data: {
+						title: input.title,
+						amount: input.amount,
+						description: input.description,
+						type: input.type,
+						schoolProfileId: ctx.profile.schoolId!,
+						billableHistory: {
+							create: {
+								amount: input.amount,
+								current: true,
+								schoolSessionId: ctx.profile.sessionId!,
+								termId: ctx.profile.termId!,
+								walletId: resolvedWallet?.id,
+								classroomDepartments: input.classroomDepartmentIds.length
+									? {
+											connect: input.classroomDepartmentIds.map((id) => ({ id })),
+										}
+									: undefined,
+							},
+						},
+					},
+					select: { id: true },
 				});
+				savedBillableId = createdBillable.id;
 			}
 
-			return ctx.db.billable.create({
-				data: {
-					title: input.title,
-					amount: input.amount,
-					description: input.description,
-					type: input.type,
-					schoolProfileId: ctx.profile.schoolId!,
+			const savedBillable = await ctx.db.billable.findFirstOrThrow({
+				where: {
+					id: savedBillableId,
+					schoolProfileId: ctx.profile.schoolId,
+					deletedAt: null,
+				},
+				select: {
+					id: true,
+					title: true,
+					description: true,
+					amount: true,
+					type: true,
 					billableHistory: {
-						create: {
-							amount: input.amount,
+						where: {
 							current: true,
-							schoolSessionId: ctx.profile.sessionId!,
-							termId: ctx.profile.termId!,
-							walletId: resolvedWallet?.id,
-							classroomDepartments: input.classroomDepartmentIds.length
-								? {
-										connect: input.classroomDepartmentIds.map((id) => ({ id })),
-									}
-								: undefined,
+							termId: ctx.profile.termId,
+							deletedAt: null,
+						},
+						take: 1,
+						select: {
+							id: true,
+							amount: true,
+							wallet: { select: { id: true, name: true } },
+							classroomDepartments: {
+								select: {
+									id: true,
+									departmentName: true,
+									classRoom: { select: { name: true } },
+								},
+							},
 						},
 					},
 				},
 			});
+
+			return {
+				id: savedBillable.id,
+				title: savedBillable.title,
+				description: savedBillable.description,
+				amount: savedBillable.billableHistory?.[0]?.amount ?? savedBillable.amount,
+				type: savedBillable.type,
+				historyId: savedBillable.billableHistory?.[0]?.id,
+				streamId: savedBillable.billableHistory?.[0]?.wallet?.id ?? null,
+				streamName: savedBillable.billableHistory?.[0]?.wallet?.name ?? null,
+				classroomDepartments:
+					savedBillable.billableHistory?.[0]?.classroomDepartments.map(
+						(department) => ({
+							id: department.id,
+							name: getDepartmentName(department),
+						}),
+					) ?? [],
+			};
 		}),
 
 	deleteBillable: publicProcedure

@@ -141,7 +141,7 @@ export const createBillSchema = z.object({
 	title: z.string().min(1),
 	amount: z.number().min(1),
 	billableId: z.string().optional(),
-	selectedBillableId: z.string().optional(),
+	selectedBillableId: z.string().optional().nullable(),
 	billableHistoryId: z.string().optional(),
 	staffTermProfileId: z.string().optional(),
 	description: z.string().optional(),

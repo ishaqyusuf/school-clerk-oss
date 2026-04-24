@@ -3,7 +3,7 @@ import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { getRecipient } from "@school-clerk/utils/envs";
 import { nanoid } from "nanoid";
-import { logger } from "@trigger.dev/core/v3";
+import { logger } from "@trigger.dev/sdk";
 
 export const resend = new Resend(process.env.RESEND_API_KEY!);
 type FromEmails =

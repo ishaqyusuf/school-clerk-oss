@@ -1,6 +1,6 @@
 "use server";
 
-import { tasks } from "@trigger.dev/sdk/v3";
+import { tasks } from "@trigger.dev/sdk";
 import { z } from "zod";
 import { actionClient } from "./safe-action";
 // import { exampleTaskPayload, type ExampleTaskPayload } from "@jobs/schema";

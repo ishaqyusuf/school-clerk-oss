@@ -408,7 +408,10 @@ export async function getQuickAddSubjects(
   const { db } = ctx;
   const subjects = (
     await db.subject.findMany({
-      where: {},
+      where: {
+        schoolProfileId: ctx.profile.schoolId,
+        deletedAt: null,
+      },
       select: {
         title: true,
         id: true,
@@ -416,7 +419,8 @@ export async function getQuickAddSubjects(
           select: {
             departmentSubjects: {
               where: {
-                id: query.departmentId,
+                classRoomDepartmentId: query.departmentId,
+                deletedAt: null,
               },
             },
           },
@@ -432,6 +436,55 @@ export async function getQuickAddSubjects(
     .sort((x, y) => (x === y ? 0 : x ? -1 : 1));
   const uniqueSubjects = uniqueList(subjects, "title");
   return uniqueSubjects?.filter((a) => !a.exists);
+}
+
+export const importSubjectsSchema = z.object({
+  departmentId: z.string(),
+  sessionTermId: z.string().optional().nullable(),
+  subjectIds: z.array(z.string()).min(1),
+});
+export type ImportSubjectsSchema = z.infer<typeof importSubjectsSchema>;
+
+export async function importSubjects(
+  ctx: TRPCContext,
+  data: ImportSubjectsSchema
+) {
+  const sessionTermId = data.sessionTermId || ctx.profile.termId;
+
+  const existingSubjects = await ctx.db.departmentSubject.findMany({
+    where: {
+      classRoomDepartmentId: data.departmentId,
+      sessionTermId,
+      deletedAt: null,
+      subjectId: {
+        in: data.subjectIds,
+      },
+    },
+    select: {
+      subjectId: true,
+    },
+  });
+
+  const existingIds = new Set(existingSubjects.map((subject) => subject.subjectId));
+  const subjectIdsToCreate = data.subjectIds.filter((id) => !existingIds.has(id));
+
+  if (!subjectIdsToCreate.length) {
+    return {
+      importedCount: 0,
+    };
+  }
+
+  await ctx.db.departmentSubject.createMany({
+    data: subjectIdsToCreate.map((subjectId) => ({
+      classRoomDepartmentId: data.departmentId,
+      sessionTermId,
+      subjectId,
+    })),
+  });
+
+  return {
+    importedCount: subjectIdsToCreate.length,
+  };
 }
 
 export const deleteClassSubjectSchema = z.object({

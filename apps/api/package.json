@@ -29,7 +29,7 @@
     "@school-clerk/notifications": "workspace:*",
     "@school-clerk/utils": "workspace:*",
     "@sindresorhus/slugify": "^2.2.1",
-    "@trigger.dev/sdk": "3.3.17",
+    "@trigger.dev/sdk": "^4.0.0",
     "@trpc/server": "^11.4.1",
     "bun-vercel": "^1.0.0-alpha.5",
     "camelcase-keys": "^9.1.3",

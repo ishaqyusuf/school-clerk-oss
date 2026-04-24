@@ -42,7 +42,8 @@ function getModelSelection(config: {
   preferredProvider?: string | null;
   preferredModel?: string | null;
 }) {
-  const provider = config.preferredProvider || process.env.AI_PROVIDER || "anthropic";
+  const provider =
+    config.preferredProvider || process.env.AI_PROVIDER || "anthropic";
 
   if (provider === "openai") {
     const modelName = config.preferredModel || "gpt-4o";
@@ -125,11 +126,14 @@ function buildTools(ctx: AssistantRouteContext) {
       input,
     });
 
-    if (!isCapabilityAllowed({ role: ctx.role, config: ctx.config, capability })) {
+    if (
+      !isCapabilityAllowed({ role: ctx.role, config: ctx.config, capability })
+    ) {
       const output = {
         blocked: true,
         toolName,
-        message: "This action is not available for your current role or assistant settings.",
+        message:
+          "This action is not available for your current role or assistant settings.",
       };
       await finishAssistantToolExecution({
         toolExecutionId: execution.id,
@@ -150,7 +154,12 @@ function buildTools(ctx: AssistantRouteContext) {
         query: z.string().describe("Student name or partial name"),
       }),
       execute: async ({ query }) => {
-        const guarded = await guardCapability("students.read", "searchStudents", { query }, false);
+        const guarded = await guardCapability(
+          "students.read",
+          "searchStudents",
+          { query },
+          false,
+        );
         if (guarded.blocked) return guarded.blocked;
 
         try {
@@ -205,7 +214,10 @@ function buildTools(ctx: AssistantRouteContext) {
               classroom,
               termFormId: termForm?.id ?? null,
               totalPending:
-                termForm?.studentFees.reduce((sum, fee) => sum + (fee.pendingAmount ?? 0), 0) ?? 0,
+                termForm?.studentFees.reduce(
+                  (sum, fee) => sum + (fee.pendingAmount ?? 0),
+                  0,
+                ) ?? 0,
               isEnrolledThisTerm: !!termForm,
             };
           });
@@ -220,7 +232,8 @@ function buildTools(ctx: AssistantRouteContext) {
           await finishAssistantToolExecution({
             toolExecutionId: guarded.executionId,
             status: "failed",
-            error: error instanceof Error ? error.message : "Student search failed",
+            error:
+              error instanceof Error ? error.message : "Student search failed",
           });
           throw error;
         }
@@ -289,7 +302,10 @@ function buildTools(ctx: AssistantRouteContext) {
           await finishAssistantToolExecution({
             toolExecutionId: guarded.executionId,
             status: "failed",
-            error: error instanceof Error ? error.message : "Classroom lookup failed",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Classroom lookup failed",
           });
           throw error;
         }
@@ -368,7 +384,9 @@ function buildTools(ctx: AssistantRouteContext) {
           if (existing) {
             await prisma.studentTermForm.update({
               where: { id: existing.id },
-              data: { classroomDepartmentId: actionInput.classroomDepartmentId },
+              data: {
+                classroomDepartmentId: actionInput.classroomDepartmentId,
+              },
             });
 
             const output = {
@@ -486,7 +504,9 @@ function buildTools(ctx: AssistantRouteContext) {
               description: true,
               billAmount: true,
               pendingAmount: true,
-              feeHistory: { select: { wallet: { select: { id: true, name: true } } } },
+              feeHistory: {
+                select: { wallet: { select: { id: true, name: true } } },
+              },
             },
             orderBy: { createdAt: "asc" },
           });
@@ -501,7 +521,8 @@ function buildTools(ctx: AssistantRouteContext) {
             studentId,
             studentTermFormId,
             fees: fees.map((fee) => {
-              const paidAmount = (fee.billAmount ?? 0) - (fee.pendingAmount ?? 0);
+              const paidAmount =
+                (fee.billAmount ?? 0) - (fee.pendingAmount ?? 0);
               const status =
                 (fee.pendingAmount ?? 0) <= 0
                   ? ("PAID" as const)
@@ -520,7 +541,10 @@ function buildTools(ctx: AssistantRouteContext) {
                 streamName: fee.feeHistory?.wallet?.name ?? null,
               };
             }),
-            totalPending: fees.reduce((sum, fee) => sum + (fee.pendingAmount ?? 0), 0),
+            totalPending: fees.reduce(
+              (sum, fee) => sum + (fee.pendingAmount ?? 0),
+              0,
+            ),
           };
 
           await finishAssistantToolExecution({
@@ -533,7 +557,8 @@ function buildTools(ctx: AssistantRouteContext) {
           await finishAssistantToolExecution({
             toolExecutionId: guarded.executionId,
             status: "failed",
-            error: error instanceof Error ? error.message : "Payment lookup failed",
+            error:
+              error instanceof Error ? error.message : "Payment lookup failed",
           });
           throw error;
         }
@@ -767,7 +792,10 @@ function buildTools(ctx: AssistantRouteContext) {
           await finishAssistantToolExecution({
             toolExecutionId: guarded.executionId,
             status: "failed",
-            error: error instanceof Error ? error.message : "Payment recording failed",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Payment recording failed",
           });
           throw error;
         }
@@ -775,10 +803,13 @@ function buildTools(ctx: AssistantRouteContext) {
     }),
 
     searchInventoryItems: tool({
-      description: "Search inventory items such as books, supplies, equipment, and uniforms.",
+      description:
+        "Search inventory items such as books, supplies, equipment, and uniforms.",
       inputSchema: z.object({
         query: z.string(),
-        type: z.enum(["SUPPLY", "TEXTBOOK", "EQUIPMENT", "UNIFORM", "OTHER"]).optional(),
+        type: z
+          .enum(["SUPPLY", "TEXTBOOK", "EQUIPMENT", "UNIFORM", "OTHER"])
+          .optional(),
         lowStockOnly: z.boolean().optional().default(false),
       }),
       execute: async ({ query, type, lowStockOnly }) => {
@@ -795,7 +826,9 @@ function buildTools(ctx: AssistantRouteContext) {
             where: {
               schoolProfileId: ctx.schoolId,
               ...(type ? { type } : {}),
-              ...(query ? { title: { contains: query, mode: "insensitive" } } : {}),
+              ...(query
+                ? { title: { contains: query, mode: "insensitive" } }
+                : {}),
             },
             select: {
               id: true,
@@ -805,7 +838,10 @@ function buildTools(ctx: AssistantRouteContext) {
               quantity: true,
               unitPrice: true,
               lowStockAlert: true,
-              issuances: { where: { deletedAt: null }, select: { quantity: true } },
+              issuances: {
+                where: { deletedAt: null },
+                select: { quantity: true },
+              },
             },
             orderBy: { title: "asc" },
             take: 10,
@@ -820,7 +856,10 @@ function buildTools(ctx: AssistantRouteContext) {
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               isLowStock: item.quantity <= item.lowStockAlert,
-              totalIssued: item.issuances.reduce((sum, issuance) => sum + issuance.quantity, 0),
+              totalIssued: item.issuances.reduce(
+                (sum, issuance) => sum + issuance.quantity,
+                0,
+              ),
             }))
             .filter((item) => (lowStockOnly ? item.isLowStock : true));
 
@@ -834,7 +873,10 @@ function buildTools(ctx: AssistantRouteContext) {
           await finishAssistantToolExecution({
             toolExecutionId: guarded.executionId,
             status: "failed",
-            error: error instanceof Error ? error.message : "Inventory search failed",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Inventory search failed",
           });
           throw error;
         }
@@ -842,10 +884,13 @@ function buildTools(ctx: AssistantRouteContext) {
     }),
 
     createInventoryItem: tool({
-      description: "Create a new inventory item. Requires explicit confirmation.",
+      description:
+        "Create a new inventory item. Requires explicit confirmation.",
       inputSchema: z.object({
         title: z.string(),
-        type: z.enum(["SUPPLY", "TEXTBOOK", "EQUIPMENT", "UNIFORM", "OTHER"]).default("OTHER"),
+        type: z
+          .enum(["SUPPLY", "TEXTBOOK", "EQUIPMENT", "UNIFORM", "OTHER"])
+          .default("OTHER"),
         quantity: z.number().int().min(0).default(1),
         unitPrice: z.number().min(0).default(0),
         description: z.string().optional(),
@@ -941,7 +986,10 @@ function buildTools(ctx: AssistantRouteContext) {
           await finishAssistantToolExecution({
             toolExecutionId: guarded.executionId,
             status: "failed",
-            error: error instanceof Error ? error.message : "Inventory creation failed",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Inventory creation failed",
           });
           throw error;
         }
@@ -949,7 +997,8 @@ function buildTools(ctx: AssistantRouteContext) {
     }),
 
     recordInventoryIssuance: tool({
-      description: "Record that an inventory item was issued. Requires explicit confirmation.",
+      description:
+        "Record that an inventory item was issued. Requires explicit confirmation.",
       inputSchema: z.object({
         inventoryId: z.string(),
         itemTitle: z.string(),
@@ -1010,7 +1059,11 @@ function buildTools(ctx: AssistantRouteContext) {
           }
 
           const item = await inventoryModel.findFirstOrThrow({
-            where: { id: actionInput.inventoryId, schoolProfileId: ctx.schoolId, deletedAt: null },
+            where: {
+              id: actionInput.inventoryId,
+              schoolProfileId: ctx.schoolId,
+              deletedAt: null,
+            },
             select: { id: true, quantity: true },
           });
 
@@ -1074,7 +1127,10 @@ function buildTools(ctx: AssistantRouteContext) {
           await finishAssistantToolExecution({
             toolExecutionId: guarded.executionId,
             status: "failed",
-            error: error instanceof Error ? error.message : "Inventory issuance failed",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Inventory issuance failed",
           });
           throw error;
         }
@@ -1087,7 +1143,12 @@ function buildTools(ctx: AssistantRouteContext) {
         query: z.string(),
       }),
       execute: async ({ query }) => {
-        const guarded = await guardCapability("staff.read", "searchStaffMembers", { query }, false);
+        const guarded = await guardCapability(
+          "staff.read",
+          "searchStaffMembers",
+          { query },
+          false,
+        );
         if (guarded.blocked) return guarded.blocked;
 
         try {
@@ -1113,7 +1174,10 @@ function buildTools(ctx: AssistantRouteContext) {
                 select: { id: true },
               },
               termProfiles: {
-                where: { sessionTermId: ctx.termId ?? undefined, deletedAt: null },
+                where: {
+                  sessionTermId: ctx.termId ?? undefined,
+                  deletedAt: null,
+                },
                 select: {
                   classroomsProfiles: { select: { id: true } },
                 },
@@ -1128,7 +1192,8 @@ function buildTools(ctx: AssistantRouteContext) {
             email: item.email,
             phone: item.phone,
             attendanceSessions: item.classRoomAttendanceList.length,
-            assignedClassrooms: item.termProfiles[0]?.classroomsProfiles.length ?? 0,
+            assignedClassrooms:
+              item.termProfiles[0]?.classroomsProfiles.length ?? 0,
           }));
 
           await finishAssistantToolExecution({
@@ -1141,7 +1206,8 @@ function buildTools(ctx: AssistantRouteContext) {
           await finishAssistantToolExecution({
             toolExecutionId: guarded.executionId,
             status: "failed",
-            error: error instanceof Error ? error.message : "Staff search failed",
+            error:
+              error instanceof Error ? error.message : "Staff search failed",
           });
           throw error;
         }
@@ -1149,7 +1215,8 @@ function buildTools(ctx: AssistantRouteContext) {
     }),
 
     getTeacherWorkspaceSummary: tool({
-      description: "Get the current teacher workspace summary for the signed-in teacher.",
+      description:
+        "Get the current teacher workspace summary for the signed-in teacher.",
       inputSchema: z.object({}),
       execute: async () => {
         const guarded = await guardCapability(
@@ -1173,7 +1240,9 @@ function buildTools(ctx: AssistantRouteContext) {
             toolExecutionId: guarded.executionId,
             status: "failed",
             error:
-              error instanceof Error ? error.message : "Teacher workspace lookup failed",
+              error instanceof Error
+                ? error.message
+                : "Teacher workspace lookup failed",
           });
           throw error;
         }
@@ -1181,7 +1250,8 @@ function buildTools(ctx: AssistantRouteContext) {
     }),
 
     getStudentAttendanceHistory: tool({
-      description: "Get recent attendance history for a student in the active term.",
+      description:
+        "Get recent attendance history for a student in the active term.",
       inputSchema: z.object({
         studentId: z.string(),
       }),
@@ -1241,7 +1311,8 @@ function buildTools(ctx: AssistantRouteContext) {
                 isPresent: record.isPresent,
                 comment: record.comment,
                 createdAt: record.createdAt,
-                attendanceTitle: record.classroomAttendance?.attendanceTitle ?? null,
+                attendanceTitle:
+                  record.classroomAttendance?.attendanceTitle ?? null,
                 classroom: classroomDisplayName({
                   className: record.department?.classRoom?.name,
                   departmentName: record.department?.departmentName,
@@ -1260,7 +1331,9 @@ function buildTools(ctx: AssistantRouteContext) {
             toolExecutionId: guarded.executionId,
             status: "failed",
             error:
-              error instanceof Error ? error.message : "Attendance history lookup failed",
+              error instanceof Error
+                ? error.message
+                : "Attendance history lookup failed",
           });
           throw error;
         }
@@ -1273,7 +1346,12 @@ function buildTools(ctx: AssistantRouteContext) {
         query: z.string(),
       }),
       execute: async ({ query }) => {
-        const guarded = await guardCapability("parents.read", "searchGuardians", { query }, false);
+        const guarded = await guardCapability(
+          "parents.read",
+          "searchGuardians",
+          { query },
+          false,
+        );
         if (guarded.blocked) return guarded.blocked;
 
         try {
@@ -1317,7 +1395,9 @@ function buildTools(ctx: AssistantRouteContext) {
             wards: guardian.wards.map((ward) => ({
               relation: ward.relation,
               studentId: ward.student?.id ?? null,
-              studentName: ward.student ? studentDisplayName(ward.student) : null,
+              studentName: ward.student
+                ? studentDisplayName(ward.student)
+                : null,
             })),
           }));
 
@@ -1331,7 +1411,8 @@ function buildTools(ctx: AssistantRouteContext) {
           await finishAssistantToolExecution({
             toolExecutionId: guarded.executionId,
             status: "failed",
-            error: error instanceof Error ? error.message : "Guardian search failed",
+            error:
+              error instanceof Error ? error.message : "Guardian search failed",
           });
           throw error;
         }
@@ -1373,7 +1454,10 @@ export async function POST(req: Request) {
   });
 
   if (!config.enabled) {
-    return NextResponse.json({ error: "Assistant is disabled for this school." }, { status: 403 });
+    return NextResponse.json(
+      { error: "Assistant is disabled for this school." },
+      { status: 403 },
+    );
   }
 
   if (!allowedCapabilities.length) {
@@ -1389,7 +1473,10 @@ export async function POST(req: Request) {
   };
 
   if (!body.conversationId || !body.input) {
-    return NextResponse.json({ error: "conversationId and input are required." }, { status: 400 });
+    return NextResponse.json(
+      { error: "conversationId and input are required." },
+      { status: 400 },
+    );
   }
 
   const conversation = await getAssistantConversation({
@@ -1399,7 +1486,10 @@ export async function POST(req: Request) {
   });
 
   if (!conversation) {
-    return NextResponse.json({ error: "Conversation not found." }, { status: 404 });
+    return NextResponse.json(
+      { error: "Conversation not found." },
+      { status: 404 },
+    );
   }
 
   const parsedInput = parseIncomingChatInput(body.input);
@@ -1464,7 +1554,9 @@ export async function POST(req: Request) {
     ...conversation.messages,
     savedUserMessage,
   ]);
-  const modelMessages = await convertToModelMessages(historyMessages as any, { tools });
+  const modelMessages = await convertToModelMessages(historyMessages as any, {
+    tools,
+  });
 
   const result = streamText({
     model,

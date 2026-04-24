@@ -119,6 +119,19 @@ function inviteErrorMessage(error: unknown) {
 		: "Failed to send onboarding email. Please verify the email address and try again.";
 }
 
+async function tryCreateStaffInvitationNotification(
+	input: Parameters<typeof createStaffInvitationNotification>[0],
+) {
+	try {
+		await createStaffInvitationNotification(input);
+	} catch (error) {
+		console.error(
+			"[staff-invite] Staff invitation notification failed after email send",
+			error,
+		);
+	}
+}
+
 async function syncInviteState({
 	staffId,
 	status,
@@ -555,7 +568,7 @@ export const saveStaffAction = actionClient
 					staffId: savedStaff.id,
 					status: "PENDING",
 				});
-				await createStaffInvitationNotification({
+				await tryCreateStaffInvitationNotification({
 					actorName: actor?.name ?? null,
 					actorUserId: profile.auth?.userId ?? null,
 					payload: {
@@ -646,7 +659,7 @@ export const resendStaffOnboardingAction = actionClient
 				resent: true,
 			});
 			if (user?.id) {
-				await createStaffInvitationNotification({
+				await tryCreateStaffInvitationNotification({
 					actorName: actor?.name ?? null,
 					actorUserId: profile.auth?.userId ?? null,
 					payload: {

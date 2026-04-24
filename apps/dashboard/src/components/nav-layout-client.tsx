@@ -23,7 +23,7 @@ export function NavLayoutClient({ children }) {
     >
       <div className="relative ">
         <SiteNav.Sidebar>
-          <SiteNav.Logo Icon={Icons.LogoLg} />
+          <SiteNav.Logo Icon={Icons.Logo} />
           <SiteNav.LogoSm Icon={Icons.Logo} />
           {/* <TermSwitcher /> */}
           {/* <ModuleSwitcher /> */}
