@@ -3,7 +3,11 @@ import {
 	type NotificationTriggerInput,
 	type SchoolClerkNotificationType,
 } from "./payload-utils";
-import type { NotificationChannel, NotificationVariant } from "./core-types";
+import type {
+	NotificationActionDescriptor,
+	NotificationChannel,
+	NotificationVariant,
+} from "./core-types";
 import {
 	schoolClerkNotificationTypes,
 	type NotificationEmailTemplate,
@@ -12,6 +16,8 @@ import {
 
 export * from "./contacts";
 export * from "./core-types";
+export * from "./actions";
+export * from "./channels";
 export * from "./delivery";
 export * from "./memory-store";
 export * from "./notification-types";
@@ -23,6 +29,7 @@ export * from "./store";
 export * from "./types/registry";
 
 export type SchoolClerkNotification = {
+	action?: NotificationActionDescriptor;
 	body: string | null;
 	channels: NotificationChannel[];
 	emailTemplate: NotificationEmailTemplate | null;
@@ -58,6 +65,7 @@ export function createNotificationFromType<
 			: definition.variant;
 
 	return {
+		action: definition.buildAction?.(parsed) ?? undefined,
 		body: definition.buildBody(parsed),
 		channels: definition.defaultChannels ?? ["in_app"],
 		emailTemplate: definition.buildEmailTemplate(parsed),

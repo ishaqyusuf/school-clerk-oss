@@ -35,6 +35,7 @@ model SchoolProfile {
     reportPrintLogs        ReportPrintLog[]
     notifications          Notification[]
     notificationPreferences NotificationPreference[]
+    notificationContacts  NotificationContact[]
     inventoryItems         Inventory[]
     inventoryIssuances     InventoryIssuance[]
     assistantConversations AssistantConversation[]

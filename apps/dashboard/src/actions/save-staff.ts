@@ -12,7 +12,7 @@ import { auth } from "@/auth/server";
 import { headers } from "next/headers";
 import { z } from "zod";
 
-import { prisma } from "@school-clerk/db";
+import { ensureNotificationContact, prisma } from "@school-clerk/db";
 import { createNotificationFromType } from "@school-clerk/notifications";
 import {
 	STAFF_ASSIGNMENT_ROLES,
@@ -145,12 +145,15 @@ async function syncInviteState({
 }
 
 async function createStaffInvitationNotification(input: {
+	actorName?: string | null;
+	actorUserId?: string | null;
 	payload: {
 		inviteLink?: string | null;
 		invitedByName?: string | null;
 		recipientEmail: string;
 		roleLabel: string;
 		schoolName: string;
+		staffId: string;
 		staffName: string;
 	};
 	schoolProfileId: string;
@@ -178,15 +181,56 @@ async function createStaffInvitationNotification(input: {
 		return;
 	}
 
-	await prisma.notification.create({
-		data: {
-			body: notification.body,
-			link: notification.link,
+	await prisma.$transaction(async (tx) => {
+		const recipientContact = await ensureNotificationContact(tx, {
+			displayName: input.payload.staffName,
+			role: "user",
 			schoolProfileId: input.schoolProfileId,
-			title: notification.title,
-			type: notification.type,
 			userId: input.userId,
-		},
+		});
+
+		const authorContact =
+			input.actorUserId
+				? await ensureNotificationContact(tx, {
+						displayName: input.actorName ?? undefined,
+						role: "user",
+						schoolProfileId: input.schoolProfileId,
+						userId: input.actorUserId,
+					})
+				: null;
+
+		await tx.notification.create({
+			data: {
+				action: notification.action ?? undefined,
+				authorContactId: authorContact?.id,
+				body: notification.body,
+				content: notification.body,
+				headline: notification.title,
+				link: notification.link,
+				schoolProfileId: input.schoolProfileId,
+				subject: notification.emailTemplate?.subject ?? notification.title,
+				tags: {
+					create: [
+						{
+							tagName: "staff_email",
+							tagValue: input.payload.recipientEmail,
+						},
+						{
+							tagName: "staff_name",
+							tagValue: input.payload.staffName,
+						},
+					],
+				},
+				title: notification.title,
+				type: notification.type,
+				userId: input.userId,
+				recipients: {
+					create: {
+						recipientContactId: recipientContact.id,
+					},
+				},
+			},
+		});
 	});
 }
 
@@ -512,12 +556,15 @@ export const saveStaffAction = actionClient
 					status: "PENDING",
 				});
 				await createStaffInvitationNotification({
+					actorName: actor?.name ?? null,
+					actorUserId: profile.auth?.userId ?? null,
 					payload: {
 						inviteLink: null,
 						invitedByName: actor?.name ?? null,
 						recipientEmail: savedStaff.email,
 						roleLabel: parsedInput.role,
 						schoolName: school.name,
+						staffId: savedStaff.id,
 						staffName: savedStaff.name,
 					},
 					schoolProfileId: profile.schoolId!,
@@ -600,12 +647,15 @@ export const resendStaffOnboardingAction = actionClient
 			});
 			if (user?.id) {
 				await createStaffInvitationNotification({
+					actorName: actor?.name ?? null,
+					actorUserId: profile.auth?.userId ?? null,
 					payload: {
 						inviteLink: null,
 						invitedByName: actor?.name ?? null,
 						recipientEmail: staff.email,
 						roleLabel: user.role ?? "Teacher",
 						schoolName: school.name,
+						staffId: staff.id,
 						staffName: staff.name ?? buildPendingStaffName(staff.email),
 					},
 					schoolProfileId: profile.schoolId!,

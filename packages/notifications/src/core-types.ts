@@ -6,10 +6,22 @@ export type NotificationVariant = "info" | "success" | "warning" | "error";
 
 export type NotificationStatus = "active" | "dismissed";
 
-export type NotificationActionDescriptor = {
+export type NotificationHrefActionDescriptor = {
+	actionId?: string;
+	href: string;
+	kind: "href";
 	label: string;
-	actionId: string;
 };
+
+export type NotificationCallbackActionDescriptor = {
+	actionId?: string;
+	kind: "callback";
+	label: string;
+};
+
+export type NotificationActionDescriptor =
+	| NotificationCallbackActionDescriptor
+	| NotificationHrefActionDescriptor;
 
 export type NotificationRecord = {
 	action?: NotificationActionDescriptor;

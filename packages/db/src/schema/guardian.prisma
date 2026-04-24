@@ -13,6 +13,7 @@ model Guardians {
     schoolProfileId String
 
     wards StudentGuardians[]
+    notificationContact NotificationContact?
 
     @@unique([name, phone, schoolProfileId])
 }

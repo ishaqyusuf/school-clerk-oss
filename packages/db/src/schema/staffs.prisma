@@ -16,6 +16,7 @@ model StaffProfile {
     classRoomAttendanceList ClassRoomAttendance[]
     schoolProfile           SchoolProfile?        @relation(fields: [schoolProfileId], references: [id])
     schoolProfileId         String?
+    notificationContact     NotificationContact?
     subjects                StaffSubject[]
     termProfiles            StaffTermProfile[]
     createdAt               DateTime?             @default(now()) @db.Timestamp(0)

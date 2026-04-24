@@ -30,6 +30,7 @@ model User {
     accounts      Account[]
     notifications Notification[]
     notificationPreferences NotificationPreference[]
+    notificationContact NotificationContact?
     assistantConversations AssistantConversation[] @relation("AssistantConversationCreatedBy")
     assistantMessages      AssistantMessage[]      @relation("AssistantMessageCreatedBy")
     assistantRuns          AssistantRun[]          @relation("AssistantRunUser")

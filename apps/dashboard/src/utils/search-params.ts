@@ -7,7 +7,6 @@
 // import { PERMISSIONS, ROLES } from "@/data/contants/permissions";
 // // Note: import from 'nuqs/server' to avoid the "use client" directive
 // import { ARRAY_DELIMITER, SORT_DELIMITER } from "@/lib/delimiters";
-// import { noteParamsParser, noteSchema } from "@/modules/notes/constants";
 import {
   createParser,
   createSearchParamsCache,
@@ -86,7 +85,6 @@ export const searchSchema = z.object({
   className: z.string().optional(),
   title: z.string().optional(),
 });
-// .merge(noteSchema);
 export const searchParamsCache = createSearchParamsCache(searchParamsParser);
 export const searchParamsSerializer = createSerializer(searchParamsParser);
 export type SearchParamsType = Partial<

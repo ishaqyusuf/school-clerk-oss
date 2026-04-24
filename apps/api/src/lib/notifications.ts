@@ -1,3 +1,4 @@
+import { ensureNotificationContact } from "@school-clerk/db";
 import { render } from "@school-clerk/email/render";
 import {
 	createNotificationFromType,
@@ -236,16 +237,50 @@ export async function dispatchSchoolNotification<
 		});
 
 		if (inAppRecipients.length) {
-			await ctx.db.notification.createMany({
-				data: inAppRecipients.map((recipient) => ({
-					body: notification.body,
-					link: notification.link,
-					schoolProfileId: current.school.id,
-					title: notification.title,
-					type: notification.type,
-					userId: recipient.id,
-				})),
+			const authorContact = await ensureNotificationContact(ctx.db, {
+				displayName: current.user.name,
+				role: "user",
+				schoolProfileId: current.school.id,
+				userId: current.user.id,
 			});
+
+			for (const recipient of inAppRecipients) {
+				const recipientContact = await ensureNotificationContact(ctx.db, {
+					displayName: recipient.name,
+					role: "user",
+					schoolProfileId: current.school.id,
+					userId: recipient.id,
+				});
+
+				await ctx.db.notification.create({
+					data: {
+						action: notification.action ?? undefined,
+						authorContactId: authorContact.id,
+						body: notification.body,
+						content: notification.body,
+						headline: notification.title,
+						link: notification.link,
+						schoolProfileId: current.school.id,
+						subject: emailNotification.emailTemplate?.subject ?? notification.title,
+						tags: {
+							create: [
+								{
+									tagName: "notification_type",
+									tagValue: notification.type,
+								},
+							],
+						},
+						title: notification.title,
+						type: notification.type,
+						userId: recipient.id,
+						recipients: {
+							create: {
+								recipientContactId: recipientContact.id,
+							},
+						},
+					},
+				});
+			}
 		}
 
 		let emailSent = 0;

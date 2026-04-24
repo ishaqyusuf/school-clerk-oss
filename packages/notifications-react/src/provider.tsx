@@ -1,9 +1,11 @@
 "use client";
 
 import {
+	channelHelpers,
 	createMemoryNotificationStore,
 	createNotificationInputFromType,
 	NotificationService,
+	type NotificationActionDescriptor,
 	type NotificationInput,
 	type NotificationRecord,
 	type NotificationStore,
@@ -25,8 +27,14 @@ type NotificationActionInput = {
 	onClick: () => void;
 };
 
+function isCallbackAction(
+	action: NotifyInput["action"],
+): action is NotificationActionInput {
+	return Boolean(action && "onClick" in action);
+}
+
 export type NotifyInput = Omit<NotificationInput, "action"> & {
-	action?: NotificationActionInput;
+	action?: NotificationActionDescriptor | NotificationActionInput;
 };
 
 type VariantNotifyInput = Omit<NotifyInput, "notificationType"> & {
@@ -39,6 +47,7 @@ type NotificationsContextValue = {
 	notifications: NotificationRecord[];
 	notify: (input: NotifyInput) => string;
 	service: NotificationService;
+	channels: typeof channelHelpers;
 	showError: (
 		title: string,
 		input?: Omit<VariantNotifyInput, "title" | "variant">,
@@ -138,13 +147,18 @@ export function NotificationsProvider({
 			input.id ?? `react-notification-${Date.now()}-${Math.random()}`;
 
 		if (input.action) {
-			actionHandlersRef.current.set(notificationId, input.action.onClick);
+			if (isCallbackAction(input.action)) {
+				actionHandlersRef.current.set(notificationId, input.action.onClick);
+			}
 		}
 
 		return storeRef.current.publish({
 			...input,
 			action: input.action
 				? {
+						...(isCallbackAction(input.action)
+							? { kind: "callback" as const }
+							: input.action),
 						actionId: notificationId,
 						label: input.action.label,
 					}
@@ -174,6 +188,7 @@ export function NotificationsProvider({
 			actionHandlersRef.current.clear();
 			storeRef.current.clear();
 		},
+		channels: channelHelpers,
 		dismiss(notificationId) {
 			actionHandlersRef.current.delete(notificationId);
 			storeRef.current.dismiss(notificationId);
@@ -203,7 +218,20 @@ export function NotificationsProvider({
 			<NotificationsViewport
 				notifications={value.notifications}
 				onAction={(actionId) => {
-					actionHandlersRef.current.get(actionId)?.();
+					const callback = actionHandlersRef.current.get(actionId);
+
+					if (callback) {
+						callback();
+						return;
+					}
+
+					const notification = state.notifications.find(
+						(item) => item.action?.actionId === actionId,
+					);
+
+					if (notification?.action?.kind === "href") {
+						window.location.assign(notification.action.href);
+					}
 				}}
 				onDismiss={value.dismiss}
 			/>

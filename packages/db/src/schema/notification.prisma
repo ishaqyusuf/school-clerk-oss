@@ -1,21 +1,50 @@
+enum NotificationVisibility {
+    public
+    private
+}
+
+enum NotificationRecipientStatus {
+    unread
+    read
+    archived
+}
+
+enum NotificationContactRole {
+    user
+    staff
+    student
+    guardian
+}
+
 model Notification {
     id              String        @id @default(uuid())
     type            String
     title           String
     body            String?
+    subject         String?
+    headline        String?
+    content         String?
+    color           String?
     link            String?
+    action          Json?
     isRead          Boolean       @default(false)
+    visibility      NotificationVisibility? @default(public)
     createdAt       DateTime?     @default(now()) @db.Timestamp(0)
     updatedAt       DateTime?     @updatedAt
     deletedAt       DateTime?     @db.Timestamp(0)
     schoolProfileId String
-    userId          String
+    userId          String?
+    authorContactId String?
 
-    schoolProfile SchoolProfile @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
-    user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    schoolProfile  SchoolProfile          @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+    user           User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+    authorContact  NotificationContact?   @relation("AuthoredNotifications", fields: [authorContactId], references: [id])
+    tags           NotificationTag[]
+    recipients     NotificationRecipient[]
 
     @@index([schoolProfileId, userId])
     @@index([schoolProfileId, userId, isRead])
+    @@index([authorContactId])
 }
 
 model NotificationPreference {
@@ -34,4 +63,76 @@ model NotificationPreference {
 
     @@unique([schoolProfileId, userId, type])
     @@index([schoolProfileId, userId])
+}
+
+model NotificationTag {
+    id String @id @default(uuid())
+
+    tagName  String
+    tagValue String
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+    notificationId String
+
+    @@unique([notificationId, tagName, tagValue])
+    @@index([notificationId])
+    @@index([tagName, tagValue])
+}
+
+model NotificationRecipient {
+    id String @id @default(uuid())
+
+    status NotificationRecipientStatus? @default(unread)
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+    readAt    DateTime? @db.Timestamp(0)
+
+    notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+    notificationId String
+
+    recipientContact   NotificationContact @relation("ReceivedNotifications", fields: [recipientContactId], references: [id])
+    recipientContactId String
+
+    @@unique([notificationId, recipientContactId])
+    @@index([notificationId])
+    @@index([recipientContactId])
+    @@index([status])
+}
+
+model NotificationContact {
+    id String @id @default(uuid())
+
+    role        NotificationContactRole
+    displayName String?
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+
+    user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId String? @unique
+
+    staffProfile   StaffProfile? @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+    staffProfileId String?       @unique
+
+    student   Students? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+    studentId String?   @unique
+
+    guardian   Guardians? @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+    guardianId String?    @unique
+
+    authoredNotifications Notification[]         @relation("AuthoredNotifications")
+    receivedNotifications NotificationRecipient[] @relation("ReceivedNotifications")
+
+    @@index([schoolProfileId])
+    @@index([role])
 }

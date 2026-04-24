@@ -6,6 +6,7 @@ import { Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
+import { resolveStoredNotificationAction } from "./notification-action";
 import {
 	Popover,
 	PopoverContent,
@@ -130,7 +131,8 @@ export function NotificationBell() {
 										if (!notification.isRead) {
 											markRead({ notificationId: notification.id });
 										}
-										router.push(notification.link || "/notifications");
+										const action = resolveStoredNotificationAction(notification);
+										router.push(action?.href || "/notifications");
 									}}
 								>
 									<div className="flex items-start justify-between gap-2">

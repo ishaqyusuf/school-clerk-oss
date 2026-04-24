@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { NotificationContactKind } from "./contacts";
 import type {
+	NotificationActionDescriptor,
 	NotificationChannel,
 	NotificationDispatch,
 	NotificationInput,
@@ -13,12 +14,13 @@ type Resolvable<TValue, TPayload> =
 	| null
 	| undefined;
 
-type BuiltNotificationInput = Omit<NotificationInput, "action">;
+type BuiltNotificationInput = NotificationInput;
 
 export type NotificationTypeDefinition<
 	TSchema extends z.ZodTypeAny = z.ZodTypeAny,
 > = {
 	defaultChannels?: NotificationChannel[];
+	defaultAction?: Resolvable<NotificationActionDescriptor, z.infer<TSchema>>;
 	defaultRecipients?: NotificationContactKind[];
 	description?: Resolvable<string, z.infer<TSchema>>;
 	schema: TSchema;
@@ -77,6 +79,10 @@ export function createNotificationInputFromType<
 
 	return {
 		...input,
+		action:
+			input?.action ??
+			resolveValue(definition.defaultAction, parsed) ??
+			undefined,
 		channels: input?.channels ?? definition.defaultChannels ?? ["in_app"],
 		description:
 			input?.description ??

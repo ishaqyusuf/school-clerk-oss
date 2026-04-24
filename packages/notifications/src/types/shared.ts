@@ -5,6 +5,7 @@ import {
 	type FinanceNotificationEmailProps,
 } from "@school-clerk/email/emails/finance-notification";
 import type {
+	NotificationActionDescriptor,
 	NotificationChannel,
 	NotificationVariant,
 } from "../core-types";
@@ -18,6 +19,9 @@ export type NotificationEmailTemplate = {
 export type SchoolClerkNotificationDefinition<
 	TSchema extends z.ZodTypeAny = z.ZodTypeAny,
 > = NotificationTypeDefinition<TSchema> & {
+	buildAction?: (
+		payload: z.infer<TSchema>,
+	) => NotificationActionDescriptor | null;
 	buildBody: (payload: z.infer<TSchema>) => string | null;
 	buildEmailTemplate: (
 		payload: z.infer<TSchema>,
@@ -39,6 +43,9 @@ export function createFinanceTemplate(props: FinanceNotificationEmailProps) {
 }
 
 export function defineSchoolNotification<TSchema extends z.ZodTypeAny>(input: {
+	buildAction?: (
+		payload: z.infer<TSchema>,
+	) => NotificationActionDescriptor | null;
 	buildBody: (payload: z.infer<TSchema>) => string | null;
 	buildEmailTemplate: (
 		payload: z.infer<TSchema>,
@@ -50,9 +57,11 @@ export function defineSchoolNotification<TSchema extends z.ZodTypeAny>(input: {
 	variant: NotificationVariant;
 }): SchoolClerkNotificationDefinition<TSchema> {
 	return {
+		buildAction: input.buildAction,
 		buildBody: input.buildBody,
 		buildEmailTemplate: input.buildEmailTemplate,
 		buildLink: input.buildLink,
+		defaultAction: input.buildAction,
 		defaultChannels: input.channels,
 		description: input.buildBody,
 		schema: input.schema,

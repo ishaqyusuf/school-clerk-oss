@@ -4,10 +4,11 @@ import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, CheckCheck } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { Card, CardContent } from "@school-clerk/ui/card";
+import { resolveStoredNotificationAction } from "./notification-action";
 
 function formatDate(dateInput?: Date | string | null) {
 	if (!dateInput) return "";
@@ -24,6 +25,7 @@ function formatDate(dateInput?: Date | string | null) {
 export function NotificationsPageClient() {
 	const trpc = useTRPC();
 	const qc = useQueryClient();
+	const router = useRouter();
 	const searchParams = useSearchParams();
 	const onlyUnread = searchParams.get("filter") === "unread";
 
@@ -136,63 +138,77 @@ export function NotificationsPageClient() {
 				</Card>
 			) : (
 				<div className="grid gap-2">
-					{notifications.map((notification) => (
-						<Card
-							key={notification.id}
-							className={`transition-colors ${
-								notification.isRead ? "" : "border-primary/40 bg-primary/5"
-							}`}
-						>
-							<CardContent className="flex items-start gap-4 px-5 py-4">
-								<div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
-									<Bell className="h-4 w-4 text-muted-foreground" />
-								</div>
-								<div className="min-w-0 flex-1">
-									<div className="flex items-start justify-between gap-2">
-										<p className="text-sm font-medium text-foreground">
-											{notification.title}
-										</p>
-										{!notification.isRead ? (
-											<span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
-										) : null}
+					{notifications.map((notification) => {
+						const action = resolveStoredNotificationAction(notification);
+
+						return (
+							<Card
+								key={notification.id}
+								className={`transition-colors ${
+									notification.isRead ? "" : "border-primary/40 bg-primary/5"
+								}`}
+							>
+								<CardContent className="flex items-start gap-4 px-5 py-4">
+									<div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+										<Bell className="h-4 w-4 text-muted-foreground" />
 									</div>
-									{notification.body ? (
-										<p className="mt-1 text-sm text-muted-foreground">
-											{notification.body}
-										</p>
-									) : null}
-									<div className="mt-2 flex items-center gap-3">
-										<p className="text-xs text-muted-foreground">
-											{formatDate(notification.createdAt)}
-										</p>
-										<Badge variant="outline" className="text-xs capitalize">
-											{notification.type.replace(/_/g, " ")}
-										</Badge>
-										{!notification.isRead ? (
+									<div className="min-w-0 flex-1">
+										<div className="flex items-start justify-between gap-2">
+											<p className="text-sm font-medium text-foreground">
+												{notification.title}
+											</p>
+											{!notification.isRead ? (
+												<span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
+											) : null}
+										</div>
+										{notification.body ? (
+											<p className="mt-1 text-sm text-muted-foreground">
+												{notification.body}
+											</p>
+										) : null}
+										<div className="mt-2 flex items-center gap-3">
+											<p className="text-xs text-muted-foreground">
+												{formatDate(notification.createdAt)}
+											</p>
+											<Badge variant="outline" className="text-xs capitalize">
+												{notification.type.replace(/_/g, " ")}
+											</Badge>
+											{!notification.isRead ? (
+												<Button
+													variant="ghost"
+													size="xs"
+													type="button"
+													onClick={() =>
+														markRead({ notificationId: notification.id })
+													}
+												>
+													Mark read
+												</Button>
+											) : null}
+										</div>
+										{action ? (
 											<Button
-												variant="ghost"
-												size="xs"
+												variant="link"
+												size="sm"
+												className="mt-2 h-auto p-0 text-xs"
 												type="button"
-												onClick={() =>
-													markRead({ notificationId: notification.id })
-												}
+												onClick={() => {
+													if (!notification.isRead) {
+														markRead({ notificationId: notification.id });
+													}
+													if (action.href) {
+														router.push(action.href);
+													}
+												}}
 											>
-												Mark read
+												{action.label || "View"} →
 											</Button>
 										) : null}
 									</div>
-									{notification.link ? (
-										<Link
-											href={notification.link}
-											className="mt-2 inline-block text-xs text-primary underline underline-offset-2"
-										>
-											View →
-										</Link>
-									) : null}
-								</div>
-							</CardContent>
-						</Card>
-					))}
+								</CardContent>
+							</Card>
+						);
+					})}
 				</div>
 			)}
 		</div>

@@ -4,6 +4,8 @@ import {
 	StaffInvitationEmail,
 	type StaffInvitationEmailProps,
 } from "@school-clerk/email/emails/staff-invitation";
+import { createHrefNotificationAction } from "../actions";
+import { channelHelpers } from "../channels";
 import { defineSchoolNotification } from "./shared";
 
 const schema = z.object({
@@ -12,6 +14,7 @@ const schema = z.object({
 	recipientEmail: z.string().email(),
 	roleLabel: z.string().min(1),
 	schoolName: z.string().min(1),
+	staffId: z.string().min(1),
 	staffName: z.string().min(1),
 });
 
@@ -20,6 +23,11 @@ function createStaffInvitationTemplate(props: StaffInvitationEmailProps) {
 }
 
 export const staffInvitation = defineSchoolNotification({
+	buildAction: (payload) =>
+		createHrefNotificationAction({
+			href: `/staff/${payload.staffId}`,
+			label: "Review staff profile",
+		}),
 	buildBody: (payload) =>
 		`You've been invited to join ${payload.schoolName} as ${payload.roleLabel}.${payload.invitedByName ? ` Invited by ${payload.invitedByName}.` : ""}`,
 	buildEmailTemplate: (payload) => ({
@@ -32,8 +40,8 @@ export const staffInvitation = defineSchoolNotification({
 		}),
 		subject: `${payload.schoolName}: you're invited to join as ${payload.roleLabel}`,
 	}),
-	buildLink: (payload) => payload.inviteLink ?? null,
-	channels: ["in_app", "email"],
+	buildLink: (payload) => payload.inviteLink ?? `/staff/${payload.staffId}`,
+	channels: channelHelpers.inAppAndEmail(),
 	schema,
 	title: (payload) => `Staff invitation for ${payload.staffName}`,
 	variant: "info",

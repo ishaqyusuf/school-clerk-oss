@@ -16,6 +16,7 @@ model Students {
     fees               StudentFee[]
     walletTransactions StudentWalletTransactions[]
     assessmentRecords  StudentAssessmentRecord[]
+    notificationContact NotificationContact?
 
     @@unique([name, surname, otherName, schoolProfileId, deletedAt])
 }

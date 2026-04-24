@@ -15,18 +15,25 @@ function createNotificationId() {
 }
 
 function createNotificationRecord(input: NotificationInput): NotificationRecord {
+	const notificationId = input.id ?? createNotificationId();
+
 	return {
-		action: input.action,
 		channels: input.channels ?? ["in_app"],
 		createdAt: new Date().toISOString(),
 		description: input.description,
 		durationMs: input.durationMs ?? DEFAULT_DURATION_MS,
-		id: input.id ?? createNotificationId(),
+		id: notificationId,
 		notificationType: input.notificationType,
 		recipients: input.recipients ?? [],
 		status: "active",
 		title: input.title,
 		variant: input.variant ?? "info",
+		action: input.action
+			? {
+					...input.action,
+					actionId: input.action.actionId ?? notificationId,
+				}
+			: undefined,
 	};
 }
 
