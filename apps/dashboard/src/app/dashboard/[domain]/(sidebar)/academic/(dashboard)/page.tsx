@@ -5,7 +5,6 @@ import {
   Calendar,
   TrendingUp,
   History,
-  MoreVertical,
   Edit2,
   CheckCircle2,
   Settings,
@@ -13,44 +12,112 @@ import {
   Filter,
   Download,
   ArrowUpCircle,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
-import { Card } from "@school-clerk/ui/composite";
+import { Card, Field } from "@school-clerk/ui/composite";
 import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
+import { Input } from "@school-clerk/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@school-clerk/ui/dialog";
+import { Form, FormField } from "@school-clerk/ui/form";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { _trpc } from "@/components/static-trpc";
+import { _qc, _trpc } from "@/components/static-trpc";
 import { formatDate } from "date-fns";
 import Link from "next/link";
 import { useAcademicParams } from "@/hooks/use-academic-params";
 import { AcademicSessionSheet } from "@/components/sheets/academic-session-sheet";
+import type { RouterOutputs } from "@api/trpc/routers/_app";
+import { z } from "zod";
+import { useZodForm } from "@/hooks/use-zod-form";
+
+type DashboardTerm =
+  RouterOutputs["academics"]["dashboard"]["sessions"][number]["terms"][number];
+
+const toDateInputValue = (value?: Date | string | null) => {
+  if (!value) return "";
+  return formatDate(new Date(value), "yyyy-MM-dd");
+};
+
+const fromDateInputValue = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const termDateFormSchema = z
+  .object({
+    startDate: z.string().min(1, "Start date is required"),
+    endDate: z.string().optional(),
+  })
+  .refine(
+    (value) => !value.endDate || value.endDate >= value.startDate,
+    {
+      message: "End date must be after the start date",
+      path: ["endDate"],
+    },
+  );
 
 const Dashboard = () => {
   const { setParams } = useAcademicParams();
-  const { mutate: patchCreateMissingTermSession, isPending: isPatching } =
-    useMutation(
-      _trpc.academics.patchCreateMissingTermSession.mutationOptions({
-        onSuccess(data, variables, onMutateResult, context) {},
-        onError(error, variables, onMutateResult, context) {},
-        meta: {
-          toastTitle: {
-            // show:true,
-            error: "Unable to complete",
-            loading: "Processing...",
-            success: "Done!.",
-          },
-        },
-      }),
-    );
-  // We'll expand the first session by default for the demo effect
   const [expandedSessionId, setExpandedSessionId] = React.useState<
     string | null
-  >("2023-2024");
-  const { data: dashboard, isPending } = useQuery(
+  >(null);
+  const [termDateModal, setTermDateModal] =
+    React.useState<DashboardTerm | null>(null);
+  const termDateForm = useZodForm(termDateFormSchema, {
+    defaultValues: {
+      startDate: "",
+      endDate: "",
+    },
+  });
+  const { data: dashboard } = useQuery(
     _trpc.academics.dashboard.queryOptions({}),
   );
   const sessions = dashboard?.sessions || [];
   const promotionIds = dashboard?.promotionIds ?? null;
+  const { mutate: saveTermDates, isPending: isSavingTermDates } = useMutation(
+    _trpc.academics.saveTermMetaData.mutationOptions({
+      onSuccess() {
+        setTermDateModal(null);
+        _qc?.invalidateQueries({
+          queryKey: _trpc.academics.dashboard.queryKey({}),
+        });
+      },
+      meta: {
+        toastTitle: {
+          error: "Unable to update term",
+          loading: "Updating term...",
+          success: "Term updated.",
+        },
+      },
+    }),
+  );
+
+  const openTermDateModal = (term: DashboardTerm) => {
+    setTermDateModal(term);
+    termDateForm.reset({
+      startDate: toDateInputValue(term.startDate),
+      endDate: toDateInputValue(term.endDate),
+    });
+  };
+
+  const submitTermDates = termDateForm.handleSubmit((data) => {
+    if (!termDateModal) return;
+
+    saveTermDates({
+      termId: termDateModal.id,
+      startDate: fromDateInputValue(data.startDate),
+      endDate: data.endDate ? fromDateInputValue(data.endDate) : null,
+    });
+  });
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -176,6 +243,11 @@ const Dashboard = () => {
                   >
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
+                        {expandedSessionId === session.id ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        )}
                         <div
                           className={`w-2 h-2 rounded-full ${session.status === "current" ? "bg-primary" : session.status === "archived" ? "bg-gray-300" : "bg-yellow-400"}`}
                         ></div>
@@ -259,12 +331,11 @@ const Dashboard = () => {
                     </td>
                   </tr>
 
-                  {/* Expanded Detail Row for Current Session */}
-                  {expandedSessionId === session.id &&
-                    session.status === "current" && (
-                      <>
-                        <tr className="bg-muted/20">
-                          <td colSpan={5} className="px-6 py-6 lg:px-10">
+                  {expandedSessionId === session.id && (
+                    <>
+                      <tr className="bg-muted/20">
+                        <td colSpan={5} className="px-6 py-6 lg:px-10">
+                          {session.terms.length ? (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-top-2 duration-200">
                               {session.terms.map((term) => (
                                 <Card
@@ -300,19 +371,36 @@ const Dashboard = () => {
                                       {term.status}
                                     </span>
                                   </div>
-                                  <Link
-                                    href={`/academic/term-getting-started/${term.id}`}
-                                    className="mt-4 text-[11px] text-primary font-bold flex items-center gap-1 hover:underline"
-                                  >
-                                    <Settings className="h-3 w-3" /> Configure
-                                  </Link>
+                                  <div className="mt-4 flex items-center gap-3">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-0 text-[11px] text-primary font-bold hover:bg-transparent hover:underline"
+                                      onClick={() => openTermDateModal(term)}
+                                    >
+                                      <Calendar className="h-3 w-3" />
+                                      Dates
+                                    </Button>
+                                    <Link
+                                      href={`/academic/term-getting-started/${term.id}`}
+                                      className="text-[11px] text-primary font-bold flex items-center gap-1 hover:underline"
+                                    >
+                                      <Settings className="h-3 w-3" /> Configure
+                                    </Link>
+                                  </div>
                                 </Card>
                               ))}
                             </div>
-                          </td>
-                        </tr>
-                      </>
-                    )}
+                          ) : (
+                            <div className="animate-in slide-in-from-top-2 duration-200 rounded-lg border border-dashed border-border bg-card/50 px-5 py-6 text-sm text-muted-foreground">
+                              No terms have been created for this session yet.
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    </>
+                  )}
                 </React.Fragment>
               ))}
             </tbody>
@@ -364,6 +452,81 @@ const Dashboard = () => {
       </div>
 
       <AcademicSessionSheet />
+      <Dialog
+        open={!!termDateModal}
+        onOpenChange={(open) => {
+          if (!open) setTermDateModal(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <Form {...termDateForm}>
+            <form onSubmit={submitTermDates} className="flex flex-col gap-5">
+              <DialogHeader>
+                <DialogTitle>Quick Term Update</DialogTitle>
+                <DialogDescription>
+                  Update the start and end dates for {termDateModal?.title}.
+                </DialogDescription>
+              </DialogHeader>
+              <Field.Group className="gap-4">
+                <FormField
+                  control={termDateForm.control}
+                  name="startDate"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={!!fieldState.error}>
+                      <Field.Label htmlFor="term-start-date">
+                        Start date
+                      </Field.Label>
+                      <Input
+                        id="term-start-date"
+                        type="date"
+                        aria-invalid={!!fieldState.error}
+                        {...field}
+                      />
+                      <Field.Error errors={[fieldState.error]} />
+                    </Field>
+                  )}
+                />
+                <FormField
+                  control={termDateForm.control}
+                  name="endDate"
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={!!fieldState.error}>
+                      <Field.Label htmlFor="term-end-date">
+                        End date
+                      </Field.Label>
+                      <Input
+                        id="term-end-date"
+                        type="date"
+                        min={termDateForm.watch("startDate") || undefined}
+                        aria-invalid={!!fieldState.error}
+                        {...field}
+                      />
+                      <Field.Error errors={[fieldState.error]} />
+                    </Field>
+                  )}
+                />
+              </Field.Group>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setTermDateModal(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    isSavingTermDates || !termDateForm.watch("startDate")
+                  }
+                >
+                  {isSavingTermDates ? "Saving..." : "Save dates"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

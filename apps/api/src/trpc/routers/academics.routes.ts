@@ -114,20 +114,18 @@ export const academicsRouter = createTRPCRouter({
       },
     });
     const now = new Date();
-    // Current session is always the one stored in the auth cookie
-    const currentSessionId = ctx.profile.sessionId;
-    // sessions is ordered createdAt desc, so current is first, previous is next
+    const currentTerm =
+      sessions
+        .flatMap((session) => session.terms)
+        .filter((term) => term.startDate && term.startDate <= now)
+        .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0] ??
+      null;
+    const currentSessionId = currentTerm?.sessionId ?? ctx.profile.sessionId;
     const currentSessionIdx = sessions.findIndex(
       (s) => s.id === currentSessionId,
     );
     const currentSession = sessions[currentSessionIdx];
     const previousSession = sessions[currentSessionIdx + 1];
-    // Active term = most recently started non-null term within the current session
-    const currentTerm =
-      currentSession?.terms
-        .filter((t) => t.startDate !== null)
-        .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0] ??
-      null;
 
     // Promotion IDs — computed server-side from ordered data
     // firstTermId: first term of current session in insertion order (index 0, nulls-first = creation order)
