@@ -88,7 +88,7 @@ export function QuickAddSubject(props: Props) {
               Select one or more subjects not yet attached to this classroom.
             </p>
           </div>
-          <ScrollArea className="max-h-64 pr-3">
+          <ScrollArea className="h-64 pr-3">
             <div className="space-y-2">
               {subjects.map((subject) => {
                 const checked = selectedSubjectIds.includes(subject.id);

@@ -8,6 +8,7 @@ import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
 import { Input } from "@school-clerk/ui/input";
 import { Label } from "@school-clerk/ui/label";
+import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
 import { Card, CardContent, CardHeader, CardTitle } from "@school-clerk/ui/card";
 import { SubmitButton } from "./submit-button";
 import { AnimatedNumber } from "./animated-number";
@@ -82,11 +83,16 @@ function Content() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="gap-2" size="sm">
+          <Button type="button" variant="outline" className="gap-2" size="sm">
             <Download className="h-4 w-4" />
             Export Report
           </Button>
-          <Button className="gap-2 shadow-sm" size="sm" onClick={() => setShowCreate(!showCreate)}>
+          <Button
+            type="button"
+            className="gap-2 shadow-sm"
+            size="sm"
+            onClick={() => setShowCreate(!showCreate)}
+          >
             <PlusCircle className="h-4 w-4" />
             Add Salary Bill
           </Button>
@@ -391,12 +397,40 @@ function CreateStaffBillForm({ onSuccess }: { onSuccess: () => void }) {
   const trpc = useTRPC();
   const [staffId, setStaffId] = useState("");
   const [title, setTitle] = useState("");
+  const [streamId, setStreamId] = useState("");
+  const [streamName, setStreamName] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
 
   const { data: staffList } = useSuspenseQuery(
     trpc.finance.getStaff.queryOptions()
   );
+  const { data: streams } = useSuspenseQuery(
+    trpc.finance.getStreams.queryOptions({ filter: "term" })
+  );
+  const streamOptions = (streams ?? [])
+    .filter((stream) => stream.type === "bill" || stream.defaultType === "outgoing")
+    .map((stream) => ({
+      id: stream.id,
+      name: stream.name,
+      label: stream.name,
+      description:
+        stream.type === "bill"
+          ? "Bill stream"
+          : `${stream.defaultType === "outgoing" ? "Outgoing" : "Incoming"} stream`,
+      amount: stream.balance,
+    }));
+  const selectedStream =
+    streamOptions.find((stream) => stream.id === streamId) ||
+    (streamName || title
+      ? {
+          id: streamId || "__new__",
+          name: (streamName || title).trim(),
+          label: (streamName || title).trim(),
+          description: "New bill stream",
+          amount: null,
+        }
+      : undefined);
 
   const { mutate, isPending } = useMutation(
     trpc.finance.createStaffBill.mutationOptions({
@@ -440,10 +474,36 @@ function CreateStaffBillForm({ onSuccess }: { onSuccess: () => void }) {
           </div>
           <div className="grid gap-1.5">
             <Label>Bill Title</Label>
-            <Input
-              placeholder="e.g. Monthly Salary"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+            <ComboboxDropdown
+              items={streamOptions}
+              selectedItem={selectedStream}
+              placeholder="Select or create bill stream"
+              searchPlaceholder="Search or create bill stream..."
+              onSelect={(stream) => {
+                setStreamId(stream.id);
+                setStreamName(stream.name);
+                setTitle(stream.name);
+              }}
+              onCreate={(value) => {
+                const nextTitle = value.trim();
+                setStreamId("");
+                setStreamName(nextTitle);
+                setTitle(nextTitle);
+              }}
+              renderOnCreate={(value) => (
+                <span>Create account bill stream "{value}"</span>
+              )}
+              renderListItem={({ item }) => (
+                <div className="flex w-full items-center gap-2">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="truncate text-muted-foreground">
+                    {item.description}
+                  </span>
+                  <span className="ml-auto">
+                    {!item.amount || <AnimatedNumber value={item.amount} />}
+                  </span>
+                </div>
+              )}
             />
           </div>
           <div className="grid gap-1.5">
@@ -472,6 +532,8 @@ function CreateStaffBillForm({ onSuccess }: { onSuccess: () => void }) {
               mutate({
                 staffProfileId: staffId,
                 title,
+                streamId: streamId || undefined,
+                streamName: (streamName || title).trim() || undefined,
                 description: description || undefined,
                 amount: parseFloat(amount),
               })

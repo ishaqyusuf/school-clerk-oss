@@ -1089,6 +1089,8 @@ export const financeRouter = createTRPCRouter({
 			z.object({
 				staffProfileId: z.string(),
 				title: z.string().min(1),
+				streamId: z.string().optional().nullable(),
+				streamName: z.string().optional().nullable(),
 				description: z.string().optional().nullable(),
 				amount: z.number().positive(),
 			}),
@@ -1116,16 +1118,45 @@ export const financeRouter = createTRPCRouter({
 					});
 				}
 
-				const wallet = await getOrCreateWallet(tx, {
-					name: "Payroll",
-					type: "bill",
-					schoolId: ctx.profile.schoolId!,
-					termId: ctx.profile.termId!,
-				});
+				const existingWallet = input.streamId
+					? await tx.wallet.findFirst({
+							where: {
+								id: input.streamId,
+								schoolProfileId: ctx.profile.schoolId,
+								sessionTermId: ctx.profile.termId,
+								deletedAt: null,
+							},
+							select: { id: true, name: true },
+						})
+					: null;
+
+				const resolvedStreamName = input.streamName?.trim() || input.title.trim();
+
+				const wallet =
+					existingWallet ||
+					(await tx.wallet.upsert({
+						where: {
+							name_schoolProfileId_sessionTermId_type: {
+								name: resolvedStreamName,
+								schoolProfileId: ctx.profile.schoolId!,
+								sessionTermId: ctx.profile.termId!,
+								type: "bill",
+							},
+						},
+						update: { defaultType: "outgoing" } as any,
+						create: {
+							name: resolvedStreamName,
+							type: "bill",
+							defaultType: "outgoing",
+							schoolProfileId: ctx.profile.schoolId!,
+							sessionTermId: ctx.profile.termId!,
+						} as any,
+						select: { id: true, name: true },
+					}));
 
 				return tx.bills.create({
 					data: {
-						title: input.title,
+						title: resolvedStreamName,
 						description: input.description,
 						amount: input.amount,
 						schoolProfileId: ctx.profile.schoolId!,
@@ -2117,6 +2148,8 @@ export const financeRouter = createTRPCRouter({
 			z.object({
 				title: z.string().min(1),
 				amount: z.number().min(1),
+				streamId: z.string().optional().nullable(),
+				streamName: z.string().optional().nullable(),
 				billableId: z.string().optional().nullable(),
 				billableHistoryId: z.string().optional().nullable(),
 				staffTermProfileId: z.string().optional().nullable(),
@@ -2124,15 +2157,42 @@ export const financeRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
-			const wallet = await getOrCreateWallet(ctx.db, {
-				name: input.title || "General",
-				type: "bill",
-				schoolId: ctx.profile.schoolId!,
-				termId: ctx.profile.termId!,
-			});
+			const existingWallet = input.streamId
+				? await ctx.db.wallet.findFirst({
+						where: {
+							id: input.streamId,
+							schoolProfileId: ctx.profile.schoolId,
+							sessionTermId: ctx.profile.termId,
+							deletedAt: null,
+						},
+						select: { id: true, name: true },
+					})
+				: null;
+			const streamName = input.streamName?.trim() || input.title || "General";
+			const wallet =
+				existingWallet ||
+				(await ctx.db.wallet.upsert({
+					where: {
+						name_schoolProfileId_sessionTermId_type: {
+							name: streamName,
+							schoolProfileId: ctx.profile.schoolId!,
+							sessionTermId: ctx.profile.termId!,
+							type: "bill",
+						},
+					},
+					update: { defaultType: "outgoing" } as any,
+					create: {
+						name: streamName,
+						type: "bill",
+						defaultType: "outgoing",
+						schoolProfileId: ctx.profile.schoolId!,
+						sessionTermId: ctx.profile.termId!,
+					} as any,
+					select: { id: true, name: true },
+				}));
 			return ctx.db.bills.create({
 				data: {
-					title: input.title,
+					title: streamName,
 					description: input.description,
 					amount: input.amount,
 					sessionTermId: ctx.profile.termId!,

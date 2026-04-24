@@ -93,7 +93,24 @@ export async function overview(ctx: TRPCContext, query: SubjectOverviewSchema) {
       sessionTermId: true,
       subject: {
         select: {
+          id: true,
           title: true,
+        },
+      },
+      classRoomDepartment: {
+        select: {
+          id: true,
+          departmentName: true,
+          _count: {
+            select: {
+              studentTermForms: true,
+            },
+          },
+          classRoom: {
+            select: {
+              name: true,
+            },
+          },
         },
       },
       assessments: {

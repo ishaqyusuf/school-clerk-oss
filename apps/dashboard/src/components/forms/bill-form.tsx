@@ -4,7 +4,7 @@ import { useBillParams } from "@/hooks/use-bill-params";
 import { useLoadingToast } from "@/hooks/use-loading-toast";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 
 import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
 import { Button } from "@school-clerk/ui/button";
@@ -26,81 +26,57 @@ export function Form() {
 	const trpc = useTRPC();
 	const qc = useQueryClient();
 
-	const { data: billables = [] } = useQuery(
-		trpc.finance.getBillables.queryOptions(),
+	const { data: streams = [] } = useQuery(
+		trpc.finance.getStreams.queryOptions({ filter: "term" }),
 	);
 	const { data: staffs } = useQuery(trpc.staff.getStaffList.queryOptions());
 
 	const createBill = useMutation(trpc.finance.createBill.mutationOptions());
-	const createBillable = useMutation(trpc.finance.createBillable.mutationOptions());
-
-	const [selectedBillableId, title] = watch(["selectedBillableId", "title"]);
-	const billableOptions = useMemo(
+	const [streamId, streamName, title] = watch(["streamId", "streamName", "title"]);
+	const streamOptions = useMemo(
 		() =>
-			billables.map((billable) => ({
-				...billable,
-				label: billable.title,
-			})),
-		[billables],
+			streams
+				.filter((stream) => stream.type === "bill" || stream.defaultType === "outgoing")
+				.map((stream) => ({
+					id: stream.id,
+					name: stream.name,
+					label: stream.name,
+					description:
+						stream.type === "bill"
+							? "Bill stream"
+							: `${stream.defaultType === "outgoing" ? "Outgoing" : "Incoming"} stream`,
+					amount: stream.balance,
+				})),
+		[streams],
 	);
-	const selectedBillable =
-		billableOptions.find((billable) => billable.id === selectedBillableId) ||
-		(title?.trim()
+	const selectedStream =
+		streamOptions.find((stream) => stream.id === streamId) ||
+		(streamName?.trim() || title?.trim()
 			? {
-					id: "__custom__",
-					label: title.trim(),
-					title: title.trim(),
-					description: "",
+					id: streamId || "__new__",
+					name: (streamName || title).trim(),
+					label: (streamName || title).trim(),
+					description: "New bill stream",
 					amount: null,
-					historyId: "",
-					streamId: null,
-					streamName: null,
-					classroomDepartments: [],
-					type: "OTHER" as const,
 				}
 			: undefined);
-
-	useEffect(() => {
-		const billable = billables.find((b) => b.id === selectedBillableId);
-		if (!billable) {
-			setValue("billableId", "");
-			setValue("billableHistoryId", "");
-			return;
-		}
-		setValue("title", billable?.title || "");
-		setValue("billableId", billable?.id || "");
-		setValue("billableHistoryId", billable?.historyId || "");
-		setValue("description", billable?.description || "");
-		setValue("amount", billable?.amount ?? 0);
-	}, [selectedBillableId, billables, setValue]);
 
 	const onSubmit = handleSubmit(
 		async (data) => {
 			try {
-				let billableId = data.billableId || "";
-				let billableHistoryId = data.billableHistoryId || "";
-
-				if (!billableId && data.title.trim()) {
-					const createdBillable = await createBillable.mutateAsync({
-						title: data.title.trim(),
-						amount: data.amount,
-						description: data.description,
-						type: "OTHER",
-						classroomDepartmentIds: [],
-					});
-					billableId = createdBillable.id;
-					billableHistoryId = createdBillable.historyId || "";
-				}
-
+				const resolvedTitle = data.title.trim();
 				await createBill.mutateAsync({
 					...data,
-					title: data.title.trim(),
-					billableId,
-					billableHistoryId,
+					title: resolvedTitle,
+					streamName: data.streamName?.trim() || resolvedTitle,
+					billableId: "",
+					billableHistoryId: "",
 				});
 
 				qc.invalidateQueries({ queryKey: trpc.finance.getBills.queryKey() });
-				qc.invalidateQueries({ queryKey: trpc.finance.getBillables.queryKey() });
+				qc.invalidateQueries({
+					queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),
+				});
 				toast.success("Created");
 				setParams(null);
 			} catch (_error) {
@@ -110,7 +86,7 @@ export function Form() {
 		() => toast.error("Invalid Form"),
 	);
 
-	const isPending = createBill.isPending || createBillable.isPending;
+	const isPending = createBill.isPending;
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -118,19 +94,37 @@ export function Form() {
 				<div className="grid gap-2">
 					<Label>Bill Title</Label>
 					<ComboboxDropdown
-						items={billableOptions}
-						selectedItem={selectedBillable}
-						placeholder="Select or create a service billable"
-						searchPlaceholder="Search or create service billable..."
-						onSelect={(billable) => {
-							setValue("selectedBillableId", billable.id, {
+						items={streamOptions}
+						selectedItem={selectedStream}
+						placeholder="Select or create an account bill stream"
+						searchPlaceholder="Search or create account bill stream..."
+						onSelect={(stream) => {
+							setValue("streamId", stream.id, {
 								shouldDirty: true,
 								shouldValidate: true,
 							});
+							setValue("streamName", stream.name, {
+								shouldDirty: true,
+								shouldValidate: true,
+							});
+							setValue("title", stream.name, {
+								shouldDirty: true,
+								shouldValidate: true,
+							});
+							setValue("selectedBillableId", null, {
+								shouldDirty: true,
+								shouldValidate: true,
+							});
+							setValue("billableId", "");
+							setValue("billableHistoryId", "");
 						}}
 						onCreate={(value) => {
 							const nextTitle = value.trim();
-							setValue("selectedBillableId", "", {
+							setValue("streamId", "", {
+								shouldDirty: true,
+								shouldValidate: true,
+							});
+							setValue("streamName", nextTitle, {
 								shouldDirty: true,
 								shouldValidate: true,
 							});
@@ -138,15 +132,19 @@ export function Form() {
 								shouldDirty: true,
 								shouldValidate: true,
 							});
+							setValue("selectedBillableId", null, {
+								shouldDirty: true,
+								shouldValidate: true,
+							});
 							setValue("billableId", "");
 							setValue("billableHistoryId", "");
 						}}
 						renderOnCreate={(value) => (
-							<span>Create service billable "{value}"</span>
+							<span>Create account bill stream "{value}"</span>
 						)}
 						renderListItem={({ item }) => (
 							<div className="flex w-full items-center gap-2">
-								<span className="font-medium">{item.title}</span>
+								<span className="font-medium">{item.name}</span>
 								<span className="text-muted-foreground truncate">
 									{item.description}
 								</span>
