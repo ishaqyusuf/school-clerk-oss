@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "@hono/zod-openapi";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
@@ -49,6 +50,15 @@ const cancelBillPaymentSchema = z.object({
 });
 
 const financeReportFilterSchema = z.object({
+	termId: z.string().optional().nullable(),
+});
+
+const internalTransferFilterSchema = z.object({
+	termId: z.string().optional().nullable(),
+});
+
+const cancelInternalTransferSchema = z.object({
+	transferId: z.string(),
 	termId: z.string().optional().nullable(),
 });
 
@@ -106,6 +116,68 @@ function formatNaira(amount: number) {
 		style: "currency",
 		currency: "NGN",
 	}).format(amount);
+}
+
+const TRANSFER_REFERENCE_PREFIX = "TRF-";
+
+function createTransferReference() {
+	return `${TRANSFER_REFERENCE_PREFIX}${randomUUID().split("-")[0]?.toUpperCase()}`;
+}
+
+function formatTransferSummary(reference: string, summary?: string | null) {
+	const note = summary?.trim() || "Fund transfer";
+	return `[${reference}] ${note}`;
+}
+
+function extractTransferReference(summary?: string | null) {
+	if (!summary) return null;
+	const match = summary.match(/\[(TRF-[A-Z0-9]+)\]/);
+	return match?.[1] ?? null;
+}
+
+function stripTransferReference(summary?: string | null) {
+	if (!summary) return null;
+	return summary.replace(/\[(TRF-[A-Z0-9]+)\]\s*/g, "").trim() || null;
+}
+
+function getInternalTransferGroupKey(transaction: {
+	id: string;
+	amount: number;
+	summary?: string | null;
+	transactionDate?: Date | null;
+	createdAt?: Date | null;
+}) {
+	const reference = extractTransferReference(transaction.summary);
+	if (reference) return `ref:${reference}`;
+	const timestamp = (
+		transaction.transactionDate ??
+		transaction.createdAt ??
+		new Date(0)
+	).toISOString();
+	return `legacy:${transaction.amount}:${transaction.summary || ""}:${timestamp}`;
+}
+
+function parseInternalTransferId(transferId: string) {
+	if (transferId.startsWith("ref:")) {
+		return {
+			type: "reference" as const,
+			reference: transferId.slice(4),
+		};
+	}
+	if (transferId.startsWith("pair:")) {
+		const ids = transferId
+			.slice(5)
+			.split(":")
+			.filter(Boolean);
+		return {
+			type: "pair" as const,
+			ids,
+		};
+	}
+	throw new TRPCError({
+		code: "BAD_REQUEST",
+		message: "Invalid transfer reference.",
+	});
 }
 
 function matchesCollectionStatus(
@@ -1860,7 +1932,9 @@ export const financeRouter = createTRPCRouter({
 				amount: input.amount,
 				action: "transfer funds between streams",
 			});
+			const transferReference = createTransferReference();
 			const note = input.description || "Fund transfer";
+			const summary = formatTransferSummary(transferReference, note);
 			const date = input.date ?? new Date();
 			const result = await ctx.db.$transaction(
 				async (tx) => {
@@ -1869,7 +1943,7 @@ export const financeRouter = createTRPCRouter({
 							amount: input.amount,
 							walletId: input.fromWalletId,
 							type: "transfer-out",
-							summary: note,
+							summary,
 							status: "success",
 							transactionDate: date,
 						},
@@ -1879,12 +1953,12 @@ export const financeRouter = createTRPCRouter({
 							amount: input.amount,
 							walletId: input.toWalletId,
 							type: "transfer-in",
-							summary: note,
+							summary,
 							status: "success",
 							transactionDate: date,
 						},
 					});
-					return { success: true };
+					return { success: true, reference: transferReference };
 				},
 				{
 					maxWait: 10000,
@@ -1899,10 +1973,237 @@ export const financeRouter = createTRPCRouter({
 					amount: input.amount,
 					fromWalletId: input.fromWalletId,
 					toWalletId: input.toWalletId,
+					reference: transferReference,
 				},
 			});
 
 			return result;
+		}),
+
+	getInternalTransfers: financeReadProcedure
+		.input(internalTransferFilterSchema.optional())
+		.query(async ({ input, ctx }) => {
+			const termId = input?.termId || ctx.profile.termId;
+			const transactions = await ctx.db.walletTransactions.findMany({
+				where: {
+					wallet: {
+						schoolProfileId: ctx.profile.schoolId,
+						sessionTermId: termId!,
+					},
+					type: { in: ["transfer-in", "transfer-out"] },
+					deletedAt: null,
+				},
+				select: {
+					id: true,
+					amount: true,
+					summary: true,
+					type: true,
+					status: true,
+					transactionDate: true,
+					createdAt: true,
+					wallet: {
+						select: {
+							id: true,
+							name: true,
+						},
+					},
+				},
+				orderBy: [{ transactionDate: "desc" }, { createdAt: "desc" }],
+			});
+
+			const grouped = new Map<string, typeof transactions>();
+			for (const transaction of transactions) {
+				const key = getInternalTransferGroupKey(transaction);
+				const group = grouped.get(key) ?? [];
+				group.push(transaction);
+				grouped.set(key, group);
+			}
+
+			return Array.from(grouped.entries())
+				.map(([key, items]) => {
+					const outgoing = items.find((item) => item.type === "transfer-out") ?? null;
+					const incoming = items.find((item) => item.type === "transfer-in") ?? null;
+					const reference =
+						extractTransferReference(outgoing?.summary) ||
+						extractTransferReference(incoming?.summary);
+					const amount = outgoing?.amount ?? incoming?.amount ?? 0;
+					const note =
+						stripTransferReference(outgoing?.summary) ||
+						stripTransferReference(incoming?.summary) ||
+						"Fund transfer";
+					const status = items.some((item) => item.status === "cancelled")
+						? "cancelled"
+						: items.every((item) => item.status === "success")
+							? "success"
+							: "pending";
+					const canCancel =
+						status === "success" &&
+						!!outgoing &&
+						!!incoming &&
+						items.length === 2 &&
+						outgoing.amount === incoming.amount;
+
+					return {
+						id:
+							reference && canCancel
+								? `ref:${reference}`
+								: outgoing && incoming && canCancel
+									? `pair:${outgoing.id}:${incoming.id}`
+									: `${key}:${items[0]?.id || "unknown"}`,
+						reference,
+						description: note,
+						amount,
+						status,
+						canCancel,
+						transactionDate:
+							outgoing?.transactionDate ||
+							incoming?.transactionDate ||
+							outgoing?.createdAt ||
+							incoming?.createdAt ||
+							null,
+						fromWalletId: outgoing?.wallet.id ?? null,
+						fromWalletName: outgoing?.wallet.name ?? null,
+						toWalletId: incoming?.wallet.id ?? null,
+						toWalletName: incoming?.wallet.name ?? null,
+						outgoingTransactionId: outgoing?.id ?? null,
+						incomingTransactionId: incoming?.id ?? null,
+						transactionCount: items.length,
+					};
+				})
+				.sort((a, b) => {
+					const aTime = a.transactionDate ? new Date(a.transactionDate).getTime() : 0;
+					const bTime = b.transactionDate ? new Date(b.transactionDate).getTime() : 0;
+					return bTime - aTime;
+				});
+		}),
+
+	cancelInternalTransfer: financeWriteProcedure
+		.input(cancelInternalTransferSchema)
+		.mutation(async ({ input, ctx }) => {
+			const termId = input.termId || ctx.profile.termId;
+			const parsed = parseInternalTransferId(input.transferId);
+
+			let transferTransactions: Array<{
+				id: string;
+				amount: number;
+				summary: string | null;
+				type: string | null;
+				status: string | null;
+				walletId: string;
+			}> = [];
+
+			if (parsed.type === "pair") {
+				transferTransactions = await ctx.db.walletTransactions.findMany({
+					where: {
+						id: { in: parsed.ids },
+						wallet: {
+							schoolProfileId: ctx.profile.schoolId,
+							sessionTermId: termId!,
+						},
+						type: { in: ["transfer-in", "transfer-out"] },
+						deletedAt: null,
+					},
+					select: {
+						id: true,
+						amount: true,
+						summary: true,
+						type: true,
+						status: true,
+						walletId: true,
+					},
+				});
+			} else {
+				const candidates = await ctx.db.walletTransactions.findMany({
+					where: {
+						wallet: {
+							schoolProfileId: ctx.profile.schoolId,
+							sessionTermId: termId!,
+						},
+						type: { in: ["transfer-in", "transfer-out"] },
+						deletedAt: null,
+					},
+					select: {
+						id: true,
+						amount: true,
+						summary: true,
+						type: true,
+						status: true,
+						walletId: true,
+					},
+				});
+				transferTransactions = candidates.filter(
+					(transaction) =>
+						extractTransferReference(transaction.summary) === parsed.reference,
+				);
+			}
+
+			if (transferTransactions.length !== 2) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message:
+						"Unable to identify the two transfer records for this internal transfer.",
+				});
+			}
+
+			const outgoing = transferTransactions.find(
+				(transaction) => transaction.type === "transfer-out",
+			);
+			const incoming = transferTransactions.find(
+				(transaction) => transaction.type === "transfer-in",
+			);
+
+			if (!outgoing || !incoming || outgoing.amount !== incoming.amount) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "This transfer is incomplete and cannot be cancelled safely.",
+				});
+			}
+
+			if (transferTransactions.some((transaction) => transaction.status === "cancelled")) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "This transfer has already been cancelled.",
+				});
+			}
+
+			await ctx.db.$transaction(
+				async (tx) => {
+					await tx.walletTransactions.updateMany({
+						where: {
+							id: { in: transferTransactions.map((transaction) => transaction.id) },
+						},
+						data: {
+							status: "cancelled",
+						},
+					});
+				},
+				{
+					maxWait: 10000,
+					timeout: 20000,
+				},
+			);
+
+			const description =
+				stripTransferReference(outgoing.summary) ||
+				stripTransferReference(incoming.summary) ||
+				"Fund transfer";
+
+			await logFinanceActivity(ctx, {
+				title: "Finance transfer cancelled",
+				description,
+				meta: {
+					amount: outgoing.amount,
+					fromWalletId: outgoing.walletId,
+					toWalletId: incoming.walletId,
+					transferId: input.transferId,
+					reference:
+						parsed.type === "reference"
+							? parsed.reference
+							: extractTransferReference(outgoing.summary),
+				},
+			});
+
+			return { success: true };
 		}),
 
 	addFund: financeWriteProcedure

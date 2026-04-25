@@ -34,7 +34,7 @@ export function studentDisplayName({
   name?: string;
   surname?: string;
   otherName?: string;
-}) {
+} = {}) {
   return [name, surname, otherName].filter(Boolean).join(" ");
 }
 export function composeQuery<T>(queries: T[]): T | undefined {

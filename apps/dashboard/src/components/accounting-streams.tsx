@@ -37,7 +37,7 @@ import {
 	X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { AnimatedNumber } from "./animated-number";
 import { SubmitButton } from "./submit-button";
 import { TableSkeleton } from "./tables/skeleton";
@@ -152,6 +152,15 @@ function Content() {
 							This Session
 						</Button>
 					</div>
+					<Button
+						variant="outline"
+						size="sm"
+						className="gap-2"
+						onClick={() => router.push("/finance/internal-transfers")}
+					>
+						<ArrowDownRight className="h-4 w-4" />
+						Transfer History
+					</Button>
 					<Button
 						variant="outline"
 						size="sm"
@@ -628,7 +637,18 @@ function TransferFundsForm({
 	onSuccess,
 	onCancel,
 }: {
-	streams: { id: string; name: string }[];
+	streams: {
+		id: string;
+		name: string;
+		defaultType: string;
+		totalIn: number;
+		totalOut: number;
+		balance: number;
+		pendingBills?: number;
+		owingAmount?: number;
+		activeBillables?: number;
+		projectedBalance?: number;
+	}[];
 	onSuccess: () => void;
 	onCancel: () => void;
 }) {
@@ -650,6 +670,15 @@ function TransferFundsForm({
 			onSuccess,
 		}),
 	);
+
+	useEffect(() => {
+		if (from && from === to) {
+			setTo("");
+		}
+	}, [from, to]);
+
+	const fromStream = streams.find((stream) => stream.id === from);
+	const toStream = streams.find((stream) => stream.id === to);
 
 	const handleSubmit = () => {
 		if (!from || !to || !amount) return;
@@ -730,6 +759,16 @@ function TransferFundsForm({
 						/>
 					</div>
 				</div>
+				{(fromStream || toStream) && (
+					<div className="mt-4 grid gap-3 lg:grid-cols-2">
+						{fromStream && (
+							<StreamTransferStatsCard label="From" stream={fromStream} />
+						)}
+						{toStream && (
+							<StreamTransferStatsCard label="To" stream={toStream} />
+						)}
+					</div>
+				)}
 				<div className="flex gap-2 mt-4">
 					<SubmitButton
 						isSubmitting={isPending}
@@ -745,6 +784,96 @@ function TransferFundsForm({
 				</div>
 			</CardContent>
 		</Card>
+	);
+}
+
+function StreamTransferStatsCard({
+	label,
+	stream,
+}: {
+	label: "From" | "To";
+	stream: {
+		id: string;
+		name: string;
+		defaultType: string;
+		totalIn: number;
+		totalOut: number;
+		balance: number;
+		pendingBills?: number;
+		owingAmount?: number;
+		activeBillables?: number;
+		projectedBalance?: number;
+	};
+}) {
+	const isIncoming = stream.defaultType === "incoming";
+
+	return (
+		<div className="rounded-lg border bg-muted/20 p-4">
+			<div className="flex items-start justify-between gap-3">
+				<div>
+					<p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+						{label} stream
+					</p>
+					<h4 className="text-sm font-semibold">{stream.name}</h4>
+				</div>
+				<Badge variant="outline" className="text-[10px] uppercase">
+					{isIncoming ? "Incoming" : "Outgoing"}
+				</Badge>
+			</div>
+			<div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+				<div className="rounded-md border bg-background px-3 py-2">
+					<p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+						Balance
+					</p>
+					<p className="mt-1 text-sm font-semibold">
+						<AnimatedNumber value={stream.balance} currency="NGN" />
+					</p>
+				</div>
+				<div className="rounded-md border bg-background px-3 py-2">
+					<p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+						Projected
+					</p>
+					<p className="mt-1 text-sm font-semibold">
+						<AnimatedNumber
+							value={stream.projectedBalance ?? stream.balance}
+							currency="NGN"
+						/>
+					</p>
+				</div>
+				<div className="rounded-md border bg-background px-3 py-2">
+					<p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+						Pending Bills
+					</p>
+					<p className="mt-1 text-sm font-semibold">
+						<AnimatedNumber value={stream.pendingBills || 0} currency="NGN" />
+					</p>
+				</div>
+				<div className="rounded-md border bg-background px-3 py-2">
+					<p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+						Owing
+					</p>
+					<p className="mt-1 text-sm font-semibold">
+						<AnimatedNumber value={stream.owingAmount || 0} currency="NGN" />
+					</p>
+				</div>
+				<div className="rounded-md border bg-background px-3 py-2">
+					<p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+						Total In
+					</p>
+					<p className="mt-1 text-sm font-semibold text-green-600">
+						<AnimatedNumber value={stream.totalIn} currency="NGN" />
+					</p>
+				</div>
+				<div className="rounded-md border bg-background px-3 py-2">
+					<p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+						Total Out
+					</p>
+					<p className="mt-1 text-sm font-semibold text-rose-600">
+						<AnimatedNumber value={stream.totalOut} currency="NGN" />
+					</p>
+				</div>
+			</div>
+		</div>
 	);
 }
 

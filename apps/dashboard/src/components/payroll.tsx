@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { TableSkeleton } from "./tables/skeleton";
 import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
+import { Checkbox } from "@school-clerk/ui/checkbox";
 import { Input } from "@school-clerk/ui/input";
 import { Label } from "@school-clerk/ui/label";
 import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
@@ -54,6 +55,9 @@ function Content() {
   const { data: bills } = useSuspenseQuery(
     trpc.finance.getPayroll.queryOptions({ termId: undefined })
   );
+  const { data: streams } = useSuspenseQuery(
+    trpc.finance.getStreams.queryOptions({ filter: "term" })
+  );
 
   const invalidate = () =>
     Promise.all([
@@ -82,6 +86,26 @@ function Content() {
       (bill.billPayment?.settlement?.owingAmount ||
         bill.billPayment?.invoice?.amount ||
         0),
+    0
+  );
+  const payrollBudget = bills.reduce((sum, bill) => sum + (bill.amount || 0), 0);
+  const unfundedBudget = Math.max(payrollBudget - totalPaid, 0);
+  const payrollStreamIds = new Set(
+    bills
+      .map((bill) => bill.walletId)
+      .filter((walletId): walletId is string => Boolean(walletId))
+  );
+  const payrollStreams = (streams ?? []).filter((stream) => payrollStreamIds.has(stream.id));
+  const payrollStreamBalance = payrollStreams.reduce(
+    (sum, stream) => sum + (stream.balance || 0),
+    0
+  );
+  const payrollProjectedBalance = payrollStreams.reduce(
+    (sum, stream) => sum + (stream.projectedBalance ?? stream.balance ?? 0),
+    0
+  );
+  const payrollStreamPendingBills = payrollStreams.reduce(
+    (sum, stream) => sum + (stream.pendingBills || 0),
     0
   );
 
@@ -171,6 +195,127 @@ function Content() {
             <AnimatedNumber value={totalOwing} currency="NGN" />
           </p>
           <p className="text-amber-600 text-sm font-semibold">{owing.length} paid with owing</p>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-4">
+        <Card className="p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Payroll Budget Snapshot</p>
+              <h2 className="mt-1 text-xl font-bold tracking-tight">
+                Budget and live stream balances
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Current term payroll obligations compared with the balances on linked payroll streams.
+              </p>
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {payrollStreams.length} linked stream{payrollStreams.length === 1 ? "" : "s"}
+            </Badge>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Payroll Budget
+              </p>
+              <div className="mt-2 text-2xl font-bold">
+                <AnimatedNumber value={payrollBudget} currency="NGN" />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Gross value of all payroll bills this term
+              </p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Remaining Budget
+              </p>
+              <div className="mt-2 text-2xl font-bold">
+                <AnimatedNumber value={unfundedBudget} currency="NGN" />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Gross payroll still not fully funded
+              </p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Stream Balance
+              </p>
+              <div className="mt-2 text-2xl font-bold">
+                <AnimatedNumber value={payrollStreamBalance} currency="NGN" />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Combined live balance across payroll streams
+              </p>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Projected Balance
+              </p>
+              <div className="mt-2 text-2xl font-bold">
+                <AnimatedNumber value={payrollProjectedBalance} currency="NGN" />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                After stream pending bills and owing are applied
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Payroll Funding Streams</p>
+              <h2 className="mt-1 text-xl font-bold tracking-tight">Balance by linked stream</h2>
+            </div>
+            <Badge
+              variant="outline"
+              className={payrollProjectedBalance >= 0 ? "text-emerald-700 border-emerald-200 bg-emerald-50" : "text-rose-700 border-rose-200 bg-rose-50"}
+            >
+              {payrollProjectedBalance >= 0 ? "Funded" : "Needs attention"}
+            </Badge>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {payrollStreams.length ? (
+              payrollStreams.map((stream) => (
+                <div
+                  key={stream.id}
+                  className="rounded-xl border bg-muted/10 px-4 py-3 flex items-center justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold">{stream.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Pending bills: <AnimatedNumber value={stream.pendingBills || 0} currency="NGN" />{" "}
+                      • Projected: <AnimatedNumber value={stream.projectedBalance ?? stream.balance} currency="NGN" />
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Balance
+                    </p>
+                    <p className="text-sm font-bold">
+                      <AnimatedNumber value={stream.balance} currency="NGN" />
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
+                No payroll bills are linked to a funding stream yet.
+              </div>
+            )}
+          </div>
+
+          {payrollStreams.length > 0 && (
+            <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+              <span>Total stream pending bills</span>
+              <span className="font-semibold text-foreground">
+                <AnimatedNumber value={payrollStreamPendingBills} currency="NGN" />
+              </span>
+            </div>
+          )}
         </Card>
       </div>
 
@@ -531,6 +676,7 @@ function CreateStaffBillForm({ onSuccess }: { onSuccess: () => void }) {
   const [streamName, setStreamName] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [markAsPaid, setMarkAsPaid] = useState(false);
 
   const { data: staffList } = useSuspenseQuery(
     trpc.finance.getStaff.queryOptions()
@@ -544,12 +690,31 @@ function CreateStaffBillForm({ onSuccess }: { onSuccess: () => void }) {
       id: stream.id,
       name: stream.name,
       label: stream.name,
+      balance: stream.balance,
+      projectedBalance: stream.projectedBalance ?? stream.balance,
+      pendingBills: stream.pendingBills || 0,
+      owingAmount: stream.owingAmount || 0,
       description:
         stream.type === "bill"
           ? "Bill stream"
           : `${stream.defaultType === "outgoing" ? "Outgoing" : "Incoming"} stream`,
       amount: stream.balance,
     }));
+  const defaultPayrollStream =
+    streamOptions.find((stream) => stream.name.trim().toLowerCase() === "payroll") ||
+    streamOptions.find((stream) =>
+      stream.name.trim().toLowerCase().includes("payroll")
+    );
+
+  useEffect(() => {
+    if (!defaultPayrollStream) return;
+    if (streamId || streamName || title) return;
+
+    setStreamId(defaultPayrollStream.id);
+    setStreamName(defaultPayrollStream.name);
+    setTitle(defaultPayrollStream.name);
+  }, [defaultPayrollStream, streamId, streamName, title]);
+
   const selectedStream =
     streamOptions.find((stream) => stream.id === streamId) ||
     (streamName || title
@@ -559,10 +724,14 @@ function CreateStaffBillForm({ onSuccess }: { onSuccess: () => void }) {
           label: (streamName || title).trim(),
           description: "New bill stream",
           amount: null,
+          balance: null,
+          projectedBalance: null,
+          pendingBills: 0,
+          owingAmount: 0,
         }
       : undefined);
 
-  const { mutate, isPending } = useMutation(
+  const { mutateAsync: createBill, isPending: isCreating } = useMutation(
     trpc.finance.createStaffBill.mutationOptions({
       meta: {
         toastTitle: {
@@ -571,14 +740,59 @@ function CreateStaffBillForm({ onSuccess }: { onSuccess: () => void }) {
           error: "Failed to create bill",
         },
       },
+    })
+  );
+  const { mutateAsync: payBill, isPending: isPaying } = useMutation(
+    trpc.finance.payStaffBill.mutationOptions({
+      meta: {
+        toastTitle: {
+          loading: "Marking salary as paid...",
+          success: "Salary bill created and paid",
+          error: "Unable to mark salary as paid",
+        },
+      },
       onSuccess: async () => {
+        await qc.invalidateQueries({
+          queryKey: trpc.finance.getPayroll.queryKey({ termId: undefined }),
+        });
         await qc.invalidateQueries({
           queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),
         });
-        onSuccess();
       },
     })
   );
+  const isPending = isCreating || isPaying;
+
+  const handleSubmit = async () => {
+    if (!staffId || !title || !amount) return;
+
+    const numericAmount = parseFloat(amount);
+    if (Number.isNaN(numericAmount)) return;
+
+    const createdBill = await createBill({
+      staffProfileId: staffId,
+      title,
+      streamId: streamId || undefined,
+      streamName: (streamName || title).trim() || undefined,
+      description: description || undefined,
+      amount: numericAmount,
+    });
+
+    if (markAsPaid) {
+      await payBill({
+        billId: createdBill.id,
+        amount: numericAmount,
+      });
+    }
+
+    await qc.invalidateQueries({
+      queryKey: trpc.finance.getPayroll.queryKey({ termId: undefined }),
+    });
+    await qc.invalidateQueries({
+      queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),
+    });
+    onSuccess();
+  };
 
   return (
     <Card className="border-dashed">
@@ -659,23 +873,93 @@ function CreateStaffBillForm({ onSuccess }: { onSuccess: () => void }) {
             />
           </div>
         </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="flex items-start gap-3 rounded-xl border bg-muted/10 px-4 py-3">
+            <Checkbox
+              id="payroll-mark-as-paid"
+              checked={markAsPaid}
+              onCheckedChange={(checked) => setMarkAsPaid(checked === true)}
+            />
+            <div className="space-y-1">
+              <Label htmlFor="payroll-mark-as-paid" className="text-sm font-semibold">
+                Mark as paid
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Create the salary bill and immediately record payment from the selected stream.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-muted/10 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Stream fund status
+            </p>
+            {selectedStream ? (
+              <div className="mt-2 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-semibold">{selectedStream.name}</p>
+                  {selectedStream.balance === null ? (
+                    <Badge variant="outline">New stream</Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className={
+                        (selectedStream.projectedBalance ?? 0) >= 0
+                          ? "text-emerald-700 border-emerald-200 bg-emerald-50"
+                          : "text-rose-700 border-rose-200 bg-rose-50"
+                      }
+                    >
+                      {(selectedStream.projectedBalance ?? 0) >= 0
+                        ? "Available"
+                        : "Overdrawn"}
+                    </Badge>
+                  )}
+                </div>
+                {selectedStream.balance === null ? (
+                  <p className="text-xs text-muted-foreground">
+                    This bill will create a new outgoing stream with no current funding history yet.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <p className="text-muted-foreground">Balance</p>
+                      <p className="mt-1 font-semibold text-foreground">
+                        <AnimatedNumber value={selectedStream.balance || 0} currency="NGN" />
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Projected</p>
+                      <p className="mt-1 font-semibold text-foreground">
+                        <AnimatedNumber
+                          value={selectedStream.projectedBalance ?? selectedStream.balance ?? 0}
+                          currency="NGN"
+                        />
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Pending bills</p>
+                      <p className="mt-1 font-semibold text-foreground">
+                        <AnimatedNumber value={selectedStream.pendingBills || 0} currency="NGN" />
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Select a stream to see its current funding position.
+              </p>
+            )}
+          </div>
+        </div>
         <div className="flex gap-2 mt-4">
           <SubmitButton
             isSubmitting={isPending}
             disabled={!staffId || !title || !amount}
-            onClick={() =>
-              mutate({
-                staffProfileId: staffId,
-                title,
-                streamId: streamId || undefined,
-                streamName: (streamName || title).trim() || undefined,
-                description: description || undefined,
-                amount: parseFloat(amount),
-              })
-            }
+            onClick={handleSubmit}
             type="button"
           >
-            Create Bill
+            {markAsPaid ? "Create and Pay" : "Create Bill"}
           </SubmitButton>
           <Button variant="ghost" type="button" onClick={onSuccess}>
             Cancel

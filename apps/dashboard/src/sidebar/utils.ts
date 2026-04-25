@@ -255,6 +255,8 @@ export const linkModules = [
       _link("Transactions", "reciept", "/finance/transactions").access(
         _role.in("Admin", "Accountant"),
       ).data,
+      _link("Internal Transfers", "reciept", "/finance/internal-transfers")
+        .access(_role.in("Admin", "Accountant")).data,
       _link("Student Fees", "coins", "/finance/student-fees").access(
         _role.in("Admin", "Accountant"),
       ).data,

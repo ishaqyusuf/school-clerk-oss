@@ -370,6 +370,16 @@ export const dashboardNavRegistry: NavModuleDefinition[] = [
             workspace: "admin",
           },
           {
+            href: "/finance/internal-transfers",
+            icon: "reciept",
+            key: "finance-internal-transfers",
+            module: "finance",
+            roles: ["Admin", "Accountant"],
+            section: "main",
+            title: "Internal Transfers",
+            workspace: "admin",
+          },
+          {
             href: "/finance/reconciliation",
             icon: "trending-up",
             key: "finance-reconciliation",
