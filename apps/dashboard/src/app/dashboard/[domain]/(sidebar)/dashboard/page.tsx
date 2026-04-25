@@ -15,7 +15,7 @@ import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import {
 	BookOpen,
 	GraduationCap,
-	LayoutDashboard,
+	School,
 	Users,
 	Wallet,
 } from "lucide-react";
@@ -77,9 +77,9 @@ const statCards = [
 ];
 
 const quickLinks = [
-	{ label: "Academic", icon: GraduationCap, href: "/academic" },
+	{ label: "Academic", icon: BookOpen, href: "/academic" },
 	{ label: "Finance", icon: Wallet, href: "/finance" },
-	{ label: "Classes", icon: LayoutDashboard, href: "/academic/classes" },
+	{ label: "Classes", icon: School, href: "/academic/classes" },
 ];
 
 export default async function Page({ params }) {

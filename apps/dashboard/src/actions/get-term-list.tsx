@@ -19,6 +19,9 @@ export async function getTermListAction() {
       terms: {
         where: {
           deletedAt: null,
+          startDate: {
+            not: null,
+          },
         },
         select: {
           title: true,

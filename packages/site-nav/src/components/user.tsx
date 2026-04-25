@@ -16,6 +16,7 @@ type SiteNavUserData = {
   name?: string;
   email?: string;
   avatar?: string;
+  role?: string;
 };
 
 interface SiteNavUserProps {
@@ -32,6 +33,8 @@ function getInitials(name?: string) {
 
 export function User({ user, onLogout, children }: SiteNavUserProps) {
   const { isExpanded } = useSiteNav();
+  const secondaryText = user?.role || user?.email;
+  const tertiaryText = user?.role ? user?.email : undefined;
 
   return (
     <div className="relative h-[40px] w-full overflow-hidden rounded-md border border-border bg-background">
@@ -52,7 +55,7 @@ export function User({ user, onLogout, children }: SiteNavUserProps) {
               <>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{user?.name}</span>
-                  <span className="truncate text-xs">{user?.email}</span>
+                  <span className="truncate text-xs">{secondaryText}</span>
                 </div>
                 <Icons.ChevronDown className="ml-auto size-4" />
               </>
@@ -75,7 +78,12 @@ export function User({ user, onLogout, children }: SiteNavUserProps) {
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{user?.name}</span>
-                <span className="truncate text-xs">{user?.email}</span>
+                <span className="truncate text-xs">{secondaryText}</span>
+                {tertiaryText ? (
+                  <span className="truncate text-xs text-muted-foreground">
+                    {tertiaryText}
+                  </span>
+                ) : null}
               </div>
             </div>
           </DropdownMenuLabel>

@@ -17,12 +17,14 @@ export function TermSwitcher() {
 	const auth = useAuth();
 	const currentTerm = dashboardData?.sessions
 		?.flatMap((session) =>
-			session.terms.map((term) => ({
-				...term,
-				sessionId: session.id,
-				sessionName: session.name,
-				sessionStatus: session.status,
-			})),
+			session.terms
+				.filter((term) => term.startDate)
+				.map((term) => ({
+					...term,
+					sessionId: session.id,
+					sessionName: session.name,
+					sessionStatus: session.status,
+				})),
 		)
 		.find((term) => term.id === auth.profile?.termId);
 
@@ -67,7 +69,9 @@ export function TermSwitcher() {
 							</Badge>
 						</div>
 						<div className="space-y-0.5 pb-1">
-							{session.terms?.map((term) => {
+							{session.terms
+								?.filter((term) => term.startDate)
+								.map((term) => {
 								const isActive = term.id === auth.profile?.termId;
 								return (
 									<DropdownMenu.Item

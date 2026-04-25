@@ -2,6 +2,7 @@
 
 import { SiteNav } from "@school-clerk/site-nav";
 import { NotificationBell } from "./notifications/notification-bell";
+import { OpenSearchButton } from "./search/open-search-button";
 import { TermSwitcher } from "./sidebar/term-switcher";
 import { ThemeSwitch } from "./theme-switch";
 
@@ -32,6 +33,9 @@ export function Header() {
 							id="headerNav"
 							className="hidden lg:flex min-w-0 items-center space-x-1"
 						/>
+						<div className="hidden min-w-0 flex-1 px-2 lg:flex lg:justify-center">
+							<OpenSearchButton />
+						</div>
 						<div
 							id="breadCrumb"
 							className="flex min-w-0 items-center space-x-1 overflow-hidden"

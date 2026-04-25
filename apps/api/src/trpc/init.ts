@@ -68,22 +68,17 @@ const withPrimaryDbMiddleware = t.middleware(async (opts) => {
   });
 });
 
-const requireAuthMiddleware = t.middleware(async (opts) => {
-  const authSessionId = opts.ctx.profile.authSessionId;
-
-  if (!authSessionId) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "You must be signed in to continue.",
-    });
-  }
-
-  const session = await opts.ctx.db.session.findFirst({
+export async function findAuthSessionByBearer(
+  db: Database,
+  authSessionId: string,
+) {
+  return db.session.findFirst({
     where: {
-      id: authSessionId,
-      deletedAt: null,
+      ...getAuthSessionWhere(authSessionId),
     },
     select: {
+      id: true,
+      token: true,
       user: {
         select: {
           id: true,
@@ -95,6 +90,26 @@ const requireAuthMiddleware = t.middleware(async (opts) => {
       },
     },
   });
+}
+
+export function getAuthSessionWhere(authSessionId: string) {
+  return {
+    deletedAt: null,
+    OR: [{ id: authSessionId }, { token: authSessionId }],
+  };
+}
+
+const requireAuthMiddleware = t.middleware(async (opts) => {
+  const authSessionId = opts.ctx.profile.authSessionId;
+
+  if (!authSessionId) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "You must be signed in to continue.",
+    });
+  }
+
+  const session = await findAuthSessionByBearer(opts.ctx.db, authSessionId);
 
   if (!session?.user) {
     throw new TRPCError({

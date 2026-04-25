@@ -7,6 +7,7 @@ import {
 import { getRecipient, resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 import type { TRPCContext } from "../trpc/init";
+import { getAuthSessionWhere } from "../trpc/init";
 
 const NOTIFICATION_ROLE_GROUPS = {
 	finance: ["Admin", "Accountant"],
@@ -93,10 +94,7 @@ export async function getCurrentUserContext(
 	}
 
 	const session = await ctx.db.session.findFirst({
-		where: {
-			id: ctx.profile.authSessionId,
-			deletedAt: null,
-		},
+		where: getAuthSessionWhere(ctx.profile.authSessionId),
 		select: {
 			user: {
 				select: {

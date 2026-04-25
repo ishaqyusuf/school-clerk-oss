@@ -40,6 +40,9 @@ export const academicsRouter = createTRPCRouter({
       where: {
         schoolId: ctx.profile.schoolId,
         deletedAt: null,
+        startDate: {
+          not: null,
+        },
       },
       select: {
         id: true,

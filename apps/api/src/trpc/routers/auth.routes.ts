@@ -1,11 +1,18 @@
-import { createTRPCRouter, publicProcedure } from "../init";
+import {
+  createTRPCRouter,
+  getAuthSessionWhere,
+  publicProcedure,
+} from "../init";
 
 export const authRouter = createTRPCRouter({
   getProfile: publicProcedure.query(async (props) => {
+    const bearer = props.ctx.profile.authSessionId;
+    if (!bearer) {
+      return {};
+    }
+
     const authSession = await props.ctx.db.session.findFirst({
-      where: {
-        id: props.ctx.profile.authSessionId,
-      },
+      where: getAuthSessionWhere(bearer),
       select: {
         user: {
           select: {
