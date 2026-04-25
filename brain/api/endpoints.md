@@ -57,6 +57,10 @@ Catalog of API routes and responsibilities.
 - `trpc.finance.getPayroll`
 - `trpc.finance.payStaffBill`
 - `trpc.finance.cancelStaffBillPayment`
+- `trpc.finance.getFinanceIntegrityReport`
+- `trpc.finance.getFinanceReports`
+- `trpc.finance.generateBillsFromBillables`
+- `trpc.finance.backfillBillSettlements`
 - `trpc.finance.receiveStudentPayment`
 - `trpc.finance.reverseStudentPayment`
 

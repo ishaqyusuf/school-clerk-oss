@@ -89,3 +89,4 @@ Defines access control rules for each API surface.
 - Finance read routes are enforced server-side for `Admin` and `Accountant` roles.
 - Finance write routes are enforced server-side for `Admin` and `Accountant` roles.
 - This enforcement now covers streams, payroll, service payments, student payment receipt/reversal, billables, bills, collections, and stream-funding operations.
+- Large discretionary finance actions above `NGN 250,000` now require `Admin` role even within finance write access.

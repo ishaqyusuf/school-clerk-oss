@@ -156,6 +156,15 @@ function Content() {
 						variant="outline"
 						size="sm"
 						className="gap-2"
+						onClick={() => router.push("/finance/reconciliation")}
+					>
+						<AlertCircle className="h-4 w-4" />
+						Reconciliation
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						className="gap-2"
 						onClick={() => setParams({ receivePayment: true })}
 					>
 						<CreditCard className="h-4 w-4" />

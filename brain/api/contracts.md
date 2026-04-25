@@ -69,6 +69,30 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Auth schema: authenticated tenant session required; finance read/write access is role-gated server-side for `Admin` and `Accountant`
 - Notes: this now applies consistently to streams, bills, billables, payroll, service payments, student payment receipt/reversal, and collections routes
 
+- Route: `finance.getFinanceIntegrityReport`
+- Request schema: optional `termId`
+- Response schema: `{ totals, checks[], mismatches }`
+- Error cases: missing tenant context, unauthorized finance read access
+- Notes: powers the reconciliation workspace with integrity checks for stream/payable/collections consistency
+
+- Route: `finance.getFinanceReports`
+- Request schema: optional `termId`
+- Response schema: `{ summary, streams[], payroll[], servicePayments[], collections[], owingLedger[] }`
+- Error cases: missing tenant context, unauthorized finance read access
+- Notes: canonical reporting snapshot used for reconciliation exports and operator reporting
+
+- Route: `finance.generateBillsFromBillables`
+- Request schema: optional `termId`, optional `billableIds[]`
+- Response schema: `{ success: true, created[], skipped[] }`
+- Error cases: invalid tenant context, unauthorized finance write access
+- Notes: generates payable bills from active service billables while preventing duplicates per current billable history
+
+- Route: `finance.backfillBillSettlements`
+- Request schema: optional `termId`
+- Response schema: `{ success: true, hydrated: number }`
+- Error cases: invalid tenant context, unauthorized finance write access
+- Notes: hydrates older invoice-backed payable rows into the settlement model used by current stream funding
+
 - Route: `finance.cancelServiceBillPayment`
 - Request schema: `billId`
 - Response schema: `{ success: true, amount: number, title: string | null, staffName: string | null }`

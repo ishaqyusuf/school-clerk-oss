@@ -132,3 +132,57 @@ Record of completed tasks and delivery outcomes.
 - Outcome: Introduced `BillSettlement` and `BillSettlementRepayment` as the canonical stream-payable settlement layer, migrated payment and repayment flows to write through settlement records, preserved backward compatibility for older invoice-backed payments with lazy settlement hydration, updated stream/payroll/service reads to prefer settlement-backed owing balances, and pushed the schema successfully to the configured database.
 - Related changes: `packages/db/src/schema/finance.prisma`, `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/payroll.tsx`, `apps/dashboard/src/components/service-payments.tsx`, `brain/features/stream-funding.md`, `brain/database/relationships.md`, `brain/api/contracts.md`, `brain/tasks/backlog.md`
 - Owner: Codex
+
+- ID: FIN-010
+- Title: Finance integrity and regression foundation
+- Completed: 2026-04-25
+- Outcome: Added finance integrity-report and canonical reporting queries, introduced a dedicated reconciliation workspace for finance operators, surfaced integrity checks and mismatch drilldowns, and established the reporting/export foundation for finance without relying on page-local calculations.
+- Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/finance-reconciliation.tsx`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/finance/reconciliation/page.tsx`, `brain/api/contracts.md`, `brain/api/endpoints.md`, `brain/features/finance-operations.md`
+
+- ID: FIN-011
+- Title: Finance reconciliation and diagnostics workspace
+- Completed: 2026-04-25
+- Outcome: Delivered the `/finance/reconciliation` workspace with integrity cards, mismatch drilldowns, settlement backfill action, billable generation action, and direct navigation into the main finance operational surfaces.
+- Related changes: `apps/dashboard/src/components/finance-reconciliation.tsx`, `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/finance/reconciliation/page.tsx`, `apps/dashboard/src/features/navigation/dashboard-nav-registry.ts`, `apps/dashboard/src/components/accounting-streams.tsx`, `brain/features/finance-operations.md`
+
+- ID: FIN-012
+- Title: Canonical finance reporting layer
+- Completed: 2026-04-25
+- Outcome: Added report-grade finance snapshots for streams, payroll, service payments, collections, and the owing ledger so operational views and exports can read from one canonical source.
+- Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `brain/api/contracts.md`, `brain/api/endpoints.md`, `brain/features/finance-operations.md`
+
+- ID: FIN-013
+- Title: Finance export and document suite
+- Completed: 2026-04-25
+- Outcome: Added CSV export actions for the canonical streams, payroll, service payments, collections, and owing-ledger reports from the reconciliation workspace.
+- Related changes: `apps/dashboard/src/components/finance-reconciliation.tsx`, `brain/features/finance-operations.md`
+
+- ID: FIN-014
+- Title: Billable-to-payable automation
+- Completed: 2026-04-25
+- Outcome: Added billable generation into payables with duplicate protection per billable history, plus dashboard actions from both the reconciliation workspace and service billables table.
+- Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/tables/billables/data-table.tsx`, `brain/features/finance-operations.md`
+
+- ID: FIN-015
+- Title: Finance audit trail completion
+- Completed: 2026-04-25
+- Outcome: Expanded finance activity logging across stream funding, transfers, payroll/service payable creation and payment flows, settlement backfill, billable lifecycle events, waivers, discounts, and student payment events.
+- Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `brain/features/finance-operations.md`, `brain/system/overview.md`
+
+- ID: FIN-016
+- Title: Finance access and approval enhancements
+- Completed: 2026-04-25
+- Outcome: Added admin-only approval thresholds for large discretionary finance actions such as withdrawals, transfers, fee waivers, and discounts while preserving the broader authenticated finance role enforcement.
+- Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `brain/api/permissions.md`, `brain/features/finance-operations.md`
+
+- ID: FIN-017
+- Title: Collections operations upgrade
+- Completed: 2026-04-25
+- Outcome: Enhanced collection operations with overdue and waived rollups, classroom prioritization by outstanding balance, and clearer overdue visibility at the student fee row level.
+- Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/collections/collections-dashboard.tsx`, `apps/dashboard/src/components/collections/collection-students.tsx`, `brain/features/finance-operations.md`
+
+- ID: FIN-018
+- Title: Finance module cleanup and legacy transition tooling
+- Completed: 2026-04-25
+- Outcome: Added settlement backfill tooling for older payable rows, shifted the finance read layer to prefer settlement-backed owing values, and reduced the remaining legacy dependence to compatibility fallback paths rather than primary logic.
+- Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/payroll.tsx`, `apps/dashboard/src/components/service-payments.tsx`, `brain/features/stream-funding.md`, `brain/features/finance-operations.md`

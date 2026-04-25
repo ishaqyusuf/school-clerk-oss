@@ -49,6 +49,22 @@ export function DataTable() {
 				},
 			}),
 		);
+	const { mutate: generateBillsMutate, isPending: generatingBills } = useMutation(
+		trpc.finance.generateBillsFromBillables.mutationOptions({
+			meta: {
+				toastTitle: {
+					loading: "Generating payables...",
+					success: "Payables generated",
+					error: "Generation failed",
+				},
+			},
+			onSuccess() {
+				qc.invalidateQueries({
+					queryKey: trpc.finance.getBills.queryKey(),
+				});
+			},
+		}),
+	);
 
 	const openBillable = (billableId?: string) => {
 		setParams({
@@ -76,7 +92,10 @@ export function DataTable() {
 							},
 							onOpenBillable: openBillable,
 							onDeleteBillable: (billable) => setDeleteBillable(billable),
-						} as BillableTableMeta,
+						} as BillableTableMeta & {
+							deleteAction?: (id: any) => any;
+							rowClick?: (id: string, rowData?: any) => any;
+						},
 						data,
 					},
 				]}
@@ -84,6 +103,14 @@ export function DataTable() {
 				<div className="flex flex-col gap-4">
 					<div className="flex">
 						<div className="flex-1" />
+						<Button
+							variant="outline"
+							className="mr-2"
+							disabled={generatingBills}
+							onClick={() => generateBillsMutate({})}
+						>
+							Generate Payables
+						</Button>
 						<Button
 							variant="outline"
 							onClick={() => {

@@ -20,6 +20,7 @@ import { AnimatedNumber } from "@/components/animated-number";
 import { TableSkeleton } from "@/components/tables/skeleton";
 import { cn } from "@school-clerk/ui/cn";
 import { WaiveFeeDialog } from "./waive-fee-dialog";
+import { format } from "date-fns";
 
 type CollectionStatus = "ALL" | "PENDING" | "PARTIAL" | "PAID" | "WAIVED" | "OVERDUE";
 
@@ -152,6 +153,11 @@ function CollectionStudentsContent({ classroomId, classroomName, onBack }: Props
                             <span className="font-mono">
                               <AnimatedNumber value={fee.billAmount} />
                             </span>
+                            {fee.dueDate && fee.pendingAmount > 0 && new Date(fee.dueDate) < new Date() && (
+                              <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">
+                                Overdue since {format(new Date(fee.dueDate), "MMM dd")}
+                              </Badge>
+                            )}
                             {fee.pendingAmount > 0 && (
                               <Button
                                 variant="ghost"

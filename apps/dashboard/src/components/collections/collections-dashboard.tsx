@@ -39,8 +39,11 @@ export function CollectionsDashboard() {
   const totalBilled = summary.reduce((s, r) => s + r.totalBilled, 0);
   const totalPaid = summary.reduce((s, r) => s + r.totalPaid, 0);
   const totalPending = summary.reduce((s, r) => s + r.totalPending, 0);
+  const totalOverdue = summary.reduce((s, r) => s + (r.overdueCount || 0), 0);
+  const totalWaived = summary.reduce((s, r) => s + (r.waivedCount || 0), 0);
   const overallRate =
     totalBilled > 0 ? Math.round((totalPaid / totalBilled) * 100) : 0;
+  const sortedSummary = [...summary].sort((a, b) => b.totalPending - a.totalPending);
 
   if (selectedClassroom) {
     return (
@@ -55,7 +58,7 @@ export function CollectionsDashboard() {
   return (
     <div className="flex flex-col gap-6">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="pb-1">
             <CardTitle className="text-xs text-muted-foreground font-normal">
@@ -105,7 +108,31 @@ export function CollectionsDashboard() {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs text-muted-foreground font-normal">
+              Overdue Rows
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="font-mono text-lg font-semibold text-red-600">
+              {totalOverdue}
+            </div>
+            <div className="text-xs text-muted-foreground">Rows past due date</div>
+          </CardContent>
+        </Card>
       </div>
+
+      <Card>
+        <CardContent className="flex items-center justify-between py-4">
+          <div>
+            <div className="text-sm font-medium">Collections operations summary</div>
+            <div className="text-xs text-muted-foreground">
+              Waived rows: {totalWaived} • Prioritized by highest outstanding balance
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Per-classroom table */}
       <Card>
@@ -114,7 +141,7 @@ export function CollectionsDashboard() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y">
-            {summary.map((row) => (
+            {sortedSummary.map((row) => (
               <button
                 key={row.classroomId}
                 type="button"

@@ -19,6 +19,7 @@ Operational summary of SchoolClerk domains, modules, and runtime boundaries.
 - Stream funding now distinguishes `available funds` (cash ledger), `pending payables`, `outstanding owing`, and `active billables`, with payroll/service payments able to issue against partial stream funding and later repay owing when new funds arrive.
 - Stream payables now use a dedicated settlement layer (`BillSettlement` + `BillSettlementRepayment`) rather than relying on invoice amounts or transaction-summary conventions as the primary owing ledger.
 - Finance routes are now authenticated and role-enforced for `Admin`/`Accountant`, and student payment receipt/cancellation also writes tenant-scoped activity log entries for traceability.
+- Finance also now includes a reconciliation workspace with integrity checks, canonical report exports, billable-to-payable generation, settlement backfill utilities, and admin-only approval thresholds for large discretionary finance actions.
 - Notifications now include tenant-scoped in-app persistence plus email delivery, with typed notification definitions in `packages/notifications`, reusable email templates in `packages/email`, header bell access in the dashboard shell, and deep links into finance pages for payment events.
 
 ## Runtime Boundaries
