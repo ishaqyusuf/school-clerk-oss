@@ -116,3 +116,12 @@ Prioritized list of tasks not yet started.
 - Scope: Add tenant resolution, published configuration loading, template renderer resolution, live tenant data merging, and public multi-page rendering in `apps/school-site`.
 - Dependencies: WEB-002, WEB-003
 - Owner: TBD
+
+## Task Item
+- ID: FIN-010
+- Title: Add finance regression test suite and reconciliation checks
+- Type: chore
+- Priority: P1
+- Scope: Add targeted API/UI coverage for streams, payroll/service partial funding, student payment reversal, collections filters, fee waivers/discounts, and summary reconciliation.
+- Dependencies: FIN-008
+- Owner: TBD

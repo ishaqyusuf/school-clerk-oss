@@ -15,7 +15,10 @@ Operational summary of SchoolClerk domains, modules, and runtime boundaries.
 
 ## Key Capabilities
 - Admissions, academics, attendance, finance, communication
-- Finance includes term-scoped accounting streams, classroom-scoped billables, a stream-detail view for per-wallet transaction statements, a receive-payment workflow that searches all students but allocates against the active term sheet, and cancellable service/payroll/student payment flows that preserve cancelled ledger history for reporting and re-payment.
+- Finance includes term-scoped accounting streams, classroom-scoped billables, a stream-detail view for per-wallet transaction statements plus stream-linked payable/billable records, a receive-payment workflow that searches all students but allocates against the active term sheet, cancellable service/payroll/student payment flows that preserve cancelled ledger history for reporting and re-payment, and collection dashboards scoped by classroom and fee status.
+- Stream funding now distinguishes `available funds` (cash ledger), `pending payables`, `outstanding owing`, and `active billables`, with payroll/service payments able to issue against partial stream funding and later repay owing when new funds arrive.
+- Stream payables now use a dedicated settlement layer (`BillSettlement` + `BillSettlementRepayment`) rather than relying on invoice amounts or transaction-summary conventions as the primary owing ledger.
+- Finance routes are now authenticated and role-enforced for `Admin`/`Accountant`, and student payment receipt/cancellation also writes tenant-scoped activity log entries for traceability.
 - Notifications now include tenant-scoped in-app persistence plus email delivery, with typed notification definitions in `packages/notifications`, reusable email templates in `packages/email`, header bell access in the dashboard shell, and deep links into finance pages for payment events.
 
 ## Runtime Boundaries

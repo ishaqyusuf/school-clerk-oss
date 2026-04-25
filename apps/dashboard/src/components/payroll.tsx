@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, Suspense } from "react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
@@ -23,11 +24,13 @@ import { format } from "date-fns";
 import {
   Download,
   PlusCircle,
+  Wallet,
   TrendingUp,
   Users,
   Activity,
   Search,
   CheckCircle,
+  AlertTriangle,
   X,
 } from "lucide-react";
 
@@ -44,6 +47,7 @@ function Content() {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [repayingId, setRepayingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
@@ -52,7 +56,10 @@ function Content() {
   );
 
   const invalidate = () =>
-    qc.invalidateQueries({ queryKey: trpc.finance.getPayroll.queryKey({ termId: undefined }) });
+    Promise.all([
+      qc.invalidateQueries({ queryKey: trpc.finance.getPayroll.queryKey({ termId: undefined }) }),
+      qc.invalidateQueries({ queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }) }),
+    ]);
 
   const paid = bills.filter(
     (b) => b.billPaymentId && b.billPayment?.transaction?.status === "success"
@@ -60,8 +67,23 @@ function Content() {
   const pending = bills.filter(
     (b) => !b.billPaymentId || b.billPayment?.transaction?.status === "cancelled"
   );
+  const owing = bills.filter(
+    (b) =>
+      b.billPaymentId &&
+      b.billPayment?.transaction?.status === "success" &&
+      ((b.billPayment?.settlement?.owingAmount || 0) ||
+        (b.billPayment?.invoice?.amount || 0)) > 0
+  );
   const totalPending = pending.reduce((s, b) => s + (b.amount || 0), 0);
   const totalPaid = paid.reduce((s, b) => s + (b.billPayment?.amount || b.amount || 0), 0);
+  const totalOwing = owing.reduce(
+    (sum, bill) =>
+      sum +
+      (bill.billPayment?.settlement?.owingAmount ||
+        bill.billPayment?.invoice?.amount ||
+        0),
+    0
+  );
 
   const filtered = bills.filter((b) => {
     if (!search) return true;
@@ -83,6 +105,12 @@ function Content() {
           </p>
         </div>
         <div className="flex gap-3">
+          <Button asChild type="button" variant="outline" className="gap-2" size="sm">
+            <Link href="/finance/streams">
+              <Wallet className="h-4 w-4" />
+              Open Streams
+            </Link>
+          </Button>
           <Button type="button" variant="outline" className="gap-2" size="sm">
             <Download className="h-4 w-4" />
             Export Report
@@ -100,7 +128,7 @@ function Content() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-6 flex flex-col gap-2">
           <div className="flex justify-between items-start">
             <p className="text-muted-foreground text-sm font-medium">Total Disbursed</p>
@@ -132,6 +160,17 @@ function Content() {
           <div className="w-full bg-secondary h-2 rounded-full overflow-hidden mt-1">
             <div className="bg-primary h-full rounded-full transition-all duration-500" style={{ width: `${processedPct}%` }} />
           </div>
+        </Card>
+
+        <Card className="p-6 flex flex-col gap-2">
+          <div className="flex justify-between items-start">
+            <p className="text-muted-foreground text-sm font-medium">Outstanding Owing</p>
+            <div className="text-amber-600"><AlertTriangle className="h-5 w-5" /></div>
+          </div>
+          <p className="text-3xl font-bold">
+            <AnimatedNumber value={totalOwing} currency="NGN" />
+          </p>
+          <p className="text-amber-600 text-sm font-semibold">{owing.length} paid with owing</p>
         </Card>
       </div>
 
@@ -192,6 +231,12 @@ function Content() {
                     const isPaid =
                       !!bill.billPaymentId &&
                       bill.billPayment?.transaction?.status === "success";
+                    const owingAmount =
+                      bill.billPayment?.settlement?.owingAmount ||
+                      bill.billPayment?.invoice?.amount ||
+                      0;
+                    const fundedAmount = bill.billPayment?.transaction?.amount || 0;
+                    const hasOwing = isPaid && owingAmount > 0;
                     const isCancelled =
                       !!bill.billPaymentId &&
                       bill.billPayment?.transaction?.status === "cancelled";
@@ -214,10 +259,19 @@ function Content() {
                           <AnimatedNumber value={bill.amount || 0} currency="NGN" />
                         </td>
                         <td className="px-6 py-4 text-sm text-right font-extrabold">
-                          <AnimatedNumber value={bill.billPayment?.amount || bill.amount || 0} currency="NGN" />
+                          <AnimatedNumber value={fundedAmount || 0} currency="NGN" />
+                          {hasOwing && (
+                            <div className="text-xs font-medium text-amber-600">
+                              Owing: <AnimatedNumber value={owingAmount} currency="NGN" />
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-center">
-                          {isPaid ? (
+                          {hasOwing ? (
+                            <Badge className="bg-amber-100 text-amber-700 border-amber-200">
+                              Paid with owing
+                            </Badge>
+                          ) : isPaid ? (
                             <Badge className="bg-green-100 text-green-700 border-green-200">
                               <CheckCircle className="h-3 w-3 mr-1" /> Paid
                             </Badge>
@@ -248,6 +302,27 @@ function Content() {
                                   onClick={() => setPayingId(bill.id)}
                                 >
                                   Pay
+                                </Button>
+                              )
+                            )}
+                            {hasOwing && (
+                              repayingId === bill.id ? (
+                                <RepayOwingInlineForm
+                                  bill={bill}
+                                  onPaid={() => {
+                                    setRepayingId(null);
+                                    invalidate();
+                                  }}
+                                  onCancel={() => setRepayingId(null)}
+                                />
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs"
+                                  onClick={() => setRepayingId(bill.id)}
+                                >
+                                  Repay owing
                                 </Button>
                               )
                             )}
@@ -393,8 +468,63 @@ function PayInlineForm({
   );
 }
 
+function RepayOwingInlineForm({
+  bill,
+  onPaid,
+  onCancel,
+}: {
+  bill: any;
+  onPaid: () => void;
+  onCancel: () => void;
+}) {
+  const trpc = useTRPC();
+  const [amount, setAmount] = useState(
+    String(
+      bill.billPayment?.settlement?.owingAmount ||
+        bill.billPayment?.invoice?.amount ||
+        ""
+    )
+  );
+  const { mutate, isPending } = useMutation(
+    trpc.finance.repayBillOwing.mutationOptions({
+      meta: {
+        toastTitle: {
+          loading: "Repaying owing...",
+          success: "Owing repaid",
+          error: "Repayment failed",
+        },
+      },
+      onSuccess: onPaid,
+    })
+  );
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        type="number"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        className="h-8 w-28 text-sm"
+      />
+      <SubmitButton
+        isSubmitting={isPending}
+        disabled={!amount}
+        type="button"
+        size="sm"
+        onClick={() => mutate({ billId: bill.id, amount: parseFloat(amount) })}
+      >
+        Repay
+      </SubmitButton>
+      <Button variant="ghost" size="sm" type="button" onClick={onCancel}>
+        <X className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
 function CreateStaffBillForm({ onSuccess }: { onSuccess: () => void }) {
   const trpc = useTRPC();
+  const qc = useQueryClient();
   const [staffId, setStaffId] = useState("");
   const [title, setTitle] = useState("");
   const [streamId, setStreamId] = useState("");
@@ -441,7 +571,12 @@ function CreateStaffBillForm({ onSuccess }: { onSuccess: () => void }) {
           error: "Failed to create bill",
         },
       },
-      onSuccess,
+      onSuccess: async () => {
+        await qc.invalidateQueries({
+          queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),
+        });
+        onSuccess();
+      },
     })
   );
 

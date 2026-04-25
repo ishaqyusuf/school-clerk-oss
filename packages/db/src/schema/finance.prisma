@@ -63,6 +63,7 @@ model WalletTransactions {
     studentPayment           StudentPayment?
     studentWalletTransaction StudentWalletTransactions?
     billPayment              BillPayment?
+    settlementRepayment      BillSettlementRepayment?
 
     transactionDate DateTime?
 
@@ -159,6 +160,7 @@ model Bills {
 
     billPayment   BillPayment? @relation(fields: [billPaymentId], references: [id])
     billPaymentId String?
+    settlement    BillSettlement?
 
     billable   Billable? @relation(fields: [billableId], references: [id])
     billableId String?
@@ -209,4 +211,49 @@ model BillPayment {
     invoice   BillInvoice @relation(fields: [invoiceId], references: [id])
 
     bills Bills[]
+    settlement BillSettlement?
+}
+
+enum BillSettlementStatus {
+    paid
+    paid_with_owing
+    settled
+    cancelled
+}
+
+model BillSettlement {
+    id String @id @default(uuid())
+
+    requestedAmount Float
+    fundedAmount    Float
+    owingAmount     Float
+    status          BillSettlementStatus @default(paid)
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    billId String @unique
+    bill   Bills  @relation(fields: [billId], references: [id])
+
+    billPaymentId String      @unique
+    billPayment   BillPayment @relation(fields: [billPaymentId], references: [id])
+
+    repayments BillSettlementRepayment[]
+}
+
+model BillSettlementRepayment {
+    id String @id @default(uuid())
+
+    amount Float
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    settlementId String
+    settlement   BillSettlement @relation(fields: [settlementId], references: [id])
+
+    transactionId String             @unique
+    transaction   WalletTransactions @relation(fields: [transactionId], references: [id])
 }

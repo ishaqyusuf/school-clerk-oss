@@ -27,9 +27,14 @@ Describes entity relationships and cardinality constraints.
 - `Wallet` 1:N `WalletTransactions`; `WalletTransactions` links to `StudentPayment` and `BillPayment`
 - `Wallet` 1:N `FeeHistory` (via `walletId` — accounting stream for student fees)
 - `Wallet` 1:N `BillableHistory` (via `walletId` — accounting stream for staff/service billables)
+- `Wallet` 1:N `Bills` (via `walletId` — pending and paid payables assigned to a stream)
 - `FeeHistory` N:M `ClassRoomDepartment` via implicit join `_ClassRoomDepartmentToFeeHistory` (empty = all classes)
 - `BillableHistory` N:M `ClassRoomDepartment` via implicit join `_BillableHistoryToClassRoomDepartment` (empty = all classes)
 - `BillInvoice` 1:1 `BillPayment`; `Bills` may link to `BillInvoice`, `BillPayment`, `Billable`, `Wallet`
+- `BillSettlement` 1:1 `Bills` and 1:1 `BillPayment` (canonical settlement state for a payable)
+- `BillSettlement` 1:N `BillSettlementRepayment` (later funding applied against owing)
+- `BillSettlementRepayment` 1:1 `WalletTransactions` (cash transaction used to cover prior owing)
+- `BillPayment.amount` represents the issued payable amount, the linked `WalletTransactions.amount` represents the cash-funded portion, and `BillSettlement.owingAmount` now acts as the canonical outstanding owing balance.
 
 ## Integrity Rules
 - Most domain entities must be tenant-scoped through `schoolProfileId` or session/school ancestry.

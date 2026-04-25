@@ -83,3 +83,9 @@ Defines access control rules for each API surface.
   - `attendance.read`: Admin, Teacher, Registrar
   - `parents.read`: Admin, Registrar, Staff
 - If the assistant is disabled, analytics are disabled, feedback is disabled, or a capability is removed in `SchoolAssistantConfig`, the corresponding route/tool is blocked server-side regardless of client state.
+
+## Finance Route Enforcement Status
+- Finance tRPC routes now require an authenticated session before execution.
+- Finance read routes are enforced server-side for `Admin` and `Accountant` roles.
+- Finance write routes are enforced server-side for `Admin` and `Accountant` roles.
+- This enforcement now covers streams, payroll, service payments, student payment receipt/reversal, billables, bills, collections, and stream-funding operations.

@@ -76,6 +76,14 @@ function Content() {
 	const outgoingStreams = streams.filter((s) => s.defaultType !== "incoming");
 	const totalInflow = incomingStreams.reduce((s, w) => s + w.totalIn, 0);
 	const totalOutflow = outgoingStreams.reduce((s, w) => s + w.totalOut, 0);
+	const totalPendingBills = outgoingStreams.reduce(
+		(sum, stream) => sum + (stream.pendingBills || 0),
+		0,
+	);
+	const totalOwing = outgoingStreams.reduce(
+		(sum, stream) => sum + (stream.owingAmount || 0),
+		0,
+	);
 	const netPosition = totalInflow - totalOutflow;
 
 	const streamColors = [
@@ -252,15 +260,37 @@ function Content() {
 							<AlertCircle className="h-5 w-5" />
 						</div>
 						<Badge variant="outline" className="text-xs">
-							{streams.length} streams
+							<AnimatedNumber value={totalPendingBills} currency="NGN" />
 						</Badge>
 					</div>
 					<div className="mt-4">
 						<p className="text-sm font-medium text-muted-foreground">
-							Active Streams
+							Pending Bills
 						</p>
 						<h3 className="text-2xl font-bold tracking-tight mt-1">
-							{streams.length}
+							<AnimatedNumber value={totalPendingBills} currency="NGN" />
+						</h3>
+						<p className="mt-1 text-xs text-muted-foreground">
+							across {streams.length} active streams
+						</p>
+					</div>
+				</Card>
+
+				<Card className="p-6 flex flex-col justify-between">
+					<div className="flex justify-between items-start">
+						<div className="p-2 bg-amber-100 dark:bg-amber-900/20 rounded-lg text-amber-600 dark:text-amber-400">
+							<Wallet className="h-5 w-5" />
+						</div>
+						<Badge variant="outline" className="text-xs text-amber-700 border-amber-200 bg-amber-50">
+							Owing
+						</Badge>
+					</div>
+					<div className="mt-4">
+						<p className="text-sm font-medium text-muted-foreground">
+							Outstanding Owing
+						</p>
+						<h3 className="text-2xl font-bold tracking-tight mt-1">
+							<AnimatedNumber value={totalOwing} currency="NGN" />
 						</h3>
 					</div>
 				</Card>
@@ -386,6 +416,13 @@ function Content() {
 											balance
 										</span>
 									</div>
+									<div className="mt-1 text-xs text-muted-foreground">
+										Projected after bills:{" "}
+										<AnimatedNumber
+											value={stream.projectedBalance || stream.balance}
+											currency="NGN"
+										/>
+									</div>
 
 									<div className="mt-4 w-full bg-secondary rounded-full h-1.5 overflow-hidden">
 										<div
@@ -402,6 +439,29 @@ function Content() {
 										<span className="text-red-500">
 											Out:{" "}
 											<AnimatedNumber value={stream.totalOut} currency="NGN" />
+										</span>
+									</div>
+									<div className="mt-2 flex gap-4 text-xs text-muted-foreground">
+										<span>
+											Pending bills:{" "}
+											<AnimatedNumber
+												value={stream.pendingBills || 0}
+												currency="NGN"
+											/>
+										</span>
+										<span>
+											Owing:{" "}
+											<AnimatedNumber
+												value={stream.owingAmount || 0}
+												currency="NGN"
+											/>
+										</span>
+										<span>
+											Active billables:{" "}
+											<AnimatedNumber
+												value={stream.activeBillables || 0}
+												currency="NGN"
+											/>
 										</span>
 									</div>
 

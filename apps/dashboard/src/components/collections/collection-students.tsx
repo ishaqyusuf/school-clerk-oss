@@ -63,12 +63,17 @@ function CollectionStudentsContent({ classroomId, classroomName, onBack }: Props
   );
 
   const invalidate = () =>
-    qc.invalidateQueries({
-      queryKey: trpc.finance.getCollectionStudents.queryKey({
-        classroomId,
-        collectionStatus: statusFilter,
+    Promise.all([
+      qc.invalidateQueries({
+        queryKey: trpc.finance.getCollectionStudents.queryKey({
+          classroomId,
+          collectionStatus: statusFilter,
+        }),
       }),
-    });
+      qc.invalidateQueries({
+        queryKey: trpc.finance.getCollectionSummary.queryKey({}),
+      }),
+    ]);
 
   return (
     <div className="flex flex-col gap-4">

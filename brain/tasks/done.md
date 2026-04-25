@@ -112,3 +112,23 @@ Record of completed tasks and delivery outcomes.
 - Outcome: Added tenant-scoped persistent notifications with dashboard bell/page UI, registered finance email templates for every notification type, dispatched notifications for student/service/payroll payment receipt and cancellation events, and implemented cancellable service/payroll payments while preserving cancelled payment history for reporting and re-payment.
 - Related changes: `packages/db/src/schema/notification.prisma`, `packages/db/src/schema/account.prisma`, `packages/db/src/schema/school.prisma`, `packages/notifications/**`, `packages/email/**`, `apps/api/src/lib/notifications.ts`, `apps/api/src/trpc/routers/notifications.routes.ts`, `apps/api/src/trpc/routers/_app.ts`, `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/notifications/**`, `apps/dashboard/src/components/header.tsx`, `apps/dashboard/src/components/sidebar/links.ts`, `apps/dashboard/src/components/service-payments.tsx`, `apps/dashboard/src/components/payroll.tsx`, `apps/dashboard/src/components/students/student-transaction-overview.tsx`, `brain/api/endpoints.md`, `brain/api/contracts.md`, `brain/system/overview.md`, `brain/features/student-fees.md`, `brain/features/notifications.md`
 - Owner: Codex
+
+## Completed Task
+- ID: FIN-007
+- Title: Stream funding model for payables, owing, and stream-wide record visibility
+- Completed: 2026-04-25
+- Outcome: Reworked finance streams to separate available cash from pending payables and outstanding owing, updated payroll and service payments so stream-backed payouts can consume available funds and carry shortfalls as owing, added manual owing repayment against later stream funding, and expanded stream overview/detail pages to show wallet transactions, stream-linked bills, and active billables in one place.
+- Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/payroll.tsx`, `apps/dashboard/src/components/service-payments.tsx`, `apps/dashboard/src/components/accounting-streams.tsx`, `apps/dashboard/src/components/account-stream-detail.tsx`, `brain/features/stream-funding.md`, `brain/system/overview.md`, `brain/database/relationships.md`, `brain/api/contracts.md`, `brain/api/endpoints.md`
+
+- ID: FIN-008
+- Title: Finance authorization hardening and collections stabilization
+- Completed: 2026-04-25
+- Outcome: Added authenticated and role-enforced finance procedures for read/write routes, repaired the classroom collections summary and student drilldown queries against the current schema, fixed waived/partial/overdue collection filtering behavior, refreshed collection invalidation after waiver actions, and recorded student payment receipt/cancellation in the tenant activity log for better traceability.
+- Related changes: `apps/api/src/trpc/init.ts`, `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/collections/collection-students.tsx`, `brain/api/permissions.md`, `brain/api/contracts.md`, `brain/system/overview.md`, `brain/tasks/backlog.md`
+
+- ID: FIN-009
+- Title: Dedicated payable settlement and repayment model
+- Completed: 2026-04-25
+- Outcome: Introduced `BillSettlement` and `BillSettlementRepayment` as the canonical stream-payable settlement layer, migrated payment and repayment flows to write through settlement records, preserved backward compatibility for older invoice-backed payments with lazy settlement hydration, updated stream/payroll/service reads to prefer settlement-backed owing balances, and pushed the schema successfully to the configured database.
+- Related changes: `packages/db/src/schema/finance.prisma`, `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/payroll.tsx`, `apps/dashboard/src/components/service-payments.tsx`, `brain/features/stream-funding.md`, `brain/database/relationships.md`, `brain/api/contracts.md`, `brain/tasks/backlog.md`
+- Owner: Codex

@@ -49,9 +49,25 @@ Defines request/response contracts, validation rules, and versioning expectation
 
 - Route: `finance.getStreamDetails`
 - Request schema: `streamId`
-- Response schema: `{ id, name, type, createdAt, periodLabel, totalIn, totalOut, balance, transactions[] }` where each transaction includes `id`, `reference`, `partyName`, `studentClassroom`, `title`, `description`, `amount`, `type`, `direction`, `status`, and `transactionDate`
+- Response schema: `{ id, name, type, createdAt, periodLabel, totalIn, totalOut, balance, pendingBills, pendingBillsCount, owingAmount, activeBillables, activeBillablesCount, projectedBalance, transactions[], records[] }` where `records[]` combines cash transactions, stream bills, and active billables
 - Error cases: stream not found for current tenant, missing tenant context
-- Notes: used by `/finance/streams/[streamId]` to open a stream from the finance accounting grid into a statement-style detail page
+- Notes: used by `/finance/streams/[streamId]` to open a stream from the finance accounting grid into a statement-style detail page with both cashflow and payable visibility
+
+- Route: `finance.payStaffBill` / `finance.payServiceBill`
+- Request schema: `billId`, `amount`, optional `date`
+- Response schema: `{ success: true, amount, fundedAmount, owingAmount, status, paymentId }`
+- Error cases: bill not found, payment already active, missing tenant context
+- Notes: payment now uses available stream funds first and records uncovered balance in `BillSettlement` instead of failing all-or-nothing
+
+- Route: `finance.repayBillOwing`
+- Request schema: `billId`, `amount`, optional `date`
+- Response schema: `{ success: true, billId, repaidAmount, outstandingOwing, title }`
+- Error cases: payable has no outstanding owing, no available stream funds, bill not found for tenant
+- Notes: reduces outstanding owing after later stream funding without reopening the original payable, and records each repayment as a settlement repayment entry linked to a wallet transaction
+
+- Route family: `finance.*`
+- Auth schema: authenticated tenant session required; finance read/write access is role-gated server-side for `Admin` and `Accountant`
+- Notes: this now applies consistently to streams, bills, billables, payroll, service payments, student payment receipt/reversal, and collections routes
 
 - Route: `finance.cancelServiceBillPayment`
 - Request schema: `billId`

@@ -1,11 +1,12 @@
 import { z } from "@hono/zod-openapi";
 import { classroomDisplayName } from "@school-clerk/utils";
+import { TRPCError } from "@trpc/server";
 import {
 	dispatchSchoolNotification,
 	getCurrentUserContext,
 	tryGetCurrentUserContext,
 } from "../../lib/notifications";
-import { createTRPCRouter, publicProcedure } from "../init";
+import { authenticatedProcedure, createTRPCRouter } from "../init";
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,12 @@ const payBillSchema = z.object({
 	date: z.date().optional().nullable(),
 });
 
+const repayBillOwingSchema = z.object({
+	billId: z.string(),
+	amount: z.number().positive(),
+	date: z.date().optional().nullable(),
+});
+
 const cancelBillPaymentSchema = z.object({
 	billId: z.string(),
 });
@@ -62,12 +69,12 @@ const receivePaymentSchema = z.object({
 	allocations: z.array(receivePaymentLineSchema).min(1),
 });
 
-function getStudentName(student: {
+function getStudentName(student?: {
 	name?: string | null;
 	surname?: string | null;
 	otherName?: string | null;
-}) {
-	return [student.name, student.otherName, student.surname]
+} | null) {
+	return [student?.name, student?.otherName, student?.surname]
 		.filter(Boolean)
 		.join(" ");
 }
@@ -91,6 +98,67 @@ function formatNaira(amount: number) {
 		currency: "NGN",
 	}).format(amount);
 }
+
+function matchesCollectionStatus(
+	fee: {
+		billAmount: number;
+		pendingAmount: number;
+		collectionStatus?: string | null;
+		feeHistory?: { dueDate?: Date | null } | null;
+	},
+	status: "ALL" | "PENDING" | "PARTIAL" | "PAID" | "WAIVED" | "OVERDUE",
+) {
+	if (status === "ALL") return true;
+	if (status === "WAIVED") return fee.collectionStatus === "WAIVED";
+	if (status === "OVERDUE") {
+		return (
+			fee.pendingAmount > 0 &&
+			fee.collectionStatus !== "WAIVED" &&
+			!!fee.feeHistory?.dueDate &&
+			new Date(fee.feeHistory.dueDate) < new Date()
+		);
+	}
+	if (status === "PAID") {
+		return fee.pendingAmount <= 0 && fee.collectionStatus !== "WAIVED";
+	}
+	if (status === "PARTIAL") {
+		return fee.pendingAmount > 0 && fee.pendingAmount < fee.billAmount;
+	}
+	if (status === "PENDING") {
+		return fee.pendingAmount >= fee.billAmount && fee.billAmount > 0;
+	}
+	return true;
+}
+
+const FINANCE_READ_ROLES = new Set(["Admin", "Accountant"]);
+const FINANCE_WRITE_ROLES = new Set(["Admin", "Accountant"]);
+
+function requireFinanceRole(
+	role: string | null | undefined,
+	allowedRoles: Set<string>,
+	action: string,
+) {
+	if (!role || !allowedRoles.has(role)) {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message: `You do not have permission to ${action}.`,
+		});
+	}
+}
+
+const financeReadProcedure = authenticatedProcedure.use(({ ctx, next }) => {
+	requireFinanceRole(ctx.currentUser?.role, FINANCE_READ_ROLES, "view finance data");
+	return next();
+});
+
+const financeWriteProcedure = authenticatedProcedure.use(({ ctx, next }) => {
+	requireFinanceRole(
+		ctx.currentUser?.role,
+		FINANCE_WRITE_ROLES,
+		"change finance data",
+	);
+	return next();
+});
 
 async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 	const student = await ctx.db.students.findFirstOrThrow({
@@ -402,6 +470,190 @@ async function getOrCreateWallet(
 	});
 }
 
+async function getWalletAvailableBalance(
+	db: any,
+	{
+		walletId,
+	}: {
+		walletId: string;
+	},
+) {
+	const transactions = await db.walletTransactions.findMany({
+		where: {
+			walletId,
+			status: "success",
+			deletedAt: null,
+		},
+		select: {
+			amount: true,
+			type: true,
+		},
+	});
+
+	const incoming = transactions
+		.filter((transaction) => {
+			return transaction.type !== "transfer-out" && transaction.type !== "debit";
+		})
+		.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
+
+	const outgoing = transactions
+		.filter((transaction) => {
+			return transaction.type === "transfer-out" || transaction.type === "debit";
+		})
+		.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
+
+	return incoming - outgoing;
+}
+
+function billRepaymentSummary(billId: string) {
+	return `owing-repayment:bill:${billId}`;
+}
+
+function getOutstandingOwingFromPayment(
+	payment?: {
+		deletedAt?: Date | null;
+		invoice?: { amount?: number | null; deletedAt?: Date | null } | null;
+		settlement?: { owingAmount?: number | null; deletedAt?: Date | null } | null;
+	} | null,
+) {
+	if (!payment || payment.deletedAt) return 0;
+	if (payment.settlement && !payment.settlement.deletedAt) {
+		return payment.settlement.owingAmount || 0;
+	}
+	if (payment.invoice && !payment.invoice.deletedAt) {
+		return payment.invoice.amount || 0;
+	}
+	return 0;
+}
+
+function getSettlementStatus(
+	payment?: {
+		deletedAt?: Date | null;
+		settlement?: { status?: string | null; deletedAt?: Date | null } | null;
+		invoice?: { amount?: number | null; deletedAt?: Date | null } | null;
+		transaction?: { status?: string | null } | null;
+	} | null,
+) {
+	if (!payment || payment.deletedAt) return "pending";
+	if (payment.settlement && !payment.settlement.deletedAt) {
+		return payment.settlement.status || "paid";
+	}
+	const legacyOwing = getOutstandingOwingFromPayment(payment);
+	if (payment.transaction?.status === "success" && legacyOwing > 0) {
+		return "paid_with_owing";
+	}
+	if (payment.transaction?.status === "success") return "paid";
+	return "pending";
+}
+
+async function ensureBillSettlement(
+	db: any,
+	{
+		billId,
+		paymentId,
+		requestedAmount,
+		fundedAmount,
+		owingAmount,
+	}: {
+		billId: string;
+		paymentId: string;
+		requestedAmount: number;
+		fundedAmount: number;
+		owingAmount: number;
+	},
+) {
+	return db.billSettlement.upsert({
+		where: { billId },
+		update: {
+			requestedAmount,
+			fundedAmount,
+			owingAmount,
+			status: owingAmount > 0 ? "paid_with_owing" : "paid",
+			deletedAt: null,
+			billPaymentId: paymentId,
+		},
+		create: {
+			billId,
+			billPaymentId: paymentId,
+			requestedAmount,
+			fundedAmount,
+			owingAmount,
+			status: owingAmount > 0 ? "paid_with_owing" : "paid",
+		},
+	});
+}
+
+async function getOrCreateLegacySettlement(
+	db: any,
+	{
+		billId,
+	}: {
+		billId: string;
+	},
+) {
+	const bill = await db.bills.findFirstOrThrow({
+		where: {
+			id: billId,
+			deletedAt: null,
+			billPaymentId: { not: null },
+		},
+		select: {
+			id: true,
+			billPayment: {
+				select: {
+					id: true,
+					amount: true,
+					deletedAt: true,
+					transaction: {
+						select: {
+							amount: true,
+							status: true,
+						},
+					},
+					invoice: {
+						select: {
+							amount: true,
+							deletedAt: true,
+						},
+					},
+					settlement: {
+						select: {
+							id: true,
+							owingAmount: true,
+							fundedAmount: true,
+							requestedAmount: true,
+							status: true,
+							deletedAt: true,
+						},
+					},
+				},
+			},
+		},
+	});
+
+	if (bill.billPayment?.settlement && !bill.billPayment.settlement.deletedAt) {
+		return bill.billPayment.settlement;
+	}
+
+	const requestedAmount = bill.billPayment?.amount || 0;
+	const fundedAmount =
+		bill.billPayment?.transaction?.status === "success"
+			? bill.billPayment?.transaction?.amount || 0
+			: 0;
+	const owingAmount =
+		bill.billPayment?.invoice && !bill.billPayment.invoice.deletedAt
+			? bill.billPayment.invoice.amount || 0
+			: 0;
+
+	return ensureBillSettlement(db, {
+		billId: bill.id,
+		paymentId: bill.billPayment!.id,
+		requestedAmount,
+		fundedAmount,
+		owingAmount,
+	});
+}
+
 async function payBill(
 	db: any,
 	{
@@ -434,6 +686,7 @@ async function payBill(
 			],
 		},
 		select: {
+			id: true,
 			amount: true,
 			staffTermProfile: {
 				select: {
@@ -458,23 +711,29 @@ async function payBill(
 			})
 		).id;
 
+	const availableFunds = await getWalletAvailableBalance(db, { walletId });
+	const requestedAmount = amount;
+	const fundedAmount = Math.max(Math.min(availableFunds, requestedAmount), 0);
+	const owingAmount = Math.max(requestedAmount - fundedAmount, 0);
+
 	const transaction = await db.walletTransactions.create({
 		data: {
-			amount,
+			amount: fundedAmount,
 			walletId,
 			type: "debit",
 			status: "success",
+			summary: `Bill payment: ${bill.title || "General"}`,
 			transactionDate: date ?? new Date(),
 		},
 	});
 
 	const invoice = await db.billInvoice.create({
-		data: { amount },
+		data: { amount: owingAmount },
 	});
 
 	const payment = await db.billPayment.create({
 		data: {
-			amount,
+			amount: requestedAmount,
 			transactionId: transaction.id,
 			invoiceId: invoice.id,
 			bills: { connect: { id: billId } },
@@ -486,10 +745,21 @@ async function payBill(
 		data: { billPaymentId: payment.id },
 	});
 
+	await ensureBillSettlement(db, {
+		billId,
+		paymentId: payment.id,
+		requestedAmount,
+		fundedAmount,
+		owingAmount,
+	});
+
 	return {
-		amount,
+		amount: requestedAmount,
+		fundedAmount,
+		owingAmount,
 		paymentId: payment.id,
 		staffName: bill.staffTermProfile?.staffProfile?.name ?? null,
+		status: owingAmount > 0 ? "paid_with_owing" : "paid",
 		success: true,
 		title: bill.title,
 	};
@@ -531,6 +801,19 @@ async function cancelBillPayment(
 		select: {
 			id: true,
 			transactionId: true,
+			invoiceId: true,
+			settlement: {
+				select: {
+					id: true,
+					repayments: {
+						where: { deletedAt: null },
+						select: {
+							id: true,
+							transactionId: true,
+						},
+					},
+				},
+			},
 		},
 	});
 
@@ -539,10 +822,58 @@ async function cancelBillPayment(
 		data: { status: "cancelled" },
 	});
 
+	if (payment.settlement?.repayments?.length) {
+		await Promise.all(
+			payment.settlement.repayments.map((repayment: { transactionId: string }) =>
+				db.walletTransactions.update({
+					where: { id: repayment.transactionId },
+					data: { status: "cancelled" },
+				}),
+			),
+		);
+
+		await db.billSettlementRepayment.updateMany({
+			where: {
+				settlementId: payment.settlement.id,
+				deletedAt: null,
+			},
+			data: {
+				deletedAt: new Date(),
+			},
+		});
+	} else {
+		await db.walletTransactions.updateMany({
+			where: {
+				summary: {
+					startsWith: billRepaymentSummary(billId),
+				},
+				deletedAt: null,
+			},
+			data: {
+				status: "cancelled",
+			},
+		});
+	}
+
+	await db.billInvoice.update({
+		where: { id: payment.invoiceId },
+		data: { deletedAt: new Date() },
+	});
+
 	await db.billPayment.update({
 		where: { id: payment.id },
 		data: { deletedAt: new Date() },
 	});
+
+	if (payment.settlement?.id) {
+		await db.billSettlement.update({
+			where: { id: payment.settlement.id },
+			data: {
+				status: "cancelled",
+				deletedAt: new Date(),
+			},
+		});
+	}
 
 	return {
 		amount: bill.amount ?? 0,
@@ -557,7 +888,7 @@ async function cancelBillPayment(
 export const financeRouter = createTRPCRouter({
 	// ── Accounting Streams ──────────────────────────────────────────────────────
 
-	getStreams: publicProcedure
+	getStreams: financeReadProcedure
 		.input(streamFilterSchema)
 		.query(async ({ input, ctx }) => {
 			const termId = input.termId || ctx.profile.termId;
@@ -587,6 +918,30 @@ export const financeRouter = createTRPCRouter({
 						where: { status: "success", deletedAt: null },
 						select: { amount: true, type: true },
 					},
+					bills: {
+						where: { deletedAt: null },
+						select: {
+							amount: true,
+							billPayment: {
+								select: {
+									deletedAt: true,
+									invoice: { select: { amount: true } },
+									settlement: {
+										select: {
+											owingAmount: true,
+											status: true,
+											deletedAt: true,
+										},
+									},
+									transaction: { select: { status: true } },
+								},
+							},
+						},
+					},
+					billableHistories: {
+						where: { current: true, deletedAt: null },
+						select: { amount: true },
+					},
 				},
 				orderBy: { createdAt: "asc" },
 			});
@@ -598,6 +953,22 @@ export const financeRouter = createTRPCRouter({
 				const outgoing = w.studentTransactions
 					.filter((t) => t.type === "transfer-out" || t.type === "debit")
 					.reduce((s, t) => s + (t.amount || 0), 0);
+				const pendingBills = w.bills
+					.filter(
+						(bill) =>
+							bill.billPayment?.deletedAt ||
+							bill.billPayment?.transaction?.status !== "success",
+					)
+					.reduce((sum, bill) => sum + (bill.amount || 0), 0);
+				const owingAmount = w.bills.reduce(
+					(sum, bill) => sum + getOutstandingOwingFromPayment(bill.billPayment),
+					0,
+				);
+				const activeBillables = w.billableHistories.reduce(
+					(sum, billable) => sum + (billable.amount || 0),
+					0,
+				);
+				const balance = incoming - outgoing;
 				return {
 					id: w.id,
 					name: w.name,
@@ -605,12 +976,16 @@ export const financeRouter = createTRPCRouter({
 					defaultType: (w as any).defaultType ?? "incoming",
 					totalIn: incoming,
 					totalOut: outgoing,
-					balance: incoming - outgoing,
+					balance,
+					pendingBills,
+					owingAmount,
+					activeBillables,
+					projectedBalance: balance - pendingBills - owingAmount,
 				};
 			});
 		}),
 
-	getStreamDetails: publicProcedure
+	getStreamDetails: financeReadProcedure
 		.input(z.object({ streamId: z.string() }))
 		.query(async ({ input, ctx }) => {
 			const wallet = await ctx.db.wallet.findFirst({
@@ -691,6 +1066,53 @@ export const financeRouter = createTRPCRouter({
 						},
 						orderBy: [{ transactionDate: "desc" }, { createdAt: "desc" }],
 					},
+					bills: {
+						where: { deletedAt: null },
+						select: {
+							id: true,
+							amount: true,
+							title: true,
+							description: true,
+							createdAt: true,
+							billPayment: {
+								select: {
+									deletedAt: true,
+									id: true,
+									amount: true,
+									invoice: {
+										select: {
+											id: true,
+											amount: true,
+											deletedAt: true,
+										},
+									},
+									settlement: {
+										select: {
+											id: true,
+											owingAmount: true,
+											status: true,
+											deletedAt: true,
+										},
+									},
+									transaction: { select: { status: true } },
+								},
+							},
+						},
+					},
+					billableHistories: {
+						where: { current: true, deletedAt: null },
+						select: {
+							id: true,
+							amount: true,
+							createdAt: true,
+							billable: {
+								select: {
+									title: true,
+									description: true,
+								},
+							},
+						},
+					},
 				},
 			});
 
@@ -717,6 +1139,133 @@ export const financeRouter = createTRPCRouter({
 					);
 				})
 				.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
+			const pendingBills = wallet.bills
+				.filter(
+					(bill) =>
+						bill.billPayment?.deletedAt ||
+						bill.billPayment?.transaction?.status !== "success",
+				)
+				.reduce((sum, bill) => sum + (bill.amount || 0), 0);
+			const pendingBillsCount = wallet.bills.filter(
+				(bill) =>
+					bill.billPayment?.deletedAt ||
+					bill.billPayment?.transaction?.status !== "success",
+			).length;
+			const owingAmount = wallet.bills.reduce(
+				(sum, bill) => sum + getOutstandingOwingFromPayment(bill.billPayment),
+				0,
+			);
+			const activeBillables = wallet.billableHistories.reduce(
+				(sum, billable) => sum + (billable.amount || 0),
+				0,
+			);
+			const activeBillablesCount = wallet.billableHistories.length;
+			const balance = totalIn - totalOut;
+
+			const transactionRecords = wallet.studentTransactions.map((transaction) => {
+				const bill = transaction.billPayment?.bills[0] ?? null;
+				const student =
+					transaction.studentPayment?.studentTermForm?.student ?? null;
+				const studentClassroom = getDepartmentName(
+					transaction.studentPayment?.studentTermForm?.classroomDepartment,
+				);
+				const direction =
+					transaction.type === "transfer-out" || transaction.type === "debit"
+						? "out"
+						: "in";
+
+				return {
+					id: transaction.id,
+					amount: transaction.amount,
+					type: transaction.type,
+					status: transaction.status ?? "success",
+					direction,
+					summary: transaction.summary,
+					transactionDate:
+						transaction.transactionDate ?? transaction.createdAt ?? null,
+					createdAt: transaction.createdAt ?? null,
+					title:
+						transaction.summary ||
+						transaction.studentPayment?.studentFee?.feeTitle ||
+						bill?.title ||
+						(student ? "Student payment" : "Account transaction"),
+					description:
+						transaction.studentPayment?.studentFee?.description ||
+						transaction.studentPayment?.description ||
+						bill?.description ||
+						transaction.summary ||
+						null,
+					partyName: student
+						? getStudentName(student)
+						: transaction.type?.startsWith("transfer")
+							? "Internal transfer"
+							: bill?.title || "School account",
+					studentClassroom,
+					reference: transaction.id.slice(0, 8).toUpperCase(),
+					recordKind: "transaction",
+				};
+			});
+
+			const billRecords = wallet.bills.map((bill) => {
+				const outstandingOwing = getOutstandingOwingFromPayment(bill.billPayment);
+				const settlementStatus = getSettlementStatus(bill.billPayment);
+
+				return {
+					id: `bill-${bill.id}`,
+					amount: bill.amount,
+					type: "bill",
+					status:
+						settlementStatus === "paid_with_owing"
+							? "owing"
+							: bill.billPayment?.transaction?.status === "success"
+								? "success"
+								: "pending",
+					direction: "out" as const,
+					summary: bill.title,
+					transactionDate: bill.createdAt ?? null,
+					createdAt: bill.createdAt ?? null,
+					title: bill.title || "Bill",
+					description:
+						outstandingOwing > 0
+							? `${bill.description || "Paid with owing"} (owing ${formatNaira(
+									outstandingOwing,
+								)})`
+							: bill.description || "Pending payment queued on this stream",
+					partyName:
+						bill.billPayment?.transaction?.status === "success"
+							? "Paid payable"
+							: "Payable",
+					studentClassroom: null,
+					reference: bill.id.slice(0, 8).toUpperCase(),
+					recordKind: "bill",
+				};
+			});
+
+			const billableRecords = wallet.billableHistories.map((billable) => ({
+				id: `billable-${billable.id}`,
+				amount: billable.amount,
+				type: "billable",
+				status: "pending",
+				direction: "out" as const,
+				summary: billable.billable.title,
+				transactionDate: billable.createdAt ?? null,
+				createdAt: billable.createdAt ?? null,
+				title: billable.billable.title || "Billable",
+				description:
+					billable.billable.description || "Active billable assigned to this stream",
+				partyName: "Billable setup",
+				studentClassroom: null,
+				reference: billable.id.slice(0, 8).toUpperCase(),
+				recordKind: "billable",
+			}));
+
+			const records = [...transactionRecords, ...billRecords, ...billableRecords].sort(
+				(a, b) => {
+					const aTime = a.transactionDate ? new Date(a.transactionDate).getTime() : 0;
+					const bTime = b.transactionDate ? new Date(b.transactionDate).getTime() : 0;
+					return bTime - aTime;
+				},
+			);
 
 			return {
 				id: wallet.id,
@@ -726,57 +1275,23 @@ export const financeRouter = createTRPCRouter({
 				createdAt: wallet.createdAt,
 				totalIn,
 				totalOut,
-				balance: totalIn - totalOut,
+				balance,
+				pendingBills,
+				pendingBillsCount,
+				owingAmount,
+				activeBillables,
+				activeBillablesCount,
+				projectedBalance: balance - pendingBills - owingAmount,
 				periodLabel:
 					wallet.sessionTerm?.title && wallet.sessionTerm.session?.title
 						? `${wallet.sessionTerm.session.title} • ${wallet.sessionTerm.title}`
 						: null,
-				transactions: wallet.studentTransactions.map((transaction) => {
-					const bill = transaction.billPayment?.bills[0] ?? null;
-					const student =
-						transaction.studentPayment?.studentTermForm?.student ?? null;
-					const studentClassroom = getDepartmentName(
-						transaction.studentPayment?.studentTermForm?.classroomDepartment,
-					);
-					const direction =
-						transaction.type === "transfer-out" || transaction.type === "debit"
-							? "out"
-							: "in";
-
-					return {
-						id: transaction.id,
-						amount: transaction.amount,
-						type: transaction.type,
-						status: transaction.status ?? "success",
-						direction,
-						summary: transaction.summary,
-						transactionDate:
-							transaction.transactionDate ?? transaction.createdAt ?? null,
-						createdAt: transaction.createdAt ?? null,
-						title:
-							transaction.summary ||
-							transaction.studentPayment?.studentFee?.feeTitle ||
-							bill?.title ||
-							(student ? "Student payment" : "Account transaction"),
-						description:
-							transaction.studentPayment?.studentFee?.description ||
-							transaction.studentPayment?.description ||
-							bill?.description ||
-							transaction.summary ||
-							null,
-						partyName: student
-							? getStudentName(student)
-							: transaction.type?.startsWith("transfer")
-								? "Internal transfer"
-								: bill?.title || "School account",
-						studentClassroom,
-						reference: transaction.id.slice(0, 8).toUpperCase(),
-					};
-				}),
+				transactions: transactionRecords,
+				records,
 			};
 		}),
 
-	createStream: publicProcedure
+	createStream: financeWriteProcedure
 		.input(
 			z.object({
 				name: z.string().min(1),
@@ -806,7 +1321,7 @@ export const financeRouter = createTRPCRouter({
 			});
 		}),
 
-	transferFunds: publicProcedure
+	transferFunds: financeWriteProcedure
 		.input(
 			z.object({
 				fromWalletId: z.string(),
@@ -850,7 +1365,7 @@ export const financeRouter = createTRPCRouter({
 			);
 		}),
 
-	addFund: publicProcedure
+	addFund: financeWriteProcedure
 		.input(addFundSchema)
 		.mutation(async ({ input, ctx }) => {
 			await ctx.db.wallet.findFirstOrThrow({
@@ -886,7 +1401,7 @@ export const financeRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	withdrawFund: publicProcedure
+	withdrawFund: financeWriteProcedure
 		.input(withdrawFundSchema)
 		.mutation(async ({ input, ctx }) => {
 			await ctx.db.wallet.findFirstOrThrow({
@@ -913,7 +1428,7 @@ export const financeRouter = createTRPCRouter({
 
 	// ── Service Payments ────────────────────────────────────────────────────────
 
-	getServicePayments: publicProcedure
+	getServicePayments: financeReadProcedure
 		.input(z.object({ termId: z.string().optional().nullable() }))
 		.query(async ({ input, ctx }) => {
 			const termId = input.termId || ctx.profile.termId;
@@ -929,15 +1444,40 @@ export const financeRouter = createTRPCRouter({
 					title: true,
 					description: true,
 					amount: true,
+					walletId: true,
 					billPaymentId: true,
 					createdAt: true,
+					wallet: {
+						select: { id: true, name: true },
+					},
 					billable: { select: { title: true, type: true } },
 					billPayment: {
 						select: {
 							id: true,
+							deletedAt: true,
 							amount: true,
+							invoice: {
+								select: {
+									id: true,
+									amount: true,
+									deletedAt: true,
+								},
+							},
+							settlement: {
+								select: {
+									id: true,
+									owingAmount: true,
+									status: true,
+									deletedAt: true,
+								},
+							},
 							transaction: {
-								select: { id: true, transactionDate: true, status: true },
+								select: {
+									id: true,
+									amount: true,
+									transactionDate: true,
+									status: true,
+								},
 							},
 						},
 					},
@@ -946,26 +1486,55 @@ export const financeRouter = createTRPCRouter({
 			});
 		}),
 
-	createServicePayment: publicProcedure
+	createServicePayment: financeWriteProcedure
 		.input(
 			z.object({
 				title: z.string().min(1),
+				streamId: z.string().optional().nullable(),
+				streamName: z.string().optional().nullable(),
 				description: z.string().optional().nullable(),
 				amount: z.number().positive(),
 				date: z.date().optional().nullable(),
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
-			const wallet = await getOrCreateWallet(ctx.db, {
-				name: "Services",
-				type: "bill",
-				schoolId: ctx.profile.schoolId!,
-				termId: ctx.profile.termId!,
-			});
+			const existingWallet = input.streamId
+				? await ctx.db.wallet.findFirst({
+						where: {
+							id: input.streamId,
+							schoolProfileId: ctx.profile.schoolId,
+							sessionTermId: ctx.profile.termId,
+							deletedAt: null,
+						},
+						select: { id: true, name: true },
+					})
+				: null;
+			const streamName = input.streamName?.trim() || input.title.trim();
+			const wallet =
+				existingWallet ||
+				(await ctx.db.wallet.upsert({
+					where: {
+						name_schoolProfileId_sessionTermId_type: {
+							name: streamName,
+							schoolProfileId: ctx.profile.schoolId!,
+							sessionTermId: ctx.profile.termId!,
+							type: "bill",
+						},
+					},
+					update: { defaultType: "outgoing" } as any,
+					create: {
+						name: streamName,
+						type: "bill",
+						defaultType: "outgoing",
+						schoolProfileId: ctx.profile.schoolId!,
+						sessionTermId: ctx.profile.termId!,
+					} as any,
+					select: { id: true, name: true },
+				}));
 
 			return ctx.db.bills.create({
 				data: {
-					title: input.title,
+					title: streamName,
 					description: input.description,
 					amount: input.amount,
 					schoolProfileId: ctx.profile.schoolId!,
@@ -977,7 +1546,7 @@ export const financeRouter = createTRPCRouter({
 			});
 		}),
 
-	payServiceBill: publicProcedure
+	payServiceBill: financeWriteProcedure
 		.input(payBillSchema)
 		.mutation(async ({ input, ctx }) => {
 			const current = await tryGetCurrentUserContext(ctx);
@@ -1008,7 +1577,120 @@ export const financeRouter = createTRPCRouter({
 			return result;
 		}),
 
-	cancelServiceBillPayment: publicProcedure
+	repayBillOwing: financeWriteProcedure
+		.input(repayBillOwingSchema)
+		.mutation(async ({ input, ctx }) => {
+			return ctx.db.$transaction(async (tx) => {
+				const bill = await tx.bills.findFirstOrThrow({
+					where: {
+						id: input.billId,
+						schoolProfileId: ctx.profile.schoolId,
+						deletedAt: null,
+						billPaymentId: { not: null },
+					},
+					select: {
+						id: true,
+						title: true,
+						walletId: true,
+						billPayment: {
+							select: {
+								id: true,
+								amount: true,
+								transaction: {
+									select: {
+										amount: true,
+										status: true,
+									},
+								},
+								invoice: { select: { id: true, amount: true, deletedAt: true } },
+								settlement: {
+									select: {
+										id: true,
+										owingAmount: true,
+										fundedAmount: true,
+										requestedAmount: true,
+										status: true,
+										deletedAt: true,
+									},
+								},
+							},
+						},
+					},
+				});
+
+				if (!bill.walletId) {
+					throw new Error("This payable is not linked to a stream.");
+				}
+
+				const settlement =
+					bill.billPayment?.settlement && !bill.billPayment.settlement.deletedAt
+						? bill.billPayment.settlement
+						: await getOrCreateLegacySettlement(tx, {
+								billId: bill.id,
+							});
+
+				const outstanding = settlement?.owingAmount ?? 0;
+				if (outstanding <= 0) {
+					throw new Error("This payable has no outstanding owing.");
+				}
+
+				const availableFunds = await getWalletAvailableBalance(tx, {
+					walletId: bill.walletId,
+				});
+				const repayAmount = Math.min(input.amount, outstanding, availableFunds);
+
+				if (repayAmount <= 0) {
+					throw new Error("No available funds to repay owing on this stream.");
+				}
+
+				const repaymentTransaction = await tx.walletTransactions.create({
+					data: {
+						amount: repayAmount,
+						walletId: bill.walletId,
+						type: "debit",
+						status: "success",
+						summary: `${billRepaymentSummary(bill.id)}:${bill.title || "Payable"}`,
+						transactionDate: input.date ?? new Date(),
+					},
+				});
+
+				await tx.billSettlement.update({
+					where: { id: settlement.id },
+					data: {
+						owingAmount: Math.max(outstanding - repayAmount, 0),
+						status:
+							outstanding - repayAmount <= 0 ? "settled" : "paid_with_owing",
+					},
+				});
+
+				await tx.billSettlementRepayment.create({
+					data: {
+						settlementId: settlement.id,
+						transactionId: repaymentTransaction.id,
+						amount: repayAmount,
+					},
+				});
+
+				if (bill.billPayment?.invoice?.id && !bill.billPayment.invoice.deletedAt) {
+					await tx.billInvoice.update({
+						where: { id: bill.billPayment.invoice.id },
+						data: {
+							amount: Math.max(outstanding - repayAmount, 0),
+						},
+					});
+				}
+
+				return {
+					billId: bill.id,
+					repaidAmount: repayAmount,
+					outstandingOwing: Math.max(outstanding - repayAmount, 0),
+					title: bill.title,
+					success: true,
+				};
+			});
+		}),
+
+	cancelServiceBillPayment: financeWriteProcedure
 		.input(cancelBillPaymentSchema)
 		.mutation(async ({ input, ctx }) => {
 			const current = await tryGetCurrentUserContext(ctx);
@@ -1037,7 +1719,7 @@ export const financeRouter = createTRPCRouter({
 
 	// ── Payroll ─────────────────────────────────────────────────────────────────
 
-	getPayroll: publicProcedure
+	getPayroll: financeReadProcedure
 		.input(z.object({ termId: z.string().optional().nullable() }))
 		.query(async ({ input, ctx }) => {
 			const termId = input.termId || ctx.profile.termId;
@@ -1053,8 +1735,12 @@ export const financeRouter = createTRPCRouter({
 					title: true,
 					description: true,
 					amount: true,
+					walletId: true,
 					billPaymentId: true,
 					createdAt: true,
+					wallet: {
+						select: { id: true, name: true },
+					},
 					staffTermProfile: {
 						select: {
 							id: true,
@@ -1066,9 +1752,30 @@ export const financeRouter = createTRPCRouter({
 					billPayment: {
 						select: {
 							id: true,
+							deletedAt: true,
 							amount: true,
+							invoice: {
+								select: {
+									id: true,
+									amount: true,
+									deletedAt: true,
+								},
+							},
+							settlement: {
+								select: {
+									id: true,
+									owingAmount: true,
+									status: true,
+									deletedAt: true,
+								},
+							},
 							transaction: {
-								select: { id: true, transactionDate: true, status: true },
+								select: {
+									id: true,
+									amount: true,
+									transactionDate: true,
+									status: true,
+								},
 							},
 						},
 					},
@@ -1084,7 +1791,7 @@ export const financeRouter = createTRPCRouter({
 			});
 		}),
 
-	createStaffBill: publicProcedure
+	createStaffBill: financeWriteProcedure
 		.input(
 			z.object({
 				staffProfileId: z.string(),
@@ -1170,7 +1877,7 @@ export const financeRouter = createTRPCRouter({
 			});
 		}),
 
-	payStaffBill: publicProcedure
+	payStaffBill: financeWriteProcedure
 		.input(payBillSchema)
 		.mutation(async ({ input, ctx }) => {
 			const current = await tryGetCurrentUserContext(ctx);
@@ -1201,7 +1908,7 @@ export const financeRouter = createTRPCRouter({
 			return result;
 		}),
 
-	cancelStaffBillPayment: publicProcedure
+	cancelStaffBillPayment: financeWriteProcedure
 		.input(cancelBillPaymentSchema)
 		.mutation(async ({ input, ctx }) => {
 			const current = await tryGetCurrentUserContext(ctx);
@@ -1230,7 +1937,7 @@ export const financeRouter = createTRPCRouter({
 
 	// ── Staff list (for payroll form) ───────────────────────────────────────────
 
-	getStaff: publicProcedure.query(async ({ ctx }) => {
+	getStaff: financeReadProcedure.query(async ({ ctx }) => {
 		return ctx.db.staffProfile.findMany({
 			where: { schoolProfileId: ctx.profile.schoolId, deletedAt: null },
 			select: { id: true, name: true, title: true },
@@ -1240,7 +1947,7 @@ export const financeRouter = createTRPCRouter({
 
 	// ── Student Payments ────────────────────────────────────────────────────────
 
-	searchStudentsForPayment: publicProcedure
+	searchStudentsForPayment: financeReadProcedure
 		.input(z.object({ query: z.string().optional().nullable() }).optional())
 		.query(async ({ input, ctx }) => {
 			const query = input?.query?.trim();
@@ -1333,13 +2040,13 @@ export const financeRouter = createTRPCRouter({
 			);
 		}),
 
-	getReceivePaymentData: publicProcedure
+	getReceivePaymentData: financeReadProcedure
 		.input(z.object({ studentId: z.string() }))
 		.query(async ({ input, ctx }) => {
 			return getStudentReceivePaymentData(ctx, input.studentId);
 		}),
 
-	getStudentPayments: publicProcedure
+	getStudentPayments: financeReadProcedure
 		.input(
 			z.object({
 				studentId: z.string().optional().nullable(),
@@ -1379,7 +2086,7 @@ export const financeRouter = createTRPCRouter({
 			});
 		}),
 
-	reverseStudentPayment: publicProcedure
+	reverseStudentPayment: financeWriteProcedure
 		.input(
 			z.object({
 				studentPaymentId: z.string(),
@@ -1420,7 +2127,7 @@ export const financeRouter = createTRPCRouter({
 				}
 				return {
 					amount: payment.amount ?? 0,
-					studentName: getStudentName(payment.studentTermForm.student),
+						studentName: getStudentName(payment.studentTermForm.student ?? undefined),
 					success: true,
 				};
 			});
@@ -1439,10 +2146,28 @@ export const financeRouter = createTRPCRouter({
 				});
 			}
 
+			await ctx.db.activity.create({
+				data: {
+					userId: ctx.currentUser!.id,
+					author: ctx.currentUser!.name,
+					schoolProfileId: ctx.profile.schoolId,
+					source: "user",
+					type: "student_payment_cancelled",
+					title: "Student payment cancelled",
+					description: `${result.studentName} payment cancellation recorded`,
+					meta: {
+						amount: result.amount,
+						studentName: result.studentName,
+						studentPaymentId: input.studentPaymentId,
+						transactionId: input.transactionId,
+					},
+				},
+			});
+
 			return result;
 		}),
 
-	receiveStudentPayment: publicProcedure
+	receiveStudentPayment: financeWriteProcedure
 		.input(receivePaymentSchema)
 		.mutation(async ({ input, ctx }) => {
 			const totalAllocated = input.allocations.reduce(
@@ -1790,7 +2515,7 @@ export const financeRouter = createTRPCRouter({
 					return {
 						success: true,
 						count: createdPayments.length,
-						studentName: getStudentName(studentTermForm.student),
+							studentName: getStudentName(studentTermForm.student ?? undefined),
 						totalAllocated,
 						paymentIds: createdPayments.map((payment) => payment.id),
 					};
@@ -1816,12 +2541,31 @@ export const financeRouter = createTRPCRouter({
 				});
 			}
 
+			await ctx.db.activity.create({
+				data: {
+					userId: ctx.currentUser!.id,
+					author: ctx.currentUser!.name,
+					schoolProfileId: ctx.profile.schoolId,
+					source: "user",
+					type: "student_payment_received",
+					title: "Student payment received",
+					description: `${result.studentName} payment recorded`,
+					meta: {
+						amount: result.totalAllocated,
+						studentName: result.studentName,
+						paymentIds: result.paymentIds,
+						paymentMethod: input.paymentMethod,
+						reference: input.reference,
+					},
+				},
+			});
+
 			return result;
 		}),
 
 	// ── Billables ───────────────────────────────────────────────────────────────
 
-	getBillables: publicProcedure
+	getBillables: financeReadProcedure
 		.input(z.object({ termId: z.string().optional().nullable() }).optional())
 		.query(async ({ input, ctx }) => {
 			const termId = input?.termId || ctx.profile.termId;
@@ -1873,7 +2617,7 @@ export const financeRouter = createTRPCRouter({
 			}));
 		}),
 
-	createBillable: publicProcedure
+	createBillable: financeWriteProcedure
 		.input(
 			z.object({
 				billableId: z.string().optional().nullable(),
@@ -2064,7 +2808,7 @@ export const financeRouter = createTRPCRouter({
 			};
 		}),
 
-	deleteBillable: publicProcedure
+	deleteBillable: financeWriteProcedure
 		.input(
 			z.object({
 				billableId: z.string(),
@@ -2107,7 +2851,7 @@ export const financeRouter = createTRPCRouter({
 
 	// ── Bills ────────────────────────────────────────────────────────────────────
 
-	getBills: publicProcedure
+	getBills: financeReadProcedure
 		.input(z.object({ termId: z.string().optional().nullable() }).optional())
 		.query(async ({ input, ctx }) => {
 			const termId = input?.termId || ctx.profile.termId;
@@ -2143,7 +2887,7 @@ export const financeRouter = createTRPCRouter({
 			}));
 		}),
 
-	createBill: publicProcedure
+	createBill: financeWriteProcedure
 		.input(
 			z.object({
 				title: z.string().min(1),
@@ -2208,7 +2952,7 @@ export const financeRouter = createTRPCRouter({
 
 	// ── Transactions ─────────────────────────────────────────────────────────────
 
-	getTransactions: publicProcedure
+	getTransactions: financeReadProcedure
 		.input(z.object({ termId: z.string().optional().nullable() }).optional())
 		.query(async ({ input, ctx }) => {
 			const termId = input?.termId || ctx.profile.termId;
@@ -2277,7 +3021,7 @@ export const financeRouter = createTRPCRouter({
 
 	// ── Student Purchase (stationary, uniform, etc.) ────────────────────────────
 
-	getStudentPurchaseSuggestions: publicProcedure
+	getStudentPurchaseSuggestions: financeReadProcedure
 		.input(
 			z
 				.object({
@@ -2325,7 +3069,7 @@ export const financeRouter = createTRPCRouter({
 			}));
 		}),
 
-	createStudentPurchase: publicProcedure
+	createStudentPurchase: financeWriteProcedure
 		.input(
 			z.object({
 				studentId: z.string(),
@@ -2425,7 +3169,7 @@ export const financeRouter = createTRPCRouter({
 
 	// ── Collection Management ───────────────────────────────────────────────────
 
-	getCollectionSummary: publicProcedure
+	getCollectionSummary: financeReadProcedure
 		.input(
 			z.object({
 				termId: z.string().optional().nullable(),
@@ -2440,7 +3184,7 @@ export const financeRouter = createTRPCRouter({
 				where: {
 					schoolProfileId: ctx.profile.schoolId,
 					deletedAt: null,
-					termForms: {
+					studentTermForms: {
 						some: { sessionTermId: termId!, deletedAt: null },
 					},
 				},
@@ -2448,7 +3192,7 @@ export const financeRouter = createTRPCRouter({
 					id: true,
 					departmentName: true,
 					classRoom: { select: { name: true } },
-					termForms: {
+					studentTermForms: {
 						where: { sessionTermId: termId!, deletedAt: null },
 						select: {
 							id: true,
@@ -2475,8 +3219,8 @@ export const financeRouter = createTRPCRouter({
 			});
 
 			return departments.map((dept) => {
-				const allFees = dept.termForms.flatMap((tf) => tf.studentFees);
-				const studentCount = dept.termForms.length;
+				const allFees = dept.studentTermForms.flatMap((tf) => tf.studentFees);
+				const studentCount = dept.studentTermForms.length;
 				const totalBilled = allFees.reduce((s, f) => s + f.billAmount, 0);
 				const totalPaid = allFees.reduce(
 					(s, f) => s + Math.max(f.billAmount - f.pendingAmount, 0),
@@ -2507,7 +3251,7 @@ export const financeRouter = createTRPCRouter({
 			});
 		}),
 
-	getCollectionStudents: publicProcedure
+	getCollectionStudents: financeReadProcedure
 		.input(
 			z.object({
 				classroomId: z.string(),
@@ -2561,58 +3305,83 @@ export const financeRouter = createTRPCRouter({
 				orderBy: { student: { surname: "asc" } },
 			});
 
-			const result = termForms.map((tf) => {
-				const totalBilled = tf.studentFees.reduce(
-					(s, f) => s + f.billAmount,
-					0,
-				);
-				const totalPaid = tf.studentFees.reduce(
-					(s, f) => s + Math.max(f.billAmount - f.pendingAmount, 0),
-					0,
-				);
-				const totalPending = tf.studentFees.reduce(
-					(s, f) => s + f.pendingAmount,
-					0,
-				);
+			const result = termForms
+				.map((tf) => {
+					const matchingFees =
+						input.collectionStatus === "ALL"
+							? tf.studentFees
+							: tf.studentFees.filter((fee) =>
+									matchesCollectionStatus(
+										fee,
+										input.collectionStatus,
+									),
+								);
 
-				const computedStatus =
-					totalBilled === 0
-						? "NO_FEES"
-						: totalPending <= 0
-							? "PAID"
-							: totalPaid > 0
-								? "PARTIAL"
-								: "PENDING";
+					const totalBilled = matchingFees.reduce((s, f) => s + f.billAmount, 0);
+					const totalPaid = matchingFees.reduce(
+						(s, f) => s + Math.max(f.billAmount - f.pendingAmount, 0),
+						0,
+					);
+					const totalPending = matchingFees.reduce(
+						(s, f) => s + f.pendingAmount,
+						0,
+					);
+					let computedStatus = "NO_FEES";
+					if (matchingFees.length > 0) {
+						if (
+							matchingFees.every((fee) => fee.collectionStatus === "WAIVED")
+						) {
+							computedStatus = "WAIVED";
+							} else if (
+								matchingFees.every(
+									(fee) =>
+										fee.pendingAmount <= 0 && fee.collectionStatus !== "WAIVED",
+								)
+							) {
+								computedStatus = "PAID";
+							} else if (
+							matchingFees.some((fee) =>
+								matchesCollectionStatus(fee, "OVERDUE"),
+							)
+						) {
+							computedStatus = "OVERDUE";
+							} else if (
+								matchingFees.some(
+									(fee) =>
+										fee.pendingAmount > 0 && fee.pendingAmount < fee.billAmount,
+								)
+							) {
+							computedStatus = "PARTIAL";
+						} else {
+							computedStatus = "PENDING";
+						}
+					}
 
-				return {
-					studentId: tf.student?.id,
-					studentTermFormId: tf.id,
-					studentName: getStudentName(tf.student as any),
-					totalBilled,
-					totalPaid,
-					totalPending,
-					collectionStatus: computedStatus,
-					fees: tf.studentFees.map((f) => ({
-						id: f.id,
-						title: f.feeTitle || f.feeHistory?.fee?.title || "Fee",
-						billAmount: f.billAmount,
-						pendingAmount: f.pendingAmount,
-						paidAmount: Math.max(f.billAmount - f.pendingAmount, 0),
-						collectionStatus: f.collectionStatus,
-						dueDate: f.feeHistory?.dueDate ?? null,
-					})),
-				};
-			});
+					return {
+						studentId: tf.student?.id,
+						studentTermFormId: tf.id,
+						studentName: getStudentName(tf.student as any),
+						totalBilled,
+						totalPaid,
+						totalPending,
+						collectionStatus: computedStatus,
+						fees: matchingFees.map((f) => ({
+							id: f.id,
+							title: f.feeTitle || f.feeHistory?.fee?.title || "Fee",
+							billAmount: f.billAmount,
+							pendingAmount: f.pendingAmount,
+							paidAmount: Math.max(f.billAmount - f.pendingAmount, 0),
+							collectionStatus: f.collectionStatus,
+							dueDate: f.feeHistory?.dueDate ?? null,
+						})),
+					};
+				})
+				.filter((row) => row.fees.length > 0 || input.collectionStatus === "ALL");
 
-			if (input.collectionStatus !== "ALL") {
-				return result.filter(
-					(r) => r.collectionStatus === input.collectionStatus,
-				);
-			}
 			return result;
 		}),
 
-	waiveFee: publicProcedure
+	waiveFee: financeWriteProcedure
 		.input(
 			z.object({
 				studentFeeId: z.string(),
@@ -2645,7 +3414,7 @@ export const financeRouter = createTRPCRouter({
 								studentFeeId: fee.id,
 								amount: fee.pendingAmount,
 								reason: input.reason,
-								approvedBy: ctx.profile.userId,
+								approvedBy: ctx.currentUser!.id,
 							} as any,
 						});
 					}
@@ -2656,7 +3425,7 @@ export const financeRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	applyDiscount: publicProcedure
+	applyDiscount: financeWriteProcedure
 		.input(
 			z.object({
 				studentFeeId: z.string(),
@@ -2703,7 +3472,7 @@ export const financeRouter = createTRPCRouter({
 							studentFeeId: fee.id,
 							amount: input.amount,
 							reason: input.reason,
-							approvedBy: ctx.profile.userId,
+							approvedBy: ctx.currentUser!.id,
 						} as any,
 					});
 				},

@@ -51,6 +51,7 @@ Catalog of API routes and responsibilities.
 - `trpc.finance.getStreamDetails`
 - `trpc.finance.transferFunds`
 - `trpc.finance.getServicePayments`
+- `trpc.finance.repayBillOwing`
 - `trpc.finance.payServiceBill`
 - `trpc.finance.cancelServiceBillPayment`
 - `trpc.finance.getPayroll`

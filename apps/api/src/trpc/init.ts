@@ -16,6 +16,13 @@ export type TRPCContext = {
     authSessionId?;
     domain?;
   };
+  currentUser?: {
+    id: string;
+    email: string;
+    name: string;
+    role: string | null;
+    saasAccountId: string | null;
+  };
   //   geo: ReturnType<typeof getGeoContext>;
   //   teamId?: string;
 };
@@ -60,6 +67,49 @@ const withPrimaryDbMiddleware = t.middleware(async (opts) => {
     next: opts.next,
   });
 });
+
+const requireAuthMiddleware = t.middleware(async (opts) => {
+  const authSessionId = opts.ctx.profile.authSessionId;
+
+  if (!authSessionId) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "You must be signed in to continue.",
+    });
+  }
+
+  const session = await opts.ctx.db.session.findFirst({
+    where: {
+      id: authSessionId,
+      deletedAt: null,
+    },
+    select: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          saasAccountId: true,
+        },
+      },
+    },
+  });
+
+  if (!session?.user) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Your session is no longer valid.",
+    });
+  }
+
+  return opts.next({
+    ctx: {
+      ...opts.ctx,
+      currentUser: session.user,
+    },
+  });
+});
 // const withTeamPermissionMiddleware = t.middleware(async (opts) => {
 //   return withTeamPermission({
 //     ctx: opts.ctx,
@@ -68,3 +118,4 @@ const withPrimaryDbMiddleware = t.middleware(async (opts) => {
 // });
 
 export const publicProcedure = t.procedure.use(withPrimaryDbMiddleware);
+export const authenticatedProcedure = publicProcedure.use(requireAuthMiddleware);

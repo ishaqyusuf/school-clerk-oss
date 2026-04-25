@@ -260,6 +260,8 @@ function StreamWithdrawForm({
 
 const statusTone = {
 	success: "bg-green-100 text-green-700 border-green-200",
+	pending: "bg-blue-100 text-blue-700 border-blue-200",
+	owing: "bg-amber-100 text-amber-700 border-amber-200",
 	draft: "bg-slate-100 text-slate-700 border-slate-200",
 	failed: "bg-rose-100 text-rose-700 border-rose-200",
 	cancelled: "bg-amber-100 text-amber-700 border-amber-200",
@@ -297,8 +299,8 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 			queryKey: trpc.finance.getStreamDetails.queryKey({ streamId }),
 		});
 
-	const filteredTransactions = useMemo(() => {
-		return data.transactions.filter((transaction) => {
+	const filteredRecords = useMemo(() => {
+		return data.records.filter((transaction) => {
 			const matchesSearch = search
 				? [
 						transaction.reference,
@@ -317,16 +319,8 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 
 			return matchesSearch && matchesStatus;
 		});
-	}, [data.transactions, search, statusFilter]);
+	}, [data.records, search, statusFilter]);
 
-	const successfulTransactions = data.transactions.filter(
-		(transaction) => transaction.status === "success",
-	);
-	const uniquePayers = new Set(
-		data.transactions
-			.map((transaction) => transaction.partyName)
-			.filter((name) => name && name !== "Internal transfer" && name !== "School account"),
-	).size;
 	const lastTransaction = data.transactions[0] ?? null;
 
 	return (
@@ -444,6 +438,23 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 				<Card className="p-5">
 					<div className="flex items-center justify-between">
 						<p className="text-sm font-medium text-muted-foreground">
+							Projected Balance
+						</p>
+						<div className="rounded-lg bg-amber-100 p-2 text-amber-600">
+							<Wallet className="h-5 w-5" />
+						</div>
+					</div>
+					<div className="mt-3 text-2xl font-bold">
+						<AnimatedNumber value={data.projectedBalance} currency="NGN" />
+					</div>
+					<p className="mt-1 text-xs text-muted-foreground">
+						Available balance after open bills
+					</p>
+				</Card>
+
+				<Card className="p-5">
+					<div className="flex items-center justify-between">
+						<p className="text-sm font-medium text-muted-foreground">
 							Total Inflow
 						</p>
 						<div className="rounded-lg bg-emerald-100 p-2 text-emerald-600">
@@ -478,20 +489,62 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 				<Card className="p-5">
 					<div className="flex items-center justify-between">
 						<p className="text-sm font-medium text-muted-foreground">
-							Activity Snapshot
+							Open Bills
 						</p>
 						<div className="rounded-lg bg-amber-100 p-2 text-amber-600">
-							<CheckCircle2 className="h-5 w-5" />
+							<ReceiptText className="h-5 w-5" />
 						</div>
 					</div>
-					<div className="mt-3 text-2xl font-bold">{successfulTransactions.length}</div>
+					<div className="mt-3 text-2xl font-bold">
+						<AnimatedNumber value={data.pendingBills} currency="NGN" />
+					</div>
 					<p className="mt-1 text-xs text-muted-foreground">
-						{uniquePayers} payers, latest{" "}
+						{data.pendingBillsCount} unpaid bills, latest{" "}
 						{lastTransaction?.transactionDate
 							? format(new Date(lastTransaction.transactionDate), "dd MMM yyyy")
 							: "activity pending"}
 					</p>
 				</Card>
+			</div>
+
+			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+			<Card className="p-5">
+				<div className="flex items-center justify-between">
+					<div>
+						<p className="text-sm font-medium text-muted-foreground">
+							Active Billables
+						</p>
+						<div className="mt-2 text-2xl font-bold">
+							<AnimatedNumber value={data.activeBillables} currency="NGN" />
+						</div>
+					</div>
+					<div className="rounded-lg bg-sky-100 p-2 text-sky-600">
+						<CheckCircle2 className="h-5 w-5" />
+					</div>
+				</div>
+				<p className="mt-1 text-xs text-muted-foreground">
+					{data.activeBillablesCount} current billables assigned to this stream
+				</p>
+			</Card>
+
+			<Card className="p-5">
+				<div className="flex items-center justify-between">
+					<div>
+						<p className="text-sm font-medium text-muted-foreground">
+							Outstanding Owing
+						</p>
+						<div className="mt-2 text-2xl font-bold">
+							<AnimatedNumber value={data.owingAmount} currency="NGN" />
+						</div>
+					</div>
+					<div className="rounded-lg bg-amber-100 p-2 text-amber-600">
+						<ReceiptText className="h-5 w-5" />
+					</div>
+				</div>
+				<p className="mt-1 text-xs text-muted-foreground">
+					Amounts already paid out but not yet covered by stream funds
+				</p>
+			</Card>
 			</div>
 
 			<Card className="p-4">
@@ -511,6 +564,8 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 						onChange={(event) => setStatusFilter(event.target.value)}
 					>
 						<option value="all">All statuses</option>
+						<option value="pending">Pending</option>
+						<option value="owing">Owing</option>
 						<option value="success">Success</option>
 						<option value="draft">Draft</option>
 						<option value="failed">Failed</option>
@@ -534,7 +589,7 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-border">
-							{filteredTransactions.map((transaction) => (
+							{filteredRecords.map((transaction) => (
 								<tr
 									key={transaction.id}
 									className="transition-colors hover:bg-muted/20"
@@ -608,13 +663,13 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 									</td>
 								</tr>
 							))}
-							{filteredTransactions.length === 0 ? (
+							{filteredRecords.length === 0 ? (
 								<tr>
 									<td
 										colSpan={7}
 										className="px-6 py-12 text-center text-sm text-muted-foreground"
 									>
-										No transactions match your current filters.
+										No stream records match your current filters.
 									</td>
 								</tr>
 							) : null}
@@ -623,8 +678,8 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 				</div>
 				<div className="flex items-center justify-between border-t border-border px-6 py-4 text-xs text-muted-foreground">
 					<span>
-						Showing {filteredTransactions.length} of {data.transactions.length}{" "}
-						transaction{data.transactions.length === 1 ? "" : "s"}
+						Showing {filteredRecords.length} of {data.records.length}{" "}
+						record{data.records.length === 1 ? "" : "s"}
 					</span>
 					<span>
 						{data.createdAt

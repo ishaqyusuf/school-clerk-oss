@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useState, Suspense } from "react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
@@ -8,6 +9,7 @@ import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
 import { Input } from "@school-clerk/ui/input";
 import { Label } from "@school-clerk/ui/label";
+import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
 import { Card, CardContent, CardHeader, CardTitle } from "@school-clerk/ui/card";
 import { SubmitButton } from "./submit-button";
 import { AnimatedNumber } from "./animated-number";
@@ -18,6 +20,7 @@ import {
   TrendingUp,
   AlertTriangle,
   Clock,
+  Wallet,
   Search,
   X,
   CheckCircle2,
@@ -36,6 +39,7 @@ function Content() {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [repayingId, setRepayingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
@@ -44,7 +48,10 @@ function Content() {
   );
 
   const invalidate = () =>
-    qc.invalidateQueries({ queryKey: trpc.finance.getServicePayments.queryKey({}) });
+    Promise.all([
+      qc.invalidateQueries({ queryKey: trpc.finance.getServicePayments.queryKey({}) }),
+      qc.invalidateQueries({ queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }) }),
+    ]);
 
   const paid = bills.filter(
     (b) => b.billPaymentId && b.billPayment?.transaction?.status === "success"
@@ -55,6 +62,13 @@ function Content() {
   const pending = bills.filter(
     (b) => !b.billPaymentId || b.billPayment?.transaction?.status === "cancelled"
   );
+  const owing = bills.filter(
+    (b) =>
+      b.billPaymentId &&
+      b.billPayment?.transaction?.status === "success" &&
+      ((b.billPayment?.settlement?.owingAmount || 0) ||
+        (b.billPayment?.invoice?.amount || 0)) > 0
+  );
 
   const filtered = bills.filter((b) => {
     if (!search) return true;
@@ -63,6 +77,14 @@ function Content() {
 
   const totalPaid = paid.reduce((s, b) => s + (b.amount || 0), 0);
   const totalPending = pending.reduce((s, b) => s + (b.amount || 0), 0);
+  const totalOwing = owing.reduce(
+    (sum, bill) =>
+      sum +
+      (bill.billPayment?.settlement?.owingAmount ||
+        bill.billPayment?.invoice?.amount ||
+        0),
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -75,11 +97,11 @@ function Content() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="gap-2" size="sm">
+          <Button type="button" variant="outline" className="gap-2" size="sm">
             <Download className="h-4 w-4" />
             Export Report
           </Button>
-          <Button className="gap-2 shadow-sm" size="sm" onClick={() => setShowCreate(!showCreate)}>
+          <Button type="button" className="gap-2 shadow-sm" size="sm" onClick={() => setShowCreate(!showCreate)}>
             <PlusCircle className="h-4 w-4" />
             Record Expense
           </Button>
@@ -87,7 +109,7 @@ function Content() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card className="p-6 flex flex-col gap-2">
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm font-medium text-muted-foreground">Total Paid (This Term)</p>
@@ -123,6 +145,17 @@ function Content() {
           <p className="text-muted-foreground text-xs font-semibold">
             {cancelled.length} cancelled
           </p>
+        </Card>
+
+        <Card className="p-6 flex flex-col gap-2">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-sm font-medium text-muted-foreground">Outstanding Owing</p>
+            <Wallet className="text-amber-600 h-5 w-5" />
+          </div>
+          <p className="text-2xl font-bold">
+            <AnimatedNumber value={totalOwing} currency="NGN" />
+          </p>
+          <p className="text-amber-600 text-xs font-semibold">{owing.length} expenses owing</p>
         </Card>
       </div>
 
@@ -166,7 +199,18 @@ function Content() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filtered.map((bill) => (
+                {filtered.map((bill) => {
+                  const owingAmount =
+                    bill.billPayment?.settlement?.owingAmount ||
+                    bill.billPayment?.invoice?.amount ||
+                    0;
+                  const fundedAmount = bill.billPayment?.transaction?.amount || 0;
+                  const isPaid =
+                    !!bill.billPaymentId &&
+                    bill.billPayment?.transaction?.status === "success";
+                  const hasOwing = isPaid && owingAmount > 0;
+
+                  return (
                   <tr key={bill.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-4">
                       <p className="text-sm font-bold text-foreground">{bill.title}</p>
@@ -178,10 +222,19 @@ function Content() {
                       {bill.createdAt ? format(new Date(bill.createdAt), "MMM dd, yyyy") : "—"}
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-sm">
-                      <AnimatedNumber value={bill.amount} currency="NGN" />
+                      <AnimatedNumber value={fundedAmount || bill.amount || 0} currency="NGN" />
+                      {hasOwing && (
+                        <div className="text-xs font-medium text-amber-600">
+                          Owing: <AnimatedNumber value={owingAmount} currency="NGN" />
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      {bill.billPaymentId && bill.billPayment?.transaction?.status === "success" ? (
+                      {hasOwing ? (
+                        <Badge className="bg-amber-100 text-amber-700 border-amber-200">
+                          Paid with owing
+                        </Badge>
+                      ) : bill.billPaymentId && bill.billPayment?.transaction?.status === "success" ? (
                         <Badge className="bg-green-100 text-green-700 border-green-200">Paid</Badge>
                       ) : bill.billPaymentId && bill.billPayment?.transaction?.status === "cancelled" ? (
                         <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50">
@@ -213,6 +266,29 @@ function Content() {
                           )}
                         </div>
                       )}
+                      {hasOwing && (
+                        <div className="flex items-center justify-end gap-2">
+                          {repayingId === bill.id ? (
+                            <RepayOwingInlineForm
+                              bill={bill}
+                              onPaid={() => {
+                                setRepayingId(null);
+                                invalidate();
+                              }}
+                              onCancel={() => setRepayingId(null)}
+                            />
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              onClick={() => setRepayingId(bill.id)}
+                            >
+                              Repay owing
+                            </Button>
+                          )}
+                        </div>
+                      )}
                       {bill.billPaymentId && bill.billPayment?.transaction?.status === "success" && (
                         <div className="flex items-center justify-end gap-2">
                           {cancellingId === bill.id ? (
@@ -238,7 +314,8 @@ function Content() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {filtered.length === 0 && bills.length > 0 && (
                   <tr>
                     <td colSpan={6} className="p-8 text-center text-muted-foreground text-sm">
@@ -349,11 +426,97 @@ function PayInlineForm({
   );
 }
 
+function RepayOwingInlineForm({
+  bill,
+  onPaid,
+  onCancel,
+}: {
+  bill: any;
+  onPaid: () => void;
+  onCancel: () => void;
+}) {
+  const trpc = useTRPC();
+  const [amount, setAmount] = useState(
+    String(
+      bill.billPayment?.settlement?.owingAmount ||
+        bill.billPayment?.invoice?.amount ||
+        ""
+    )
+  );
+  const { mutate, isPending } = useMutation(
+    trpc.finance.repayBillOwing.mutationOptions({
+      meta: {
+        toastTitle: {
+          loading: "Repaying owing...",
+          success: "Owing repaid",
+          error: "Repayment failed",
+        },
+      },
+      onSuccess: onPaid,
+    })
+  );
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        type="number"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        className="h-8 w-28 text-sm"
+      />
+      <SubmitButton
+        isSubmitting={isPending}
+        disabled={!amount}
+        type="button"
+        size="sm"
+        onClick={() => mutate({ billId: bill.id, amount: parseFloat(amount) })}
+      >
+        Repay
+      </SubmitButton>
+      <Button variant="ghost" size="sm" type="button" onClick={onCancel}>
+        <X className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
 function CreateServicePaymentForm({ onSuccess }: { onSuccess: () => void }) {
   const trpc = useTRPC();
   const [title, setTitle] = useState("");
+  const [streamId, setStreamId] = useState("");
+  const [streamName, setStreamName] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const { data: streams = [] } = useSuspenseQuery(
+    trpc.finance.getStreams.queryOptions({ filter: "term" })
+  );
+  const streamOptions = useMemo(
+    () =>
+      streams
+        .filter((stream) => stream.type === "bill" || stream.defaultType === "outgoing")
+        .map((stream) => ({
+          id: stream.id,
+          name: stream.name,
+          label: stream.name,
+          description:
+            stream.type === "bill"
+              ? "Bill stream"
+              : `${stream.defaultType === "outgoing" ? "Outgoing" : "Incoming"} stream`,
+          amount: stream.balance,
+        })),
+    [streams]
+  );
+  const selectedStream =
+    streamOptions.find((stream) => stream.id === streamId) ||
+    (streamName || title
+      ? {
+          id: streamId || "__new__",
+          name: (streamName || title).trim(),
+          label: (streamName || title).trim(),
+          description: "New bill stream",
+          amount: null,
+        }
+      : undefined);
 
   const { mutate, isPending } = useMutation(
     trpc.finance.createServicePayment.mutationOptions({
@@ -401,13 +564,39 @@ function CreateServicePaymentForm({ onSuccess }: { onSuccess: () => void }) {
             </button>
           ))}
         </div>
-        <div className="grid sm:grid-cols-3 gap-4 items-end">
+        <div className="grid sm:grid-cols-4 gap-4 items-end">
           <div className="grid gap-1.5">
             <Label>Title</Label>
-            <Input
-              placeholder="e.g. Generator Repair"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+            <ComboboxDropdown
+              items={streamOptions}
+              selectedItem={selectedStream}
+              placeholder="Select or create bill stream"
+              searchPlaceholder="Search or create bill stream..."
+              onSelect={(stream) => {
+                setStreamId(stream.id);
+                setStreamName(stream.name);
+                setTitle(stream.name);
+              }}
+              onCreate={(value) => {
+                const nextTitle = value.trim();
+                setStreamId("");
+                setStreamName(nextTitle);
+                setTitle(nextTitle);
+              }}
+              renderOnCreate={(value) => (
+                <span>Create account bill stream "{value}"</span>
+              )}
+              renderListItem={({ item }) => (
+                <div className="flex w-full items-center gap-2">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="truncate text-muted-foreground">
+                    {item.description}
+                  </span>
+                  <span className="ml-auto">
+                    {!item.amount || <AnimatedNumber value={item.amount} />}
+                  </span>
+                </div>
+              )}
             />
           </div>
           <div className="grid gap-1.5">
@@ -435,6 +624,8 @@ function CreateServicePaymentForm({ onSuccess }: { onSuccess: () => void }) {
             onClick={() =>
               mutate({
                 title,
+                streamId: streamId || undefined,
+                streamName: (streamName || title).trim() || undefined,
                 description: description || undefined,
                 amount: parseFloat(amount),
               })

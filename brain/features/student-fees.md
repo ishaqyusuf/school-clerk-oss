@@ -90,11 +90,13 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 - Runs inside an extended interactive transaction timeout because payment flows can create wallets, charges, ledger entries, and receipts in one request.
 - Returns the created `paymentIds[]` so the dashboard can open a printable/downloadable receipt immediately after a payment is recorded.
 - Also dispatches typed finance notifications for successful payment receipt, with both in-app rows and registered email templates.
+- Also creates a tenant activity log entry for payment receipt.
 
 ### `finance.reverseStudentPayment`
 - Cancels an existing successful student payment by marking both the wallet transaction and the `StudentPayment` row as `cancelled`.
 - Restores the linked `StudentFee.pendingAmount` so the student balance reopens correctly.
 - Dispatches typed finance notifications for payment cancellation, including an email template registration for the event.
+- Also creates a tenant activity log entry for payment cancellation.
 
 ## UI
 
