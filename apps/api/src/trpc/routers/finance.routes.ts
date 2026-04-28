@@ -69,9 +69,12 @@ const generateBillsFromBillablesSchema = z.object({
 
 const receivePaymentLineSchema = z.object({
 	source: z.enum(["studentFee", "billable", "manual", "feeHistory"]),
+	studentTermFormId: z.string().optional().nullable(),
 	studentFeeId: z.string().optional().nullable(),
 	billableHistoryId: z.string().optional().nullable(),
 	feeHistoryId: z.string().optional().nullable(),
+	streamId: z.string().optional().nullable(),
+	streamName: z.string().optional().nullable(),
 	title: z.string().optional().nullable(),
 	description: z.string().optional().nullable(),
 	amountDue: z.number().positive(),
@@ -256,14 +259,14 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 			otherName: true,
 			termForms: {
 				where: {
-					sessionTermId: ctx.profile.termId,
 					deletedAt: null,
 				},
-				take: 1,
+				orderBy: { createdAt: "asc" },
 				select: {
 					id: true,
 					sessionTermId: true,
 					schoolSessionId: true,
+					createdAt: true,
 					classroomDepartmentId: true,
 					classroomDepartment: {
 						select: {
@@ -306,29 +309,11 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 		},
 	});
 
-	const currentTermForm = student.termForms[0] ?? null;
-	const latestTermForm = await ctx.db.studentTermForm.findFirst({
-		where: {
-			studentId,
-			deletedAt: null,
-		},
-		orderBy: { createdAt: "desc" },
-		select: {
-			id: true,
-			classroomDepartment: {
-				select: {
-					departmentName: true,
-					classRoom: { select: { name: true } },
-				},
-			},
-			sessionTerm: {
-				select: {
-					title: true,
-					session: { select: { title: true } },
-				},
-			},
-		},
-	});
+	const currentTermForm =
+		student.termForms.find((termForm) => termForm.sessionTermId === ctx.profile.termId) ??
+		null;
+	const latestTermForm =
+		student.termForms[student.termForms.length - 1] ?? null;
 
 	// Load current-term FeeHistory records (student-side fees)
 	const allFeeHistories = await ctx.db.feeHistory.findMany({
@@ -350,7 +335,7 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 		},
 	});
 
-	if (!currentTermForm) {
+	if (!student.termForms.length) {
 		return {
 			student: {
 				id: student.id,
@@ -367,162 +352,221 @@ async function getStudentReceivePaymentData(ctx: any, studentId: string) {
 			currentTermForm: null,
 			alert: {
 				variant: "destructive" as const,
-				title: "No current term sheet",
+				title: "No term sheet available",
 				description:
-					"This student does not have a term sheet for the active term yet, so payments cannot be recorded here.",
+					"This student does not have a term sheet yet, so there are no payable items to collect.",
 			},
 			summary: {
 				totalDue: 0,
 				totalPaid: 0,
 				totalPending: 0,
 			},
+			terms: [],
 			billables: [],
+			feeItems: [],
 			otherCharges: [],
 			manualBillables: [],
 			manualFeeHistories: [],
 		};
 	}
 
-	// Build manualFeeHistories: applicable fee histories not yet applied to this student
-	const applicableFeeHistories = allFeeHistories.filter((fh) => {
-		if (!fh.classroomDepartments.length) return true;
-		return fh.classroomDepartments.some(
-			(d) => d.id === currentTermForm.classroomDepartmentId,
+	const manualFeeHistories = currentTermForm
+		? allFeeHistories
+				.filter((fh) => {
+					if (!fh.classroomDepartments.length) return true;
+					return fh.classroomDepartments.some(
+						(department) =>
+							department.id === currentTermForm.classroomDepartmentId,
+					);
+				})
+				.filter((fh) => {
+					const appliedFeeHistoryIds = new Set(
+						currentTermForm.studentFees
+							.map((sf) => sf.feeHistoryId)
+							.filter((id): id is string => Boolean(id)),
+					);
+					return !appliedFeeHistoryIds.has(fh.id);
+				})
+				.map((fh) => ({
+					key: `fee-history-${fh.id}`,
+					source: "feeHistory" as const,
+					studentTermFormId: currentTermForm.id,
+					studentFeeId: null,
+					billableHistoryId: null,
+					feeHistoryId: fh.id,
+					title: fh.fee.title,
+					description: fh.fee.description,
+					amount: fh.amount,
+					paidAmount: 0,
+					pendingAmount: fh.amount,
+					status: "UNAPPLIED" as const,
+					streamId: fh.wallet?.id ?? null,
+					streamName: fh.wallet?.name ?? null,
+					classroomNames: [],
+				}))
+		: [];
+
+	const terms = student.termForms.map((termForm) => {
+		const feeItems = termForm.studentFees
+			.filter(
+				(
+					fee,
+				): fee is (typeof termForm.studentFees)[number] & {
+					feeHistoryId: string;
+				} => Boolean(fee.feeHistoryId),
+			)
+			.map((fee) => {
+				const paidAmount = Math.max(
+					(fee.billAmount ?? 0) - (fee.pendingAmount ?? 0),
+					0,
+				);
+				const status: "PAID" | "PARTIAL" | "PENDING" =
+					(fee.pendingAmount ?? 0) <= 0
+						? "PAID"
+						: (fee.pendingAmount ?? 0) < (fee.billAmount ?? 0)
+							? "PARTIAL"
+							: "PENDING";
+				return {
+					key: fee.id,
+					source: "studentFee" as const,
+					studentTermFormId: termForm.id,
+					studentFeeId: fee.id,
+					billableHistoryId: null,
+					feeHistoryId: fee.feeHistoryId,
+					title: fee.feeTitle || "Fee",
+					description: fee.description,
+					amount: fee.billAmount ?? 0,
+					paidAmount,
+					pendingAmount: fee.pendingAmount ?? 0,
+					status,
+					streamId: fee.feeHistory?.wallet?.id ?? null,
+					streamName: fee.feeHistory?.wallet?.name ?? null,
+					classroomNames: [],
+				};
+			});
+
+		const otherCharges = termForm.studentFees
+			.filter((fee) => !fee.feeHistoryId)
+			.map((fee) => {
+				const paidAmount = Math.max(
+					(fee.billAmount ?? 0) - (fee.pendingAmount ?? 0),
+					0,
+				);
+				const status: "PAID" | "PARTIAL" | "PENDING" =
+					(fee.pendingAmount ?? 0) <= 0
+						? "PAID"
+						: (fee.pendingAmount ?? 0) < (fee.billAmount ?? 0)
+							? "PARTIAL"
+							: "PENDING";
+
+				return {
+					key: fee.id,
+					source: "studentFee" as const,
+					studentTermFormId: termForm.id,
+					studentFeeId: fee.id,
+					billableHistoryId: null,
+					feeHistoryId: null,
+					title: fee.feeTitle || "Charge",
+					description: fee.description,
+					amount: fee.billAmount ?? 0,
+					paidAmount,
+					pendingAmount: fee.pendingAmount ?? 0,
+					status,
+					streamId: null,
+					streamName: null,
+					classroomNames: [],
+				};
+			});
+
+		const extraRows =
+			currentTermForm?.id === termForm.id ? manualFeeHistories : [];
+		const rows = [...feeItems, ...otherCharges, ...extraRows];
+		const totalDue = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+		const totalPaid = rows.reduce(
+			(sum, row) => sum + Number(row.paidAmount || 0),
+			0,
 		);
+		const totalPending = rows.reduce(
+			(sum, row) => sum + Number(row.pendingAmount || 0),
+			0,
+		);
+
+		return {
+			id: termForm.id,
+			sessionTermId: termForm.sessionTermId,
+			schoolSessionId: termForm.schoolSessionId,
+			title: termForm.sessionTerm?.title || "Term",
+			sessionTitle: termForm.sessionTerm?.session?.title || null,
+			label:
+				termForm.sessionTerm?.title && termForm.sessionTerm?.session?.title
+					? `${termForm.sessionTerm.title} • ${termForm.sessionTerm.session.title}`
+					: termForm.sessionTerm?.title || "Term",
+			classroomName: getDepartmentName(termForm.classroomDepartment),
+			isCurrent: termForm.sessionTermId === ctx.profile.termId,
+			feeItems,
+			otherCharges,
+			rows,
+			totals: {
+				totalDue,
+				totalPaid,
+				totalPending,
+			},
+		};
 	});
-	const appliedFeeHistoryIds = new Set(
-		currentTermForm.studentFees
-			.map((sf) => sf.feeHistoryId)
-			.filter((id): id is string => Boolean(id)),
-	);
-	const manualFeeHistories = applicableFeeHistories
-		.filter((fh) => !appliedFeeHistoryIds.has(fh.id))
-		.map((fh) => ({
-			feeHistoryId: fh.id,
-			title: fh.fee.title,
-			description: fh.fee.description,
-			amount: fh.amount,
-			streamId: fh.wallet?.id ?? null,
-			streamName: fh.wallet?.name ?? null,
-		}));
 
-	const otherCharges = currentTermForm.studentFees
-		.filter((fee) => !fee.feeHistoryId)
-		.map((fee) => {
-			const paidAmount = Math.max(
-				(fee.billAmount ?? 0) - (fee.pendingAmount ?? 0),
-				0,
-			);
-			const status =
-				fee.pendingAmount <= 0
-					? "PAID"
-					: fee.pendingAmount < fee.billAmount
-						? "PARTIAL"
-						: "PENDING";
-
-			return {
-				key: fee.id,
-				source: "studentFee" as const,
-				studentFeeId: fee.id,
-				billableHistoryId: null,
-				title: fee.feeTitle || "Charge",
-				description: fee.description,
-				amount: fee.billAmount,
-				paidAmount,
-				pendingAmount: fee.pendingAmount,
-				status,
-				streamName: null,
-				classroomNames: [],
-			};
-		});
-
-	// FeeHistory-linked StudentFee records (applied via applyFeeToClass)
-	const feeItems = currentTermForm.studentFees
-		.filter(
-			(
-				fee,
-			): fee is (typeof currentTermForm.studentFees)[number] & {
-				feeHistoryId: string;
-			} => Boolean(fee.feeHistoryId),
-		)
-		.map((fee) => {
-			const paidAmount = Math.max(
-				(fee.billAmount ?? 0) - (fee.pendingAmount ?? 0),
-				0,
-			);
-			const status: "PAID" | "PARTIAL" | "PENDING" =
-				(fee.pendingAmount ?? 0) <= 0
-					? "PAID"
-					: (fee.pendingAmount ?? 0) < (fee.billAmount ?? 0)
-						? "PARTIAL"
-						: "PENDING";
-			return {
-				key: fee.id,
-				studentFeeId: fee.id,
-				feeHistoryId: fee.feeHistoryId,
-				title: fee.feeTitle || "Fee",
-				description: fee.description,
-				amount: fee.billAmount ?? 0,
-				paidAmount,
-				pendingAmount: fee.pendingAmount ?? 0,
-				status,
-				streamId: fee.feeHistory?.wallet?.id ?? null,
-				streamName: fee.feeHistory?.wallet?.name ?? null,
-			};
-		});
-
-	const totalOtherPending = otherCharges.reduce(
-		(sum, item) => sum + item.pendingAmount,
-		0,
-	);
-	const totalFeeItemsPending = feeItems.reduce(
-		(sum, item) => sum + item.pendingAmount,
-		0,
-	);
-	const totalManualFeeHistoryAmount = manualFeeHistories.reduce(
-		(sum, item) => sum + item.amount,
-		0,
+	const summary = terms.reduce(
+		(acc, term) => ({
+			totalDue: acc.totalDue + term.totals.totalDue,
+			totalPaid: acc.totalPaid + term.totals.totalPaid,
+			totalPending: acc.totalPending + term.totals.totalPending,
+		}),
+		{ totalDue: 0, totalPaid: 0, totalPending: 0 },
 	);
 	const totalUnapplied = manualFeeHistories.length;
+	const currentTermRows = terms.find((term) => term.isCurrent)?.rows ?? [];
+	const currentFeeItems =
+		terms.find((term) => term.isCurrent)?.feeItems ?? [];
+	const currentOtherCharges =
+		terms.find((term) => term.isCurrent)?.otherCharges ?? [];
 
 	return {
 		student: {
 			id: student.id,
 			name: getStudentName(student),
-			currentClassroom: getDepartmentName(currentTermForm.classroomDepartment),
+			currentClassroom: getDepartmentName(
+				(currentTermForm ?? latestTermForm)?.classroomDepartment,
+			),
 			currentTerm:
-				currentTermForm.sessionTerm?.title &&
-				currentTermForm.sessionTerm?.session?.title
-					? `${currentTermForm.sessionTerm.title} • ${currentTermForm.sessionTerm.session.title}`
+				(currentTermForm ?? latestTermForm)?.sessionTerm?.title &&
+				(currentTermForm ?? latestTermForm)?.sessionTerm?.session?.title
+					? `${(currentTermForm ?? latestTermForm)?.sessionTerm?.title} • ${(currentTermForm ?? latestTermForm)?.sessionTerm?.session?.title}`
 					: null,
 		},
 		currentTermForm: {
-			id: currentTermForm.id,
-			classroomDepartmentId: currentTermForm.classroomDepartmentId,
-			sessionTermId: currentTermForm.sessionTermId,
-		},
+			id: currentTermForm?.id ?? null,
+			classroomDepartmentId: currentTermForm?.classroomDepartmentId ?? null,
+			sessionTermId: currentTermForm?.sessionTermId ?? null,
+		} as const,
 		alert:
-			totalUnapplied > 0
+			!currentTermForm
+				? {
+						variant: "warning" as const,
+						title: "No active term sheet",
+						description:
+							"This student has no sheet for the active term. You can still collect against existing term balances below.",
+					}
+				: totalUnapplied > 0
 				? {
 						variant: "warning" as const,
 						title: "Charges still need to be applied",
 						description: `${totalUnapplied} current-term charge${totalUnapplied > 1 ? "s are" : " is"} available for this student but not yet on the term sheet.`,
 					}
 				: null,
-		summary: {
-			totalDue:
-				otherCharges.reduce((sum, item) => sum + item.amount, 0) +
-				feeItems.reduce((sum, item) => sum + item.amount, 0) +
-				totalManualFeeHistoryAmount,
-			totalPaid:
-				otherCharges.reduce((sum, item) => sum + item.paidAmount, 0) +
-				feeItems.reduce((sum, item) => sum + item.paidAmount, 0),
-			totalPending:
-				totalOtherPending + totalFeeItemsPending + totalManualFeeHistoryAmount,
-		},
+		summary,
+		terms,
 		billables: [],
-		feeItems,
-		otherCharges,
+		feeItems: currentFeeItems,
+		otherCharges: currentOtherCharges,
 		manualBillables: [],
 		manualFeeHistories,
 	};
@@ -3118,12 +3162,73 @@ export const financeRouter = createTRPCRouter({
 				throw new Error("Allocated total must match the amount received.");
 			}
 
+			const normalizedAllocationMap = input.allocations.reduce(
+				(map, allocation) => {
+					const targetTermFormId =
+						allocation.studentTermFormId || input.studentTermFormId;
+					const key = JSON.stringify({
+						source: allocation.source,
+						studentTermFormId: targetTermFormId,
+						studentFeeId: allocation.studentFeeId || null,
+						billableHistoryId: allocation.billableHistoryId || null,
+						feeHistoryId: allocation.feeHistoryId || null,
+						streamId: allocation.streamId || null,
+						streamName: allocation.streamName || null,
+						title:
+							allocation.source === "manual"
+								? allocation.title?.trim() || null
+								: null,
+						description:
+							allocation.source === "manual"
+								? allocation.description?.trim() || null
+								: null,
+					});
+					const existing = map.get(key);
+
+					if (!existing) {
+						map.set(key, {
+							...allocation,
+							studentTermFormId: targetTermFormId,
+						});
+						return map;
+					}
+
+					if (
+						existing.amountDue !== allocation.amountDue ||
+						(existing.title || "") !== (allocation.title || "") ||
+						(existing.description || "") !== (allocation.description || "")
+					) {
+						throw new Error(
+							"Conflicting duplicate payment allocations were detected.",
+						);
+					}
+
+					map.set(key, {
+						...existing,
+						amountToPay: existing.amountToPay + allocation.amountToPay,
+					});
+					return map;
+				},
+				new Map<string, (typeof input.allocations)[number]>(),
+			);
+			const normalizedAllocations = Array.from(
+				normalizedAllocationMap.values(),
+			);
+
 			const current = await tryGetCurrentUserContext(ctx);
 			const result = await ctx.db.$transaction(
 				async (tx) => {
-					const studentTermForm = await tx.studentTermForm.findFirstOrThrow({
+					const termFormIds = Array.from(
+						new Set(
+							normalizedAllocations
+								.map((allocation) => allocation.studentTermFormId)
+								.filter(Boolean)
+								.concat(input.studentTermFormId),
+						),
+					);
+					const studentTermForms = await tx.studentTermForm.findMany({
 						where: {
-							id: input.studentTermFormId,
+							id: { in: termFormIds as string[] },
 							studentId: input.studentId,
 							schoolProfileId: ctx.profile.schoolId,
 							deletedAt: null,
@@ -3143,6 +3248,56 @@ export const financeRouter = createTRPCRouter({
 							},
 						},
 					});
+					const studentTermFormMap = new Map(
+						studentTermForms.map((termForm) => [termForm.id, termForm]),
+					);
+					const primaryStudentTermForm = studentTermFormMap.get(
+						input.studentTermFormId,
+					);
+
+					if (!primaryStudentTermForm) {
+						throw new Error("Student term form not found for this payment.");
+					}
+
+					const resolveWalletId = async (
+						allocation: (typeof normalizedAllocations)[number],
+						fallbackName: string,
+					) => {
+						if (allocation.streamId) {
+							const wallet = await tx.wallet.findFirst({
+								where: {
+									id: allocation.streamId,
+									schoolProfileId: ctx.profile.schoolId,
+									deletedAt: null,
+								},
+								select: { id: true },
+							});
+							if (!wallet) {
+								throw new Error("Selected stream could not be resolved.");
+							}
+							return wallet.id;
+						}
+
+						if (allocation.streamName?.trim()) {
+							return (
+								await getOrCreateWallet(tx, {
+									name: allocation.streamName.trim(),
+									type: "fee",
+									schoolId: ctx.profile.schoolId!,
+									termId: ctx.profile.termId!,
+								})
+							).id;
+						}
+
+						return (
+							await getOrCreateWallet(tx, {
+								name: fallbackName || "General",
+								type: "fee",
+								schoolId: ctx.profile.schoolId!,
+								termId: ctx.profile.termId!,
+							})
+						).id;
+					};
 
 					const createdPayments: Array<{
 						id: string;
@@ -3150,7 +3305,14 @@ export const financeRouter = createTRPCRouter({
 						paymentType: string;
 					}> = [];
 
-					for (const allocation of input.allocations) {
+					for (const allocation of normalizedAllocations) {
+						const studentTermForm = studentTermFormMap.get(
+							allocation.studentTermFormId || input.studentTermFormId,
+						);
+						if (!studentTermForm) {
+							throw new Error("Student term form not found for one allocation.");
+						}
+
 						let studentFeeId = allocation.studentFeeId || null;
 						let feeTitle = allocation.title || "Payment";
 						let walletId: string | null = null;
@@ -3184,17 +3346,22 @@ export const financeRouter = createTRPCRouter({
 
 							studentFeeId = fee.id;
 							feeTitle = fee.feeTitle || feeTitle;
-
-							walletId =
-								fee.feeHistory?.walletId ||
-								(
-									await getOrCreateWallet(tx, {
-										name: feeTitle || "General",
-										type: "fee",
-										schoolId: ctx.profile.schoolId!,
-										termId: ctx.profile.termId!,
-									})
-								).id;
+							walletId = await resolveWalletId(
+								allocation,
+								fee.feeTitle || feeTitle || "General",
+							);
+							if (!allocation.streamId && !allocation.streamName && !fee.feeHistory?.walletId) {
+								walletId = await resolveWalletId(
+									{ ...allocation, streamId: null, streamName: null },
+									feeTitle || "General",
+								);
+							} else if (
+								!allocation.streamId &&
+								!allocation.streamName &&
+								fee.feeHistory?.walletId
+							) {
+								walletId = fee.feeHistory.walletId;
+							}
 						}
 
 						if (allocation.source === "billable") {
@@ -3271,7 +3438,13 @@ export const financeRouter = createTRPCRouter({
 									})
 								).id;
 
-							walletId = fallbackWallet;
+							walletId =
+								allocation.streamId || allocation.streamName
+									? await resolveWalletId(
+											allocation,
+											history.billable.title || "General",
+										)
+									: fallbackWallet;
 							studentFeeId = existingFee.id;
 							feeTitle =
 								existingFee.feeTitle || history.billable.title || feeTitle;
@@ -3343,7 +3516,7 @@ export const financeRouter = createTRPCRouter({
 								);
 							}
 
-							walletId =
+							const fallbackWallet =
 								fh.walletId ||
 								(
 									await getOrCreateWallet(tx, {
@@ -3353,6 +3526,14 @@ export const financeRouter = createTRPCRouter({
 										termId: ctx.profile.termId!,
 									})
 								).id;
+
+							walletId =
+								allocation.streamId || allocation.streamName
+									? await resolveWalletId(
+											allocation,
+											fh.fee.title || "General",
+										)
+									: fallbackWallet;
 
 							studentFeeId = existingFee.id;
 							feeTitle = existingFee.feeTitle || fh.fee.title || feeTitle;
@@ -3380,14 +3561,10 @@ export const financeRouter = createTRPCRouter({
 
 							studentFeeId = manualFee.id;
 							feeTitle = manualFee.feeTitle || feeTitle;
-							walletId = (
-								await getOrCreateWallet(tx, {
-									name: allocation.title || manualFee.feeTitle || "Sales",
-									type: "fee",
-									schoolId: ctx.profile.schoolId!,
-									termId: ctx.profile.termId!,
-								})
-							).id;
+							walletId = await resolveWalletId(
+								allocation,
+								allocation.title || manualFee.feeTitle || "Sales",
+							);
 						}
 
 						if (!studentFeeId || !walletId) {
@@ -3454,7 +3631,9 @@ export const financeRouter = createTRPCRouter({
 					return {
 						success: true,
 						count: createdPayments.length,
-							studentName: getStudentName(studentTermForm.student ?? undefined),
+						studentName: getStudentName(
+							primaryStudentTermForm.student ?? undefined,
+						),
 						totalAllocated,
 						paymentIds: createdPayments.map((payment) => payment.id),
 					};

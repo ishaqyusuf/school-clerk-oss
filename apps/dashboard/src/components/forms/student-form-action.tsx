@@ -6,8 +6,12 @@ import { ButtonGroup } from "@school-clerk/ui/button-group";
 import { SubmitButton } from "../submit-button";
 import { Button } from "@school-clerk/ui/button";
 import { Icons } from "@school-clerk/ui/icons";
+import { useStudentParams } from "@/hooks/use-student-params";
+import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
 
 export function StudentFormAction({}) {
+  const studentParams = useStudentParams();
+  const receivePaymentParams = useReceivePaymentParams();
   const { mutate, data, reset, isPending } = useMutation(
     _trpc.students.createStudent.mutationOptions({
       meta: {
@@ -24,6 +28,21 @@ export function StudentFormAction({}) {
         _qc.invalidateQueries({
           queryKey: _trpc.students.analytics.queryKey(),
         });
+
+        if (studentParams.createStudentReturnTo === "receive-payment") {
+          receivePaymentParams.setParams({
+            receivePayment: true,
+            receivePaymentStudentId: data.id,
+            receivePaymentCreatedStudentId: data.id,
+            receivePaymentStudentName: null,
+            receivePaymentReturnTo: "student-create",
+          });
+          studentParams.setParams({
+            createStudent: null,
+            createStudentPrefillName: null,
+            createStudentReturnTo: null,
+          });
+        }
       },
     })
   );

@@ -7,6 +7,8 @@ export function useStudentParams(options?: { shallow: boolean }) {
       createStudentDeptId: parseAsString,
       createStudentSessionId: parseAsString,
       createStudentTermId: parseAsString,
+      createStudentPrefillName: parseAsString,
+      createStudentReturnTo: parseAsString,
       studentViewId: parseAsString,
       studentViewTermId: parseAsString,
       studentViewTab: parseAsString,
