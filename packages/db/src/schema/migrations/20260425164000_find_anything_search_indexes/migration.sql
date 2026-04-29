@@ -7,7 +7,7 @@ WHERE "deletedAt" IS NULL;
 CREATE INDEX IF NOT EXISTS "Students_search_name_trgm_idx"
 ON "Students"
 USING GIN (
-  lower(trim(concat_ws(' ', "name", "otherName", "surname"))) gin_trgm_ops
+  lower(trim(both ' ' from COALESCE("name", '') || ' ' || COALESCE("otherName", '') || ' ' || COALESCE("surname", ''))) gin_trgm_ops
 )
 WHERE "deletedAt" IS NULL
   AND "schoolProfileId" IS NOT NULL;

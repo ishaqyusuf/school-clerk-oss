@@ -10,7 +10,7 @@ const config = {
 
     // "@school-clerk/stripe",
   ],
-  allowedDevOrigins: ["daarulhadith.dashboard.school-clerk.localhost"],
+  allowedDevOrigins: ["daarulhadith.school-clerk-dashboard.localhost"],
   pageExtensions: ["ts", "tsx", "mdx"],
   experimental: {
     mdxRs: true,

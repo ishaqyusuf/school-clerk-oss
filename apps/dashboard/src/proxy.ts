@@ -48,7 +48,8 @@ export default async function proxy(req: NextRequest) {
 	const encodedSearchParams = `${newUrl?.pathname?.substring(1)}${
 		newUrl.search
 	}`;
-	const isLogin = url.pathname === "/login";
+	const publicRoutes = new Set(["/login", "/sign-up"]);
+	const isPublicRoute = publicRoutes.has(url.pathname);
 
 	// ---- Handle special app subdomain ----
 	if (canonicalSlug === "app" || canonicalSlug.startsWith("app.")) {
@@ -58,7 +59,7 @@ export default async function proxy(req: NextRequest) {
 	const session = await auth.api.getSession({
 		headers: req.headers,
 	});
-	if (url.pathname === "/" || isLogin) {
+	if (url.pathname === "/" || isPublicRoute) {
 		if (session) {
 			const defaultLink = getFirstPermittedHref({
 				role: session.user?.role,
@@ -67,7 +68,7 @@ export default async function proxy(req: NextRequest) {
 			return NextResponse.redirect(new URL(defaultLink, req.url));
 		}
 
-		if (!isLogin) {
+		if (!isPublicRoute) {
 			const loginUrl = new URL("/login", req.url);
 
 			if (encodedSearchParams) {
@@ -80,7 +81,7 @@ export default async function proxy(req: NextRequest) {
 
 	if (
 		!session &&
-		!isLogin &&
+		!isPublicRoute &&
 		!url.pathname.includes("/student-report") &&
 		!url.pathname.includes("/assessment-recording")
 	) {

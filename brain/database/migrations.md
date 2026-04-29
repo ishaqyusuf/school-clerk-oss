@@ -8,6 +8,14 @@ Change log for database schema migrations and rollout notes.
 - Include backward-compatibility and rollback notes.
 - Link PR or commit reference.
 
+## Operational Runbook
+- Local database runs in Docker and is currently mapped to `localhost:55432`.
+- Local environment variables for DB work should come from the repo root `.env.local`.
+- Use `bun run db:migrate` for local Prisma development migrations. This resolves to local env loading and `prisma migrate dev`.
+- Use `bun run db:push` only for the server/production database. This resolves through `packages/db/.env.production`.
+- Use `bun run db:studio` for Prisma Studio against the local database unless you intentionally override the env.
+- If the Docker DB is not running yet, start it with `docker compose up -d postgres` from the repo root.
+
 ## Template
 ## Migration Entry
 - Date:

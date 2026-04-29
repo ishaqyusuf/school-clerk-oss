@@ -1,10 +1,5 @@
-import Faq from "@/components/faq";
-import Features from "@/components/features";
-import Footer from "@/components/footer";
-import Hero from "@/components/hero";
-import Nav from "@/components/nav";
-import Pricing from "@/components/pricing";
-import Testimonials from "@/components/testimonials";
+import Link from "next/link";
+import Image from "next/image";
 
 // export default function Home() {
 //   return (
@@ -98,6 +93,19 @@ const metrics = [
 
 const tickerItems = [...institutionTypes, ...institutionTypes];
 
+const isDev = process.env.NODE_ENV !== "production";
+const configuredDashboardHost =
+  process.env.NODE_ENV === "production"
+    ? process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_ROOT_DOMAIN
+    : process.env.APP_ROOT_DOMAIN &&
+        !/^localhost(?::\d+)?$/i.test(process.env.APP_ROOT_DOMAIN)
+      ? process.env.APP_ROOT_DOMAIN
+      : "school-clerk-dashboard.localhost:1355";
+const signUpHref = `${isDev ? "http" : "https"}://${configuredDashboardHost}/sign-up`;
+const bookDemoHref =
+  process.env.NEXT_PUBLIC_BOOK_DEMO_URL ??
+  "mailto:hello@schoolclerk.com?subject=Book%20a%20SchoolClerk%20demo";
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -105,30 +113,15 @@ export default function Home() {
       <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4 sm:px-10 lg:px-12">
           <div className="flex items-center gap-3">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-primary">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <rect x="1" y="1" width="5" height="5" rx="1" fill="white" />
-                <rect
-                  x="8"
-                  y="1"
-                  width="5"
-                  height="5"
-                  rx="1"
-                  fill="white"
-                  fillOpacity="0.6"
-                />
-                <rect
-                  x="1"
-                  y="8"
-                  width="5"
-                  height="5"
-                  rx="1"
-                  fill="white"
-                  fillOpacity="0.6"
-                />
-                <rect x="8" y="8" width="5" height="5" rx="1" fill="white" />
-              </svg>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="School Clerk"
+              width={28}
+              height={28}
+              className="rounded-md"
+              priority
+              unoptimized
+            />
             <span className="text-sm font-semibold tracking-tight text-foreground">
               SchoolClerk
             </span>
@@ -155,12 +148,22 @@ export default function Home() {
             </a>
           </nav>
 
-          <a
-            href="#pricing"
-            className="hidden rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-85 sm:inline-flex"
-          >
-            Book a demo
-          </a>
+          <div className="hidden items-center gap-3 sm:flex">
+            {isDev ? (
+              <Link
+                href={signUpHref}
+                className="inline-flex rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted"
+              >
+                Sign up
+              </Link>
+            ) : null}
+            <a
+              href={bookDemoHref}
+              className="inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-85"
+            >
+              Book a demo
+            </a>
+          </div>
         </div>
       </header>
 
@@ -208,11 +211,19 @@ export default function Home() {
           {/* CTAs */}
           <div className="mt-10 flex flex-col gap-3 sm:flex-row">
             <a
-              href="#pricing"
+              href={bookDemoHref}
               className="inline-flex items-center justify-center rounded-full bg-background px-7 py-3.5 text-sm font-semibold text-foreground transition hover:bg-background/90 hover:-translate-y-px"
             >
               Book a demo
             </a>
+            {isDev ? (
+              <Link
+                href={signUpHref}
+                className="inline-flex items-center justify-center rounded-full border border-primary-foreground/15 px-7 py-3.5 text-sm font-semibold text-primary-foreground/80 transition hover:border-primary-foreground/35 hover:text-primary-foreground"
+              >
+                Sign up
+              </Link>
+            ) : null}
             <a
               href="#modules"
               className="inline-flex items-center justify-center rounded-full border border-primary-foreground/15 px-7 py-3.5 text-sm font-semibold text-primary-foreground/80 transition hover:border-primary-foreground/35 hover:text-primary-foreground"
@@ -540,7 +551,7 @@ export default function Home() {
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:shrink-0">
               <a
-                href="#"
+                href={bookDemoHref}
                 className="inline-flex items-center justify-center rounded-full bg-background px-7 py-3.5 text-sm font-semibold text-foreground transition hover:bg-background/90"
               >
                 Book a demo

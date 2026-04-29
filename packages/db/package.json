@@ -9,9 +9,6 @@
       "default": "./src/index.ts"
     }
   },
-  "prisma": {
-    "schema": "./src/schema"
-  },
   "scripts": {
     "build": "prisma generate && tsc",
     "dev": "rm -rf .cache dist tsc",
@@ -19,12 +16,12 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
-    "db:generate": "bunx prisma generate",
-    "db-migrate": "bunx prisma migrate dev",
-    "prisma-generate": "bunx prisma generate",
+    "db:generate": "./with-env.sh bunx prisma generate",
+    "db-migrate": "./with-env.sh bunx prisma migrate dev",
+    "prisma-generate": "./with-env.sh bunx prisma generate",
     "push": "bunx env-cmd -f .env.production prisma db push",
-    "pull": "bunx prisma db pull",
-    "studio": "bunx prisma studio --port 5556",
+    "pull": "./with-env.sh bunx prisma db pull",
+    "studio": "./with-env.sh bunx prisma studio --port 5556",
     "with-env": "dotenv -e ../../.env --"
   },
   "dependencies": {

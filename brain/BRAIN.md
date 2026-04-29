@@ -27,5 +27,6 @@ Central index for project knowledge used by humans and AI collaborators.
 - [Coding Standards](./engineering/coding-standards.md)
 - [Repo Structure](./engineering/repo-structure.md)
 - [Database Schema](./database/schema.md)
+- [Database Migrations](./database/migrations.md)
 - [API Endpoints](./api/endpoints.md)
 - [Tasks Backlog](./tasks/backlog.md)

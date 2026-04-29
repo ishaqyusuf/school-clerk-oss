@@ -1,8 +1,8 @@
 {
   "name": "@school-clerk/api",
   "scripts": {
-    "dev": "TZ=UTC portless api bun run --hot src/index.ts",
-    "dev:node": "tsx src/node.ts",
+    "dev": "TZ=UTC ../../scripts/with-root-env.sh portless api bun run --hot src/index.ts",
+    "dev:node": "../../scripts/with-root-env.sh tsx src/node.ts",
     "clean": "git clean -xdf .next .turbo node_modules",
     "--build": "bun-vercel ./src/bun.ts",
     "---build": "./bun-vercel/build.sh ./src/bun.ts",

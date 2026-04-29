@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-2200} TZ=UTC portless dashboard.school-clerk next dev --turbopack",
+    "dev": "PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-2200} TZ=UTC ../../scripts/with-root-env.sh portless school-clerk-dashboard next dev --turbopack",
     "build": "NODE_ENV=production next build --turbopack",
     "clean": "git clean -xdf .next .turbo node_modules",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write '**/*.{js,cjs,mjs,ts,tsx,md,json}'  --ignore-path .prettierignore",
-    "start": "bun with-env next start",
+    "start": "../../scripts/with-root-env.sh next start",
     "with-env": "dotenv -e ../../.env.local --"
   },
   "dependencies": {

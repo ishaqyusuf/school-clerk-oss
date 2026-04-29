@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "portless school-clerk-web next dev --turbopack",
+    "dev": "../../scripts/with-root-env.sh portless school-clerk-web next dev --turbopack",
     "build": "next build --turbopack",
-    "start": "next start",
+    "start": "../../scripts/with-root-env.sh next start",
     "lint": "eslint"
   },
   "dependencies": {
