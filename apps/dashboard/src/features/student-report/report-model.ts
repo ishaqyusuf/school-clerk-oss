@@ -11,6 +11,9 @@ type AssessmentResult = {
 
 type Assessment = {
   title: string;
+  parentAssessment?: {
+    title?: string | null;
+  } | null;
   percentageObtainable: number | null;
   obtainable: number;
   index?: number | null;
@@ -123,7 +126,9 @@ export function buildStudentReportsById({
               obtainable: _as.percentageObtainable,
               obtained,
               index: _as.index,
-              label: _as.title,
+              label: _as.parentAssessment?.title
+                ? `${_as.parentAssessment.title} - ${_as.title}`
+                : _as.title,
             };
           });
 

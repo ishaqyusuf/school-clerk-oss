@@ -1,55 +1,120 @@
 "use client";
 
-import type React from "react";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryState } from "nuqs";
+import { FormProvider, useForm, useFormContext } from "react-hook-form";
 
-import { Button } from "@school-clerk/ui/button";
-import { Checkbox } from "@school-clerk/ui/checkbox";
-import { Input } from "@school-clerk/ui/input";
-import { Label } from "@school-clerk/ui/label";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@school-clerk/ui/card";
-import { Alert, AlertDescription } from "@school-clerk/ui/alert";
-import { Eye, EyeOff, Lock, Mail } from "lucide-react";
-import { authClient } from "@/auth/client";
 import { resetCookie } from "@/actions/cookies/auth-cookie";
+import { authClient } from "@/auth/client";
+import { DevTenantQuickLoginFab } from "@/components/dev-tenant-quick-login-fab";
 import { getFirstPermittedHref } from "@/components/sidebar/links";
+import { SubmitButton } from "@/components/submit-button";
+import { Alert, AlertDescription } from "@school-clerk/ui/alert";
+import { Badge } from "@school-clerk/ui/badge";
+import { Checkbox } from "@school-clerk/ui/checkbox";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@school-clerk/ui/field";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@school-clerk/ui/input-group";
+import { Separator } from "@school-clerk/ui/separator";
+import {
+  ArrowRight,
+  BadgeCheck,
+  Building2,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  ShieldCheck,
+} from "lucide-react";
+import { toast } from "@school-clerk/ui/use-toast";
 
-// import { signIn } from "next-auth/react";
+type QuickLoginUser = {
+  email: string;
+  name: string | null;
+  role: string | null;
+};
 
-export function Client() {
+type ClientProps = {
+  schoolName: string;
+  signupHref: string;
+  quickLoginUsers?: QuickLoginUser[];
+};
+
+type LoginFormValues = {
+  email: string;
+  password: string;
+  rememberMe: boolean;
+};
+
+const quickLoginPassword = "lorem-ipsum";
+
+export function Client({
+  schoolName,
+  signupHref,
+  quickLoginUsers = [],
+}: ClientProps) {
   const router = useRouter();
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    rememberMe: false,
+  const searchParams = useSearchParams();
+  const form = useForm<LoginFormValues>({
+    defaultValues: {
+      email: "",
+      password: "",
+      rememberMe: false,
+    },
   });
+  const emailField = form.register("email", {
+    onChange: () => markFieldFilled(),
+  });
+  const passwordField = form.register("password", {
+    onChange: () => markFieldFilled(),
+  });
+  const rememberMe = form.watch("rememberMe");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [returnTo] = useQueryState("return_to");
+  const attemptedAutoLoginRef = useRef(false);
+  const emailFromQuery = searchParams.get("email") ?? "";
+  const passwordFromQuery = searchParams.get("password") ?? "";
+  const shouldAutoLogin =
+    process.env.NODE_ENV !== "production" &&
+    searchParams.get("autologin") === "1";
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    setError("");
+  const markFieldFilled = () => setError("");
+
+  const setRememberMe = (value: boolean) => {
+    form.setValue("rememberMe", value, {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+    markFieldFilled();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitCredentials = async ({
+    email,
+    password,
+    rememberMe,
+  }: LoginFormValues) => {
     setIsLoading(true);
     setError("");
 
     try {
       const resp = await authClient.signIn.email({
-        email: formData.email,
-        password: formData.password,
-        rememberMe: formData.rememberMe,
+        email,
+        password,
+        rememberMe,
       });
 
       if (resp.error) {
@@ -65,11 +130,15 @@ export function Client() {
         return;
       }
 
-      const redirectUrl = getFirstPermittedHref({
+      const defaultHref = getFirstPermittedHref({
         role: resp.data.user.role,
       });
 
-      const cookie = await resetCookie({ bearerToken, userId, redirectUrl });
+      const cookie = await resetCookie({
+        bearerToken,
+        userId,
+        redirectUrl: defaultHref,
+      });
       if (!cookie?.schoolId) {
         setError(
           "Signed in, but your school workspace could not be loaded for this tenant.",
@@ -78,7 +147,19 @@ export function Client() {
         return;
       }
 
-      router.push(redirectUrl || "/");
+      const normalizedReturnTo = returnTo
+        ? returnTo.startsWith("/")
+          ? returnTo
+          : `/${returnTo}`
+        : null;
+
+      const redirectUrl =
+        normalizedReturnTo ||
+        (!cookie?.sessionId && cookie?.domain
+          ? "/onboarding/welcome"
+          : defaultHref || "/");
+
+      router.push(redirectUrl);
       router.refresh();
     } catch (error) {
       setError(
@@ -89,136 +170,242 @@ export function Client() {
     } finally {
       setIsLoading(false);
     }
-
-    // signIn("credentials", {
-    //   email: formData.email,
-    //   password: formData.password,
-    //   callbackURL: "/",
-    //   tenantLogin: true,
-    //   // type: "customer",
-    // }).catch((e) => {
-    //   // console.log(e);
-    // });
   };
 
+  useEffect(() => {
+    if (!emailFromQuery && !passwordFromQuery) return;
+
+    form.reset({
+      email: emailFromQuery || form.getValues("email"),
+      password: passwordFromQuery || form.getValues("password"),
+      rememberMe: form.getValues("rememberMe"),
+    });
+  }, [emailFromQuery, form, passwordFromQuery]);
+
+  useEffect(() => {
+    if (!shouldAutoLogin || attemptedAutoLoginRef.current) return;
+    if (!emailFromQuery || !passwordFromQuery) return;
+
+    attemptedAutoLoginRef.current = true;
+    void submitCredentials({
+      email: emailFromQuery,
+      password: passwordFromQuery,
+      rememberMe: true,
+    });
+  }, [emailFromQuery, passwordFromQuery, shouldAutoLogin]);
+
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-
-        <div className="max-w-md mx-auto">
-          <Card>
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl">
-                Sign In to Your Account
-              </CardTitle>
-              <p className="text-gray-600">
-                Welcome back! Please sign in to continue.
-              </p>
-            </CardHeader>
-            <CardContent>
-              {error && (
-                <Alert className="mb-4" variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="email">Email Address</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="john.doe@example.com"
-                      value={formData.email}
-                      onChange={(e) =>
-                        handleInputChange("email", e.target.value)
-                      }
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
-                      value={formData.password}
-                      onChange={(e) =>
-                        handleInputChange("password", e.target.value)
-                      }
-                      className="pl-10 pr-10"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-4">
-                  <label
-                    htmlFor="remember-me"
-                    className="flex items-center gap-2 text-sm text-muted-foreground"
-                  >
-                    <Checkbox
-                      id="remember-me"
-                      checked={formData.rememberMe}
-                      onCheckedChange={(checked) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          rememberMe: checked === true,
-                        }))
-                      }
-                    />
-                    <span>Remember me</span>
-                  </label>
-                  <Link
-                    href="/forgot-password"
-                    className="text-sm text-amber-600 hover:text-amber-700"
-                  >
-                    Forgot your password?
-                  </Link>
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full bg-amber-700 hover:bg-amber-800"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Signing In..." : "Sign In"}
-                </Button>
-              </form>
-
-              <div className="mt-6 text-center">
-                <p className="text-sm text-gray-600">
-                  Don't have an account?{" "}
-                  <Link
-                    href="/signup"
-                    className="text-amber-600 hover:text-amber-700 font-medium"
-                  >
-                    Create one here
-                  </Link>
+    <div className="min-h-screen bg-background text-foreground">
+      <main className="grid min-h-screen lg:grid-cols-[0.92fr_1.08fr]">
+        <section className="relative hidden overflow-hidden border-r bg-sidebar text-sidebar-foreground lg:flex">
+          <div className="absolute inset-0 bg-primary/10" />
+          <div className="relative flex min-h-screen w-full flex-col justify-between px-12 py-10">
+            <div className="flex items-center gap-3">
+              <div className="flex size-11 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground">
+                <Building2 />
+              </div>
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sidebar-foreground/55">
+                  {schoolName}
+                </p>
+                <p className="text-sm text-sidebar-foreground/70">
+                  Tenant workspace
                 </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+
+            <div className="flex max-w-xl flex-col gap-8">
+              <Badge variant="secondary" className="w-fit gap-2">
+                <ShieldCheck />
+                Secure tenant access
+              </Badge>
+              <div className="flex flex-col gap-5">
+                <h1 className="text-5xl font-semibold leading-[1.02] tracking-normal">
+                  Pick up exactly where your school left off.
+                </h1>
+                <p className="max-w-md text-base leading-7 text-sidebar-foreground/70">
+                  Sign in to manage sessions, staff, learners, fees, and the
+                  daily work that keeps the school moving.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 text-sm text-sidebar-foreground/75">
+              {[
+                "Tenant-specific session setup",
+                "Role-aware dashboard access",
+                "Onboarding continues inside the workspace",
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-3">
+                  <BadgeCheck className="text-primary" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="flex min-h-screen items-center justify-center px-5 py-8 sm:px-8 lg:px-12">
+          <div className="w-full max-w-[440px]">
+            <div className="mb-9 flex flex-col gap-3">
+              <div className="flex items-center gap-3 lg:hidden">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                  <Building2 />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    {schoolName}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Tenant workspace
+                  </p>
+                </div>
+              </div>
+              <Badge variant="outline" className="w-fit">
+                Welcome back
+              </Badge>
+              <div className="flex flex-col gap-2">
+                <h2 className="text-3xl font-semibold tracking-normal">
+                  Sign in to continue
+                </h2>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Use the administrator or staff account connected to this
+                  school workspace.
+                </p>
+              </div>
+            </div>
+
+            {error && (
+              <Alert className="mb-5" variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <FormProvider {...form}>
+              <form onSubmit={form.handleSubmit(submitCredentials)}>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="email">Email address</FieldLabel>
+                    <InputGroup>
+                      <InputGroupAddon>
+                        <Mail />
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        id="email"
+                        type="email"
+                        placeholder="admin@school.edu"
+                        autoComplete="email"
+                        required
+                        {...emailField}
+                      />
+                    </InputGroup>
+                  </Field>
+
+                  <Field>
+                    <div className="flex items-center justify-between gap-4">
+                      <FieldLabel htmlFor="password">Password</FieldLabel>
+                      <Link
+                        href="/forgot-password"
+                        className="text-sm font-medium text-primary hover:text-primary/80"
+                      >
+                        Forgot password?
+                      </Link>
+                    </div>
+                    <InputGroup>
+                      <InputGroupAddon>
+                        <Lock />
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Enter your password"
+                        autoComplete="current-password"
+                        required
+                        {...passwordField}
+                      />
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                          size="icon-xs"
+                        >
+                          {showPassword ? <EyeOff /> : <Eye />}
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                    </InputGroup>
+                  </Field>
+
+                  <Field orientation="horizontal">
+                    <Checkbox
+                      id="remember-me"
+                      checked={rememberMe}
+                      onCheckedChange={(checked) =>
+                        setRememberMe(checked === true)
+                      }
+                    />
+                    <FieldContent>
+                      <FieldLabel htmlFor="remember-me">
+                        Remember this device
+                      </FieldLabel>
+                      <FieldDescription>
+                        Keep this tenant session ready on trusted devices.
+                      </FieldDescription>
+                    </FieldContent>
+                  </Field>
+
+                  <SubmitButton
+                    type="submit"
+                    className="w-full"
+                    isSubmitting={isLoading}
+                  >
+                    Sign in
+                    <ArrowRight data-icon="inline-end" />
+                  </SubmitButton>
+                </FieldGroup>
+              </form>
+            </FormProvider>
+
+            <Separator className="my-6" />
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Starting a new school workspace?{" "}
+                <Link
+                  href={signupHref}
+                  className="font-medium text-primary hover:text-primary/80"
+                >
+                  Create it on the signup domain
+                </Link>
+              </p>
+            </div>
+          </div>
+        </section>
+        <DevTenantQuickLoginFab
+          domain={schoolName}
+          hideOnLogin={false}
+          users={quickLoginUsers.map((user) => ({
+            ...user,
+            quickLoginHref: "#",
+            onQuickLogin: () => {
+              form.reset(
+                {
+                  email: user.email,
+                  password: quickLoginPassword,
+                  rememberMe: true,
+                },
+                {
+                  keepErrors: false,
+                },
+              );
+              markFieldFilled();
+              toast({
+                title: "Quick login filled",
+                description: `Email and password have been filled for ${user.email}.`,
+              });
+            },
+          }))}
+        />
       </main>
     </div>
   );

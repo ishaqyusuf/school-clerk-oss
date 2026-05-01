@@ -15,6 +15,7 @@ import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import {
 	BookOpen,
 	GraduationCap,
+	Rocket,
 	School,
 	Users,
 	Wallet,
@@ -139,6 +140,50 @@ export default async function Page({ params }) {
 			</div>
 
 			{/* Quick links */}
+			{!sessionId ? (
+				<Card className="border-amber-200/70 bg-amber-50/70">
+					<CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+						<div className="space-y-1">
+							<div className="flex items-center gap-2 text-amber-900">
+								<Rocket className="h-4 w-4" />
+								<p className="font-medium">Finish onboarding</p>
+							</div>
+							<p className="text-sm text-amber-900/80">
+								Create your first academic session to unlock the full dashboard
+								experience.
+							</p>
+						</div>
+						<Button asChild>
+							<Link href="/onboarding/welcome">
+								Continue onboarding
+							</Link>
+						</Button>
+					</CardContent>
+				</Card>
+			) : null}
+
+			{sessionId && stats.staff === 0 ? (
+				<Card className="border-emerald-200/70 bg-emerald-50/70">
+					<CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+						<div className="space-y-1">
+							<div className="flex items-center gap-2 text-emerald-900">
+								<Users className="h-4 w-4" />
+								<p className="font-medium">Invite your first staff member</p>
+							</div>
+							<p className="text-sm text-emerald-900/80">
+								Your academic session is live. The next best move is inviting a
+								teacher or team lead into the workspace.
+							</p>
+						</div>
+						<Button asChild>
+							<Link href="/onboarding/invite-staff">
+								Invite staff
+							</Link>
+						</Button>
+					</CardContent>
+				</Card>
+			) : null}
+
 			<div>
 				<h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
 					Quick Links

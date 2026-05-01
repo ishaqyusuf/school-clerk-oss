@@ -1,9 +1,11 @@
 model ClassroomSubjectAssessment {
     id                   Int    @unique @default(autoincrement())
     title                String
-    obtainable           Float
+    obtainable           Float  @default(0)
     percentageObtainable Float? @default(0)
     index                Float?
+    isGroup              Boolean @default(false)
+    parentAssessmentId   Int?
 
     createdAt DateTime? @default(now()) @db.Timestamp(0)
     updatedAt DateTime? @updatedAt
@@ -12,6 +14,8 @@ model ClassroomSubjectAssessment {
     assessmentResults   StudentAssessmentRecord[]
     departmentSubjectId String?
     departmentSubject   DepartmentSubject?        @relation(fields: [departmentSubjectId], references: [id])
+    parentAssessment    ClassroomSubjectAssessment? @relation("AssessmentHierarchy", fields: [parentAssessmentId], references: [id])
+    childAssessments    ClassroomSubjectAssessment[] @relation("AssessmentHierarchy")
 }
 
 model StudentAssessmentRecord {

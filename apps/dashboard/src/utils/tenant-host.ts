@@ -21,6 +21,19 @@ function getRootDomainCandidates(appRootDomain: string) {
   return [...rootCandidates].filter(Boolean);
 }
 
+export function isAppRootDomainHost(host: string, appRootDomain: string) {
+  const normalizedHost = normalizeHost(host);
+
+  if (!normalizedHost) return false;
+
+  const hostCandidates = [normalizedHost, stripPort(normalizedHost)];
+  const rootCandidates = getRootDomainCandidates(appRootDomain);
+
+  return hostCandidates.some((candidateHost) =>
+    rootCandidates.some((candidateRoot) => candidateHost === candidateRoot),
+  );
+}
+
 export function extractTenantSubdomain(host: string, appRootDomain: string) {
   const normalizedHost = normalizeHost(host);
   const rootCandidates = getRootDomainCandidates(appRootDomain);

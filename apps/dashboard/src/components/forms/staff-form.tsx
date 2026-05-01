@@ -28,6 +28,11 @@ type Props = {
 	staffId?: string | null;
 	submitLabel?: string;
 	closeOnSuccess?: boolean;
+	onSuccess?: (data: {
+		inviteError: string | null;
+		invited: boolean;
+		staffId: string;
+	}) => void;
 };
 
 function roleSupportsAssignments(role?: string | null) {
@@ -68,6 +73,7 @@ export function Form({
 	staffId,
 	submitLabel = "Save",
 	closeOnSuccess = false,
+	onSuccess,
 }: Props) {
 	const { setParams } = useStaffParams();
 	const { control, handleSubmit, reset } = useStaffFormContext();
@@ -126,6 +132,8 @@ export function Form({
 				setParams({ createStaff: null });
 				reset();
 			}
+
+			onSuccess?.(data);
 		},
 		onError({ error }) {
 			toast.error(error.serverError || "Could not save staff.");

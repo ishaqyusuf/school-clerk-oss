@@ -25,6 +25,7 @@
     "./context-factory": "./src/context-factory.tsx",
     "./dayjs": "./src/dayjs.ts",
     "./envs": "./src/envs.ts",
+    "./runtime-url": "./src/runtime-url.ts",
     "./constants": "./src/constants.ts",
     "./responsive": "./src/responsive.ts",
     "./format": "./src/format.ts",

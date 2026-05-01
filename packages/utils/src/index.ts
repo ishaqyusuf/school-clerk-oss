@@ -15,6 +15,7 @@ import {
 import util from "util";
 export * from "./classroom-name";
 export * from "./envs";
+export * from "./runtime-url";
 export function stripSpecialCharacters(inputString: string) {
   // Remove special characters and spaces, keep alphanumeric, hyphens/underscores, and dots
   return inputString

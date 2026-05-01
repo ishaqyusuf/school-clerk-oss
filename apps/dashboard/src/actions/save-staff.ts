@@ -583,6 +583,14 @@ export const saveStaffAction = actionClient
 					schoolProfileId: profile.schoolId!,
 					userId: savedStaff.userId,
 				});
+				await prisma.schoolProfile.update({
+					where: {
+						id: profile.schoolId!,
+					},
+					data: {
+						onboardingCompletedAt: new Date(),
+					},
+				});
 			} catch (error) {
 				console.error("[staff-invite] Failed to send invite email", error);
 				inviteError = inviteErrorMessage(error);

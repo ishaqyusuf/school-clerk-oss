@@ -114,6 +114,10 @@ export async function overview(ctx: TRPCContext, query: SubjectOverviewSchema) {
         },
       },
       assessments: {
+        where: {
+          deletedAt: null,
+          parentAssessmentId: null,
+        },
         select: {
           id: true,
           index: true,
@@ -121,6 +125,33 @@ export async function overview(ctx: TRPCContext, query: SubjectOverviewSchema) {
           title: true,
           obtainable: true,
           percentageObtainable: true,
+          isGroup: true,
+          childAssessments: {
+            where: {
+              deletedAt: null,
+            },
+            select: {
+              id: true,
+              index: true,
+              createdAt: true,
+              title: true,
+              obtainable: true,
+              percentageObtainable: true,
+              isGroup: true,
+              _count: {
+                select: {
+                  assessmentResults: {
+                    where: {
+                      deletedAt: null,
+                    },
+                  },
+                },
+              },
+            },
+            orderBy: {
+              index: "asc",
+            },
+          },
           _count: {
             select: {
               assessmentResults: {
@@ -132,7 +163,7 @@ export async function overview(ctx: TRPCContext, query: SubjectOverviewSchema) {
           },
         },
         orderBy: {
-          createdAt: "desc",
+          index: "asc",
         },
       },
     },
@@ -194,10 +225,11 @@ export async function getClassroomSubjects(
           },
           assessments: {
             where: {
+              deletedAt: null,
+              isGroup: false,
               percentageObtainable: {
                 gt: 0,
               },
-              deletedAt: null,
             },
             select: {
               percentageObtainable: true,

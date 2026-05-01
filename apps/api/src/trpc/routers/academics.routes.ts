@@ -424,10 +424,13 @@ export const academicsRouter = createTRPCRouter({
               assessments: {
                 where: { deletedAt: null },
                 select: {
+                  id: true,
                   title: true,
                   index: true,
                   obtainable: true,
                   percentageObtainable: true,
+                  isGroup: true,
+                  parentAssessmentId: true,
                 },
               },
             },
@@ -462,31 +465,47 @@ export const academicsRouter = createTRPCRouter({
             })),
           },
         );
-        await tx.classroomSubjectAssessment.createManyAndReturn({
-          data: currentTerm?.departmentSubjects
-            ?.map((d) => {
-              const newDeptSubj = deptTermSubjects.find(
-                (a) => a.subjectId === d.subjectId,
-              );
-              return d?.assessments?.map((assessment) => ({
-                assessment,
-                departmentSubject: d,
-                newDeptSubj,
-              }));
-            })
-            .flat()
-            .map(({ assessment, departmentSubject, newDeptSubj }) => {
-              const { obtainable, percentageObtainable, index, title } =
-                assessment;
-              return {
-                obtainable,
-                percentageObtainable,
-                index,
-                title,
-                departmentSubjectId: newDeptSubj?.id,
-              };
-            }),
-        });
+        for (const departmentSubject of currentTerm.departmentSubjects) {
+          const newDeptSubj = deptTermSubjects.find(
+            (item) =>
+              item.subjectId === departmentSubject.subjectId &&
+              item.classRoomDepartmentId === departmentSubject.classRoomDepartmentId,
+          );
+
+          if (!newDeptSubj) continue;
+
+          const sortedAssessments = [...(departmentSubject.assessments ?? [])].sort(
+            (a, b) => {
+              if (a.parentAssessmentId == null && b.parentAssessmentId != null) {
+                return -1;
+              }
+              if (a.parentAssessmentId != null && b.parentAssessmentId == null) {
+                return 1;
+              }
+              return (a.index ?? 0) - (b.index ?? 0);
+            },
+          );
+
+          const assessmentIdMap = new Map<number, number>();
+
+          for (const assessment of sortedAssessments) {
+            const created = await tx.classroomSubjectAssessment.create({
+              data: {
+                obtainable: assessment.obtainable,
+                percentageObtainable: assessment.percentageObtainable,
+                index: assessment.index,
+                title: assessment.title,
+                isGroup: assessment.isGroup,
+                departmentSubjectId: newDeptSubj.id,
+                parentAssessmentId: assessment.parentAssessmentId
+                  ? assessmentIdMap.get(assessment.parentAssessmentId) ?? null
+                  : null,
+              },
+            });
+
+            assessmentIdMap.set(assessment.id, created.id);
+          }
+        }
         await tx.studentTermForm.createManyAndReturn({
           data: currentTerm.termForms.map(
             ({ studentId, studentSessionFormId, classroomDepartmentId }) => ({

@@ -135,10 +135,10 @@ function resolveRouteMetadata(pathname: string): RouteMetadata {
 			},
 		},
 		{
-			test: /^\/onboarding\/create-school$/,
+			test: /^\/onboarding\/welcome$/,
 			metadata: {
-				title: "Create School",
-				description: "Set up the tenant profile for this school workspace.",
+				title: "Onboarding Welcome",
+				description: "Continue setup for this school workspace.",
 				noIndex: true,
 			},
 		},

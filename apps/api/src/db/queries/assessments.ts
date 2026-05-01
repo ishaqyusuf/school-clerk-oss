@@ -1,21 +1,39 @@
 import type { TRPCContext } from "@api/trpc/init";
 import { z } from "zod";
-import { overview } from "./subjects";
 import { studentDisplayName } from "./enrollment-query";
 import {
-  consoleLog,
   generateRandomString,
   uniqueList,
 } from "@school-clerk/utils";
 
-export const saveAssessementSchema = z.object({
+const subAssessmentSchema = z.object({
   id: z.number().optional().nullable(),
-  title: z.string(),
-  obtainable: z.number(),
-  index: z.number(),
-  percentageObtainable: z.number(),
-  departmentSubjectId: z.string(),
+  title: z.string().min(1),
+  obtainable: z.number().min(0),
+  percentageObtainable: z.number().min(0),
 });
+
+export const saveAssessementSchema = z
+  .object({
+    id: z.number().optional().nullable(),
+    title: z.string().min(1),
+    obtainable: z.number().min(0),
+    index: z.number(),
+    percentageObtainable: z.number().min(0),
+    departmentSubjectId: z.string(),
+    isGroup: z.boolean().optional().default(false),
+    parentAssessmentId: z.number().optional().nullable(),
+    childAssessments: z.array(subAssessmentSchema).optional().default([]),
+  })
+  .superRefine((value, ctx) => {
+    if (value.isGroup && !value.childAssessments?.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["childAssessments"],
+        message: "Add at least one sub-assessment for grouped items.",
+      });
+    }
+  });
 export type SaveAssessementSchema = z.infer<typeof saveAssessementSchema>;
 
 export async function saveAssessement(
@@ -30,26 +48,118 @@ export async function saveAssessement(
     index,
     percentageObtainable,
     departmentSubjectId,
+    parentAssessmentId,
+    childAssessments,
+    isGroup,
   } = data;
-  if (id) {
-    await db.classroomSubjectAssessment.update({
-      where: { id },
-      data: {
-        title,
-        obtainable,
-        percentageObtainable,
+  const normalizedChildren = childAssessments ?? [];
+  const groupedAssessment = isGroup || normalizedChildren.length > 0;
+  const summaryObtainable = groupedAssessment
+    ? normalizedChildren.reduce((sum, child) => sum + (child.obtainable ?? 0), 0)
+    : obtainable;
+  const summaryPercentage = groupedAssessment
+    ? normalizedChildren.reduce(
+        (sum, child) => sum + (child.percentageObtainable ?? 0),
+        0,
+      )
+    : percentageObtainable;
+
+  return db.$transaction(async (tx) => {
+    const assessment = id
+      ? await tx.classroomSubjectAssessment.update({
+          where: { id },
+          data: {
+            title,
+            obtainable: summaryObtainable,
+            percentageObtainable: summaryPercentage,
+            isGroup: groupedAssessment,
+            parentAssessmentId: parentAssessmentId ?? null,
+            deletedAt: null,
+          },
+        })
+      : await tx.classroomSubjectAssessment.create({
+          data: {
+            title,
+            obtainable: summaryObtainable,
+            index,
+            percentageObtainable: summaryPercentage,
+            departmentSubjectId,
+            isGroup: groupedAssessment,
+            parentAssessmentId: parentAssessmentId ?? null,
+          },
+        });
+
+    const existingChildren = await tx.classroomSubjectAssessment.findMany({
+      where: {
+        parentAssessmentId: assessment.id,
+      },
+      select: {
+        id: true,
       },
     });
-  } else
-    await db.classroomSubjectAssessment.create({
-      data: {
-        title,
-        obtainable,
-        index,
-        percentageObtainable,
-        departmentSubjectId,
-      },
-    });
+
+    const incomingChildIds = normalizedChildren
+      .map((child) => child.id)
+      .filter(Boolean);
+
+    if (groupedAssessment) {
+      await Promise.all(
+        normalizedChildren.map((child, childIndex) => {
+          const childData = {
+            title: child.title,
+            obtainable: child.obtainable,
+            percentageObtainable: child.percentageObtainable,
+            index: childIndex,
+            departmentSubjectId,
+            isGroup: false,
+            parentAssessmentId: assessment.id,
+            deletedAt: null,
+          };
+
+          if (child.id) {
+            return tx.classroomSubjectAssessment.update({
+              where: { id: child.id },
+              data: childData,
+            });
+          }
+
+          return tx.classroomSubjectAssessment.create({
+            data: childData,
+          });
+        }),
+      );
+    }
+
+    const removedChildIds = existingChildren
+      .map((child) => child.id)
+      .filter((childId) => !incomingChildIds.includes(childId));
+
+    if (removedChildIds.length) {
+      await tx.classroomSubjectAssessment.updateMany({
+        where: {
+          id: {
+            in: removedChildIds,
+          },
+        },
+        data: {
+          deletedAt: new Date(),
+        },
+      });
+    }
+
+    if (!groupedAssessment && existingChildren.length) {
+      await tx.classroomSubjectAssessment.updateMany({
+        where: {
+          parentAssessmentId: assessment.id,
+        },
+        data: {
+          deletedAt: new Date(),
+        },
+      });
+    }
+
+    return assessment;
+  });
 }
 
 /*
@@ -84,17 +194,28 @@ export async function getSubjectAssessmentRecordings(
       assessments: {
         where: query.assessmentIds?.length
           ? {
+              deletedAt: null,
+              isGroup: false,
               id: {
                 in: query.assessmentIds,
               },
             }
-          : undefined,
+          : {
+              deletedAt: null,
+              isGroup: false,
+            },
         select: {
           id: true,
           obtainable: true,
           percentageObtainable: true,
           title: true,
           index: true,
+          parentAssessment: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
           assessmentResults: {
             select: {
               id: true,
@@ -165,6 +286,10 @@ export async function getSubjectAssessmentRecordings(
     assessments: ds.assessments.map((a) => ({
       id: a.id,
       title: a.title,
+      parentTitle: a.parentAssessment?.title,
+      displayTitle: a.parentAssessment?.title
+        ? `${a.parentAssessment.title} - ${a.title}`
+        : a.title,
       obtainable: a.obtainable,
       percentageObtainable: a.percentageObtainable,
       index: a.index,
@@ -243,6 +368,10 @@ export async function getAssessmentSuggestions(
 ) {
   const { db } = ctx;
   const list = await db.classroomSubjectAssessment.findMany({
+    where: {
+      deletedAt: null,
+      isGroup: false,
+    },
     select: {
       obtainable: true,
       percentageObtainable: true,

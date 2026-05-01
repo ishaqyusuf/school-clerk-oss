@@ -32,10 +32,16 @@ export async function getClassroomReportSheet(
           assessments: {
             where: {
               deletedAt: null,
+              isGroup: false,
             },
             select: {
               id: true,
               title: true,
+              parentAssessment: {
+                select: {
+                  title: true,
+                },
+              },
               percentageObtainable: true,
               obtainable: true,
               index: true,

@@ -1,5 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
+import { prisma } from "@school-clerk/db";
+import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
+import { DevTenantsFab } from "@/components/dev-tenants-fab";
 
 // export default function Home() {
 //   return (
@@ -97,16 +100,36 @@ const isDev = process.env.NODE_ENV !== "production";
 const configuredDashboardHost =
   process.env.NODE_ENV === "production"
     ? process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_ROOT_DOMAIN
-    : process.env.APP_ROOT_DOMAIN &&
-        !/^localhost(?::\d+)?$/i.test(process.env.APP_ROOT_DOMAIN)
-      ? process.env.APP_ROOT_DOMAIN
-      : "school-clerk-dashboard.localhost:1355";
+    : resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
 const signUpHref = `${isDev ? "http" : "https"}://${configuredDashboardHost}/sign-up`;
 const bookDemoHref =
   process.env.NEXT_PUBLIC_BOOK_DEMO_URL ??
   "mailto:hello@schoolclerk.com?subject=Book%20a%20SchoolClerk%20demo";
 
-export default function Home() {
+export default async function Home() {
+  const tenants = isDev
+    ? await prisma.schoolProfile.findMany({
+        where: {
+          deletedAt: null,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        select: {
+          name: true,
+          subDomain: true,
+        },
+        take: 12,
+      })
+    : [];
+
+  const tenantLinks = tenants.map((tenant) => ({
+    dashboardHref: `http://${tenant.subDomain}.${configuredDashboardHost}/login`,
+    mainHref: `http://${tenant.subDomain}.localhost:3001`,
+    name: tenant.name,
+    subdomain: tenant.subDomain,
+  }));
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* ─── Sticky Nav ─── */}
@@ -617,6 +640,8 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {isDev ? <DevTenantsFab tenants={tenantLinks} /> : null}
     </div>
   );
 }

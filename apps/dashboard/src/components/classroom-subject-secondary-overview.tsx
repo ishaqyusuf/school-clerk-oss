@@ -64,14 +64,18 @@ function Content() {
     className: data?.subject?.classRoomDepartment?.classRoom?.name,
     departmentName: data?.subject?.classRoomDepartment?.departmentName,
   });
-  const assessmentCount = data?.subject?.assessments?.length ?? 0;
+  const scoreableAssessments =
+    data?.subject?.assessments?.flatMap((assessment) =>
+      assessment?.childAssessments?.length ? assessment.childAssessments : [assessment],
+    ) ?? [];
+  const assessmentCount = scoreableAssessments.length ?? 0;
   const totalSubmissions =
-    data?.subject?.assessments?.reduce(
+    scoreableAssessments?.reduce(
       (sum, assessment) => sum + (assessment?._count?.assessmentResults ?? 0),
       0
     ) ?? 0;
   const totalWeight =
-    data?.subject?.assessments?.reduce(
+    scoreableAssessments?.reduce(
       (sum, assessment) => sum + (assessment?.percentageObtainable ?? 0),
       0
     ) ?? 0;

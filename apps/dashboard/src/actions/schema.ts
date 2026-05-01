@@ -183,11 +183,9 @@ export const createSignupSchema = (_t?: unknown) =>
 		institutionName: z.string().min(2, {
 			message: "Institution name must be at least 2 characters.",
 		}),
-		institutionType: z
-			.string({
-				required_error: "Please select an institution type.",
-			})
-			.optional(),
+		institutionType: z.string({
+			required_error: "Please select an institution type.",
+		}),
 		adminName: z.string().min(2, {
 			message: "Name must be at least 2 characters.",
 		}),
@@ -218,6 +216,9 @@ export const createSignupSchema = (_t?: unknown) =>
 			.string()
 			.min(2, {
 				message: "Subdomain must be at least 2 characters.",
+			})
+			.max(63, {
+				message: "Subdomain must be 63 characters or fewer.",
 			})
 			.regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i, {
 				message: "Domain can only contain letters, numbers, and hyphens.",

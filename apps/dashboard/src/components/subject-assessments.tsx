@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Clock3,
   FileText,
+  FolderTree,
   ListPlus,
 } from "lucide-react";
 import { Separator } from "@school-clerk/ui/separator";
@@ -32,16 +33,23 @@ interface Props {
 }
 export function SubjectAssessments(props: Props) {
   const assessments = props.overview?.subject?.assessments;
+  const scoreableAssessments =
+    assessments?.flatMap((assessment) =>
+      assessment?.childAssessments?.length ? assessment.childAssessments : [assessment],
+    ) ?? [];
   const totalSubmissions =
-    assessments?.reduce(
+    scoreableAssessments?.reduce(
       (sum, assessment) => sum + (assessment?._count?.assessmentResults ?? 0),
       0
     ) ?? 0;
   const totalWeight =
-    assessments?.reduce(
+    scoreableAssessments?.reduce(
       (sum, assessment) => sum + (assessment?.percentageObtainable ?? 0),
       0
     ) ?? 0;
+  const groupedAssessmentCount =
+    assessments?.filter((assessment) => assessment?.childAssessments?.length)
+      ?.length ?? 0;
   const [view, setView] = useState("general");
   const [defaultFormValue, setDefaultFormValue] =
     useState<typeof saveAssessementSchema._type>(null);
@@ -97,13 +105,15 @@ export function SubjectAssessments(props: Props) {
       <DropdownMenu.Content className="">
         {suggestions?.map((s) => (
           <DropdownMenu.Item
-            onClick={(e) => {
+            onClick={() => {
               mutate({
                 departmentSubjectId: deptSubjectId,
-                index: assessments?.length,
+                index: assessments?.length ?? 0,
                 obtainable: s?.obtainable,
                 percentageObtainable: s?.percentageObtainable,
                 title: s?.title,
+                isGroup: false,
+                childAssessments: [],
                 ...(defaultValues || {}),
               });
             }}
@@ -130,11 +140,11 @@ export function SubjectAssessments(props: Props) {
         >
           <Accordion.Item className="border-none" value="general">
             <Accordion.Content>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <StatCard
                   icon={FileText}
-                  label="Total assessments"
-                  value={assessments?.length ?? 0}
+                  label="Score items"
+                  value={scoreableAssessments?.length ?? 0}
                   tone="emerald"
                 />
                 <StatCard
@@ -148,6 +158,12 @@ export function SubjectAssessments(props: Props) {
                   label="Configured weight"
                   value={`${totalWeight}%`}
                   tone="indigo"
+                />
+                <StatCard
+                  icon={FolderTree}
+                  label="Grouped items"
+                  value={groupedAssessmentCount}
+                  tone="emerald"
                 />
               </div>
 
@@ -168,7 +184,7 @@ export function SubjectAssessments(props: Props) {
                         onClick={() => {
                           setDefaultFormValue({
                             departmentSubjectId: deptSubjectId,
-                            index: assessments?.length,
+                            index: assessments?.length ?? 0,
                           });
                         }}
                       >
@@ -200,7 +216,7 @@ export function SubjectAssessments(props: Props) {
                     {assessments.map((a, ai) => (
                       <div
                         key={a.id}
-                        className="rounded-2xl border border-border bg-muted/20 p-4 transition-colors hover:bg-muted/30"
+                        className="rounded-3xl border border-border bg-muted/20 p-5 transition-colors hover:bg-muted/30"
                       >
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                           <div className="flex min-w-0 items-start gap-4">
@@ -231,24 +247,89 @@ export function SubjectAssessments(props: Props) {
                                     {a.obtainable} points
                                   </Badge>
                                 ) : null}
+                                {a.childAssessments?.length ? (
+                                  <Badge
+                                    variant="neutral"
+                                    className="rounded-full px-3 py-1"
+                                  >
+                                    {a.childAssessments.length} sub-assessments
+                                  </Badge>
+                                ) : null}
                               </div>
                             </div>
                           </div>
                           <div className="flex items-center justify-end gap-2">
-                            <Suggestion
-                              defaultValues={{
-                                id: a.id,
-                                index: a.index || ai,
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-2"
+                              onClick={() => {
+                                setDefaultFormValue({
+                                  id: a.id,
+                                  departmentSubjectId: deptSubjectId,
+                                  index: Number(a.index ?? ai),
+                                  title: a.title,
+                                  obtainable: a.obtainable ?? 0,
+                                  percentageObtainable:
+                                    a.percentageObtainable ?? 0,
+                                  isGroup: !!a.childAssessments?.length,
+                                  childAssessments:
+                                    a.childAssessments?.map((child) => ({
+                                      id: child.id,
+                                      title: child.title,
+                                      obtainable: child.obtainable ?? 0,
+                                      percentageObtainable:
+                                        child.percentageObtainable ?? 0,
+                                    })) ?? [],
+                                });
                               }}
                             >
-                              <Button size="sm" variant="outline" className="gap-2">
-                                <Icons.Edit className="size-4" />
-                                Edit
-                              </Button>
-                            </Suggestion>
+                              <Icons.Edit className="size-4" />
+                              Edit
+                            </Button>
                             <ChevronRight className="size-4 text-muted-foreground" />
                           </div>
                         </div>
+
+                        {a.childAssessments?.length ? (
+                          <div className="mt-5 grid gap-3 border-t border-border/70 pt-4">
+                            {a.childAssessments.map((child, childIndex) => (
+                              <div
+                                key={child.id}
+                                className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background px-4 py-3 md:flex-row md:items-center md:justify-between"
+                              >
+                                <div>
+                                  <p className="font-medium text-foreground">
+                                    {child.title}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Part {childIndex + 1} under {a.title}
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge
+                                    variant="outline"
+                                    className="rounded-full px-3 py-1"
+                                  >
+                                    {child.percentageObtainable ?? 0}% weight
+                                  </Badge>
+                                  <Badge
+                                    variant="success"
+                                    className="rounded-full px-3 py-1"
+                                  >
+                                    {child.obtainable ?? 0} points
+                                  </Badge>
+                                  <Badge
+                                    variant="neutral"
+                                    className="rounded-full px-3 py-1"
+                                  >
+                                    {child._count?.assessmentResults ?? 0} submissions
+                                  </Badge>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -273,7 +354,7 @@ export function SubjectAssessments(props: Props) {
                     {defaultFormValue?.id ? "Edit assessment" : "Create assessment"}
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Configure the title, obtainable score, and weighted contribution.
+                    Configure the title, obtainable score, weighted contribution, and optional sub-assessments.
                   </p>
                 </div>
                 <AssessmentForm defaultValues={defaultFormValue}>

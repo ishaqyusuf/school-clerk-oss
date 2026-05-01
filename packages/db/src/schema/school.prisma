@@ -3,6 +3,13 @@ model SchoolProfile {
     name                    String
     slug                    String
     subDomain               String                @unique
+    institutionType         String?
+    studentCountEstimate    Int?
+    country                 String?
+    educationSystem         String?
+    curriculumType          String?
+    languageOfInstruction   String?
+    onboardingCompletedAt   DateTime?             @db.Timestamp(0)
     createdAt               DateTime?             @default(now()) @db.Timestamp(0)
     accountId               String
     updatedAt               DateTime?             @updatedAt

@@ -1,54 +1,62 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createSaasProfileAction } from "@/actions/create-saas-profile";
-import { createSignupSchema } from "@/actions/schema";
-// Get the list of countries in multiple languages
-import { countries } from "@/utils/i18n/countries";
-import { useTranslations } from "@/utils/i18n/translations";
+import { useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  BookOpen,
-  Building2,
-  Globe,
-  GraduationCap,
-  Lock,
-  Mail,
-  Phone,
-  School,
-  User,
-  Users,
-} from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
+import {
+  ArrowRight,
+  BadgeCheck,
+  Building2,
+  CheckCircle2,
+  Globe,
+  GraduationCap,
+  Languages,
+  Lock,
+  Mail,
+  Phone,
+  Rocket,
+  Sparkles,
+  Users,
+} from "lucide-react";
 
+import { createSaasProfileAction } from "@/actions/create-saas-profile";
+import { createSignupSchema } from "@/actions/schema";
+import { DomainInput } from "@/components/domain-input";
+import {
+  getInstitutionType,
+  institutionTypeOptions,
+} from "@/features/signup/institution-types";
+import { useTranslations } from "@/utils/i18n/translations";
 import { Button } from "@school-clerk/ui/button";
+import { Card, CardContent } from "@school-clerk/ui/card";
 import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@school-clerk/ui/card";
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@school-clerk/ui/form";
 import { Input } from "@school-clerk/ui/input";
-import { Label } from "@school-clerk/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@school-clerk/ui/select";
+import { Badge } from "@school-clerk/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@school-clerk/ui/select";
 import { toast } from "@school-clerk/ui/use-toast";
 
-import { DomainInput } from "../domain-input";
+const trustPoints = [
+  "Tenant-ready school workspace in minutes",
+  "Guided onboarding into academic setup and staff invites",
+  "Subdomain availability checked before creation",
+];
 
-export default function SignupForm() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [locale, setLocale] = useState(() => {
-    // Get from localStorage or browser preference if on client
+type SignupFormProps = {
+  hostSuffix: string;
+};
+
+export default function SignupForm({ hostSuffix }: SignupFormProps) {
+  const [isDomainValid, setIsDomainValid] = useState(false);
+  const [locale] = useState(() => {
     if (typeof window !== "undefined") {
       return (
         localStorage.getItem("preferredLanguage") ??
@@ -56,404 +64,620 @@ export default function SignupForm() {
         "en"
       );
     }
+
     return "en";
   });
-
   const { t } = useTranslations(locale);
-
-  // Update the schema with translations
   const signupSchema = createSignupSchema(t);
   type SignupFormValues = z.infer<typeof signupSchema>;
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      institutionName: undefined,
-      institutionType: undefined,
-      adminName: undefined,
-      email: undefined,
-      password: undefined,
-      studentCount: undefined,
-      country: undefined,
-      phone: undefined,
-      educationSystem: undefined,
-      curriculumType: undefined,
-      languageOfInstruction: undefined,
-      // Add to the form defaultValues
-      domainName: undefined,
+      institutionName: "",
+      institutionType: "k12",
+      adminName: "",
+      email: "",
+      password: "lorem-ipsum",
+      studentCount: "",
+      country: "",
+      phone: "",
+      educationSystem: "",
+      curriculumType: "",
+      languageOfInstruction: "",
+      domainName: "",
     },
   });
 
-  // Listen for language changes
-  const handleLanguageChange = (newLocale: string) => {
-    setLocale(newLocale);
-  };
+  const activeInstitutionType = form.watch("institutionType");
+  const watchedInstitutionName = form.watch("institutionName");
+  const institutionTypeMeta = getInstitutionType(activeInstitutionType);
 
-  // Add state for domain validity
-  const [isDomainValid, setIsDomainValid] = useState(false);
-
-  // Add this function to generate a suggested domain from institution name
-  const generateSuggestedDomain = (name: string) => {
-    if (!name) return "";
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9-\s]/g, "") // Remove special chars except hyphens
-      .replace(/\s+/g, "-") // Replace spaces with hyphens
-      .replace(/-+/g, "-") // Replace multiple hyphens with single hyphen
-      .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
-  };
-
-  // Add an effect to suggest domain name based on institution name
-  useEffect(() => {
-    const institutionName = form.watch("institutionName");
-    const currentDomain = form.watch("domainName");
-
-    // Only suggest if domain is empty or hasn't been manually edited
-    if (
-      institutionName &&
-      (!currentDomain ||
-        currentDomain ===
-          generateSuggestedDomain(form.getValues("institutionName")))
-    ) {
-      const suggestedDomain = generateSuggestedDomain(institutionName);
-      form.setValue("domainName", suggestedDomain);
-    }
-  }, [form.watch("institutionName")]);
   const createSchool = useAction(createSaasProfileAction, {
-    onSuccess(args) {},
+    onSuccess({ data }) {
+      if (!data) return;
+
+      window.location.assign(
+        data.onboardingLoginUrl || data.onboardingUrl || data.loginUrl,
+      );
+    },
+    onError({ error }) {
+      toast({
+        title: "We couldn’t create your workspace",
+        description:
+          error.serverError ||
+          "Please review your details and try again.",
+        variant: "destructive",
+      });
+    },
   });
-  // Update the onSubmit function to include domain validation
-  async function onSubmit(data: SignupFormValues) {
-    // createSchool.execute()
+
+  const suggestedDomain = useMemo(() => {
+    if (!watchedInstitutionName) return "";
+
+    return watchedInstitutionName
+      .toLowerCase()
+      .replace(/[^a-z0-9-\s]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+  }, [watchedInstitutionName]);
+
+  const devQuickFill = () => {
+    const seed = Date.now().toString().slice(-5);
+    const firstNames = ["Aisha", "Fatima", "Zainab", "Maryam", "Yusuf"];
+    const lastNames = ["Bello", "Okafor", "Danjuma", "Adewale", "Garba"];
+    const schoolPrefixes = ["Atlas", "Cedar", "Summit", "Greenfield", "Lagoon"];
+    const schoolSuffixes = ["Academy", "College", "Preparatory School", "Learning Centre", "International School"];
+    const educationSystems = ["British", "National", "International", "Hybrid"];
+    const curriculumNotes = [
+      "National + Cambridge blend",
+      "British core curriculum",
+      "Nigerian curriculum with STEM focus",
+      "International primary programme",
+    ];
+    const languages = ["English", "Mixed"];
+
+    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+    const schoolPrefix =
+      schoolPrefixes[Math.floor(Math.random() * schoolPrefixes.length)];
+    const schoolSuffix =
+      schoolSuffixes[Math.floor(Math.random() * schoolSuffixes.length)];
+    const educationSystem =
+      educationSystems[Math.floor(Math.random() * educationSystems.length)];
+    const curriculumType =
+      curriculumNotes[Math.floor(Math.random() * curriculumNotes.length)];
+    const languageOfInstruction =
+      languages[Math.floor(Math.random() * languages.length)];
+
+    const institutionName = `${schoolPrefix} ${schoolSuffix}`;
+    const subdomain = `${schoolPrefix.toLowerCase()}-${seed}`;
+
+    form.reset({
+      institutionName,
+      institutionType: "k12",
+      adminName: `${firstName} ${lastName}`,
+      email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}+${seed}@schoolclerk.dev`,
+      password: "lorem-ipsum",
+      studentCount: String(120 + Math.floor(Math.random() * 780)),
+      country: "Nigeria",
+      phone: `+23480${Math.floor(10000000 + Math.random() * 89999999)}`,
+      educationSystem,
+      curriculumType,
+      languageOfInstruction,
+      domainName: subdomain,
+    });
+    setIsDomainValid(false);
+  };
+
+  const onSubmit = form.handleSubmit((values) => {
     if (!isDomainValid) {
       toast({
-        title: "Invalid domain",
-        description: "Please choose a valid and available domain name.",
+        title: "Choose an available subdomain",
+        description:
+          "We need a valid, available subdomain before we can create your workspace.",
         variant: "destructive",
       });
       return;
     }
 
-    setIsLoading(true);
-
-    try {
-      // This would be replaced with your actual API call
-      console.log("Form data submitted:", data);
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      toast({
-        title: t("successTitle"),
-        description: t("successMessage"),
-      });
-
-      // Redirect to dashboard or onboarding
-      // router.push('/dashboard')
-    } catch (error) {
-      toast({
-        title: t("errorTitle"),
-        description: t("errorMessage"),
-        variant: "destructive",
-      });
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  // Get country list for the current locale
-  const countryList =
-    countries[locale as keyof typeof countries] || countries.en;
+    createSchool.execute(values);
+  });
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex flex-col space-y-2 text-center">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {t("title")}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+    <div className="grid min-h-screen lg:grid-cols-[1.02fr_0.98fr]">
+      <section className="relative overflow-hidden border-b border-border bg-[#f7f2e8] lg:border-b-0 lg:border-r">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(184,134,11,0.18),_transparent_40%),radial-gradient(circle_at_bottom_right,_rgba(15,23,42,0.08),_transparent_35%)]" />
+        <div className="relative flex h-full flex-col justify-between px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
+          <div className="space-y-10">
+            <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[#7c5b16] backdrop-blur">
+              <Rocket className="h-3.5 w-3.5" />
+              Launch your school workspace
+            </div>
+
+            <div className="space-y-5">
+              <h1 className="max-w-xl text-4xl font-semibold leading-tight tracking-[-0.05em] text-slate-950 sm:text-5xl">
+                Create a school OS that feels operational on day one.
+              </h1>
+              <p className="max-w-xl text-base leading-7 text-slate-700">
+                Set up your workspace, reserve your subdomain, and move
+                straight into onboarding that gets your academic structure and
+                staff invitations flowing fast.
+              </p>
+            </div>
+
+            <div className="grid gap-3">
+              {trustPoints.map((point) => (
+                <div
+                  key={point}
+                  className="flex items-start gap-3 rounded-2xl border border-black/5 bg-white/70 p-4 shadow-sm backdrop-blur"
+                >
+                  <BadgeCheck className="mt-0.5 h-5 w-5 text-emerald-600" />
+                  <p className="text-sm leading-6 text-slate-700">{point}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Card className="mt-10 border-black/5 bg-white/80 shadow-xl backdrop-blur">
+            <CardContent className="grid gap-4 p-5 sm:grid-cols-3">
+              <div className="space-y-1">
+                <p className="text-2xl font-semibold tracking-[-0.05em] text-slate-950">
+                  01
+                </p>
+                <p className="text-sm font-medium text-slate-900">
+                  Claim your domain
+                </p>
+                <p className="text-xs leading-5 text-slate-600">
+                  Reserve a clean tenant URL before onboarding begins.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-2xl font-semibold tracking-[-0.05em] text-slate-950">
+                  02
+                </p>
+                <p className="text-sm font-medium text-slate-900">
+                  Configure academics
+                </p>
+                <p className="text-xs leading-5 text-slate-600">
+                  Stand up your first session and term structure quickly.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-2xl font-semibold tracking-[-0.05em] text-slate-950">
+                  03
+                </p>
+                <p className="text-sm font-medium text-slate-900">
+                  Invite your team
+                </p>
+                <p className="text-xs leading-5 text-slate-600">
+                  Bring staff in with onboarding links right after launch.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </CardHeader>
-      <form onSubmit={form.handleSubmit(createSchool.execute)}>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-              <Label htmlFor="institutionName">{t("institutionName")}</Label>
-            </div>
-            <Input
-              id="institutionName"
-              placeholder={t("institutionNamePlaceholder")}
-              {...form.register("institutionName")}
-              disabled={isLoading}
-            />
-            {form.formState.errors.institutionName && (
-              <p className="text-sm text-destructive">
-                {form.formState.errors.institutionName.message}
+      </section>
+
+      <section className="bg-background px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">
+                Self-serve signup
               </p>
-            )}
+              <h2 className="text-3xl font-semibold tracking-[-0.04em]">
+                Build your workspace
+              </h2>
+            </div>
+            {process.env.NODE_ENV !== "production" ? (
+              <Button variant="outline" type="button" onClick={devQuickFill}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Quick fill
+              </Button>
+            ) : null}
           </div>
 
-          {/* Add the DomainInput component to the form, after the institution name field */}
-          <div className="space-y-2">
-            <DomainInput
-              value={form.watch("domainName")}
-              onChange={(value) => form.setValue("domainName", value)}
-              onValidityChange={setIsDomainValid}
-              disabled={isLoading}
-              locale={locale}
-            />
-            {form.formState.errors.domainName && (
-              <p className="text-sm text-destructive">
-                {form.formState.errors.domainName.message}
-              </p>
-            )}
-          </div>
+          <Form {...form}>
+            <form onSubmit={onSubmit} className="space-y-8">
+              <Card className="rounded-3xl border-border/70 shadow-sm">
+                <CardContent className="space-y-6 p-6 sm:p-7">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      School identity
+                    </p>
+                    <h3 className="text-xl font-semibold tracking-tight">
+                      Tell us what you’re launching
+                    </h3>
+                  </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <School className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="institutionType">{t("institutionType")}</Label>
+                  <div className="grid gap-5">
+                    <FormField
+                      control={form.control}
+                      name="institutionName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                            Institution name
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="Atlas Heights Academy"
+                              disabled={createSchool.isExecuting}
+                              onBlur={() => {
+                                if (
+                                  !form.getValues("domainName") &&
+                                  suggestedDomain
+                                ) {
+                                  form.setValue("domainName", suggestedDomain);
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <p className="flex items-center gap-2 text-sm font-medium">
+                          <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                          Institution type
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Choose a released setup path. Disabled options stay
+                          visible so you can see what’s coming next.
+                        </p>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {institutionTypeOptions.map((option) => {
+                          const selected = activeInstitutionType === option.id;
+
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              disabled={!option.enabled || createSchool.isExecuting}
+                              onClick={() =>
+                                form.setValue("institutionType", option.id, {
+                                  shouldValidate: true,
+                                  shouldDirty: true,
+                                })
+                              }
+                              className={`rounded-2xl border p-4 text-left transition ${
+                                selected
+                                  ? "border-primary bg-primary/5 shadow-sm"
+                                  : "border-border hover:border-foreground/20"
+                              } ${!option.enabled ? "cursor-not-allowed opacity-60" : ""}`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-medium">{option.label}</p>
+                                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                                    {option.description}
+                                  </p>
+                                </div>
+                                {option.badge ? (
+                                  <Badge
+                                    variant={option.enabled ? "default" : "secondary"}
+                                  >
+                                    {option.badge}
+                                  </Badge>
+                                ) : null}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <FormMessage>
+                        {form.formState.errors.institutionType?.message}
+                      </FormMessage>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="domainName"
+                      render={({ field }) => (
+                        <DomainInput
+                          value={field.value}
+                          onChange={(nextValue) => {
+                            field.onChange(nextValue);
+                            setIsDomainValid(false);
+                          }}
+                          onValidityChange={setIsDomainValid}
+                          disabled={createSchool.isExecuting}
+                          hostSuffix={hostSuffix}
+                          institutionType={activeInstitutionType}
+                        />
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-3xl border-border/70 shadow-sm">
+                <CardContent className="space-y-6 p-6 sm:p-7">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Admin access
+                    </p>
+                    <h3 className="text-xl font-semibold tracking-tight">
+                      Create your first admin account
+                    </h3>
+                  </div>
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="adminName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            Full name
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="Aisha Bello"
+                              disabled={createSchool.isExecuting}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            Phone number
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="+2348012345678"
+                              disabled={createSchool.isExecuting}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            Work email
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="email"
+                              placeholder="founder@school.com"
+                              disabled={createSchool.isExecuting}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <Lock className="h-4 w-4 text-muted-foreground" />
+                            Password
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="password"
+                              placeholder="At least 8 characters"
+                              disabled={createSchool.isExecuting}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-3xl border-border/70 shadow-sm">
+                <CardContent className="space-y-6 p-6 sm:p-7">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Context for onboarding
+                    </p>
+                    <h3 className="text-xl font-semibold tracking-tight">
+                      Help us shape your starting setup
+                    </h3>
+                  </div>
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="country"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <Globe className="h-4 w-4 text-muted-foreground" />
+                            Country
+                          </FormLabel>
+                          <Select
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            disabled={createSchool.isExecuting}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Nigeria" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Nigeria">Nigeria</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="studentCount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Student count estimate</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="480"
+                              disabled={createSchool.isExecuting}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="educationSystem"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Education system</FormLabel>
+                          <Select
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            disabled={createSchool.isExecuting}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a system" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {[
+                                "National",
+                                "British",
+                                "American",
+                                "International",
+                                "Hybrid",
+                              ].map((option) => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="languageOfInstruction"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <Languages className="h-4 w-4 text-muted-foreground" />
+                            Language of instruction
+                          </FormLabel>
+                          <Select
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            disabled={createSchool.isExecuting}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a language" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {["English", "Arabic", "French", "Mixed"].map(
+                                (option) => (
+                                  <SelectItem key={option} value={option}>
+                                    {option}
+                                  </SelectItem>
+                                ),
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="curriculumType"
+                      render={({ field }) => (
+                        <FormItem className="sm:col-span-2">
+                          <FormLabel>Curriculum notes</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="National, Montessori, Cambridge, blended..."
+                              disabled={createSchool.isExecuting}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="flex flex-col gap-4 rounded-3xl border border-border/70 bg-muted/30 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">
+                    {institutionTypeMeta?.label || "Institution"} launch path
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    We’ll create your workspace, email your onboarding link, and
+                    guide you into academic setup and staff invitations.
+                  </p>
+                </div>
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={createSchool.isExecuting}
+                  className="min-w-[220px]"
+                >
+                  {createSchool.isExecuting ? "Creating workspace..." : "Create workspace"}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               </div>
-              <Select
-                disabled={isLoading}
-                onValueChange={(value) =>
-                  form.setValue("institutionType", value)
-                }
-                defaultValue={form.getValues("institutionType")}
-              >
-                <SelectTrigger id="institutionType">
-                  <SelectValue placeholder={t("institutionTypeSelect")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="k12">{t("k12")}</SelectItem>
-                  <SelectItem value="college">{t("college")}</SelectItem>
-                  <SelectItem value="university">{t("university")}</SelectItem>
-                  <SelectItem value="vocational">{t("vocational")}</SelectItem>
-                  <SelectItem value="other">{t("other")}</SelectItem>
-                </SelectContent>
-              </Select>
-              {form.formState.errors.institutionType && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.institutionType.message}
-                </p>
-              )}
-            </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="educationSystem">{t("educationSystem")}</Label>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                Success email and onboarding link will be sent after signup.
               </div>
-              <Select
-                disabled={isLoading}
-                onValueChange={(value) =>
-                  form.setValue("educationSystem", value)
-                }
-                defaultValue={form.getValues("educationSystem")}
-              >
-                <SelectTrigger id="educationSystem">
-                  <SelectValue placeholder={t("educationSystemSelect")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="american">{t("american")}</SelectItem>
-                  <SelectItem value="british">{t("british")}</SelectItem>
-                  <SelectItem value="european">{t("european")}</SelectItem>
-                  <SelectItem value="asian">{t("asian")}</SelectItem>
-                  <SelectItem value="other">{t("other")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="curriculumType">{t("curriculumType")}</Label>
-              </div>
-              <Input
-                id="curriculumType"
-                placeholder={t("curriculumTypePlaceholder")}
-                {...form.register("curriculumType")}
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="languageOfInstruction">
-                  {t("languageOfInstruction")}
-                </Label>
-              </div>
-              <Select
-                disabled={isLoading}
-                onValueChange={(value) =>
-                  form.setValue("languageOfInstruction", value)
-                }
-                defaultValue={form.getValues("languageOfInstruction")}
-              >
-                <SelectTrigger id="languageOfInstruction">
-                  <SelectValue placeholder={t("languageOfInstructionSelect")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="ar">العربية</SelectItem>
-                  <SelectItem value="other">{t("other")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="adminName">{t("adminName")}</Label>
-              </div>
-              <Input
-                id="adminName"
-                placeholder={t("adminNamePlaceholder")}
-                {...form.register("adminName")}
-                disabled={isLoading}
-              />
-              {form.formState.errors.adminName && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.adminName.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="email">{t("email")}</Label>
-              </div>
-              <Input
-                id="email"
-                type="email"
-                placeholder={t("emailPlaceholder")}
-                {...form.register("email")}
-                disabled={isLoading}
-              />
-              {form.formState.errors.email && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.email.message}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Lock className="h-4 w-4 text-muted-foreground" />
-              <Label htmlFor="password">{t("password")}</Label>
-            </div>
-            <Input
-              id="password"
-              type="password"
-              {...form.register("password")}
-              disabled={isLoading}
-            />
-            {form.formState.errors.password && (
-              <p className="text-sm text-destructive">
-                {form.formState.errors.password.message}
-              </p>
-            )}
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="studentCount">{t("studentCount")}</Label>
-              </div>
-              <Input
-                id="studentCount"
-                placeholder={t("studentCountPlaceholder")}
-                {...form.register("studentCount")}
-                disabled={isLoading}
-              />
-              {form.formState.errors.studentCount && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.studentCount.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="country">{t("country")}</Label>
-              </div>
-              <Select
-                disabled={isLoading}
-                onValueChange={(value) => form.setValue("country", value)}
-                defaultValue={form.getValues("country")}
-              >
-                <SelectTrigger id="country">
-                  <SelectValue placeholder={t("countrySelect")} />
-                </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
-                  {Object.entries(countryList).map(([code, name]) => (
-                    <SelectItem key={code} value={code}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.formState.errors.country && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.country.message}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              <Label htmlFor="phone">{t("phone")}</Label>
-            </div>
-            <Input
-              id="phone"
-              placeholder={t("phonePlaceholder")}
-              {...form.register("phone")}
-              disabled={isLoading}
-            />
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isLoading || createSchool.isExecuting}
-          >
-            {isLoading ? t("creatingAccount") : t("createAccount")}
-          </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            {t("termsText")}{" "}
-            <a
-              href="#"
-              className="underline underline-offset-2 hover:text-primary"
-            >
-              {t("termsLink")}
-            </a>{" "}
-            {t("and")}{" "}
-            <a
-              href="#"
-              className="underline underline-offset-2 hover:text-primary"
-            >
-              {t("privacyLink")}
-            </a>
-            .
-          </p>
-        </CardFooter>
-      </form>
-    </Card>
+            </form>
+          </Form>
+        </div>
+      </section>
+    </div>
   );
 }

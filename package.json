@@ -18,6 +18,7 @@
     "db:generate": "turbo -F @school-clerk/db prisma-generate",
     "dev": "turbo dev --parallel",
     "dashboard": "turbo dev --parallel --filter @school-clerk/dashboard --filter @school-clerk/api",
+    "terminal": "bash ./scripts/open-bun-script-terminal.sh",
     "dev2": "turbo dev --parallel --filter !@school-clerk/jobs --filter  !@school-clerk/api --filter !@school-clerk/site",
     "dev:dashboard": "turbo dev --parallel --filter !@school-clerk/jobs --filter  !@school-clerk/api --filter !@school-clerk/site",
     "format": "turbo format --continue -- --cache --cache-location='node_modules/.cache/.prettiercache' --ignore-path='../../.gitignore'",

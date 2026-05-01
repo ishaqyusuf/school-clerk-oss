@@ -6,6 +6,7 @@ import { cookies, headers } from "next/headers";
 import {
   getCanonicalTenantSlugFromHost,
   getCustomDomainLookupHost,
+  isAppRootDomainHost,
 } from "@/utils/tenant-host";
 
 export interface AuthCookie {
@@ -22,12 +23,19 @@ export interface AuthCookie {
 }
 const getCookieName = (domain) => `${domain}-session-cookie`;
 export async function getTenantDomain() {
-  const host = decodeURIComponent((await headers()).get("host") || "");
+  const requestHeaders = await headers();
+  const proxiedDomain = requestHeaders.get("x-school-clerk-domain");
+
+  if (proxiedDomain) return { domain: proxiedDomain };
+
+  const host = decodeURIComponent(requestHeaders.get("host") || "");
   const appRootDomain = resolveDashboardAppRootDomain(env.APP_ROOT_DOMAIN);
 
   const strippedSubdomain = getCanonicalTenantSlugFromHost(host, appRootDomain);
 
   if (strippedSubdomain) return { domain: strippedSubdomain };
+
+  if (isAppRootDomainHost(host, appRootDomain)) return { domain: "" };
 
   // Step 3: custom domain fallback — strip port + optional "dashboard." from raw host
   const bareHost = getCustomDomainLookupHost(host);

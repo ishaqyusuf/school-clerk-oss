@@ -1,18 +1,38 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "@/utils/i18n/translations";
-import { Check, Globe, X } from "lucide-react";
+import { CheckCircle2, Globe, Loader2, XCircle } from "lucide-react";
 
-import { Input } from "@school-clerk/ui/input";
-import { Label } from "@school-clerk/ui/label";
+import {
+  FormControl,
+  FormDescription,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@school-clerk/ui/form";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@school-clerk/ui/input-group";
+
+type AvailabilityState = {
+  available: boolean;
+  reason: string | null;
+};
 
 interface DomainInputProps {
   value: string;
   onChange: (value: string) => void;
   onValidityChange: (isValid: boolean) => void;
   disabled?: boolean;
-  locale?: string;
+  hostSuffix: string;
+  institutionType?: string;
+}
+
+function isValidSubdomain(value: string) {
+  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value);
 }
 
 export function DomainInput({
@@ -20,143 +40,142 @@ export function DomainInput({
   onChange,
   onValidityChange,
   disabled = false,
-  locale = "en",
+  hostSuffix,
+  institutionType,
 }: DomainInputProps) {
-  const { t } = useTranslations(locale);
   const [isChecking, setIsChecking] = useState(false);
-  const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
-  const [isValid, setIsValid] = useState<boolean | null>(null);
+  const [availability, setAvailability] = useState<AvailabilityState | null>(
+    null,
+  );
   const [debouncedValue, setDebouncedValue] = useState(value);
 
-  // Validate domain format (letters, numbers, hyphens only)
-  const validateDomainFormat = (domain: string) => {
-    const regex = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
-    return domain.length > 0 ? regex.test(domain) : true;
-  };
-
-  // Update debounced value after typing stops
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       setDebouncedValue(value);
-    }, 500);
-    return () => clearTimeout(timer);
+    }, 350);
+
+    return () => window.clearTimeout(timer);
   }, [value]);
 
-  // Check domain validity and availability
   useEffect(() => {
-    const checkDomain = async () => {
+    async function checkAvailability() {
       if (!debouncedValue) {
-        setIsValid(null);
-        setIsAvailable(null);
+        setAvailability(null);
         onValidityChange(false);
         return;
       }
 
-      // First check format validity
-      const formatValid = validateDomainFormat(debouncedValue);
-      setIsValid(formatValid);
-
-      if (!formatValid) {
+      if (!isValidSubdomain(debouncedValue)) {
+        setAvailability({
+          available: false,
+          reason: "Use only letters, numbers, and hyphens.",
+        });
         onValidityChange(false);
         return;
       }
 
-      // Then check availability
       setIsChecking(true);
-      try {
-        // In a real app, this would be an API call to check domain availability
-        // For now, we'll simulate with a timeout and random result
-        await new Promise((resolve) => setTimeout(resolve, 800));
 
-        // For demo purposes: domains with "taken" are unavailable, others are available
-        const available = !debouncedValue.includes("taken");
-        setIsAvailable(available);
-        onValidityChange(available);
+      try {
+        const params = new URLSearchParams({
+          value: debouncedValue,
+        });
+
+        if (institutionType) {
+          params.set("institutionType", institutionType);
+        }
+
+        const response = await fetch(
+          `/api/sign-up/subdomain-availability?${params.toString()}`,
+          { cache: "no-store" },
+        );
+        const data = (await response.json()) as {
+          available: boolean;
+          reason: string | null;
+        };
+
+        setAvailability({
+          available: data.available,
+          reason: data.reason,
+        });
+        onValidityChange(data.available);
       } catch (error) {
-        console.error("Error checking domain availability:", error);
-        setIsAvailable(null);
+        console.error("[signup] subdomain availability check failed", error);
+        setAvailability({
+          available: false,
+          reason: "We could not verify this subdomain right now.",
+        });
         onValidityChange(false);
       } finally {
         setIsChecking(false);
       }
-    };
+    }
 
-    checkDomain();
-  }, [debouncedValue, onValidityChange]);
+    void checkAvailability();
+  }, [debouncedValue, institutionType, onValidityChange]);
 
-  // Generate status message and icon
-  const getStatusMessage = () => {
-    if (!value) return null;
-    if (isValid === false)
-      return {
-        message: t("domainInvalid"),
-        icon: <X className="h-4 w-4 text-destructive" />,
-      };
-    if (isChecking) return { message: t("domainAvailability"), icon: null };
-    if (isAvailable === true)
-      return {
-        message: t("domainAvailable"),
-        icon: <Check className="h-4 w-4 text-green-500" />,
-      };
-    if (isAvailable === false)
-      return {
-        message: t("domainNotAvailable"),
-        icon: <X className="h-4 w-4 text-destructive" />,
-      };
-    return null;
-  };
-
-  const status = getStatusMessage();
+  const showInvalidFormat = value.length > 0 && !isValidSubdomain(value);
+  const showAvailable =
+    !showInvalidFormat && !isChecking && availability?.available === true;
+  const showUnavailable =
+    !showInvalidFormat && !isChecking && availability?.available === false;
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
+    <FormItem>
+      <FormLabel className="flex items-center gap-2">
         <Globe className="h-4 w-4 text-muted-foreground" />
-        <Label htmlFor="domainName">{t("domainName")}</Label>
-      </div>
-
-      <div className="relative">
-        <Input
-          id="domainName"
-          value={value}
-          onChange={(e) => onChange(e.target.value.toLowerCase().trim())}
-          placeholder={t("domainNamePlaceholder")}
-          disabled={disabled}
-          className={`pr-10 ${
-            isValid === false
-              ? "border-destructive"
-              : isAvailable === true
-                ? "border-green-500"
-                : ""
-          }`}
-        />
-        {status?.icon && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            {status.icon}
-          </div>
-        )}
-      </div>
-
-      {status && (
-        <p
-          className={`text-xs ${
-            isValid === false || isAvailable === false
-              ? "text-destructive"
-              : isAvailable === true
-                ? "text-green-500"
-                : "text-muted-foreground"
-          }`}
-        >
-          {status.message}
+        School subdomain
+      </FormLabel>
+      <FormControl>
+        <InputGroup data-disabled={disabled}>
+          <InputGroupInput
+            value={value}
+            onChange={(event) =>
+              onChange(
+                event.currentTarget.value
+                  .toLowerCase()
+                  .trim()
+                  .replace(/\s+/g, "-"),
+              )
+            }
+            placeholder="greenfield-academy"
+            disabled={disabled}
+            aria-invalid={showInvalidFormat || showUnavailable}
+          />
+          <InputGroupAddon align="inline-end">
+            {isChecking ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : showAvailable ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            ) : showInvalidFormat || showUnavailable ? (
+              <XCircle className="h-4 w-4 text-destructive" />
+            ) : null}
+            <InputGroupText>.{hostSuffix}</InputGroupText>
+          </InputGroupAddon>
+        </InputGroup>
+      </FormControl>
+      <FormDescription>
+        Your workspace will live at{" "}
+        <span className="font-medium text-foreground">
+          {value || "your-school"}.{hostSuffix}
+        </span>
+      </FormDescription>
+      {showInvalidFormat ? (
+        <p className="text-[0.8rem] font-medium text-destructive">
+          Use only letters, numbers, and hyphens.
         </p>
-      )}
-
-      <div className="mt-1 text-sm text-muted-foreground">
-        <p>
-          {t("domainPreview")}{" "}
-          <span className="font-medium">{value || "..."}.schoolclerk.com</span>
+      ) : null}
+      {showAvailable ? (
+        <p className="text-[0.8rem] font-medium text-emerald-600">
+          This subdomain is available.
         </p>
-      </div>
-    </div>
+      ) : null}
+      {showUnavailable && availability?.reason ? (
+        <p className="text-[0.8rem] font-medium text-destructive">
+          {availability.reason}
+        </p>
+      ) : null}
+      <FormMessage />
+    </FormItem>
   );
 }

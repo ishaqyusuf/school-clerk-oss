@@ -56,7 +56,7 @@ function Content(props: Props) {
             ?.filter((a) => !!a?.percentageObtainable)
             ?.map((a) => (
               <Table.Head key={a.id} className="w-32">
-                {a.title}
+                {a.displayTitle || a.title}
               </Table.Head>
             ))}
         </Table.Row>

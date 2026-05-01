@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FormProvider, useFieldArray } from "react-hook-form";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { addYears } from "date-fns";
 
 import { Button } from "@school-clerk/ui/button";
@@ -27,9 +27,14 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "@school-clerk/ui/use-toast";
 import { switchSessionTerm } from "@/actions/cookies/auth-cookie";
 
-export function AcademicSessionForm() {
+export function AcademicSessionForm({
+  mode = "default",
+}: {
+  mode?: "default" | "onboarding";
+}) {
   const { params, setParams } = useAcademicParams();
   const router = useRouter();
+  const routeParams = useParams<{ domain: string }>();
   const [initWithTerms, setInitWithTerms] = useState(true);
 
   const form = useZodForm(createAcademicSessionSchema, {
@@ -89,6 +94,22 @@ export function AcademicSessionForm() {
           title: "Session created!",
           description: "Your academic session has been saved.",
         });
+
+        if (mode === "onboarding") {
+          const firstTerm = data?.terms?.[0];
+          if (firstTerm) {
+            await switchSessionTerm({
+              sessionId: data.sessionId,
+              sessionTitle: data.sessionTitle,
+              termId: firstTerm.id,
+              termTitle: firstTerm.title,
+            });
+          }
+
+          setParams(null);
+          router.push(`/dashboard/${routeParams.domain}/onboarding/invite-staff`);
+          return;
+        }
 
         const firstTerm = data?.terms?.[0];
         const lastTermId = prefill?.lastTermId;
