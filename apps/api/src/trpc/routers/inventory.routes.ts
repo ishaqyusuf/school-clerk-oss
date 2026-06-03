@@ -15,7 +15,8 @@ export const inventoryRouter = createTRPCRouter({
 			}),
 		)
 		.query(async ({ input, ctx }) => {
-			const items = await ctx.db.inventory.findMany({
+			const inventory = ctx.db.inventory as any;
+			const items = await inventory.findMany({
 				where: {
 					schoolProfileId: ctx.profile.schoolId,
 					deletedAt: null,
@@ -38,7 +39,7 @@ export const inventoryRouter = createTRPCRouter({
 				orderBy: { title: "asc" },
 			});
 
-			const result = items.map((item) => ({
+			const result = items.map((item: any) => ({
 				id: item.id,
 				title: item.title,
 				description: item.description,
@@ -47,7 +48,10 @@ export const inventoryRouter = createTRPCRouter({
 				unitPrice: item.unitPrice,
 				lowStockAlert: item.lowStockAlert,
 				isLowStock: item.quantity <= item.lowStockAlert,
-				totalIssued: item.issuances.reduce((s, i) => s + i.quantity, 0),
+				totalIssued: item.issuances.reduce(
+					(s: number, i: { quantity: number }) => s + i.quantity,
+					0,
+				),
 				createdAt: item.createdAt,
 			}));
 
@@ -72,8 +76,9 @@ export const inventoryRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
+			const inventory = ctx.db.inventory as any;
 			if (input.id) {
-				return ctx.db.inventory.update({
+				return inventory.update({
 					where: {
 						id: input.id,
 						schoolProfileId: ctx.profile.schoolId,
@@ -90,7 +95,7 @@ export const inventoryRouter = createTRPCRouter({
 				});
 			}
 
-			return ctx.db.inventory.create({
+			return inventory.create({
 				data: {
 					title: input.title,
 					description: input.description,
@@ -107,7 +112,8 @@ export const inventoryRouter = createTRPCRouter({
 	deleteItem: publicProcedure
 		.input(z.object({ id: z.string() }))
 		.mutation(async ({ input, ctx }) => {
-			await ctx.db.inventory.update({
+			const inventory = ctx.db.inventory as any;
+			await inventory.update({
 				where: {
 					id: input.id,
 					schoolProfileId: ctx.profile.schoolId,
@@ -130,7 +136,8 @@ export const inventoryRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
-			const item = await ctx.db.inventory.findFirstOrThrow({
+			const inventory = ctx.db.inventory as any;
+			const item = await inventory.findFirstOrThrow({
 				where: {
 					id: input.inventoryId,
 					schoolProfileId: ctx.profile.schoolId,
@@ -146,7 +153,7 @@ export const inventoryRouter = createTRPCRouter({
 			}
 
 			await ctx.db.$transaction(async (tx) => {
-				await tx.inventory.update({
+				await (tx.inventory as any).update({
 					where: { id: item.id },
 					data: { quantity: { decrement: input.quantity } },
 				});

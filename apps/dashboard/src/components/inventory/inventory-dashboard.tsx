@@ -33,6 +33,17 @@ const TYPE_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+type InventoryItem = {
+  id: string;
+  description: string | null;
+  isLowStock: boolean;
+  lowStockAlert: number;
+  quantity: number;
+  title: string;
+  type: string;
+  unitPrice: number;
+};
+
 export function InventoryDashboard() {
   const trpc = useTRPC();
   const qc = useQueryClient();
@@ -40,9 +51,10 @@ export function InventoryDashboard() {
   const [issueItemId, setIssueItemId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
 
-  const { data: items } = useSuspenseQuery(
+  const { data: inventoryItems } = useSuspenseQuery(
     trpc.inventory.getItems.queryOptions({}),
   );
+  const items = inventoryItems as InventoryItem[];
 
   const { mutate: deleteItem } = useMutation(
     trpc.inventory.deleteItem.mutationOptions({

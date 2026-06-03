@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const blob = await new Response(stream as BodyInit).blob();
+    const blob = await new Response(stream as unknown as BodyInit).blob();
 
     const headers: Record<string, string> = {
       "Content-Type": "application/pdf",

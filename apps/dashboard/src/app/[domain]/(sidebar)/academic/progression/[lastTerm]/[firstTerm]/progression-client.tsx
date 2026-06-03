@@ -553,8 +553,9 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
   const progressMutation = useMutation(
     trpc.academics.batchPromote.mutationOptions({
       onSuccess(_, variables) {
+        const mode = variables && typeof variables === "object" ? variables.mode : null;
         const actionLabel =
-          variables.mode === "repeat" ? "Repeated" : "Promoted";
+          mode === "repeat" ? "Repeated" : "Promoted";
         toast({
           title: `${actionLabel}!`,
           description: "Student progression updated successfully.",
@@ -563,10 +564,11 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
         invalidateStudents();
       },
       onError(_, variables) {
+        const mode = variables && typeof variables === "object" ? variables.mode : null;
         toast({
           title: "Error",
           description:
-            variables.mode === "repeat"
+            mode === "repeat"
               ? "Unable to repeat students right now."
               : "Unable to promote students right now.",
         });

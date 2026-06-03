@@ -19,6 +19,8 @@ model StaffProfile {
     notificationContact     NotificationContact?
     subjects                StaffSubject[]
     termProfiles            StaffTermProfile[]
+    financeCharges          FinanceCharge[]
+    financePayments         FinancePayment[]
     createdAt               DateTime?             @default(now()) @db.Timestamp(0)
     updatedAt               DateTime?             @updatedAt
     deletedAt               DateTime?             @db.Timestamp(0)
@@ -41,6 +43,7 @@ model StaffTermProfile {
 
     sessionTerm   SessionTerm @relation(fields: [sessionTermId], references: [id])
     sessionTermId String
+    financeCharges FinanceCharge[]
 }
 
 model StaffClassroomDepartmentTermProfiles {

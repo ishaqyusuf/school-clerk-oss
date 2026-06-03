@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactElement } from "react";
 import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { getRecipient } from "@school-clerk/utils/envs";
@@ -13,7 +13,7 @@ interface SendEmailProps {
   subject: string;
   from: FromEmails;
   to: string | string[];
-  content: ReactNode;
+  content: ReactElement;
   successLog?: string;
   errorLog?: string;
   task: {

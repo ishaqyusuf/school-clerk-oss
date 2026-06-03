@@ -222,12 +222,12 @@ export function ImportActivity({ classrooms, students }: Props) {
   return (
     <>
       <div className="flex gap-4 pb-2">
-        <Select
-          value={show}
-          onValueChange={(e) => {
-            setShow(e);
-          }}
-        >
+	        <Select
+	          value={show}
+	          onValueChange={(e) => {
+	            setShow(e as (typeof opts)[number]);
+	          }}
+	        >
           <Select.Trigger value={show}>
             <Select.Value />
           </Select.Trigger>

@@ -32,7 +32,7 @@ export function DateRangePicker({
             className={cn("justify-start text-left font-medium space-x-2")}
           >
             <span>{placeholder}</span>
-            <Icons.ChevronDown />
+            <Icons.chevronDown />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0 mt-2" align="end">

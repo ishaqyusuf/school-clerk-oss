@@ -2,6 +2,8 @@ import { createContext, useContext } from "react";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { getLinkModules, validateLinks } from "@school-clerk/ui/nav/utils";
+import { linkModules as dashboardLinkModules } from "@/features/navigation/sidebar-modules";
 type SidebarContext = ReturnType<typeof createSidebarContext>;
 export const SidebarContext = createContext<SidebarContext>(undefined);
 export const SidebarProvider = SidebarContext.Provider;
@@ -21,7 +23,7 @@ export const createSidebarContext = ({ onSelect, mobile = false }) => {
   const { activeLink, modules, currentModule } = useMemo(() => {
     const activeLink = Object.entries(linkModules.linksNameMap || {}).find(
       ([href, data]) =>
-        data.match == "part"
+        (data as any).match == "part"
           ? pathName?.toLocaleLowerCase()?.startsWith(href)
           : href?.toLocaleLowerCase() === pathName?.toLocaleLowerCase()
     )?.["1"];
@@ -41,10 +43,22 @@ export const createSidebarContext = ({ onSelect, mobile = false }) => {
           href,
         };
       });
-    const currentModule = modules.find((m) => m.name == activeLink?.module);
+    const currentModule = modules.find((m) => m.name == (activeLink as any)?.module);
 
     return { activeLink, modules, currentModule };
   }, [pathName, linkModules]);
+
+  return {
+    activeLink,
+    currentModule,
+    isExpanded,
+    linkModules,
+    mainMenuRef,
+    modules,
+    onSelect,
+    pathName,
+    setIsExpanded,
+  };
 };
 export const useSidebarContext = () => {
   const context = useContext(SidebarContext);
@@ -57,8 +71,9 @@ export function useLinks() {
   const user = useAuth();
   const linkModules = getLinkModules(
     validateLinks({
+      linkModules: dashboardLinkModules,
       role: user.role?.name,
-      can: user.can,
+      can: (user as any).can ?? {},
       userId: user?.id,
     })
   );

@@ -15,6 +15,8 @@ model Students {
     guardians          StudentGuardians[]
     assessmentRecords  StudentAssessmentRecord[]
     notificationContact NotificationContact?
+    financeCharges     FinanceCharge[]
+    financePayments    FinancePayment[]
 
     @@unique([name, surname, otherName, schoolProfileId, deletedAt])
 }
@@ -76,4 +78,5 @@ model StudentTermForm {
 
     classroomDepartment   ClassRoomDepartment? @relation(fields: [classroomDepartmentId], references: [id])
     classroomDepartmentId String?
+    financeCharges        FinanceCharge[]
 }

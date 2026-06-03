@@ -187,13 +187,13 @@ async function login(email, password, token) {
   if (user && user.password) {
     const pword = await checkPassword(user.password, password, true);
 
-    const newSession = await prisma.session.create({
-      data: {
-        sessionToken: crypto.randomUUID(),
-        userId: user.id,
-        expires: new Date(Date.now() + 60 * 60 * 1000), // 1 hour session
-      },
-    });
+	  const newSession = await prisma.session.create({
+	    data: {
+	      token: crypto.randomUUID(),
+	      userId: user.id,
+	      expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour session
+	    },
+	  });
     return {
       user,
       session: newSession,

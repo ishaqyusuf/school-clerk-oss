@@ -8,9 +8,12 @@ import {
 import { useResizeObserver } from "../hooks";
 import { cn } from "../utils";
 
+const MotionDiv = motion.div as any;
+
 type AnimatedSizeContainerProps = PropsWithChildren<{
   width?: boolean;
   height?: boolean;
+  className?: string;
 }> &
   Omit<ComponentPropsWithoutRef<typeof motion.div>, "animate" | "children">;
 
@@ -36,7 +39,7 @@ const AnimatedSizeContainer = forwardRef<
     const resizeObserverEntry = useResizeObserver(containerRef);
 
     return (
-      <motion.div
+      <MotionDiv
         ref={forwardedRef}
         className={cn("overflow-hidden", className)}
         animate={{
@@ -56,7 +59,7 @@ const AnimatedSizeContainer = forwardRef<
         >
           {children}
         </div>
-      </motion.div>
+      </MotionDiv>
     );
   },
 );

@@ -5,7 +5,7 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./src/index.ts"
     }
   },
@@ -33,6 +33,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@school-clerk/tsconfig": "workspace:*",
     "typescript": "^5.9.2",
     "prisma": "^6.18.0"
   }

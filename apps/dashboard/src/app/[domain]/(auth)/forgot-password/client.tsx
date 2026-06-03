@@ -17,9 +17,7 @@ import {
 } from "@school-clerk/ui/card";
 import { Alert, AlertDescription } from "@school-clerk/ui/alert";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
-import { authClient } from "@/auth/client";
-import { debugToast } from "@/hooks/use-debug-console";
-import { changePasswordDefault } from "@/actions/change-password-default";
+import { requestPasswordReset } from "@/actions/request-password-reset";
 
 // import { signIn } from "next-auth/react";
 
@@ -43,13 +41,17 @@ export function Client() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-    authClient
-      .forgetPassword({
-        email: formData.email,
-      })
-      .then((v) => {
-        console.log(v);
-      });
+    try {
+      await requestPasswordReset(formData.email);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to send reset instructions.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

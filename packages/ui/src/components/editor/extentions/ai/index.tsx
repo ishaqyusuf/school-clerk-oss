@@ -2,7 +2,6 @@
 
 import type { Editor } from "@tiptap/react";
 import { useClickAway } from "@uidotdev/usehooks";
-import { readStreamableValue } from "ai/rsc";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import {
@@ -69,11 +68,7 @@ export function AIMenu({ onOpenChange, editor }: AIMenuProps) {
         context: instructions,
       });
 
-      let generatedContent = "";
-      for await (const delta of readStreamableValue(output)) {
-        generatedContent += delta;
-        editor?.commands.insertContent(formatEditorContent(delta ?? ""));
-      }
+      editor?.commands.insertContent(formatEditorContent(output ?? ""));
     } catch (error) {
       console.error("Error generating content:", error);
     } finally {

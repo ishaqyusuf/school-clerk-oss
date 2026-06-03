@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 
 import { cn } from "@school-clerk/ui/cn";
 import { Icon, IconKeys } from "@school-clerk/ui/custom/icons";
-import { ButtonProps } from "../button";
+import { Button, ButtonProps } from "../button";
 
 export interface ConfirmBtnProps extends ButtonProps {
   icon?: IconKeys;
@@ -25,7 +25,6 @@ export function ConfirmBtn({
   ...props
 }: ConfirmBtnProps) {
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
   const [confirm, setConfirm] = useState(false);
   async function _onClick(e) {
     e.preventDefault();

@@ -24,8 +24,10 @@ export default async function Page(props: Props) {
 	const filter = loadStudentFilterParams(searchParams);
 
 	await batchPrefetch([
-		trpc.enrollments.index.infiniteQueryOptions({
-			...filter,
+		trpc.enrollments.index.queryOptions({
+			currentClassDepartmentId: filter.departmentId,
+			currentSessionId: filter.sessionId,
+			currentTermId: filter.sessionTermId,
 		}),
 	]);
 

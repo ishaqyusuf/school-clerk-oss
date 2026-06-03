@@ -52,7 +52,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
   // 🟦 Locale handling (default to 'en' if none)
-  const locale = I18nMiddleware(request)?.headers?.get("x-locale") || "en";
+  const locale = I18nMiddleware(request as any)?.headers?.get("x-locale") || "en";
 
   console.log({
     subdomain,

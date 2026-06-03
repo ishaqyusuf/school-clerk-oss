@@ -39,6 +39,8 @@ import { useState } from "react";
 import { columns } from "./columns";
 import { EmptyState } from "./empty-states";
 
+const LegacySearchFilter = SearchFilter as any;
+
 // ── Import Fees Sheet ─────────────────────────────────────────────────────────
 
 function ImportFeesSheet() {
@@ -288,11 +290,11 @@ export function DataTable() {
 						},
 						data,
 					},
-				]}
+				] as any}
 			>
 				<div className="flex flex-col gap-4">
 					<div className="flex">
-						<SearchFilter
+						<LegacySearchFilter
 							filterSchema={schoolFeeFilterParams}
 							filters={params}
 							setFilters={setParams}

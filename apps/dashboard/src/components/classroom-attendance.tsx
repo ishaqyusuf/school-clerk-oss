@@ -53,7 +53,11 @@ function Content({ departmentId }: { departmentId?: string | null }) {
         },
       },
       onSuccess(_, variables) {
-        if (!variables?.attendanceId) return;
+        const attendanceId =
+          variables && typeof variables === "object"
+            ? variables.attendanceId
+            : null;
+        if (!attendanceId) return;
 
         qc.invalidateQueries({
           queryKey: trpc.attendance.getClassroomAttendance.queryKey({
@@ -65,11 +69,11 @@ function Content({ departmentId }: { departmentId?: string | null }) {
         });
         qc.invalidateQueries({
           queryKey: trpc.attendance.getAttendanceSession.queryKey({
-            attendanceId: variables.attendanceId,
+            attendanceId,
           }),
         });
 
-        if (attendanceSessionId === variables.attendanceId) {
+        if (attendanceSessionId === attendanceId) {
           setParams({
             attendanceSessionId: null,
             secondaryTab: null,

@@ -54,13 +54,13 @@ export function StudentTransactionOverview() {
 // ── Fee item row ──────────────────────────────────────────────────────────────
 
 type FeeItemData = {
-	key: string;
-	title: string;
+	key?: string;
+	title?: string;
 	description?: string | null;
-	amount: number;
-	paidAmount: number;
-	pendingAmount: number;
-	status: string;
+	amount?: number;
+	paidAmount?: number;
+	pendingAmount?: number;
+	status?: string;
 	studentFeeId?: string | null;
 };
 
@@ -94,24 +94,28 @@ function FeeItemRow({
 	onCancel?: (id: string) => void;
 	cancelPending?: boolean;
 }) {
-	const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.PENDING;
+	const cfg = STATUS_CONFIG[item.status ?? "PENDING"] ?? STATUS_CONFIG.PENDING;
 	const paidPct =
-		item.amount > 0 ? Math.round((item.paidAmount / item.amount) * 100) : 0;
+		(item.amount ?? 0) > 0
+			? Math.round(((item.paidAmount ?? 0) / (item.amount ?? 1)) * 100)
+			: 0;
 
 	return (
 		<div className="flex flex-col gap-2">
 			<div className="flex justify-between text-sm">
 				<div className="flex items-center gap-2">
-					<span className="text-foreground font-medium">{item.title}</span>
+					<span className="text-foreground font-medium">
+						{item.title ?? "Fee"}
+					</span>
 					<Badge variant="outline" className={cn("text-[10px]", cfg.badge)}>
-						{item.status}
+						{item.status ?? "PENDING"}
 					</Badge>
 				</div>
 				<div className="flex items-center gap-2">
 					<span className="text-foreground font-bold">
 						<NumericFormat
 							readOnly
-							value={item.amount}
+							value={item.amount ?? 0}
 							prefix="NGN "
 							displayType="text"
 						/>
@@ -139,12 +143,12 @@ function FeeItemRow({
 						/>
 					</div>
 					<span className="text-xs text-muted-foreground whitespace-nowrap">
-						{item.pendingAmount === 0 ? (
+						{(item.pendingAmount ?? 0) === 0 ? (
 							<span className="text-green-600 font-medium">Paid</span>
 						) : (
 							<NumericFormat
 								readOnly
-								value={item.pendingAmount}
+								value={item.pendingAmount ?? 0}
 								prefix="NGN "
 								suffix=" pending"
 								displayType="text"
@@ -299,7 +303,7 @@ function Content() {
 					<p className="text-sm text-muted-foreground">
 						Payment records for{" "}
 						<span className="font-medium text-foreground">
-							{activeStudentTerm?.termTitle || "the selected term"}
+							{activeStudentTerm?.term || "the selected term"}
 						</span>
 						.
 					</p>
@@ -556,8 +560,8 @@ function PaymentHistoryList({
 	termId,
 }: {
 	payments: Array<{
-		id: string;
-		amount: number;
+		id?: string;
+		amount?: number;
 		status?: string | null;
 		type?: "FEE" | "PURCHASE" | null;
 		paymentType?: string | null;
@@ -642,13 +646,16 @@ function PaymentHistoryList({
 									p.description?.split("•")[0]?.trim() ||
 									p.walletTransaction?.summary?.split("•")[0]?.trim() ||
 									(p.type === "PURCHASE" ? "Purchase" : "Payment");
+								const paymentId = p.id ?? p.walletTransaction?.id ?? "";
 								const refId = p.walletTransaction?.id
 									? `#${p.walletTransaction.id.slice(0, 8).toUpperCase()}`
-									: `#${p.id.slice(0, 8).toUpperCase()}`;
+									: paymentId
+										? `#${paymentId.slice(0, 8).toUpperCase()}`
+										: "#PAYMENT";
 
 								return (
 									<tr
-										key={p.id}
+										key={paymentId || refId}
 										className="hover:bg-muted/20 transition-colors"
 									>
 										<td className="px-5 py-4 whitespace-nowrap text-foreground">
@@ -671,7 +678,7 @@ function PaymentHistoryList({
 											{method}
 										</td>
 										<td className="px-5 py-4 font-semibold text-foreground whitespace-nowrap">
-											<AnimatedNumber value={p.amount} currency="NGN" />
+											<AnimatedNumber value={p.amount ?? 0} currency="NGN" />
 										</td>
 										<td className="px-5 py-4">
 											<Badge
@@ -696,7 +703,9 @@ function PaymentHistoryList({
 															variant="ghost"
 															size="xs"
 															type="button"
-															onClick={() => openReceipt(p.id)}
+															onClick={() =>
+																paymentId && openReceipt(paymentId)
+															}
 														>
 															Print
 														</Button>
@@ -704,7 +713,9 @@ function PaymentHistoryList({
 															variant="ghost"
 															size="xs"
 															type="button"
-															onClick={() => openReceipt(p.id, true)}
+															onClick={() =>
+																paymentId && openReceipt(paymentId, true)
+															}
 														>
 															Download
 														</Button>
@@ -718,7 +729,7 @@ function PaymentHistoryList({
 														disabled={isPending}
 														onClick={() =>
 															reverse({
-																studentPaymentId: p.id,
+																studentPaymentId: paymentId,
 																transactionId: p.walletTransaction.id,
 															})
 														}

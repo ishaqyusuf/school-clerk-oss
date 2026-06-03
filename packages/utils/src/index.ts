@@ -12,7 +12,7 @@ import {
   subDays,
   subWeeks,
 } from "date-fns";
-import util from "util";
+import * as util from "util";
 export * from "./classroom-name";
 export * from "./envs";
 export * from "./runtime-url";
@@ -161,6 +161,10 @@ export function consoleLog(title = "Log", ...data) {
   console.log(`\x1b[36m${divider}\x1b[0m`);
   console.log("");
 }
+
+export type RenturnTypeAsync<T extends (...args: any) => any> = Awaited<
+  ReturnType<T>
+>;
 
 export function transformFilterDateToQuery(dateParts: string[]) {
   const [fromStr, toStr] = dateParts;

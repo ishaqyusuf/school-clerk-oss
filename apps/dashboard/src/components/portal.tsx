@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { timeout } from "@/utils/timeout";
 import { createPortal } from "react-dom";
 import { useAsyncMemo } from "use-async-memo";
@@ -10,7 +10,24 @@ interface Props {
   children;
   noDelay?: boolean;
 }
-export default function Portal({ nodeId, noDelay, children }: Props) {
+
+interface BodyPortalProps {
+  children: ReactNode;
+}
+
+export function Portal({ children }: BodyPortalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(children, document.body);
+}
+
+export default function NodePortal({ nodeId, noDelay, children }: Props) {
   // const node = document.getElementById(nodeId);
   // const [node, setNode] = useState<any>(null);
   const nd = useAsyncMemo(async () => {

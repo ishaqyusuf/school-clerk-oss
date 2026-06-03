@@ -67,7 +67,7 @@ export function StudentPerformanceModal({
   if (termForm?.assessmentRecords) {
     for (const record of termForm.assessmentRecords) {
       const subjectName =
-        record.classSubjectAssessment?.departmentSubject?.subject?.name ??
+        record.classSubjectAssessment?.departmentSubject?.subject?.title ??
         "Unknown";
       if (!subjectMap.has(subjectName)) {
         subjectMap.set(subjectName, { subjectName, assessments: [] });

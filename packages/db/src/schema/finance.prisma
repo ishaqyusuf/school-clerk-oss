@@ -1,0 +1,275 @@
+enum FinanceAccountType {
+    CREDIT
+    DEBIT
+}
+
+enum FinanceItemType {
+    TUITION_FEE
+    BOOK
+    SERVICE
+    SALARY
+    OTHER
+}
+
+enum FinancePayerType {
+    STUDENT
+    STAFF
+    SCHOOL
+}
+
+enum FinanceChargeStatus {
+    DRAFT
+    PENDING
+    PARTIALLY_PAID
+    PAID
+    CANCELLED
+    WAIVED
+}
+
+enum FinancePaymentStatus {
+    PAID
+    CANCELLED
+    REFUNDED
+}
+
+enum FinanceCollectionStatus {
+    NOT_REQUIRED
+    NOT_COLLECTED
+    COLLECTED
+}
+
+enum FinanceTransferStatus {
+    COMPLETED
+    CANCELLED
+}
+
+enum FinanceLedgerDirection {
+    CREDIT
+    DEBIT
+}
+
+enum FinanceLedgerSourceType {
+    CHARGE
+    PAYMENT
+    TRANSFER
+    TRANSFER_REVERSAL
+    CANCELLATION
+    ADJUSTMENT
+}
+
+model FinanceStream {
+    id              String             @id @default(uuid())
+    schoolProfile   SchoolProfile      @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+    name            String
+    slug            String
+    accountType     FinanceAccountType
+    description     String?
+    isSystem        Boolean            @default(false)
+    createdAt       DateTime?          @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?          @updatedAt
+    deletedAt       DateTime?          @db.Timestamp(0)
+
+    items             FinanceItem[]
+    charges           FinanceCharge[]
+    payments          FinancePayment[]
+    ledgerEntries     FinanceLedgerEntry[]
+    outgoingTransfers FinanceTransfer[]    @relation("FinanceTransferFromStream")
+    incomingTransfers FinanceTransfer[]    @relation("FinanceTransferToStream")
+
+    @@unique([schoolProfileId, slug, deletedAt])
+    @@index([schoolProfileId, accountType])
+}
+
+model FinanceItem {
+    id              String          @id @default(uuid())
+    schoolProfile   SchoolProfile   @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+    stream          FinanceStream   @relation(fields: [streamId], references: [id])
+    streamId        String
+    type            FinanceItemType
+    name            String
+    description     String?
+    amount          Decimal         @default(0) @db.Decimal(14, 2)
+    collectable     Boolean         @default(false)
+    isActive        Boolean         @default(true)
+    schoolSession   SchoolSession?  @relation(fields: [schoolSessionId], references: [id])
+    schoolSessionId String?
+    sessionTerm     SessionTerm?    @relation(fields: [sessionTermId], references: [id])
+    sessionTermId   String?
+    createdById     String?
+    createdAt       DateTime?       @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?       @updatedAt
+    deletedAt       DateTime?       @db.Timestamp(0)
+
+    applicableClasses FinanceItemClassRoomDepartment[]
+    charges           FinanceCharge[]
+
+    @@unique([schoolProfileId, type, name, schoolSessionId, sessionTermId, deletedAt])
+    @@index([schoolProfileId, streamId])
+    @@index([schoolSessionId, sessionTermId])
+}
+
+model FinanceItemClassRoomDepartment {
+    id                    String              @id @default(uuid())
+    item                  FinanceItem         @relation(fields: [itemId], references: [id])
+    itemId                String
+    classRoomDepartment   ClassRoomDepartment @relation(fields: [classRoomDepartmentId], references: [id])
+    classRoomDepartmentId String
+    createdAt             DateTime?           @default(now()) @db.Timestamp(0)
+    updatedAt             DateTime?           @updatedAt
+    deletedAt             DateTime?           @db.Timestamp(0)
+
+    @@unique([itemId, classRoomDepartmentId, deletedAt])
+    @@index([classRoomDepartmentId])
+}
+
+model FinanceCharge {
+    id                    String                    @id @default(uuid())
+    schoolProfile         SchoolProfile             @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId       String
+    stream                FinanceStream             @relation(fields: [streamId], references: [id])
+    streamId              String
+    item                  FinanceItem?              @relation(fields: [itemId], references: [id])
+    itemId                String?
+    payerType             FinancePayerType
+    student               Students?                 @relation(fields: [studentId], references: [id])
+    studentId             String?
+    studentTermForm       StudentTermForm?          @relation(fields: [studentTermFormId], references: [id])
+    studentTermFormId     String?
+    staffProfile          StaffProfile?             @relation(fields: [staffProfileId], references: [id])
+    staffProfileId        String?
+    staffTermProfile      StaffTermProfile?         @relation(fields: [staffTermProfileId], references: [id])
+    staffTermProfileId    String?
+    classroomDepartment   ClassRoomDepartment?      @relation(fields: [classroomDepartmentId], references: [id])
+    classroomDepartmentId String?
+    schoolSession         SchoolSession?            @relation(fields: [schoolSessionId], references: [id])
+    schoolSessionId       String?
+    sessionTerm           SessionTerm?              @relation(fields: [sessionTermId], references: [id])
+    sessionTermId         String?
+    title                 String
+    description           String?
+    amount                Decimal                   @default(0) @db.Decimal(14, 2)
+    amountPaid            Decimal                   @default(0) @db.Decimal(14, 2)
+    status                FinanceChargeStatus       @default(PENDING)
+    collectionStatus      FinanceCollectionStatus   @default(NOT_REQUIRED)
+    dueDate               DateTime?                 @db.Timestamp(0)
+    cancelledAt           DateTime?                 @db.Timestamp(0)
+    cancelledById         String?
+    cancellationReason    String?
+    createdById           String?
+    createdAt             DateTime?                 @default(now()) @db.Timestamp(0)
+    updatedAt             DateTime?                 @updatedAt
+    deletedAt             DateTime?                 @db.Timestamp(0)
+
+    allocations   FinancePaymentAllocation[]
+    ledgerEntries FinanceLedgerEntry[]
+
+    @@index([schoolProfileId, streamId, status])
+    @@index([studentId, sessionTermId])
+    @@index([staffProfileId, sessionTermId])
+    @@index([schoolSessionId, sessionTermId])
+}
+
+model FinancePayment {
+    id                 String                     @id @default(uuid())
+    schoolProfile      SchoolProfile              @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId    String
+    stream             FinanceStream              @relation(fields: [streamId], references: [id])
+    streamId           String
+    payerType          FinancePayerType
+    student            Students?                  @relation(fields: [studentId], references: [id])
+    studentId          String?
+    staffProfile       StaffProfile?              @relation(fields: [staffProfileId], references: [id])
+    staffProfileId     String?
+    amount             Decimal                    @default(0) @db.Decimal(14, 2)
+    status             FinancePaymentStatus       @default(PAID)
+    paymentDate        DateTime                   @default(now()) @db.Timestamp(0)
+    method             String?
+    reference          String?
+    note               String?
+    receivedById       String?
+    cancelledAt        DateTime?                  @db.Timestamp(0)
+    cancelledById      String?
+    cancellationReason String?
+    createdAt          DateTime?                  @default(now()) @db.Timestamp(0)
+    updatedAt          DateTime?                  @updatedAt
+    deletedAt          DateTime?                  @db.Timestamp(0)
+
+    allocations   FinancePaymentAllocation[]
+    ledgerEntries FinanceLedgerEntry[]
+
+    @@index([schoolProfileId, streamId, status])
+    @@index([studentId, paymentDate])
+    @@index([staffProfileId, paymentDate])
+}
+
+model FinancePaymentAllocation {
+    id        String         @id @default(uuid())
+    payment   FinancePayment @relation(fields: [paymentId], references: [id])
+    paymentId String
+    charge    FinanceCharge  @relation(fields: [chargeId], references: [id])
+    chargeId  String
+    amount    Decimal        @default(0) @db.Decimal(14, 2)
+    createdAt DateTime?      @default(now()) @db.Timestamp(0)
+    updatedAt DateTime?      @updatedAt
+    deletedAt DateTime?      @db.Timestamp(0)
+
+    @@unique([paymentId, chargeId, deletedAt])
+    @@index([chargeId])
+}
+
+model FinanceTransfer {
+    id                 String                @id @default(uuid())
+    schoolProfile      SchoolProfile         @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId    String
+    fromStream         FinanceStream         @relation("FinanceTransferFromStream", fields: [fromStreamId], references: [id])
+    fromStreamId       String
+    toStream           FinanceStream         @relation("FinanceTransferToStream", fields: [toStreamId], references: [id])
+    toStreamId         String
+    amount             Decimal               @default(0) @db.Decimal(14, 2)
+    status             FinanceTransferStatus @default(COMPLETED)
+    note               String?
+    sentById           String?
+    cancelledAt        DateTime?             @db.Timestamp(0)
+    cancelledById      String?
+    cancellationReason String?
+    createdAt          DateTime?             @default(now()) @db.Timestamp(0)
+    updatedAt          DateTime?             @updatedAt
+    deletedAt          DateTime?             @db.Timestamp(0)
+
+    ledgerEntries FinanceLedgerEntry[]
+
+    @@index([schoolProfileId, status])
+    @@index([fromStreamId, toStreamId])
+}
+
+model FinanceLedgerEntry {
+    id              String                  @id @default(uuid())
+    schoolProfile   SchoolProfile           @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+    stream          FinanceStream           @relation(fields: [streamId], references: [id])
+    streamId        String
+    direction       FinanceLedgerDirection
+    sourceType      FinanceLedgerSourceType
+    sourceId        String
+    amount          Decimal                 @default(0) @db.Decimal(14, 2)
+    occurredAt      DateTime                @default(now()) @db.Timestamp(0)
+    note            String?
+    createdById     String?
+    charge          FinanceCharge?          @relation(fields: [chargeId], references: [id])
+    chargeId        String?
+    payment         FinancePayment?         @relation(fields: [paymentId], references: [id])
+    paymentId       String?
+    transfer        FinanceTransfer?        @relation(fields: [transferId], references: [id])
+    transferId      String?
+    createdAt       DateTime?               @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?               @updatedAt
+    deletedAt       DateTime?               @db.Timestamp(0)
+
+    @@index([schoolProfileId, streamId, occurredAt])
+    @@index([sourceType, sourceId])
+    @@index([chargeId])
+    @@index([paymentId])
+    @@index([transferId])
+}

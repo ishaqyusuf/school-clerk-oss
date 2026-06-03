@@ -289,16 +289,17 @@ export const staffRouter = createTRPCRouter({
 				value: classroom.id,
 			}));
 
-			const subjectsByClassroom = subjects.reduce<
-				Record<string, Array<{ label: string; value: string }>>
-			>((acc, subject) => {
-				if (!subject.classRoomDepartmentId) return acc;
+				const subjectsByClassroom = subjects.reduce<
+					Record<string, Array<{ label: string; value: string }>>
+				>((acc, subject) => {
+					const classroomDepartmentId = subject.classRoomDepartmentId;
+					if (!classroomDepartmentId) return acc;
 
-				acc[subject.classRoomDepartmentId] ??= [];
-				acc[subject.classRoomDepartmentId].push({
-					label: subject.subject.title,
-					value: subject.id,
-				});
+					acc[classroomDepartmentId] ??= [];
+					acc[classroomDepartmentId]!.push({
+						label: subject.subject.title,
+						value: subject.id,
+					});
 				return acc;
 			}, {});
 

@@ -6,14 +6,13 @@ import { studentDisplayName } from "@/utils/utils";
 import { whereStudents } from "@/utils/query.students";
 
 import { prisma } from "@school-clerk/db";
-import { getStaffListAction } from "./get-staff-list";
 import { getAuthCookie } from "./cookies/auth-cookie";
 
 export type StudentData = PageItemData<typeof getStudentsListAction>;
 export async function getStudentListPageAction(query: SearchParamsType = {}) {
   const profile = await getAuthCookie();
   query.sessionId = profile.sessionId;
-  return await getStaffListAction(query);
+  return await getStudentsListAction(query);
 }
 export async function getStudentsListAction(query: SearchParamsType = {}) {
   const where = whereStudents(query);

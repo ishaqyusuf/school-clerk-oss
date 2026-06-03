@@ -56,14 +56,14 @@ export function AssessmentRecording() {
                       dir="rtl"
                       key={dept?.id}
                     >
-                      {dept?.displayName}
+                      {dept?.departmentName}
                     </Menu.Item>
                   ))}
                 </Menu>
               </>
             )}
             <Card.Title>
-              {department?.displayName ?? department?.departmentName}
+              {department?.departmentName}
             </Card.Title>
             {/* <Separator orientation="vertical" className="h-full" /> */}
             {!permissions.subjects || (

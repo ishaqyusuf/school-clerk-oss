@@ -23,7 +23,7 @@ export default async function Migration() {
       loadStudentPayments(),
       loadStudentMergeData(),
       getClassRooms({}),
-      getCachedFees(profile.termId),
+      getCachedFees(),
     ]);
   const ctx = {
     studentPayments,

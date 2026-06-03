@@ -46,8 +46,8 @@ interface Props {
 	defaultSearch?;
 	placeholder?;
 	filterList?: PageFilterData[];
-	filters;
-	setFilters;
+	filters?;
+	setFilters?;
 	SearchTips?;
 }
 export function SearchFilter({
@@ -55,7 +55,7 @@ export function SearchFilter({
 	filterSchema,
 	filters,
 	setFilters,
-	filterList,
+	filterList = [],
 	trpQueryOptions = undefined,
 	placeholder = "Search ...",
 }) {

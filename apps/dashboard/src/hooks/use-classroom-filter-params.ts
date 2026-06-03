@@ -9,7 +9,7 @@ type FilterKeys = keyof Exclude<
 export const classroomFilterParams = {
   q: parseAsString,
   view: parseAsString.withDefault("stream"),
-} satisfies Partial<Record<FilterKeys, any>>;
+} satisfies Partial<Record<FilterKeys | "view", any>>;
 
 export function useClassroomFilterParams() {
   const [filters, setFilters] = useQueryStates(classroomFilterParams);

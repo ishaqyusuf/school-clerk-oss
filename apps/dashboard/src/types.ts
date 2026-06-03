@@ -1,6 +1,6 @@
 import { Primitive } from "@radix-ui/react-primitive";
 
-import { IconKeys } from "./components/icons";
+import type { IconKeys } from "@school-clerk/ui/custom/icons";
 import { SearchParamsKeys } from "./utils/search-params";
 import { ColumnDef as TanColumnDef } from "@tanstack/react-table";
 

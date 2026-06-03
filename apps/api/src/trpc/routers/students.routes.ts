@@ -131,7 +131,7 @@ export const studentsRouter = createTRPCRouter({
             },
           },
           attendanceList: {
-            select: { id: true, status: true, date: true },
+            select: { id: true, isPresent: true, createdAt: true },
           },
         },
       });
@@ -163,8 +163,8 @@ export const studentsRouter = createTRPCRouter({
         payments: [],
         attendance: form.attendanceList.map((a) => ({
           id: a.id,
-          status: a.status,
-          date: a.date,
+          status: a.isPresent ? "PRESENT" : "ABSENT",
+          date: a.createdAt,
         })),
       };
     }),

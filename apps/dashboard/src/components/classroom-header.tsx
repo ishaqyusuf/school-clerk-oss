@@ -39,6 +39,7 @@ export function ClassroomHeader({}) {
           filterSchema={classroomFilterParams}
           placeholder="Search classrooms..."
           trpcRoute={_trpc.filters.classroom}
+          filterList={[]}
           trpQueryOptions={{}}
           {...{ filters, setFilters }}
         />

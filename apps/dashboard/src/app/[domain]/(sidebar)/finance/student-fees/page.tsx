@@ -1,5 +1,5 @@
-import { FinanceResetPlaceholder } from "@/components/finance-reset-placeholder";
+import { FinanceChargesPage } from "@/components/finance/finance-charges-page";
 
-export default function Page() {
-	return <FinanceResetPlaceholder title="Student fees" />;
+export default async function Page() {
+	return <FinanceChargesPage title="Student Finance" />;
 }

@@ -3,10 +3,11 @@
   "include": ["src", "../../types"],
   "exclude": ["node_modules"],
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "jsxImportSource": "react",
+    "skipLibCheck": true,
     "noImplicitAny": false,
     "baseUrl": ".",
     // "types": ["better-auth"],

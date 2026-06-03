@@ -45,6 +45,12 @@ model SchoolProfile {
     assistantToolExecutions AssistantToolExecution[]
     assistantConfig        SchoolAssistantConfig?
     assistantFeedback      AssistantFeedback[]
+    financeStreams         FinanceStream[]
+    financeItems           FinanceItem[]
+    financeCharges         FinanceCharge[]
+    financePayments        FinancePayment[]
+    financeTransfers       FinanceTransfer[]
+    financeLedgerEntries   FinanceLedgerEntry[]
 
     @@unique([name, subDomain, slug, deletedAt])
 }
@@ -84,6 +90,8 @@ model SchoolSession {
     sessionForms      StudentSessionForm[]
     termForms         StudentTermForm[]
     staffTermProfiles StaffTermProfile[]
+    financeItems      FinanceItem[]
+    financeCharges    FinanceCharge[]
 }
 
 model SessionTerm {
@@ -102,4 +110,6 @@ model SessionTerm {
     departmentSubjects DepartmentSubject[]
     staffTermProfiles  StaffTermProfile[]
     reportPrintLogs    ReportPrintLog[]
+    financeItems       FinanceItem[]
+    financeCharges     FinanceCharge[]
 }

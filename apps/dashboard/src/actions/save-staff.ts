@@ -50,8 +50,8 @@ function buildPendingStaffName(email: string) {
 
 function dedupeAssignments(
 	assignments: Array<{
-		classRoomDepartmentId: string;
-		departmentSubjectIds: string[];
+		classRoomDepartmentId?: string;
+		departmentSubjectIds?: string[];
 	}>,
 ) {
 	const map = new Map<string, Set<string>>();

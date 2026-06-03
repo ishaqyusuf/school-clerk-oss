@@ -1003,7 +1003,7 @@ function ScoreCell({
 				/>
 				<div className="w-4 mr-1">
 					{isPending ? (
-						<Spinner className="size-3" />
+							<Spinner size={12} />
 					) : error ? (
 						<AlertCircle className="text-destructive size-3" />
 					) : isSuccess ? (

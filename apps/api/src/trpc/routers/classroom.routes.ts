@@ -13,6 +13,8 @@ const createClassroomSchema = z.object({
   classRoomId: z.string().optional().nullable(),
   className: z.string().min(1),
   classLevel: z.number().optional().nullable(),
+  hasSubClass: z.boolean().optional().nullable(),
+  progressionMode: z.string().optional().nullable(),
   departments: z
     .array(
       z.object({
@@ -32,8 +34,9 @@ export const classroomRouter = createTRPCRouter({
       if (!input.departments?.length) {
         input.departments = [{ name: input.className }];
       }
+      const departments = input.departments;
       const duplicateNames = new Set<string>();
-      for (const department of input.departments) {
+      for (const department of departments) {
         const key = department.name.trim().toLowerCase();
         if (duplicateNames.has(key)) {
           throw new Error("Duplicate stream names are not allowed in one class.");
@@ -64,12 +67,12 @@ export const classroomRouter = createTRPCRouter({
           });
 
           const submittedIds = new Set(
-            input.departments
+            departments
               .map((department) => department.id)
               .filter((id): id is string => !!id),
           );
 
-          for (const department of input.departments) {
+          for (const department of departments) {
             if (department.id) {
               await tx.classRoomDepartment.update({
                 where: { id: department.id },
@@ -124,7 +127,7 @@ export const classroomRouter = createTRPCRouter({
           classLevel: input.classLevel,
           classRoomDepartments: {
             createMany: {
-              data: input.departments.map((d) => ({
+              data: departments.map((d) => ({
                 departmentName: d.name,
                 schoolProfileId: schoolId,
                 departmentLevel: d.departmentLevel,
@@ -140,7 +143,7 @@ export const classroomRouter = createTRPCRouter({
           schoolProfileId: schoolId!,
           classRoomDepartments: {
             createMany: {
-              data: input.departments.map((d) => ({
+              data: departments.map((d) => ({
                 departmentName: d.name,
                 schoolProfileId: schoolId,
                 departmentLevel: d.departmentLevel,
@@ -392,6 +395,22 @@ export const classroomRouter = createTRPCRouter({
     return getClassrooms(ctx, {
       schoolSessionId: ctx.profile.sessionId,
     });
+  }),
+  getSchoolClassNames: publicProcedure.query(async ({ ctx }) => {
+    const classRooms = await ctx.db.classRoom.findMany({
+      where: {
+        deletedAt: null,
+        schoolProfileId: ctx.profile.schoolId,
+      },
+      distinct: ["name"],
+      orderBy: [{ classLevel: "asc" }, { name: "asc" }],
+      select: {
+        name: true,
+        classLevel: true,
+      },
+    });
+
+    return classRooms;
   }),
 
   /** Copy all classrooms from a previous session into the current session. */

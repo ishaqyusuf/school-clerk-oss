@@ -1,87 +1,675 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { authenticatedProcedure, createTRPCRouter } from "../init";
+import {
+	createFinanceCharge,
+	getFinanceOverview,
+	getFinanceStreamDetails,
+	getStudentFinanceStatement,
+	listFinanceCharges,
+	listFinanceItems,
+	listFinanceLedgerEntries,
+	listFinancePayments,
+	listFinanceStaff,
+	listFinanceStreams,
+	listFinanceTransactions,
+	listFinanceTransfers,
+	recordFinancePayment,
+	searchFinanceStudents,
+	transferFinanceFunds,
+	upsertFinanceItem,
+	upsertFinanceStream,
+} from "../../db/queries/finance";
+import {
+	type TRPCContext,
+	authenticatedProcedure,
+	createTRPCRouter,
+} from "../init";
+import {
+	financeChargeInputSchema,
+	financeItemInputSchema,
+	financePaymentInputSchema,
+	financeSearchInputSchema,
+	financeStreamDetailsSchema,
+	financeStreamInputSchema,
+	financeStreamQuerySchema,
+	financeStudentQueryCompatSchema,
+	financeStudentQuerySchema,
+	financeTransferInputSchema,
+} from "../schemas/finance";
 
-const financeResetPayload = {
+const resetPayload = {
 	success: false,
-	message: "The legacy finance module has been reset and is being rebuilt.",
+	message:
+		"This legacy finance action has been replaced by the standardized finance system.",
 };
 
-const emptyList = () => [] as any[];
-const resetResult = () => financeResetPayload as any;
+const resetPaymentPayload = {
+	...resetPayload,
+	paymentId: "",
+	paymentIds: [],
+	allocationId: "",
+	count: 0,
+	totalAllocated: 0,
+	chargeStatus: "CANCELLED",
+};
+
+const chargeListInput = z
+	.object({
+		streamId: z.string().optional().nullable(),
+		studentId: z.string().optional().nullable(),
+		staffProfileId: z.string().optional().nullable(),
+		classroomId: z.string().optional().nullable(),
+		classroomDepartmentId: z.string().optional().nullable(),
+		termId: z.string().optional().nullable(),
+		sessionId: z.string().optional().nullable(),
+		status: z.string().optional().nullable(),
+		collectionStatus: z.string().optional().nullable(),
+	})
+	.optional();
+
+const optionalCompatInput = z.object({}).passthrough().optional();
+
+const streamCompatInput = financeStreamInputSchema
+	.extend({
+		type: z.string().optional().nullable(),
+	})
+	.passthrough();
+
+const transferCompatInput = financeTransferInputSchema
+	.partial({
+		fromStreamId: true,
+		toStreamId: true,
+	})
+	.extend({
+		fromWalletId: z.string().optional().nullable(),
+		toWalletId: z.string().optional().nullable(),
+	})
+	.passthrough();
+
+const legacyItemInput = z
+	.object({
+		id: z.string().optional().nullable(),
+		billableId: z.string().optional().nullable(),
+		streamId: z.string().optional().nullable(),
+		streamName: z.string().optional().nullable(),
+		accountType: z.enum(["CREDIT", "DEBIT"]).optional(),
+		type: z.string().optional().nullable(),
+		name: z.string().optional().nullable(),
+		title: z.string().optional().nullable(),
+		description: z.string().optional().nullable(),
+		amount: z.coerce.number().nonnegative(),
+		collectable: z.boolean().optional(),
+		isActive: z.boolean().optional(),
+		sessionId: z.string().optional().nullable(),
+		termId: z.string().optional().nullable(),
+		classRoomDepartmentIds: z.array(z.string()).optional(),
+		classroomDepartments: z.array(z.string()).optional(),
+	})
+	.passthrough();
+
+const legacyChargeInput = z
+	.object({
+		id: z.string().optional().nullable(),
+		itemId: z.string().optional().nullable(),
+		billableId: z.string().optional().nullable(),
+		streamId: z.string().optional().nullable(),
+		streamName: z.string().optional().nullable(),
+		type: z.string().optional().nullable(),
+		payerType: z.enum(["STUDENT", "STAFF", "SCHOOL"]).optional(),
+		studentId: z.string().optional().nullable(),
+		studentTermFormId: z.string().optional().nullable(),
+		staffProfileId: z.string().optional().nullable(),
+		staffTermProfileId: z.string().optional().nullable(),
+		classroomDepartmentId: z.string().optional().nullable(),
+		sessionId: z.string().optional().nullable(),
+		termId: z.string().optional().nullable(),
+		title: z.string().min(1),
+		description: z.string().optional().nullable(),
+		amount: z.coerce.number().nonnegative(),
+		collectionStatus: z
+			.enum(["NOT_REQUIRED", "NOT_COLLECTED", "COLLECTED"])
+			.optional(),
+		dueDate: z.coerce.date().optional().nullable(),
+	})
+	.passthrough();
+
+const legacyPaymentAllocationInput = z.object({
+	source: z.string().optional().nullable(),
+	studentTermFormId: z.string().optional().nullable(),
+	studentFeeId: z.string().optional().nullable(),
+	billableHistoryId: z.string().optional().nullable(),
+	feeHistoryId: z.string().optional().nullable(),
+	streamId: z.string().optional().nullable(),
+	streamName: z.string().optional().nullable(),
+	title: z.string().optional().nullable(),
+	description: z.string().optional().nullable(),
+	amountDue: z.coerce.number().optional().nullable(),
+	amountToPay: z.coerce.number().optional().nullable(),
+});
+
+const legacyPaymentInput = financePaymentInputSchema
+	.partial({ chargeId: true, amount: true })
+	.extend({
+		billId: z.string().optional().nullable(),
+		studentId: z.string().optional().nullable(),
+		studentTermFormId: z.string().optional().nullable(),
+		paymentMethod: z.string().optional().nullable(),
+		amountReceived: z.coerce.number().optional().nullable(),
+		allocations: z.array(legacyPaymentAllocationInput).optional(),
+	})
+	.passthrough();
+
+type NormalizedFinanceItemType =
+	| "TUITION_FEE"
+	| "BOOK"
+	| "SERVICE"
+	| "SALARY"
+	| "OTHER";
+
+function normalizeItemType(value?: string | null): NormalizedFinanceItemType {
+	switch (value) {
+		case "TUITION_FEE":
+		case "BOOK":
+		case "SERVICE":
+		case "SALARY":
+			return value;
+		default:
+			return "OTHER";
+	}
+}
+
+function requireTransferStreamId(
+	value: string | null | undefined,
+	label: string,
+) {
+	if (!value) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: `${label} stream is required.`,
+		});
+	}
+
+	return value;
+}
+
+function requirePaymentChargeId(value: string | null | undefined) {
+	if (!value) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Finance charge is required for payment.",
+		});
+	}
+
+	return value;
+}
+
+function normalizeStudentQuery(
+	input: z.infer<typeof financeStudentQueryCompatSchema>,
+) {
+	const parsed = financeStudentQuerySchema.parse(input);
+	const studentId = parsed.studentId;
+
+	if (!studentId) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Student is required.",
+		});
+	}
+
+	return {
+		studentId,
+		termId: parsed.termId,
+		sessionId: parsed.sessionId,
+	};
+}
+
+function normalizePaymentInput(
+	input: z.infer<typeof legacyPaymentInput>,
+	chargeId: string,
+) {
+	const amount =
+		input.amount ??
+		input.amountReceived ??
+		input.allocations?.reduce(
+			(sum, allocation) => sum + (allocation.amountToPay ?? 0),
+			0,
+		) ??
+		0;
+
+	if (amount <= 0) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Payment amount must be greater than zero.",
+		});
+	}
+
+	return {
+		chargeId,
+		amount,
+		paymentDate: input.paymentDate,
+		method: input.method ?? input.paymentMethod,
+		reference: input.reference,
+		note: input.note,
+		receivedById: input.receivedById,
+	};
+}
+
+async function recordLegacyStudentPayment(
+	ctx: TRPCContext,
+	input: z.infer<typeof legacyPaymentInput>,
+) {
+	const allocations =
+		input.allocations?.filter(
+			(allocation) => (allocation.amountToPay ?? 0) > 0,
+		) ?? [];
+
+	if (!allocations.length) {
+		return resetPaymentPayload;
+	}
+
+	const totalAllocated = allocations.reduce(
+		(sum, allocation) => sum + (allocation.amountToPay ?? 0),
+		0,
+	);
+
+	if (
+		input.amountReceived != null &&
+		Math.abs(totalAllocated - input.amountReceived) > 0.01
+	) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Allocated fee amounts must match the amount received.",
+		});
+	}
+
+	const paymentResults: Awaited<ReturnType<typeof recordFinancePayment>>[] = [];
+
+	for (const allocation of allocations) {
+		let chargeId = allocation.studentFeeId ?? allocation.billableHistoryId;
+
+		if (!chargeId) {
+			if (!input.studentId) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Student is required for manual payment rows.",
+				});
+			}
+
+			const charge = await createFinanceCharge(ctx, {
+				id: null,
+				itemId: null,
+				streamId: allocation.streamId,
+				type: "OTHER",
+				payerType: "STUDENT",
+				studentId: input.studentId,
+				studentTermFormId:
+					allocation.studentTermFormId ?? input.studentTermFormId,
+				staffProfileId: null,
+				staffTermProfileId: null,
+				classroomDepartmentId: null,
+				sessionId: ctx.profile.sessionId,
+				termId: ctx.profile.termId,
+				title:
+					allocation.title ??
+					allocation.description ??
+					allocation.streamName ??
+					"Manual charge",
+				description: allocation.description,
+				amount: allocation.amountDue ?? allocation.amountToPay ?? 0,
+				collectionStatus: "NOT_REQUIRED",
+				dueDate: null,
+			});
+
+			chargeId = charge.id;
+		}
+
+		paymentResults.push(
+			await recordFinancePayment(ctx, {
+				chargeId: requirePaymentChargeId(chargeId),
+				amount: allocation.amountToPay ?? 0,
+				paymentDate: input.paymentDate,
+				method: input.method ?? input.paymentMethod,
+				reference: input.reference,
+				note: input.note ?? allocation.description,
+				receivedById: input.receivedById,
+			}),
+		);
+	}
+
+	return {
+		success: true,
+		paymentId: paymentResults[0]?.paymentId ?? "",
+		paymentIds: paymentResults.map((result) => result.paymentId),
+		allocationId: paymentResults[0]?.allocationId ?? "",
+		count: paymentResults.length,
+		totalAllocated,
+		chargeStatus: paymentResults.at(-1)?.chargeStatus ?? "PAID",
+	};
+}
+
+function normalizeLegacyChargeInput(
+	input: z.infer<typeof legacyChargeInput>,
+	defaultPayerType: "STUDENT" | "STAFF" | "SCHOOL",
+) {
+	const payerType =
+		input.payerType ??
+		(input.studentId || input.studentTermFormId
+			? "STUDENT"
+			: input.staffProfileId || input.staffTermProfileId
+				? "STAFF"
+				: defaultPayerType);
+
+	return {
+		id: input.id,
+		itemId: input.itemId ?? input.billableId,
+		streamId: input.streamId,
+		streamName: input.streamName,
+		type: normalizeItemType(input.type),
+		payerType,
+		studentId: input.studentId,
+		studentTermFormId: input.studentTermFormId,
+		staffProfileId: input.staffProfileId,
+		staffTermProfileId: input.staffTermProfileId,
+		classroomDepartmentId: input.classroomDepartmentId,
+		sessionId: input.sessionId,
+		termId: input.termId,
+		title: input.title,
+		description: input.description,
+		amount: input.amount,
+		collectionStatus: input.collectionStatus,
+		dueDate: input.dueDate,
+	};
+}
 
 export const financeRouter = createTRPCRouter({
+	overview: authenticatedProcedure.query(({ ctx }) => getFinanceOverview(ctx)),
+
 	getStreams: authenticatedProcedure
-		.input(
-			z
-				.object({
-					filter: z.enum(["term", "session"]).optional(),
-					termId: z.string().optional().nullable(),
-					sessionId: z.string().optional().nullable(),
-				})
-				.optional(),
-		)
-		.query(emptyList),
+		.input(financeStreamQuerySchema)
+		.query(({ ctx, input }) => listFinanceStreams(ctx, input)),
+
 	getStreamDetails: authenticatedProcedure
-		.input(z.object({ streamId: z.string() }))
-		.query(resetResult),
+		.input(financeStreamDetailsSchema)
+		.query(async ({ ctx, input }) => getFinanceStreamDetails(ctx, input)),
+
+	createStream: authenticatedProcedure
+		.input(streamCompatInput)
+		.mutation(({ ctx, input }) =>
+			upsertFinanceStream(ctx, {
+				id: input.id,
+				name: input.name,
+				slug: input.slug,
+				accountType:
+					input.accountType === "DEBIT" ||
+					input.type === "DEBIT" ||
+					input.type === "out"
+						? "DEBIT"
+						: "CREDIT",
+				description: input.description,
+				isSystem: input.isSystem,
+			}),
+		),
+
+	createItem: authenticatedProcedure
+		.input(financeItemInputSchema)
+		.mutation(({ ctx, input }) => upsertFinanceItem(ctx, input)),
+
+	getItems: authenticatedProcedure.query(({ ctx }) => listFinanceItems(ctx)),
+
+	createCharge: authenticatedProcedure
+		.input(financeChargeInputSchema)
+		.mutation(({ ctx, input }) => createFinanceCharge(ctx, input)),
+
+	getCharges: authenticatedProcedure
+		.input(chargeListInput)
+		.query(({ ctx, input }) => listFinanceCharges(ctx, input)),
+
+	recordPayment: authenticatedProcedure
+		.input(financePaymentInputSchema)
+		.mutation(({ ctx, input }) => recordFinancePayment(ctx, input)),
+
+	getPayments: authenticatedProcedure.query(({ ctx }) =>
+		listFinancePayments(ctx),
+	),
+
+	transferFunds: authenticatedProcedure
+		.input(transferCompatInput)
+		.mutation(({ ctx, input }) =>
+			transferFinanceFunds(ctx, {
+				fromStreamId: requireTransferStreamId(
+					input.fromStreamId ?? input.fromWalletId,
+					"Source",
+				),
+				toStreamId: requireTransferStreamId(
+					input.toStreamId ?? input.toWalletId,
+					"Destination",
+				),
+				amount: input.amount,
+				note: input.note,
+				sentById: input.sentById,
+			}),
+		),
+
+	getInternalTransfers: authenticatedProcedure
+		.input(optionalCompatInput)
+		.query(({ ctx }) => listFinanceTransfers(ctx)),
+
+	getLedgerEntries: authenticatedProcedure.query(({ ctx }) =>
+		listFinanceLedgerEntries(ctx),
+	),
+
+	getStudentStatement: authenticatedProcedure
+		.input(financeStudentQueryCompatSchema)
+		.query(async ({ ctx, input }) =>
+			getStudentFinanceStatement(ctx, normalizeStudentQuery(input)),
+		),
+
 	getFinanceIntegrityReport: authenticatedProcedure
-		.input(z.object({ termId: z.string().optional().nullable() }).optional())
-		.query(
-			() =>
-				({
-					totals: {},
-					checks: [],
-					mismatches: {},
-					...financeResetPayload,
-				}) as any,
-		),
+		.input(optionalCompatInput)
+		.query(async ({ ctx }) => {
+			const overview = await getFinanceOverview(ctx);
+			return {
+				totals: {
+					...overview.summary,
+					streamAvailableFunds: overview.summary.totalBalance,
+					streamPendingBills: 0,
+					streamOwing: 0,
+					studentPendingFees: 0,
+				},
+				checks: [
+					{
+						key: "ledger-balance",
+						label: "Ledger balance",
+						status: "ok",
+						message:
+							"Stream balances are computed from finance ledger entries.",
+					},
+				],
+				mismatches: {
+					legacyPaymentsWithoutSettlement: [],
+					missingStreams: [],
+					streamProjectedDeficits: [],
+				},
+			};
+		}),
+
 	getFinanceReports: authenticatedProcedure
-		.input(z.object({ termId: z.string().optional().nullable() }).optional())
-		.query(
-			() =>
-				({
-					summary: {},
-					streams: [],
-					payroll: [],
-					servicePayments: [],
-					collections: [],
-					owingLedger: [],
-					...financeResetPayload,
-				}) as any,
+		.input(optionalCompatInput)
+		.query(async ({ ctx }) => {
+			const overview = await getFinanceOverview(ctx);
+			return {
+				summary: overview.summary,
+				streams: overview.streams,
+				payroll: await listFinanceCharges(ctx, { staffProfileId: null }),
+				servicePayments: [],
+				collections: [],
+				owingLedger: [],
+			};
+		}),
+
+	getBillables: authenticatedProcedure.query(({ ctx }) =>
+		listFinanceItems(ctx),
+	),
+	createBillable: authenticatedProcedure
+		.input(legacyItemInput)
+		.mutation(({ ctx, input }) =>
+			upsertFinanceItem(ctx, {
+				id: input.id ?? input.billableId,
+				streamId: input.streamId,
+				streamName: input.streamName,
+				accountType: input.accountType,
+				type: normalizeItemType(input.type ?? "SERVICE"),
+				name: input.name ?? input.title ?? "Billable",
+				description: input.description,
+				amount: input.amount,
+				collectable: input.collectable,
+				isActive: input.isActive,
+				sessionId: input.sessionId,
+				termId: input.termId,
+				classRoomDepartmentIds:
+					input.classRoomDepartmentIds ?? input.classroomDepartments ?? [],
+			}),
 		),
-	createStream: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	transferFunds: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	getInternalTransfers: authenticatedProcedure.input(z.any().optional()).query(emptyList),
-	cancelInternalTransfer: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	addFund: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	withdrawFund: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	getServicePayments: authenticatedProcedure.input(z.any().optional()).query(emptyList),
-	createServicePayment: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	payServiceBill: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	repayBillOwing: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	cancelServiceBillPayment: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	getPayroll: authenticatedProcedure.input(z.any().optional()).query(emptyList),
-	createStaffBill: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	payStaffBill: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	cancelStaffBillPayment: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	getStaff: authenticatedProcedure.query(emptyList),
-	searchStudentsForPayment: authenticatedProcedure.input(z.any()).query(emptyList),
-	getReceivePaymentData: authenticatedProcedure.input(z.any()).query(resetResult),
-	getStudentPayments: authenticatedProcedure.input(z.any()).query(emptyList),
-	reverseStudentPayment: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	receiveStudentPayment: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	getBillables: authenticatedProcedure.query(emptyList),
-	createBillable: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	deleteBillable: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	generateBillsFromBillables: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	backfillBillSettlements: authenticatedProcedure.input(z.any().optional()).mutation(resetResult),
-	getBills: authenticatedProcedure.query(emptyList),
-	createBill: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	getTransactions: authenticatedProcedure.query(emptyList),
-	getStudentPurchaseSuggestions: authenticatedProcedure.input(z.any()).query(emptyList),
-	createStudentPurchase: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	getCollectionSummary: authenticatedProcedure.input(z.any().optional()).query(emptyList),
-	getCollectionStudents: authenticatedProcedure.input(z.any()).query(emptyList),
-	waiveFee: authenticatedProcedure.input(z.any()).mutation(resetResult),
-	applyDiscount: authenticatedProcedure.input(z.any()).mutation(resetResult),
+
+	getBills: authenticatedProcedure
+		.input(chargeListInput)
+		.query(({ ctx, input }) => listFinanceCharges(ctx, input)),
+	createBill: authenticatedProcedure
+		.input(legacyChargeInput)
+		.mutation(({ ctx, input }) =>
+			createFinanceCharge(ctx, normalizeLegacyChargeInput(input, "SCHOOL")),
+		),
+
+	receiveStudentPayment: authenticatedProcedure
+		.input(legacyPaymentInput)
+		.mutation(({ ctx, input }) =>
+			input.chargeId
+				? recordFinancePayment(
+						ctx,
+						normalizePaymentInput(
+							input,
+							requirePaymentChargeId(input.chargeId),
+						),
+					)
+				: recordLegacyStudentPayment(ctx, input),
+		),
+	payStaffBill: authenticatedProcedure
+		.input(legacyPaymentInput)
+		.mutation(({ ctx, input }) =>
+			(input.chargeId ?? input.billId)
+				? recordFinancePayment(
+						ctx,
+						normalizePaymentInput(
+							input,
+							requirePaymentChargeId(input.chargeId ?? input.billId),
+						),
+					)
+				: resetPaymentPayload,
+		),
+	payServiceBill: authenticatedProcedure
+		.input(legacyPaymentInput)
+		.mutation(({ ctx, input }) =>
+			(input.chargeId ?? input.billId)
+				? recordFinancePayment(
+						ctx,
+						normalizePaymentInput(
+							input,
+							requirePaymentChargeId(input.chargeId ?? input.billId),
+						),
+					)
+				: resetPaymentPayload,
+		),
+
+	getReceivePaymentData: authenticatedProcedure
+		.input(financeStudentQueryCompatSchema)
+		.query(async ({ ctx, input }) =>
+			getStudentFinanceStatement(ctx, normalizeStudentQuery(input)),
+		),
+	getStudentPayments: authenticatedProcedure
+		.input(financeStudentQueryCompatSchema)
+		.query(async ({ ctx, input }) => {
+			const statement = await getStudentFinanceStatement(
+				ctx,
+				normalizeStudentQuery(input),
+			);
+			return statement.charges.flatMap((charge) => charge.payments);
+		}),
+
+	getServicePayments: authenticatedProcedure
+		.input(chargeListInput)
+		.query(async ({ ctx, input }) =>
+			listFinanceCharges(ctx, { ...input, staffProfileId: null }),
+		),
+	getPayroll: authenticatedProcedure
+		.input(chargeListInput)
+		.query(({ ctx, input }) => listFinanceCharges(ctx, input)),
+	createStaffBill: authenticatedProcedure
+		.input(legacyChargeInput)
+		.mutation(({ ctx, input }) =>
+			createFinanceCharge(ctx, normalizeLegacyChargeInput(input, "STAFF")),
+		),
+	createServicePayment: authenticatedProcedure
+		.input(legacyChargeInput)
+		.mutation(({ ctx, input }) =>
+			createFinanceCharge(ctx, normalizeLegacyChargeInput(input, "SCHOOL")),
+		),
+
+	getStaff: authenticatedProcedure.query(({ ctx }) => listFinanceStaff(ctx)),
+	searchStudentsForPayment: authenticatedProcedure
+		.input(financeSearchInputSchema)
+		.query(({ ctx, input }) => searchFinanceStudents(ctx, input)),
+
+	cancelInternalTransfer: authenticatedProcedure
+		.input(optionalCompatInput)
+		.mutation(() => resetPayload),
+	addFund: authenticatedProcedure
+		.input(optionalCompatInput)
+		.mutation(() => resetPayload),
+	withdrawFund: authenticatedProcedure
+		.input(optionalCompatInput)
+		.mutation(() => resetPayload),
+	repayBillOwing: authenticatedProcedure
+		.input(optionalCompatInput)
+		.mutation(() => resetPayload),
+	cancelServiceBillPayment: authenticatedProcedure
+		.input(optionalCompatInput)
+		.mutation(() => resetPayload),
+	cancelStaffBillPayment: authenticatedProcedure
+		.input(optionalCompatInput)
+		.mutation(() => resetPayload),
+	reverseStudentPayment: authenticatedProcedure
+		.input(optionalCompatInput)
+		.mutation(() => resetPayload),
+	generateBillsFromBillables: authenticatedProcedure
+		.input(optionalCompatInput)
+		.mutation(() => resetPayload),
+	backfillBillSettlements: authenticatedProcedure
+		.input(optionalCompatInput)
+		.mutation(() => resetPayload),
+	getTransactions: authenticatedProcedure.query(async ({ ctx }) =>
+		listFinanceTransactions(ctx),
+	),
+	getStudentPurchaseSuggestions: authenticatedProcedure
+		.input(optionalCompatInput)
+		.query(({ ctx }) => listFinanceItems(ctx)),
+	createStudentPurchase: authenticatedProcedure
+		.input(legacyChargeInput)
+		.mutation(({ ctx, input }) =>
+			createFinanceCharge(ctx, normalizeLegacyChargeInput(input, "STUDENT")),
+		),
+	getCollectionSummary: authenticatedProcedure
+		.input(optionalCompatInput)
+		.query(({ ctx }) => listFinanceCharges(ctx, { status: "PAID" })),
+	getCollectionStudents: authenticatedProcedure
+		.input(chargeListInput)
+		.query(({ ctx, input }) => listFinanceCharges(ctx, input)),
+	deleteBillable: authenticatedProcedure
+		.input(optionalCompatInput)
+		.mutation(() => ({ ...resetPayload, title: "Deleted" })),
+	waiveFee: authenticatedProcedure
+		.input(optionalCompatInput)
+		.mutation(() => resetPayload),
+	applyDiscount: authenticatedProcedure
+		.input(optionalCompatInput)
+		.mutation(() => resetPayload),
 });

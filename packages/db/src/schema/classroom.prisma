@@ -32,6 +32,8 @@ model ClassRoomDepartment {
     studentSessionForms   StudentSessionForm[]
     staffTermProfiles     StaffClassroomDepartmentTermProfiles[]
     studentTermForms      StudentTermForm[]
+    financeItemApplicabilities FinanceItemClassRoomDepartment[]
+    financeCharges             FinanceCharge[]
 
     @@unique([classRoomsId, departmentName])
 }

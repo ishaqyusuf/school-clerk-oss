@@ -176,10 +176,10 @@ export function PaymentReceiptTemplate({
 					{lines.map((line, index) => (
 						<View
 							key={`${line.title}-${index}`}
-							style={[
-								styles.tableRow,
-								index === lines.length - 1 ? styles.tableRowLast : null,
-							]}
+								style={[
+									styles.tableRow,
+									index === lines.length - 1 ? styles.tableRowLast : {},
+								]}
 						>
 							<View style={styles.colMain}>
 								<Text>{line.title}</Text>

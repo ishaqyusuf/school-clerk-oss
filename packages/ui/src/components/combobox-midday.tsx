@@ -2,7 +2,7 @@
 
 import { Command as CommandPrimitive } from "cmdk";
 import { Loader2 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type ComponentType } from "react";
 import { cn } from "../utils";
 import {
   CommandGroup,
@@ -29,7 +29,7 @@ type ComboboxProps = {
   classNameList?: string;
   autoFocus?: boolean;
   showIcon?: boolean;
-  CreateComponent?: React.ReactElement<{ value: string }>;
+  CreateComponent?: ComponentType<{ value: string }>;
 };
 
 export const Combobox = ({
@@ -121,7 +121,7 @@ export const Combobox = ({
         )}
 
         {!isLoading && selected && onRemove && (
-          <Icons.Close
+          <Icons.close
             className="w-[18px] h-[18px] absolute right-2"
             onClick={handleOnRemove}
           />

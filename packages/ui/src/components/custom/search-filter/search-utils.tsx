@@ -20,12 +20,12 @@ export const searchIcons: Partial<{
   "dispatch.status": "Export",
   status: "Status",
   dateRange: "calendar",
-  showing: "monitor",
-  category: "category",
+  showing: "laptop",
+  category: "component",
   payments: "cash",
   project: "project",
   builder: "user",
-  installation: "installation",
+  installation: "production",
 };
 
 export function isSearchKey(k) {

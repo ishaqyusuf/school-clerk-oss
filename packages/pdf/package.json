@@ -27,6 +27,8 @@
   },
   "devDependencies": {
     "@school-clerk/tsconfig": "workspace:*",
-    "@types/qrcode": "^1.5.5"
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.2.2",
+    "react": "^19.2.0"
   }
 }

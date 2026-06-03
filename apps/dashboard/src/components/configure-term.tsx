@@ -67,13 +67,13 @@ export const ConfigureTerm = ({ termId }) => {
 				)
 				.flat()
 				.find((t) => t.id === termId);
-			if (!term) return;
-			form.reset({
-				id: term.id,
-				startDate: term.startDate,
-				endDate: term.endDate,
-				title: term.title,
-			});
+				if (!term) return;
+				form.reset({
+					id: term.id,
+					startDate: term.startDate ? new Date(term.startDate) : undefined,
+					endDate: term.endDate ? new Date(term.endDate) : null,
+					title: term.title,
+				});
 		}
 	}, [dashboardData, termId]);
 	const formData = form.watch();

@@ -28,7 +28,10 @@ export const authRouter = createTRPCRouter({
                       {
                         domains: {
                           some: {
-                            domain: props.ctx.profile.domain,
+                            OR: [
+                              { subdomain: props.ctx.profile.domain },
+                              { customDomain: props.ctx.profile.domain },
+                            ],
                             deletedAt: null,
                           },
                         },

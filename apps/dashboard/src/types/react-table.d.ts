@@ -8,6 +8,20 @@ declare module "@tanstack/table-core" {
     preventDefault?: boolean;
     actionCell?: boolean;
     className?: string;
+    sticky?: boolean;
+    sortField?: string;
+    headerLabel?: string;
+    skeleton?: {
+      type:
+        | "checkbox"
+        | "text"
+        | "avatar-text"
+        | "icon-text"
+        | "badge"
+        | "tags"
+        | "icon";
+      width?: string;
+    };
   }
 }
 // import "better-auth";

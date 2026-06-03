@@ -1,5 +1,5 @@
-import { FinanceResetPlaceholder } from "@/components/finance-reset-placeholder";
+import { FinanceTransfersPage } from "@/components/finance/finance-transfers-page";
 
-export default function Page() {
-	return <FinanceResetPlaceholder title="Internal transfers" />;
+export default async function Page() {
+	return <FinanceTransfersPage />;
 }
