@@ -20,10 +20,17 @@ export function SubmitButton({
       {...props}
       className={cn(props.className, "relative")}
     >
-      <span className={cn({ "opacity-0": isSubmitting })}>{children}</span>
+      <span
+        className={cn(
+          "inline-flex items-center justify-center gap-2",
+          isSubmitting && "opacity-0",
+        )}
+      >
+        {children}
+      </span>
 
       {isSubmitting && (
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        <span className="absolute left-1/2 top-1/2 inline-flex -translate-x-1/2 -translate-y-1/2 items-center justify-center">
           <Loader2 className="h-4 w-4 animate-spin" />
         </span>
       )}

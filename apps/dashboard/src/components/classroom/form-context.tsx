@@ -4,7 +4,7 @@ import { createClassroomSchema } from "@/actions/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 
-export function FormContext({ children, defaultValues }) {
+export function FormContext({ children, defaultValues = undefined }) {
   const initialValues = {
     classRoomId: null,
     className: "",
@@ -17,6 +17,11 @@ export function FormContext({ children, defaultValues }) {
         departmentLevel: null,
       },
     ],
+    defaultFeeAmount: null,
+    defaultFeeDescription: null,
+    defaultFeeTitle: null,
+    defaultFeeStreamId: null,
+    defaultFeeStreamName: null,
   };
   const form = useForm<CreateClassRoom>({
     resolver: zodResolver(createClassroomSchema),
@@ -31,10 +36,14 @@ export function FormContext({ children, defaultValues }) {
         classLevel: defaultValues.classLevel ?? null,
         hasSubClass: defaultValues.hasSubClass ?? false,
         progressionMode: defaultValues.progressionMode ?? "classroom",
-        departments:
-          defaultValues.departments?.length
-            ? defaultValues.departments
-            : initialValues.departments,
+        departments: defaultValues.departments?.length
+          ? defaultValues.departments
+          : initialValues.departments,
+        defaultFeeAmount: defaultValues.defaultFeeAmount ?? null,
+        defaultFeeDescription: defaultValues.defaultFeeDescription ?? null,
+        defaultFeeTitle: defaultValues.defaultFeeTitle ?? null,
+        defaultFeeStreamId: defaultValues.defaultFeeStreamId ?? null,
+        defaultFeeStreamName: defaultValues.defaultFeeStreamName ?? null,
       });
       return;
     }

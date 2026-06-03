@@ -177,6 +177,11 @@ export const createClassroomSchema = z.object({
         .optional(),
     )
     .optional(),
+  defaultFeeAmount: z.number().optional().nullable(),
+  defaultFeeDescription: z.string().optional().nullable(),
+  defaultFeeTitle: z.string().optional().nullable(),
+  defaultFeeStreamId: z.string().optional().nullable(),
+  defaultFeeStreamName: z.string().optional().nullable(),
 });
 export const createSignupSchema = (_t?: unknown) =>
   z.object({

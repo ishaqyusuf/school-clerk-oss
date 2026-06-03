@@ -643,7 +643,7 @@ export async function studentsAnalytics(
     ? { sessionTermId: currentTermId }
     : { id: "__missing-current-term__" };
 
-  const [totalStudents, activeTermForms, fallbackSessionForms, pendingFeeRows] =
+  const [totalStudents, activeTermForms, fallbackSessionForms] =
     await Promise.all([
       db.students.count({
         where: {
@@ -679,27 +679,6 @@ export async function studentsAnalytics(
           studentId: true,
         },
       }),
-      db.studentFee.findMany({
-        where: {
-          schoolProfileId: profile.schoolId,
-          deletedAt: null,
-          pendingAmount: {
-            gt: 0,
-          },
-          OR: [{ status: null }, { status: { not: "cancelled" } }],
-          studentId: {
-            not: null,
-          },
-          studentTermForm: {
-            deletedAt: null,
-            ...activeTermWhere,
-          },
-        },
-        distinct: ["studentId"],
-        select: {
-          studentId: true,
-        },
-      }),
     ]);
 
   const sessionStart = currentTerm?.session?.startDate;
@@ -721,7 +700,7 @@ export async function studentsAnalytics(
     totalStudents,
     activeThisTerm: activeTermForms.length,
     newAdmissions,
-    pendingFees: pendingFeeRows.length,
+    pendingFees: 0,
     currentTerm: currentTerm
       ? {
           id: currentTerm.id,

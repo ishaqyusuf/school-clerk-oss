@@ -4,8 +4,9 @@ import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useFieldArray } from "react-hook-form";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
+import { cn } from "@school-clerk/ui/cn";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import {
@@ -20,6 +21,8 @@ import {
 import { useClassroomFormContext } from "../classroom/form-context";
 import FormCheckbox from "../controls/form-checkbox";
 import FormInput from "../controls/form-input";
+import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
+import { Label } from "@school-clerk/ui/label";
 import { CustomSheetContentPortal } from "../custom-sheet-content";
 import { SubmitButton } from "../submit-button";
 import ConfirmBtn from "../confirm-button";
@@ -56,10 +59,60 @@ export function Form({
   const hasSubClass = watch("hasSubClass");
   const progressionMode = watch("progressionMode");
   const className = watch("className");
+  const [enableFee, setEnableFee] = useState(false);
+
+  const { data: streams = [] } = useQuery(
+    trpc.finance.getStreams.queryOptions({ filter: "term" }),
+  );
+  
+  const [
+    streamId,
+    streamName,
+    defaultFeeAmount,
+    defaultFeeTitle,
+    defaultFeeDescription,
+  ] = watch([
+    "defaultFeeStreamId",
+    "defaultFeeStreamName",
+    "defaultFeeAmount",
+    "defaultFeeTitle",
+    "defaultFeeDescription",
+  ]);
+
+  const streamOptions = useMemo(
+    () =>
+      streams.map((stream) => ({
+        id: stream.id,
+        label: stream.name,
+      })),
+    [streams],
+  );
+  
+  const selectedStream =
+    streamOptions.find((stream) => stream.id === streamId) ||
+    (streamName
+      ? {
+          id: "__new__",
+          label: `${streamName} (new)`,
+        }
+      : undefined);
+
+  const { mutate: createSchoolFee, isPending: creatingFee } = useMutation(
+    trpc.transactions.createSchoolFee.mutationOptions({
+      onSuccess() {
+        qc.invalidateQueries({
+          queryKey: trpc.transactions.getSchoolFees.queryKey(),
+        });
+        qc.invalidateQueries({
+          queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),
+        });
+      },
+    })
+  );
 
   const { mutate, isPending } = useMutation(
     trpc.classrooms.createClassroom.mutationOptions({
-      onSuccess() {
+      onSuccess(data) {
         qc.invalidateQueries({ queryKey: trpc.classrooms.all.queryKey({}) });
         qc.invalidateQueries({
           queryKey: trpc.classrooms.getCurrentSessionClassroom.queryKey(),
@@ -67,9 +120,27 @@ export function Form({
         qc.invalidateQueries({
           queryKey: trpc.academics.getClassrooms.infiniteQueryKey({}),
         });
-        reset();
-        setParams(null);
-        onSuccess?.();
+
+        if (enableFee && defaultFeeAmount) {
+          createSchoolFee({
+            amount: defaultFeeAmount,
+            title: defaultFeeTitle || `${className} Tuition`,
+            description: defaultFeeDescription || undefined,
+            streamId: streamId || undefined,
+            streamName: streamName || undefined,
+            classroomDepartmentIds: data.classRoomDepartments.map((d) => d.id),
+          }, {
+            onSettled() {
+              reset();
+              setParams(null);
+              onSuccess?.();
+            }
+          });
+        } else {
+          reset();
+          setParams(null);
+          onSuccess?.();
+        }
       },
     }),
   );
@@ -82,52 +153,106 @@ export function Form({
     trpc.classrooms.getCurrentSessionClassroom.queryOptions(),
   );
 
+  const { data: allSchoolClassNames } = useQuery(
+    trpc.classrooms.getSchoolClassNames.queryOptions(),
+  );
+
+  const suggestedClassNames = useMemo(() => {
+    const fetchedNames = allSchoolClassNames || [];
+    const currentNames = new Set(
+      (classroomStructures?.data ?? []).map((c) =>
+        c.classRoom?.name?.toLowerCase().trim()
+      )
+    );
+
+    const defaultClasses = [
+      { name: "Creche", classLevel: 1 },
+      { name: "Pre Nur", classLevel: 2 },
+      { name: "Nur 1", classLevel: 3 },
+      { name: "Nur 2", classLevel: 4 },
+      { name: "Basic 1", classLevel: 5 },
+      { name: "Basic 2", classLevel: 6 },
+      { name: "Basic 3", classLevel: 7 },
+      { name: "Basic 4", classLevel: 8 },
+      { name: "Basic 5", classLevel: 9 },
+      { name: "JSS 1", classLevel: 10 },
+      { name: "JSS 2", classLevel: 11 },
+      { name: "JSS 3", classLevel: 12 },
+      { name: "SS 1", classLevel: 13 },
+      { name: "SS 2", classLevel: 14 },
+      { name: "SS 3", classLevel: 15 },
+    ];
+
+    const combined = [...fetchedNames];
+    const seen = new Set(fetchedNames.map((f) => f.name.toLowerCase()));
+
+    for (const d of defaultClasses) {
+      if (!seen.has(d.name.toLowerCase())) {
+        combined.push(d);
+        seen.add(d.name.toLowerCase());
+      }
+    }
+
+    return combined
+      .filter((c) => !currentNames.has(c.name.toLowerCase()))
+      .sort((a, b) => (a.classLevel || 99) - (b.classLevel || 99))
+      .slice(0, 15);
+  }, [allSchoolClassNames, classroomStructures]);
+
+  const highestClassLevel = useMemo(() => {
+    const rows = classroomStructures?.data ?? [];
+    let max = 0;
+    for (const row of rows) {
+      if (row.classRoom?.classLevel) {
+        max = Math.max(max, row.classRoom.classLevel);
+      }
+    }
+    return max;
+  }, [classroomStructures]);
+
   const structureSuggestions = useMemo(() => {
     const rows = classroomStructures?.data ?? [];
-    const groups = new Map<
+    
+    const classGroups = new Map<
       string,
-      {
-        className: string;
-        classLevel: number | null;
-        streams: { name: string; departmentLevel: number | null }[];
-      }
+      { name: string; departmentLevel: number | null }[]
     >();
 
     for (const row of rows) {
       const classRoomId = row.classRoom?.id;
       if (!classRoomId) continue;
-      const existing = groups.get(classRoomId) ?? {
-        className: row.classRoom?.name ?? "Class",
-        classLevel: row.classRoom?.classLevel ?? null,
-        streams: [],
-      };
-      existing.streams.push({
+      
+      const existing = classGroups.get(classRoomId) ?? [];
+      existing.push({
         name: row.departmentName ?? row.displayName ?? "",
         departmentLevel: row.departmentLevel ?? null,
       });
-      groups.set(classRoomId, existing);
+      classGroups.set(classRoomId, existing);
     }
 
-    return Array.from(groups.values())
-      .map((group) => ({
-        ...group,
-        streams: group.streams.sort(
-          (a, b) => (a.departmentLevel ?? 9999) - (b.departmentLevel ?? 9999),
-        ),
-      }))
-      .filter((group) => group.streams.length > 0)
-      .sort((a, b) => {
-        const exactName = Number(
-          a.className.toLowerCase() === className?.trim().toLowerCase(),
-        );
-        const exactNameB = Number(
-          b.className.toLowerCase() === className?.trim().toLowerCase(),
-        );
-        if (exactName !== exactNameB) return exactNameB - exactName;
-        return (a.classLevel ?? 9999) - (b.classLevel ?? 9999);
-      })
-      .slice(0, 6);
-  }, [className, classroomStructures]);
+    const uniqueGroups = new Map<
+      string,
+      { streams: { name: string; departmentLevel: number | null }[] }
+    >();
+
+    for (const streams of classGroups.values()) {
+      if (streams.length <= 1) continue;
+
+      const sortedStreams = streams.sort(
+        (a, b) => (a.departmentLevel ?? 9999) - (b.departmentLevel ?? 9999)
+      );
+
+      const key = sortedStreams
+        .map((s) => `${s.name.trim().toLowerCase()}_${s.departmentLevel}`)
+        .join("|");
+
+      if (!uniqueGroups.has(key)) {
+        uniqueGroups.set(key, { streams: sortedStreams });
+      }
+    }
+
+    return Array.from(uniqueGroups.values()).slice(0, 6);
+  }, [classroomStructures]);
 
   const applySuggestion = (
     suggestion: (typeof structureSuggestions)[number],
@@ -181,30 +306,76 @@ export function Form({
       classRoomId: data.classRoomId,
       className: data.className,
       classLevel: data.classLevel,
+      hasSubClass: data.hasSubClass,
+      progressionMode: data.progressionMode,
       departments: normalizedDepartments,
     });
   });
   const actions = (
     <form onSubmit={onSubmit}>
       <div className="flex justify-end">
-        <SubmitButton isSubmitting={isPending}>{submitLabel}</SubmitButton>
+        <SubmitButton isSubmitting={isPending || creatingFee}>{submitLabel}</SubmitButton>
       </div>
     </form>
   );
 
   return (
     <div className="grid gap-4 ">
-      <FormInput
-        name="className"
-        label="Class Name"
+      <div>
+        <FormInput
+          name="className"
+          label="Class Name"
+          control={control}
+          placeholder="Pre Nur"
+        />
+        {suggestedClassNames.length > 0 && (
+          <div className="mx-1 mt-2 flex flex-wrap gap-2">
+            {suggestedClassNames.map((suggestion) => (
+              <Badge
+                key={suggestion.name}
+                variant="secondary"
+                className="cursor-pointer hover:bg-secondary/80"
+                onClick={() => {
+                  setValue("className", suggestion.name);
+                  if (suggestion.classLevel != null) {
+                    setValue("classLevel", suggestion.classLevel);
+                  }
+                }}
+              >
+                {suggestion.name}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+      <FormField
         control={control}
-        placeholder="Pre Nur"
-      />
-      <FormInput
         name="classLevel"
-        label="Class Level"
-        type="number"
-        control={control}
+        render={({ field }) => {
+          const maxLevel = Math.max(10, highestClassLevel ? highestClassLevel + 3 : 10);
+          const levels = Array.from({ length: maxLevel }, (_, i) => i + 1);
+
+          return (
+            <FormItem className="mx-1">
+              <FormLabel>Class Level</FormLabel>
+              <FormControl>
+                <div className="flex flex-row gap-2 flex-wrap">
+                  {levels.map((level) => (
+                    <Button
+                      key={level}
+                      type="button"
+                      variant={Number(field.value) === level ? "default" : "outline"}
+                      onClick={() => field.onChange(level)}
+                      className="w-10 h-10 p-0"
+                    >
+                      {level}
+                    </Button>
+                  ))}
+                </div>
+              </FormControl>
+            </FormItem>
+          );
+        }}
       />
       <FormCheckbox
         name="hasSubClass"
@@ -213,26 +384,45 @@ export function Form({
         label="Sub-class"
         description="Turn this on when the class has multiple streams like Emerald/Gold/Silver or A/B/C."
       />
-      <FormField
-        control={control}
-        name="progressionMode"
-        render={({ field }) => (
-          <FormItem className="mx-1">
-            <FormLabel>Progression Mode</FormLabel>
-            <FormControl>
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select progression mode" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="classroom">Between Classes</SelectItem>
-                  <SelectItem value="department">Within Sub-classes</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormControl>
-          </FormItem>
-        )}
-      />
+      {hasSubClass && (
+        <FormField
+          control={control}
+          name="progressionMode"
+          render={({ field }) => (
+            <FormItem className="mx-1">
+              <FormLabel>Progression Mode</FormLabel>
+              <FormControl>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div
+                    className={cn(
+                      "cursor-pointer rounded-lg border p-4 text-left transition-all hover:border-primary",
+                      field.value === "classroom" ? "border-primary bg-primary/5" : "border-border"
+                    )}
+                    onClick={() => field.onChange("classroom")}
+                  >
+                    <p className="font-semibold text-sm">Between Classes</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Students progress to the next class level entirely.
+                    </p>
+                  </div>
+                  <div
+                    className={cn(
+                      "cursor-pointer rounded-lg border p-4 text-left transition-all hover:border-primary",
+                      field.value === "department" ? "border-primary bg-primary/5" : "border-border"
+                    )}
+                    onClick={() => field.onChange("department")}
+                  >
+                    <p className="font-semibold text-sm">Within Sub-classes</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Students progress through different sub-class levels within this same class.
+                    </p>
+                  </div>
+                </div>
+              </FormControl>
+            </FormItem>
+          )}
+        />
+      )}
 
       {hasSubClass && structureSuggestions.length > 0 && (
         <div className="mx-1 space-y-2 rounded-lg border p-3">
@@ -250,40 +440,26 @@ export function Form({
           <div className="flex flex-wrap gap-2">
             {structureSuggestions.map((suggestion, index) => (
               <Button
-                key={`${suggestion.className}-${index}`}
+                key={index}
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => applySuggestion(suggestion)}
-                className="h-auto flex-col items-start gap-1 px-3 py-2 text-left"
+                className="h-auto px-3 py-2 text-left font-medium"
               >
-                <span className="font-medium">
-                  {suggestion.className}
-                  {suggestion.classLevel
-                    ? ` · Level ${suggestion.classLevel}`
-                    : ""}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {suggestion.streams
-                    .map((stream) =>
-                      stream.departmentLevel != null
-                        ? `${stream.name} (${stream.departmentLevel})`
-                        : stream.name,
-                    )
-                    .join(", ")}
-                </span>
+                {suggestion.streams
+                  .map((stream) =>
+                    stream.departmentLevel != null
+                      ? `${stream.name} (${stream.departmentLevel})`
+                      : stream.name,
+                  )
+                  .join(", ")}
               </Button>
             ))}
           </div>
         </div>
       )}
 
-      {!hasSubClass && (
-        <div className="mx-1 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-          This class will create one default stream automatically because the
-          system stores enrollment by stream internally.
-        </div>
-      )}
 
       {hasSubClass && (
         <Table>
@@ -328,23 +504,24 @@ export function Form({
           </TableBody>
         </Table>
       )}
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          onClick={() => {
-            departments.append({
-              name: "",
-              departmentLevel:
-                progressionMode === "department"
-                  ? (departments.fields.length || 0) + 1
-                  : null,
-            });
-          }}
-          disabled={!hasSubClass}
-        >
-          Add Stream
-        </Button>
-      </div>
+      {hasSubClass && (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            onClick={() => {
+              departments.append({
+                name: "",
+                departmentLevel:
+                  progressionMode === "department"
+                    ? (departments.fields.length || 0) + 1
+                    : null,
+              });
+            }}
+          >
+            Add Stream
+          </Button>
+        </div>
+      )}
       {hasSubClass && departments.fields.length > 0 && (
         <div className="mx-1 flex flex-wrap gap-2">
           {departments.fields.map((department, index) => (
@@ -357,6 +534,90 @@ export function Form({
           ))}
         </div>
       )}
+
+      <div className="mx-1 space-y-4 rounded-lg border p-4 bg-muted/20">
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            id="enableFee"
+            checked={enableFee}
+            onChange={(e) => {
+              setEnableFee(e.target.checked);
+              if (!e.target.checked) {
+                setValue("defaultFeeAmount", null);
+                setValue("defaultFeeDescription", null);
+                setValue("defaultFeeTitle", null);
+                setValue("defaultFeeStreamId", null);
+                setValue("defaultFeeStreamName", null);
+              }
+            }}
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <div className="space-y-1 leading-none">
+            <label
+              htmlFor="enableFee"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Set default tuition fee for this class
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Automatically assign a billing amount for all students enrolled in this class.
+            </p>
+          </div>
+        </div>
+
+        {enableFee && (
+          <div className="grid gap-4 pt-2 border-t">
+            <FormInput
+              label="Fee Title"
+              name="defaultFeeTitle"
+              control={control}
+              placeholder="e.g. Tuition Fee"
+            />
+            <div className="grid gap-2">
+              <Label>Incoming Stream</Label>
+              <ComboboxDropdown
+                items={streamOptions}
+                selectedItem={selectedStream}
+                placeholder="Select or create a stream"
+                searchPlaceholder="Search or create stream..."
+                onSelect={(stream) => {
+                  setValue("defaultFeeStreamId", stream.id);
+                  setValue("defaultFeeStreamName", stream.label);
+                }}
+                onCreate={(value) => {
+                  setValue("defaultFeeStreamId", "");
+                  setValue("defaultFeeStreamName", value.trim());
+                }}
+                renderOnCreate={(value) => (
+                  <span>Create new incoming stream "{value}"</span>
+                )}
+              />
+              <p className="text-xs text-muted-foreground">
+                New streams created here default to incoming revenue streams.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormInput
+                label="Amount"
+                name="defaultFeeAmount"
+                control={control}
+                numericProps={{
+                  prefix: "NGN ",
+                  placeholder: "NGN 0",
+                }}
+              />
+              <FormInput
+                label="Description (Optional)"
+                name="defaultFeeDescription"
+                control={control}
+                placeholder="e.g. Basic 1 only"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
       {submitPlacement === "inline" ? (
         actions
       ) : (

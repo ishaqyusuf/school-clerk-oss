@@ -27,6 +27,15 @@ Change log for database schema migrations and rollout notes.
 - Owner:
 
 ## Migration Entry
+- Date: 2026-06-03
+- ID: 20260603152000_reset_legacy_finance
+- Summary: Removed legacy, non-operational finance/accounting storage so the standardized school finance ledger can be rebuilt cleanly.
+- Affected entities: `Fees`, `FeeHistory`, `StudentFee`, `StudentPayment`, `StudentPurchase`, `Wallet`, `WalletTransactions`, `StudentWalletTransactions`, `Funds`, `Billable`, `BillableHistory`, `Bills`, `BillInvoice`, `BillPayment`, `BillSettlement`, `BillSettlementRepayment`
+- Backfill required: No; legacy finance records are intentionally discarded.
+- Rollback plan: Restore the removed finance schema/migration from git before deploying any new finance ledger schema, then re-run Prisma migrations against a restored database backup if legacy records are required.
+- Owner: Codex
+
+## Migration Entry
 - Date: 2026-04-06
 - ID: STAFF-2026-04-06-invite-status-fields
 - Summary: Added staff onboarding lifecycle fields to support pending invites, resend tracking, and onboarding completion timestamps.

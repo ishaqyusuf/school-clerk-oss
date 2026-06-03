@@ -27,6 +27,20 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "@school-clerk/ui/use-toast";
 import { switchSessionTerm } from "@/actions/cookies/auth-cookie";
 
+function toFormDate(value?: Date | string | null) {
+  return value ? new Date(value) : undefined;
+}
+
+function isSameFormDate(
+  left?: Date | string | null,
+  right?: Date | string | null,
+) {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+
+  return new Date(left).getTime() === new Date(right).getTime();
+}
+
 export function AcademicSessionForm({
   mode = "default",
 }: {
@@ -63,17 +77,17 @@ export function AcademicSessionForm({
       form.setValue("title", prefill.suggestedTitle);
     }
     if (!form.getValues("startDate") && prefill.suggestedStartDate) {
-      form.setValue("startDate", prefill.suggestedStartDate);
+      form.setValue("startDate", toFormDate(prefill.suggestedStartDate));
     }
     if (!form.getValues("endDate") && prefill.suggestedEndDate) {
-      form.setValue("endDate", prefill.suggestedEndDate);
+      form.setValue("endDate", toFormDate(prefill.suggestedEndDate));
     }
     if (initWithTerms && prefill.previousTerms.length > 0) {
       terms.replace(
         prefill.previousTerms.map((t) => ({
           title: t.title,
-          startDate: t.startDate ?? undefined,
-          endDate: t.endDate ?? undefined,
+          startDate: toFormDate(t.startDate),
+          endDate: toFormDate(t.endDate),
         })),
       );
     }
@@ -85,8 +99,8 @@ export function AcademicSessionForm({
       terms.replace(
         prefill.previousTerms.map((t) => ({
           title: t.title,
-          startDate: t.startDate ?? undefined,
-          endDate: t.endDate ?? undefined,
+          startDate: toFormDate(t.startDate),
+          endDate: toFormDate(t.endDate),
         })),
       );
     } else if (!checked) {
@@ -155,6 +169,42 @@ export function AcademicSessionForm({
     save.mutate(data);
   });
   const watch = form.watch();
+
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "startDate") {
+        const sessionStartDate = value.startDate;
+        const firstTermStartDate = value.terms?.[0]?.startDate;
+
+        if (
+          !sessionStartDate ||
+          !value.terms?.length ||
+          isSameFormDate(sessionStartDate, firstTermStartDate)
+        ) {
+          return;
+        }
+
+        form.setValue("terms.0.startDate", sessionStartDate);
+      }
+
+      if (name === "terms.0.startDate") {
+        const sessionStartDate = value.startDate;
+        const firstTermStartDate = value.terms?.[0]?.startDate;
+
+        if (
+          !firstTermStartDate ||
+          isSameFormDate(sessionStartDate, firstTermStartDate)
+        ) {
+          return;
+        }
+
+        form.setValue("startDate", firstTermStartDate);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form]);
+
   return (
     <FormProvider {...form}>
       <form onSubmit={onSubmit}>
@@ -254,7 +304,8 @@ export function AcademicSessionForm({
               onClick={(e) => {
                 terms.append({
                   endDate: undefined,
-                  startDate: undefined,
+                  startDate:
+                    terms.fields.length === 0 ? watch.startDate : undefined,
                   title: "",
                 });
               }}

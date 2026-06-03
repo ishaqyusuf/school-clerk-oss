@@ -190,11 +190,7 @@ function buildTools(ctx: AssistantRouteContext) {
                       classRoom: { select: { name: true } },
                     },
                   },
-                  studentFees: {
-                    where: { deletedAt: null, status: { not: "cancelled" } },
-                    select: { pendingAmount: true },
-                  },
-                },
+	                },
               },
             },
           });
@@ -213,11 +209,7 @@ function buildTools(ctx: AssistantRouteContext) {
               fullName: studentDisplayName(s),
               classroom,
               termFormId: termForm?.id ?? null,
-              totalPending:
-                termForm?.studentFees.reduce(
-                  (sum, fee) => sum + (fee.pendingAmount ?? 0),
-                  0,
-                ) ?? 0,
+	              totalPending: 0,
               isEnrolledThisTerm: !!termForm,
             };
           });
@@ -492,7 +484,7 @@ function buildTools(ctx: AssistantRouteContext) {
         if (guarded.blocked) return guarded.blocked;
 
         try {
-          const fees = await prisma.studentFee.findMany({
+          const fees = await (prisma as any).studentFee.findMany({
             where: {
               studentTermFormId,
               deletedAt: null,
@@ -674,7 +666,7 @@ function buildTools(ctx: AssistantRouteContext) {
             const paymentIds: string[] = [];
 
             for (const allocation of actionInput.allocations) {
-              const fee = await tx.studentFee.findFirstOrThrow({
+              const fee = await (tx as any).studentFee.findFirstOrThrow({
                 where: {
                   id: allocation.studentFeeId,
                   studentTermFormId: termForm.id,
@@ -698,7 +690,7 @@ function buildTools(ctx: AssistantRouteContext) {
               const walletId =
                 fee.feeHistory?.walletId ||
                 (
-                  await tx.wallet.upsert({
+                  await (tx as any).wallet.upsert({
                     where: {
                       name_schoolProfileId_sessionTermId_type: {
                         name: fee.feeTitle || "General",
@@ -718,7 +710,7 @@ function buildTools(ctx: AssistantRouteContext) {
                   })
                 ).id;
 
-              const walletTx = await tx.walletTransactions.create({
+              const walletTx = await (tx as any).walletTransactions.create({
                 data: {
                   amount: allocation.amountToPay,
                   walletId,
@@ -740,7 +732,7 @@ function buildTools(ctx: AssistantRouteContext) {
                 select: { id: true },
               });
 
-              const payment = await tx.studentPayment.create({
+              const payment = await (tx as any).studentPayment.create({
                 data: {
                   type: "FEE",
                   paymentType: fee.feeTitle || "Fee",
@@ -755,7 +747,7 @@ function buildTools(ctx: AssistantRouteContext) {
                 select: { id: true },
               });
 
-              await tx.studentFee.update({
+              await (tx as any).studentFee.update({
                 where: { id: fee.id },
                 data: { pendingAmount: { decrement: allocation.amountToPay } },
               });

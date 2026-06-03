@@ -532,64 +532,7 @@ export const academicsRouter = createTRPCRouter({
     }),
   previewApplicableFeeHistories: publicProcedure
     .input(previewApplicableFeeHistoriesSchema)
-    .query(async ({ ctx, input }) => {
-      const feeHistories = await ctx.db.feeHistory.findMany({
-        where: {
-          termId: input.sessionTermId,
-          current: true,
-          deletedAt: null,
-          fee: {
-            schoolProfileId: ctx.profile.schoolId,
-            deletedAt: null,
-          },
-          OR: [
-            { classroomDepartments: { none: {} } },
-            ...(input.classroomDepartmentId
-              ? [
-                  {
-                    classroomDepartments: {
-                      some: {
-                        id: input.classroomDepartmentId,
-                      },
-                    },
-                  },
-                ]
-              : []),
-          ],
-        },
-        select: {
-          id: true,
-          amount: true,
-          fee: {
-            select: {
-              title: true,
-              description: true,
-            },
-          },
-          wallet: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          classroomDepartments: {
-            where: { deletedAt: null },
-            select: { id: true },
-          },
-        },
-        orderBy: [{ fee: { title: "asc" } }, { createdAt: "asc" }],
-      });
-
-      return feeHistories.map((feeHistory) => ({
-        feeHistoryId: feeHistory.id,
-        title: feeHistory.fee.title,
-        description: feeHistory.fee.description,
-        amount: feeHistory.amount,
-        streamId: feeHistory.wallet?.id ?? null,
-        streamName: feeHistory.wallet?.name ?? null,
-        scope: feeHistory.classroomDepartments.length ? "classroom" : "general",
-      }));
-    }),
+    .query(async () => []),
   migrateTermData: publicProcedure
     .input(
       z.object({
@@ -711,7 +654,7 @@ export const academicsRouter = createTRPCRouter({
       if (!latestSession) return null;
 
       const titleMatch = latestSession.title?.match(/^(\d{4})\/(\d{4})$/);
-      const suggestedTitle = titleMatch
+      const suggestedTitle = titleMatch?.[1] && titleMatch[2]
         ? `${parseInt(titleMatch[1]) + 1}/${parseInt(titleMatch[2]) + 1}`
         : latestSession.title
           ? `${latestSession.title} (New)`
@@ -805,8 +748,6 @@ export const academicsRouter = createTRPCRouter({
           _count: {
             select: {
               assessmentRecords: true,
-              paymentReceipts: true,
-              studentFees: true,
             },
           },
           classroomDepartment: {
@@ -828,13 +769,9 @@ export const academicsRouter = createTRPCRouter({
           continue;
         }
         const formRelations =
-          form._count.assessmentRecords +
-          form._count.paymentReceipts +
-          form._count.studentFees;
+          form._count.assessmentRecords;
         const existingRelations =
-          existing._count.assessmentRecords +
-          existing._count.paymentReceipts +
-          existing._count.studentFees;
+          existing._count.assessmentRecords;
         if (
           formRelations > existingRelations ||
           (formRelations === existingRelations &&
@@ -894,7 +831,7 @@ export const academicsRouter = createTRPCRouter({
         return {
           termFormId: form.id,
           studentId: form.studentId!,
-          name: studentDisplayName(form.student),
+          name: form.student ? studentDisplayName(form.student) : "Student",
           className: form.classroomDepartment?.departmentName ?? null,
           classRoomId: form.classroomDepartment?.classRoom?.id ?? null,
           classRoomName: form.classroomDepartment?.classRoom?.name ?? null,
@@ -1123,21 +1060,15 @@ export const academicsRouter = createTRPCRouter({
               _count: {
                 select: {
                   assessmentRecords: true,
-                  paymentReceipts: true,
-                  studentFees: true,
                 },
               },
             },
           });
           const [existing, ...duplicates] = existingForms.sort((a, b) => {
             const aRelations =
-              a._count.assessmentRecords +
-              a._count.paymentReceipts +
-              a._count.studentFees;
+              a._count.assessmentRecords;
             const bRelations =
-              b._count.assessmentRecords +
-              b._count.paymentReceipts +
-              b._count.studentFees;
+              b._count.assessmentRecords;
             if (aRelations !== bRelations) return bRelations - aRelations;
             return (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0);
           });

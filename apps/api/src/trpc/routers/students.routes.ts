@@ -130,17 +130,6 @@ export const studentsRouter = createTRPCRouter({
               },
             },
           },
-          studentFees: {
-            select: {
-              id: true,
-              amount: true,
-              pendingAmount: true,
-              deletedAt: true,
-            },
-          },
-          paymentReceipts: {
-            select: { id: true, amount: true, createdAt: true },
-          },
           attendanceList: {
             select: { id: true, status: true, date: true },
           },
@@ -156,8 +145,8 @@ export const studentsRouter = createTRPCRouter({
           assessmentRecords: form.assessmentRecords.filter(
             (r) => r.obtained !== null,
           ).length,
-          studentFees: form.studentFees.filter((f) => !f.deletedAt).length,
-          payments: form.paymentReceipts.length,
+          studentFees: 0,
+          payments: 0,
           attendance: form.attendanceList.length,
         },
         assessmentRecords: form.assessmentRecords
@@ -170,18 +159,8 @@ export const studentsRouter = createTRPCRouter({
               r.classSubjectAssessment?.departmentSubject?.subject?.title ??
               null,
           })),
-        studentFees: form.studentFees
-          .filter((f) => !f.deletedAt)
-          .map((f) => ({
-            id: f.id,
-            amount: f.amount,
-            pendingAmount: f.pendingAmount,
-          })),
-        payments: form.paymentReceipts.map((p) => ({
-          id: p.id,
-          amount: p.amount,
-          createdAt: p.createdAt,
-        })),
+        studentFees: [],
+        payments: [],
         attendance: form.attendanceList.map((a) => ({
           id: a.id,
           status: a.status,

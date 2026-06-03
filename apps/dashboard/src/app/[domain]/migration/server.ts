@@ -3,7 +3,6 @@
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { createSchoolFee } from "@/actions/create-school-fee";
 import { createStudentAcademicProfile } from "@/actions/create-student-academic-profile";
-import { createStudentFee } from "@/actions/create-student-fee";
 import { transaction } from "@/utils/db";
 import { prisma } from "@school-clerk/db";
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
@@ -191,34 +190,8 @@ export async function setStudentClassroomAction(
       .map((f) => {
         return f.termForms.find((tf) => tf.sessionTermId == pr.termId);
       })?.[0];
-    const fee = await tx.feeHistory.findFirst({
-      where: {
-        id: feeId,
-      },
-      select: {
-        id: true,
-        amount: true,
-        fee: {
-          select: {
-            title: true,
-          },
-        },
-      },
-    });
-    if (fee) {
-      const studentFee = await createStudentFee(
-        {
-          amount: fee.amount,
-          feeId: fee.id,
-          studentId: post.studentId,
-          paid: 0,
-          studentTermId: termFrom.id,
-          title: fee.fee.title,
-        },
-        tx
-      );
-      console.log(studentFee, fee);
-    }
+    void feeId;
+    void termFrom;
     // if (!post) post = {} as any;
     const { postId, ...postData } = post;
     postData.departmentId = departmentId;

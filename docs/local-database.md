@@ -14,10 +14,10 @@ This repo can run against a local PostgreSQL instance in Docker.
 docker compose up -d postgres
 ```
 
-## Apply the Prisma schema
+## Apply local migrations
 
 ```sh
-bun run db:push
+bun run db:migrate
 ```
 
 ## Open Prisma Studio

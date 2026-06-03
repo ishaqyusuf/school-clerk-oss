@@ -57,7 +57,7 @@ export default function FormCheckbox<
                 <Checkbox {...valueProps} onCheckedChange={field.onChange} />
               )}
             </FormControl>
-            <div className="space-y-1 leading-none">
+            <div className="space-y-2 leading-snug">
               {label && <FormLabel>{label}</FormLabel>}
               {description && <FormDescription>{description}</FormDescription>}
             </div>

@@ -27,8 +27,6 @@ model StaffProfile {
 model StaffTermProfile {
     id String @id @default(uuid())
 
-    bills Bills[]
-
     staffProfileId String
     staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id])
 

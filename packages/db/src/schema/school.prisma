@@ -26,14 +26,8 @@ model SchoolProfile {
     staffProfiles           StaffProfile[]
 
     subjects               Subject[]
-    studentFees            StudentFee[]
-    studentPaymentReceipts StudentPayment[]
     account                SaasAccount      @relation(fields: [accountId], references: [id])
-    fees                   Fees[]
-    wallets                Wallet[]
     guardians              Guardians[]
-    billables              Billable[]
-    bills                  Bills[]
     domains                TenantDomain[]
     websiteMediaAssets     WebsiteMediaAsset[]
     websiteConfigs         WebsiteTemplateConfig[]
@@ -89,11 +83,7 @@ model SchoolSession {
     classRooms        ClassRoom[]
     sessionForms      StudentSessionForm[]
     termForms         StudentTermForm[]
-    studentFees       StudentFee[]
-    feeHistory        FeeHistory[]
-    billableHistory   BillableHistory[]
     staffTermProfiles StaffTermProfile[]
-    bills             Bills[]
 }
 
 model SessionTerm {
@@ -110,10 +100,6 @@ model SessionTerm {
     session            SchoolSession?      @relation(fields: [sessionId], references: [id])
     termForms          StudentTermForm[]
     departmentSubjects DepartmentSubject[]
-    feeHistory         FeeHistory[]
-    billableHistory    BillableHistory[]
-    wallets            Wallet[]
     staffTermProfiles  StaffTermProfile[]
-    bills              Bills[]
     reportPrintLogs    ReportPrintLog[]
 }
