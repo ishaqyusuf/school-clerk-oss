@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { ArrowLeft, Info, LayoutTemplate, BookOpen, Users } from "lucide-react";
 import { Card } from "@school-clerk/ui/card";
 import { Switch } from "@school-clerk/ui/switch";

@@ -36,7 +36,7 @@ import {
 	Wallet,
 	X,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { Suspense, useEffect, useState } from "react";
 import { AnimatedNumber } from "./animated-number";
 import { SubmitButton } from "./submit-button";

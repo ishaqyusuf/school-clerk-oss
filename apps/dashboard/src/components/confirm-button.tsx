@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { Info, Trash } from "lucide-react";
 
 import { Button, ButtonProps } from "@school-clerk/ui/button";

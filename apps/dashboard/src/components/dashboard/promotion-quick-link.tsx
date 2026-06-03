@@ -3,7 +3,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpCircle } from "lucide-react";
-import Link from "next/link";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 
 import { _trpc } from "@/components/static-trpc";
 import { Button } from "@school-clerk/ui/button";

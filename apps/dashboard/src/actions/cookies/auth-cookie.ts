@@ -1,13 +1,11 @@
 "use server";
-import { env } from "@/env";
 import { prisma } from "@school-clerk/db";
-import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
-import { cookies, headers } from "next/headers";
 import {
-  getCanonicalTenantSlugFromHost,
-  getCustomDomainLookupHost,
-  isAppRootDomainHost,
-} from "@/utils/tenant-host";
+  getTenantUrlHeaderNames,
+  resolveTenantUrlContext,
+} from "@school-clerk/tenant-url";
+import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config";
+import { cookies, headers } from "next/headers";
 
 export interface AuthCookie {
   domain: string;
@@ -24,21 +22,30 @@ export interface AuthCookie {
 const getCookieName = (domain) => `${domain}-session-cookie`;
 export async function getTenantDomain() {
   const requestHeaders = await headers();
-  const proxiedDomain = requestHeaders.get("x-school-clerk-domain");
+  const tenantUrlConfig = getDashboardTenantUrlConfig();
+  const tenantHeaderNames = getTenantUrlHeaderNames(tenantUrlConfig);
+  const proxiedDomain = requestHeaders.get(tenantHeaderNames.domain);
 
   if (proxiedDomain) return { domain: proxiedDomain };
 
   const host = decodeURIComponent(requestHeaders.get("host") || "");
-  const appRootDomain = resolveDashboardAppRootDomain(env.APP_ROOT_DOMAIN);
+  const tenantUrlContext = resolveTenantUrlContext(
+    {
+      host,
+      pathname: requestHeaders.get(tenantHeaderNames.pathname) || "/",
+      protocol: requestHeaders.get("x-forwarded-proto"),
+    },
+    tenantUrlConfig,
+  );
 
-  const strippedSubdomain = getCanonicalTenantSlugFromHost(host, appRootDomain);
+  if (tenantUrlContext.tenantSlug) {
+    return { domain: tenantUrlContext.tenantSlug };
+  }
 
-  if (strippedSubdomain) return { domain: strippedSubdomain };
-
-  if (isAppRootDomainHost(host, appRootDomain)) return { domain: "" };
+  if (tenantUrlContext.isAppRootHost) return { domain: "" };
 
   // Step 3: custom domain fallback — strip port + optional "dashboard." from raw host
-  const bareHost = getCustomDomainLookupHost(host);
+  const bareHost = tenantUrlContext.customDomainLookupHost;
 
   if (bareHost) {
     const record = await prisma.tenantDomain.findUnique({

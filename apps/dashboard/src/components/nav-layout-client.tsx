@@ -5,18 +5,21 @@ import { Icons } from "@school-clerk/ui/custom/icons";
 import { usePathname } from "next/navigation";
 import { Header } from "./header";
 import { linkModules } from "./sidebar/links";
-import Link from "next/link";
+import { TenantLink } from "@school-clerk/tenant-url/next";
+import { useTenantUrl } from "@school-clerk/tenant-url/react";
 import { ChatWidget } from "./chat/chat-widget";
 
 export function NavLayoutClient({ children }) {
   const auth = useAuth();
   const pathName = usePathname();
+  const tenantUrl = useTenantUrl();
+  const productPathName = tenantUrl?.context.productPath ?? pathName;
   return (
     <SiteNav.Provider
       value={createSiteNavContext({
-        pathName,
+        pathName: productPathName,
         linkModules,
-        Link,
+        Link: TenantLink,
         role: auth.role,
         userId: auth.id,
       })}

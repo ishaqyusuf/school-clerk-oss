@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@school-clerk/db": "workspace:*",
+    "@school-clerk/tenant-url": "workspace:*",
     "@school-clerk/utils": "workspace:*",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

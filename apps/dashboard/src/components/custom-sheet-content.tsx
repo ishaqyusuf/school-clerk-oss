@@ -109,6 +109,8 @@ export function CustomSheetContentPortal({ children }) {
   // const isDesktop = useMediaQuery(screens.xl);
   // const nodeId = !isDesktop ? sheet.scrollContentId : sheet.nodeId;
 
+  if (!sheet?.nodeId) return <>{children}</>;
+
   return (
     <>
       <Portal nodeId={sheet.nodeId} noDelay>

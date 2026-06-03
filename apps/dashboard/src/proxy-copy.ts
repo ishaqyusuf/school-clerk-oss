@@ -81,9 +81,9 @@ export async function proxy(request: NextRequest) {
   // 🟥 Rewrite tenant subdomain to internal route
   if (subdomain) {
     // Example: https://schoolA.domain.com/students
-    // becomes: /en/dashboard/schoolA/students
+    // becomes: /en/schoolA/students
     // /${locale}
-    const newPath = `/dashboard/${subdomain}${pathname}`;
+    const newPath = `/${subdomain}${pathname}`;
     // if (pathname == "/")
     //   return NextResponse.redirect(new URL("/students/list", request.url));
     return NextResponse.rewrite(new URL(newPath, request.url));

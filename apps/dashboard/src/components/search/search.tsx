@@ -15,7 +15,7 @@ import {
 } from "@school-clerk/ui/command";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search, Sparkles, UserRound, Users } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getLocalSearchResults } from "./search-catalog";
 import type { SearchItem } from "./search-types";

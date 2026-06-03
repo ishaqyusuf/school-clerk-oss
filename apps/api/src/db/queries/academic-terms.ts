@@ -6,7 +6,7 @@ import type {
 
 export async function getStudentTermsList(
   ctx: TRPCContext,
-  query: GetStudentTermListSchema
+  query: GetStudentTermListSchema,
 ) {
   const school = await ctx.db.schoolProfile.findFirstOrThrow({
     where: {
@@ -115,27 +115,78 @@ export async function getStudentTermsList(
 }
 export async function createAcademicSession(
   ctx: TRPCContext,
-  data: CreateAcademicSession
+  data: CreateAcademicSession,
 ) {
-  const { sessionId, terms, title } = data;
+  const { endDate, sessionId, startDate, terms, title } = data;
   const { db } = ctx;
+  const sessionTitle = title?.trim();
+
   return db.$transaction(async (tx) => {
     let session: { id: string; title: string };
 
     if (sessionId) {
       session = await tx.schoolSession.update({
         where: { id: sessionId },
-        data: {},
-        select: { id: true, title: true },
-      });
-    } else {
-      session = await tx.schoolSession.create({
         data: {
-          title: title!,
-          school: { connect: { id: ctx.profile.schoolId } },
+          startDate,
+          endDate,
         },
         select: { id: true, title: true },
       });
+    } else {
+      const existingSession = await tx.schoolSession.findFirst({
+        where: {
+          schoolId: ctx.profile.schoolId,
+          deletedAt: null,
+          title: {
+            equals: sessionTitle,
+            mode: "insensitive",
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          terms: {
+            where: { deletedAt: null },
+            orderBy: { createdAt: "asc" },
+            select: { id: true, title: true },
+          },
+        },
+      });
+
+      if (existingSession) {
+        return {
+          sessionId: existingSession.id,
+          sessionTitle: existingSession.title,
+          terms: existingSession.terms,
+          alreadyExists: true,
+        };
+      }
+
+      try {
+        session = await tx.schoolSession.create({
+          data: {
+            title: sessionTitle!,
+            startDate,
+            endDate,
+            school: { connect: { id: ctx.profile.schoolId } },
+          },
+          select: { id: true, title: true },
+        });
+      } catch (error) {
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error &&
+          error.code === "P2002"
+        ) {
+          throw new Error(
+            "An academic session with this title already exists.",
+          );
+        }
+
+        throw error;
+      }
     }
 
     let createdTerms: { id: string; title: string }[] = [];

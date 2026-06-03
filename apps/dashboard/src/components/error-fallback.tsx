@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { ApiErrorState } from "./api-error-state";
 
 export function ErrorFallback({

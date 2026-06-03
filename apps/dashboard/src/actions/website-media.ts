@@ -42,8 +42,8 @@ export async function createWebsiteMediaAssetAction(formData: FormData) {
     createdByUserId: cookie.auth?.userId,
   });
 
-  revalidatePath(`/dashboard/${cookie.domain}/settings/website`);
-  revalidatePath(`/dashboard/${cookie.domain}/settings/website/media`);
+  revalidatePath(`/${cookie.domain}/settings/website`);
+  revalidatePath(`/${cookie.domain}/settings/website/media`);
 }
 
 export async function uploadWebsiteMediaAssetAction(formData: FormData) {
@@ -95,6 +95,6 @@ export async function uploadWebsiteMediaAssetAction(formData: FormData) {
     mimeType: file.type,
   });
 
-  revalidatePath(`/dashboard/${cookie.domain}/settings/website`);
-  revalidatePath(`/dashboard/${cookie.domain}/settings/website/media`);
+  revalidatePath(`/${cookie.domain}/settings/website`);
+  revalidatePath(`/${cookie.domain}/settings/website/media`);
 }

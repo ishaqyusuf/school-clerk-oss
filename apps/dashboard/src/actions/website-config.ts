@@ -38,7 +38,7 @@ export async function createWebsiteDraftAction(formData: FormData) {
     createdByUserId: cookie.auth?.userId,
   });
 
-  revalidatePath(`/dashboard/${cookie.domain}/settings/website`);
+  revalidatePath(`/${cookie.domain}/settings/website`);
 }
 
 export async function publishWebsiteDraftAction(formData: FormData) {
@@ -57,7 +57,7 @@ export async function publishWebsiteDraftAction(formData: FormData) {
     publishedByUserId: cookie.auth?.userId,
   });
 
-  revalidatePath(`/dashboard/${cookie.domain}/settings/website`);
+  revalidatePath(`/${cookie.domain}/settings/website`);
 }
 
 export async function updateWebsiteDraftEditorAction(formData: FormData) {
@@ -134,8 +134,8 @@ export async function updateWebsiteDraftEditorAction(formData: FormData) {
     templateVersion,
   });
 
-  revalidatePath(`/dashboard/${cookie.domain}/settings/website`);
-  revalidatePath(`/dashboard/${cookie.domain}/settings/website/${configId}`);
+  revalidatePath(`/${cookie.domain}/settings/website`);
+  revalidatePath(`/${cookie.domain}/settings/website/${configId}`);
 }
 
 export async function duplicateWebsiteDraftAction(formData: FormData) {
@@ -154,5 +154,5 @@ export async function duplicateWebsiteDraftAction(formData: FormData) {
     createdByUserId: cookie.auth?.userId,
   });
 
-  revalidatePath(`/dashboard/${cookie.domain}/settings/website`);
+  revalidatePath(`/${cookie.domain}/settings/website`);
 }

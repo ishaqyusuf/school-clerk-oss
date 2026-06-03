@@ -1,6 +1,6 @@
 "use server";
 
-import { StudentRecord } from "@/app/dashboard/[domain]/migration/data";
+import { StudentRecord } from "@/app/[domain]/migration/data";
 import { getAuthCookie } from "./cookies/auth-cookie";
 import { prisma } from "@school-clerk/db";
 import { transaction } from "@/utils/db";
@@ -12,7 +12,7 @@ import { createStudentFee } from "./create-student-fee";
 import { createStudentFeePayment } from "./create-student-fee-payment";
 import { getSchoolFees } from "./get-school-fees";
 import { createStudentAcademicProfile } from "./create-student-academic-profile";
-import { updateStudent } from "@/app/dashboard/[domain]/migration/server";
+import { updateStudent } from "@/app/[domain]/migration/server";
 
 export async function importStudentAction(
   data: StudentRecord,

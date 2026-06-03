@@ -45,6 +45,20 @@ Documents how the monorepo is organized and where code belongs.
 - `(temp)/`: temporary/dev-only surfaces
 - `onboarding/`: create-school and create-academic-session flows
 
+## Required Folder Conventions
+- Dashboard pages, tables, modals, sheets, sidebar, forms, onboarding, sign-out, and shared dashboard components should follow Midday folder naming and component boundaries.
+- Tables belong under `components/tables/` with shared table primitives in `components/tables/core` and each domain table under `components/tables/<domain>/`.
+- Each domain table should use `columns.tsx`, `data-table.tsx`, `table-header.tsx`, `skeleton.tsx`, and `empty-states.tsx`; add `bottom-bar.tsx` for selected-row/bulk-action flows and `action-menu.tsx` for row action menus when needed.
+- Sheets belong under `components/sheets/` with `global-sheets.tsx`, `global-sheets-provider.tsx`, and additional domain-specific sheet files under `components/sheets/...`.
+- Forms should stay close to the domain surface they serve and follow Midday validation, mutation, field error, loading, and invalidation patterns.
+- Project-specific shadcn behavior belongs in wrapper components; do not edit shadcn source components directly.
+
+## Required Route Conventions
+- Each Next.js app should include `app/[...slug]/page.tsx` as a catch-all route that redirects to `/` unless a Brain doc records an explicit reason to diverge.
+- Apps that use a `src/` directory should apply the same convention at `src/app/[...slug]/page.tsx`.
+- Dashboard product routes should remain app-relative (`/finance/...`, `/students/...`, `/academic/...`) and should not hardcode `/dashboard/...` unless the task is specifically about infrastructure routing.
+- Local URL handling, portless/proxy support, and generated links should follow the Plot Keys reference project.
+
 ## Placement Rules
 - App-specific code stays within each app.
 - Shared domain logic belongs in packages.

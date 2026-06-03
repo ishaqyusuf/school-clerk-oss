@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useEffect, useState, Suspense } from "react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";

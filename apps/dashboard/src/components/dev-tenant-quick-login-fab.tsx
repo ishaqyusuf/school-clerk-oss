@@ -1,10 +1,24 @@
 "use client";
 
+import { Avatar, AvatarFallback } from "@school-clerk/ui/avatar";
+import { Badge } from "@school-clerk/ui/badge";
+import { Button } from "@school-clerk/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@school-clerk/ui/dropdown-menu";
+import { KeyRound, LogIn } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 type QuickLoginUser = {
   email: string;
   name: string | null;
+  onQuickLogin?: () => void | Promise<void>;
   quickLoginHref: string;
   role: string | null;
 };
@@ -28,48 +42,88 @@ export function DevTenantQuickLoginFab({
   }
 
   return (
-    <details className="fixed bottom-4 right-4 z-[90] w-[24rem] [&_summary::-webkit-details-marker]:hidden">
-      <summary className="ml-auto flex w-fit cursor-pointer list-none items-center rounded-full border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground shadow-lg transition hover:bg-muted">
-        Quick login
-      </summary>
-
-      <div className="mt-3 overflow-hidden rounded-3xl border border-border bg-background shadow-2xl">
-        <div className="border-b border-border px-4 py-3">
-          <p className="text-sm font-semibold text-foreground">
-            {domain} tenant
-          </p>
-          <p className="text-xs text-muted-foreground">
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="fixed bottom-4 right-4 z-50 h-10 gap-2 rounded-full bg-background px-4 shadow-lg"
+        >
+          <KeyRound data-icon="inline-start" />
+          Quick login
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={10}
+        className="w-[calc(100vw-2rem)] p-2 sm:w-80"
+      >
+        <DropdownMenuLabel className="flex flex-col gap-1 px-2 py-2">
+          <span>{domain} tenant</span>
+          <span className="text-xs font-normal leading-5 text-muted-foreground">
             Dev-only sign-in shortcuts using password{" "}
             <span className="font-medium text-foreground">lorem-ipsum</span>.
-          </p>
-        </div>
-
-        <div className="max-h-[24rem] space-y-3 overflow-y-auto p-3">
+          </span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup className="flex flex-col gap-1">
           {users.map((user) => (
-            <div
-              key={user.email}
-              className="rounded-2xl border border-border/70 bg-muted/20 p-3"
-            >
-              <p className="text-sm font-semibold text-foreground">
-                {user.name || user.email}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">{user.email}</p>
-              <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                {user.role || "User"}
-              </p>
-
-              <div className="mt-3">
-                <a
-                  href={user.quickLoginHref}
-                  className="inline-flex w-full items-center justify-center rounded-full bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition hover:opacity-90"
-                >
-                  Sign in as this user
-                </a>
-              </div>
-            </div>
+            <QuickLoginUserLabel key={user.email} user={user} />
           ))}
-        </div>
-      </div>
-    </details>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
+}
+
+function QuickLoginUserLabel({ user }: { user: QuickLoginUser }) {
+  const content = (
+    <>
+      <Avatar className="size-9 border">
+        <AvatarFallback className="text-xs font-medium">
+          {getInitials(user.name || user.email)}
+        </AvatarFallback>
+      </Avatar>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">
+          {user.name || user.email}
+        </span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {user.email}
+        </span>
+      </span>
+      <Badge variant="secondary" className="shrink-0 capitalize">
+        {user.role || "User"}
+      </Badge>
+      <LogIn className="shrink-0 text-muted-foreground" />
+    </>
+  );
+
+  if (user.onQuickLogin) {
+    return (
+      <DropdownMenuItem
+        className="gap-3 p-2"
+        onSelect={() => {
+          user.onQuickLogin?.();
+        }}
+      >
+        {content}
+      </DropdownMenuItem>
+    );
+  }
+
+  return (
+    <DropdownMenuItem asChild className="gap-3 p-2">
+      <a href={user.quickLoginHref}>{content}</a>
+    </DropdownMenuItem>
+  );
+}
+
+function getInitials(value: string) {
+  const parts = value
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  return (parts.map((part) => part[0]).join("") || "SC").toUpperCase();
 }

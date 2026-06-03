@@ -12,6 +12,7 @@
   "dependencies": {
     "@school-clerk/db": "workspace:*",
     "@school-clerk/template-registry": "workspace:*",
+    "@school-clerk/tenant-url": "workspace:*",
     "@school-clerk/tsconfig": "workspace:*",
     "@school-clerk/ui": "workspace:*",
     "@school-clerk/utils": "workspace:*",

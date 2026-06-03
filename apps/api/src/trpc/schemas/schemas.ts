@@ -38,13 +38,15 @@ export const createAcademicSessionSchema = z
   .object({
     title: z.string().optional().nullable(),
     sessionId: z.string().optional().nullable(),
+    startDate: z.date().optional().nullable(),
+    endDate: z.date().optional().nullable(),
     terms: z
       .array(
         z.object({
           startDate: z.date().optional(),
           endDate: z.date().optional(),
           title: z.string().min(1),
-        })
+        }),
       )
       .optional(),
   })

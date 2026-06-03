@@ -1,4 +1,14 @@
 import { withSentryConfig } from "@sentry/nextjs";
+
+const localDashboardOrigins = [
+  "school-clerk-dashboard.localhost",
+  "*.school-clerk-dashboard.localhost",
+  "school-clerk-dashboard.localhost:1355",
+  "*.school-clerk-dashboard.localhost:1355",
+  "localhost:2200",
+  "127.0.0.1:2200",
+];
+
 /** @type {import("next").NextConfig} */
 const config = {
   poweredByHeader: false,
@@ -10,13 +20,15 @@ const config = {
 
     // "@school-clerk/stripe",
   ],
-  allowedDevOrigins: ["daarulhadith.school-clerk-dashboard.localhost"],
+  allowedDevOrigins: localDashboardOrigins,
   pageExtensions: ["ts", "tsx", "mdx"],
   experimental: {
     mdxRs: true,
+    serverActions: {
+      allowedOrigins: localDashboardOrigins,
+    },
     // serverComponentsExternalPackages: ["@prisma/client"],
     serverExternalPackages: [],
-    // serverActions: true,
   },
   images: {
     loader: "custom",

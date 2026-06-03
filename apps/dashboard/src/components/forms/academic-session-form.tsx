@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { FormProvider, useFieldArray } from "react-hook-form";
-import { useParams, useRouter } from "next/navigation";
-import { addYears } from "date-fns";
+import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
+import { ArrowRight } from "lucide-react";
 
 import { Button } from "@school-clerk/ui/button";
 import { Icons } from "@school-clerk/ui/icons";
@@ -34,12 +34,13 @@ export function AcademicSessionForm({
 }) {
   const { params, setParams } = useAcademicParams();
   const router = useRouter();
-  const routeParams = useParams<{ domain: string }>();
   const [initWithTerms, setInitWithTerms] = useState(true);
 
   const form = useZodForm(createAcademicSessionSchema, {
     defaultValues: {
       sessionId: params?.sessionId,
+      startDate: null,
+      endDate: null,
     },
   });
   const terms = useFieldArray({
@@ -61,12 +62,18 @@ export function AcademicSessionForm({
     if (!form.getValues("title")) {
       form.setValue("title", prefill.suggestedTitle);
     }
+    if (!form.getValues("startDate") && prefill.suggestedStartDate) {
+      form.setValue("startDate", prefill.suggestedStartDate);
+    }
+    if (!form.getValues("endDate") && prefill.suggestedEndDate) {
+      form.setValue("endDate", prefill.suggestedEndDate);
+    }
     if (initWithTerms && prefill.previousTerms.length > 0) {
       terms.replace(
         prefill.previousTerms.map((t) => ({
           title: t.title,
-          startDate: undefined,
-          endDate: undefined,
+          startDate: t.startDate ?? undefined,
+          endDate: t.endDate ?? undefined,
         })),
       );
     }
@@ -78,8 +85,8 @@ export function AcademicSessionForm({
       terms.replace(
         prefill.previousTerms.map((t) => ({
           title: t.title,
-          startDate: undefined,
-          endDate: undefined,
+          startDate: t.startDate ?? undefined,
+          endDate: t.endDate ?? undefined,
         })),
       );
     } else if (!checked) {
@@ -91,23 +98,29 @@ export function AcademicSessionForm({
     trpc.academics.createAcademicSession.mutationOptions({
       async onSuccess(data) {
         toast({
-          title: "Session created!",
-          description: "Your academic session has been saved.",
+          title: data.alreadyExists
+            ? "Session already exists"
+            : "Session created!",
+          description: data.alreadyExists
+            ? "Continuing with the existing academic session."
+            : "Your academic session has been saved.",
         });
 
         if (mode === "onboarding") {
           const firstTerm = data?.terms?.[0];
+          router.push("/onboarding/setup-classrooms");
+
           if (firstTerm) {
-            await switchSessionTerm({
+            void switchSessionTerm({
               sessionId: data.sessionId,
               sessionTitle: data.sessionTitle,
               termId: firstTerm.id,
               termTitle: firstTerm.title,
+            }).catch((error) => {
+              console.error("Failed to switch onboarding session term", error);
             });
           }
 
-          setParams(null);
-          router.push(`/dashboard/${routeParams.domain}/onboarding/invite-staff`);
           return;
         }
 
@@ -132,7 +145,8 @@ export function AcademicSessionForm({
         console.log(error);
         toast({
           title: "Error",
-          description: "Something went wrong. Please try again later.",
+          description:
+            error.message || "Something went wrong. Please try again later.",
         });
       },
     }),
@@ -153,6 +167,21 @@ export function AcademicSessionForm({
               placeholder="2025/2026"
             />
           )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormDate
+              control={form.control}
+              name="startDate"
+              label="Session Start Date"
+              placeholder="Start Date"
+            />
+            <FormDate
+              control={form.control}
+              name="endDate"
+              label="Session End Date"
+              placeholder="End Date"
+            />
+          </div>
 
           {/* Initialize with Terms toggle */}
           {!watch.sessionId && (
@@ -235,7 +264,16 @@ export function AcademicSessionForm({
             </Button>
           </div>
           <div className="flex justify-end">
-            <SubmitButton isSubmitting={save?.isPending}>Submit</SubmitButton>
+            <SubmitButton isSubmitting={save?.isPending}>
+              {mode === "onboarding" ? (
+                <>
+                  Next
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              ) : (
+                "Submit"
+              )}
+            </SubmitButton>
           </div>
         </div>
       </form>

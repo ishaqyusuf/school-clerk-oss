@@ -1,0 +1,29 @@
+{
+  "name": "@school-clerk/tenant-url",
+  "version": "1.0.0",
+  "private": true,
+  "sideEffects": false,
+  "main": "src/index.ts",
+  "scripts": {
+    "clean": "rm -rf .turbo node_modules",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./react": "./src/react.tsx",
+    "./next": "./src/next.tsx",
+    "./next/server": "./src/next-server.ts"
+  },
+  "peerDependencies": {
+    "next": "^16.0.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@school-clerk/tsconfig": "workspace:*",
+    "@types/react": "^19.2.2",
+    "next": "^16.2.0",
+    "react": "^19.2.0",
+    "typescript": "^5.9.2"
+  }
+}

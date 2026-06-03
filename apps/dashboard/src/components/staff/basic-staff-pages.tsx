@@ -15,7 +15,7 @@ import {
 	TableRow,
 } from "@school-clerk/ui/table";
 import { CalendarCheck2, FolderKanban, Users } from "lucide-react";
-import Link from "next/link";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import type { ComponentType } from "react";
 
 function SearchForm({

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useMemo } from "react";
 import { AlertTriangle, RefreshCcw, ShieldAlert } from "lucide-react";
 

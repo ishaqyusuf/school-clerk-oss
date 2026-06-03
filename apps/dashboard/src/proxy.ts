@@ -1,14 +1,16 @@
 import { prisma } from "@school-clerk/db";
+import {
+  buildTenantRedirectUrl,
+  getTenantUrlHeaderNames,
+  resolveTenantUrlContext,
+  toInternalTenantPath,
+} from "@school-clerk/tenant-url";
 import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth/server";
 import { getFirstPermittedHref } from "./components/sidebar/links";
 import { env } from "./env";
-import {
-  getCanonicalTenantSlugFromHost,
-  getCustomDomainLookupHost,
-  isAppRootDomainHost,
-} from "./utils/tenant-host";
+import { getDashboardTenantUrlConfig } from "./utils/tenant-url-config";
 
 type TenantDomainContext = {
   subdomain: string | null;
@@ -25,12 +27,24 @@ export default async function proxy(req: NextRequest) {
   const hostName = resolveDashboardAppRootDomain(env.APP_ROOT_DOMAIN);
   if (!hostName) throw new Error("APP_ROOT_DOMAIN is not defined");
 
-  const host = req.headers.get("host") ?? "";
+  const host = getRequestHost(req);
   const url = req.nextUrl;
+  const tenantUrlConfig = getDashboardTenantUrlConfig();
+  const tenantHeaderNames = getTenantUrlHeaderNames(tenantUrlConfig);
+  const tenantUrlDevMode = tenantUrlConfig.enablePathStyleHosts !== false;
+  const tenantUrlContext = resolveTenantUrlContext(
+    {
+      host,
+      pathname: url.pathname,
+      protocol: req.headers.get("x-forwarded-proto"),
+    },
+    tenantUrlConfig,
+  );
 
   // ---- Determine canonical slug ----
-  let canonicalSlug = getCanonicalTenantSlugFromHost(host, hostName);
-  const isAppRootHost = isAppRootDomainHost(host, hostName);
+  let canonicalSlug = tenantUrlContext.tenantSlug;
+  const isAppRootHost =
+    tenantUrlContext.isAppRootHost && !tenantUrlContext.tenantSlug;
   let tenantDomain: TenantDomainContext | null = null;
 
   if (canonicalSlug) {
@@ -47,7 +61,7 @@ export default async function proxy(req: NextRequest) {
   }
 
   if (!canonicalSlug && !isAppRootHost) {
-    const bareHost = getCustomDomainLookupHost(host);
+    const bareHost = tenantUrlContext.customDomainLookupHost;
 
     if (bareHost) {
       const record = await prisma.tenantDomain.findFirst({
@@ -67,10 +81,8 @@ export default async function proxy(req: NextRequest) {
     }
   }
   // console.log({ canonicalSlug, host });
-  const nextUrl = req.nextUrl;
-  const pathnameLocale = nextUrl.pathname; //.split("/", 2)?.[1];
   // Remove the locale from the pathname
-  const pathnameWithoutLocale = pathnameLocale;
+  const pathnameWithoutLocale = tenantUrlContext.productPath;
   //  ? nextUrl.pathname.slice(pathnameLocale.length + 1)
   //  : nextUrl.pathname;
   // Create a new URL without the locale in the pathname
@@ -78,15 +90,16 @@ export default async function proxy(req: NextRequest) {
   const encodedSearchParams = `${newUrl?.pathname?.substring(1)}${
     newUrl.search
   }`;
-  const isSignupRoute = url.pathname === "/sign-up";
+  const isSignupRoute = tenantUrlContext.productPath === "/sign-up";
   const publicRoutes = new Set(["/login", "/dev-quick-login"]);
-  const isPublicRoute = isSignupRoute || publicRoutes.has(url.pathname);
+  const isPublicRoute =
+    isSignupRoute || publicRoutes.has(tenantUrlContext.productPath);
   const isPublicShareRoute =
-    url.pathname.includes("/student-report") ||
-    url.pathname.includes("/assessment-recording");
+    tenantUrlContext.productPath.includes("/student-report") ||
+    tenantUrlContext.productPath.includes("/assessment-recording");
   const allowAuthenticatedPublicRoute =
     process.env.NODE_ENV !== "production" &&
-    url.pathname === "/dev-quick-login";
+    tenantUrlContext.productPath === "/dev-quick-login";
 
   // ---- Handle special app subdomain ----
   if (canonicalSlug === "app" || canonicalSlug?.startsWith("app.")) {
@@ -109,22 +122,42 @@ export default async function proxy(req: NextRequest) {
     userId: session?.user?.id,
     tenantDomain,
   });
+  const hasTenantSessionCookie = hasTenantWorkspaceCookie(req, canonicalSlug);
 
-  if (url.pathname === "/" || isPublicRoute) {
+  if (tenantUrlContext.productPath === "/" || isPublicRoute) {
     if (
       session &&
       sessionTenantAccess !== false &&
-      !allowAuthenticatedPublicRoute
+      !allowAuthenticatedPublicRoute &&
+      (tenantUrlContext.productPath !== "/login" || hasTenantSessionCookie)
     ) {
       const defaultLink = getFirstPermittedHref({
         role: session.user?.role,
       });
-      console.log({ defaultLink });
-      return NextResponse.redirect(new URL(defaultLink, req.url));
+
+      if (getHrefPathname(defaultLink) !== tenantUrlContext.productPath) {
+        return NextResponse.redirect(
+          tenantUrlDevMode
+            ? buildTenantRedirectUrl(
+                { ...tenantUrlContext, tenantSlug: canonicalSlug },
+                defaultLink,
+                req.url,
+                tenantUrlConfig,
+              )
+            : new URL(defaultLink, req.url),
+        );
+      }
     }
 
-    if (!isPublicRoute) {
-      const loginUrl = new URL("/login", req.url);
+    if (!isPublicRoute && !session) {
+      const loginUrl = tenantUrlDevMode
+        ? buildTenantRedirectUrl(
+            { ...tenantUrlContext, tenantSlug: canonicalSlug },
+            "/login",
+            req.url,
+            tenantUrlConfig,
+          )
+        : new URL("/login", req.url);
 
       if (encodedSearchParams) {
         loginUrl.searchParams.append("return_to", encodedSearchParams);
@@ -137,7 +170,14 @@ export default async function proxy(req: NextRequest) {
   if (!session && !isPublicRoute && !isPublicShareRoute) {
     // TODO: check if domain tenant exists, else redirect to tenant not found page
 
-    const url = new URL("/login", req.url);
+    const url = tenantUrlDevMode
+      ? buildTenantRedirectUrl(
+          { ...tenantUrlContext, tenantSlug: canonicalSlug },
+          "/login",
+          req.url,
+          tenantUrlConfig,
+        )
+      : new URL("/login", req.url);
 
     if (encodedSearchParams) {
       url.searchParams.append("return_to", encodedSearchParams);
@@ -152,7 +192,14 @@ export default async function proxy(req: NextRequest) {
     !isPublicRoute &&
     !isPublicShareRoute
   ) {
-    const url = new URL("/login", req.url);
+    const url = tenantUrlDevMode
+      ? buildTenantRedirectUrl(
+          { ...tenantUrlContext, tenantSlug: canonicalSlug },
+          "/login",
+          req.url,
+          tenantUrlConfig,
+        )
+      : new URL("/login", req.url);
     url.searchParams.set("error", "Use an account for this school workspace.");
 
     if (encodedSearchParams) {
@@ -165,19 +212,58 @@ export default async function proxy(req: NextRequest) {
   // ---- Rewrite to school dashboard route ----
   if (canonicalSlug) {
     const searchParams = url.searchParams.toString();
-    const path = `${url.pathname}${searchParams ? `?${searchParams}` : ""}`;
     const requestHeaders = new Headers(req.headers);
-    requestHeaders.set("x-school-clerk-pathname", url.pathname);
-    requestHeaders.set("x-school-clerk-domain", canonicalSlug);
+    requestHeaders.set(
+      tenantHeaderNames.pathname,
+      tenantUrlContext.productPath,
+    );
+    requestHeaders.set(tenantHeaderNames.domain, canonicalSlug);
+
+    if (tenantUrlDevMode) {
+      requestHeaders.set(tenantHeaderNames.urlStyle, tenantUrlContext.style);
+      requestHeaders.set(
+        tenantHeaderNames.externalBasePath,
+        tenantUrlContext.externalBasePath,
+      );
+      requestHeaders.set(
+        tenantHeaderNames.externalPath,
+        tenantUrlContext.externalPath,
+      );
+    }
 
     if (tenantDomain?.saasAccountId) {
       requestHeaders.set(
-        "x-school-clerk-saas-account-id",
+        tenantHeaderNames.accountId,
         tenantDomain.saasAccountId,
       );
     }
 
-    let rewritePath = `/dashboard/${canonicalSlug}${path}`;
+    const internalPrefix = toInternalTenantPath(
+      { tenantSlug: canonicalSlug },
+      "/",
+      tenantUrlConfig,
+    ).replace(/\/$/, "");
+    if (
+      url.pathname === internalPrefix ||
+      url.pathname.startsWith(`${internalPrefix}/`)
+    ) {
+      return NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      });
+    }
+
+    const internalPath = tenantUrlContext.tenantSlug
+      ? tenantUrlContext.internalPath
+      : toInternalTenantPath(
+          { tenantSlug: canonicalSlug },
+          tenantUrlContext.productPath,
+          tenantUrlConfig,
+        );
+    let rewritePath = `${internalPath}${
+      searchParams ? `?${searchParams}` : ""
+    }`;
 
     // ✅ Always ensure it starts with a slash
     if (!rewritePath.startsWith("/")) rewritePath = `/${rewritePath}`;
@@ -213,4 +299,36 @@ async function getSessionTenantAccess({
   });
 
   return user?.saasAccountId === tenantDomain.saasAccountId;
+}
+
+function getRequestHost(req: NextRequest) {
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const host = forwardedHost?.split(",")[0]?.trim() || req.headers.get("host");
+
+  return host ?? "";
+}
+
+function getHrefPathname(href: string) {
+  try {
+    return new URL(href, "http://tenant.local").pathname || "/";
+  } catch {
+    const pathname = href.split(/[?#]/)[0] || "/";
+    return pathname.startsWith("/") ? pathname : `/${pathname}`;
+  }
+}
+
+function hasTenantWorkspaceCookie(
+  req: NextRequest,
+  tenantSlug?: string | null,
+) {
+  if (!tenantSlug) return false;
+
+  const value = req.cookies.get(`${tenantSlug}-session-cookie`)?.value;
+  if (!value) return false;
+
+  try {
+    return Boolean(JSON.parse(value)?.schoolId);
+  } catch {
+    return false;
+  }
 }

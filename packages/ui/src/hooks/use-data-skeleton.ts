@@ -1,4 +1,4 @@
-import { skeletonListData } from "@/utils";
+import { skeletonListData } from "../utils";
 import {
   generateRandomString,
   RenturnTypeAsync,

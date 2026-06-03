@@ -19,7 +19,7 @@ import { z } from "zod";
 import { useZodForm } from "@/hooks/use-zod-form";
 import { FormDate } from "@school-clerk/ui/controls/form-date";
 import { FormInput } from "@school-clerk/ui/controls/form-input";
-import { useRouter } from "next/navigation";
+import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 export const ConfigureTerm = ({ termId }) => {
 	const router = useRouter();
 	const { mutate: saveAndProceed, isPending: isSaving } = useMutation(

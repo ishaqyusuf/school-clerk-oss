@@ -29,7 +29,7 @@ export default async function proxy(req: NextRequest) {
       // console.log({ host, path, subdomain });
 
       // const isProd = env.NODE_ENV == "production";
-      const _url = `/dashboard/${
+      const _url = `/${
         // isProd ? "daarul-hadith" :
         host
         // ?.replace(
@@ -39,7 +39,7 @@ export default async function proxy(req: NextRequest) {
         // )
       }${path}`;
       return NextResponse.rewrite(new URL(_url, req.url));
-      // return NextResponse.rewrite(new URL(`/dashboard/${subdomain}/`, req.url));
+      // return NextResponse.rewrite(new URL(`/${subdomain}/`, req.url));
     }
   }
 

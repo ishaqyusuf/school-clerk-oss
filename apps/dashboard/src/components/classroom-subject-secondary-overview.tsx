@@ -18,7 +18,7 @@ import {
   Layers3,
 } from "lucide-react";
 import { Menu } from "./menu";
-import Link from "next/link";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@school-clerk/ui/badge";
 import { classroomDisplayName } from "@school-clerk/utils";

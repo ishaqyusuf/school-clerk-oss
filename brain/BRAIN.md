@@ -21,6 +21,7 @@ Central index for project knowledge used by humans and AI collaborators.
 - [System Docs](./system/overview.md)
 - [Architecture](./system/architecture.md)
 - [Tech Stack](./system/tech-stack.md)
+- [Reference Projects](./system/reference-projects.md)
 - [Product Vision](./product/vision.md)
 - [Roadmap](./product/roadmap.md)
 - [Engineering Rules](./engineering/ai-rules.md)
@@ -30,3 +31,11 @@ Central index for project knowledge used by humans and AI collaborators.
 - [Database Migrations](./database/migrations.md)
 - [API Endpoints](./api/endpoints.md)
 - [Tasks Backlog](./tasks/backlog.md)
+
+
+## Important Project References
+- `midday`: `/Users/M1PRO/Documents/code/_kitchen_sink/midday`
+- `gnd`: `/Users/M1PRO/Documents/code/_turbo/gnd`
+- `school-clerk`: `/Users/M1PRO/Documents/code/school-clerk`
+- `plot-keys`: `/Users/M1PRO/Documents/code/plot-keys`
+- `halaal-coperative`: `/Users/M1PRO/Documents/code/halaal-coperative`

@@ -5,6 +5,7 @@ import {
   resolvePublicStructuredData,
 } from "@/lib/website/render-public-page";
 import { resolveHost } from "@/lib/tenant/resolve-host";
+import { resolveTenantUrlContext } from "@school-clerk/tenant-url";
 import type { Metadata } from "next";
 
 export async function generateMetadata({
@@ -25,8 +26,10 @@ export async function generateMetadata({
     resolvedSearchParams,
   ]);
   const headerStore = await headers();
-  const host = resolveHost(headerStore.get("host"));
-  const pathname = `/${(slug ?? []).join("/")}`;
+  const { host, pathname } = resolvePublicRequestTarget({
+    rawHost: headerStore.get("host"),
+    slug,
+  });
 
   return resolvePublicPageMetadata({
     host,
@@ -55,8 +58,10 @@ export default async function PublicSitePage({
     resolvedSearchParams,
   ]);
   const headerStore = await headers();
-  const host = resolveHost(headerStore.get("host"));
-  const pathname = `/${(slug ?? []).join("/")}`;
+  const { host, pathname } = resolvePublicRequestTarget({
+    rawHost: headerStore.get("host"),
+    slug,
+  });
   const structuredData = await resolvePublicStructuredData({
     host,
     pathname,
@@ -82,4 +87,46 @@ export default async function PublicSitePage({
       })}
     </>
   );
+}
+
+function resolvePublicRequestTarget({
+  rawHost,
+  slug,
+}: {
+  rawHost: string | null;
+  slug?: string[];
+}) {
+  const pathname = `/${(slug ?? []).join("/")}`;
+
+  if (process.env.NODE_ENV === "production") {
+    return {
+      host: resolveHost(rawHost),
+      pathname,
+    };
+  }
+
+  const context = resolveTenantUrlContext(
+    {
+      host: rawHost,
+      pathname,
+    },
+    {
+      internalPrefix: "/__school-site",
+      appRootDomain: process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "localhost:3001",
+      pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
+      enablePathStyleHosts: true,
+    },
+  );
+
+  if (context.style === "path" && context.tenantSlug) {
+    return {
+      host: context.tenantSlug,
+      pathname: context.productPath,
+    };
+  }
+
+  return {
+    host: resolveHost(rawHost),
+    pathname,
+  };
 }

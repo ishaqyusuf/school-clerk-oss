@@ -27,6 +27,7 @@
     "@school-clerk/pdf": "workspace:*",
     "@school-clerk/site-nav": "workspace:*",
     "@school-clerk/template-registry": "workspace:*",
+    "@school-clerk/tenant-url": "workspace:*",
     "@school-clerk/ui": "workspace:*",
     "@school-clerk/utils": "workspace:*",
     "@ai-sdk/anthropic": "^3.0.69",

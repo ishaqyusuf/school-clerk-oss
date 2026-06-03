@@ -4,7 +4,7 @@ import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useFieldArray } from "react-hook-form";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
@@ -37,9 +37,20 @@ import {
   FormLabel,
 } from "@school-clerk/ui/form";
 
-export function Form({}) {
+type Props = {
+  onSuccess?: () => void;
+  submitLabel?: ReactNode;
+  submitPlacement?: "portal" | "inline";
+};
+
+export function Form({
+  onSuccess,
+  submitLabel = "Submit",
+  submitPlacement = "portal",
+}: Props) {
   const { setParams } = useClassroomParams();
-  const { control, handleSubmit, watch, setValue } = useClassroomFormContext();
+  const { control, handleSubmit, reset, watch, setValue } =
+    useClassroomFormContext();
   const trpc = useTRPC();
   const qc = useQueryClient();
   const hasSubClass = watch("hasSubClass");
@@ -56,9 +67,11 @@ export function Form({}) {
         qc.invalidateQueries({
           queryKey: trpc.academics.getClassrooms.infiniteQueryKey({}),
         });
+        reset();
         setParams(null);
+        onSuccess?.();
       },
-    })
+    }),
   );
   const departments = useFieldArray({
     control,
@@ -130,22 +143,24 @@ export function Form({}) {
       "departments",
       suggestion.streams.map((stream) => ({
         name: stream.name,
-        departmentLevel:
-          suggestion.streams.some((item) => item.departmentLevel !== null)
-            ? stream.departmentLevel
-            : null,
+        departmentLevel: suggestion.streams.some(
+          (item) => item.departmentLevel !== null,
+        )
+          ? stream.departmentLevel
+          : null,
       })),
     );
   };
 
   const onSubmit = handleSubmit((data) => {
     const normalizedDepartments = data.hasSubClass
-      ? (data.departments ?? []).filter((department) => department?.name?.trim())
+      ? (data.departments ?? []).filter((department) =>
+          department?.name?.trim(),
+        )
       : [
           {
             name: data.className.trim(),
-            departmentLevel:
-              data.progressionMode === "department" ? 1 : null,
+            departmentLevel: data.progressionMode === "department" ? 1 : null,
           },
         ];
 
@@ -155,7 +170,9 @@ export function Form({}) {
 
     if (
       data.progressionMode === "department" &&
-      normalizedDepartments.some((department) => department.departmentLevel == null)
+      normalizedDepartments.some(
+        (department) => department.departmentLevel == null,
+      )
     ) {
       return;
     }
@@ -167,6 +184,14 @@ export function Form({}) {
       departments: normalizedDepartments,
     });
   });
+  const actions = (
+    <form onSubmit={onSubmit}>
+      <div className="flex justify-end">
+        <SubmitButton isSubmitting={isPending}>{submitLabel}</SubmitButton>
+      </div>
+    </form>
+  );
+
   return (
     <div className="grid gap-4 ">
       <FormInput
@@ -195,10 +220,7 @@ export function Form({}) {
           <FormItem className="mx-1">
             <FormLabel>Progression Mode</FormLabel>
             <FormControl>
-              <Select
-                value={field.value}
-                onValueChange={field.onChange}
-              >
+              <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select progression mode" />
                 </SelectTrigger>
@@ -216,9 +238,12 @@ export function Form({}) {
         <div className="mx-1 space-y-2 rounded-lg border p-3">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="text-sm font-medium">Quick Fill from Existing Structures</p>
+              <p className="text-sm font-medium">
+                Quick Fill from Existing Structures
+              </p>
               <p className="text-xs text-muted-foreground">
-                Reuse stream setups already used in this school. Clicking a suggestion fills stream levels too when available.
+                Reuse stream setups already used in this school. Clicking a
+                suggestion fills stream levels too when available.
               </p>
             </div>
           </div>
@@ -234,7 +259,9 @@ export function Form({}) {
               >
                 <span className="font-medium">
                   {suggestion.className}
-                  {suggestion.classLevel ? ` · Level ${suggestion.classLevel}` : ""}
+                  {suggestion.classLevel
+                    ? ` · Level ${suggestion.classLevel}`
+                    : ""}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {suggestion.streams
@@ -253,50 +280,53 @@ export function Form({}) {
 
       {!hasSubClass && (
         <div className="mx-1 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-          This class will create one default stream automatically because the system stores enrollment by stream internally.
+          This class will create one default stream automatically because the
+          system stores enrollment by stream internally.
         </div>
       )}
 
       {hasSubClass && (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Stream</TableHead>
-            {progressionMode === "department" && <TableHead>Stream Level</TableHead>}
-            <TableHead className="w-12" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {departments.fields.map((d, i) => (
-            <TableRow key={d._id}>
-              <TableCell>
-                <FormInput
-                  name={`departments.${i}.name`}
-                  control={control}
-                  placeholder="Emerald"
-                />
-              </TableCell>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Stream</TableHead>
               {progressionMode === "department" && (
+                <TableHead>Stream Level</TableHead>
+              )}
+              <TableHead className="w-12" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {departments.fields.map((d, i) => (
+              <TableRow key={d._id}>
                 <TableCell>
                   <FormInput
-                    type="number"
-                    name={`departments.${i}.departmentLevel`}
+                    name={`departments.${i}.name`}
                     control={control}
+                    placeholder="Emerald"
                   />
                 </TableCell>
-              )}
-              <TableCell className="w-12">
-                <ConfirmBtn
-                  trash
-                  onClick={(e) => {
-                    departments.remove(i);
-                  }}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                {progressionMode === "department" && (
+                  <TableCell>
+                    <FormInput
+                      type="number"
+                      name={`departments.${i}.departmentLevel`}
+                      control={control}
+                    />
+                  </TableCell>
+                )}
+                <TableCell className="w-12">
+                  <ConfirmBtn
+                    trash
+                    onClick={(e) => {
+                      departments.remove(i);
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
       <div className="flex justify-end">
         <Button
@@ -327,13 +357,11 @@ export function Form({}) {
           ))}
         </div>
       )}
-      <CustomSheetContentPortal>
-        <form onSubmit={onSubmit}>
-          <div className="flex justify-end">
-            <SubmitButton isSubmitting={isPending}>Submit</SubmitButton>
-          </div>
-        </form>
-      </CustomSheetContentPortal>
+      {submitPlacement === "inline" ? (
+        actions
+      ) : (
+        <CustomSheetContentPortal>{actions}</CustomSheetContentPortal>
+      )}
     </div>
   );
 }

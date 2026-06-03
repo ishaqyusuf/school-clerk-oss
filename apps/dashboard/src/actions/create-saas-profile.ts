@@ -122,7 +122,7 @@ async function createSignupSuccessNotification(input: {
   const notification = createNotificationFromType("signup_success", {
     onboardingPath: "/onboarding/welcome",
     schoolName: input.schoolName,
-    workspacePath: "/dashboard",
+    workspacePath: "/",
   });
 
   if (!notification.channels.includes("in_app")) {

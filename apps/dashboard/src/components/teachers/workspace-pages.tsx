@@ -12,7 +12,7 @@ import {
 	TableRow,
 } from "@school-clerk/ui/table";
 import { BookOpen, CalendarCheck2, Clock3, FileText, Users } from "lucide-react";
-import Link from "next/link";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import type { ComponentType } from "react";
 
 function TeacherEmptyState({ email }: { email?: string | null }) {

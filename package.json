@@ -17,6 +17,7 @@
     "db:migrate": "turbo -F @school-clerk/db db-migrate",
     "db:generate": "turbo -F @school-clerk/db prisma-generate",
     "dev": "turbo dev --parallel",
+    "websites": "turbo dev --parallel --filter @school-clerk/dashboard --filter @school-clerk/site",
     "dashboard": "turbo dev --parallel --filter @school-clerk/dashboard --filter @school-clerk/api",
     "terminal": "bash ./scripts/open-bun-script-terminal.sh",
     "dev2": "turbo dev --parallel --filter !@school-clerk/jobs --filter  !@school-clerk/api --filter !@school-clerk/site",

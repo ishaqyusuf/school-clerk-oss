@@ -1,8 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@school-clerk/db";
+import { buildTenantAppUrl } from "@school-clerk/tenant-url";
 import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { DevTenantsFab } from "@/components/dev-tenants-fab";
+import { headers } from "next/headers";
 
 // export default function Home() {
 //   return (
@@ -107,6 +109,15 @@ const bookDemoHref =
   "mailto:hello@schoolclerk.com?subject=Book%20a%20SchoolClerk%20demo";
 
 export default async function Home() {
+  const headerStore = await headers();
+  const currentHost = getRequestHost(headerStore);
+  const currentProtocol = headerStore.get("x-forwarded-proto") ?? "http";
+  const dashboardRootDomain = resolveDashboardAppRootDomain(
+    process.env.DASHBOARD_ROOT_DOMAIN ?? process.env.APP_ROOT_DOMAIN,
+  );
+  const schoolSiteRootDomain =
+    process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "localhost:3001";
+
   const tenants = isDev
     ? await prisma.schoolProfile.findMany({
         where: {
@@ -124,8 +135,28 @@ export default async function Home() {
     : [];
 
   const tenantLinks = tenants.map((tenant) => ({
-    dashboardHref: `http://${tenant.subDomain}.${configuredDashboardHost}/login`,
-    mainHref: `http://${tenant.subDomain}.localhost:3001`,
+    dashboardHref: buildTenantAppUrl({
+      tenantSlug: tenant.subDomain,
+      path: "/login",
+      currentHost,
+      currentProtocol,
+      targetRootDomain: dashboardRootDomain,
+      targetPort: process.env.DASHBOARD_PORT ?? 2200,
+      pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
+      enablePathStyleHosts: isDev,
+      defaultProtocol: isDev ? "http" : "https",
+    }),
+    mainHref: buildTenantAppUrl({
+      tenantSlug: tenant.subDomain,
+      path: "/",
+      currentHost,
+      currentProtocol,
+      targetRootDomain: schoolSiteRootDomain,
+      targetPort: process.env.SCHOOL_SITE_PORT ?? 3001,
+      pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
+      enablePathStyleHosts: isDev,
+      defaultProtocol: isDev ? "http" : "https",
+    }),
     name: tenant.name,
     subdomain: tenant.subDomain,
   }));
@@ -643,5 +674,12 @@ export default async function Home() {
 
       {isDev ? <DevTenantsFab tenants={tenantLinks} /> : null}
     </div>
+  );
+}
+
+function getRequestHost(headerStore: Headers) {
+  return (
+    headerStore.get("x-forwarded-host")?.split(",")[0]?.trim() ||
+    headerStore.get("host")
   );
 }

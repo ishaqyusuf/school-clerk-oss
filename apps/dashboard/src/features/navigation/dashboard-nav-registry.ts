@@ -115,7 +115,7 @@ export const dashboardNavRegistry: NavModuleDefinition[] = [
       {
         items: [
           {
-            href: "/dashboard",
+            href: "/",
             icon: "dashboard",
             key: "dashboard-home",
             module: "home",

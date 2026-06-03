@@ -8,7 +8,8 @@ import {
 	BreadcrumbPage,
 	BreadcrumbSeparator,
 } from "@school-clerk/ui/breadcrumb";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { useState } from "react";
 
 import { StaffOverviewShell } from "./staff-overview-shell";

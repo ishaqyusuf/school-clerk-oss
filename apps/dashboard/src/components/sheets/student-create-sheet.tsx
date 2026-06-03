@@ -4,13 +4,13 @@ import { SheetHeader, SheetTitle } from "@school-clerk/ui/sheet";
 import { useMemo } from "react";
 
 import { Form } from "../forms/student-form";
+import { StudentFormAction } from "../forms/student-form-action";
 import { FormContext } from "../students/form-context";
 import Sheet from "@school-clerk/ui/custom/sheet";
 export function StudentCreateSheet({}) {
   const { createStudent, createStudentPrefillName, setParams } =
     useStudentParams();
   const isOpen = createStudent;
-  if (!isOpen) return null;
 
   const defaultValues = useMemo(
     () => ({
@@ -31,6 +31,8 @@ export function StudentCreateSheet({}) {
     }),
     [createStudentPrefillName],
   );
+
+  if (!isOpen) return null;
 
   return (
     <FormContext defaultValues={defaultValues}>
@@ -54,6 +56,9 @@ export function StudentCreateSheet({}) {
         <Sheet.Content className="flex flex-col gap-2">
           <Form />
         </Sheet.Content>
+        <Sheet.Footer className="shrink-0 border-t bg-background py-3">
+          <StudentFormAction />
+        </Sheet.Footer>
       </Sheet>
     </FormContext>
   );

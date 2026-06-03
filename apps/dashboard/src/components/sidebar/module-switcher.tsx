@@ -1,5 +1,5 @@
 import { Fragment, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { ChevronsUpDown } from "lucide-react";
 
 import {

@@ -5,8 +5,8 @@ import {
   useState,
   useTransition,
 } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
+import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { PrimitiveDivProps } from "@/types";
 import { DropdownMenuItemProps } from "@radix-ui/react-dropdown-menu";
 import { VariantProps } from "class-variance-authority";

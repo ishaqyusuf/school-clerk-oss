@@ -7,7 +7,7 @@ import { Menu } from "@school-clerk/ui/custom/menu";
 import { enToAr } from "@school-clerk/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
-import Link from "next/link";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 
 export function AssessmentRecording() {
   const { filters, permissions, setFilters } = useAssessmentRecordingParams();

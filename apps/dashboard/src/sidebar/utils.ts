@@ -207,7 +207,7 @@ export const linkModules = [
 
   createNavModule("Community", "school", "School Management", [
     createNavSection("main", "General", [
-      createNavLink("Dashboard", "dashboard", "/dashboard").access(
+      createNavLink("Dashboard", "dashboard", "/").access(
         _role.in("Admin", "Staff"),
       ).data,
       createNavLink("Announcements", "speaker", "/announcements").access(

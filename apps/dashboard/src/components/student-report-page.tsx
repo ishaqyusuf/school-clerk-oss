@@ -1,4 +1,4 @@
-import { namePrintFormat } from "@/app/dashboard/[domain]/(temp)/first-term-1446-1447/utils";
+import { namePrintFormat } from "@/app/[domain]/(temp)/first-term-1446-1447/utils";
 import { configs } from "@/configs";
 import { arabic, moonDance } from "@/fonts";
 import { useReportPageContext } from "@/hooks/use-report-page";

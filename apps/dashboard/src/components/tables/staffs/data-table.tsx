@@ -1,7 +1,7 @@
 "use client";
 
 import { resendStaffOnboardingAction } from "@/actions/save-staff";
-import { staffPageQuery } from "@/app/dashboard/[domain]/(sidebar)/staff/teachers/search-params";
+import { staffPageQuery } from "@/app/[domain]/(sidebar)/staff/teachers/search-params";
 import { MiddaySearchFilter } from "@/components/midday-search-filter/search-filter";
 import { useLoadingToast } from "@/hooks/use-loading-toast";
 import { useStaffParams } from "@/hooks/use-staff-params";
@@ -13,7 +13,8 @@ import {
 } from "@tanstack/react-query";
 import { getInitials } from "@school-clerk/utils";
 import { useAction } from "next-safe-action/hooks";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { useQueryStates } from "nuqs";
 
 import { Avatar, AvatarFallback } from "@school-clerk/ui/avatar";

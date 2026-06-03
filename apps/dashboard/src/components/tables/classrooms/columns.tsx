@@ -9,7 +9,7 @@ import { cn } from "@school-clerk/ui/cn";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
-import Link from "next/link";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { useMemo, useState } from "react";

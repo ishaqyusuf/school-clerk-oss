@@ -1,8 +1,13 @@
-import Link from "next/link";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { ArrowRight, CheckCircle2, Mail, Sparkles } from "lucide-react";
 
 import { Button } from "@school-clerk/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@school-clerk/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@school-clerk/ui/card";
 import { Badge } from "@school-clerk/ui/badge";
 
 export default async function SignupSuccessPage({ searchParams }) {
@@ -86,7 +91,8 @@ export default async function SignupSuccessPage({ searchParams }) {
               <div className="space-y-3 text-sm text-white/75">
                 <p>1. Sign in to your tenant workspace.</p>
                 <p>2. Create your first academic session and term setup.</p>
-                <p>3. Invite staff so your team can start onboarding.</p>
+                <p>3. Set up classrooms for the active session.</p>
+                <p>4. Invite staff so your team can start onboarding.</p>
               </div>
 
               <div className="flex flex-col gap-3 pt-2">
@@ -99,7 +105,12 @@ export default async function SignupSuccessPage({ searchParams }) {
                   </Button>
                 ) : null}
                 {loginUrl ? (
-                  <Button asChild variant="outline" size="lg" className="w-full border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="lg"
+                    className="w-full border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                  >
                     <Link href={loginUrl}>Go to workspace sign-in</Link>
                   </Button>
                 ) : null}
