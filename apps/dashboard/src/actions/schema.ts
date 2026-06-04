@@ -137,7 +137,25 @@ export const createSchoolFeeSchema = z.object({
   amount: z.number(),
   streamId: z.string().optional(),
   streamName: z.string().optional(),
+  collectionStatus: z
+    .enum(["NOT_REQUIRED", "NOT_COLLECTED", "COLLECTED"])
+    .optional(),
   classroomDepartmentIds: z.array(z.string()).default([]),
+});
+const classroomFeeLineSchema = z.object({
+  description: z.string().optional().nullable(),
+  amount: z.number().optional().nullable(),
+});
+const classroomFeeSchema = z.object({
+  streamId: z.string().optional().nullable(),
+  streamName: z.string().optional().nullable(),
+  required: z.boolean().default(true),
+  lines: z.array(classroomFeeLineSchema).default([
+    {
+      description: "",
+      amount: null,
+    },
+  ]),
 });
 export const createBillSchema = z.object({
   title: z.string().min(1),
@@ -177,11 +195,7 @@ export const createClassroomSchema = z.object({
         .optional(),
     )
     .optional(),
-  defaultFeeAmount: z.number().optional().nullable(),
-  defaultFeeDescription: z.string().optional().nullable(),
-  defaultFeeTitle: z.string().optional().nullable(),
-  defaultFeeStreamId: z.string().optional().nullable(),
-  defaultFeeStreamName: z.string().optional().nullable(),
+  defaultFees: z.array(classroomFeeSchema).default([]),
 });
 export const createSignupSchema = (_t?: unknown) =>
   z.object({

@@ -15,6 +15,18 @@ interface Props {
   onClose?;
   termId;
 }
+
+type FeeItemType = "TUITION_FEE" | "BOOK" | "OTHER";
+
+function inferFeeItemType(title: string): FeeItemType {
+  const normalized = title.toLowerCase();
+
+  if (normalized.includes("tuition")) return "TUITION_FEE";
+  if (normalized.includes("book")) return "BOOK";
+
+  return "OTHER";
+}
+
 export function CreateSchoolBill(props: Props) {
   const form = useZodForm(createSchoolFeeSchema, {
     defaultValues: {
@@ -28,7 +40,7 @@ export function CreateSchoolBill(props: Props) {
   const trpc = useTRPC();
   const qc = useQueryClient();
   const { isPending, mutate } = useMutation(
-    trpc.transactions.createSchoolFee.mutationOptions({
+    trpc.finance.createItem.mutationOptions({
       meta: {
         toastTitle: {
           error: "Something went wrong",
@@ -38,16 +50,36 @@ export function CreateSchoolBill(props: Props) {
       },
       onSuccess(data, variables, context) {
         qc?.invalidateQueries({
-          queryKey: trpc.transactions.getTermFees.queryKey(),
+          queryKey: trpc.finance.getItems.queryKey(),
+        });
+        qc?.invalidateQueries({
+          queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),
+        });
+        qc?.invalidateQueries({
+          queryKey: trpc.finance.overview.queryKey(),
         });
         props?.onCreate();
       },
     })
   );
   const onSubmit = (data) => {
+    const streamName = data.title?.trim() || "School Fee";
+    const itemName = data.description?.trim() || streamName;
+
     mutate({
-      ...data,
-      streamName: data.title?.trim() || undefined,
+      accountType: "CREDIT",
+      amount: Number(data.amount ?? 0),
+      classRoomDepartmentIds: [],
+      collectable: true,
+      description: data.description?.trim() || null,
+      id: data.feeId || null,
+      isActive: true,
+      name: itemName,
+      sessionId: null,
+      streamId: null,
+      streamName,
+      termId: props.termId ?? null,
+      type: inferFeeItemType(streamName),
     });
   };
   return (

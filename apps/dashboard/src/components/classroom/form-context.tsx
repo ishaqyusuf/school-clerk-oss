@@ -17,11 +17,7 @@ export function FormContext({ children, defaultValues = undefined }) {
         departmentLevel: null,
       },
     ],
-    defaultFeeAmount: null,
-    defaultFeeDescription: null,
-    defaultFeeTitle: null,
-    defaultFeeStreamId: null,
-    defaultFeeStreamName: null,
+    defaultFees: [],
   };
   const form = useForm<CreateClassRoom>({
     resolver: zodResolver(createClassroomSchema),
@@ -39,11 +35,7 @@ export function FormContext({ children, defaultValues = undefined }) {
         departments: defaultValues.departments?.length
           ? defaultValues.departments
           : initialValues.departments,
-        defaultFeeAmount: defaultValues.defaultFeeAmount ?? null,
-        defaultFeeDescription: defaultValues.defaultFeeDescription ?? null,
-        defaultFeeTitle: defaultValues.defaultFeeTitle ?? null,
-        defaultFeeStreamId: defaultValues.defaultFeeStreamId ?? null,
-        defaultFeeStreamName: defaultValues.defaultFeeStreamName ?? null,
+        defaultFees: defaultValues.defaultFees ?? [],
       });
       return;
     }

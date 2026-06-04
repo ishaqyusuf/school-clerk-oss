@@ -122,19 +122,14 @@ export function AcademicSessionForm({
 
         if (mode === "onboarding") {
           const firstTerm = data?.terms?.[0];
+          await switchSessionTerm({
+            sessionId: data.sessionId,
+            sessionTitle: data.sessionTitle,
+            termId: firstTerm?.id,
+            termTitle: firstTerm?.title,
+          });
+
           router.push("/onboarding/setup-classrooms");
-
-          if (firstTerm) {
-            void switchSessionTerm({
-              sessionId: data.sessionId,
-              sessionTitle: data.sessionTitle,
-              termId: firstTerm.id,
-              termTitle: firstTerm.title,
-            }).catch((error) => {
-              console.error("Failed to switch onboarding session term", error);
-            });
-          }
-
           return;
         }
 

@@ -20,12 +20,11 @@ export function FormContext({ children }) {
 			amount: 0,
 			streamId: "",
 			streamName: "",
+			collectionStatus: "NOT_COLLECTED",
 			classroomDepartmentIds: [],
 		},
 	});
-	const { data: fees = [] } = useQuery(
-		trpc.transactions.getSchoolFees.queryOptions(),
-	);
+	const { data: fees = [] } = useQuery(trpc.finance.getItems.queryOptions());
 
 	useEffect(() => {
 		if (!schoolFeeId) {
@@ -36,6 +35,7 @@ export function FormContext({ children }) {
 				amount: 0,
 				streamId: "",
 				streamName: "",
+				collectionStatus: "NOT_COLLECTED",
 				classroomDepartmentIds: [],
 			});
 			return;
@@ -44,16 +44,16 @@ export function FormContext({ children }) {
 		const fee = fees.find((item) => item.id === schoolFeeId);
 		if (!fee) return;
 
-		const currentHistory = fee.feeHistory?.[0];
 		form.reset({
 			feeId: fee.id,
-			title: fee.title || "",
-			description: fee.description || "",
-			amount: currentHistory?.amount ?? fee.amount ?? 0,
-			streamId: currentHistory?.wallet?.id ?? "",
-			streamName: currentHistory?.wallet?.name ?? "",
+			title: fee.streamName || fee.title || "",
+			description: fee.description || fee.name || "",
+			amount: fee.amount ?? 0,
+			streamId: fee.streamId ?? "",
+			streamName: fee.streamName ?? "",
+			collectionStatus: fee.collectable ? "NOT_COLLECTED" : "NOT_REQUIRED",
 			classroomDepartmentIds:
-				currentHistory?.classroomDepartments?.map(
+				fee.classroomDepartments?.map(
 					(department) => department.id,
 				) ?? [],
 		});

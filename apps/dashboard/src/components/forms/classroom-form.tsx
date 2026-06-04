@@ -46,6 +46,26 @@ type Props = {
   submitPlacement?: "portal" | "inline";
 };
 
+type FeeItemType = "TUITION_FEE" | "BOOK" | "OTHER";
+type ExistingFinanceItem = {
+  id: string;
+  type?: string | null;
+  name?: string | null;
+  streamId?: string | null;
+  streamName?: string | null;
+  collectable?: boolean | null;
+  classroomDepartments?: { id: string }[];
+};
+
+function inferFeeItemType(title: string): FeeItemType {
+  const normalized = title.toLowerCase();
+
+  if (normalized.includes("tuition")) return "TUITION_FEE";
+  if (normalized.includes("book")) return "BOOK";
+
+  return "OTHER";
+}
+
 export function Form({
   onSuccess,
   submitLabel = "Submit",
@@ -58,26 +78,15 @@ export function Form({
   const qc = useQueryClient();
   const hasSubClass = watch("hasSubClass");
   const progressionMode = watch("progressionMode");
-  const className = watch("className");
   const [enableFee, setEnableFee] = useState(false);
 
   const { data: streams = [] } = useQuery(
     trpc.finance.getStreams.queryOptions({ filter: "term" }),
   );
-  
-  const [
-    streamId,
-    streamName,
-    defaultFeeAmount,
-    defaultFeeTitle,
-    defaultFeeDescription,
-  ] = watch([
-    "defaultFeeStreamId",
-    "defaultFeeStreamName",
-    "defaultFeeAmount",
-    "defaultFeeTitle",
-    "defaultFeeDescription",
-  ]);
+  const { data: financeItems = [] } = useQuery(
+    trpc.finance.getItems.queryOptions(),
+  );
+  const defaultFees = watch("defaultFees") ?? [];
 
   const streamOptions = useMemo(
     () =>
@@ -87,32 +96,138 @@ export function Form({
       })),
     [streams],
   );
-  
-  const selectedStream =
-    streamOptions.find((stream) => stream.id === streamId) ||
-    (streamName
-      ? {
-          id: "__new__",
-          label: `${streamName} (new)`,
-        }
-      : undefined);
+  const feeTitleOptions = useMemo(() => {
+    const options = new Map<
+      string,
+      { id: string; label: string; streamId?: string }
+    >();
 
-  const { mutate: createSchoolFee, isPending: creatingFee } = useMutation(
-    trpc.transactions.createSchoolFee.mutationOptions({
+    for (const title of [
+      "Tuition Fee",
+      "Books",
+      "Uniform",
+      "Exam Fee",
+      "Transport",
+      "PTA Levy",
+    ]) {
+      options.set(title.toLowerCase(), { id: `preset:${title}`, label: title });
+    }
+
+    for (const stream of streamOptions) {
+      options.set(stream.label.toLowerCase(), {
+        id: stream.id,
+        label: stream.label,
+        streamId: stream.id,
+      });
+    }
+
+    for (const item of financeItems as {
+      name?: string | null;
+      streamName?: string | null;
+    }[]) {
+      const title = item.streamName || item.name;
+      if (!title) continue;
+
+      options.set(title.toLowerCase(), {
+        id: `item:${title}`,
+        label: title,
+      });
+    }
+
+    for (const fee of defaultFees) {
+      const title = fee?.streamName;
+      if (!title) continue;
+
+      options.set(title.toLowerCase(), {
+        id: `current:${title}`,
+        label: title,
+      });
+    }
+
+    return Array.from(options.values());
+  }, [defaultFees, financeItems, streamOptions]);
+
+  const getDescriptionOptions = (feeTitle?: string | null) => {
+    const normalizedTitle = feeTitle?.trim().toLowerCase();
+    const options = new Map<string, { id: string; label: string }>();
+
+    const presets: Record<string, string[]> = {
+      "tuition fee": ["Basic Tuition Fee"],
+      books: ["English Language", "Mathematics", "Basic Science"],
+      uniform: ["Shirt", "Trousers", "Sportswear"],
+      "exam fee": ["Midterm Assessment", "Final Assessment"],
+      transport: ["School Bus"],
+      "pta levy": ["PTA Levy"],
+    };
+
+    for (const description of presets[normalizedTitle || ""] ?? []) {
+      options.set(description.toLowerCase(), {
+        id: `preset:${description}`,
+        label: description,
+      });
+    }
+
+    for (const item of financeItems as {
+      name?: string | null;
+      streamName?: string | null;
+      description?: string | null;
+    }[]) {
+      if (
+        normalizedTitle &&
+        item.streamName?.trim().toLowerCase() !== normalizedTitle &&
+        item.name?.trim().toLowerCase() !== normalizedTitle
+      ) {
+        continue;
+      }
+
+      if (!item.description) continue;
+
+      options.set(item.description.toLowerCase(), {
+        id: `item:${item.description}`,
+        label: item.description,
+      });
+    }
+
+    for (const fee of defaultFees) {
+      if (
+        normalizedTitle &&
+        fee?.streamName?.trim().toLowerCase() !== normalizedTitle
+      ) {
+        continue;
+      }
+
+      for (const line of fee?.lines ?? []) {
+        if (!line?.description) continue;
+
+        options.set(line.description.toLowerCase(), {
+          id: `current:${line.description}`,
+          label: line.description,
+        });
+      }
+    }
+
+    return Array.from(options.values());
+  };
+
+  const { mutateAsync: createFinanceItem, isPending: creatingFee } = useMutation(
+    trpc.finance.createItem.mutationOptions({
       onSuccess() {
         qc.invalidateQueries({
-          queryKey: trpc.transactions.getSchoolFees.queryKey(),
+          queryKey: trpc.finance.getItems.queryKey(),
         });
         qc.invalidateQueries({
           queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),
         });
+        qc.invalidateQueries({
+          queryKey: trpc.finance.overview.queryKey(),
+        });
       },
-    })
+    }),
   );
 
   const { mutate, isPending } = useMutation(
     trpc.classrooms.createClassroom.mutationOptions({
-      onSuccess(data) {
+      async onSuccess(data) {
         qc.invalidateQueries({ queryKey: trpc.classrooms.all.queryKey({}) });
         qc.invalidateQueries({
           queryKey: trpc.classrooms.getCurrentSessionClassroom.queryKey(),
@@ -121,32 +236,74 @@ export function Form({
           queryKey: trpc.academics.getClassrooms.infiniteQueryKey({}),
         });
 
-        if (enableFee && defaultFeeAmount) {
-          createSchoolFee({
-            amount: defaultFeeAmount,
-            title: defaultFeeTitle || `${className} Tuition`,
-            description: defaultFeeDescription || undefined,
-            streamId: streamId || undefined,
-            streamName: streamName || undefined,
-            classroomDepartmentIds: data.classRoomDepartments.map((d) => d.id),
-          }, {
-            onSettled() {
-              reset();
-              setParams(null);
-              onSuccess?.();
-            }
+        if (enableFee) {
+          const classroomDepartmentIds = data.classRoomDepartments.map(
+            (d) => d.id,
+          );
+          const financeItemInputs = defaultFees.flatMap((fee) => {
+            const title = fee?.streamName?.trim();
+            if (!title) return [];
+
+            return (fee.lines ?? [])
+              .filter((line) => line?.description?.trim() && line?.amount)
+              .map((line) => {
+                const name = line.description?.trim() || title;
+                const type = inferFeeItemType(title);
+                const existingItem = (
+                  financeItems as ExistingFinanceItem[]
+                ).find(
+                  (item) =>
+                    item.type === type &&
+                    item.streamName?.trim().toLowerCase() ===
+                      title.toLowerCase() &&
+                    item.name?.trim().toLowerCase() === name.toLowerCase(),
+                );
+                const mergedClassroomDepartmentIds = Array.from(
+                  new Set([
+                    ...(existingItem?.classroomDepartments?.map(
+                      (department) => department.id,
+                    ) ?? []),
+                    ...classroomDepartmentIds,
+                  ]),
+                );
+
+                return {
+                  accountType: "CREDIT" as const,
+                  amount: line.amount ?? 0,
+                  classRoomDepartmentIds: mergedClassroomDepartmentIds,
+                  collectable: Boolean(existingItem?.collectable || fee.required),
+                  description: line.description?.trim() || null,
+                  name,
+                  streamId: fee.streamId || existingItem?.streamId || null,
+                  streamName: title,
+                  type,
+                  sessionId: null,
+                  termId: null,
+                  id: existingItem?.id ?? null,
+                  isActive: true,
+                };
+              });
           });
-        } else {
-          reset();
-          setParams(null);
-          onSuccess?.();
+
+          for (const item of financeItemInputs) {
+            await createFinanceItem(item);
+          }
         }
+
+        reset();
+        setParams(null);
+        onSuccess?.();
       },
     }),
   );
   const departments = useFieldArray({
     control,
     name: "departments",
+    keyName: "_id",
+  });
+  const feeGroups = useFieldArray({
+    control,
+    name: "defaultFees",
     keyName: "_id",
   });
   const { data: classroomStructures } = useQuery(
@@ -161,8 +318,8 @@ export function Form({
     const fetchedNames = allSchoolClassNames || [];
     const currentNames = new Set(
       (classroomStructures?.data ?? []).map((c) =>
-        c.classRoom?.name?.toLowerCase().trim()
-      )
+        c.classRoom?.name?.toLowerCase().trim(),
+      ),
     );
 
     const defaultClasses = [
@@ -212,7 +369,7 @@ export function Form({
 
   const structureSuggestions = useMemo(() => {
     const rows = classroomStructures?.data ?? [];
-    
+
     const classGroups = new Map<
       string,
       { name: string; departmentLevel: number | null }[]
@@ -221,7 +378,7 @@ export function Form({
     for (const row of rows) {
       const classRoomId = row.classRoom?.id;
       if (!classRoomId) continue;
-      
+
       const existing = classGroups.get(classRoomId) ?? [];
       existing.push({
         name: row.departmentName ?? row.displayName ?? "",
@@ -239,7 +396,7 @@ export function Form({
       if (streams.length <= 1) continue;
 
       const sortedStreams = streams.sort(
-        (a, b) => (a.departmentLevel ?? 9999) - (b.departmentLevel ?? 9999)
+        (a, b) => (a.departmentLevel ?? 9999) - (b.departmentLevel ?? 9999),
       );
 
       const key = sortedStreams
@@ -314,7 +471,9 @@ export function Form({
   const actions = (
     <form onSubmit={onSubmit}>
       <div className="flex justify-end">
-        <SubmitButton isSubmitting={isPending || creatingFee}>{submitLabel}</SubmitButton>
+        <SubmitButton isSubmitting={isPending || creatingFee}>
+          {submitLabel}
+        </SubmitButton>
       </div>
     </form>
   );
@@ -352,7 +511,10 @@ export function Form({
         control={control}
         name="classLevel"
         render={({ field }) => {
-          const maxLevel = Math.max(10, highestClassLevel ? highestClassLevel + 3 : 10);
+          const maxLevel = Math.max(
+            10,
+            highestClassLevel ? highestClassLevel + 3 : 10,
+          );
           const levels = Array.from({ length: maxLevel }, (_, i) => i + 1);
 
           return (
@@ -364,7 +526,9 @@ export function Form({
                     <Button
                       key={level}
                       type="button"
-                      variant={Number(field.value) === level ? "default" : "outline"}
+                      variant={
+                        Number(field.value) === level ? "default" : "outline"
+                      }
                       onClick={() => field.onChange(level)}
                       className="w-10 h-10 p-0"
                     >
@@ -396,7 +560,9 @@ export function Form({
                   <div
                     className={cn(
                       "cursor-pointer rounded-lg border p-4 text-left transition-all hover:border-primary",
-                      field.value === "classroom" ? "border-primary bg-primary/5" : "border-border"
+                      field.value === "classroom"
+                        ? "border-primary bg-primary/5"
+                        : "border-border",
                     )}
                     onClick={() => field.onChange("classroom")}
                   >
@@ -408,13 +574,16 @@ export function Form({
                   <div
                     className={cn(
                       "cursor-pointer rounded-lg border p-4 text-left transition-all hover:border-primary",
-                      field.value === "department" ? "border-primary bg-primary/5" : "border-border"
+                      field.value === "department"
+                        ? "border-primary bg-primary/5"
+                        : "border-border",
                     )}
                     onClick={() => field.onChange("department")}
                   >
                     <p className="font-semibold text-sm">Within Sub-classes</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Students progress through different sub-class levels within this same class.
+                      Students progress through different sub-class levels
+                      within this same class.
                     </p>
                   </div>
                 </div>
@@ -459,7 +628,6 @@ export function Form({
           </div>
         </div>
       )}
-
 
       {hasSubClass && (
         <Table>
@@ -543,12 +711,15 @@ export function Form({
             checked={enableFee}
             onChange={(e) => {
               setEnableFee(e.target.checked);
-              if (!e.target.checked) {
-                setValue("defaultFeeAmount", null);
-                setValue("defaultFeeDescription", null);
-                setValue("defaultFeeTitle", null);
-                setValue("defaultFeeStreamId", null);
-                setValue("defaultFeeStreamName", null);
+              if (e.target.checked && !feeGroups.fields.length) {
+                feeGroups.append({
+                  streamId: null,
+                  streamName: "Tuition Fee",
+                  required: true,
+                  lines: [{ description: "Basic Tuition Fee", amount: null }],
+                });
+              } else if (!e.target.checked) {
+                setValue("defaultFees", []);
               }
             }}
             className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
@@ -558,62 +729,218 @@ export function Form({
               htmlFor="enableFee"
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
-              Set default tuition fee for this class
+              Set fees for this class
             </label>
             <p className="text-xs text-muted-foreground">
-              Automatically assign a billing amount for all students enrolled in this class.
+              Add tuition, books, uniforms, and other required or optional fees.
             </p>
           </div>
         </div>
 
         {enableFee && (
           <div className="grid gap-4 pt-2 border-t">
-            <FormInput
-              label="Fee Title"
-              name="defaultFeeTitle"
-              control={control}
-              placeholder="e.g. Tuition Fee"
-            />
-            <div className="grid gap-2">
-              <Label>Incoming Stream</Label>
-              <ComboboxDropdown
-                items={streamOptions}
-                selectedItem={selectedStream}
-                placeholder="Select or create a stream"
-                searchPlaceholder="Search or create stream..."
-                onSelect={(stream) => {
-                  setValue("defaultFeeStreamId", stream.id);
-                  setValue("defaultFeeStreamName", stream.label);
-                }}
-                onCreate={(value) => {
-                  setValue("defaultFeeStreamId", "");
-                  setValue("defaultFeeStreamName", value.trim());
-                }}
-                renderOnCreate={(value) => (
-                  <span>Create new incoming stream "{value}"</span>
-                )}
-              />
-              <p className="text-xs text-muted-foreground">
-                New streams created here default to incoming revenue streams.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <FormInput
-                label="Amount"
-                name="defaultFeeAmount"
-                control={control}
-                numericProps={{
-                  prefix: "NGN ",
-                  placeholder: "NGN 0",
-                }}
-              />
-              <FormInput
-                label="Description (Optional)"
-                name="defaultFeeDescription"
-                control={control}
-                placeholder="e.g. Basic 1 only"
-              />
-            </div>
+            {feeGroups.fields.map((fee, feeIndex) => {
+              const feeValue = defaultFees[feeIndex];
+              const selectedFeeTitle =
+                feeTitleOptions.find(
+                  (option) => option.label === feeValue?.streamName,
+                ) ||
+                (feeValue?.streamName
+                  ? {
+                      id: `current:${feeValue.streamName}`,
+                      label: feeValue.streamName,
+                    }
+                  : undefined);
+              const feeLines = feeValue?.lines?.length
+                ? feeValue.lines
+                : [{ description: "", amount: null }];
+
+              return (
+                <div key={fee._id} className="grid gap-3 rounded-md border p-3">
+                  <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+                    <div className="grid gap-2">
+                      <Label>Fee Title</Label>
+                      <ComboboxDropdown
+                        items={feeTitleOptions}
+                        selectedItem={selectedFeeTitle}
+                        placeholder="Select or create a fee title"
+                        searchPlaceholder="Search or create fee title..."
+                        onSelect={(stream) => {
+                          setValue(
+                            `defaultFees.${feeIndex}.streamId`,
+                            stream.streamId ?? "",
+                          );
+                          setValue(
+                            `defaultFees.${feeIndex}.streamName`,
+                            stream.label,
+                          );
+                        }}
+                        onCreate={(value) => {
+                          const nextTitle = value.trim();
+                          setValue(`defaultFees.${feeIndex}.streamId`, "");
+                          setValue(
+                            `defaultFees.${feeIndex}.streamName`,
+                            nextTitle,
+                          );
+                        }}
+                        renderOnCreate={(value) => (
+                          <span>Create new fee title "{value}"</span>
+                        )}
+                      />
+                    </div>
+                    {feeGroups.fields.length > 1 && (
+                      <div className="flex items-end justify-end">
+                        <ConfirmBtn
+                          trash
+                          onClick={() => {
+                            feeGroups.remove(feeIndex);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid gap-2">
+                    {feeLines.map((line, lineIndex) => {
+                      const descriptionOptions = getDescriptionOptions(
+                        feeValue?.streamName,
+                      );
+                      const selectedDescription =
+                        descriptionOptions.find(
+                          (option) => option.label === line?.description,
+                        ) ||
+                        (line?.description
+                          ? {
+                              id: `current:${line.description}`,
+                              label: line.description,
+                            }
+                          : undefined);
+
+                      return (
+                        <div
+                          key={`${fee._id}-${lineIndex}`}
+                          className="flex flex-col gap-3 md:flex-row md:items-end"
+                        >
+                          <div className="grid gap-2 md:w-1/5">
+                            {lineIndex === 0 ? <Label>Fee Type</Label> : null}
+                            {lineIndex === 0 ? (
+                              <Select
+                                value={
+                                  feeValue?.required === false
+                                    ? "optional"
+                                    : "required"
+                                }
+                                onValueChange={(value) => {
+                                  setValue(
+                                    `defaultFees.${feeIndex}.required`,
+                                    value === "required",
+                                  );
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="required">
+                                    Required
+                                  </SelectItem>
+                                  <SelectItem value="optional">
+                                    Optional
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <div className="hidden h-10 md:block" />
+                            )}
+                          </div>
+                          <div className="grid gap-2 md:w-full">
+                            {lineIndex === 0 ? <Label>Description</Label> : null}
+                            <ComboboxDropdown
+                              items={descriptionOptions}
+                              selectedItem={selectedDescription}
+                              placeholder="Select or create description"
+                              searchPlaceholder="Search or create description..."
+                              onSelect={(description) => {
+                                setValue(
+                                  `defaultFees.${feeIndex}.lines.${lineIndex}.description`,
+                                  description.label,
+                                );
+                              }}
+                              onCreate={(value) => {
+                                setValue(
+                                  `defaultFees.${feeIndex}.lines.${lineIndex}.description`,
+                                  value.trim(),
+                                );
+                              }}
+                              renderOnCreate={(value) => (
+                                <span>Create description "{value}"</span>
+                              )}
+                            />
+                          </div>
+                          <div className="md:w-1/5">
+                            <FormInput
+                              label={lineIndex === 0 ? "Amount" : undefined}
+                              name={`defaultFees.${feeIndex}.lines.${lineIndex}.amount`}
+                              control={control}
+                              numericProps={{
+                                prefix: "NGN ",
+                                placeholder: "NGN 0",
+                                thousandSeparator: true,
+                              }}
+                            />
+                          </div>
+                          {feeLines.length > 1 && (
+                            <div className="flex items-end justify-end">
+                              <ConfirmBtn
+                                trash
+                                onClick={() => {
+                                  setValue(
+                                    `defaultFees.${feeIndex}.lines`,
+                                    feeLines.filter(
+                                      (_line, index) => index !== lineIndex,
+                                    ),
+                                  );
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setValue(`defaultFees.${feeIndex}.lines`, [
+                          ...feeLines,
+                          { description: "", amount: null },
+                        ]);
+                      }}
+                    >
+                      Add Sub Fee
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                feeGroups.append({
+                  streamId: null,
+                  streamName: "",
+                  required: true,
+                  lines: [{ description: "", amount: null }],
+                });
+              }}
+            >
+              Add More Fee
+            </Button>
           </div>
         )}
       </div>

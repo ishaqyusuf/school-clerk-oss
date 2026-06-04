@@ -81,6 +81,7 @@ export default function FormInput<
                   <div className="relative font-mono">
                     <NumericFormat
                       value={field.value}
+                      customInput={Input}
                       {...numericProps}
                       {...{ className }}
                       onValueChange={(e) => {
