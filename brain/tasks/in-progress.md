@@ -40,3 +40,11 @@ Tracks tasks currently being worked on.
 - Current status: Added assistant persistence schema, tenant assistant config model, server-side conversation/run/tool/feedback helpers, role-aware capability gating, explicit mutation confirmation flow, expanded operational tools, history/settings/analytics widget views, and focused assistant-only typecheck coverage via `tsconfig.assistant.json`.
 - Blockers: Prisma migration rollout has not been executed yet, and full dashboard `tsc --noEmit` is still blocked by the unrelated parse error in `src/components/configure-term.tsx`.
 - Owner: Codex
+
+## Task Item
+- ID: FIN-IA-001
+- Title: Rebuild Account & Finance UI information architecture and navigation
+- Started: 2026-06-05
+- Current status: Planning/handoff complete. Full implementation guide is documented in `brain/tasks/account-finance-ui-rebuild-handoff.md`.
+- Blockers: Implementation has not started. Next agent must first determine whether `apps/dashboard/src/features/navigation/dashboard-nav-registry.ts`, `apps/dashboard/src/sidebar/utils.ts`, or the shared `packages/navigation` adapter is the active navigation source before editing.
+- Owner: Unassigned

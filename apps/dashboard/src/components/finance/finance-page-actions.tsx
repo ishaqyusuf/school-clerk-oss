@@ -3,14 +3,15 @@
 import { Button } from "@school-clerk/ui/button";
 import { CreditCard, Plus } from "lucide-react";
 import { useFinanceSheetParams } from "@/hooks/use-finance-sheet-params";
+import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
 
 export function CreateChargeAction() {
-	const { setParams } = useFinanceSheetParams();
+	const { setParams } = useReceivePaymentParams();
 
 	return (
 		<Button
 			className="w-fit gap-2"
-			onClick={() => setParams({ createFinanceCharge: true })}
+			onClick={() => setParams({ receivePayment: true })}
 		>
 			<Plus className="h-4 w-4" />
 			Create Charge

@@ -65,10 +65,10 @@ export function DataTable() {
             <Button
               variant="outline"
               onClick={() => {
-                setParams({});
+                setPaymentParams({ receivePayment: true });
               }}
             >
-              Create Bill
+              Create Charge
             </Button>
           </div>
           <Table>
