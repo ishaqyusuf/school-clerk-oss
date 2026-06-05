@@ -1,6 +1,11 @@
+import { useMemo, useState, useEffect } from "react";
+import { Sparkles } from "lucide-react";
+
 import { studentDisplayName } from "@/utils/utils";
 
 import { Button } from "@school-clerk/ui/button";
+import { Label } from "@school-clerk/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@school-clerk/ui/select";
 
 import { CollapseForm } from "../collapse-form";
 import { useStudentFormContext } from "../students/form-context";
@@ -19,12 +24,73 @@ import { FindAndEnroll } from "../find-and-enroll";
 
 interface Props {}
 export function Form({}) {
-  const { control, handleSubmit, watch } = useStudentFormContext();
+  const { control, handleSubmit, watch, setValue } = useStudentFormContext();
   const trpc = useTRPC();
 
   const { data: classList } = useQuery(
     trpc.classrooms.getCurrentSessionClassroom.queryOptions()
   );
+
+  const mainClassrooms = useMemo(() => {
+    if (!classList?.data) return [];
+    const map = new Map<string, { id: string; name: string; studentCount: number; departments: typeof classList.data }>();
+    for (const dept of classList.data) {
+      if (!dept.classRoom) continue;
+      if (!map.has(dept.classRoom.id)) {
+        map.set(dept.classRoom.id, {
+          id: dept.classRoom.id,
+          name: dept.classRoom.name || "",
+          studentCount: 0,
+          departments: [],
+        });
+      }
+      map.get(dept.classRoom.id)!.departments.push(dept);
+      // @ts-ignore - _count might not be typed fully in the router response type, but it is returned
+      map.get(dept.classRoom.id)!.studentCount += dept._count?.studentSessionForms || 0;
+    }
+    return Array.from(map.values());
+  }, [classList?.data]);
+
+  const [selectedMainClassId, setSelectedMainClassId] = useState<string>("");
+
+  const handleMainClassChange = (mainClassId: string) => {
+    setSelectedMainClassId(mainClassId);
+    const mainClass = mainClassrooms.find((c) => c.id === mainClassId);
+    if (mainClass?.departments.length === 1) {
+      setValue("classRoomId", mainClass.departments[0].id, { shouldValidate: true, shouldDirty: true });
+    } else {
+      setValue("classRoomId", null, { shouldValidate: true, shouldDirty: true });
+    }
+  };
+
+  const selectedMainClass = mainClassrooms.find(c => c.id === selectedMainClassId);
+  const showSubClassSelect = selectedMainClass && selectedMainClass.departments.length > 5;
+  const showSubClassGrid = selectedMainClass && selectedMainClass.departments.length > 1 && selectedMainClass.departments.length <= 5;
+
+  const devQuickFill = () => {
+    const firstNames = ["Aisha", "Fatima", "Zainab", "Maryam", "Yusuf"];
+    const lastNames = ["Bello", "Okafor", "Danjuma", "Adewale", "Garba"];
+    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+    const otherName = "A.";
+
+    setValue("name", `${firstName} ${lastName} ${otherName}`, { shouldValidate: true, shouldDirty: true });
+    setValue("surname", lastName, { shouldValidate: true, shouldDirty: true });
+    setValue("otherName", otherName, { shouldValidate: true, shouldDirty: true });
+    setValue("gender", Math.random() > 0.5 ? "Male" : "Female", { shouldValidate: true, shouldDirty: true });
+    setValue("dob", new Date(2010, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28)), { shouldValidate: true, shouldDirty: true });
+    setValue("guardian.name", `Mr/Mrs ${lastName}`, { shouldValidate: true, shouldDirty: true });
+    setValue("guardian.phone", `+23480${Math.floor(10000000 + Math.random() * 89999999)}`, { shouldValidate: true, shouldDirty: true });
+    
+    if (mainClassrooms.length > 0) {
+      const randomClass = mainClassrooms[Math.floor(Math.random() * mainClassrooms.length)];
+      setSelectedMainClassId(randomClass.id);
+      if (randomClass.departments.length > 0) {
+         const randomDept = randomClass.departments[Math.floor(Math.random() * randomClass.departments.length)];
+         setValue("classRoomId", randomDept.id, { shouldValidate: true, shouldDirty: true });
+      }
+    }
+  };
   // const classList = useAsyncMemo(async () => {
   //   await timeout(randomInt(250));
   //   const profile = await getAuthCookie();
@@ -40,6 +106,16 @@ export function Form({}) {
   const auth = useAuth();
   const name = watch("name");
   const classRoomId = watch("classRoomId");
+
+  useEffect(() => {
+    if (classRoomId && classList?.data) {
+      const dept = classList.data.find(d => d.id === classRoomId);
+      if (dept?.classRoom?.id && dept.classRoom.id !== selectedMainClassId) {
+        setSelectedMainClassId(dept.classRoom.id);
+      }
+    }
+  }, [classRoomId, classList?.data]);
+
   const { data: applicableFeesPreview } = useQuery(
     trpc.academics.previewApplicableFeeHistories.queryOptions(
       {
@@ -54,6 +130,15 @@ export function Form({}) {
 
   return (
     <div className="flex flex-col gap-4">
+      {process.env.NODE_ENV !== "production" && (
+        <div className="flex justify-between items-center">
+          <h3 className="font-medium">Student Details</h3>
+          <Button variant="outline" type="button" onClick={devQuickFill} size="sm">
+            <Sparkles className="mr-2 h-4 w-4" />
+            Quick fill
+          </Button>
+        </div>
+      )}
       <FormInput name="name" label="Name" control={control} />
       <FindAndEnroll query={name} />
       <div className="grid grid-cols-2 gap-4">
@@ -67,14 +152,54 @@ export function Form({}) {
         />
         <FormDate control={control} label="DoB" name="dob" />
       </div>
-      <FormSelect
-        control={control}
-        name="classRoomId"
-        options={classList?.data}
-        valueKey="id"
-        label="Class"
-        titleKey="displayName"
-      />
+      <div className="space-y-2">
+        <Label>Classroom</Label>
+        <Select value={selectedMainClassId} onValueChange={handleMainClassChange}>
+          <SelectTrigger>
+             <SelectValue placeholder="Select Classroom" />
+          </SelectTrigger>
+          <SelectContent>
+            {mainClassrooms.map(c => (
+               <SelectItem key={c.id} value={c.id}>{c.name} ({c.studentCount})</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {showSubClassGrid && (
+        <div className="space-y-2">
+          <Label>Stream / Sub-class</Label>
+          <div className="grid grid-cols-3 gap-4">
+            {selectedMainClass!.departments.map((dept) => (
+              <Button
+                key={dept.id}
+                type="button"
+                variant={classRoomId === dept.id ? "default" : "outline"}
+                onClick={() => setValue("classRoomId", dept.id, { shouldValidate: true, shouldDirty: true })}
+                className="h-auto flex-col py-2"
+              >
+                <span>{dept.departmentName}</span>
+                {/* @ts-ignore */}
+                <span className="text-xs opacity-70 font-normal mt-1">{dept._count?.studentSessionForms || 0} students</span>
+              </Button>
+            ))}
+          </div>
+          <input type="hidden" {...control.register("classRoomId")} />
+        </div>
+      )}
+      {showSubClassSelect && (
+        <FormSelect
+          control={control}
+          name="classRoomId"
+          options={selectedMainClass!.departments.map(d => ({
+            ...d,
+            // @ts-ignore
+            displayName: `${d.departmentName} (${d._count?.studentSessionForms || 0})`
+          }))}
+          valueKey="id"
+          label="Stream / Sub-class"
+          titleKey="displayName"
+        />
+      )}
       <div className="rounded-lg border border-border p-3">
         <h4 className="text-sm font-medium">Fees that will be applied on save</h4>
         {!applicableFeesPreview?.length ? (
