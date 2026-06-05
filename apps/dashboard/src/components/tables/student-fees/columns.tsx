@@ -60,6 +60,7 @@ function CollectionStatusBadge({ status }: { status?: string | null }) {
 
 export function buildColumns(
   onApplyDiscount: (item: Item) => void,
+  onRecordPayment?: (item: Item) => void,
 ): ColumnDef<Item>[] {
   return [
     {
@@ -111,20 +112,35 @@ export function buildColumns(
     {
       header: "",
       accessorKey: "action",
-      meta: { className: "w-28" },
+      meta: { className: "w-44 text-right" },
       cell: ({ row: { original: item } }) =>
         item.pendingAmount > 0 && item.collectionStatus !== "WAIVED" ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={(e) => {
-              e.stopPropagation();
-              onApplyDiscount(item);
-            }}
-          >
-            Discount
-          </Button>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                onApplyDiscount(item);
+              }}
+            >
+              Discount
+            </Button>
+            {onRecordPayment && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRecordPayment(item);
+                }}
+              >
+                Record Payment
+              </Button>
+            )}
+          </div>
         ) : null,
     },
   ];

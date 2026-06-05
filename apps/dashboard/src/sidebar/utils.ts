@@ -243,27 +243,42 @@ export const linkModules = [
       _link("Dashboard", "dashboard", "/finance").access(_role.is("Admin"))
         .data,
     ]),
-    _section("main", "Finance Managment", [
-      _link("Fee Management", "wallet", "/finance/fees-management").access(
+    _section("main", "Income & Receivables", [
+      _link("Student Accounts", "users", "/finance/student-fees").access(
+        _role.in("Admin", "Accountant"),
+      ).data,
+      _link("Fee Structures", "coins", "/finance/fees-management").access(
         _role.is("Admin"),
       ).data,
-      _link("Billables", "page", "/finance/billables").access(
+      _link("Service Billables", "package", "/finance/billables").access(
+        _role.is("Admin"),
+      ).data,
+      _link("General Collections", "trending-up", "/finance/collections").access(
+        _role.in("Admin", "Accountant"),
+      ).data,
+    ]),
+    _section("main", "Expenses & Payables", [
+      _link("Bills & Expenses", "file-text", "/finance/bills").access(
+        _role.in("Admin", "Accountant"),
+      ).data,
+      _link("Staff Remuneration", "credit-card", "/finance/payments").access(
+        _role.in("Admin", "Accountant"),
+      ).data,
+      _link("Payroll", "wallet", "/staff/payroll").access(
         _role.is("Admin"),
       ).data,
     ]),
-    _section("main", "Fees", [
+    _section("main", "Ledger & Accounts", [
       _link("Transactions", "reciept", "/finance/transactions").access(
         _role.in("Admin", "Accountant"),
       ).data,
-      _link("Internal Transfers", "reciept", "/finance/internal-transfers")
-        .access(_role.in("Admin", "Accountant")).data,
-      _link("Student Fees", "coins", "/finance/student-fees").access(
+      _link("Account Streams", "layers", "/finance/streams").access(
+        _role.is("Admin"),
+      ).data,
+      _link("Internal Transfers", "repeat", "/finance/internal-transfers").access(
         _role.in("Admin", "Accountant"),
       ).data,
-      _link("Bills", "post", "/finance/bills").access(
-        _role.in("Admin", "Accountant"),
-      ).data,
-      _link("Payments", "credit-card", "/finance/payments").access(
+      _link("Reconciliation", "check-circle", "/finance/reconciliation").access(
         _role.in("Admin", "Accountant"),
       ).data,
     ]),

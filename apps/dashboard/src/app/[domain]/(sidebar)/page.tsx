@@ -21,6 +21,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
+import { redirect } from "next/navigation";
 
 async function getDashboardStats(schoolId: string, sessionId: string) {
   const [students, staff, classes] = await Promise.all([
@@ -94,6 +95,17 @@ export default async function Page({ params }) {
   const stats = sessionId
     ? await getDashboardStats(schoolId, sessionId)
     : { students: 0, staff: 0, classes: 0 };
+
+  if (cookie?.auth?.userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: cookie.auth.userId },
+      select: { role: true },
+    });
+
+    if (user && (user.role === "Teacher" || user.role === "Staff")) {
+      redirect("/teacher");
+    }
+  }
 
   return (
     <div className="space-y-8 py-4">

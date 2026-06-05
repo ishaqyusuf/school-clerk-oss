@@ -532,7 +532,27 @@ export const academicsRouter = createTRPCRouter({
     }),
   previewApplicableFeeHistories: publicProcedure
     .input(previewApplicableFeeHistoriesSchema)
-    .query(async () => []),
+    .query(async ({ ctx, input }) => {
+      if (!input.classroomDepartmentId) return [];
+      const items = await ctx.db.financeItem.findMany({
+        where: {
+          schoolProfileId: ctx.profile.schoolId,
+          isActive: true,
+          applicableClasses: {
+            some: { classRoomDepartmentId: input.classroomDepartmentId },
+          },
+        },
+        include: { stream: true },
+      });
+      return items.map((item) => ({
+        feeHistoryId: item.id,
+        title: item.name,
+        amount: Number(item.amount),
+        description: item.description,
+        scope: "Classroom",
+        streamName: item.stream.name,
+      }));
+    }),
   migrateTermData: publicProcedure
     .input(
       z.object({

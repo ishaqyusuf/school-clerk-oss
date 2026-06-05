@@ -8,11 +8,12 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 
 type Props = {
 	initialSettings?: Partial<TableSettings>;
+	filter?: { payerType?: string; status?: string };
 };
 
-export function FinanceChargesTable({ initialSettings }: Props) {
+export function FinanceChargesTable({ initialSettings, filter = {} }: Props) {
 	const trpc = useTRPC();
-	const { data } = useSuspenseQuery(trpc.finance.getCharges.queryOptions({}));
+	const { data } = useSuspenseQuery(trpc.finance.getCharges.queryOptions(filter));
 
 	return (
 		<DataTable

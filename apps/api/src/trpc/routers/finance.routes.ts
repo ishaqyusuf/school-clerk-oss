@@ -14,6 +14,7 @@ import {
 	listFinanceTransactions,
 	listFinanceTransfers,
 	recordFinancePayment,
+	reverseFinancePayment,
 	searchFinanceStudents,
 	transferFinanceFunds,
 	upsertFinanceItem,
@@ -64,6 +65,14 @@ const chargeListInput = z
 		sessionId: z.string().optional().nullable(),
 		status: z.string().optional().nullable(),
 		collectionStatus: z.string().optional().nullable(),
+		payerType: z.string().optional().nullable(),
+	})
+	.optional();
+
+const itemListInput = z
+	.object({
+		type: z.string().optional().nullable(),
+		excludeType: z.string().optional().nullable(),
 	})
 	.optional();
 
@@ -414,7 +423,9 @@ export const financeRouter = createTRPCRouter({
 		.input(financeItemInputSchema)
 		.mutation(({ ctx, input }) => upsertFinanceItem(ctx, input)),
 
-	getItems: authenticatedProcedure.query(({ ctx }) => listFinanceItems(ctx)),
+	getItems: authenticatedProcedure
+		.input(itemListInput)
+		.query(({ ctx, input }) => listFinanceItems(ctx, input)),
 
 	createCharge: authenticatedProcedure
 		.input(financeChargeInputSchema)
@@ -428,9 +439,9 @@ export const financeRouter = createTRPCRouter({
 		.input(financePaymentInputSchema)
 		.mutation(({ ctx, input }) => recordFinancePayment(ctx, input)),
 
-	getPayments: authenticatedProcedure.query(({ ctx }) =>
-		listFinancePayments(ctx),
-	),
+	getPayments: authenticatedProcedure
+		.input(z.object({ payerType: z.string().optional().nullable() }).optional())
+		.query(({ ctx, input }) => listFinancePayments(ctx, input)),
 
 	transferFunds: authenticatedProcedure
 		.input(transferCompatInput)
@@ -507,9 +518,9 @@ export const financeRouter = createTRPCRouter({
 			};
 		}),
 
-	getBillables: authenticatedProcedure.query(({ ctx }) =>
-		listFinanceItems(ctx),
-	),
+	getBillables: authenticatedProcedure
+		.input(itemListInput)
+		.query(({ ctx, input }) => listFinanceItems(ctx, input)),
 	createBillable: authenticatedProcedure
 		.input(legacyItemInput)
 		.mutation(({ ctx, input }) =>
@@ -638,8 +649,15 @@ export const financeRouter = createTRPCRouter({
 		.input(optionalCompatInput)
 		.mutation(() => resetPayload),
 	reverseStudentPayment: authenticatedProcedure
-		.input(optionalCompatInput)
-		.mutation(() => resetPayload),
+		.input(
+			z.object({
+				paymentId: z.string(),
+				note: z.string().optional(),
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			return reverseFinancePayment(ctx, input);
+		}),
 	generateBillsFromBillables: authenticatedProcedure
 		.input(optionalCompatInput)
 		.mutation(() => resetPayload),
@@ -651,7 +669,7 @@ export const financeRouter = createTRPCRouter({
 	),
 	getStudentPurchaseSuggestions: authenticatedProcedure
 		.input(optionalCompatInput)
-		.query(({ ctx }) => listFinanceItems(ctx)),
+		.query(({ ctx }) => listFinanceItems(ctx, { excludeType: "SALARY" })),
 	createStudentPurchase: authenticatedProcedure
 		.input(legacyChargeInput)
 		.mutation(({ ctx, input }) =>

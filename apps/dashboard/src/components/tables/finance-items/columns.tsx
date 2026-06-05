@@ -1,6 +1,6 @@
 "use client";
 
-import { NumberInput } from "@/components/currency-input";
+import { AnimatedNumber } from "@/components/animated-number";
 import { Badge } from "@school-clerk/ui/badge";
 import type { ColumnDef } from "@tanstack/react-table";
 
@@ -65,7 +65,9 @@ export const columns: ColumnDef<FinanceItemRow>[] = [
 		size: 150,
 		meta: { headerLabel: "Amount", skeleton: { type: "text", width: "w-24" } },
 		cell: ({ row }) => (
-			<NumberInput value={row.original.amount} prefix="NGN " />
+			<div className="font-mono text-sm">
+				<AnimatedNumber value={row.original.amount} />
+			</div>
 		),
 	},
 	{

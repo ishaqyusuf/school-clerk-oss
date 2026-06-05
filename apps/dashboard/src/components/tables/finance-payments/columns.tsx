@@ -95,4 +95,70 @@ export const columns: ColumnDef<FinancePaymentRow>[] = [
 			</Badge>
 		),
 	},
+	{
+		id: "actions",
+		size: 50,
+		cell: ({ row }) => <FinancePaymentRowActions row={row} />,
+	},
 ];
+
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@school-clerk/ui/dropdown-menu";
+import { Button } from "@school-clerk/ui/button";
+import { MoreHorizontal, Undo } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTRPC } from "@/trpc/client";
+
+function FinancePaymentRowActions({ row }: { row: { original: FinancePaymentRow } }) {
+	const trpc = useTRPC();
+	const queryClient = useQueryClient();
+
+	const reversePayment = useMutation(
+		trpc.finance.reverseStudentPayment.mutationOptions({
+			onSuccess: async () => {
+				await Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: trpc.finance.getPayments.queryKey(),
+					}),
+					queryClient.invalidateQueries({
+						queryKey: trpc.finance.getCharges.queryKey({}),
+					}),
+					queryClient.invalidateQueries({
+						queryKey: trpc.finance.overview.queryKey(),
+					}),
+					queryClient.invalidateQueries({
+						queryKey: trpc.finance.getLedgerEntries.queryKey(),
+					}),
+				]);
+			},
+		}),
+	);
+
+	if (row.original.status === "CANCELLED" || row.original.status === "REVERSED") {
+		return null;
+	}
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button variant="ghost" className="h-8 w-8 p-0">
+					<span className="sr-only">Open menu</span>
+					<MoreHorizontal className="h-4 w-4" />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end">
+				<DropdownMenuItem
+					className="text-destructive focus:text-destructive"
+					onClick={() => reversePayment.mutate({ paymentId: row.original.id })}
+				>
+					<Undo className="mr-2 h-4 w-4" />
+					Reverse Payment
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}

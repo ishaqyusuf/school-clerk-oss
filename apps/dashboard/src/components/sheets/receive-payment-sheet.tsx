@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 
 import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
+import { useAddFeeParams } from "@/hooks/use-add-fee-params";
+import { AddFeeSheet } from "@/components/finance/forms/add-fee-sheet";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { useTRPC } from "@/trpc/client";
 import { cn } from "@school-clerk/ui/cn";
@@ -116,8 +118,15 @@ type AutoGroup = {
 type PurchaseSuggestion = {
 	id: string;
 	label: string;
+	title?: string | null;
 	description?: string | null;
 	amount?: number | null;
+	streamId?: string | null;
+	streamName?: string | null;
+	collectable?: boolean | null;
+	isActive?: boolean | null;
+	classroomDepartments?: { id: string }[];
+	applicableClasses?: { id: string }[];
 };
 
 const paymentMethods = [
@@ -136,12 +145,6 @@ function clampAmount(value: number, max: number) {
 	return Math.max(0, Math.min(value, max));
 }
 
-function isPurchaseAutocompleteStream(name?: string | null) {
-	return /book|uniform|store|stationery|kit|textbook|exercise|library/i.test(
-		name || "",
-	);
-}
-
 function toNumber(value: string | number | null | undefined) {
 	return Number(value || 0);
 }
@@ -156,6 +159,7 @@ export function ReceivePaymentSheet() {
 	const studentSheetParams = useStudentParams();
 	const isOpen = Boolean(receivePaymentOpen);
 	const selectedStudentId = receivePaymentStudentId || "";
+	const { setParams: setAddFeeParams } = useAddFeeParams();
 	const trpc = useTRPC();
 	const qc = useQueryClient();
 
@@ -252,17 +256,20 @@ export function ReceivePaymentSheet() {
 	const studentOptions = searchResults.map((student) => ({
 		id: student.id,
 		label: student.name,
+		classroomId: student.classroomId || null,
 		classroom: student.classroom,
 		term: student.currentTermLabel,
 		hasCurrentTermSheet: student.hasCurrentTermSheet,
 	}));
 
-	const selectedStudent =
+	const selectedStudent: any =
 		studentOptions.find((student) => student.id === selectedStudentId) ||
 		(data?.student
 			? {
 					id: data.student.id,
 					label: data.student.name,
+					classroomId:
+						(data.currentTermForm as any)?.classroomDepartment?.id || null,
 					classroom: data.student.currentClassroom,
 					term: data.student.currentTerm,
 					hasCurrentTermSheet: Boolean(data.currentTermForm?.id),
@@ -307,14 +314,68 @@ export function ReceivePaymentSheet() {
 
 	const purchaseOptions = useMemo(
 		() =>
-			(purchaseSuggestions ?? []).map((item) => ({
-				id: item.id,
-				label: item.description || item.title,
-				description: item.description || item.title,
-				amount: item.amount,
-			})),
-		[purchaseSuggestions],
+			(purchaseSuggestions ?? [])
+				.filter((item) => {
+					const classRows =
+						item.classroomDepartments ?? item.applicableClasses ?? [];
+					if (!classRows.length || !selectedStudent?.classroomId) {
+						return true;
+					}
+
+					return classRows.some(
+						(row) => row.id === selectedStudent.classroomId,
+					);
+				})
+				.map((item) => ({
+					id: item.id,
+					label: item.description || item.title || item.streamName || "Fee item",
+					description:
+						item.description || item.title || item.streamName || "Fee item",
+					amount: item.amount,
+					streamId: item.streamId,
+					streamName: item.streamName,
+					collectable: item.collectable,
+					isActive: item.isActive,
+				})),
+		[purchaseSuggestions, selectedStudent?.classroomId],
 	);
+
+	const streamItemOptions = useMemo(() => {
+		const options = new Map<string, typeof purchaseOptions>();
+
+		const addOption = (
+			key: string | null | undefined,
+			item: (typeof purchaseOptions)[number],
+		) => {
+			if (!key || item.isActive === false) return;
+			const existing = options.get(key) ?? [];
+			if (!existing.some((existingItem) => existingItem.id === item.id)) {
+				options.set(key, [...existing, item]);
+			}
+		};
+
+		for (const item of purchaseOptions) {
+			addOption(item.streamId, item);
+			addOption(item.streamName?.trim().toLowerCase(), item);
+		}
+
+		return options;
+	}, [purchaseOptions]);
+
+	const getStreamItemOptions = (stream?: StreamOption | null) => {
+		if (!stream) return [];
+		const byId = streamItemOptions.get(stream.id) ?? [];
+		const byName =
+			streamItemOptions.get(stream.name.trim().toLowerCase()) ?? [];
+		const merged = new Map<string, (typeof purchaseOptions)[number]>();
+		for (const item of [...byId, ...byName]) {
+			merged.set(item.id, item);
+		}
+		return Array.from(merged.values());
+	};
+
+	const getFirstStreamItem = (stream?: StreamOption | null) =>
+		getStreamItemOptions(stream)[0];
 
 	const autoGroups = useMemo(() => {
 		const groups = new Map<string, AutoGroup>();
@@ -551,17 +612,31 @@ export function ReceivePaymentSheet() {
 		const fallbackTermId =
 			openTermId || data?.currentTermForm?.id || terms[0]?.id || null;
 		if (!fallbackTermId) return;
+		const defaultStream = streamOptions[0];
+		const defaultItem = getFirstStreamItem(defaultStream);
+		const defaultAmount = defaultItem ? String(defaultItem.amount || 0) : "";
 		setManualRows((prev) => [
 			...prev,
 			{
 				id: `manual-${Date.now()}`,
 				studentTermFormId: fallbackTermId,
-				streamId: streamOptions[0]?.id ?? null,
-				description: "",
-				payableAmount: "",
-				amount: "",
+				streamId: defaultStream?.id ?? null,
+				description: defaultItem?.label ?? defaultStream?.name ?? "",
+				payableAmount: defaultAmount,
+				amount: defaultAmount,
 			},
 		]);
+	};
+
+	const updateManualRowFields = (
+		id: string,
+		values: Partial<ManualStreamRow>,
+	) => {
+		setManualRows((prev) =>
+			prev.map((row) =>
+				row.id === id ? { ...row, ...values } : row,
+			),
+		);
 	};
 
 	const updateManualRow = (
@@ -890,24 +965,43 @@ export function ReceivePaymentSheet() {
 					) : null}
 
 					<div className="space-y-3">
-						<div className="flex items-center justify-between">
+						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<div>
 								<h3 className="text-sm font-semibold">Term Payables</h3>
 								<p className="text-sm text-muted-foreground">
 									Select a student, expand a term, then choose the lines to collect.
 								</p>
 							</div>
-							<Button
-								variant="ghost"
-								size="sm"
-								className="gap-2"
-								type="button"
-								onClick={autoAllocate}
-								disabled={!allRows.length || amountReceivedNumber <= 0}
-							>
-								<Wand2 className="h-4 w-4" />
-								Auto-allocate
-							</Button>
+							<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+								{selectedStudentId && (
+									<Button
+										variant="outline"
+										size="sm"
+										className="w-full gap-2 sm:w-auto"
+										type="button"
+										onClick={() =>
+											setAddFeeParams({
+												addFee: true,
+												addFeeClassroomId: selectedStudent?.classroomId || null,
+											})
+										}
+									>
+										<Plus className="h-4 w-4" />
+										Add Fee
+									</Button>
+								)}
+								<Button
+									variant="ghost"
+									size="sm"
+									className="w-full gap-2 sm:w-auto"
+									type="button"
+									onClick={autoAllocate}
+									disabled={!allRows.length || amountReceivedNumber <= 0}
+								>
+									<Wand2 className="h-4 w-4" />
+									Auto-allocate
+								</Button>
+							</div>
 						</div>
 
 						<div className="flex gap-3 overflow-x-auto pb-2">
@@ -1064,14 +1158,19 @@ export function ReceivePaymentSheet() {
 					</div>
 
 					<div className="space-y-3">
-						<div className="flex items-center justify-between">
+						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<div>
 								<h3 className="text-sm font-semibold">Stream Allocations</h3>
 								<p className="text-sm text-muted-foreground">
 									Payable selections map into stream rows automatically. Add extra rows when needed.
 								</p>
 							</div>
-							<Button type="button" variant="outline" className="gap-2" onClick={addManualRow}>
+							<Button
+								type="button"
+								variant="outline"
+								className="w-full gap-2 sm:w-auto"
+								onClick={addManualRow}
+							>
 								<Plus className="h-4 w-4" />
 								Add Stream Row
 							</Button>
@@ -1079,9 +1178,9 @@ export function ReceivePaymentSheet() {
 
 						<Card>
 							<CardContent className="p-0">
-								<div className="overflow-x-auto">
+								<div className="overflow-x-auto md:overflow-visible">
 									<table className="w-full text-sm">
-										<thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+										<thead className="hidden bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground md:table-header-group">
 											<tr>
 												<th className="px-4 py-3">Stream</th>
 												<th className="px-4 py-3">Description</th>
@@ -1090,10 +1189,13 @@ export function ReceivePaymentSheet() {
 												<th className="px-4 py-3 text-right">Action</th>
 											</tr>
 										</thead>
-										<tbody className="divide-y">
+										<tbody className="block divide-y md:table-row-group">
 											{!autoGroups.length && !manualRows.length ? (
-												<tr>
-													<td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+												<tr className="block md:table-row">
+													<td
+														colSpan={5}
+														className="block px-4 py-8 text-center text-muted-foreground md:table-cell"
+													>
 														No allocations yet. Select payable rows above or add a manual stream entry.
 													</td>
 												</tr>
@@ -1114,28 +1216,56 @@ export function ReceivePaymentSheet() {
 														: undefined);
 												const effectiveDescription =
 													override?.description || group.description;
-												const supportsAutocomplete = isPurchaseAutocompleteStream(
-													effectiveStream?.name,
-												);
+												const descriptionOptions =
+													getStreamItemOptions(effectiveStream);
+												const selectedDescription =
+													descriptionOptions.find(
+														(item) => item.label === effectiveDescription,
+													) ||
+													(effectiveDescription
+														? {
+																id: effectiveDescription,
+																label: effectiveDescription,
+																description: effectiveDescription,
+																amount: group.amount,
+															}
+														: undefined);
 
 												return (
-													<tr key={group.id} className="bg-primary/5">
-														<td className="px-4 py-3 align-top">
-															<div className="min-w-[220px] space-y-2">
+													<tr key={group.id} className="block bg-primary/5 p-4 md:table-row md:p-0">
+														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
+															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+																Stream
+															</span>
+															<div className="space-y-2 md:min-w-[220px]">
 																<ComboboxDropdown
 																	items={streamOptions}
 																	selectedItem={effectiveStream}
 																	placeholder="Select stream"
 																	searchPlaceholder="Search streams..."
-																	onSelect={(stream) =>
+																	onSelect={(stream) => {
+																		const firstItem = getFirstStreamItem(stream);
 																		setAutoOverrides((prev) => ({
 																			...prev,
 																			[group.id]: {
 																				...prev[group.id],
 																				streamId: stream.id,
+																				description:
+																					firstItem?.label ??
+																					prev[group.id]?.description ??
+																					group.description,
 																			},
-																		}))
-																	}
+																		}));
+																		if (firstItem) {
+																			redistributeGroup(
+																				group.id,
+																				clampAmount(
+																					Number(firstItem.amount || 0),
+																					group.payableAmount,
+																				),
+																			);
+																		}
+																	}}
 																/>
 																<div className="flex flex-wrap gap-1">
 																	<Badge variant="secondary">Auto</Badge>
@@ -1147,32 +1277,17 @@ export function ReceivePaymentSheet() {
 																</div>
 															</div>
 														</td>
-														<td className="px-4 py-3 align-top">
-															{supportsAutocomplete ? (
+														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
+															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+																Description
+															</span>
+															{descriptionOptions.length ? (
 																<ComboboxDropdown
-																	items={purchaseOptions}
-																		selectedItem={
-																			effectiveDescription
-																				? {
-																						id: effectiveDescription,
-																						label: effectiveDescription,
-																						description: effectiveDescription,
-																						amount: group.amount,
-																					}
-																				: undefined
-																		}
-																	placeholder="Search book/store descriptions"
+																	items={descriptionOptions}
+																	selectedItem={selectedDescription}
+																	placeholder="Select description"
 																	searchPlaceholder="Search descriptions..."
 																	onSearch={setPurchaseSearch}
-																	onCreate={(value) =>
-																		setAutoOverrides((prev) => ({
-																			...prev,
-																			[group.id]: {
-																				...prev[group.id],
-																				description: value.trim(),
-																			},
-																		}))
-																	}
 																	onSelect={(item) => {
 																		setAutoOverrides((prev) => ({
 																			...prev,
@@ -1189,9 +1304,6 @@ export function ReceivePaymentSheet() {
 																			),
 																		);
 																	}}
-																	renderOnCreate={(value) => (
-																		<span>Use "{value}"</span>
-																	)}
 																	renderListItem={({ item }) => (
 																		<div className="flex w-full items-center justify-between gap-3">
 																			<div className="flex items-center gap-2">
@@ -1220,10 +1332,16 @@ export function ReceivePaymentSheet() {
 																/>
 															)}
 														</td>
-														<td className="px-4 py-3 text-right align-top font-medium">
+														<td className="flex items-center justify-between gap-3 px-0 py-2 align-top font-medium md:table-cell md:px-4 md:py-3 md:text-right">
+															<span className="text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+																Payable
+															</span>
 															{formatCurrency(group.payableAmount)}
 														</td>
-														<td className="px-4 py-3 align-top">
+														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
+															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+																Amount
+															</span>
 															<Input
 																type="number"
 																min="0"
@@ -1237,7 +1355,10 @@ export function ReceivePaymentSheet() {
 																}
 															/>
 														</td>
-														<td className="px-4 py-3 text-right align-top text-xs text-muted-foreground">
+														<td className="flex items-center justify-between gap-3 px-0 py-2 align-top text-xs text-muted-foreground md:table-cell md:px-4 md:py-3 md:text-right">
+															<span className="font-medium uppercase tracking-wide md:hidden">
+																Action
+															</span>
 															Grouped from {group.memberKeys.length} payable
 															{group.memberKeys.length !== 1 ? "s" : ""}
 														</td>
@@ -1249,31 +1370,46 @@ export function ReceivePaymentSheet() {
 												const selectedStream =
 													streamOptions.find((stream) => stream.id === row.streamId) ??
 													undefined;
-												const supportsAutocomplete = isPurchaseAutocompleteStream(
-													selectedStream?.name,
-												);
+												const descriptionOptions =
+													getStreamItemOptions(selectedStream);
+												const selectedDescription =
+													descriptionOptions.find(
+														(item) => item.label === row.description,
+													) ||
+													(row.description
+														? {
+																id: row.description,
+																label: row.description,
+																description: row.description,
+																amount: toNumber(row.amount),
+															}
+														: undefined);
 												const rowTerm = termMap.get(row.studentTermFormId);
 												return (
-													<tr key={row.id}>
-														<td className="px-4 py-3 align-top">
-															<div className="min-w-[220px] space-y-2">
+													<tr key={row.id} className="block p-4 md:table-row md:p-0">
+														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
+															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+																Stream
+															</span>
+															<div className="space-y-2 md:min-w-[220px]">
 																<ComboboxDropdown
 																	items={streamOptions}
 																	selectedItem={selectedStream}
 																	placeholder="Select stream"
 																	searchPlaceholder="Search streams..."
 																	onSelect={(stream) => {
-																		updateManualRow(row.id, "streamId", stream.id);
-																		if (
-																			!isPurchaseAutocompleteStream(stream.name) &&
-																			!row.description.trim()
-																		) {
-																			updateManualRow(
-																				row.id,
-																				"description",
-																				stream.name,
-																			);
-																		}
+																		const firstItem = getFirstStreamItem(stream);
+																		const defaultAmount = firstItem
+																			? String(firstItem.amount || 0)
+																			: "";
+																		const defaultDescription =
+																			firstItem?.label || stream.name;
+																		updateManualRowFields(row.id, {
+																			streamId: stream.id,
+																			description: defaultDescription,
+																			payableAmount: defaultAmount,
+																			amount: defaultAmount,
+																		});
 																	}}
 																/>
 																{rowTerm ? (
@@ -1281,50 +1417,25 @@ export function ReceivePaymentSheet() {
 																) : null}
 															</div>
 														</td>
-														<td className="px-4 py-3 align-top">
-															{supportsAutocomplete ? (
+														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
+															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+																Description
+															</span>
+															{descriptionOptions.length ? (
 																<ComboboxDropdown
-																	items={purchaseOptions}
-																		selectedItem={
-																			row.description
-																				? {
-																						id: row.description,
-																						label: row.description,
-																						description: row.description,
-																						amount: toNumber(row.amount),
-																					}
-																				: undefined
-																		}
-																	placeholder="Search book/store descriptions"
+																	items={descriptionOptions}
+																	selectedItem={selectedDescription}
+																	placeholder="Select description"
 																	searchPlaceholder="Search descriptions..."
 																	onSearch={setPurchaseSearch}
-																	onCreate={(value) =>
-																		updateManualRow(
-																			row.id,
-																			"description",
-																			value.trim(),
-																		)
-																	}
 																	onSelect={(item) => {
-																		updateManualRow(
-																			row.id,
-																			"description",
-																			item.label,
-																		);
-																		updateManualRow(
-																			row.id,
-																			"payableAmount",
-																			String(item.amount || 0),
-																		);
-																		updateManualRow(
-																			row.id,
-																			"amount",
-																			String(item.amount || 0),
-																		);
+																		const nextAmount = String(item.amount || 0);
+																		updateManualRowFields(row.id, {
+																			description: item.label,
+																			payableAmount: nextAmount,
+																			amount: nextAmount,
+																		});
 																	}}
-																	renderOnCreate={(value) => (
-																		<span>Use "{value}"</span>
-																	)}
 																	renderListItem={({ item }) => (
 																		<div className="flex w-full items-center justify-between gap-3">
 																			<div className="flex items-center gap-2">
@@ -1351,7 +1462,10 @@ export function ReceivePaymentSheet() {
 																/>
 															)}
 														</td>
-														<td className="px-4 py-3 align-top">
+														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
+															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+																Payable
+															</span>
 															<Input
 																type="number"
 																min="0"
@@ -1366,7 +1480,10 @@ export function ReceivePaymentSheet() {
 																placeholder="0.00"
 															/>
 														</td>
-														<td className="px-4 py-3 align-top">
+														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
+															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+																Amount
+															</span>
 															<Input
 																type="number"
 																min="0"
@@ -1381,7 +1498,10 @@ export function ReceivePaymentSheet() {
 																placeholder="0.00"
 															/>
 														</td>
-														<td className="px-4 py-3 text-right align-top">
+														<td className="flex items-center justify-between gap-3 px-0 py-2 align-top md:table-cell md:px-4 md:py-3 md:text-right">
+															<span className="text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+																Action
+															</span>
 															<Button
 																type="button"
 																variant="ghost"
@@ -1395,15 +1515,15 @@ export function ReceivePaymentSheet() {
 												);
 											})}
 										</tbody>
-										<tfoot className="bg-muted/20">
-											<tr>
-												<td className="px-4 py-3 font-semibold" colSpan={3}>
+										<tfoot className="block bg-muted/20 md:table-footer-group">
+											<tr className="flex items-center justify-between gap-3 px-4 py-3 md:table-row md:px-0 md:py-0">
+												<td className="font-semibold md:px-4 md:py-3" colSpan={3}>
 													Allocation summary
 												</td>
-												<td className="px-4 py-3 text-right font-semibold">
+												<td className="text-right font-semibold md:px-4 md:py-3">
 													{formatCurrency(totalAllocated)}
 												</td>
-												<td className="px-4 py-3" />
+												<td className="hidden md:table-cell md:px-4 md:py-3" />
 											</tr>
 										</tfoot>
 									</table>
@@ -1477,6 +1597,7 @@ export function ReceivePaymentSheet() {
 					</div>
 				</div>
 			</SheetContent>
+			<AddFeeSheet />
 		</Sheet>
 	);
 }

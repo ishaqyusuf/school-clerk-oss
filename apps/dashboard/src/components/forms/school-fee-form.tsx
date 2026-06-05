@@ -4,10 +4,11 @@ import FormMultipleSelector from "@/components/controls/form-multiple-selector";
 import { useSchoolFeeParams } from "@/hooks/use-school-fee-params";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
 import { Label } from "@school-clerk/ui/label";
+import { RadioGroup, RadioGroupItem } from "@school-clerk/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -56,12 +57,23 @@ export function Form() {
   const { data: financeItems = [] } = useQuery(
     trpc.finance.getItems.queryOptions(),
   );
-  const [streamId, streamName, title, collectionStatus] = watch([
+  const [streamId, streamName, title, collectionStatus, classroomDepartmentIds] = watch([
     "streamId",
     "streamName",
     "title",
     "collectionStatus",
+    "classroomDepartmentIds"
   ]);
+
+  const [feeTarget, setFeeTarget] = useState<"general" | "specific">(
+    classroomDepartmentIds?.length ? "specific" : "general"
+  );
+
+  useEffect(() => {
+    if (classroomDepartmentIds?.length) {
+      setFeeTarget("specific");
+    }
+  }, [classroomDepartmentIds]);
 
   const streamOptions = useMemo(
     () =>
@@ -169,13 +181,33 @@ export function Form() {
           </Select>
         </div>
       </div>
-      <FormMultipleSelector
-        control={control}
-        name="classroomDepartmentIds"
-        label="Applicable Classrooms"
-        options={classroomOptions}
-        placeholder="Leave empty to apply to all classes"
-      />
+      <div className="grid gap-2 border-t pt-4">
+        <Label>Target Audience</Label>
+        <RadioGroup
+          value={feeTarget}
+          onValueChange={(val: "general" | "specific") => setFeeTarget(val)}
+          className="flex flex-col gap-3 sm:flex-row sm:gap-6 mt-1"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="general" id="target-general" />
+            <Label htmlFor="target-general" className="font-normal cursor-pointer">General (All Classes)</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="specific" id="target-specific" />
+            <Label htmlFor="target-specific" className="font-normal cursor-pointer">Specific Classrooms</Label>
+          </div>
+        </RadioGroup>
+      </div>
+
+      {feeTarget === "specific" && (
+        <FormMultipleSelector
+          control={control}
+          name="classroomDepartmentIds"
+          label="Applicable Classrooms"
+          options={classroomOptions}
+          placeholder="Select classrooms..."
+        />
+      )}
       <CustomSheetContentPortal>
         <form
           className="grid gap-4"
@@ -184,7 +216,7 @@ export function Form() {
               (data.streamName?.trim() || data.title?.trim()) ?? "";
             const itemName = data.description?.trim() || resolvedTitle;
             const itemType = inferFeeItemType(resolvedTitle);
-            const selectedClassroomIds = data.classroomDepartmentIds ?? [];
+            const selectedClassroomIds = feeTarget === "specific" ? (data.classroomDepartmentIds ?? []) : [];
             const existingItem = (financeItems as ExistingFinanceItem[]).find(
               (item) =>
                 item.type === itemType &&

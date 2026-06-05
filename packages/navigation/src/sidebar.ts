@@ -78,7 +78,7 @@ function buildItem(
     item.icon ?? undefined,
     item.href,
     childLinks,
-  ).access(...toAccessRules(availability));
+  ).access(...toAccessRules(availability)).status(availability.status);
 
   if (item.childPaths?.length) {
     navLink.childPaths(...item.childPaths);

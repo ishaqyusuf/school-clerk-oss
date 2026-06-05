@@ -110,8 +110,39 @@ function FinancePaymentForm({
 		});
 	};
 
+	const [studentQuery, setStudentQuery] = useState("");
+	const { data: students = [] } = useQuery(
+		trpc.finance.searchFinanceStudents.queryOptions({ q: studentQuery }),
+	);
+	const [studentId, setStudentId] = useState<string>("");
+
+	const filteredCharges = useMemo(() => {
+		if (studentId && studentId !== "none") {
+			return charges.filter(
+				(c) => c.studentId === studentId && c.outstanding > 0,
+			);
+		}
+		return charges.filter((c) => c.outstanding > 0);
+	}, [charges, studentId]);
+
 	return (
 		<form className="space-y-4" onSubmit={onSubmit}>
+			<div className="space-y-2">
+				<Label>Student (Optional)</Label>
+				<Select value={studentId} onValueChange={setStudentId}>
+					<SelectTrigger>
+						<SelectValue placeholder="Select student to filter charges" />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="none">All Students</SelectItem>
+						{students.map((student) => (
+							<SelectItem key={student.id} value={student.id}>
+								{student.name} {student.surname}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			</div>
 			<div className="space-y-2">
 				<Label>Charge</Label>
 				<Select value={chargeId || undefined} onValueChange={setChargeId}>
@@ -119,13 +150,11 @@ function FinancePaymentForm({
 						<SelectValue placeholder="Select charge" />
 					</SelectTrigger>
 					<SelectContent>
-						{charges
-							.filter((charge) => charge.outstanding > 0)
-							.map((charge) => (
-								<SelectItem key={charge.id} value={charge.id}>
-									{charge.title} - NGN {charge.outstanding}
-								</SelectItem>
-							))}
+						{filteredCharges.map((charge) => (
+							<SelectItem key={charge.id} value={charge.id}>
+								{charge.title} - NGN {charge.outstanding}
+							</SelectItem>
+						))}
 					</SelectContent>
 				</Select>
 			</div>

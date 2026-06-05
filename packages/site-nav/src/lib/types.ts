@@ -17,6 +17,7 @@ export type LinkItem = {
 	index?;
 	access?;
 	meta?;
+	status?: "live" | "beta" | "upcoming" | "hidden";
 };
 
 export type NavModule = ReturnType<typeof createNavModule>;
@@ -77,11 +78,16 @@ export const createNavLink = (
 		show: false,
 		paths: [],
 		level: null,
+		status: undefined,
 	};
 	const ctx = {
 		data: res,
 		level(level) {
 			res.level = level;
+			return ctx;
+		},
+		status(status) {
+			res.status = status;
 			return ctx;
 		},
 		access(...access: Access[]) {

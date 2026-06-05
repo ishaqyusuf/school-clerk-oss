@@ -7,11 +7,12 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 
 type Props = {
 	initialSettings?: Partial<TableSettings>;
+	filter?: { type?: string; excludeType?: string };
 };
 
-export function FinanceItemsTable({ initialSettings }: Props) {
+export function FinanceItemsTable({ initialSettings, filter = {} }: Props) {
 	const trpc = useTRPC();
-	const { data } = useSuspenseQuery(trpc.finance.getItems.queryOptions());
+	const { data } = useSuspenseQuery(trpc.finance.getItems.queryOptions(filter));
 
 	return <DataTable data={data} initialSettings={initialSettings} />;
 }

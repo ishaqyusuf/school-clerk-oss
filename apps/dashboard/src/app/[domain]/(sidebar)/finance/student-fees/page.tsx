@@ -1,5 +1,5 @@
 import { FinanceChargesPage } from "@/components/finance/finance-charges-page";
 
 export default async function Page() {
-	return <FinanceChargesPage title="Student Finance" />;
+	return <FinanceChargesPage title="Student Finance" filter={{ payerType: "STUDENT" }} />;
 }

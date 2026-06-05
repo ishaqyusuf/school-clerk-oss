@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@school-clerk/ui/button";
+import { Card } from "@school-clerk/ui/composite";
 import { Input } from "@school-clerk/ui/input";
 import {
 	Select,
@@ -14,6 +15,7 @@ import { useState, type FormEvent } from "react";
 import type { FinanceStreamRow } from "@/components/tables/finance-streams/columns";
 import { useTRPC } from "@/trpc/client";
 import { useRefreshFinance } from "./use-refresh-finance";
+import { ArrowRightLeft } from "lucide-react";
 
 type TransferFundsFormProps = {
 	streams: FinanceStreamRow[];
@@ -49,48 +51,57 @@ export function TransferFundsForm({ streams }: TransferFundsFormProps) {
 	};
 
 	return (
-		<form className="rounded-md border bg-background p-4" onSubmit={handleSubmit}>
-			<h2 className="text-sm font-medium">Transfer Funds</h2>
-			<div className="mt-3 space-y-3">
-				<Select value={fromStreamId} onValueChange={setFromStreamId}>
-					<SelectTrigger>
-						<SelectValue placeholder="From stream" />
-					</SelectTrigger>
-					<SelectContent>
-						{streams.map((stream) => (
-							<SelectItem key={stream.id} value={stream.id}>
-								{stream.name}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<Select value={toStreamId} onValueChange={setToStreamId}>
-					<SelectTrigger>
-						<SelectValue placeholder="To stream" />
-					</SelectTrigger>
-					<SelectContent>
-						{streams.map((stream) => (
-							<SelectItem key={stream.id} value={stream.id}>
-								{stream.name}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<Input
-					inputMode="decimal"
-					placeholder="Amount"
-					value={transferAmount}
-					onChange={(event) => setTransferAmount(event.target.value)}
-				/>
-				<Input
-					placeholder="Note"
-					value={transferNote}
-					onChange={(event) => setTransferNote(event.target.value)}
-				/>
-				<Button className="w-full" disabled={transferFunds.isPending} type="submit">
-					Send Transfer
-				</Button>
-			</div>
-		</form>
+		<Card className="hover:shadow-md transition-shadow duration-300">
+			<form onSubmit={handleSubmit}>
+				<Card.Header className="pb-3">
+					<Card.Title className="text-sm font-medium flex items-center gap-2">
+						<div className="rounded-md bg-blue-500/10 p-1.5">
+							<ArrowRightLeft className="h-4 w-4 text-blue-500" />
+						</div>
+						Transfer Funds
+					</Card.Title>
+				</Card.Header>
+				<Card.Content className="space-y-3">
+					<Select value={fromStreamId} onValueChange={setFromStreamId}>
+						<SelectTrigger>
+							<SelectValue placeholder="From stream" />
+						</SelectTrigger>
+						<SelectContent>
+							{streams.map((stream) => (
+								<SelectItem key={stream.id} value={stream.id}>
+									{stream.name}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<Select value={toStreamId} onValueChange={setToStreamId}>
+						<SelectTrigger>
+							<SelectValue placeholder="To stream" />
+						</SelectTrigger>
+						<SelectContent>
+							{streams.map((stream) => (
+								<SelectItem key={stream.id} value={stream.id}>
+									{stream.name}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<Input
+						inputMode="decimal"
+						placeholder="Amount"
+						value={transferAmount}
+						onChange={(event) => setTransferAmount(event.target.value)}
+					/>
+					<Input
+						placeholder="Note"
+						value={transferNote}
+						onChange={(event) => setTransferNote(event.target.value)}
+					/>
+					<Button className="w-full" disabled={transferFunds.isPending} type="submit" variant="secondary">
+						Send Transfer
+					</Button>
+				</Card.Content>
+			</form>
+		</Card>
 	);
 }

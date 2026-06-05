@@ -186,3 +186,11 @@ Record of completed tasks and delivery outcomes.
 - Completed: 2026-04-25
 - Outcome: Added settlement backfill tooling for older payable rows, shifted the finance read layer to prefer settlement-backed owing values, and reduced the remaining legacy dependence to compatibility fallback paths rather than primary logic.
 - Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/payroll.tsx`, `apps/dashboard/src/components/service-payments.tsx`, `brain/features/stream-funding.md`, `brain/features/finance-operations.md`
+
+## Completed Task
+- ID: FIN-019
+- Title: Standardize accounting and finance funnel and bespoke shadcn design
+- Completed: 2026-06-05
+- Outcome: Updated the backend to support filtering by `payerType`, `type`, and `excludeType`. Standardized all finance frontend pages (student-fees, collections, payments, fees-management, billables, bills) to pass down relevant filters so data is accurately segregated by domain. Designed the `FinanceOverview` and quick action components with a bespoke `shadcn/ui` layout featuring rich aesthetics, custom gradients, and micro-animations.
+- Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/api/src/db/queries/finance.ts`, `apps/dashboard/src/components/finance/finance-charges-page.tsx`, `apps/dashboard/src/components/finance/finance-items-page.tsx`, `apps/dashboard/src/components/finance/finance-payments-page.tsx`, `apps/dashboard/src/components/finance/finance-overview-stats.tsx`, `apps/dashboard/src/components/finance/forms/create-stream-form.tsx`, `apps/dashboard/src/components/finance/forms/create-item-form.tsx`, `apps/dashboard/src/components/finance/forms/transfer-funds-form.tsx`
+- Owner: Codex

@@ -10,14 +10,16 @@ import { Suspense } from "react";
 
 type FinanceChargesPageProps = {
 	title?: string;
+	filter?: { payerType?: string; status?: string };
 };
 
 export async function FinanceChargesPage({
 	title = "Finance Charges",
+	filter = {},
 }: FinanceChargesPageProps) {
 	const initialSettings = await getInitialTableSettings("financeCharges");
 
-	await batchPrefetch([trpc.finance.getCharges.queryOptions({})]);
+	await batchPrefetch([trpc.finance.getCharges.queryOptions(filter)]);
 
 	return (
 		<HydrateClient>
@@ -26,7 +28,7 @@ export async function FinanceChargesPage({
 				<CreateChargeAction />
 				<ErrorBoundary errorComponent={ErrorFallback}>
 					<Suspense fallback={<DataTableSkeleton />}>
-						<FinanceChargesTable initialSettings={initialSettings} />
+						<FinanceChargesTable initialSettings={initialSettings} filter={filter} />
 					</Suspense>
 				</ErrorBoundary>
 			</div>

@@ -7,10 +7,14 @@ import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
 import { Suspense } from "react";
 
-export async function FinanceItemsPage() {
+type FinanceItemsPageProps = {
+	filter?: { type?: string; excludeType?: string };
+};
+
+export async function FinanceItemsPage({ filter = {} }: FinanceItemsPageProps = {}) {
 	const initialSettings = await getInitialTableSettings("financeItems");
 
-	await batchPrefetch([trpc.finance.getItems.queryOptions()]);
+	await batchPrefetch([trpc.finance.getItems.queryOptions(filter)]);
 
 	return (
 		<HydrateClient>
@@ -18,7 +22,7 @@ export async function FinanceItemsPage() {
 				<PageTitle>Finance Items</PageTitle>
 				<ErrorBoundary errorComponent={ErrorFallback}>
 					<Suspense fallback={<DataTableSkeleton />}>
-						<FinanceItemsTable initialSettings={initialSettings} />
+						<FinanceItemsTable initialSettings={initialSettings} filter={filter} />
 					</Suspense>
 				</ErrorBoundary>
 			</div>

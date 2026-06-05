@@ -4,6 +4,7 @@ import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { MiddaySearchFilter } from "@/components/midday-search-filter/search-filter";
 import { useTermBillableParams } from "@/hooks/use-term-billable-params";
+import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
 import { Button } from "@school-clerk/ui/button";
 import { Table } from "@school-clerk/ui/data-table";
 import { EmptyState } from "./empty-states";
@@ -18,9 +19,13 @@ export function DataTable() {
     trpc.transactions.getStudentFees.queryOptions()
   );
   const { setParams, ...params } = useTermBillableParams();
+  const { setParams: setPaymentParams } = useReceivePaymentParams();
   const [discountTarget, setDiscountTarget] = useState<Item | null>(null);
 
-  const columns = buildColumns((item) => setDiscountTarget(item));
+  const columns = buildColumns(
+    (item) => setDiscountTarget(item),
+    (item) => setPaymentParams({ receivePayment: true, receivePaymentStudentName: item.studentName ?? "" })
+  );
 
   if (!data?.length) {
     return <EmptyState />;

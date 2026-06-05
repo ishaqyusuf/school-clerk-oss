@@ -60,6 +60,11 @@ export const NavChildItem = ({
 					>
 						{child.name}
 					</span>
+					{child.status && child.status !== "live" && (
+						<span className="ml-2 rounded-md bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+							{child.status === "upcoming" ? "WIP" : child.status}
+						</span>
+					)}
 				</div>
 			</div>
 		</NavLink>

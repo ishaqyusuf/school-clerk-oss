@@ -108,6 +108,11 @@ export const NavItem = ({
 							>
 								{item.name}
 							</span>
+							{item.status && item.status !== "live" && (
+								<span className="ml-2 rounded-md bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+									{item.status === "upcoming" ? "WIP" : item.status}
+								</span>
+							)}
 							{hasChildren && (
 								<button
 									type="button"

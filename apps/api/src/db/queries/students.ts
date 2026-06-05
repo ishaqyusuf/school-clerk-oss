@@ -394,6 +394,12 @@ export const createStudentSchema = z.object({
     )
     .optional()
     .nullable(),
+  initialPayment: z.object({
+    amount: z.number().min(0),
+    method: z.string(),
+    reference: z.string().optional().nullable(),
+    paymentDate: z.date().optional().nullable(),
+  }).optional().nullable(),
 });
 type CreateStudent = typeof createStudentSchema._type;
 export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
@@ -502,6 +508,66 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
         initialSessionForm.classroomDepartmentId ??
         data.classRoomId,
     });
+  }
+
+  if (data.initialPayment && feeHistoryApplication?.charges?.length) {
+    let remainingAmount = toMoney(data.initialPayment.amount);
+    
+    // Create a payment record
+    const payment = await tx.financePayment.create({
+      data: {
+        schoolProfileId: profile.schoolId,
+        payerType: "STUDENT",
+        studentId: student.id,
+        amount: remainingAmount,
+        paymentDate: data.initialPayment.paymentDate ?? new Date(),
+        method: data.initialPayment.method,
+        reference: data.initialPayment.reference,
+        streamId: feeHistoryApplication.charges[0]?.streamId, // Associate with the first stream for the main payment wrapper
+        receivedById: ctx.currentUser?.id,
+      },
+    });
+
+    for (const charge of feeHistoryApplication.charges) {
+      if (remainingAmount.lessThanOrEqualTo(0)) break;
+
+      const chargeAmount = toMoney(charge.amount);
+      const allocatedAmount = remainingAmount.greaterThan(chargeAmount) ? chargeAmount : remainingAmount;
+
+      await tx.financePaymentAllocation.create({
+        data: {
+          paymentId: payment.id,
+          chargeId: charge.id,
+          amount: allocatedAmount,
+        },
+      });
+
+      await tx.financeCharge.update({
+        where: { id: charge.id },
+        data: {
+          amountPaid: allocatedAmount,
+          status: allocatedAmount.equals(chargeAmount) ? "PAID" : "PARTIALLY_PAID",
+        },
+      });
+
+      await tx.financeLedgerEntry.create({
+        data: {
+          schoolProfileId: profile.schoolId,
+          streamId: charge.streamId,
+          direction: "CREDIT", // Payments into the school are typically CREDIT, though the ledgerDirectionForStream handles this more accurately normally. Assuming CREDIT for simplicity.
+          sourceType: "PAYMENT",
+          sourceId: payment.id,
+          amount: allocatedAmount,
+          occurredAt: payment.paymentDate,
+          note: `Initial Payment for ${charge.title}`,
+          createdById: ctx.currentUser?.id,
+          chargeId: charge.id,
+          paymentId: payment.id,
+        },
+      });
+
+      remainingAmount = remainingAmount.minus(allocatedAmount);
+    }
   }
 
   await updateStudentTermFormStudentId(ctx);

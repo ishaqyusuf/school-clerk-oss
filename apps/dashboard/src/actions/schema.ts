@@ -73,6 +73,12 @@ export const createStudentSchema = z.object({
     )
     .optional()
     .nullable(),
+  initialPayment: z.object({
+    amount: z.number().min(0),
+    method: z.string(),
+    reference: z.string().optional().nullable(),
+    paymentDate: z.date().optional().nullable(),
+  }).optional().nullable(),
 });
 export const createStaffSchema = z
   .object({

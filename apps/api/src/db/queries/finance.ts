@@ -726,10 +726,17 @@ export async function upsertFinanceItem(
 	});
 }
 
-export async function listFinanceItems(ctx: TRPCContext) {
+export async function listFinanceItems(
+	ctx: TRPCContext,
+	input?: { type?: string | null; excludeType?: string | null }
+) {
 	const schoolProfileId = requireSchoolId(ctx);
 	const items = await ctx.db.financeItem.findMany({
-		where: { schoolProfileId },
+		where: {
+			schoolProfileId,
+			...(input?.type ? { type: input.type as any } : {}),
+			...(input?.excludeType ? { type: { not: input.excludeType as any } } : {}),
+		},
 		include: {
 			stream: { select: { id: true, name: true, accountType: true } },
 			applicableClasses: {
@@ -847,6 +854,7 @@ export async function listFinanceCharges(
 		sessionId?: string | null;
 		status?: string | null;
 		collectionStatus?: string | null;
+		payerType?: string | null;
 	},
 ) {
 	const schoolProfileId = requireSchoolId(ctx);
@@ -896,6 +904,7 @@ export async function listFinanceCharges(
 				? { status: (input.status ?? statusFromCollectionFilter) as never }
 				: { status: { not: "CANCELLED" } }),
 			...(collectionStatus ? { collectionStatus: collectionStatus as never } : {}),
+			...(input?.payerType ? { payerType: input.payerType as any } : {}),
 		},
 		include: {
 			stream: { select: { id: true, name: true, accountType: true } },
@@ -1028,11 +1037,45 @@ export async function recordFinancePayment(
 			},
 		});
 
+		let nextCollectionStatus = charge.collectionStatus;
+		if (nextStatus === "PAID" && charge.collectionStatus === "NOT_COLLECTED") {
+			nextCollectionStatus = "COLLECTED";
+
+			// Try to deduct inventory if it's an inventory-related charge
+			if (charge.title) {
+				const inventoryItem = await tx.inventory.findFirst({
+					where: {
+						schoolProfileId,
+						title: { equals: charge.title, mode: "insensitive" },
+					},
+				});
+
+				if (inventoryItem) {
+					await tx.inventory.update({
+						where: { id: inventoryItem.id },
+						data: { quantity: { decrement: 1 } },
+					});
+
+					await tx.inventoryIssuance.create({
+						data: {
+							schoolProfileId,
+							inventoryId: inventoryItem.id,
+							quantity: 1,
+							note: `Issued upon payment of charge ${charge.id}`,
+							issuedTo: charge.studentId ? `studentId:${charge.studentId}` : charge.staffProfileId ? `staffId:${charge.staffProfileId}` : undefined,
+							issuedDate: input.paymentDate ?? new Date(),
+						},
+					});
+				}
+			}
+		}
+
 		await tx.financeCharge.update({
 			where: { id: charge.id },
 			data: {
 				amountPaid: totalPaid,
 				status: nextStatus,
+				collectionStatus: nextCollectionStatus,
 			},
 		});
 
@@ -1062,6 +1105,77 @@ export async function recordFinancePayment(
 			totalAllocated: toNumber(amount),
 			chargeStatus: nextStatus,
 		};
+	});
+}
+
+export async function reverseFinancePayment(
+	ctx: TRPCContext,
+	input: { paymentId: string; note?: string }
+) {
+	const schoolProfileId = requireSchoolId(ctx);
+
+	return ctx.db.$transaction(async (tx) => {
+		const payment = await tx.financePayment.findFirst({
+			where: { id: input.paymentId, schoolProfileId },
+			include: { allocations: { include: { charge: true } } },
+		});
+
+		if (!payment) {
+			throw new TRPCError({ code: "NOT_FOUND", message: "Payment not found." });
+		}
+
+		if (payment.status === "CANCELLED") {
+			return { success: true };
+		}
+
+		for (const allocation of payment.allocations) {
+			const charge = allocation.charge;
+				const amountToReverse = toMoney(allocation.amount);
+				const currentPaid = toMoney(charge.amountPaid ?? 0);
+				const newPaid = currentPaid.minus(amountToReverse);
+
+				const nextStatus = newPaid.lessThanOrEqualTo(0) ? "PENDING" : "PARTIALLY_PAID";
+			const nextCollectionStatus = charge.collectionStatus === "COLLECTED" ? "NOT_COLLECTED" : charge.collectionStatus;
+
+			await tx.financeCharge.update({
+				where: { id: charge.id },
+				data: {
+					amountPaid: newPaid,
+					status: nextStatus,
+					collectionStatus: nextCollectionStatus,
+				},
+			});
+		}
+
+		await tx.financePayment.update({
+			where: { id: payment.id },
+			data: { status: "CANCELLED" },
+		});
+
+		// Reverse ledger entries by creating an opposite entry
+		const originalLedgers = await tx.financeLedgerEntry.findMany({
+			where: { paymentId: payment.id, schoolProfileId },
+		});
+
+		for (const ledger of originalLedgers) {
+			await tx.financeLedgerEntry.create({
+				data: {
+					schoolProfileId,
+					streamId: ledger.streamId,
+					direction: ledger.direction === "CREDIT" ? "DEBIT" : "CREDIT",
+					sourceType: "PAYMENT",
+					sourceId: payment.id,
+					amount: ledger.amount,
+					occurredAt: new Date(),
+					note: input.note ?? `Reversal of payment ${payment.reference || payment.id}`,
+					createdById: ctx.currentUser?.id,
+					chargeId: ledger.chargeId,
+					paymentId: payment.id,
+				},
+			});
+		}
+
+		return { success: true };
 	});
 }
 
@@ -1169,10 +1283,16 @@ export async function listFinanceTransfers(ctx: TRPCContext) {
 	}));
 }
 
-export async function listFinancePayments(ctx: TRPCContext) {
+export async function listFinancePayments(
+	ctx: TRPCContext,
+	input?: { payerType?: string | null }
+) {
 	const schoolProfileId = requireSchoolId(ctx);
 	const payments = await ctx.db.financePayment.findMany({
-		where: { schoolProfileId },
+		where: {
+			schoolProfileId,
+			...(input?.payerType ? { payerType: input.payerType as any } : {}),
+		},
 		include: {
 			stream: { select: { id: true, name: true, accountType: true } },
 			student: {
@@ -1335,6 +1455,7 @@ export async function searchFinanceStudents(
 					id: true,
 					classroomDepartment: {
 						select: {
+							id: true,
 							departmentName: true,
 							classRoom: { select: { name: true } },
 						},
@@ -1355,6 +1476,7 @@ export async function searchFinanceStudents(
 			name: student.name,
 			surname: student.surname,
 			otherName: student.otherName,
+			classroomId: term?.classroomDepartment?.id ?? null,
 			classroom: term?.classroomDepartment
 				? [
 						term.classroomDepartment.classRoom?.name,
@@ -1401,6 +1523,7 @@ export async function getStudentFinanceStatement(
 					schoolSessionId: true,
 					classroomDepartment: {
 						select: {
+							id: true,
 							departmentName: true,
 							classRoom: { select: { name: true } },
 						},
@@ -1434,6 +1557,7 @@ export async function getStudentFinanceStatement(
 					schoolSessionId: true,
 					classroomDepartment: {
 						select: {
+							id: true,
 							departmentName: true,
 							classRoom: { select: { name: true } },
 						},

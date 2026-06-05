@@ -44,7 +44,7 @@ export const createNavLink = (
   subLinks: LinkItem[] = [],
   access: Access[] = []
 ) => {
-  const res = {
+  const res: LinkItem = {
     name,
     title: name?.split("-").join(" "),
     icon,
@@ -56,11 +56,16 @@ export const createNavLink = (
     show: false,
     paths: [],
     level: null,
+    status: undefined,
   };
   const ctx = {
     data: res,
     level(level) {
       res.level = level;
+      return ctx;
+    },
+    status(status) {
+      res.status = status;
       return ctx;
     },
     access(...access: Access[]) {
@@ -89,6 +94,7 @@ export type LinkItem = {
   globalIndex?;
   index?;
   access?;
+  status?: "live" | "beta" | "upcoming" | "hidden";
   // links?: {
   //     name;
   //     link: string;

@@ -1,5 +1,5 @@
 import { FinancePaymentsPage } from "@/components/finance/finance-payments-page";
 
 export default async function Page() {
-	return <FinancePaymentsPage />;
+	return <FinancePaymentsPage title="Staff Remuneration" filter={{ payerType: "STAFF" }} />;
 }

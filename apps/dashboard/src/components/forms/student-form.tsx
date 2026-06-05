@@ -231,6 +231,41 @@ export function Form({}) {
         )}
       </div>
       <div className="">
+        <CollapseForm label="Initial Payment (Optional)">
+          <div className="grid grid-cols-2 gap-4">
+            <FormInput
+              name="initialPayment.amount"
+              label="Payment Amount (NGN)"
+              type="number"
+              control={control}
+            />
+            <FormSelect
+              control={control}
+              name="initialPayment.method"
+              options={[
+                { id: "CASH", title: "Cash" },
+                { id: "TRANSFER", title: "Bank Transfer" },
+                { id: "POS", title: "POS / Card" },
+              ]}
+              valueKey="id"
+              label="Payment Method"
+              titleKey="title"
+            />
+            <FormInput
+              name="initialPayment.reference"
+              label="Payment Reference"
+              control={control}
+            />
+            <FormDate
+              control={control}
+              label="Payment Date"
+              name="initialPayment.paymentDate"
+            />
+          </div>
+        </CollapseForm>
+      </div>
+
+      <div className="">
         <CollapseForm label="Parent">
           <FormInput name="guardian.name" label="Name" control={control} />
           <div className="grid grid-cols-2 gap-4">

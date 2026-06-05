@@ -40,6 +40,7 @@ type FinanceTableProps<TData> = {
 	searchPlaceholder: string;
 	emptyTitle: string;
 	emptyDescription: string;
+	action?: React.ReactNode;
 };
 
 export function FinanceTable<TData>({
@@ -53,6 +54,7 @@ export function FinanceTable<TData>({
 	searchPlaceholder,
 	emptyTitle,
 	emptyDescription,
+	action,
 }: FinanceTableProps<TData>) {
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 	const columnIds = useMemo(() => getColumnIds(columns), [columns]);
@@ -108,6 +110,7 @@ export function FinanceTable<TData>({
 					description={description}
 					searchColumnId={searchColumnId}
 					searchPlaceholder={searchPlaceholder}
+					action={action}
 				/>
 				<div className="min-h-[360px]">
 					<EmptyState
@@ -131,6 +134,7 @@ export function FinanceTable<TData>({
 				description={description}
 				searchColumnId={searchColumnId}
 				searchPlaceholder={searchPlaceholder}
+				action={action}
 			/>
 			{visibleRows.length === 0 && hasFilters ? (
 				<div className="min-h-[360px]">
@@ -211,6 +215,7 @@ type FinanceTableHeaderProps<TData> = {
 	description: string;
 	searchColumnId: string;
 	searchPlaceholder: string;
+	action?: React.ReactNode;
 };
 
 function FinanceTableHeader<TData>({
@@ -219,6 +224,7 @@ function FinanceTableHeader<TData>({
 	description,
 	searchColumnId,
 	searchPlaceholder,
+	action,
 }: FinanceTableHeaderProps<TData>) {
 	return (
 		<div className="flex items-center gap-3 border-b px-4 py-3">
@@ -240,6 +246,7 @@ function FinanceTableHeader<TData>({
 				autoCorrect="off"
 				spellCheck="false"
 			/>
+			{action}
 		</div>
 	);
 }
