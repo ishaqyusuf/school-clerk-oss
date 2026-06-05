@@ -143,6 +143,7 @@ export const createSchoolFeeSchema = z.object({
   classroomDepartmentIds: z.array(z.string()).default([]),
 });
 const classroomFeeLineSchema = z.object({
+  id: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   amount: z.number().optional().nullable(),
 });
@@ -196,6 +197,7 @@ export const createClassroomSchema = z.object({
     )
     .optional(),
   defaultFees: z.array(classroomFeeSchema).default([]),
+  subjects: z.array(z.string()).default([]),
 });
 export const createSignupSchema = (_t?: unknown) =>
   z.object({

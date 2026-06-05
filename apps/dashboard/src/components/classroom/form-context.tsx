@@ -27,7 +27,7 @@ export function FormContext({ children, defaultValues = undefined }) {
   useEffect(() => {
     if (defaultValues) {
       form.reset({
-        classRoomId: defaultValues.classRoomId ?? null,
+        classRoomId: defaultValues.classRoomId ?? defaultValues.id ?? null,
         className: defaultValues.className ?? "",
         classLevel: defaultValues.classLevel ?? null,
         hasSubClass: defaultValues.hasSubClass ?? false,
@@ -36,6 +36,7 @@ export function FormContext({ children, defaultValues = undefined }) {
           ? defaultValues.departments
           : initialValues.departments,
         defaultFees: defaultValues.defaultFees ?? [],
+        subjects: defaultValues.subjects ?? [],
       });
       return;
     }

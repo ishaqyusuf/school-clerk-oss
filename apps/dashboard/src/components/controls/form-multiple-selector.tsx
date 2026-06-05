@@ -15,6 +15,7 @@ type Props = {
 	label?: string;
 	options?: Option[];
 	placeholder?: string;
+	creatable?: boolean;
 };
 
 export default function FormMultipleSelector<
@@ -24,6 +25,7 @@ export default function FormMultipleSelector<
 	label,
 	options = [],
 	placeholder,
+	creatable,
 	...props
 }: Partial<ControllerProps<TFieldValues, TName>> & Props) {
 	return (
@@ -36,9 +38,12 @@ export default function FormMultipleSelector<
 						<MultipleSelector
 							options={options}
 							placeholder={placeholder}
-							value={options.filter((option) =>
-								(field.value ?? []).includes(option.value),
-							)}
+							creatable={creatable}
+							value={
+								creatable 
+									? (field.value ?? []).map((val: string) => options.find((o) => o.value === val) || { value: val, label: val })
+									: options.filter((option) => (field.value ?? []).includes(option.value))
+							}
 							onChange={(selected) =>
 								field.onChange(selected.map((option) => option.value))
 							}

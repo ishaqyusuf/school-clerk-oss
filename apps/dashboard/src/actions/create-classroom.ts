@@ -24,17 +24,41 @@ export async function createClassroom(
         name: data.className,
       },
     ];
-  if (data.classRoomId) {
-    return tx.$transaction(async (_tx) => {
-      await _tx.classRoom.update({
-        where: { id: data.classRoomId! },
-        data: {
-          name: data.className,
-          classLevel: data.classLevel,
+
+  // First, ensure subjects exist and collect their IDs
+  const subjectIds: string[] = [];
+  if (data.subjects && data.subjects.length > 0) {
+    for (const title of data.subjects) {
+      if (!title.trim()) continue;
+      const subject = await tx.subject.upsert({
+        where: {
+          title_schoolProfileId: {
+            title: title.trim(),
+            schoolProfileId: profile.schoolId,
+          },
+        },
+        update: {},
+        create: {
+          title: title.trim(),
+          schoolProfileId: profile.schoolId,
         },
       });
+      subjectIds.push(subject.id);
+    }
+  }
+  
+  console.log("[createClassroom] subjectIds collected:", subjectIds);
 
-      const existingDepartments = await _tx.classRoomDepartment.findMany({
+  if (data.classRoomId) {
+    await tx.classRoom.update({
+      where: { id: data.classRoomId! },
+      data: {
+        name: data.className,
+        classLevel: data.classLevel,
+      },
+    });
+
+    const existingDepartments = await tx.classRoomDepartment.findMany({
         where: {
           classRoomsId: data.classRoomId!,
           deletedAt: null,
@@ -50,17 +74,33 @@ export async function createClassroom(
 
       for (const department of data.departments ?? []) {
         if (department.id) {
-          await _tx.classRoomDepartment.update({
+          await tx.classRoomDepartment.update({
             where: { id: department.id },
             data: {
               departmentName: department.name,
               departmentLevel: department.departmentLevel,
             },
           });
+          
+          await tx.departmentSubject.deleteMany({
+            where: {
+              classRoomDepartmentId: department.id,
+              subjectId: subjectIds.length > 0 ? { notIn: subjectIds } : undefined,
+            },
+          });
+          if (subjectIds.length > 0) {
+            await tx.departmentSubject.createMany({
+              data: subjectIds.map((subjectId) => ({
+                classRoomDepartmentId: department.id,
+                subjectId: subjectId,
+              })),
+              skipDuplicates: true,
+            });
+          }
           continue;
         }
 
-        await _tx.classRoomDepartment.create({
+        const newDept = await tx.classRoomDepartment.create({
           data: {
             classRoomsId: data.classRoomId!,
             departmentName: department.name,
@@ -68,18 +108,28 @@ export async function createClassroom(
             schoolProfileId: profile.schoolId,
           },
         });
+        
+        if (subjectIds.length > 0) {
+          await tx.departmentSubject.createMany({
+            data: subjectIds.map((subjectId) => ({
+              classRoomDepartmentId: newDept.id,
+              subjectId: subjectId,
+            })),
+            skipDuplicates: true,
+          });
+        }
       }
 
       for (const department of existingDepartments) {
         if (!submittedIds.has(department.id)) {
-          await _tx.classRoomDepartment.update({
+          await tx.classRoomDepartment.update({
             where: { id: department.id },
             data: { deletedAt: new Date() },
           });
         }
       }
 
-      return _tx.classRoom.findUniqueOrThrow({
+      return tx.classRoom.findUniqueOrThrow({
         where: { id: data.classRoomId! },
         include: {
           classRoomDepartments: {
@@ -87,7 +137,6 @@ export async function createClassroom(
           },
         },
       });
-    });
   }
   // const classRoom = await tx.classRoom.findFirst({
   //   where: {
@@ -162,6 +211,27 @@ export async function createClassroom(
       classRoomDepartments: true,
     },
   });
+
+  if (resp.classRoomDepartments) {
+    for (const dept of resp.classRoomDepartments) {
+      await tx.departmentSubject.deleteMany({
+        where: {
+          classRoomDepartmentId: dept.id,
+          subjectId: subjectIds.length > 0 ? { notIn: subjectIds } : undefined,
+        },
+      });
+      if (subjectIds.length > 0) {
+        await tx.departmentSubject.createMany({
+          data: subjectIds.map((subjectId) => ({
+            classRoomDepartmentId: dept.id,
+            subjectId: subjectId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+  }
+
   return resp;
 }
 export const createClassroomAction = actionClient
@@ -169,6 +239,7 @@ export const createClassroomAction = actionClient
   .action(async ({ parsedInput: data }) => {
     const resp = await transaction(async (tx) => {
       const profile = await getAuthCookie();
+      console.log("[createClassroomAction] Payload subjects:", data.subjects);
       const resp = await createClassroom(data, tx);
       classChanged();
       return resp;

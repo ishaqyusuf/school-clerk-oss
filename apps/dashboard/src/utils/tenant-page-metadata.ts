@@ -159,6 +159,14 @@ function resolveRouteMetadata(pathname: string): RouteMetadata {
       },
     },
     {
+      test: /^\/onboarding\/setup-fees$/,
+      metadata: {
+        title: "Set Up General Fees",
+        description: "Configure general all-class fees for this school workspace.",
+        noIndex: true,
+      },
+    },
+    {
       test: /^\/migration$/,
       metadata: {
         title: "Migration",

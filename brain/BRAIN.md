@@ -39,3 +39,4 @@ Central index for project knowledge used by humans and AI collaborators.
 - `school-clerk`: `/Users/M1PRO/Documents/code/school-clerk`
 - `plot-keys`: `/Users/M1PRO/Documents/code/plot-keys`
 - `halaal-coperative`: `/Users/M1PRO/Documents/code/halaal-coperative`
+- `after-service`: `/Users/M1PRO/Documents/code/micro-startups/after-service`

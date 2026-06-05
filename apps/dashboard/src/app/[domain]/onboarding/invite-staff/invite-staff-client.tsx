@@ -19,12 +19,20 @@ export function InviteStaffOnboardingClient({ domain }: { domain: string }) {
       <Card className="rounded-[2rem] border-border/70 shadow-lg">
         <CardContent className="space-y-5 p-6 sm:p-7">
           <div className="space-y-2">
-            <Badge
-              variant="secondary"
-              className="rounded-full px-4 py-1.5 text-sm"
-            >
-              Onboarding step 4 of 4
-            </Badge>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <Badge
+                variant="secondary"
+                className="w-fit rounded-full px-4 py-1.5 text-sm"
+              >
+                Onboarding step 5 of 5
+              </Badge>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/">
+                  Go to dashboard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
             <h1 className="text-3xl font-semibold tracking-[-0.05em]">
               Invite your first staff member
             </h1>
@@ -61,6 +69,15 @@ export function InviteStaffOnboardingClient({ domain }: { domain: string }) {
               onSuccess={() => setInviteSent(true)}
             />
           </FormContext>
+
+          {!inviteSent ? (
+            <div className="flex flex-col gap-3 border-t pt-5 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+              <p>You can invite staff later from the staff dashboard.</p>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/">Skip for now</Link>
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

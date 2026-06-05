@@ -4,7 +4,7 @@ import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useFieldArray } from "react-hook-form";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 
 import { cn } from "@school-clerk/ui/cn";
 import { Badge } from "@school-clerk/ui/badge";
@@ -21,7 +21,9 @@ import {
 import { useClassroomFormContext } from "../classroom/form-context";
 import FormCheckbox from "../controls/form-checkbox";
 import FormInput from "../controls/form-input";
+import FormMultipleSelector from "../controls/form-multiple-selector";
 import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
+import MultipleSelector from "@school-clerk/ui/multiple-selector";
 import { Label } from "@school-clerk/ui/label";
 import { CustomSheetContentPortal } from "../custom-sheet-content";
 import { SubmitButton } from "../submit-button";
@@ -51,9 +53,12 @@ type ExistingFinanceItem = {
   id: string;
   type?: string | null;
   name?: string | null;
+  amount?: number | null;
+  description?: string | null;
   streamId?: string | null;
   streamName?: string | null;
   collectable?: boolean | null;
+  isActive?: boolean | null;
   classroomDepartments?: { id: string }[];
 };
 
@@ -72,13 +77,15 @@ export function Form({
   submitPlacement = "portal",
 }: Props) {
   const { setParams } = useClassroomParams();
-  const { control, handleSubmit, reset, watch, setValue } =
+  const { control, handleSubmit, reset, watch, setValue, getValues, formState } =
     useClassroomFormContext();
   const trpc = useTRPC();
   const qc = useQueryClient();
   const hasSubClass = watch("hasSubClass");
   const progressionMode = watch("progressionMode");
+  const classRoomId = watch("classRoomId");
   const [enableFee, setEnableFee] = useState(false);
+  const loadedClassroomFeeItemIdsRef = useRef(new Set<string>());
 
   const { data: streams = [] } = useQuery(
     trpc.finance.getStreams.queryOptions({ filter: "term" }),
@@ -86,7 +93,51 @@ export function Form({
   const { data: financeItems = [] } = useQuery(
     trpc.finance.getItems.queryOptions(),
   );
+
+  const { data: subjectsResp } = useQuery(
+    trpc.subjects.all.queryOptions({})
+  );
+  const subjectOptions = useMemo(() => {
+    return (subjectsResp ?? []).map((s) => ({
+      value: s.title,
+      label: s.title,
+    }));
+  }, [subjectsResp]);
+
   const defaultFees = watch("defaultFees") ?? [];
+
+  useEffect(() => {
+    loadedClassroomFeeItemIdsRef.current = new Set();
+  }, [classRoomId]);
+
+  useEffect(() => {
+    for (const fee of defaultFees) {
+      for (const line of fee?.lines ?? []) {
+        if (line?.id) {
+          loadedClassroomFeeItemIdsRef.current.add(line.id);
+        }
+      }
+    }
+  }, [defaultFees]);
+
+  useEffect(() => {
+    if (defaultFees.length > 0) {
+      setEnableFee(true);
+    }
+  }, [defaultFees.length]);
+
+  const knownStreamIds = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    const defaults = formState.defaultValues?.departments || [];
+    defaults.forEach(d => {
+      if (d.id && d.name) {
+         knownStreamIds.current[`${d.name.trim().toLowerCase()}_${d.departmentLevel ?? ""}`] = d.id;
+      }
+    });
+  }, [formState.defaultValues]);
+
+  const currentDepts = watch("departments") || [];
 
   const streamOptions = useMemo(
     () =>
@@ -233,13 +284,18 @@ export function Form({
           queryKey: trpc.classrooms.getCurrentSessionClassroom.queryKey(),
         });
         qc.invalidateQueries({
+          queryKey: trpc.classrooms.getSchoolStreamStructures.queryKey(),
+        });
+        qc.invalidateQueries({
           queryKey: trpc.academics.getClassrooms.infiniteQueryKey({}),
         });
 
+        const classroomDepartmentIds = data.classRoomDepartments.map(
+          (d) => d.id,
+        );
+        const submittedFinanceItemIds = new Set<string>();
+
         if (enableFee) {
-          const classroomDepartmentIds = data.classRoomDepartments.map(
-            (d) => d.id,
-          );
           const financeItemInputs = defaultFees.flatMap((fee) => {
             const title = fee?.streamName?.trim();
             if (!title) return [];
@@ -253,6 +309,7 @@ export function Form({
                   financeItems as ExistingFinanceItem[]
                 ).find(
                   (item) =>
+                    (line.id && item.id === line.id) ||
                     item.type === type &&
                     item.streamName?.trim().toLowerCase() ===
                       title.toLowerCase() &&
@@ -279,14 +336,62 @@ export function Form({
                   type,
                   sessionId: null,
                   termId: null,
-                  id: existingItem?.id ?? null,
+                  id: existingItem?.id ?? line.id ?? null,
                   isActive: true,
                 };
               });
           });
 
           for (const item of financeItemInputs) {
-            await createFinanceItem(item);
+            const savedItem = await createFinanceItem(item);
+            if (savedItem?.id) {
+              submittedFinanceItemIds.add(savedItem.id);
+            }
+            if (item.id) {
+              submittedFinanceItemIds.add(item.id);
+            }
+          }
+        }
+
+        const removedFeeItemIds = Array.from(
+          loadedClassroomFeeItemIdsRef.current,
+        ).filter((id) => !submittedFinanceItemIds.has(id));
+
+        for (const itemId of removedFeeItemIds) {
+          const existingItem = (financeItems as ExistingFinanceItem[]).find(
+            (item) => item.id === itemId,
+          );
+          if (!existingItem?.name) continue;
+
+          const remainingClassroomDepartmentIds = (
+            existingItem.classroomDepartments ?? []
+          )
+            .map((department) => department.id)
+            .filter((id) => !classroomDepartmentIds.includes(id));
+
+          await createFinanceItem({
+            accountType: "CREDIT" as const,
+            amount: existingItem.amount ?? 0,
+            classRoomDepartmentIds: remainingClassroomDepartmentIds,
+            collectable: Boolean(existingItem.collectable),
+            description: existingItem.description ?? null,
+            name: existingItem.name,
+            streamId: existingItem.streamId ?? null,
+            streamName: existingItem.streamName ?? null,
+            type: (existingItem.type as FeeItemType | undefined) ?? "OTHER",
+            sessionId: null,
+            termId: null,
+            id: existingItem.id,
+            isActive:
+              remainingClassroomDepartmentIds.length > 0
+                ? (existingItem.isActive ?? true)
+                : false,
+          });
+        }
+
+        if (removedFeeItemIds.length) {
+          for (const itemId of removedFeeItemIds) {
+            loadedClassroomFeeItemIdsRef.current.delete(itemId);
           }
         }
 
@@ -312,6 +417,10 @@ export function Form({
 
   const { data: allSchoolClassNames } = useQuery(
     trpc.classrooms.getSchoolClassNames.queryOptions(),
+  );
+
+  const { data: allSchoolStreamStructures } = useQuery(
+    trpc.classrooms.getSchoolStreamStructures.queryOptions(),
   );
 
   const suggestedClassNames = useMemo(() => {
@@ -408,8 +517,50 @@ export function Form({
       }
     }
 
-    return Array.from(uniqueGroups.values()).slice(0, 6);
-  }, [classroomStructures]);
+    const dbStreams = allSchoolStreamStructures ?? [];
+    for (const group of dbStreams) {
+      if (group.streams.length <= 1) continue;
+
+      const key = group.streams
+        .map((s) => `${s.name.trim().toLowerCase()}_${s.departmentLevel}`)
+        .join("|");
+
+      if (!uniqueGroups.has(key)) {
+        uniqueGroups.set(key, group);
+      }
+    }
+
+    const suggestions = Array.from(uniqueGroups.values());
+    const hasNamedSuggestion = (names: string[]) => {
+      const key = names.map((name) => name.toLowerCase()).join("|");
+
+      return suggestions.some(
+        (suggestion) =>
+          suggestion.streams
+            .map((stream) => stream.name.trim().toLowerCase())
+            .join("|") === key,
+      );
+    };
+    const defaultSuggestions = [
+      ["A", "B"],
+      ["A", "B", "C"],
+      ["Emerald", "Gold", "Silver"],
+      ["Science", "Commercial", "Arts"],
+    ];
+
+    for (const names of defaultSuggestions) {
+      if (hasNamedSuggestion(names)) continue;
+
+      suggestions.push({
+        streams: names.map((name) => ({
+          name,
+          departmentLevel: null,
+        })),
+      });
+    }
+
+    return suggestions.slice(0, 6);
+  }, [classroomStructures, allSchoolStreamStructures]);
 
   const applySuggestion = (
     suggestion: (typeof structureSuggestions)[number],
@@ -421,16 +572,37 @@ export function Form({
         ? "department"
         : "classroom",
     );
+
+    const currentStreams = getValues("departments") || [];
+    currentStreams.forEach(d => {
+      if (d.id && d.name) {
+         knownStreamIds.current[`${d.name.trim().toLowerCase()}_${d.departmentLevel ?? ""}`] = d.id;
+      }
+    });
+
     setValue(
       "departments",
-      suggestion.streams.map((stream) => ({
-        name: stream.name,
-        departmentLevel: suggestion.streams.some(
-          (item) => item.departmentLevel !== null,
-        )
-          ? stream.departmentLevel
-          : null,
-      })),
+      suggestion.streams.map((stream) => {
+        const key = `${stream.name.trim().toLowerCase()}_${stream.departmentLevel ?? ""}`;
+        const keyNoLevel = `${stream.name.trim().toLowerCase()}_`;
+
+        let existingId = knownStreamIds.current[key];
+
+        if (!existingId && stream.departmentLevel === null) {
+           existingId = knownStreamIds.current[keyNoLevel] ||
+             Object.entries(knownStreamIds.current).find(([k]) => k.startsWith(keyNoLevel))?.[1];
+        }
+
+        return {
+          id: existingId,
+          name: stream.name,
+          departmentLevel: suggestion.streams.some(
+            (item) => item.departmentLevel !== null,
+          )
+            ? stream.departmentLevel
+            : null,
+        };
+      }),
     );
   };
 
@@ -441,6 +613,7 @@ export function Form({
         )
       : [
           {
+            id: data.departments?.[0]?.id,
             name: data.className.trim(),
             departmentLevel: data.progressionMode === "department" ? 1 : null,
           },
@@ -466,6 +639,8 @@ export function Form({
       hasSubClass: data.hasSubClass,
       progressionMode: data.progressionMode,
       departments: normalizedDepartments,
+      subjects: data.subjects,
+      defaultFees: data.defaultFees,
     });
   });
   const actions = (
@@ -548,6 +723,16 @@ export function Form({
         label="Sub-class"
         description="Turn this on when the class has multiple streams like Emerald/Gold/Silver or A/B/C."
       />
+      <div className="mx-1">
+        <FormMultipleSelector
+          name="subjects"
+          control={control}
+          label="Class Subjects"
+          placeholder="Select or type subjects for this classroom"
+          options={subjectOptions}
+          creatable
+        />
+      </div>
       {hasSubClass && (
         <FormField
           control={control}
@@ -598,20 +783,31 @@ export function Form({
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-sm font-medium">
-                Quick Fill from Existing Structures
+                Quick Fill Streams
               </p>
               <p className="text-xs text-muted-foreground">
-                Reuse stream setups already used in this school. Clicking a
-                suggestion fills stream levels too when available.
+                Reuse stream setups from this school or start with a common
+                pattern.
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {structureSuggestions.map((suggestion, index) => (
+            {structureSuggestions.map((suggestion, index) => {
+              const suggestionKey = [...suggestion.streams]
+                .sort((a,b) => (a.departmentLevel ?? 9999) - (b.departmentLevel ?? 9999))
+                .map((s) => `${s.name.trim().toLowerCase()}_${s.departmentLevel ?? ""}`)
+                .join("|");
+              const currentKey = [...currentDepts]
+                .sort((a,b) => (a.departmentLevel ?? 9999) - (b.departmentLevel ?? 9999))
+                .map((s) => `${(s.name || "").trim().toLowerCase()}_${s.departmentLevel ?? ""}`)
+                .join("|");
+              const isMatch = currentDepts.length > 0 && suggestionKey === currentKey;
+
+              return (
               <Button
                 key={index}
                 type="button"
-                variant="outline"
+                variant={isMatch ? "default" : "outline"}
                 size="sm"
                 onClick={() => applySuggestion(suggestion)}
                 className="h-auto px-3 py-2 text-left font-medium"
@@ -624,19 +820,17 @@ export function Form({
                   )
                   .join(", ")}
               </Button>
-            ))}
+            )})}
           </div>
         </div>
       )}
 
-      {hasSubClass && (
+      {hasSubClass && progressionMode === "department" && (
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Stream</TableHead>
-              {progressionMode === "department" && (
-                <TableHead>Stream Level</TableHead>
-              )}
+              <TableHead>Stream Level</TableHead>
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
@@ -650,15 +844,13 @@ export function Form({
                     placeholder="Emerald"
                   />
                 </TableCell>
-                {progressionMode === "department" && (
-                  <TableCell>
-                    <FormInput
-                      type="number"
-                      name={`departments.${i}.departmentLevel`}
-                      control={control}
-                    />
-                  </TableCell>
-                )}
+                <TableCell>
+                  <FormInput
+                    type="number"
+                    name={`departments.${i}.departmentLevel`}
+                    control={control}
+                  />
+                </TableCell>
                 <TableCell className="w-12">
                   <ConfirmBtn
                     trash
@@ -672,17 +864,14 @@ export function Form({
           </TableBody>
         </Table>
       )}
-      {hasSubClass && (
+      {hasSubClass && progressionMode === "department" && (
         <div className="flex justify-end">
           <Button
             type="button"
             onClick={() => {
               departments.append({
                 name: "",
-                departmentLevel:
-                  progressionMode === "department"
-                    ? (departments.fields.length || 0) + 1
-                    : null,
+                departmentLevel: (departments.fields.length || 0) + 1,
               });
             }}
           >
@@ -690,16 +879,42 @@ export function Form({
           </Button>
         </div>
       )}
-      {hasSubClass && departments.fields.length > 0 && (
+      {hasSubClass && progressionMode === "department" && departments.fields.length > 0 && (
         <div className="mx-1 flex flex-wrap gap-2">
           {departments.fields.map((department, index) => (
             <Badge key={department._id} variant="outline">
               {department.name || `Stream ${index + 1}`}
-              {progressionMode === "department"
-                ? ` · ${watch(`departments.${index}.departmentLevel`) ?? "—"}`
-                : ""}
+              {` · ${watch(`departments.${index}.departmentLevel`) ?? "—"}`}
             </Badge>
           ))}
+        </div>
+      )}
+
+      {hasSubClass && progressionMode === "classroom" && (
+        <div className="mx-1 space-y-2">
+          <Label>Streams</Label>
+          <MultipleSelector
+            value={departments.fields.map((d) => ({
+              label: d.name || "",
+              value: d.id || d.name || d._id || "",
+            }))}
+            onChange={(options) => {
+              const newFields = options.map((opt) => {
+                const existing = departments.fields.find(
+                  (d) => (d.id || d.name || d._id) === opt.value
+                );
+                if (existing) return existing;
+                return {
+                  name: opt.value,
+                  departmentLevel: null,
+                };
+              });
+              departments.replace(newFields);
+            }}
+            creatable
+            placeholder="Type a stream name and press enter..."
+            emptyIndicator={<p className="text-center text-sm text-muted-foreground">No streams added.</p>}
+          />
         </div>
       )}
 
@@ -732,7 +947,8 @@ export function Form({
               Set fees for this class
             </label>
             <p className="text-xs text-muted-foreground">
-              Add tuition, books, uniforms, and other required or optional fees.
+              Add fees specific to this class. General fees for all classes can
+              be added in the next onboarding step.
             </p>
           </div>
         </div>

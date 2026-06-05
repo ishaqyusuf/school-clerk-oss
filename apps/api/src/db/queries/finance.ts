@@ -72,6 +72,14 @@ function studentDisplayName(
 		.join(" ");
 }
 
+type StudentTermChargeForm = {
+	id: string;
+	studentId: string | null;
+	sessionTermId: string | null;
+	schoolSessionId: string | null;
+	classroomDepartmentId: string | null;
+};
+
 async function getOrCreateStream(
 	db: FinanceDb,
 	params: {
@@ -121,6 +129,291 @@ async function getOrCreateStream(
 			accountType: params.accountType ?? defaults.accountType,
 			isSystem: true,
 		},
+	});
+}
+
+async function reconcileStudentTermChargesForForm(
+	tx: Prisma.TransactionClient,
+	params: {
+		schoolProfileId: string;
+		createdById?: string | null;
+		termForm: StudentTermChargeForm;
+	},
+) {
+	const { schoolProfileId, termForm } = params;
+	if (!termForm.studentId || !termForm.sessionTermId) {
+		return { created: 0, updated: 0, cancelled: 0 };
+	}
+
+	const classApplicability: Prisma.FinanceItemWhereInput[] = [
+		{
+			applicableClasses: {
+				none: {
+					deletedAt: null,
+				},
+			},
+		},
+	];
+
+	if (termForm.classroomDepartmentId) {
+		classApplicability.push({
+			applicableClasses: {
+				some: {
+					deletedAt: null,
+					classRoomDepartmentId: termForm.classroomDepartmentId,
+				},
+			},
+		});
+	}
+
+	const applicableItems = await tx.financeItem.findMany({
+		where: {
+			schoolProfileId,
+			deletedAt: null,
+			isActive: true,
+			collectable: true,
+			OR: [
+				{ sessionTermId: termForm.sessionTermId },
+				{ sessionTermId: null },
+			],
+			AND: [
+				{
+					OR: [
+						{ schoolSessionId: termForm.schoolSessionId },
+						{ schoolSessionId: null },
+					],
+				},
+				{ OR: classApplicability },
+			],
+		},
+		orderBy: [{ type: "asc" }, { name: "asc" }],
+	});
+
+	const existingCharges = await tx.financeCharge.findMany({
+		where: {
+			schoolProfileId,
+			payerType: "STUDENT",
+			studentId: termForm.studentId,
+			deletedAt: null,
+			status: { not: "CANCELLED" },
+			OR: [
+				{ studentTermFormId: termForm.id },
+				{
+					studentTermFormId: null,
+					sessionTermId: termForm.sessionTermId,
+				},
+			],
+		},
+		orderBy: [{ createdAt: "asc" }],
+	});
+
+	const applicableItemIds = new Set(applicableItems.map((item) => item.id));
+	const chargesByItemId = new Map<string, typeof existingCharges>();
+
+	for (const charge of existingCharges) {
+		if (!charge.itemId) continue;
+
+		chargesByItemId.set(charge.itemId, [
+			...(chargesByItemId.get(charge.itemId) ?? []),
+			charge,
+		]);
+	}
+
+	let created = 0;
+	let updated = 0;
+	let cancelled = 0;
+
+	for (const item of applicableItems) {
+		const charges = chargesByItemId.get(item.id) ?? [];
+		const primary =
+			charges.find((charge) => toNumber(charge.amountPaid) > 0) ?? charges[0];
+
+		if (!primary) {
+			await tx.financeCharge.create({
+				data: {
+					schoolProfileId,
+					streamId: item.streamId,
+					itemId: item.id,
+					payerType: "STUDENT",
+					studentId: termForm.studentId,
+					studentTermFormId: termForm.id,
+					classroomDepartmentId: termForm.classroomDepartmentId,
+					schoolSessionId: termForm.schoolSessionId,
+					sessionTermId: termForm.sessionTermId,
+					title: item.name,
+					description: item.description,
+					amount: item.amount,
+					collectionStatus: "NOT_COLLECTED",
+					createdById: params.createdById,
+				},
+			});
+			created++;
+			continue;
+		}
+
+		const primaryPaidAmount = toNumber(primary.amountPaid);
+		if (primaryPaidAmount <= 0) {
+			await tx.financeCharge.update({
+				where: { id: primary.id },
+				data: {
+					streamId: item.streamId,
+					studentTermFormId: termForm.id,
+					classroomDepartmentId: termForm.classroomDepartmentId,
+					schoolSessionId: termForm.schoolSessionId,
+					sessionTermId: termForm.sessionTermId,
+					title: item.name,
+					description: item.description,
+					amount: item.amount,
+					collectionStatus: "NOT_COLLECTED",
+					status: "PENDING",
+					cancelledAt: null,
+					cancellationReason: null,
+				},
+			});
+			updated++;
+		}
+
+		const duplicateIds = charges
+			.filter((charge) => charge.id !== primary.id && toNumber(charge.amountPaid) <= 0)
+			.map((charge) => charge.id);
+
+		if (duplicateIds.length) {
+			const result = await tx.financeCharge.updateMany({
+				where: { id: { in: duplicateIds } },
+				data: {
+					status: "CANCELLED",
+					collectionStatus: "NOT_REQUIRED",
+					cancelledAt: new Date(),
+					cancellationReason: "Duplicate charge removed during fee reconciliation.",
+				},
+			});
+			cancelled += result.count;
+		}
+	}
+
+	const staleChargeIds = existingCharges
+		.filter(
+			(charge) =>
+				charge.itemId &&
+				!applicableItemIds.has(charge.itemId) &&
+				toNumber(charge.amountPaid) <= 0,
+		)
+		.map((charge) => charge.id);
+
+	if (staleChargeIds.length) {
+		const result = await tx.financeCharge.updateMany({
+			where: { id: { in: staleChargeIds } },
+			data: {
+				status: "CANCELLED",
+				collectionStatus: "NOT_REQUIRED",
+				cancelledAt: new Date(),
+				cancellationReason: "Fee is no longer applicable to this student term.",
+			},
+		});
+		cancelled += result.count;
+	}
+
+	return { created, updated, cancelled };
+}
+
+async function findStudentTermFormForFinance(
+	tx: Prisma.TransactionClient,
+	params: {
+		schoolProfileId: string;
+		studentId: string;
+		termId?: string | null;
+		sessionId?: string | null;
+	},
+) {
+	return tx.studentTermForm.findFirst({
+		where: {
+			schoolProfileId: params.schoolProfileId,
+			studentId: params.studentId,
+			deletedAt: null,
+			...(params.termId ? { sessionTermId: params.termId } : {}),
+			...(params.sessionId ? { schoolSessionId: params.sessionId } : {}),
+		},
+		orderBy: { createdAt: "desc" },
+		select: {
+			id: true,
+			studentId: true,
+			sessionTermId: true,
+			schoolSessionId: true,
+			classroomDepartmentId: true,
+		},
+	});
+}
+
+async function reconcileStudentTermCharges(
+	ctx: TRPCContext,
+	input: {
+		studentId: string;
+		termId?: string | null;
+		sessionId?: string | null;
+	},
+) {
+	const schoolProfileId = requireSchoolId(ctx);
+
+	return ctx.db.$transaction(async (tx) => {
+		const termForm = await findStudentTermFormForFinance(tx, {
+			schoolProfileId,
+			studentId: input.studentId,
+			termId: input.termId,
+			sessionId: input.sessionId,
+		});
+
+		if (!termForm) return { created: 0, updated: 0, cancelled: 0 };
+
+		return reconcileStudentTermChargesForForm(tx, {
+			schoolProfileId,
+			createdById: ctx.currentUser?.id,
+			termForm,
+		});
+	});
+}
+
+async function reconcileClassroomTermCharges(
+	ctx: TRPCContext,
+	input: {
+		classroomDepartmentId: string;
+		termId?: string | null;
+		sessionId?: string | null;
+	},
+) {
+	const schoolProfileId = requireSchoolId(ctx);
+
+	return ctx.db.$transaction(async (tx) => {
+		const termForms = await tx.studentTermForm.findMany({
+			where: {
+				schoolProfileId,
+				deletedAt: null,
+				classroomDepartmentId: input.classroomDepartmentId,
+				studentId: { not: null },
+				...(input.termId ? { sessionTermId: input.termId } : {}),
+				...(input.sessionId ? { schoolSessionId: input.sessionId } : {}),
+			},
+			select: {
+				id: true,
+				studentId: true,
+				sessionTermId: true,
+				schoolSessionId: true,
+				classroomDepartmentId: true,
+			},
+		});
+
+		const result = { created: 0, updated: 0, cancelled: 0 };
+		for (const termForm of termForms) {
+			const next = await reconcileStudentTermChargesForForm(tx, {
+				schoolProfileId,
+				createdById: ctx.currentUser?.id,
+				termForm,
+			});
+			result.created += next.created;
+			result.updated += next.updated;
+			result.cancelled += next.cancelled;
+		}
+
+		return result;
 	});
 }
 
@@ -557,26 +850,52 @@ export async function listFinanceCharges(
 	},
 ) {
 	const schoolProfileId = requireSchoolId(ctx);
+	const classroomDepartmentId =
+		input?.classroomDepartmentId ?? input?.classroomId ?? null;
+	const effectiveTermId =
+		input?.termId ?? (classroomDepartmentId ? ctx.profile.termId : null);
+	const effectiveSessionId =
+		input?.sessionId ?? (classroomDepartmentId ? ctx.profile.sessionId : null);
+	const statusFromCollectionFilter =
+		input?.collectionStatus === "PARTIAL"
+			? "PARTIALLY_PAID"
+			: input?.collectionStatus === "PENDING" ||
+					input?.collectionStatus === "PAID" ||
+					input?.collectionStatus === "WAIVED" ||
+					input?.collectionStatus === "DRAFT"
+				? input.collectionStatus
+				: null;
+	const collectionStatus =
+		input?.collectionStatus === "NOT_REQUIRED" ||
+		input?.collectionStatus === "NOT_COLLECTED" ||
+		input?.collectionStatus === "COLLECTED"
+			? input.collectionStatus
+			: null;
+
+	if (classroomDepartmentId && !input?.studentId && !input?.staffProfileId) {
+		await reconcileClassroomTermCharges(ctx, {
+			classroomDepartmentId,
+			termId: effectiveTermId,
+			sessionId: effectiveSessionId,
+		});
+	}
+
 	const charges = await ctx.db.financeCharge.findMany({
 		where: {
 			schoolProfileId,
+			deletedAt: null,
 			...(input?.streamId ? { streamId: input.streamId } : {}),
 			...(input?.studentId ? { studentId: input.studentId } : {}),
 			...(input?.staffProfileId
 				? { staffProfileId: input.staffProfileId }
 				: {}),
-			...(input?.classroomDepartmentId || input?.classroomId
-				? {
-						classroomDepartmentId:
-							input.classroomDepartmentId ?? input.classroomId,
-					}
-				: {}),
-			...(input?.termId ? { sessionTermId: input.termId } : {}),
-			...(input?.sessionId ? { schoolSessionId: input.sessionId } : {}),
-			...(input?.status ? { status: input.status as never } : {}),
-			...(input?.collectionStatus && input.collectionStatus !== "ALL"
-				? { collectionStatus: input.collectionStatus as never }
-				: {}),
+			...(classroomDepartmentId ? { classroomDepartmentId } : {}),
+			...(effectiveTermId ? { sessionTermId: effectiveTermId } : {}),
+			...(effectiveSessionId ? { schoolSessionId: effectiveSessionId } : {}),
+			...(input?.status || statusFromCollectionFilter
+				? { status: (input.status ?? statusFromCollectionFilter) as never }
+				: { status: { not: "CANCELLED" } }),
+			...(collectionStatus ? { collectionStatus: collectionStatus as never } : {}),
 		},
 		include: {
 			stream: { select: { id: true, name: true, accountType: true } },
@@ -1059,6 +1378,8 @@ export async function getStudentFinanceStatement(
 	},
 ) {
 	const schoolProfileId = requireSchoolId(ctx);
+	await reconcileStudentTermCharges(ctx, input);
+
 	const student = await ctx.db.students.findFirst({
 		where: { id: input.studentId, schoolProfileId },
 		select: {
@@ -1067,6 +1388,11 @@ export async function getStudentFinanceStatement(
 			surname: true,
 			otherName: true,
 			termForms: {
+				where: {
+					deletedAt: null,
+					...(input.termId ? { sessionTermId: input.termId } : {}),
+					...(input.sessionId ? { schoolSessionId: input.sessionId } : {}),
+				},
 				take: 1,
 				orderBy: { createdAt: "desc" },
 				select: {
@@ -1094,6 +1420,8 @@ export async function getStudentFinanceStatement(
 		where: {
 			schoolProfileId,
 			studentId: input.studentId,
+			deletedAt: null,
+			status: { not: "CANCELLED" },
 			...(input.termId ? { sessionTermId: input.termId } : {}),
 			...(input.sessionId ? { schoolSessionId: input.sessionId } : {}),
 		},

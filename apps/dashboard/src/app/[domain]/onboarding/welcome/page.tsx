@@ -27,7 +27,7 @@ export default async function Page({ params }) {
             variant="secondary"
             className="rounded-full px-4 py-1.5 text-sm"
           >
-            Onboarding step 1 of 4
+            Onboarding step 1 of 5
           </Badge>
         </div>
 

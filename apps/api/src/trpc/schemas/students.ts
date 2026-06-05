@@ -5,7 +5,7 @@ export type __ = z.infer<typeof _>;
 export const _ = z.object({});
 export type GetAllSubjects = z.infer<typeof getAllSubjectsSchema>;
 export const getAllSubjectsSchema = z.object({
-  schoolProfileId: z.string(),
+  schoolProfileId: z.string().optional(),
 });
 export type GetClassroomSubjects = z.infer<typeof getClassroomSubjectsSchema>;
 export const getClassroomSubjectsSchema = z.object({

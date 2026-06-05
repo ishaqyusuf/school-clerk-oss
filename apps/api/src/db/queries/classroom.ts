@@ -45,6 +45,27 @@ export async function getClassrooms(
           },
         },
       },
+      financeItemApplicabilities: {
+        where: {
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+        },
+      },
+      subjects: {
+        where: {
+          deletedAt: null,
+          sessionTermId: effectiveTermId ?? undefined,
+        },
+        select: {
+          subject: {
+            select: {
+              title: true,
+            },
+          },
+        },
+      },
       classRoom: {
         select: {
           session: {

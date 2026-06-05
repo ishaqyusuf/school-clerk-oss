@@ -7,8 +7,11 @@ import {
   GraduationCap,
   Sparkles,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
 
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@school-clerk/ui/tabs";
 import { FormContext } from "@/components/classroom/form-context";
 import { Form as ClassroomForm } from "@/components/forms/classroom-form";
 import { Badge } from "@school-clerk/ui/badge";
@@ -20,8 +23,64 @@ export function SetupClassroomsOnboardingClient({
 }: {
   domain: string;
 }) {
-  void domain;
   const [savedCount, setSavedCount] = useState(0);
+  const [activeTab, setActiveTab] = useState("new");
+  const [editingClassroomId, setEditingClassroomId] = useState<string | null>(
+    null
+  );
+
+  const trpc = useTRPC();
+  const { data: classroomStructures } = useQuery(
+    trpc.classrooms.getCurrentSessionClassroom.queryOptions(),
+  );
+
+  const { data: editingStructure } = useQuery({
+    ...trpc.classrooms.getClassroomStructure.queryOptions({
+      classRoomId: editingClassroomId ?? "",
+    }),
+    enabled: !!editingClassroomId,
+  });
+
+  const savedClassroomsList = useMemo(() => {
+    if (!classroomStructures?.data) return [];
+    const map = new Map<
+      string,
+      { id: string; name: string; streams: string[]; feeCount: number; subjects: Set<string> }
+    >();
+    for (const c of classroomStructures.data) {
+      if (c.classRoom?.name && c.classRoom?.id) {
+        if (!map.has(c.classRoom.id)) {
+          map.set(c.classRoom.id, {
+            id: c.classRoom.id,
+            name: c.classRoom.name,
+            streams: [],
+            feeCount: 0,
+            subjects: new Set(),
+          });
+        }
+        const cls = map.get(c.classRoom.id)!;
+        if (c.departmentName) {
+          cls.streams.push(c.departmentName);
+        }
+        if (c.financeItemApplicabilities) {
+          cls.feeCount += c.financeItemApplicabilities.length;
+        }
+        if (c.subjects) {
+          for (const s of c.subjects) {
+            cls.subjects.add(s.subject.title);
+          }
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    ).map(cls => ({
+      ...cls,
+      subjects: Array.from(cls.subjects).sort()
+    }));
+  }, [classroomStructures?.data]);
+
+  const displayCount = Math.max(savedCount, savedClassroomsList.length);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
@@ -32,7 +91,7 @@ export function SetupClassroomsOnboardingClient({
               variant="secondary"
               className="rounded-full px-4 py-1.5 text-sm"
             >
-              Onboarding step 3 of 4
+              Onboarding step 3 of 5
             </Badge>
             <h1 className="text-3xl font-semibold tracking-[-0.05em]">
               Set up classrooms
@@ -43,31 +102,99 @@ export function SetupClassroomsOnboardingClient({
             </p>
           </div>
 
-          {savedCount > 0 ? (
-            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
-              <div className="flex items-center gap-3 text-emerald-900">
-                <CheckCircle2 className="h-5 w-5" />
-                <p className="font-medium">
-                  {savedCount} classroom{savedCount === 1 ? "" : "s"} saved
-                </p>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-emerald-900/80">
-                You can add another classroom or continue to staff invites.
-              </p>
-            </div>
-          ) : null}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger
+                value="new"
+                onClick={() => setEditingClassroomId(null)}
+              >
+                {editingClassroomId ? "Edit Classroom" : "New Classroom"}
+              </TabsTrigger>
+              <TabsTrigger value="saved">
+                Saved Classrooms ({displayCount})
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="new" className="pt-6">
+              <FormContext defaultValues={editingStructure}>
+                <ClassroomForm
+                  submitLabel={editingClassroomId ? "Update classroom" : "Save classroom"}
+                  submitPlacement="inline"
+                  onSuccess={() => {
+                    setSavedCount((count) => count + 1);
+                    setEditingClassroomId(null);
+                  }}
+                />
+              </FormContext>
+            </TabsContent>
 
-          <FormContext>
-            <ClassroomForm
-              submitLabel="Save classroom"
-              submitPlacement="inline"
-              onSuccess={() => setSavedCount((count) => count + 1)}
-            />
-          </FormContext>
+            <TabsContent value="saved" className="pt-6">
+              {savedClassroomsList.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {savedClassroomsList.map((cls) => (
+                    <Card
+                      key={cls.id}
+                      className="cursor-pointer hover:border-primary/50 transition-colors"
+                      onClick={() => {
+                        setEditingClassroomId(cls.id);
+                        setActiveTab("new");
+                      }}
+                    >
+                      <CardContent className="p-4 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-base">
+                            {cls.name}
+                          </span>
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          {cls.streams.length > 0 ? (
+                            <div className="flex items-center gap-1.5 border border-border/50 bg-accent/30 rounded-md px-2 py-1">
+                              <span className="font-medium text-foreground/80">Streams:</span>
+                              <span className="flex gap-1">
+                                {cls.streams.map((stream) => (
+                                  <Badge key={stream} variant="secondary" className="px-1.5 py-0 rounded-sm text-[10px] leading-none">
+                                    {stream}
+                                  </Badge>
+                                ))}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="border border-border/50 bg-accent/30 rounded-md px-2 py-1">
+                              No streams
+                            </span>
+                          )}
+                          <div className="flex items-center border border-border/50 bg-accent/30 rounded-md px-2 py-1">
+                            {cls.feeCount} fee{cls.feeCount === 1 ? "" : "s"} attached
+                          </div>
+                          {cls.subjects && cls.subjects.length > 0 && (
+                            <div className="flex items-center gap-1.5 border border-border/50 bg-accent/30 rounded-md px-2 py-1">
+                              <span className="font-medium text-foreground/80">Subjects:</span>
+                              <span className="flex flex-wrap gap-1">
+                                {cls.subjects.map((subject) => (
+                                  <Badge key={subject} variant="outline" className="px-1.5 py-0 rounded-sm text-[10px] leading-none bg-background/50">
+                                    {subject}
+                                  </Badge>
+                                ))}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-3xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  No classrooms saved yet.
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
 
           <div className="flex justify-end border-t pt-5">
             <Button asChild size="lg">
-              <Link href="/onboarding/invite-staff">
+              <Link href="/onboarding/setup-fees">
                 Next
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
@@ -96,7 +223,9 @@ export function SetupClassroomsOnboardingClient({
             <p>
               Use sub-classes for streams like A/B/C or Emerald/Gold/Silver.
             </p>
-            <p>More classrooms can be added later from Academic Classes.</p>
+            <p>
+              General fees for all classes are set in the next onboarding step.
+            </p>
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">

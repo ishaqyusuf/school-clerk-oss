@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import type { Prisma } from "@school-clerk/db";
 import { createTRPCRouter, publicProcedure } from "../init";
 import { classroomQuerySchema, questionQuerySchema } from "../schemas/schemas";
 
@@ -24,13 +25,136 @@ const createClassroomSchema = z.object({
       })
     )
     .optional(),
+  subjects: z.array(z.string()).optional(),
 });
+
+function normalizeSubjectTitles(subjects?: string[] | null) {
+  const seen = new Set<string>();
+  const titles: string[] = [];
+
+  for (const subject of subjects ?? []) {
+    const title = subject.trim();
+    const key = title.toLowerCase();
+    if (!title || seen.has(key)) continue;
+
+    seen.add(key);
+    titles.push(title);
+  }
+
+  return titles;
+}
+
+async function syncClassroomSubjects({
+  tx,
+  schoolId,
+  sessionTermId,
+  departmentIds,
+  subjectTitles,
+}: {
+  tx: Prisma.TransactionClient;
+  schoolId: string;
+  sessionTermId?: string | null;
+  departmentIds: string[];
+  subjectTitles?: string[] | null;
+}) {
+  const titles = normalizeSubjectTitles(subjectTitles);
+  const termWhere = { sessionTermId: sessionTermId ?? null };
+
+  if (!departmentIds.length) return;
+
+  if (!titles.length) {
+    await tx.departmentSubject.updateMany({
+      where: {
+        classRoomDepartmentId: { in: departmentIds },
+        ...termWhere,
+        deletedAt: null,
+      },
+      data: { deletedAt: new Date() },
+    });
+    return;
+  }
+
+  const subjects = await Promise.all(
+    titles.map((title) =>
+      tx.subject.upsert({
+        where: {
+          title_schoolProfileId: {
+            title,
+            schoolProfileId: schoolId,
+          },
+        },
+        create: {
+          title,
+          schoolProfileId: schoolId,
+        },
+        update: {
+          title,
+          schoolProfileId: schoolId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      }),
+    ),
+  );
+  const subjectIds = subjects.map((subject) => subject.id);
+
+  for (const departmentId of departmentIds) {
+    await tx.departmentSubject.updateMany({
+      where: {
+        classRoomDepartmentId: departmentId,
+        ...termWhere,
+        subjectId: { notIn: subjectIds },
+        deletedAt: null,
+      },
+      data: { deletedAt: new Date() },
+    });
+
+    for (const subjectId of subjectIds) {
+      const existing = await tx.departmentSubject.findMany({
+        where: {
+          classRoomDepartmentId: departmentId,
+          ...termWhere,
+          subjectId,
+        },
+        select: { id: true },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (!existing.length) {
+        await tx.departmentSubject.create({
+          data: {
+            classRoomDepartmentId: departmentId,
+            sessionTermId: sessionTermId ?? null,
+            subjectId,
+          },
+        });
+        continue;
+      }
+
+      const primary = existing[0];
+      if (!primary) continue;
+
+      const duplicates = existing.slice(1);
+      await tx.departmentSubject.update({
+        where: { id: primary.id },
+        data: { deletedAt: null },
+      });
+
+      if (duplicates.length) {
+        await tx.departmentSubject.updateMany({
+          where: { id: { in: duplicates.map((duplicate) => duplicate.id) } },
+          data: { deletedAt: new Date() },
+        });
+      }
+    }
+  }
+}
 
 export const classroomRouter = createTRPCRouter({
   createClassroom: publicProcedure
     .input(createClassroomSchema)
     .mutation(async ({ input, ctx }) => {
-      const { sessionId, schoolId } = ctx.profile;
+      const { sessionId, schoolId, termId } = ctx.profile;
       if (!input.departments?.length) {
         input.departments = [{ name: input.className }];
       }
@@ -104,6 +228,22 @@ export const classroomRouter = createTRPCRouter({
             }
           }
 
+          const activeDepartments = await tx.classRoomDepartment.findMany({
+            where: {
+              classRoomsId: input.classRoomId!,
+              deletedAt: null,
+            },
+            select: { id: true },
+          });
+
+          await syncClassroomSubjects({
+            tx,
+            schoolId,
+            sessionTermId: termId,
+            departmentIds: activeDepartments.map((department) => department.id),
+            subjectTitles: input.subjects,
+          });
+
           return tx.classRoom.findUniqueOrThrow({
             where: { id: classRoom.id },
             include: {
@@ -116,42 +256,69 @@ export const classroomRouter = createTRPCRouter({
         });
       }
 
-      return ctx.db.classRoom.upsert({
-        where: {
-          schoolSessionId_name: {
+      return ctx.db.$transaction(async (tx) => {
+        const classRoom = await tx.classRoom.upsert({
+          where: {
+            schoolSessionId_name: {
+              name: input.className,
+              schoolSessionId: sessionId!,
+            },
+          },
+          update: {
+            classLevel: input.classLevel,
+            classRoomDepartments: {
+              createMany: {
+                data: departments.map((d) => ({
+                  departmentName: d.name,
+                  schoolProfileId: schoolId,
+                  departmentLevel: d.departmentLevel,
+                })),
+                skipDuplicates: true,
+              },
+            },
+          },
+          create: {
             name: input.className,
+            classLevel: input.classLevel,
             schoolSessionId: sessionId!,
-          },
-        },
-        update: {
-          classLevel: input.classLevel,
-          classRoomDepartments: {
-            createMany: {
-              data: departments.map((d) => ({
-                departmentName: d.name,
-                schoolProfileId: schoolId,
-                departmentLevel: d.departmentLevel,
-              })),
-              skipDuplicates: true,
+            schoolProfileId: schoolId!,
+            classRoomDepartments: {
+              createMany: {
+                data: departments.map((d) => ({
+                  departmentName: d.name,
+                  schoolProfileId: schoolId,
+                  departmentLevel: d.departmentLevel,
+                })),
+              },
             },
           },
-        },
-        create: {
-          name: input.className,
-          classLevel: input.classLevel,
-          schoolSessionId: sessionId!,
-          schoolProfileId: schoolId!,
-          classRoomDepartments: {
-            createMany: {
-              data: departments.map((d) => ({
-                departmentName: d.name,
-                schoolProfileId: schoolId,
-                departmentLevel: d.departmentLevel,
-              })),
+          include: {
+            classRoomDepartments: {
+              where: { deletedAt: null },
+              orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
             },
           },
-        },
-        include: { classRoomDepartments: true },
+        });
+
+        await syncClassroomSubjects({
+          tx,
+          schoolId,
+          sessionTermId: termId,
+          departmentIds: classRoom.classRoomDepartments.map(
+            (department) => department.id,
+          ),
+          subjectTitles: input.subjects,
+        });
+
+        return tx.classRoom.findUniqueOrThrow({
+          where: { id: classRoom.id },
+          include: {
+            classRoomDepartments: {
+              where: { deletedAt: null },
+              orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+            },
+          },
+        });
       });
     }),
   getClassroomStructure: publicProcedure
@@ -170,6 +337,39 @@ export const classroomRouter = createTRPCRouter({
               id: true,
               departmentName: true,
               departmentLevel: true,
+              subjects: {
+                where: {
+                  deletedAt: null,
+                  sessionTermId: ctx.profile.termId ?? null,
+                },
+                select: {
+                  subject: {
+                    select: {
+                      title: true,
+                    },
+                  },
+                },
+              },
+              financeItemApplicabilities: {
+                where: { deletedAt: null },
+                select: {
+                  item: {
+                    select: {
+                      id: true,
+                      name: true,
+                      description: true,
+                      amount: true,
+                      collectable: true,
+                      streamId: true,
+                      stream: {
+                        select: {
+                          name: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
         },
@@ -192,6 +392,44 @@ export const classroomRouter = createTRPCRouter({
           name: department.departmentName ?? "",
           departmentLevel: department.departmentLevel ?? null,
         })),
+        subjects: Array.from(
+          new Set(
+            classRoom.classRoomDepartments.flatMap((dept) =>
+              dept.subjects.map((s) => s.subject.title)
+            )
+          )
+        ).sort(),
+        defaultFees: (() => {
+          const defaultFeesMap = new Map();
+          for (const dept of classRoom.classRoomDepartments) {
+            if (!dept.financeItemApplicabilities) continue;
+            for (const app of dept.financeItemApplicabilities) {
+              const item = app.item;
+              if (!defaultFeesMap.has(item.streamId)) {
+                defaultFeesMap.set(item.streamId, {
+                  streamId: item.streamId,
+                  streamName: item.stream?.name || "",
+                  required: item.collectable,
+                  lines: [],
+                });
+              }
+              const fee = defaultFeesMap.get(item.streamId);
+              const desc = item.description || item.name;
+              const exists = fee.lines.some(
+                (l: any) =>
+                  l.description === desc && l.amount === Number(item.amount)
+              );
+              if (!exists) {
+                fee.lines.push({
+                  id: item.id,
+                  description: desc,
+                  amount: Number(item.amount),
+                });
+              }
+            }
+          }
+          return Array.from(defaultFeesMap.values());
+        })(),
       };
     }),
   updateClassroomLevel: publicProcedure
@@ -411,6 +649,61 @@ export const classroomRouter = createTRPCRouter({
     });
 
     return classRooms;
+  }),
+
+  getSchoolStreamStructures: publicProcedure.query(async ({ ctx }) => {
+    const classrooms = await ctx.db.classRoom.findMany({
+      where: {
+        deletedAt: null,
+        schoolProfileId: ctx.profile.schoolId,
+      },
+      select: {
+        id: true,
+        classRoomDepartments: {
+          where: { deletedAt: null },
+          select: {
+            departmentName: true,
+            departmentLevel: true,
+          },
+          orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+        },
+      },
+    });
+
+    const classGroups = new Map<
+      string,
+      { name: string; departmentLevel: number | null }[]
+    >();
+
+    for (const row of classrooms) {
+      const streams = row.classRoomDepartments.map((d) => ({
+        name: d.departmentName ?? "",
+        departmentLevel: d.departmentLevel,
+      }));
+      if (streams.length > 1) {
+        classGroups.set(row.id, streams);
+      }
+    }
+
+    const uniqueGroups = new Map<
+      string,
+      { streams: { name: string; departmentLevel: number | null }[] }
+    >();
+
+    for (const streams of classGroups.values()) {
+      const sortedStreams = streams.sort(
+        (a, b) => (a.departmentLevel ?? 9999) - (b.departmentLevel ?? 9999),
+      );
+      const key = sortedStreams
+        .map((s) => `${s.name.trim().toLowerCase()}_${s.departmentLevel}`)
+        .join("|");
+
+      if (!uniqueGroups.has(key)) {
+        uniqueGroups.set(key, { streams: sortedStreams });
+      }
+    }
+
+    return Array.from(uniqueGroups.values());
   }),
 
   /** Copy all classrooms from a previous session into the current session. */

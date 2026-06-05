@@ -16,7 +16,7 @@ export default async function CreateAcademicSessionPage({}) {
             variant="secondary"
             className="rounded-full px-4 py-1.5 text-sm"
           >
-            Onboarding step 2 of 4
+            Onboarding step 2 of 5
           </Badge>
         </div>
 
