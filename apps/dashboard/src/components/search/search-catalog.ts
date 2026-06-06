@@ -11,9 +11,79 @@ const DEFAULT_PAGE_KEYS = new Set([
 	"students-enrollment",
 	"academic-classes",
 	"finance-overview",
-	"finance-payments",
+	"finance-receive-payment",
+	"finance-student-balances",
+	"finance-payables",
+	"finance-fee-structures",
 	"staff-teachers",
 ]);
+
+const SEARCH_ALIASES: Record<string, string[]> = {
+	"finance-collections": [
+		"student collections",
+		"receipts",
+		"payments received",
+	],
+	"finance-fee-structures": [
+		"fees management",
+		"student fees",
+		"fee setup",
+		"tuition fees",
+	],
+	"finance-ledger": [
+		"transactions",
+		"finance transactions",
+		"account ledger",
+	],
+	"finance-payables": [
+		"bills",
+		"expenses",
+		"supplier bills",
+		"school obligations",
+	],
+	"finance-payroll-bills": ["staff remuneration", "salary", "staff payments"],
+	"finance-owing-repayments": [
+		"owing",
+		"repayments",
+		"unsettled payables",
+		"liabilities",
+	],
+	"finance-receive-payment": [
+		"receive payment",
+		"student payment",
+		"record payment",
+		"collect fees",
+	],
+	"finance-service-billables": [
+		"billables",
+		"service billables",
+		"service items",
+		"expense items",
+	],
+	"finance-service-bills": [
+		"service bills",
+		"vendor bills",
+		"operational bills",
+		"supplier service bills",
+	],
+	"finance-streams": [
+		"accounts",
+		"streams",
+		"account streams",
+		"finance accounts",
+	],
+	"finance-student-balances": [
+		"student fees",
+		"student accounts",
+		"student receivables",
+		"outstanding fees",
+	],
+	"finance-transfers": [
+		"internal transfers",
+		"account transfers",
+		"move money",
+	],
+};
 
 const quickActions: Array<LocalSearchItem & { roles?: string[] }> = [
 	{
@@ -26,10 +96,10 @@ const quickActions: Array<LocalSearchItem & { roles?: string[] }> = [
 	},
 	{
 		group: "Quick Actions",
-		href: "/finance/payments",
+		href: "/finance/receive",
 		id: "action-receive-payment",
 		keywords: ["receive payment", "fee payment", "collections"],
-		subtitle: "Go to payments",
+		subtitle: "Go to receive payment",
 		title: "Receive a payment",
 		roles: ["Admin", "Accountant"],
 	},
@@ -85,6 +155,7 @@ function mapNavItems(role?: string | null) {
 				item.module,
 				item.workspace,
 				item.sectionTitle || "",
+				...(SEARCH_ALIASES[item.key] ?? []),
 			]
 				.filter(Boolean)
 				.map((value) => value.toLowerCase()),

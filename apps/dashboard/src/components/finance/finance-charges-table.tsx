@@ -8,10 +8,34 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 
 type Props = {
 	initialSettings?: Partial<TableSettings>;
-	filter?: { payerType?: string; status?: string };
+	filter?: {
+		collectionStatus?: string;
+		excludePayerType?: string;
+		excludeType?: string;
+		payerType?: string;
+		status?: string;
+		type?: string;
+	};
+	tableTitle?: string;
+	tableDescription?: string;
+	searchPlaceholder?: string;
+	emptyTitle?: string;
+	emptyDescription?: string;
+	emptyActionHref?: string;
+	emptyActionLabel?: string;
 };
 
-export function FinanceChargesTable({ initialSettings, filter = {} }: Props) {
+export function FinanceChargesTable({
+	initialSettings,
+	filter = {},
+	tableTitle,
+	tableDescription,
+	searchPlaceholder,
+	emptyTitle,
+	emptyDescription,
+	emptyActionHref,
+	emptyActionLabel,
+}: Props) {
 	const trpc = useTRPC();
 	const { data } = useSuspenseQuery(trpc.finance.getCharges.queryOptions(filter));
 
@@ -19,6 +43,13 @@ export function FinanceChargesTable({ initialSettings, filter = {} }: Props) {
 		<DataTable
 			data={data as FinanceChargeRow[]}
 			initialSettings={initialSettings}
+			tableTitle={tableTitle}
+			tableDescription={tableDescription}
+			searchPlaceholder={searchPlaceholder}
+			emptyTitle={emptyTitle}
+			emptyDescription={emptyDescription}
+			emptyActionHref={emptyActionHref}
+			emptyActionLabel={emptyActionLabel}
 		/>
 	);
 }

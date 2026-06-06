@@ -18,7 +18,7 @@ export async function FinanceStreamDetailPage({
 	return (
 		<HydrateClient>
 			<div className="flex flex-col gap-6">
-				<PageTitle>Account Stream</PageTitle>
+				<PageTitle>Finance Account</PageTitle>
 				<ErrorBoundary errorComponent={ErrorFallback}>
 					<Suspense fallback={<FinanceOverviewSkeleton />}>
 						<FinanceStreamDetail streamId={streamId} />

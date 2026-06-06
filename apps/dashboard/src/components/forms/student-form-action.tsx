@@ -8,8 +8,10 @@ import { Button } from "@school-clerk/ui/button";
 import { Icons } from "@school-clerk/ui/icons";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
+import { useRouter } from "next/navigation";
 
 export function StudentFormAction({}) {
+  const router = useRouter();
   const studentParams = useStudentParams();
   const receivePaymentParams = useReceivePaymentParams();
   const { mutate, data, reset, isPending } = useMutation(
@@ -29,6 +31,8 @@ export function StudentFormAction({}) {
           queryKey: _trpc.students.analytics.queryKey(),
         });
 
+        router.refresh();
+
         if (studentParams.createStudentReturnTo === "receive-payment") {
           receivePaymentParams.setParams({
             receivePayment: true,
@@ -46,11 +50,68 @@ export function StudentFormAction({}) {
       },
     })
   );
-  const { control, handleSubmit } = useStudentFormContext();
+  const { control, handleSubmit, reset: resetForm } = useStudentFormContext();
 
-  const onSubmit = (data) => {
-    mutate(data);
+  const onSubmit = (formData) => {
+    mutate(formData);
   };
+
+  if (data && studentParams.createStudentReturnTo !== "receive-payment") {
+    return (
+      <div className="flex w-full items-center justify-between">
+        <span className="text-sm font-medium text-muted-foreground">
+          Student created
+        </span>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              reset();
+              resetForm();
+            }}
+          >
+            Create New
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              reset();
+              studentParams.setParams({
+                createStudent: null,
+                createStudentPrefillName: null,
+                createStudentReturnTo: null,
+              });
+            }}
+          >
+            Close
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              reset();
+              receivePaymentParams.setParams({
+                receivePayment: true,
+                receivePaymentStudentId: data.id,
+                receivePaymentCreatedStudentId: data.id,
+                receivePaymentStudentName: null,
+                receivePaymentReturnTo: "student-create",
+              });
+              studentParams.setParams({
+                createStudent: null,
+                createStudentPrefillName: null,
+                createStudentReturnTo: null,
+              });
+            }}
+          >
+            Apply Payment
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex justify-end">
       <form

@@ -29,6 +29,7 @@ import {
 } from "./shared";
 
 const DEFAULT_ALLOWED_ROLES = ["Admin", "Registrar", "Accountant", "Teacher", "Staff"];
+const DEFAULT_PREFERRED_PROVIDER = "deepseek";
 const DEFAULT_ROLLOUT_STAGE = "beta";
 
 function getConfirmationSecret() {
@@ -59,11 +60,21 @@ export async function ensureAssistantConfig(schoolId: string) {
     where: { schoolProfileId: schoolId },
   });
 
-  if (existing) return existing;
+  if (existing) {
+    if (!existing.preferredProvider) {
+      return prisma.schoolAssistantConfig.update({
+        where: { schoolProfileId: schoolId },
+        data: { preferredProvider: DEFAULT_PREFERRED_PROVIDER },
+      });
+    }
+
+    return existing;
+  }
 
   return prisma.schoolAssistantConfig.create({
     data: {
       schoolProfileId: schoolId,
+      preferredProvider: DEFAULT_PREFERRED_PROVIDER,
       allowedRoles: DEFAULT_ALLOWED_ROLES,
       enabledCapabilities: assistantCapabilities.map((cap) => cap.key),
       rolloutStage: DEFAULT_ROLLOUT_STAGE,

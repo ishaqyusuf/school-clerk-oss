@@ -54,9 +54,9 @@ export const columns: ColumnDef<FinancePaymentRow>[] = [
 	},
 	{
 		accessorKey: "stream",
-		header: "Stream",
+		header: "Account",
 		size: 160,
-		meta: { headerLabel: "Stream", skeleton: { type: "text", width: "w-28" } },
+		meta: { headerLabel: "Account", skeleton: { type: "text", width: "w-28" } },
 		cell: ({ row }) => (
 			<span className="text-sm">{row.original.stream?.name ?? "-"}</span>
 		),

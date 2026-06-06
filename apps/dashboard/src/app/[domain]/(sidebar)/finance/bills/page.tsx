@@ -1,5 +1,13 @@
-import { FinanceChargesPage } from "@/components/finance/finance-charges-page";
+import { redirect } from "next/navigation";
+import {
+	type FinanceRedirectSearchParams,
+	redirectTargetWithSearch,
+} from "../redirect-with-search";
 
-export default async function Page() {
-	return <FinanceChargesPage title="Bills & Expenses" filter={{ payerType: "SCHOOL" }} />;
+export default async function Page({
+	searchParams,
+}: {
+	searchParams?: FinanceRedirectSearchParams;
+}) {
+	redirect(await redirectTargetWithSearch("/finance/payables", searchParams));
 }

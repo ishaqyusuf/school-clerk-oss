@@ -74,7 +74,7 @@ export function Form({}) {
     const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
     const otherName = "A.";
 
-    setValue("name", `${firstName} ${lastName} ${otherName}`, { shouldValidate: true, shouldDirty: true });
+    setValue("name", firstName, { shouldValidate: true, shouldDirty: true });
     setValue("surname", lastName, { shouldValidate: true, shouldDirty: true });
     setValue("otherName", otherName, { shouldValidate: true, shouldDirty: true });
     setValue("gender", Math.random() > 0.5 ? "Male" : "Female", { shouldValidate: true, shouldDirty: true });
@@ -139,7 +139,7 @@ export function Form({}) {
           </Button>
         </div>
       )}
-      <FormInput name="name" label="Name" control={control} />
+      <FormInput name="name" label="First Name" control={control} />
       <FindAndEnroll query={name} />
       <div className="grid grid-cols-2 gap-4">
         <FormInput name="surname" label="Surname" control={control} />

@@ -1,0 +1,10 @@
+<svg width="640" height="180" viewBox="0 0 640 180" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">School Clerk premium logo option D</title>
+  <desc id="desc">A single-color institutional column mark with record cutouts.</desc>
+  <rect width="640" height="180" rx="24" fill="#F8FAFC"/>
+  <path fill="#111827" fill-rule="evenodd" d="M90 32 44 56v11c0 3.314 2.686 6 6 6h80c3.314 0 6-2.686 6-6V56L90 32ZM58 82a6 6 0 0 0-6 6v40a6 6 0 0 0 6 6h64a6 6 0 0 0 6-6V88a6 6 0 0 0-6-6H58Zm16 14a5 5 0 0 0 0 10h32a5 5 0 0 0 0-10H74Zm0 17a5 5 0 0 0 0 10h21a5 5 0 0 0 0-10H74Zm37 0a5 5 0 1 0 0 10h1a5 5 0 1 0 0-10h-1Z"/>
+  <g fill="#111827">
+    <text x="184" y="84" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="760">School Clerk</text>
+    <text x="186" y="115" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="520" opacity=".62">Institutional admin mark</text>
+  </g>
+</svg>

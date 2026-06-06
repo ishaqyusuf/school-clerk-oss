@@ -13,6 +13,18 @@ export const metadata: Metadata = {
     },
     {
       rel: "icon",
+      type: "image/svg+xml",
+      media: "(prefers-color-scheme: light)",
+      url: "/logo-light.svg",
+    },
+    {
+      rel: "icon",
+      type: "image/svg+xml",
+      media: "(prefers-color-scheme: dark)",
+      url: "/logo-dark.svg",
+    },
+    {
+      rel: "icon",
       type: "image/png",
       sizes: "128x128",
       url: "/favicon.png",

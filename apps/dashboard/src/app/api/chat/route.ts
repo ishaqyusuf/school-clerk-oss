@@ -19,6 +19,7 @@ import {
 } from "@/lib/assistant/server";
 import type { assistantCapabilityMap } from "@/lib/assistant/shared";
 import { anthropic } from "@ai-sdk/anthropic";
+import { deepseek } from "@ai-sdk/deepseek";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import { Prisma, prisma } from "@school-clerk/db";
@@ -70,11 +71,16 @@ function getModelSelection(config: {
 	preferredModel?: string | null;
 }) {
 	const provider =
-		config.preferredProvider || process.env.AI_PROVIDER || "anthropic";
+		config.preferredProvider || process.env.AI_PROVIDER || "deepseek";
 
 	if (provider === "openai") {
 		const modelName = config.preferredModel || "gpt-4o";
 		return { provider, modelName, model: openai(modelName) };
+	}
+
+	if (provider === "deepseek") {
+		const modelName = config.preferredModel || "deepseek-chat";
+		return { provider, modelName, model: deepseek(modelName) };
 	}
 
 	if (provider === "gemini") {

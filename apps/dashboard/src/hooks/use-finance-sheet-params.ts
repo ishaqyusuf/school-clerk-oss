@@ -6,6 +6,7 @@ export function useFinanceSheetParams(options?: { shallow: boolean }) {
 			createFinanceCharge: parseAsBoolean,
 			recordFinancePayment: parseAsBoolean,
 			financeChargeId: parseAsString,
+			financePaymentPayerType: parseAsString,
 		},
 		options,
 	);

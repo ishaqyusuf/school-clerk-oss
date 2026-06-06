@@ -82,7 +82,7 @@ export function FinanceReconciliationView() {
 						Finance Reconciliation
 					</h1>
 					<p className="mt-1 text-muted-foreground text-sm">
-						Integrity checks and exportable stream balances from the standardized ledger.
+						Integrity checks and exportable account balances from the standardized ledger.
 					</p>
 				</div>
 				<Button
@@ -91,7 +91,7 @@ export function FinanceReconciliationView() {
 					onClick={() => downloadCsv("finance-streams.csv", exportRows)}
 				>
 					<Download className="h-4 w-4" />
-					Export Streams
+					Export Accounts
 				</Button>
 			</div>
 
@@ -107,7 +107,7 @@ export function FinanceReconciliationView() {
 					<div>
 						<h2 className="font-medium text-sm">Integrity Checks</h2>
 						<p className="text-muted-foreground text-xs">
-							Checks run against ledger-backed finance streams.
+							Checks run against ledger-backed finance accounts.
 						</p>
 					</div>
 				</div>

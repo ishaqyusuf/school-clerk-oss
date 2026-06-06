@@ -3,14 +3,14 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { getAuthCookie } from "../cookies/auth-cookie";
 
 export function billablesChanged() {
-  revalidatePath("/finance/billables");
+  revalidatePath("/finance/setup/service-billables");
   getAuthCookie().then(({ termId }) => {
     // revalidateTag(`billables_${termId}`,);
     // revalidateTag(`billables_filter_${termId}`);
   });
 }
 export function billChanged() {
-  revalidatePath("/finance/bills");
+  revalidatePath("/finance/payables");
   // getAuthCookie().then(({ termId }) => {
   //   // revalidateTag(`staffs_${termId}`);
   //   // revalidateTag(`staffs_filter_${termId}`);
@@ -24,7 +24,7 @@ export function classChanged() {
   });
 }
 export function feesChanged() {
-  revalidatePath("/finance/fees-management");
+  revalidatePath("/finance/setup/fees");
   getAuthCookie().then(({ termId }) => {
     // revalidateTag(`feees_${termId}`);
     // revalidateTag(`fees_filter_${termId}`);

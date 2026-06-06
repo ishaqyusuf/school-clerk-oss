@@ -1,5 +1,13 @@
-import { FinanceTransactionsPage } from "@/components/finance/finance-transactions-page";
+import { redirect } from "next/navigation";
+import {
+	type FinanceRedirectSearchParams,
+	redirectTargetWithSearch,
+} from "../redirect-with-search";
 
-export default async function Page() {
-	return <FinanceTransactionsPage />;
+export default async function Page({
+	searchParams,
+}: {
+	searchParams?: FinanceRedirectSearchParams;
+}) {
+	redirect(await redirectTargetWithSearch("/finance/ledger", searchParams));
 }

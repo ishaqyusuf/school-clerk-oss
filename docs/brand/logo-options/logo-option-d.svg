@@ -1,0 +1,17 @@
+<svg width="640" height="180" viewBox="0 0 640 180" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">School Clerk logo option D</title>
+  <desc id="desc">A modern school-admin shield containing ledger rows and a green check dot.</desc>
+  <rect width="640" height="180" rx="24" fill="#F8FAFC"/>
+  <g transform="translate(42 34)">
+    <rect width="112" height="112" rx="28" fill="#EEF2FF"/>
+    <path d="M56 20L88 32V55C88 75.895 75.012 91.216 56 98C36.988 91.216 24 75.895 24 55V32L56 20Z" fill="#312E81"/>
+    <path d="M56 31L77 39V56C77 69.503 68.997 80.097 56 86C43.003 80.097 35 69.503 35 56V39L56 31Z" fill="#4338CA"/>
+    <rect x="44" y="48" width="22" height="6" rx="3" fill="#F8FAFC"/>
+    <rect x="44" y="61" width="18" height="6" rx="3" fill="#F8FAFC"/>
+    <rect x="66" y="58" width="12" height="12" rx="4" fill="#22C55E"/>
+  </g>
+  <g transform="translate(190 58)">
+    <text x="0" y="40" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="40" font-weight="750">School Clerk</text>
+    <text x="2" y="68" fill="#4B5563" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="500">Trust-focused mark for institutional administration</text>
+  </g>
+</svg>

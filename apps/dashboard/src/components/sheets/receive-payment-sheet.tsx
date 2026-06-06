@@ -21,6 +21,7 @@ import { useAddFeeParams } from "@/hooks/use-add-fee-params";
 import { AddFeeSheet } from "@/components/finance/forms/add-fee-sheet";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { useTRPC } from "@/trpc/client";
+import { studentDisplayName } from "@/utils/utils";
 import { cn } from "@school-clerk/ui/cn";
 import { Alert, AlertDescription, AlertTitle } from "@school-clerk/ui/alert";
 import { Badge } from "@school-clerk/ui/badge";
@@ -255,7 +256,7 @@ export function ReceivePaymentSheet() {
 
 	const studentOptions = searchResults.map((student) => ({
 		id: student.id,
-		label: student.name,
+		label: studentDisplayName(student) || student.name,
 		classroomId: student.classroomId || null,
 		classroom: student.classroom,
 		term: student.currentTermLabel,
@@ -267,7 +268,7 @@ export function ReceivePaymentSheet() {
 		(data?.student
 			? {
 					id: data.student.id,
-					label: data.student.name,
+					label: studentDisplayName(data.student) || data.student.name,
 					classroomId:
 						(data.currentTermForm as any)?.classroomDepartment?.id || null,
 					classroom: data.student.currentClassroom,
@@ -472,6 +473,9 @@ export function ReceivePaymentSheet() {
 					}),
 					qc.invalidateQueries({
 						queryKey: trpc.transactions.getStudentFees.queryKey(),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getCharges.queryKey(),
 					}),
 					qc.invalidateQueries({
 						queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),

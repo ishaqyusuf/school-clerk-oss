@@ -1,6 +1,7 @@
 import { Separator } from "@school-clerk/ui/separator";
 import { Github, Twitter } from "lucide-react";
 import Link from "next/link";
+import { BrandLogo } from "./brand-logo";
 
 const footerLinks = {
   Product: [
@@ -11,7 +12,10 @@ const footerLinks = {
   ],
   Resources: [
     { label: "Documentation", href: "/docs" },
-    { label: "GitHub", href: "https://github.com/school-clerk/school-clerk-oss" },
+    {
+      label: "GitHub",
+      href: "https://github.com/school-clerk/school-clerk-oss",
+    },
     { label: "Community", href: "/community" },
     { label: "Status", href: "/status" },
   ],
@@ -30,10 +34,10 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-xs">
-                SC
-              </div>
-              <span className="font-semibold text-foreground">School Clerk</span>
+              <BrandLogo size={28} />
+              <span className="font-semibold text-foreground">
+                School Clerk
+              </span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Open-source school management built for modern institutions.

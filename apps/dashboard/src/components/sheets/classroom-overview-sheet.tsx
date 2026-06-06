@@ -18,6 +18,7 @@ import { _trpc } from "../static-trpc";
 import { ClassroomAttendance } from "../classroom-attendance";
 import { ClassroomAttendanceForm } from "../classroom-attendance-form";
 import { Badge } from "@school-clerk/ui/badge";
+import { Button } from "@school-clerk/ui/button";
 import {
   Users,
   Calendar,
@@ -25,8 +26,14 @@ import {
   Banknote,
   BarChart3,
   FileText,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@school-clerk/ui/cn";
+import { AnimatedNumber } from "../animated-number";
+import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
+import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 export function ClassroomOverviewSheet({}) {
   const { setParams, ...params } = useClassroomParams();
@@ -179,7 +186,11 @@ export function Content({}) {
                 <ClassroomAttendance departmentId={viewClassroomId} />
               </TabsContent>
               <TabsContent value="payments" className="h-screen">
-                <ComingSoonPlaceholder tab="Payments" />
+                <ClassroomPayments
+                  departmentId={viewClassroomId}
+                  sessionId={classRoom?.classRoom?.session?.id}
+                  termId={classRoom?.classRoom?.session?.term?.id}
+                />
               </TabsContent>
               <TabsContent value="performance" className="h-screen">
                 <ComingSoonPlaceholder tab="Performance" />
@@ -196,6 +207,241 @@ export function Content({}) {
         <ClassroomAttendanceForm />
       </Sheet.MultiContent>
     </>
+  );
+}
+
+type ClassroomPaymentCharge = {
+  id: string;
+  title: string;
+  amount: number;
+  amountPaid: number;
+  outstanding: number;
+  status: string;
+  collectionStatus?: string | null;
+  studentName?: string | null;
+  student?: { id: string; name?: string | null; surname?: string | null; otherName?: string | null } | null;
+  stream?: { name?: string | null } | null;
+};
+
+function ClassroomPayments({
+  departmentId,
+  sessionId,
+  termId,
+}: {
+  departmentId?: string | null;
+  sessionId?: string | null;
+  termId?: string | null;
+}) {
+  const trpc = useTRPC();
+  const { setParams: setPaymentParams } = useReceivePaymentParams();
+  const { data = [], isLoading } = useQuery(
+    trpc.finance.getCharges.queryOptions(
+      {
+        classroomDepartmentId: departmentId || null,
+        sessionId: sessionId || null,
+        termId: termId || null,
+        payerType: "STUDENT",
+      },
+      { enabled: Boolean(departmentId) },
+    ),
+  );
+  const charges = data as ClassroomPaymentCharge[];
+  const totals = useMemo(() => {
+    return charges.reduce(
+      (summary, charge) => {
+        summary.billed += Number(charge.amount || 0);
+        summary.paid += Number(charge.amountPaid || 0);
+        summary.outstanding += Math.max(Number(charge.outstanding || 0), 0);
+        if (Number(charge.outstanding || 0) <= 0) summary.paidCharges += 1;
+        if (Number(charge.outstanding || 0) > 0) summary.openCharges += 1;
+        return summary;
+      },
+      { billed: 0, paid: 0, outstanding: 0, paidCharges: 0, openCharges: 0 },
+    );
+  }, [charges]);
+  const collectionRate =
+    totals.billed > 0 ? Math.round((totals.paid / totals.billed) * 100) : 0;
+  const sortedCharges = useMemo(
+    () =>
+      [...charges].sort(
+        (a, b) => Number(b.outstanding || 0) - Number(a.outstanding || 0),
+      ),
+    [charges],
+  );
+
+  const openPaymentSheet = (charge?: ClassroomPaymentCharge) => {
+    setPaymentParams({
+      receivePayment: true,
+      receivePaymentStudentId: charge?.student?.id ?? null,
+      receivePaymentStudentName: charge?.student?.id
+        ? null
+        : charge?.studentName ?? null,
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 p-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+        <Skeleton className="h-40" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 p-4 animate-in fade-in">
+      <div className="grid grid-cols-2 gap-3">
+        <PaymentStat label="Billed" value={totals.billed} />
+        <PaymentStat label="Received" value={totals.paid} tone="success" />
+        <PaymentStat label="Outstanding" value={totals.outstanding} tone="warning" />
+        <div className="rounded-lg border bg-card p-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Collection
+          </p>
+          <div className="mt-2 flex items-end gap-2">
+            <span className="text-2xl font-semibold">{collectionRate}%</span>
+            <span className="pb-1 text-xs text-muted-foreground">
+              {totals.paidCharges}/{charges.length} paid
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">Student charges</h3>
+          <p className="text-xs text-muted-foreground">
+            {totals.openCharges} outstanding, {totals.paidCharges} settled
+          </p>
+        </div>
+        <Button size="sm" className="gap-2" onClick={() => openPaymentSheet()}>
+          <Banknote className="h-4 w-4" />
+          Receive payment
+        </Button>
+      </div>
+
+      {sortedCharges.length ? (
+        <div className="divide-y rounded-lg border bg-card">
+          {sortedCharges.map((charge) => {
+            const isPaid = Number(charge.outstanding || 0) <= 0;
+            return (
+              <div
+                key={charge.id}
+                className="flex items-center gap-3 p-3"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <Receipt className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-medium">
+                      {charge.studentName || "Student"}
+                    </p>
+                    <PaymentStatusBadge
+                      status={isPaid ? "PAID" : charge.collectionStatus || charge.status}
+                    />
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {[charge.title, charge.stream?.name].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p
+                    className={cn(
+                      "text-sm font-semibold",
+                      isPaid ? "text-emerald-600" : "text-orange-600",
+                    )}
+                  >
+                    <AnimatedNumber
+                      value={isPaid ? charge.amountPaid : charge.outstanding}
+                      currency="NGN"
+                      maximumFractionDigits={0}
+                    />
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    paid{" "}
+                    <AnimatedNumber
+                      value={charge.amountPaid}
+                      currency="NGN"
+                      maximumFractionDigits={0}
+                    />
+                  </p>
+                </div>
+                {!isPaid ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openPaymentSheet(charge)}
+                  >
+                    Record
+                  </Button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-lg border bg-card p-6 text-center">
+          <Receipt className="mx-auto h-8 w-8 text-muted-foreground" />
+          <h3 className="mt-3 text-sm font-semibold">No student charges</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Payments recorded for this classroom will appear here.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PaymentStat({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: number;
+  tone?: "default" | "success" | "warning";
+}) {
+  return (
+    <div className="rounded-lg border bg-card p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className={cn(
+          "mt-2 text-xl font-semibold",
+          tone === "success" && "text-emerald-600",
+          tone === "warning" && "text-orange-600",
+        )}
+      >
+        <AnimatedNumber
+          value={value}
+          currency="NGN"
+          maximumFractionDigits={0}
+        />
+      </p>
+    </div>
+  );
+}
+
+function PaymentStatusBadge({ status }: { status?: string | null }) {
+  const normalized = (status || "PENDING").replace(/_/g, " ").toLowerCase();
+  const isPaid = status === "PAID" || status === "COLLECTED";
+  return (
+    <Badge
+      variant={isPaid ? "success" : "outline"}
+      className={cn(
+        "h-5 rounded-none px-1.5 text-[10px]",
+        !isPaid && "border-orange-300 text-orange-700",
+      )}
+    >
+      {isPaid ? "paid" : normalized}
+    </Badge>
   );
 }
 

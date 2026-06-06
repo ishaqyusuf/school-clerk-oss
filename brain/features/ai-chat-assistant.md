@@ -47,7 +47,7 @@ Provide a tenant-aware AI assistant inside the dashboard that helps school staff
 - Prisma schema changes require migration rollout before the new assistant persistence layer can work outside codegen/type-check level
 - The route now enforces confirmation for risky mutations, but undo/reversal workflows are still domain-specific and not yet generalized
 - There is no automated eval harness yet; validation is currently based on isolated type-check coverage and runtime instrumentation design
-- Provider/model selection is configurable per tenant assistant config, but cost/performance routing is still static rather than intent-aware
+- Provider/model selection is configurable per tenant assistant config; DeepSeek is the default preferred provider with `deepseek-chat` as the fallback model, but cost/performance routing is still static rather than intent-aware
 - Tenant module gating is assistant-config-backed for now and should later align with the broader platform module engine
 
 ## UX Notes

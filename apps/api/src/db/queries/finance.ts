@@ -855,6 +855,9 @@ export async function listFinanceCharges(
 		status?: string | null;
 		collectionStatus?: string | null;
 		payerType?: string | null;
+		excludePayerType?: string | null;
+		type?: string | null;
+		excludeType?: string | null;
 	},
 ) {
 	const schoolProfileId = requireSchoolId(ctx);
@@ -905,9 +908,23 @@ export async function listFinanceCharges(
 				: { status: { not: "CANCELLED" } }),
 			...(collectionStatus ? { collectionStatus: collectionStatus as never } : {}),
 			...(input?.payerType ? { payerType: input.payerType as any } : {}),
+			...(!input?.payerType && input?.excludePayerType
+				? { payerType: { not: input.excludePayerType as any } }
+				: {}),
+			...(input?.type
+				? { item: { is: { type: input.type as any } } }
+				: input?.excludeType
+					? {
+							OR: [
+								{ item: null },
+								{ item: { is: { type: { not: input.excludeType as any } } } },
+							],
+						}
+					: {}),
 		},
 		include: {
 			stream: { select: { id: true, name: true, accountType: true } },
+			item: { select: { id: true, type: true, name: true } },
 			student: {
 				select: { id: true, name: true, surname: true, otherName: true },
 			},
@@ -971,6 +988,8 @@ export async function listFinanceCharges(
 			status: charge.status,
 			collectionStatus: charge.collectionStatus,
 			payerType: charge.payerType,
+			itemType: charge.item?.type ?? null,
+			itemName: charge.item?.name ?? null,
 			stream: charge.stream,
 			student: charge.student,
 			staffProfile: charge.staffProfile,

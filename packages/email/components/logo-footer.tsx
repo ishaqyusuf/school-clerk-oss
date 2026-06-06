@@ -8,7 +8,7 @@ export function LogoFooter() {
 		<Section>
 			<Link href={baseUrl}>
 				<Img
-					src={`${baseUrl}/logo.png`}
+					src={`${baseUrl}/logo-light.png`}
 					width="110"
 					alt="School Clerk"
 					className="block"

@@ -1,5 +1,13 @@
-import { FinanceItemsPage } from "@/components/finance/finance-items-page";
+import { redirect } from "next/navigation";
+import {
+	type FinanceRedirectSearchParams,
+	redirectTargetWithSearch,
+} from "../redirect-with-search";
 
-export default async function Page() {
-	return <FinanceItemsPage filter={{ excludeType: "SERVICE" }} />;
+export default async function Page({
+	searchParams,
+}: {
+	searchParams?: FinanceRedirectSearchParams;
+}) {
+	redirect(await redirectTargetWithSearch("/finance/setup/fees", searchParams));
 }

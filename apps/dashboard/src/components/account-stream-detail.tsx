@@ -328,9 +328,9 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 			<div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 				<div className="space-y-2">
 					<Button asChild variant="ghost" className="w-fit px-0 text-muted-foreground">
-						<Link href="/finance/streams">
+						<Link href="/finance/accounts">
 							<ArrowLeft className="h-4 w-4" />
-							Back to streams
+							Back to accounts
 						</Link>
 					</Button>
 					<div className="flex flex-wrap items-center gap-3">
@@ -358,10 +358,10 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 					<Button
 						variant="outline"
 						className="gap-2"
-						onClick={() => router.push(`/finance/transactions`)}
+						onClick={() => router.push("/finance/ledger")}
 					>
 						<FileText className="h-4 w-4" />
-						All Transactions
+						Open Ledger
 					</Button>
 					<Button
 						variant="outline"

@@ -1,0 +1,10 @@
+<svg width="640" height="180" viewBox="0 0 640 180" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">School Clerk premium logo option A</title>
+  <desc id="desc">A single-color rounded ledger seal with negative-space rows.</desc>
+  <rect width="640" height="180" rx="24" fill="#F8FAFC"/>
+  <path fill="#111827" fill-rule="evenodd" d="M70 36C51.222 36 36 51.222 36 70v40c0 18.778 15.222 34 34 34h40c18.778 0 34-15.222 34-34V70c0-18.778-15.222-34-34-34H70Zm6 32a6 6 0 0 0 0 12h32a6 6 0 0 0 0-12H76Zm44 0a6 6 0 1 0 0 12h2a6 6 0 1 0 0-12h-2ZM76 86a6 6 0 0 0 0 12h44a6 6 0 0 0 0-12H76Zm0 18a6 6 0 0 0 0 12h28a6 6 0 0 0 0-12H76Zm42 0a6 6 0 1 0 0 12h4a6 6 0 1 0 0-12h-4Z"/>
+  <g fill="#111827">
+    <text x="184" y="84" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="760">School Clerk</text>
+    <text x="186" y="115" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="520" opacity=".62">Premium ledger seal</text>
+  </g>
+</svg>

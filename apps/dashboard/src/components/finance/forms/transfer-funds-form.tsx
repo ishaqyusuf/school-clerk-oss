@@ -64,7 +64,7 @@ export function TransferFundsForm({ streams }: TransferFundsFormProps) {
 				<Card.Content className="space-y-3">
 					<Select value={fromStreamId} onValueChange={setFromStreamId}>
 						<SelectTrigger>
-							<SelectValue placeholder="From stream" />
+							<SelectValue placeholder="From account" />
 						</SelectTrigger>
 						<SelectContent>
 							{streams.map((stream) => (
@@ -76,7 +76,7 @@ export function TransferFundsForm({ streams }: TransferFundsFormProps) {
 					</Select>
 					<Select value={toStreamId} onValueChange={setToStreamId}>
 						<SelectTrigger>
-							<SelectValue placeholder="To stream" />
+							<SelectValue placeholder="To account" />
 						</SelectTrigger>
 						<SelectContent>
 							{streams.map((stream) => (

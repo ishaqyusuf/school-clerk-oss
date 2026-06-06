@@ -1,5 +1,15 @@
-import { FinancePaymentsPage } from "@/components/finance/finance-payments-page";
+import { redirect } from "next/navigation";
+import {
+	type FinanceRedirectSearchParams,
+	redirectTargetWithSearch,
+} from "../redirect-with-search";
 
-export default async function Page() {
-	return <FinancePaymentsPage title="Staff Remuneration" filter={{ payerType: "STAFF" }} />;
+export default async function Page({
+	searchParams,
+}: {
+	searchParams?: FinanceRedirectSearchParams;
+}) {
+	redirect(
+		await redirectTargetWithSearch("/finance/payables/payroll", searchParams),
+	);
 }

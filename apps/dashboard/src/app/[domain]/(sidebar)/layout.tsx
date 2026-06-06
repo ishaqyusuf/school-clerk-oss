@@ -14,8 +14,14 @@ import {
   CardTitle,
 } from "@school-clerk/ui/card";
 import { AlertTriangle } from "lucide-react";
+import { prisma } from "@school-clerk/db";
+import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config";
+import { resolveTenantUrlContextFromHeaders } from "@school-clerk/tenant-url/next/server";
+import { buildTenantHref } from "@school-clerk/tenant-url";
+import { headers } from "next/headers";
 
-export default async function LayoutNew({ children }) {
+export default async function LayoutNew({ children, params }) {
+  const { domain } = await params;
   const cookie = await getAuthCookie();
   if (!cookie?.schoolId) {
     return (
@@ -55,9 +61,63 @@ export default async function LayoutNew({ children }) {
       </div>
     );
   }
+  let devUsers: any[] = [];
+  if (process.env.NODE_ENV !== "production") {
+    const requestHeaders = await headers();
+    const tenantUrlConfig = getDashboardTenantUrlConfig();
+    const tenantUrlContext = resolveTenantUrlContextFromHeaders({
+      domain,
+      headers: requestHeaders,
+      config: tenantUrlConfig,
+    });
+
+    const tenant = await prisma.schoolProfile.findFirst({
+      where: {
+        deletedAt: null,
+        domains: {
+          some: {
+            subdomain: domain,
+          },
+        },
+      },
+      select: {
+        account: {
+          select: {
+            users: {
+              where: {
+                deletedAt: null,
+              },
+              orderBy: {
+                createdAt: "asc",
+              },
+              select: {
+                email: true,
+                name: true,
+                role: true,
+              },
+              take: 8,
+            },
+          },
+        },
+      },
+    });
+
+    devUsers =
+      tenant?.account?.users.map((user) => ({
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        quickLoginHref: buildTenantHref(
+          tenantUrlContext,
+          `/login?email=${encodeURIComponent(user.email)}&password=${encodeURIComponent("lorem-ipsum")}&autologin=1&return_to=${encodeURIComponent("/")}`,
+          tenantUrlConfig,
+        ),
+      })) ?? [];
+  }
+
   return (
     <HydrateClient>
-      <NavLayoutClient>{children}</NavLayoutClient>
+      <NavLayoutClient devUsers={devUsers}>{children}</NavLayoutClient>
 
       <Suspense>
         <GlobalSheets />

@@ -282,7 +282,7 @@ export function ChatPanel() {
                         preferredProvider: e.target.value,
                       }))
                     }
-                    placeholder="anthropic | openai | gemini"
+                    placeholder="deepseek | anthropic | openai | gemini"
                   />
                 </label>
                 <label className="flex flex-col gap-1">

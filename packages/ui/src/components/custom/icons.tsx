@@ -529,30 +529,40 @@ export const Icons = {
   Logo: () => (
     <Image
       alt="School Clerk"
-      src="/logo_mini.png"
-      width={48}
-      height={48}
+      src="/logo.png"
+      width={32}
+      height={32}
+      className="rounded-md"
+      priority
       unoptimized
     />
   ),
   LogoLg: () => (
-    <Image
-      alt="School Clerk"
-      src="/logo.png"
-      height={48}
-      width={120}
-      unoptimized
-    />
-  ),
-  logoLg: ({ width = 120 }: { width?: number }) => (
-    <Link href="/">
+    <div className="flex items-center gap-2">
       <Image
         alt="School Clerk"
         src="/logo.png"
-        height={48}
-        width={width}
+        width={32}
+        height={32}
+        className="rounded-md"
+        priority
         unoptimized
       />
+      <span className="font-semibold text-foreground">School Clerk</span>
+    </div>
+  ),
+  logoLg: () => (
+    <Link href="/" className="flex items-center gap-2">
+      <Image
+        alt="School Clerk"
+        src="/logo.png"
+        width={32}
+        height={32}
+        className="rounded-md"
+        priority
+        unoptimized
+      />
+      <span className="font-semibold text-foreground">School Clerk</span>
     </Link>
   ),
 
@@ -560,9 +570,11 @@ export const Icons = {
     <Link href="/">
       <Image
         alt="School Clerk"
-        src="/logo_mini.png"
-        width={48}
-        height={48}
+        src="/logo.png"
+        width={32}
+        height={32}
+        className="rounded-md"
+        priority
         unoptimized
       />
     </Link>

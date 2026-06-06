@@ -1,8 +1,18 @@
 "use client";
 
 import { NumberInput } from "@/components/currency-input";
+import { useFinanceSheetParams } from "@/hooks/use-finance-sheet-params";
+import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
 import { Badge } from "@school-clerk/ui/badge";
+import { Button } from "@school-clerk/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@school-clerk/ui/dropdown-menu";
 import type { ColumnDef } from "@tanstack/react-table";
+import { CreditCard, MoreHorizontal } from "lucide-react";
 
 export type FinanceChargeRow = {
 	id: string;
@@ -14,7 +24,15 @@ export type FinanceChargeRow = {
 	status: string;
 	collectionStatus: string;
 	payerType: "STUDENT" | "STAFF" | "SCHOOL";
+	itemType?: string | null;
+	itemName?: string | null;
 	studentName?: string | null;
+	student?: {
+		id: string;
+		name?: string | null;
+		surname?: string | null;
+		otherName?: string | null;
+	} | null;
 	stream?: { id: string; name: string; accountType: string } | null;
 	staffProfile?: { id: string; name: string; title?: string | null } | null;
 	createdAt: string | Date;
@@ -54,9 +72,9 @@ export const columns: ColumnDef<FinanceChargeRow>[] = [
 	},
 	{
 		accessorKey: "stream",
-		header: "Stream",
+		header: "Account",
 		size: 160,
-		meta: { headerLabel: "Stream", skeleton: { type: "text", width: "w-28" } },
+		meta: { headerLabel: "Account", skeleton: { type: "text", width: "w-28" } },
 		cell: ({ row }) => (
 			<span className="text-sm">{row.original.stream?.name ?? "-"}</span>
 		),
@@ -105,4 +123,59 @@ export const columns: ColumnDef<FinanceChargeRow>[] = [
 			</Badge>
 		),
 	},
+	{
+		id: "actions",
+		size: 56,
+		cell: ({ row }) => <FinanceChargeRowActions row={row.original} />,
+	},
 ];
+
+function FinanceChargeRowActions({ row }: { row: FinanceChargeRow }) {
+	const receivePaymentParams = useReceivePaymentParams();
+	const financeSheetParams = useFinanceSheetParams();
+
+	if (
+		row.outstanding <= 0 ||
+		row.status === "CANCELLED" ||
+		row.status === "WAIVED"
+	) {
+		return null;
+	}
+
+	const isStudentCharge = row.payerType === "STUDENT";
+	const label = isStudentCharge ? "Receive payment" : "Record payment";
+
+	const openPayment = () => {
+		if (isStudentCharge) {
+			receivePaymentParams.setParams({
+				receivePayment: true,
+				receivePaymentStudentId: row.student?.id ?? null,
+				receivePaymentStudentName: row.studentName ?? null,
+			});
+			return;
+		}
+
+		financeSheetParams.setParams({
+			recordFinancePayment: true,
+			financeChargeId: row.id,
+			financePaymentPayerType: row.payerType,
+		});
+	};
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button variant="ghost" className="h-8 w-8 p-0">
+					<span className="sr-only">Open menu</span>
+					<MoreHorizontal className="h-4 w-4" />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end">
+				<DropdownMenuItem onClick={openPayment}>
+					<CreditCard className="mr-2 h-4 w-4" />
+					{label}
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}

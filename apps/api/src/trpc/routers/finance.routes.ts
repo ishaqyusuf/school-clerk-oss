@@ -66,6 +66,9 @@ const chargeListInput = z
 		status: z.string().optional().nullable(),
 		collectionStatus: z.string().optional().nullable(),
 		payerType: z.string().optional().nullable(),
+		excludePayerType: z.string().optional().nullable(),
+		type: z.string().optional().nullable(),
+		excludeType: z.string().optional().nullable(),
 	})
 	.optional();
 
@@ -617,7 +620,13 @@ export const financeRouter = createTRPCRouter({
 	createStaffBill: authenticatedProcedure
 		.input(legacyChargeInput)
 		.mutation(({ ctx, input }) =>
-			createFinanceCharge(ctx, normalizeLegacyChargeInput(input, "STAFF")),
+			createFinanceCharge(
+				ctx,
+				normalizeLegacyChargeInput(
+					{ ...input, type: input.type ?? "SALARY" },
+					"STAFF",
+				),
+			),
 		),
 	createServicePayment: authenticatedProcedure
 		.input(legacyChargeInput)

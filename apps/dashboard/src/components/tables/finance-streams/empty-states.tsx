@@ -9,9 +9,9 @@ type EmptyStreamsProps = {
 export function EmptyStreams({ onCreate }: EmptyStreamsProps) {
 	return (
 		<EmptyState
-			title="No account streams"
-			description="Create tuition, book, service, or salary items to open their streams."
-			actionLabel="Create stream"
+			title="No finance accounts"
+			description="Create tuition, book, service, or salary items to open their linked accounts."
+			actionLabel="Set up fee structures"
 			onAction={onCreate}
 		/>
 	);

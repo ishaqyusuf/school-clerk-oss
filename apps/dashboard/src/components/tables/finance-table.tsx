@@ -40,6 +40,8 @@ type FinanceTableProps<TData> = {
 	searchPlaceholder: string;
 	emptyTitle: string;
 	emptyDescription: string;
+	emptyActionHref?: string;
+	emptyActionLabel?: string;
 	action?: React.ReactNode;
 };
 
@@ -54,6 +56,8 @@ export function FinanceTable<TData>({
 	searchPlaceholder,
 	emptyTitle,
 	emptyDescription,
+	emptyActionHref = "/finance",
+	emptyActionLabel = "Back to finance",
 	action,
 }: FinanceTableProps<TData>) {
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -116,9 +120,9 @@ export function FinanceTable<TData>({
 					<EmptyState
 						title={emptyTitle}
 						description={emptyDescription}
-						actionLabel="Back to finance"
+						actionLabel={emptyActionLabel}
 						onAction={() => {
-							window.location.href = "/finance";
+							window.location.href = emptyActionHref;
 						}}
 					/>
 				</div>
@@ -227,13 +231,13 @@ function FinanceTableHeader<TData>({
 	action,
 }: FinanceTableHeaderProps<TData>) {
 	return (
-		<div className="flex items-center gap-3 border-b px-4 py-3">
+		<div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center">
 			<div className="min-w-0 flex-1">
 				<h2 className="font-medium text-sm">{title}</h2>
 				<p className="text-muted-foreground text-xs">{description}</p>
 			</div>
 			<Input
-				className="w-full max-w-[240px]"
+				className="w-full sm:max-w-[240px]"
 				placeholder={searchPlaceholder}
 				value={
 					(table.getColumn(searchColumnId)?.getFilterValue() as string) ?? ""

@@ -19,6 +19,14 @@ import { PackagePlus } from "lucide-react";
 type AccountType = "CREDIT" | "DEBIT";
 type ItemType = "TUITION_FEE" | "BOOK" | "SERVICE" | "SALARY" | "OTHER";
 
+const ITEM_TYPE_OPTIONS: Array<{ label: string; value: ItemType }> = [
+	{ label: "Tuition fee", value: "TUITION_FEE" },
+	{ label: "Book", value: "BOOK" },
+	{ label: "Service", value: "SERVICE" },
+	{ label: "Salary", value: "SALARY" },
+	{ label: "Other", value: "OTHER" },
+];
+
 function streamDefaultsForItem(type: ItemType): {
 	streamName: string;
 	accountType: AccountType;
@@ -37,11 +45,34 @@ function streamDefaultsForItem(type: ItemType): {
 	}
 }
 
-export function CreateItemForm() {
+type CreateItemFormProps = {
+	allowedItemTypes?: ItemType[];
+	defaultItemType?: ItemType;
+	namePlaceholder?: string;
+	onCreated?: () => void;
+	submitLabel?: string;
+	title?: string;
+};
+
+export function CreateItemForm({
+	allowedItemTypes,
+	defaultItemType = "TUITION_FEE",
+	namePlaceholder,
+	onCreated,
+	submitLabel = "Save Item",
+	title = "Create Item",
+}: CreateItemFormProps = {}) {
 	const trpc = useTRPC();
 	const refreshFinance = useRefreshFinance();
+	const itemTypeOptions = ITEM_TYPE_OPTIONS.filter((option) =>
+		allowedItemTypes?.length ? allowedItemTypes.includes(option.value) : true,
+	);
+	const initialItemType =
+		itemTypeOptions.find((option) => option.value === defaultItemType)?.value ??
+		itemTypeOptions[0]?.value ??
+		"TUITION_FEE";
 	const [itemName, setItemName] = useState("");
-	const [itemType, setItemType] = useState<ItemType>("TUITION_FEE");
+	const [itemType, setItemType] = useState<ItemType>(initialItemType);
 	const [itemAmount, setItemAmount] = useState("");
 	const createItem = useMutation(
 		trpc.finance.createItem.mutationOptions({
@@ -49,6 +80,7 @@ export function CreateItemForm() {
 				setItemName("");
 				setItemAmount("");
 				await refreshFinance();
+				onCreated?.();
 			},
 		}),
 	);
@@ -75,24 +107,29 @@ export function CreateItemForm() {
 						<div className="rounded-md bg-secondary/30 p-1.5">
 							<PackagePlus className="h-4 w-4 text-secondary-foreground" />
 						</div>
-						Create Item
+						{title}
 					</Card.Title>
 				</Card.Header>
 				<Card.Content className="space-y-3">
-					<Select value={itemType} onValueChange={(value) => setItemType(value as ItemType)}>
-						<SelectTrigger>
-							<SelectValue placeholder="Item type" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="TUITION_FEE">Tuition fee</SelectItem>
-							<SelectItem value="BOOK">Book</SelectItem>
-							<SelectItem value="SERVICE">Service</SelectItem>
-							<SelectItem value="SALARY">Salary</SelectItem>
-							<SelectItem value="OTHER">Other</SelectItem>
-						</SelectContent>
-					</Select>
+					{itemTypeOptions.length > 1 && (
+						<Select value={itemType} onValueChange={(value) => setItemType(value as ItemType)}>
+							<SelectTrigger>
+								<SelectValue placeholder="Item type" />
+							</SelectTrigger>
+							<SelectContent>
+								{itemTypeOptions.map((option) => (
+									<SelectItem key={option.value} value={option.value}>
+										{option.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					)}
 					<Input
-						placeholder={itemType === "BOOK" ? "e.g. Nahw textbook" : "Item Name"}
+						placeholder={
+							namePlaceholder ??
+							(itemType === "BOOK" ? "e.g. Nahw textbook" : "Item Name")
+						}
 						value={itemName}
 						onChange={(event) => setItemName(event.target.value)}
 					/>
@@ -103,7 +140,7 @@ export function CreateItemForm() {
 						onChange={(event) => setItemAmount(event.target.value)}
 					/>
 					<Button className="w-full" disabled={createItem.isPending} type="submit" variant="secondary">
-						Save Item
+						{createItem.isPending ? "Saving..." : submitLabel}
 					</Button>
 				</Card.Content>
 			</form>

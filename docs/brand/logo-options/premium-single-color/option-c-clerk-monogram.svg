@@ -1,0 +1,10 @@
+<svg width="640" height="180" viewBox="0 0 640 180" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">School Clerk premium logo option C</title>
+  <desc id="desc">A single-color geometric monogram built from one continuous school-clerk form.</desc>
+  <rect width="640" height="180" rx="24" fill="#F8FAFC"/>
+  <path fill="#111827" fill-rule="evenodd" d="M90 34c-30.928 0-56 25.072-56 56s25.072 56 56 56c16.538 0 31.402-7.167 41.653-18.562 3.768-4.187 1.355-10.78-4.198-11.726l-17.669-3.011c-2.248-.383-4.488.441-6.3 1.824A21.89 21.89 0 0 1 90 119c-16.016 0-29-12.984-29-29s12.984-29 29-29c5.051 0 9.8 1.291 13.938 3.561 1.941 1.065 4.215 1.549 6.392 1.154l17.431-3.165c5.476-.995 7.821-7.523 4.051-11.617C121.564 40.08 106.847 34 90 34Zm-7 47a6 6 0 0 0 0 12h42a6 6 0 0 0 0-12H83Zm-16 18a6 6 0 0 0 0 12h44a6 6 0 0 0 0-12H67Z"/>
+  <g fill="#111827">
+    <text x="184" y="84" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="760">School Clerk</text>
+    <text x="186" y="115" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="520" opacity=".62">Ownable clerk monogram</text>
+  </g>
+</svg>

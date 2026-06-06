@@ -7,9 +7,9 @@ export function EmptyLedger() {
 		<EmptyState
 			title="No ledger entries"
 			description="Charges, payments, transfers, and adjustments will appear here."
-			actionLabel="Back to streams"
+			actionLabel="Back to accounts"
 			onAction={() => {
-				window.location.href = "/finance/streams";
+				window.location.href = "/finance/accounts";
 			}}
 		/>
 	);

@@ -61,6 +61,10 @@ export function DataTable() {
             (sum, row) => sum + (row?._count?.studentSessionForms ?? 0),
             0,
           ),
+          subjectCount: rows.reduce(
+            (max, row) => Math.max(max, row?._count?.subjects ?? 0),
+            0,
+          ),
           progressionMode,
         };
       })
@@ -90,6 +94,8 @@ export function DataTable() {
                     : "Single stream"}
                   {" · "}
                   {row.studentCount} students
+                  {" · "}
+                  {row.subjectCount} subject{row.subjectCount === 1 ? "" : "s"}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {row.rows.map((stream) => (

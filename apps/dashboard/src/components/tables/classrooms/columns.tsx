@@ -64,6 +64,21 @@ export const columns: Column[] = [
     },
   },
   {
+    header: "Subjects",
+    accessorKey: "subjects_count",
+    meta: {
+      className: "w-[15%]",
+    },
+    cell: ({ row: { original: item } }) => {
+      const subjectsCount = item?._count?.subjects ?? 0;
+      return (
+        <span className="text-sm font-medium text-foreground">
+          {subjectsCount} subject{subjectsCount === 1 ? "" : "s"}
+        </span>
+      );
+    },
+  },
+  {
     header: "Students",
     accessorKey: "department",
     meta: {

@@ -17,12 +17,14 @@ export function DataTable({
 			columns={columns}
 			tableId="financeTransfers"
 			initialSettings={initialSettings}
-			title="Internal Transfers"
-			description="Money transferred between finance streams."
+			title="Account Transfers"
+			description="Money transferred between finance accounts."
 			searchColumnId="fromStream"
 			searchPlaceholder="Search transfers"
-			emptyTitle="No internal transfers"
-			emptyDescription="Transfers between account streams will appear here."
+			emptyTitle="No account transfers"
+			emptyDescription="Transfers between finance accounts will appear here."
+			emptyActionHref="/finance/accounts"
+			emptyActionLabel="Open accounts"
 		/>
 	);
 }

@@ -10,16 +10,16 @@ type Props = {
 
 export function DataTableHeader({ table }: Props) {
 	return (
-		<div className="flex items-center gap-3 border-b px-4 py-3">
+		<div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center">
 			<div className="min-w-0 flex-1">
-				<h2 className="font-medium text-sm">Account Streams</h2>
+				<h2 className="font-medium text-sm">Accounts</h2>
 				<p className="text-muted-foreground text-xs">
-					Each stream has its own ledger-backed balance sheet.
+					Each account has its own ledger-backed balance sheet.
 				</p>
 			</div>
 			<Input
-				className="w-full max-w-[240px]"
-				placeholder="Search streams"
+				className="w-full sm:max-w-[240px]"
+				placeholder="Search accounts"
 				value={(table?.getColumn("name")?.getFilterValue() as string) ?? ""}
 				onChange={(event) =>
 					table?.getColumn("name")?.setFilterValue(event.target.value)

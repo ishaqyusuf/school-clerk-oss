@@ -1,0 +1,18 @@
+<svg width="640" height="180" viewBox="0 0 640 180" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">School Clerk logo option B</title>
+  <desc id="desc">A modern open-book mark with checklist lines and a green status dot.</desc>
+  <rect width="640" height="180" rx="24" fill="#F8FAFC"/>
+  <g transform="translate(42 34)">
+    <rect width="112" height="112" rx="28" fill="#EEF2FF"/>
+    <path d="M26 30C26 26.686 28.686 24 32 24H52C59.732 24 66 30.268 66 38V88C66 80.268 59.732 74 52 74H32C28.686 74 26 71.314 26 68V30Z" fill="#312E81"/>
+    <path d="M86 24C89.314 24 92 26.686 92 30V68C92 71.314 89.314 74 86 74H70C62.268 74 56 80.268 56 88V38C56 30.268 62.268 24 70 24H86Z" fill="#4F46E5"/>
+    <rect x="36" y="40" width="18" height="5" rx="2.5" fill="#F8FAFC" opacity=".9"/>
+    <rect x="36" y="52" width="22" height="5" rx="2.5" fill="#F8FAFC" opacity=".9"/>
+    <rect x="70" y="40" width="12" height="12" rx="4" fill="#22C55E"/>
+    <rect x="70" y="58" width="14" height="5" rx="2.5" fill="#F8FAFC" opacity=".9"/>
+  </g>
+  <g transform="translate(190 58)">
+    <text x="0" y="40" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="40" font-weight="750">School Clerk</text>
+    <text x="2" y="68" fill="#4B5563" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="500">Academic records with lightweight task clarity</text>
+  </g>
+</svg>

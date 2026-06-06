@@ -1,0 +1,16 @@
+<svg width="640" height="180" viewBox="0 0 640 180" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">School Clerk logo option C</title>
+  <desc id="desc">A geometric SC monogram built from stacked records and page shapes.</desc>
+  <rect width="640" height="180" rx="24" fill="#F8FAFC"/>
+  <g transform="translate(42 34)">
+    <rect width="112" height="112" rx="28" fill="#EEF2FF"/>
+    <path d="M76 28H47C36.507 28 28 36.507 28 47C28 57.493 36.507 66 47 66H64C69.523 66 74 70.477 74 76C74 81.523 69.523 86 64 86H32" stroke="#312E81" stroke-width="14" stroke-linecap="round"/>
+    <path d="M84 38C76.448 30.91 66.263 27.163 55.824 28.158" stroke="#22C55E" stroke-width="10" stroke-linecap="round"/>
+    <path d="M84 74C76.448 84.59 65.268 89.443 52.5 86.5" stroke="#4F46E5" stroke-width="10" stroke-linecap="round"/>
+    <rect x="41" y="45" width="31" height="8" rx="4" fill="#4F46E5"/>
+  </g>
+  <g transform="translate(190 58)">
+    <text x="0" y="40" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="40" font-weight="750">School Clerk</text>
+    <text x="2" y="68" fill="#4B5563" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="500">Compact monogram for a more ownable SaaS brand</text>
+  </g>
+</svg>

@@ -130,9 +130,9 @@ function Content() {
         </div>
         <div className="flex gap-3">
           <Button asChild type="button" variant="outline" className="gap-2" size="sm">
-            <Link href="/finance/streams">
+            <Link href="/finance/accounts">
               <Wallet className="h-4 w-4" />
-              Open Streams
+              Open Accounts
             </Link>
           </Button>
           <Button type="button" variant="outline" className="gap-2" size="sm">

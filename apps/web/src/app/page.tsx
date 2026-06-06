@@ -1,8 +1,8 @@
 import Link from "next/link";
-import Image from "next/image";
 import { prisma } from "@school-clerk/db";
 import { buildTenantAppUrl } from "@school-clerk/tenant-url";
 import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
+import { BrandLogo } from "@/components/brand-logo";
 import { DevTenantsFab } from "@/components/dev-tenants-fab";
 import { headers } from "next/headers";
 
@@ -167,15 +167,7 @@ export default async function Home() {
       <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4 sm:px-10 lg:px-12">
           <div className="flex items-center gap-3">
-            <Image
-              src="/logo.png"
-              alt="School Clerk"
-              width={28}
-              height={28}
-              className="rounded-md"
-              priority
-              unoptimized
-            />
+            <BrandLogo size={28} priority />
             <span className="text-sm font-semibold tracking-tight text-foreground">
               SchoolClerk
             </span>
@@ -626,41 +618,27 @@ export default async function Home() {
         <div className="mx-auto w-full max-w-7xl px-6 py-10 sm:px-10 lg:px-12">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="flex size-6 items-center justify-center rounded-md bg-background">
-                <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                  <rect x="1" y="1" width="5" height="5" rx="1" fill="white" />
-                  <rect
-                    x="8"
-                    y="1"
-                    width="5"
-                    height="5"
-                    rx="1"
-                    fill="white"
-                    fillOpacity="0.5"
-                  />
-                  <rect
-                    x="1"
-                    y="8"
-                    width="5"
-                    height="5"
-                    rx="1"
-                    fill="white"
-                    fillOpacity="0.5"
-                  />
-                  <rect x="8" y="8" width="5" height="5" rx="1" fill="white" />
-                </svg>
-              </div>
+              <BrandLogo size={28} tone="light" />
               <span className="text-sm font-semibold">SchoolClerk</span>
             </div>
 
             <div className="flex items-center gap-7 text-xs text-primary-foreground/35">
-              <a href="#modules" className="transition hover:text-primary-foreground/70">
+              <a
+                href="#modules"
+                className="transition hover:text-primary-foreground/70"
+              >
                 Modules
               </a>
-              <a href="#platform" className="transition hover:text-primary-foreground/70">
+              <a
+                href="#platform"
+                className="transition hover:text-primary-foreground/70"
+              >
                 Platform
               </a>
-              <a href="#pricing" className="transition hover:text-primary-foreground/70">
+              <a
+                href="#pricing"
+                className="transition hover:text-primary-foreground/70"
+              >
                 Pricing
               </a>
             </div>

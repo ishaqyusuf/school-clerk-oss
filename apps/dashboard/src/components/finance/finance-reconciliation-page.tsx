@@ -6,7 +6,13 @@ import { FinanceOverviewSkeleton } from "@/components/finance/finance-overview-s
 import { FinanceReconciliationView } from "@/components/finance/finance-reconciliation-view";
 import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server";
 
-export async function FinanceReconciliationPage() {
+export async function FinanceReconciliationPage({
+	title = "Finance Reconciliation",
+	subtitle,
+}: {
+	title?: string;
+	subtitle?: string;
+} = {}) {
 	await batchPrefetch([
 		trpc.finance.getFinanceIntegrityReport.queryOptions({}),
 		trpc.finance.getFinanceReports.queryOptions({}),
@@ -14,8 +20,14 @@ export async function FinanceReconciliationPage() {
 
 	return (
 		<HydrateClient>
-			<div className="flex flex-col gap-6">
-				<PageTitle>Finance Reconciliation</PageTitle>
+			<div className="flex flex-col gap-6 p-6">
+				<PageTitle>{title}</PageTitle>
+				<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+					<div>
+						<h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+						{subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
+					</div>
+				</div>
 				<ErrorBoundary errorComponent={ErrorFallback}>
 					<Suspense fallback={<FinanceOverviewSkeleton />}>
 						<FinanceReconciliationView />

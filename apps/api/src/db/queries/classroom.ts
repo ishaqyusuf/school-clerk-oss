@@ -185,6 +185,11 @@ export async function getClassroomDepartments(
               },
             },
           },
+          subjects: {
+            where: {
+              deletedAt: null,
+            },
+          },
         },
       },
       classRoom: {

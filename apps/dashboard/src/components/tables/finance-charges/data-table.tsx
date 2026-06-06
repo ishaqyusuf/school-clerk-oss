@@ -7,9 +7,23 @@ import { type FinanceChargeRow, columns } from "./columns";
 export function DataTable({
 	data,
 	initialSettings,
+	tableTitle = "Finance Charges",
+	tableDescription = "Student, staff, and school charges created from standardized finance items.",
+	searchPlaceholder = "Search charges",
+	emptyTitle = "No finance charges",
+	emptyDescription = "Create a charge for a student, staff member, or school service to track receivables and payables.",
+	emptyActionHref,
+	emptyActionLabel,
 }: {
 	data: FinanceChargeRow[];
 	initialSettings?: Partial<TableSettings>;
+	tableTitle?: string;
+	tableDescription?: string;
+	searchPlaceholder?: string;
+	emptyTitle?: string;
+	emptyDescription?: string;
+	emptyActionHref?: string;
+	emptyActionLabel?: string;
 }) {
 	return (
 		<FinanceTable
@@ -17,12 +31,14 @@ export function DataTable({
 			columns={columns}
 			tableId="financeCharges"
 			initialSettings={initialSettings}
-			title="Finance Charges"
-			description="Student, staff, and school charges created from standardized finance items."
+			title={tableTitle}
+			description={tableDescription}
 			searchColumnId="title"
-			searchPlaceholder="Search charges"
-			emptyTitle="No finance charges"
-			emptyDescription="Create a charge for a student, staff member, or school service to track receivables and payables."
+			searchPlaceholder={searchPlaceholder}
+			emptyTitle={emptyTitle}
+			emptyDescription={emptyDescription}
+			emptyActionHref={emptyActionHref}
+			emptyActionLabel={emptyActionLabel}
 		/>
 	);
 }

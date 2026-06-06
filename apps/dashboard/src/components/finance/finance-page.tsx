@@ -9,9 +9,10 @@ import { Suspense } from "react";
 
 type FinancePageProps = {
 	title?: string;
+	subtitle?: string;
 };
 
-export async function FinancePage({ title = "Finance" }: FinancePageProps) {
+export async function FinancePage({ title = "Finance", subtitle }: FinancePageProps) {
 	const initialSettings = await getInitialTableSettings("financeStreams");
 
 	await batchPrefetch([trpc.finance.overview.queryOptions()]);
@@ -25,6 +26,7 @@ export async function FinancePage({ title = "Finance" }: FinancePageProps) {
 						<FinanceOverview
 							initialStreamSettings={initialSettings}
 							title={title}
+							subtitle={subtitle}
 						/>
 					</Suspense>
 				</ErrorBoundary>

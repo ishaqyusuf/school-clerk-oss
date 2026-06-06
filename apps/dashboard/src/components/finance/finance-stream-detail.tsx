@@ -45,9 +45,9 @@ export function FinanceStreamDetail({ streamId }: FinanceStreamDetailProps) {
 		<div className="space-y-6 p-6">
 			<div className="space-y-3">
 				<Button asChild variant="ghost" className="w-fit px-0 text-muted-foreground">
-					<Link href="/finance/streams">
+					<Link href="/finance/accounts">
 						<ArrowLeft className="h-4 w-4" />
-						Back to streams
+						Back to accounts
 					</Link>
 				</Button>
 				<div className="flex flex-wrap items-center gap-3">
@@ -60,7 +60,7 @@ export function FinanceStreamDetail({ streamId }: FinanceStreamDetailProps) {
 					</Badge>
 				</div>
 				<p className="text-muted-foreground text-sm">
-					{data.description || `Ledger-backed stream activity for ${data.periodLabel}.`}
+					{data.description || `Ledger-backed account activity for ${data.periodLabel}.`}
 				</p>
 			</div>
 

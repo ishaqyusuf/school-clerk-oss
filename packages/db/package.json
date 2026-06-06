@@ -19,10 +19,10 @@
     "db:generate": "./with-env.sh bunx prisma generate",
     "db-migrate": "./with-env.sh bunx prisma migrate dev",
     "prisma-generate": "./with-env.sh bunx prisma generate",
-    "push": "bunx env-cmd -f .env.production prisma db push",
+    "push": "../../scripts/with-root-env.sh --mode production bunx prisma db push",
     "pull": "./with-env.sh bunx prisma db pull",
     "studio": "./with-env.sh bunx prisma studio --port 5556",
-    "with-env": "dotenv -e ../../.env --"
+    "with-env": "../../scripts/with-root-env.sh --mode local"
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",

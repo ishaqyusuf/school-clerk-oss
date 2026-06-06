@@ -238,47 +238,57 @@ export const linkModules = [
     ]),
   ]),
 
-  _module("Bursary", "wallet", "Finance & Payments", [
+  _module("Bursary", "wallet", "Accounts & Finance", [
     _section("dashboard", null, [
-      _link("Dashboard", "dashboard", "/finance").access(_role.is("Admin"))
+      _link("Overview", "dashboard", "/finance").access(_role.is("Admin"))
         .data,
     ]),
-    _section("main", "Income & Receivables", [
-      _link("Student Accounts", "users", "/finance/student-fees").access(
+    _section("main", "Receive Money", [
+      _link("Receive Student Payment", "credit-card", "/finance/receive").access(
         _role.in("Admin", "Accountant"),
       ).data,
-      _link("Fee Structures", "coins", "/finance/fees-management").access(
-        _role.is("Admin"),
+      _link("Student Balances", "users", "/finance/students").access(
+        _role.in("Admin", "Accountant"),
       ).data,
-      _link("Service Billables", "package", "/finance/billables").access(
-        _role.is("Admin"),
-      ).data,
-      _link("General Collections", "trending-up", "/finance/collections").access(
+      _link("Collections", "trending-up", "/finance/collections").access(
         _role.in("Admin", "Accountant"),
       ).data,
     ]),
-    _section("main", "Expenses & Payables", [
-      _link("Bills & Expenses", "file-text", "/finance/bills").access(
+    _section("main", "Pay Money", [
+      _link("Payables", "file-text", "/finance/payables").access(
         _role.in("Admin", "Accountant"),
       ).data,
-      _link("Staff Remuneration", "credit-card", "/finance/payments").access(
+      _link("Payroll Bills", "credit-card", "/finance/payables/payroll").access(
         _role.in("Admin", "Accountant"),
       ).data,
-      _link("Payroll", "wallet", "/staff/payroll").access(
+      _link("Service Bills", "package", "/finance/payables/services").access(
+        _role.in("Admin", "Accountant"),
+      ).data,
+      _link("Owing & Repayments", "wallet", "/finance/payables/owing").access(
+        _role.in("Admin", "Accountant"),
+      ).data,
+    ]),
+    _section("main", "Accounts", [
+      _link("Accounts", "layers", "/finance/accounts").access(
+        _role.is("Admin"),
+      ).data,
+      _link("Transfers", "Transactions2", "/finance/accounts/transfers").access(
+        _role.in("Admin", "Accountant"),
+      ).data,
+      _link("Ledger", "reciept", "/finance/ledger").access(
+        _role.in("Admin", "Accountant"),
+      ).data,
+    ]),
+    _section("main", "Setup", [
+      _link("Fee Structures", "coins", "/finance/setup/fees").access(
+        _role.is("Admin"),
+      ).data,
+      _link("Service Billables", "package", "/finance/setup/service-billables").access(
         _role.is("Admin"),
       ).data,
     ]),
-    _section("main", "Ledger & Accounts", [
-      _link("Transactions", "reciept", "/finance/transactions").access(
-        _role.in("Admin", "Accountant"),
-      ).data,
-      _link("Account Streams", "layers", "/finance/streams").access(
-        _role.is("Admin"),
-      ).data,
-      _link("Internal Transfers", "repeat", "/finance/internal-transfers").access(
-        _role.in("Admin", "Accountant"),
-      ).data,
-      _link("Reconciliation", "check-circle", "/finance/reconciliation").access(
+    _section("main", "Reconciliation", [
+      _link("Reconciliation", "check", "/finance/reconciliation").access(
         _role.in("Admin", "Accountant"),
       ).data,
     ]),

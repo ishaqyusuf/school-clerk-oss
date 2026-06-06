@@ -19,6 +19,9 @@ export type FinanceStreamRow = {
 	totalIn?: number;
 	totalOut?: number;
 	projectedBalance?: number;
+	pendingBills?: number;
+	pendingBillsCount?: number;
+	owingAmount?: number;
 	activeBillables?: number;
 	activeBillablesCount?: number;
 	counts?: {
@@ -40,12 +43,12 @@ function MoneyCell({ value }: { value: number }) {
 export const columns: ColumnDef<FinanceStreamRow>[] = [
 	{
 		accessorKey: "name",
-		header: "Stream",
+		header: "Account",
 		size: 280,
 		minSize: 240,
 		meta: {
 			sticky: true,
-			headerLabel: "Stream",
+			headerLabel: "Account",
 			skeleton: { type: "text", width: "w-40" },
 			className:
 				"bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-[#0f0f0f]",
@@ -67,7 +70,7 @@ export const columns: ColumnDef<FinanceStreamRow>[] = [
 						) : null}
 					</div>
 					<p className="truncate text-muted-foreground text-xs">
-						{stream.description || `${stream.accountType.toLowerCase()} stream`}
+						{stream.description || `${stream.accountType.toLowerCase()} account`}
 					</p>
 				</div>
 			);

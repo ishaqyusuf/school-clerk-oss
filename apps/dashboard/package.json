@@ -4,15 +4,19 @@
   "private": true,
   "scripts": {
     "dev": "sh ../../scripts/dev-dashboard.sh",
-    "build": "NODE_ENV=production next build --turbopack",
+    "build": "../../scripts/with-root-env.sh --mode production sh -c 'NODE_ENV=production next build --turbopack'",
     "clean": "git clean -xdf .next .turbo node_modules",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write '**/*.{js,cjs,mjs,ts,tsx,md,json}'  --ignore-path .prettierignore",
     "start": "../../scripts/with-root-env.sh next start",
-    "with-env": "dotenv -e ../../.env.local --"
+    "with-env": "../../scripts/with-root-env.sh --mode local"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.69",
+    "@ai-sdk/deepseek": "^2.0.35",
+    "@ai-sdk/google": "^3.0.61",
+    "@ai-sdk/openai": "^3.0.52",
     "@dinero.js/currencies": "2.0.0-alpha.14",
     "@formatjs/intl-localematcher": "0.5.4",
     "@hookform/resolvers": "^3.10.0",
@@ -30,9 +34,6 @@
     "@school-clerk/tenant-url": "workspace:*",
     "@school-clerk/ui": "workspace:*",
     "@school-clerk/utils": "workspace:*",
-    "@ai-sdk/anthropic": "^3.0.69",
-    "@ai-sdk/google": "^3.0.61",
-    "@ai-sdk/openai": "^3.0.52",
     "@sentry/nextjs": "^10",
     "@t3-oss/env-nextjs": "0.8.0",
     "@tanstack/react-form": "^1.23.6",

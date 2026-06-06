@@ -50,13 +50,13 @@ export function CreateStreamForm() {
 						<div className="rounded-md bg-primary/10 p-1.5">
 							<Plus className="h-4 w-4 text-primary" />
 						</div>
-						Create Stream
+						Create Account
 					</Card.Title>
 				</Card.Header>
 				<Card.Content className="space-y-3">
 					<Input
 						id="finance-stream-name"
-						placeholder="Stream Name (e.g. Tuition Fee)"
+						placeholder="Account name (e.g. Tuition Fee)"
 						value={streamName}
 						onChange={(event) => setStreamName(event.target.value)}
 					/>
@@ -73,7 +73,7 @@ export function CreateStreamForm() {
 						</SelectContent>
 					</Select>
 					<Button className="w-full" disabled={createStream.isPending} type="submit">
-						Save Stream
+						Save Account
 					</Button>
 				</Card.Content>
 			</form>

@@ -137,6 +137,104 @@ Important existing components:
 - `FinanceStreamDetailPage`
 - `FinanceStreamDetail`
 
+## Current Implementation Snapshot
+This handoff began as a teardown/rebuild plan, but the current worktree already contains partial implementation. Treat the current worktree as authoritative.
+
+Observed completed or partially completed work:
+- `apps/dashboard/src/features/navigation/dashboard-nav-registry.ts` already uses the new **Accounts & Finance** module grouping:
+  - Overview
+  - Receive Money
+  - Receive Student Payment
+  - Pay Money
+  - Accounts
+  - Setup
+  - Reconciliation
+- `apps/dashboard/src/sidebar/utils.ts` is also updated with the same Account & Finance grouping and canonical hrefs.
+- Static inspection confirms the two observed finance nav sources are aligned on canonical hrefs and visible roles for Overview, Receive Money, Pay Money, Accounts, Setup, and Reconciliation. Runtime ownership still needs in-app verification.
+- Canonical route files now exist for:
+  - `/finance/receive`
+  - `/finance/students`
+  - `/finance/payables`
+  - `/finance/payables/payroll`
+  - `/finance/payables/services`
+  - `/finance/payables/owing`
+  - `/finance/accounts`
+  - `/finance/accounts/[streamId]`
+  - `/finance/accounts/transfers`
+  - `/finance/ledger`
+  - `/finance/setup/fees`
+  - `/finance/setup/service-billables`
+- Old high-confusion routes currently redirect:
+  - `/finance/student-fees` -> `/finance/students`
+  - `/finance/fees-management` -> `/finance/setup/fees`
+  - `/finance/billables` -> `/finance/setup/service-billables`
+  - `/finance/bills` -> `/finance/payables`
+  - `/finance/transactions` -> `/finance/ledger`
+  - `/finance/streams` -> `/finance/accounts`
+  - `/finance/streams/[streamId]` -> `/finance/accounts/[streamId]`
+  - `/finance/internal-transfers` -> `/finance/accounts/transfers`
+- Old high-confusion route redirects now preserve query params using `redirectTargetWithSearch`, including `/finance/streams/[streamId]`.
+- `apps/dashboard/src/components/finance/finance-payables-tabs.tsx` exists and provides Payables tabs.
+- Deprecated hardcoded finance URLs were audited in dashboard/source packages; current source scan no longer finds direct references to old paths such as `/finance/streams`, `/finance/transactions`, `/finance/billables`, `/finance/bills`, `/finance/fees-management`, `/finance/student-fees`, or `/finance/internal-transfers` outside redirect route files and historical handoff text.
+- Tenant page metadata now includes canonical Account & Finance route titles/descriptions and uses new labels for old redirect routes.
+- Search now adds finance aliases for old and common terms such as `fees management`, `student fees`, `billables`, `bills`, `transactions`, `account transfers`, and `internal transfers`, while returning canonical route hrefs.
+- Pay Money sidebar/navigation now directly exposes Service Bills and Owing & Repayments in both observed navigation sources.
+- Finance overview now has a command-center pass using real overview data:
+  - Money In / Money Out / Available Balance stats without fake trend values.
+  - Student Receivables, Pending Payables, Account Risk, and Reconciliation attention cards.
+  - Pending payable totals/counts, owing totals, accounts-at-risk count, and active billables are derived from the stream read model.
+- Shared finance table pages no longer inject misleading generic actions by default:
+  - Student Balances and Receive Student Payment explicitly show `ReceivePaymentAction`.
+  - Payables, Collections, Service Bills, Owing, and Payroll no longer inherit "Create Charge" or "Record Payment" actions that do not match the workflow.
+- Canonical route subtitles for Collections, Payables, Service Bills, Owing & Repayments, Payroll Bills, Fee Structures, Service Billables, Accounts, and Ledger have been rewritten around user jobs.
+- Shared finance table headers now accept workflow-specific copy props:
+  - Collections, Student Balances, Receive Student Payment, Payables, Service Bills, Owing & Repayments, and Payroll Bills pass matching table titles, search placeholders, and empty-state copy.
+  - Fee Structures and Service Billables derive distinct table copy from their item filters.
+  - The misleading `Add Fee` action is hidden on Service Billables until a true service-billable creation action is implemented.
+  - Finance table headers now stack search/action controls on mobile instead of forcing a single cramped row.
+  - Transfers now uses account-oriented wording instead of stream-oriented wording.
+- Shared finance empty states now accept workflow-specific action labels/hrefs:
+  - Student empty states point to Fee Structures when setup is required.
+  - Collections points back to Student Balances.
+  - Payables and Service Bills point to Service Billables setup.
+  - Owing points back to Payables.
+  - Payroll points to Staff Payroll.
+  - Transfers points to Accounts.
+- Service Billables now renders a service-only `CreateItemForm` instead of leaving the page without a clear create path.
+- Account detail, reconciliation, overview, and route metadata now use finance-account wording instead of "Account Stream" or "finance streams" in visible copy.
+- Active accounts/finance table copy now uses Account wording in visible headers and fallbacks:
+  - The canonical route title, sidebar/nav label, route metadata, table header, account creation form, transfers form, ledger header, and reconciliation export action all say `Accounts`/`Account` instead of hybrid stream wording.
+  - The Accounts table first column says `Account`, search says `Search accounts`, and fallback rows say `credit account` / `debit account`.
+  - Charge and payment tables show `Account` instead of `Stream` for the receiving/affected account column.
+  - Accounts empty state now navigates to Fee Structures instead of focusing a missing `finance-stream-name` input.
+- Finance charge filters now support `type` and `excludeType` through the TRPC schema and database query:
+  - `/finance/payables/services` can now filter true service bills by `FinanceItem.type === SERVICE`.
+  - `/finance/payables` now uses `excludePayerType: STUDENT`, so All Payables includes school-side and staff obligations without mixing in student receivables.
+  - Returned charge rows include `itemType` and `itemName` for future workflow-specific tables.
+- `/finance/payables/payroll` now uses the charge/payable table instead of the payment-history table, so "Payroll Bills" shows staff remuneration obligations and balances. New `createStaffBill` records default to `SALARY` item type, while the page remains compatible with existing staff bills by filtering on `payerType: STAFF`.
+- Finance charge rows now include a workflow payment action:
+  - Student charges open the Receive Payment sheet with the student preselected when possible.
+  - School/staff payable rows open the Finance Payment sheet with the charge preselected.
+  - Fully paid, cancelled, or waived rows hide the payment action.
+- The Finance Payment sheet now stays in payable context when opened for a school/staff charge:
+  - Charge row actions pass `financePaymentPayerType` through the URL state when opening the sheet.
+  - The initial charge query prefilters to the payer context for school/staff payables instead of loading student charges first.
+  - It hides the student filter and disables the student search query.
+  - It labels the selected item as `Payable`.
+  - It restricts the dropdown to the same payer type as the preselected payable.
+  - Recording a payment invalidates all finance charge list query variants so filtered payable pages refresh.
+  - It uses `Record Payable Payment` as the submit label.
+  - It treats a preselected charge as payable context while that charge is loading, preventing student-filter flicker on payable row actions.
+- Payables tabs now use the same reader-facing labels as the sidebar/pages: `All Payables`, `Service Bills`, `Payroll Bills`, and `Owing & Repayments`.
+- Static breadcrumb audit found no central finance breadcrumb renderer; finance labels currently come from page titles, route metadata, and navigation/search sources. If a finance breadcrumb component is introduced later, it should use the same canonical Account & Finance labels.
+
+Known remaining gaps:
+- Confirm which navigation source actually renders in the app; both visible sources are statically aligned, but runtime ownership still needs verification.
+- Overview still needs runtime/design verification and may need richer backend read models for true overdue student balances and reconciliation issue counts.
+- Breadcrumbs do not appear to have a central finance implementation in the current source; only runtime/header behavior remains to verify.
+- Table header copy, first-pass empty-state actions, Service Bills/Payroll filters, and charge-row payment actions are aligned, but workflow-specific columns, secondary filters, and deeper actions still need a consistency pass.
+- Some canonical routes are wrappers over existing generic pages. That is acceptable for migration, but Phase 3 should make them true workflow pages.
+
 ## Current Worktree Warning
 At the time this handoff was written, the worktree was already dirty with many finance and navigation-related files modified or untracked. A future agent must not revert unrelated user or previous-agent work.
 
@@ -181,7 +279,7 @@ Accounts & Finance
   - Service Bills
   - Owing & Repayments
 - Accounts
-  - Streams / Accounts
+  - Accounts
   - Transfers
   - Ledger
 - Setup
@@ -198,6 +296,32 @@ Design rule:
 - The sidebar should answer "what job am I doing?"
 - Page titles should not require database/model knowledge.
 - Do not put every table as an equal top-level link.
+
+## Role And Permission Matrix
+Do not widen finance access accidentally. Preserve existing authorization unless the user explicitly changes the finance role model.
+
+Observed/current intended visibility from navigation files:
+
+| Area | Route | Current visible roles | Notes |
+|---|---|---|---|
+| Overview | `/finance` | Admin | Command center and stream summary. Keep admin-only unless Accountant dashboard access is approved. |
+| Receive Student Payment | `/finance/receive` | Admin, Accountant | Direct collection entry under Receive Money. |
+| Student Balances | `/finance/students` | Admin, Accountant | Incoming-money receivables. |
+| Collections | `/finance/collections` | Admin, Accountant | Reporting for collected student money. |
+| Receipts & Payments | `/finance/payments` | Not currently exposed; route redirects to Payroll Bills | Reintroduce only after deciding whether this is student receipts, all payments, or audit history. |
+| Payables | `/finance/payables` | Admin, Accountant | Outgoing obligations. |
+| Payroll Bills | `/finance/payables/payroll` | Admin, Accountant in current nav | Sensitive. Reconfirm whether Accountant can see staff remuneration before shipping. |
+| Service Bills | `/finance/payables/services` | Admin, Accountant in current nav | Verify service payable visibility is acceptable for Accountant before shipping. |
+| Owing & Repayments | `/finance/payables/owing` | Admin, Accountant in current nav | Verify repayment/owing visibility is acceptable for Accountant before shipping. |
+| Accounts | `/finance/accounts` | Admin | Keep admin-only unless account balance visibility is approved for Accountant. |
+| Transfers | `/finance/accounts/transfers` | Admin, Accountant | Verify large-transfer approval still requires Admin when threshold is exceeded. |
+| Ledger | `/finance/ledger` | Admin, Accountant | Read-only movement history is generally safe for finance staff. |
+| Fee Structures | `/finance/setup/fees` | Admin | Setup/configuration, not collection. Keep admin-only. |
+| Service Billables | `/finance/setup/service-billables` | Admin | Setup/configuration. Keep admin-only. |
+| Reconciliation | `/finance/reconciliation` | Admin, Accountant | If maintenance actions are present, make action-level permissions stricter than page visibility. |
+
+Implementation rule:
+- Page visibility is not enough. Mutations for transfers, waivers, discounts, payment cancellation, bill payment, and reconciliation maintenance must still enforce server-side authorization.
 
 ## Recommended Canonical Route Map
 Keep old routes working through redirects or temporary aliases. Do not break bookmarks.
@@ -236,6 +360,17 @@ Suggested old route redirects:
 /finance/reconciliation       -> /finance/reconciliation
 ```
 
+Current redirect status:
+- Implemented: `student-fees`, `fees-management`, `billables`, `bills`, `transactions`, `streams`, `streams/[streamId]`, `internal-transfers`.
+- Current source scan is clean for deprecated hardcoded finance URLs in dashboard/source packages.
+- Still inspect before final signoff: runtime behavior, query-param preservation, `payments`, `collections`, `reconciliation`, and browser navigation from table actions/quick actions.
+
+Preferred redirect implementation:
+- For old route files, use a tiny server component with `redirect("/new-route")`.
+- Do not leave two independently maintained pages with old and new labels.
+- If a route has query/search params that must survive, explicitly forward them with `redirect()`.
+- If preserving query params is difficult, keep a temporary wrapper and document why.
+
 Decision point:
 - If the product team wants less route churn, phase 1 can change labels and grouping only, while preserving old route paths. Route migration can follow after validation.
 
@@ -254,7 +389,7 @@ Purpose:
 Primary actions:
 - Receive Student Payment
 - Create Fee Structure
-- Create Service Bill
+- Review Payables, or Create Service Bill once a dedicated create-bill action exists
 - Transfer Funds
 - Open Reconciliation
 
@@ -341,12 +476,14 @@ Purpose:
 - Actual school obligations to pay.
 
 Tabs:
-- All
-- Payroll
-- Services
+- All Payables
+- Payroll Bills
+- Service Bills
+- Owing & Repayments
+
+Future status-filter tabs can add:
 - Pending
 - Paid
-- Owing
 - Cancelled
 
 Content:
@@ -388,9 +525,9 @@ Purpose:
 Relevant docs:
 - `brain/features/stream-funding.md`
 
-### 10. `/finance/accounts` - Streams / Accounts
+### 10. `/finance/accounts` - Accounts
 Purpose:
-- Account/stream balances, available funds, projected balances.
+- Account balances, available funds, projected balances.
 
 Current source:
 - `/finance/streams`
@@ -481,6 +618,17 @@ Keep this first-class in nav.
 
 ## Detailed Implementation Phases
 
+### Phase Progress Audit
+- Phase 0 is partially done: key files and docs have been identified, but runtime sidebar ownership still needs confirmation in-app.
+- Phase 1 is mostly implemented in the current worktree: both observed navigation sources use Account & Finance grouping, canonical route names, and direct Pay Money links for Payables, Payroll Bills, Service Bills, and Owing & Repayments.
+- Phase 2 is mostly implemented: canonical route wrappers and major old-route redirects exist, deprecated hardcoded finance URL scan is clean, and redirect pages now preserve query params statically. Remaining work is runtime redirect behavior verification.
+- Phase 3 is partially implemented through wrapper page titles/subtitles, explicit header actions, workflow-specific table copy, first-pass empty-state text/actions, account-oriented visible table columns, Service Bills/Payroll filter fixes, charge-row payment actions, and a service-only creator on Service Billables. Deeper workflow-specific actions still need true workflow-specific UX.
+- Phase 4 is partially implemented: Overview now has a command-center layout with real stream-derived finance metrics, but runtime/design verification and richer data-backed attention counts remain.
+- Phase 5 is partially implemented: Payables routes and tabs exist, but data semantics, labels, and status filters need verification.
+- Phase 6 is partially implemented: `/finance/receive` exists, sidebar exposure is present, and its table copy now speaks in payment-queue language. The page still needs runtime receive-payment workflow verification.
+- Phase 7 is partially implemented for page/table copy, empty-state text, search catalog aliases, static breadcrumb audit, and row-action copy. Runtime copy review remains.
+- Phase 8 is not complete: runtime navigation, old URLs, permissions, mobile, and workflow checks remain.
+
 ### Phase 0 - Safety And Orientation
 Goal:
 - Establish current state and prevent accidental loss of existing work.
@@ -505,6 +653,10 @@ Validation:
 Goal:
 - Improve navigation immediately without route churn.
 
+Current status:
+- Mostly implemented in `dashboard-nav-registry.ts` and `sidebar/utils.ts`.
+- Do not blindly repeat this phase. Audit and refine instead.
+
 Steps:
 1. In the active navigation registry/sidebar, group finance links by workflow:
    - Overview
@@ -522,7 +674,7 @@ Steps:
    - Bills & Expenses -> Payables
    - Staff Remuneration -> Payroll Bills
    - Transactions -> Ledger
-   - Account Streams -> Streams / Accounts
+   - Account Streams -> Accounts
    - Internal Transfers -> Transfers
    - Reconciliation -> Reconciliation
 3. Ensure roles/access remain unchanged.
@@ -534,10 +686,15 @@ Validation:
 - Sidebar shows logical groups.
 - Existing links still navigate.
 - No route/file moves yet.
+- Current gap: verify Receive Student Payment is visible in the running sidebar for Admin and Accountant.
 
 ### Phase 2 - Canonical Routes And Redirects
 Goal:
 - Introduce route names that match the new IA while preserving old URLs.
+
+Current status:
+- Partially implemented. Canonical route files exist for the main route map, and key old routes redirect.
+- Remaining work is route/link audit, not first-time creation of every route.
 
 Steps:
 1. Create canonical route folders:
@@ -602,12 +759,12 @@ Steps:
 4. For `Payables`:
    - title: "Payables"
    - subtitle: "Track school obligations, payments, and owing."
-   - tabs: All, Payroll, Services, Pending, Paid, Owing
+   - tabs: All Payables, Payroll Bills, Service Bills, Owing & Repayments
    - primary action: "Create Payable"
-5. For `Streams / Accounts`:
-   - title: "Streams / Accounts"
+5. For `Accounts`:
+   - title: "Accounts"
    - subtitle: "Monitor available funds, projected balances, and account activity."
-   - primary action: "Create Stream"
+   - primary action: "Create Account"
    - secondary action: "Transfer Funds"
 6. For `Ledger`:
    - title: "Ledger"
@@ -634,7 +791,7 @@ Steps:
 3. Add primary actions:
    - Receive Student Payment
    - Create Fee Structure
-   - Create Service Bill
+   - Review Payables, or Create Service Bill once a dedicated create-bill action exists
    - Transfer Funds
 4. Add attention cards:
    - overdue student balances
@@ -674,7 +831,7 @@ Goal:
 - Make incoming-money flows obvious.
 
 Steps:
-1. Add sidebar/page entry for "Receive Student Payment".
+1. Verify the sidebar/page entry for "Receive Student Payment" renders for Admin and Accountant.
 2. Ensure Receive Payment can be started from:
    - Overview quick action
    - Student Balances row action
@@ -745,14 +902,32 @@ Suggested docs updates:
 | Collect student payment | Receive Student Payment | sheet/action only | `/finance/receive` | `ReceivePaymentSheet` |
 | See student receivables | Student Balances | `/finance/student-fees` | `/finance/students` | `FinanceChargesPage` or student fees table |
 | Report collections | Collections | `/finance/collections` | `/finance/collections` | `FinanceChargesPage` |
-| View payment history | Receipts & Payments | `/finance/payments` | `/finance/payments` | `FinancePaymentsPage` |
+| View payment history | Receipts & Payments | `/finance/payments` | Not currently exposed | Reintroduce after defining student receipts versus all payment history. |
 | Pay school obligations | Payables | `/finance/bills` | `/finance/payables` | `FinanceChargesPage` |
-| Manage account streams | Streams / Accounts | `/finance/streams` | `/finance/accounts` | `FinancePage`, stream table |
+| Manage finance accounts | Accounts | `/finance/streams` | `/finance/accounts` | `FinancePage`, account table |
 | Move funds internally | Transfers | `/finance/internal-transfers` | `/finance/accounts/transfers` | `FinanceTransfersPage` |
 | Review ledger movement | Ledger | `/finance/transactions` | `/finance/ledger` | `FinanceTransactionsPage` |
 | Configure student fees | Fee Structures | `/finance/fees-management` | `/finance/setup/fees` | `FinanceItemsPage` or dedicated fee page |
 | Configure service items | Service Billables | `/finance/billables` | `/finance/setup/service-billables` | `FinanceItemsPage` |
 | Validate finance data | Reconciliation | `/finance/reconciliation` | `/finance/reconciliation` | `FinanceReconciliationPage` |
+
+## Data And Query Contract Map
+Use existing read models first. Only add API shape when the current query cannot support the workflow.
+
+| UI Area | Primary data/query source | Required fields or behavior | Notes |
+|---|---|---|---|
+| Overview / Account Health | `trpc.finance.overview` | account balances, available balance, projected balance, pending bills, owing, active billables | Reframe existing stream-backed data as account health. |
+| Receive Student Payment | `trpc.finance.searchStudentsForPayment`, `trpc.finance.getReceivePaymentData`, `trpc.finance.receiveStudentPayment` | student search, current term, payable rows, stream allocations, receipt payment IDs | `/finance/receive` should launch or embed this flow. |
+| Student Balances | `trpc.finance.getCharges` with `payerType: "STUDENT"` or dedicated student balance read model | total due, paid, pending, student/class/term, row action to receive payment | Existing wrapper uses `FinanceChargesPage`; verify table columns are student-friendly. |
+| Collections | `trpc.finance.getCharges` / collection summary query | collected totals by date/class/method, export rows | Avoid mixing setup/config actions here. |
+| Receipts & Payments | `trpc.finance.getPayments` | payment status, payer, amount, method, reference, receipt actions | Not currently exposed in sidebar; decide whether outgoing payroll/service payments share this page before restoring it. |
+| Payables | `trpc.finance.getCharges` with school/staff payer and item-type filters | amount, funded, owing, account, status, due date, pay/cancel/repay actions | Current canonical Payables, Service Bills, Owing, and Payroll Bills pages use `FinanceChargesPage`; Service Bills relies on `type: "SERVICE"`. |
+| Accounts | `trpc.finance.overview`, `trpc.finance.getStreamDetails` | available funds, projected balance, pending payables, owing, active billables | Preserve account detail route behavior while internal stream IDs remain unchanged. |
+| Transfers | `trpc.finance.getInternalTransfers`, `trpc.finance.transferFunds` | source, destination, amount, note, approval threshold behavior | Large transfer governance must remain server-enforced. |
+| Ledger | `trpc.finance.getLedgerEntries` | immutable debit/credit movements, source references, date, stream/account | Do not relabel mutable operational tables as ledger. |
+| Fee Structures | `trpc.finance.getItems` or student-fee-specific transaction queries | title, amount, stream, term, classroom scope, apply/import actions | Confirm whether finance items or legacy fee histories are authoritative before deeper rebuild. |
+| Service Billables | `trpc.finance.getItems` with `type: "SERVICE"` | reusable service item definitions, charges count, active status | Must not imply these are student fees. |
+| Reconciliation | `trpc.finance.getFinanceIntegrityReport`, `trpc.finance.getFinanceReports` | integrity checks, exportable report rows, maintenance actions | Action-level authorization matters here. |
 
 ## Implementation Standards
 
@@ -784,7 +959,7 @@ Use:
 - Fee Structures
 - Service Billables
 - Payables
-- Streams / Accounts
+- Accounts
 - Ledger
 - Reconciliation
 
@@ -833,15 +1008,12 @@ Mitigation:
 
 ## First Concrete Next Steps
 1. Run `git status --short`.
-2. Open `apps/dashboard/src/features/navigation/dashboard-nav-registry.ts`.
-3. Open `apps/dashboard/src/sidebar/utils.ts`.
-4. Determine active sidebar source in the app.
-5. Implement Phase 1 only:
-   - regroup finance nav
-   - rename labels
-   - preserve hrefs
-6. Manually inspect all finance sidebar links in the running app if the user permits browser/dev-server checks.
-7. Then proceed to Phase 2 canonical route wrappers/redirects.
+2. Confirm the active sidebar source in the running app, because both observed navigation sources are now aligned but runtime ownership still matters.
+3. Verify Receive Student Payment appears under Receive Money for Admin and Accountant.
+4. Verify old-route redirects at runtime, including any route with query params.
+5. Spot-check table actions/quick actions in the browser to confirm they navigate to canonical routes.
+6. Continue Phase 3 page-workspace cleanup by reviewing workflow-specific columns, filters, row actions, and empty-state actions for Fee Structures, Service Billables, Payables, Student Balances, and Receive Student Payment.
+7. Update search catalog entries and breadcrumbs after route labels settle.
 
 ## Definition Of Done
 The rebuild is done when:
@@ -853,4 +1025,3 @@ The rebuild is done when:
 - Receive Money, Pay Money, Accounts, Setup, and Reconciliation are clear.
 - Mobile layouts remain usable.
 - Brain docs are updated with final route map and product terminology.
-

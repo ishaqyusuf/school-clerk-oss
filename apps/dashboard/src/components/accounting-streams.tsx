@@ -128,7 +128,7 @@ function Content() {
 			<div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
 				<div>
 					<h1 className="text-3xl font-black tracking-tight">
-						Account Streams
+						Streams / Accounts
 					</h1>
 					<p className="text-muted-foreground mt-1">
 						Manage financial streams and transaction records for the current
@@ -156,7 +156,7 @@ function Content() {
 						variant="outline"
 						size="sm"
 						className="gap-2"
-						onClick={() => router.push("/finance/internal-transfers")}
+						onClick={() => router.push("/finance/accounts/transfers")}
 					>
 						<ArrowDownRight className="h-4 w-4" />
 						Transfer History
@@ -360,7 +360,7 @@ function Content() {
 			{/* Active Streams */}
 			<div className="space-y-4">
 				<div className="flex items-center justify-between">
-					<h2 className="text-lg font-bold">Active Account Streams</h2>
+					<h2 className="text-lg font-bold">Active Streams / Accounts</h2>
 					<span className="text-sm text-muted-foreground">
 						{streams.length} total
 					</span>
@@ -393,12 +393,12 @@ function Content() {
 									key={stream.id}
 									className="p-5 flex flex-col hover:shadow-md transition-shadow cursor-pointer group"
 									onClick={() =>
-										router.push(`/finance/streams/${stream.id}`)
+										router.push(`/finance/accounts/${stream.id}`)
 									}
 									onKeyDown={(event) => {
 										if (event.key === "Enter" || event.key === " ") {
 											event.preventDefault();
-											router.push(`/finance/streams/${stream.id}`);
+											router.push(`/finance/accounts/${stream.id}`);
 										}
 									}}
 									role="button"
@@ -516,7 +516,7 @@ function Content() {
 											className="text-xs font-bold"
 											onClick={(event) => {
 												event.stopPropagation();
-												router.push(`/finance/streams/${stream.id}`);
+												router.push(`/finance/accounts/${stream.id}`);
 											}}
 										>
 											Statement

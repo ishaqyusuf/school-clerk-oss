@@ -1,12 +1,22 @@
-import { FinanceStreamDetailPage } from "@/components/finance/finance-stream-detail-page";
+import { redirect } from "next/navigation";
+import {
+	type FinanceRedirectSearchParams,
+	redirectTargetWithSearch,
+} from "../../redirect-with-search";
 
 type PageProps = {
 	params: Promise<{
 		streamId: string;
 	}>;
+	searchParams?: FinanceRedirectSearchParams;
 };
 
-export default async function Page({ params }: PageProps) {
+export default async function Page({ params, searchParams }: PageProps) {
 	const { streamId } = await params;
-	return <FinanceStreamDetailPage streamId={streamId} />;
+	redirect(
+		await redirectTargetWithSearch(
+			`/finance/accounts/${streamId}`,
+			searchParams,
+		),
+	);
 }
