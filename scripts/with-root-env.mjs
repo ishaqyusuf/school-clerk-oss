@@ -93,6 +93,25 @@ if (command.length === 0) {
   process.exit(1);
 }
 
+function splitInlineEnv(command) {
+  const inlineEnv = {};
+  const remaining = [...command];
+
+  while (remaining.length > 0) {
+    const arg = remaining[0];
+    const match = arg.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+
+    if (!match) {
+      break;
+    }
+
+    inlineEnv[match[1]] = match[2];
+    remaining.shift();
+  }
+
+  return { inlineEnv, command: remaining };
+}
+
 let fileEnv = {};
 
 try {
@@ -106,11 +125,19 @@ if (Object.keys(fileEnv).length === 0) {
   fileEnv = parseEnvFile(resolve(workspaceRoot, ".env"));
 }
 
-const child = spawn(command[0], command.slice(1), {
+const { inlineEnv, command: childCommand } = splitInlineEnv(command);
+
+if (childCommand.length === 0) {
+  console.error("No command provided after inline environment assignments.");
+  process.exit(1);
+}
+
+const child = spawn(childCommand[0], childCommand.slice(1), {
   cwd: process.cwd(),
   env: {
     ...fileEnv,
     ...process.env,
+    ...inlineEnv,
     SCHOOL_CLERK_ENV_MODE: mode === "production" ? "production" : "local",
     SCHOOL_CLERK_WORKSPACE_ROOT: workspaceRoot,
   },

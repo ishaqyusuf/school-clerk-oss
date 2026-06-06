@@ -32,8 +32,7 @@
       "interactive": true
     },
     "generate": {
-      "cache": false,
-      "interactive": true
+      "cache": false
     },
     "migrate": {
       "cache": false,
@@ -52,7 +51,7 @@
       "persistent": true
     },
     "dev": {
-      "dependsOn": ["^dev", "^generate"],
+      "dependsOn": ["^generate"],
       "persistent": true,
       "cache": false
     },

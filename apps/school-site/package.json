@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start",
+    "dev": "../../scripts/with-root-env.sh --mode local next dev --turbopack",
+    "build": "../../scripts/with-root-env.sh --mode production next build --turbopack",
+    "start": "../../scripts/with-root-env.sh --mode production next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },

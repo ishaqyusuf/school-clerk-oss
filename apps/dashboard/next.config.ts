@@ -22,13 +22,13 @@ const config = {
   ],
   allowedDevOrigins: localDashboardOrigins,
   pageExtensions: ["ts", "tsx", "mdx"],
+  serverExternalPackages: [],
   experimental: {
     mdxRs: true,
     serverActions: {
       allowedOrigins: localDashboardOrigins,
     },
     // serverComponentsExternalPackages: ["@prisma/client"],
-    serverExternalPackages: [],
   },
   images: {
     loader: "custom",

@@ -34,11 +34,14 @@ export function DevTenantQuickLoginFab({
 }) {
   const pathname = usePathname();
 
-  if (
-    users.length === 0 ||
-    (hideOnLogin && (pathname === "/login" || pathname.endsWith("/login")))
-  ) {
+  if (hideOnLogin && (pathname === "/login" || pathname?.endsWith("/login"))) {
     return null;
+  }
+
+  if (users.length === 0) {
+    console.warn(
+      "DevTenantQuickLoginFab: users array is empty, but rendering anyway for debugging",
+    );
   }
 
   return (
