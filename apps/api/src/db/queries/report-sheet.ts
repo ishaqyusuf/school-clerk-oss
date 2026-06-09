@@ -1,5 +1,6 @@
 import type { TRPCContext } from "@api/trpc/init";
 import { z } from "zod";
+import { assertTeacherCanAccessClassroomDepartment } from "../../lib/teacher-authorization";
 
 export const getClassroomReportSheetSchema = z.object({
   departmentId: z.string(),
@@ -13,6 +14,8 @@ export async function getClassroomReportSheet(
   ctx: TRPCContext,
   query: GetClassroomReportSheetSchema
 ) {
+  await assertTeacherCanAccessClassroomDepartment(ctx, query.departmentId);
+
   const { db } = ctx;
   const department = await db.classRoomDepartment.findUniqueOrThrow({
     where: {

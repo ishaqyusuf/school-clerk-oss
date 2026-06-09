@@ -1,4 +1,6 @@
 import { getTeacherWorkspaceAction } from "@/actions/get-teacher-workspace";
+import { TeacherAssessmentWorkspace } from "@/components/teachers/teacher-assessment-workspace";
+import { TeacherAttendanceWorkspace } from "@/components/teachers/teacher-attendance-workspace";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@school-clerk/ui/card";
@@ -331,46 +333,10 @@ export async function TeacherAttendancePanel() {
 					},
 				]}
 			/>
-			<Card>
-				<CardHeader>
-					<CardTitle>Attendance workflow</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					<p className="text-sm text-muted-foreground">
-						Open a classroom and use the Attendance tab to record daily presence
-						for students in your assigned classes.
-					</p>
-					{data.recentAttendance.length ? (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Session</TableHead>
-									<TableHead>Classroom</TableHead>
-									<TableHead>Date</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{data.recentAttendance.map((attendance) => (
-									<TableRow key={attendance.id}>
-										<TableCell>{attendance.title}</TableCell>
-										<TableCell>{attendance.classroom || "—"}</TableCell>
-										<TableCell>
-											{attendance.createdAt
-												? attendance.createdAt.toLocaleDateString()
-												: "—"}
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					) : (
-						<p className="text-sm text-muted-foreground">
-							No attendance sessions have been recorded for your assigned
-							classrooms yet.
-						</p>
-					)}
-				</CardContent>
-			</Card>
+			<TeacherAttendanceWorkspace
+				classrooms={data.classrooms}
+				students={data.students}
+			/>
 		</div>
 	);
 }
@@ -382,43 +348,7 @@ export async function TeacherAssessmentsPanel() {
 		return <TeacherEmptyState email={data.signedInEmail} />;
 	}
 
-	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Assigned assessment load</CardTitle>
-			</CardHeader>
-			<CardContent className="space-y-4">
-				<p className="text-sm text-muted-foreground">
-					These are the subjects currently assigned to your profile. Use them as
-					your working list while the dedicated assessment screens continue to
-					evolve.
-				</p>
-				{data.subjects.length ? (
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Subject</TableHead>
-								<TableHead>Class</TableHead>
-								<TableHead>Department</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{data.subjects.map((subject) => (
-								<TableRow key={subject.id}>
-									<TableCell className="font-medium">{subject.title}</TableCell>
-									<TableCell colSpan={2}>{subject.displayName}</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				) : (
-					<p className="text-sm text-muted-foreground">
-						No subjects have been assigned to your teacher profile yet.
-					</p>
-				)}
-			</CardContent>
-		</Card>
-	);
+	return <TeacherAssessmentWorkspace subjects={data.subjects} />;
 }
 
 export async function TeacherGradingPanel() {

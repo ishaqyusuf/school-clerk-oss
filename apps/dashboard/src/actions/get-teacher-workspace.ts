@@ -236,6 +236,7 @@ export async function getTeacherWorkspaceAction({
 		.map((subject) => ({
 			id: subject.id,
 			title: subject.subject.title,
+			classRoomDepartmentId: subject.classRoomDepartment?.id ?? "",
 			className: subject.classRoomDepartment?.classRoom?.name ?? "—",
 			departmentName: subject.classRoomDepartment?.departmentName ?? "—",
       displayName: classroomDisplayName({
@@ -262,6 +263,8 @@ export async function getTeacherWorkspaceAction({
 		subjects: assignedSubjects,
 		students: studentDirectory.map((studentForm) => ({
 			id: studentForm.id,
+			studentId: studentForm.student?.id ?? "",
+			classroomDepartmentId: studentForm.classroomDepartmentId ?? "",
 			name: [
 				studentForm.student?.name,
 				studentForm.student?.surname,
@@ -316,12 +319,15 @@ function emptyTeacherWorkspace(signedInEmail: string | null) {
 		subjects: [] as Array<{
 			id: string;
 			title: string;
+			classRoomDepartmentId: string;
 			className: string;
 			departmentName: string;
       displayName: string;
 		}>,
 		students: [] as Array<{
 			id: string;
+			studentId: string;
+			classroomDepartmentId: string;
 			name: string;
 			gender: string;
 			classroom: string;

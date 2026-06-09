@@ -6,10 +6,14 @@ import type {
   GetSubjectsSchema,
 } from "@api/trpc/schemas/students";
 import { composeQuery } from "@api/utils";
-import { Prisma, type Database } from "@school-clerk/db";
+import { Prisma } from "@school-clerk/db";
 import { z } from "zod";
 import { getClassroomDepartments } from "./classroom";
 import { percent, sum, uniqueList } from "@school-clerk/utils";
+import {
+  assertTeacherCanAccessClassroomDepartment,
+  assertTeacherCanAccessDepartmentSubject,
+} from "../../lib/teacher-authorization";
 
 export async function getSubjects(ctx: TRPCContext, query: GetSubjectsSchema) {
   const { db } = ctx;
@@ -83,6 +87,8 @@ export const subjectOverviewSchema = z.object({
 export type SubjectOverviewSchema = z.infer<typeof subjectOverviewSchema>;
 
 export async function overview(ctx: TRPCContext, query: SubjectOverviewSchema) {
+  await assertTeacherCanAccessDepartmentSubject(ctx, query.departmentSubjectId);
+
   const { db } = ctx;
   const subject = await db.departmentSubject.findUnique({
     where: {
@@ -188,9 +194,12 @@ export async function getAllSubjects(
   return subjects;
 }
 export async function getClassroomSubjects(
-  db: Database,
+  ctx: TRPCContext,
   params: GetClassroomSubjects
 ) {
+  await assertTeacherCanAccessClassroomDepartment(ctx, params?.departmentId);
+
+  const { db } = ctx;
   const department = await db.classRoomDepartment.findUniqueOrThrow({
     where: {
       id: params?.departmentId,

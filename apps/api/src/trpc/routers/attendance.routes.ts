@@ -1,6 +1,8 @@
 import { z } from "@hono/zod-openapi";
 import { createTRPCRouter, publicProcedure } from "../init";
 import { tryGetCurrentUserContext } from "@api/lib/notifications";
+import { assertTeacherCanAccessClassroomDepartment } from "@api/lib/teacher-authorization";
+import { TRPCError } from "@trpc/server";
 
 const takeAttendanceSchema = z.object({
   departmentId: z.string(),
@@ -18,6 +20,8 @@ export const attendanceRouter = createTRPCRouter({
   getClassroomAttendance: publicProcedure
     .input(z.object({ departmentId: z.string() }))
     .query(async ({ input, ctx }) => {
+      await assertTeacherCanAccessClassroomDepartment(ctx, input.departmentId);
+
       const records = await ctx.db.classRoomAttendance.findMany({
         where: {
           departmentId: input.departmentId,
@@ -26,6 +30,7 @@ export const attendanceRouter = createTRPCRouter({
         },
         select: {
           id: true,
+          departmentId: true,
           attendanceTitle: true,
           createdAt: true,
           staffProfile: {
@@ -67,6 +72,7 @@ export const attendanceRouter = createTRPCRouter({
         },
         select: {
           id: true,
+          departmentId: true,
           attendanceTitle: true,
           createdAt: true,
           staffProfile: {
@@ -102,6 +108,7 @@ export const attendanceRouter = createTRPCRouter({
       });
 
       if (!record) return null;
+      await assertTeacherCanAccessClassroomDepartment(ctx, record.departmentId);
 
       const students = record.studentAttendanceList
         .map((item) => {
@@ -143,6 +150,30 @@ export const attendanceRouter = createTRPCRouter({
   takeAttendance: publicProcedure
     .input(takeAttendanceSchema)
     .mutation(async ({ input, ctx }) => {
+      await assertTeacherCanAccessClassroomDepartment(ctx, input.departmentId);
+
+      const studentTermFormIds = input.students.map(
+        (student) => student.studentTermFormId,
+      );
+      const validStudentCount = studentTermFormIds.length
+        ? await ctx.db.studentTermForm.count({
+            where: {
+              id: {
+                in: studentTermFormIds,
+              },
+              classroomDepartmentId: input.departmentId,
+              deletedAt: null,
+            },
+          })
+        : 0;
+
+      if (validStudentCount !== studentTermFormIds.length) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Attendance includes students outside the selected classroom.",
+        });
+      }
+
       const currentUser = await tryGetCurrentUserContext(ctx);
       const staffProfile = currentUser?.user?.email
         ? await ctx.db.staffProfile.findFirst({
@@ -188,10 +219,12 @@ export const attendanceRouter = createTRPCRouter({
         },
         select: {
           id: true,
+          departmentId: true,
         },
       });
 
       if (!existing) return { success: true };
+      await assertTeacherCanAccessClassroomDepartment(ctx, existing.departmentId);
 
       const deletedAt = new Date();
 

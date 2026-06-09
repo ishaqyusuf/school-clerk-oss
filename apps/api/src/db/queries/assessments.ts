@@ -5,6 +5,11 @@ import {
   generateRandomString,
   uniqueList,
 } from "@school-clerk/utils";
+import { TRPCError } from "@trpc/server";
+import {
+  assertTeacherCanAccessAssessment,
+  assertTeacherCanAccessDepartmentSubject,
+} from "../../lib/teacher-authorization";
 
 const subAssessmentSchema = z.object({
   id: z.number().optional().nullable(),
@@ -40,6 +45,9 @@ export async function saveAssessement(
   ctx: TRPCContext,
   data: SaveAssessementSchema,
 ) {
+  await assertTeacherCanAccessDepartmentSubject(ctx, data.departmentSubjectId);
+  await assertTeacherCanAccessAssessment(ctx, data.id);
+
   const { db } = ctx;
   const {
     id,
@@ -171,6 +179,8 @@ export async function deleteAssessment(
   ctx: TRPCContext,
   data: DeleteAssessmentSchema,
 ) {
+  await assertTeacherCanAccessAssessment(ctx, data.id);
+
   const deletedAt = new Date();
   return ctx.db.$transaction(async (tx) => {
     await tx.classroomSubjectAssessment.updateMany({
@@ -205,6 +215,8 @@ export async function reorderAssessments(
   ctx: TRPCContext,
   data: ReorderAssessmentsSchema,
 ) {
+  await assertTeacherCanAccessDepartmentSubject(ctx, data.departmentSubjectId);
+
   return ctx.db.$transaction(
     data.assessmentIds.map((id, index) =>
       ctx.db.classroomSubjectAssessment.updateMany({
@@ -242,6 +254,8 @@ export async function getSubjectAssessmentRecordings(
   ctx: TRPCContext,
   query: GetSubjectAssessmentRecordingsSchema,
 ) {
+  await assertTeacherCanAccessDepartmentSubject(ctx, query.deparmentSubjectId);
+
   const { db } = ctx;
   const ds = await db.departmentSubject.findUniqueOrThrow({
     where: {
@@ -383,8 +397,63 @@ export async function updateAssessmentScore(
   ctx: TRPCContext,
   data: UpdateAssessmentScoreSchema,
 ) {
-  const { db } = ctx;
+  await assertTeacherCanAccessAssessment(ctx, data.assessmentId);
+
+  const assessment = await ctx.db.classroomSubjectAssessment.findFirst({
+    where: {
+      id: data.assessmentId,
+      deletedAt: null,
+    },
+    select: {
+      departmentSubject: {
+        select: {
+          classRoomDepartmentId: true,
+        },
+      },
+    },
+  });
+  const studentTermForm = await ctx.db.studentTermForm.findFirst({
+    where: {
+      id: data.studentTermId,
+      deletedAt: null,
+    },
+    select: {
+      classroomDepartmentId: true,
+    },
+  });
+
+  if (
+    !assessment?.departmentSubject?.classRoomDepartmentId ||
+    !studentTermForm?.classroomDepartmentId ||
+    assessment.departmentSubject.classRoomDepartmentId !==
+      studentTermForm.classroomDepartmentId
+  ) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "This score does not belong to the selected classroom subject.",
+    });
+  }
+
   if (data.id) {
+    const existingRecord = await ctx.db.studentAssessmentRecord.findFirst({
+      where: {
+        id: data.id,
+        classSubjectAssessmentId: data.assessmentId,
+        studentTermFormId: data.studentTermId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existingRecord) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "This score record does not match the selected student and assessment.",
+      });
+    }
+
     const resp = await ctx.db.studentAssessmentRecord.update({
       where: { id: data.id },
       data: {
