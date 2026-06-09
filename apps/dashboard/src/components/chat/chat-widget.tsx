@@ -16,7 +16,7 @@ export function ChatWidget() {
           onClick={() => setIsOpen((v) => !v)}
           size="icon"
           className="h-12 w-12 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95"
-          aria-label={isOpen ? "Close assistant" : "Open school assistant"}
+          aria-label={isOpen ? "Close AI chat" : "Open school AI"}
         >
           {isOpen ? (
             <X className="h-5 w-5" />

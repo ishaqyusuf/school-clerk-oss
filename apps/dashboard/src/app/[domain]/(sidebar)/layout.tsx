@@ -19,6 +19,7 @@ import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config";
 import { resolveTenantUrlContextFromHeaders } from "@school-clerk/tenant-url/next/server";
 import { buildTenantHref } from "@school-clerk/tenant-url";
 import { headers } from "next/headers";
+import { ensureCredentialAccount } from "@/actions/ensure-credential-account";
 
 export default async function LayoutNew({ children, params }) {
   const { domain } = await params;
@@ -91,6 +92,7 @@ export default async function LayoutNew({ children, params }) {
                 createdAt: "asc",
               },
               select: {
+                id: true,
                 email: true,
                 name: true,
                 role: true,
@@ -99,20 +101,78 @@ export default async function LayoutNew({ children, params }) {
             },
           },
         },
+        staffProfiles: {
+          where: {
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            email: true,
+            onboardedAt: true,
+          },
+        },
       },
     });
 
-    devUsers =
-      tenant?.account?.users.map((user) => ({
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        quickLoginHref: buildTenantHref(
-          tenantUrlContext,
-          `/login?email=${encodeURIComponent(user.email)}&password=${encodeURIComponent("lorem-ipsum")}&autologin=1&return_to=${encodeURIComponent("/")}`,
-          tenantUrlConfig,
-        ),
-      })) ?? [];
+    devUsers = await Promise.all(
+      (tenant?.account?.users ?? []).map(async (user) => {
+        const staff = tenant?.staffProfiles?.find(
+          (s) => s.email === user.email,
+        );
+        const isOnboarded =
+          user.role === "ADMIN" || !staff || staff.onboardedAt !== null;
+
+        let quickLoginHref = "";
+
+        if (isOnboarded) {
+          quickLoginHref = buildTenantHref(
+            tenantUrlContext,
+            `/login?email=${encodeURIComponent(
+              user.email,
+            )}&password=${encodeURIComponent(
+              "lorem-ipsum",
+            )}&autologin=1&return_to=${encodeURIComponent("/")}`,
+            tenantUrlConfig,
+          );
+        } else {
+          const token = crypto.randomUUID();
+          const identifier = `reset-password:${token}`;
+          await ensureCredentialAccount(prisma, user.id);
+          await prisma.verification.deleteMany({
+            where: {
+              identifier: {
+                startsWith: "reset-password:",
+              },
+              value: user.id,
+            },
+          });
+          await prisma.verification.create({
+            data: {
+              identifier,
+              value: user.id,
+              expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+            },
+          });
+          quickLoginHref = buildTenantHref(
+            tenantUrlContext,
+            `/reset-password?onboarding=1&staffId=${
+              staff?.id
+            }&email=${encodeURIComponent(user.email)}&tok=${encodeURIComponent(
+              token,
+            )}`,
+            tenantUrlConfig,
+          );
+        }
+
+        return {
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          isOnboarded,
+          quickLoginHref,
+        };
+      }),
+    );
   }
 
   return (

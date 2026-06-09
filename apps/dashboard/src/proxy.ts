@@ -91,15 +91,22 @@ export default async function proxy(req: NextRequest) {
     newUrl.search
   }`;
   const isSignupRoute = tenantUrlContext.productPath === "/sign-up";
-  const publicRoutes = new Set(["/login", "/dev-quick-login"]);
+  const publicRoutes = new Set([
+    "/login",
+    "/forgot-password",
+    "/reset-password",
+    "/dev-quick-login",
+  ]);
   const isPublicRoute =
     isSignupRoute || publicRoutes.has(tenantUrlContext.productPath);
   const isPublicShareRoute =
     tenantUrlContext.productPath.includes("/student-report") ||
     tenantUrlContext.productPath.includes("/assessment-recording");
   const allowAuthenticatedPublicRoute =
-    process.env.NODE_ENV !== "production" &&
-    tenantUrlContext.productPath === "/dev-quick-login";
+    tenantUrlContext.productPath === "/forgot-password" ||
+    tenantUrlContext.productPath === "/reset-password" ||
+    (process.env.NODE_ENV !== "production" &&
+      tenantUrlContext.productPath === "/dev-quick-login");
 
   // ---- Handle special app subdomain ----
   if (canonicalSlug === "app" || canonicalSlug?.startsWith("app.")) {

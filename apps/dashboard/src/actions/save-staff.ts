@@ -11,6 +11,7 @@ import {
 import { auth } from "@/auth/server";
 import { headers } from "next/headers";
 import { z } from "zod";
+import { ensureCredentialAccount } from "./ensure-credential-account";
 
 import { ensureNotificationContact, prisma } from "@school-clerk/db";
 import { createNotificationFromType } from "@school-clerk/notifications";
@@ -545,6 +546,8 @@ export const saveStaffAction = actionClient
 				userId = createdUser.id;
 			}
 
+			await ensureCredentialAccount(tx, userId);
+
 			return {
 				id: staffProfile.id,
 				email,
@@ -657,6 +660,10 @@ export const resendStaffOnboardingAction = actionClient
 		staffRoleSchema.parse(user?.role ?? "Teacher");
 
 		try {
+			if (user?.id) {
+				await ensureCredentialAccount(prisma, user.id);
+			}
+
 			await sendOnboardingInvite({
 				email: staff.email,
 				staffId: staff.id,

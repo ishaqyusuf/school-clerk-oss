@@ -10,6 +10,7 @@ Lists local reference projects that define architecture, implementation, and int
 
 ## Local Reference Paths
 - `midday`: `/Users/M1PRO/Documents/code/_kitchen_sink/midday`
+- `caltext`: `/Users/M1PRO/Documents/code/_kitchen_sink/caltext`
 - `gnd`: `/Users/M1PRO/Documents/code/_turbo/gnd`
 - `school-clerk`: `/Users/M1PRO/Documents/code/school-clerk`
 - `halaal-coperative`: `/Users/M1PRO/Documents/code/halaal-coperative`
@@ -17,6 +18,7 @@ Lists local reference projects that define architecture, implementation, and int
 
 ## Reference Responsibilities
 - `midday`: Primary standard for pages, tables, modals, sheets, sidebar, forms, onboarding, layouts, tRPC calls, loading states, error states, and caching patterns.
+- `caltext`: Reference for AI assistant workflows, Hono/Nitro API routes, webhook handling, messaging adapters, AI SDK tools, and durable Vercel Workflow patterns.
 - `gnd`: Standard notification package system reference.
 - `plot-keys`: Local URL handling, portless/proxy support, and generated-link reference.
 - `school-clerk`: Current project implementation and domain-specific constraints.

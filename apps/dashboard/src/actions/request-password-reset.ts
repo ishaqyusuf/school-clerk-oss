@@ -2,6 +2,8 @@
 
 import { auth } from "@/auth/server";
 import { headers } from "next/headers";
+import { prisma } from "@school-clerk/db";
+import { ensureCredentialAccount } from "./ensure-credential-account";
 
 async function getCurrentOrigin() {
   const requestHeaders = await headers();
@@ -20,6 +22,19 @@ export async function requestPasswordReset(email: string) {
   requestHeaders.set("origin", currentOrigin);
 
   const redirectTo = new URL(`${currentOrigin}/reset-password`);
+  const users = await prisma.user.findMany({
+    where: {
+      deletedAt: null,
+      email: email.trim().toLowerCase(),
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  await Promise.all(
+    users.map((user) => ensureCredentialAccount(prisma, user.id)),
+  );
 
   return auth.api.requestPasswordReset({
     body: {

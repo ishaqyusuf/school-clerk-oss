@@ -21,6 +21,7 @@ import { FormDate } from "@school-clerk/ui/controls/form-date";
 import { ButtonGroup } from "@school-clerk/ui/button-group";
 import Sheet from "@school-clerk/ui/custom/sheet";
 import { FindAndEnroll } from "../find-and-enroll";
+import { QuickFill } from "@/components/quick-fill";
 
 interface Props {}
 export function Form({}) {
@@ -67,41 +68,6 @@ export function Form({}) {
   const showSubClassSelect = selectedMainClass && selectedMainClass.departments.length > 5;
   const showSubClassGrid = selectedMainClass && selectedMainClass.departments.length > 1 && selectedMainClass.departments.length <= 5;
 
-  const devQuickFill = () => {
-    const firstNames = ["Aisha", "Fatima", "Zainab", "Maryam", "Yusuf"];
-    const lastNames = ["Bello", "Okafor", "Danjuma", "Adewale", "Garba"];
-    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
-    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
-    const otherName = "A.";
-
-    setValue("name", firstName, { shouldValidate: true, shouldDirty: true });
-    setValue("surname", lastName, { shouldValidate: true, shouldDirty: true });
-    setValue("otherName", otherName, { shouldValidate: true, shouldDirty: true });
-    setValue("gender", Math.random() > 0.5 ? "Male" : "Female", { shouldValidate: true, shouldDirty: true });
-    setValue("dob", new Date(2010, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28)), { shouldValidate: true, shouldDirty: true });
-    setValue("guardian.name", `Mr/Mrs ${lastName}`, { shouldValidate: true, shouldDirty: true });
-    setValue("guardian.phone", `+23480${Math.floor(10000000 + Math.random() * 89999999)}`, { shouldValidate: true, shouldDirty: true });
-    
-    if (mainClassrooms.length > 0) {
-      const randomClass = mainClassrooms[Math.floor(Math.random() * mainClassrooms.length)];
-      setSelectedMainClassId(randomClass.id);
-      if (randomClass.departments.length > 0) {
-         const randomDept = randomClass.departments[Math.floor(Math.random() * randomClass.departments.length)];
-         setValue("classRoomId", randomDept.id, { shouldValidate: true, shouldDirty: true });
-      }
-    }
-  };
-  // const classList = useAsyncMemo(async () => {
-  //   await timeout(randomInt(250));
-  //   const profile = await getAuthCookie();
-
-  //   const classList = await getCachedClassRooms(
-  //     profile.termId,
-  //     profile.sessionId
-  //   );
-  //   return classList;
-  // }, []);
-
   const { setParams, ...params } = useStudentParams();
   const auth = useAuth();
   const name = watch("name");
@@ -133,10 +99,7 @@ export function Form({}) {
       {process.env.NODE_ENV !== "production" && (
         <div className="flex justify-between items-center">
           <h3 className="font-medium">Student Details</h3>
-          <Button variant="outline" type="button" onClick={devQuickFill} size="sm">
-            <Sparkles className="mr-2 h-4 w-4" />
-            Quick fill
-          </Button>
+          <QuickFill name="student" args={{ mainClassrooms }} />
         </div>
       )}
       <FormInput name="name" label="First Name" control={control} />

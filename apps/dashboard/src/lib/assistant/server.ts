@@ -1,7 +1,5 @@
 import "server-only";
 
-import { createHmac, timingSafeEqual } from "node:crypto";
-
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { getSession } from "@/auth/server";
 import {
@@ -15,20 +13,28 @@ import {
 } from "@school-clerk/db";
 
 import {
-  assistantCapabilities,
-  assistantCapabilityMap,
+  aiCapabilities,
+  aiCapabilityMap,
   chatInputSchema,
-  detectAssistantLocale,
+  detectAiChatLocale,
   safeJsonParse,
+  buildSchoolAiConfirmationToken,
+  readSchoolAiConfirmationToken,
   summarizeConversationTitle,
   workflowActionToMessage,
-  type AssistantCapabilityKey,
-  type AssistantMessagePart,
+  type AiCapabilityKey,
+  type AiMessagePart,
   type ChatInput,
   type WorkflowAction,
-} from "./shared";
+} from "@school-clerk/ai";
 
-const DEFAULT_ALLOWED_ROLES = ["Admin", "Registrar", "Accountant", "Teacher", "Staff"];
+const DEFAULT_ALLOWED_ROLES = [
+  "Admin",
+  "Registrar",
+  "Accountant",
+  "Teacher",
+  "Staff",
+];
 const DEFAULT_PREFERRED_PROVIDER = "deepseek";
 const DEFAULT_ROLLOUT_STAGE = "beta";
 
@@ -61,10 +67,24 @@ export async function ensureAssistantConfig(schoolId: string) {
   });
 
   if (existing) {
-    if (!existing.preferredProvider) {
+    const currentCapabilityKeys = aiCapabilities.map((cap) => cap.key);
+    const enabledCapabilities = safeJsonParse<AiCapabilityKey[]>(
+      existing.enabledCapabilities,
+      currentCapabilityKeys,
+    );
+    const missingCapabilities = (["assessments.write"] as AiCapabilityKey[]).filter(
+      (key) => currentCapabilityKeys.includes(key) && !enabledCapabilities.includes(key),
+    );
+
+    if (!existing.preferredProvider || missingCapabilities.length) {
       return prisma.schoolAssistantConfig.update({
         where: { schoolProfileId: schoolId },
-        data: { preferredProvider: DEFAULT_PREFERRED_PROVIDER },
+        data: {
+          preferredProvider: existing.preferredProvider ?? DEFAULT_PREFERRED_PROVIDER,
+          enabledCapabilities: missingCapabilities.length
+            ? [...enabledCapabilities, ...missingCapabilities]
+            : existing.enabledCapabilities,
+        },
       });
     }
 
@@ -76,7 +96,7 @@ export async function ensureAssistantConfig(schoolId: string) {
       schoolProfileId: schoolId,
       preferredProvider: DEFAULT_PREFERRED_PROVIDER,
       allowedRoles: DEFAULT_ALLOWED_ROLES,
-      enabledCapabilities: assistantCapabilities.map((cap) => cap.key),
+      enabledCapabilities: aiCapabilities.map((cap) => cap.key),
       rolloutStage: DEFAULT_ROLLOUT_STAGE,
     },
   });
@@ -89,22 +109,29 @@ export function getAllowedCapabilities({
   role: string | null;
   config: SchoolAssistantConfig;
 }) {
-  const allowedRoles = safeJsonParse<string[]>(config.allowedRoles, DEFAULT_ALLOWED_ROLES);
-  const enabledCapabilities = safeJsonParse<AssistantCapabilityKey[]>(
+  const allowedRoles = safeJsonParse<string[]>(
+    config.allowedRoles,
+    DEFAULT_ALLOWED_ROLES,
+  );
+  const enabledCapabilities = safeJsonParse<AiCapabilityKey[]>(
     config.enabledCapabilities,
-    assistantCapabilities.map((cap) => cap.key),
+    aiCapabilities.map((cap) => cap.key),
   );
   const disabledCapabilities = new Set(
-    safeJsonParse<AssistantCapabilityKey[]>(config.disabledCapabilities, []),
+    safeJsonParse<AiCapabilityKey[]>(config.disabledCapabilities, []),
   );
 
   if (!config.enabled || !role || !allowedRoles.includes(role)) {
-    return [] as AssistantCapabilityKey[];
+    return [] as AiCapabilityKey[];
   }
 
   return enabledCapabilities.filter((key) => {
-    const capability = assistantCapabilityMap[key];
-    return capability && !disabledCapabilities.has(key) && capability.roles.includes(role);
+    const capability = aiCapabilityMap[key];
+    return (
+      capability &&
+      !disabledCapabilities.has(key) &&
+      capability.roles.includes(role)
+    );
   });
 }
 
@@ -115,7 +142,7 @@ export function isCapabilityAllowed({
 }: {
   role: string | null;
   config: SchoolAssistantConfig;
-  capability: AssistantCapabilityKey;
+  capability: AiCapabilityKey;
 }) {
   return getAllowedCapabilities({ role, config }).includes(capability);
 }
@@ -126,36 +153,11 @@ export function buildConfirmationToken(input: {
   toolName: string;
   actionInput: Record<string, unknown>;
 }) {
-  const payload = JSON.stringify(input);
-  const sig = createHmac("sha256", getConfirmationSecret()).update(payload).digest("hex");
-  return Buffer.from(
-    JSON.stringify({
-      payload,
-      sig,
-    }),
-  ).toString("base64url");
+  return buildSchoolAiConfirmationToken(input, getConfirmationSecret());
 }
 
 export function readConfirmationToken(token: string) {
-  try {
-    const decoded = JSON.parse(Buffer.from(token, "base64url").toString("utf8")) as {
-      payload: string;
-      sig: string;
-    };
-    const expected = createHmac("sha256", getConfirmationSecret())
-      .update(decoded.payload)
-      .digest("hex");
-    const valid = timingSafeEqual(Buffer.from(decoded.sig), Buffer.from(expected));
-    if (!valid) return null;
-    return JSON.parse(decoded.payload) as {
-      conversationId: string;
-      schoolId: string;
-      toolName: string;
-      actionInput: Record<string, unknown>;
-    };
-  } catch {
-    return null;
-  }
+  return readSchoolAiConfirmationToken(token, getConfirmationSecret());
 }
 
 export async function listAssistantConversations(params: {
@@ -197,7 +199,10 @@ export async function listAssistantConversations(params: {
     status: conversation.status,
     locale: conversation.locale,
     summary: conversation.summary,
-    lastMessageAt: conversation.lastMessageAt ?? conversation.updatedAt ?? conversation.createdAt,
+    lastMessageAt:
+      conversation.lastMessageAt ??
+      conversation.updatedAt ??
+      conversation.createdAt,
     preview: conversation.messages[0]?.content ?? "",
     lastRunStatus: conversation.runs[0]?.status ?? null,
   }));
@@ -254,7 +259,7 @@ export async function saveAssistantMessage(params: {
   userId?: string | null;
   role: "user" | "assistant" | "system";
   content: string;
-  parts: AssistantMessagePart[];
+  parts: AiMessagePart[];
   workflowState?: Record<string, unknown> | null;
 }) {
   const created = await prisma.assistantMessage.create({
@@ -278,7 +283,7 @@ export async function saveAssistantMessage(params: {
           ? summarizeConversationTitle(params.content)
           : undefined,
       locale:
-        params.role === "user" ? detectAssistantLocale(params.content) : undefined,
+        params.role === "user" ? detectAiChatLocale(params.content) : undefined,
     },
   });
 
@@ -289,7 +294,7 @@ export function assistantMessagesToUiMessages(messages: AssistantMessage[]) {
   return messages.map((message) => ({
     id: message.id,
     role: message.role,
-    parts: safeJsonParse<AssistantMessagePart[]>(message.parts, [
+    parts: safeJsonParse<AiMessagePart[]>(message.parts, [
       { type: "text", text: message.content ?? "" },
     ]).map((part) => {
       if (part.type === "text") {
@@ -471,18 +476,26 @@ export async function getAssistantAnalytics(params: {
       }),
     ]);
 
-  const toolUsage = toolExecutions.reduce<Record<string, number>>((acc, execution) => {
-    acc[execution.toolName] = (acc[execution.toolName] ?? 0) + 1;
-    return acc;
-  }, {});
+  const toolUsage = toolExecutions.reduce<Record<string, number>>(
+    (acc, execution) => {
+      acc[execution.toolName] = (acc[execution.toolName] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
 
   const avgRating =
     feedback.length > 0
-      ? feedback.reduce((sum, item) => sum + (item.rating ?? 0), 0) / feedback.length
+      ? feedback.reduce((sum, item) => sum + (item.rating ?? 0), 0) /
+        feedback.length
       : null;
 
   const unresolvedDemand = runCount
-    .filter((run) => run.status !== "completed" || run.toolExecutions.some((tool) => tool.status !== "completed"))
+    .filter(
+      (run) =>
+        run.status !== "completed" ||
+        run.toolExecutions.some((tool) => tool.status !== "completed"),
+    )
     .slice(0, 10)
     .map((run) => ({
       id: run.id,
@@ -542,7 +555,7 @@ export function inputToUserMessage(input: ChatInput) {
   if (input.kind === "text") {
     return {
       content: input.text.trim(),
-      locale: detectAssistantLocale(input.text),
+      locale: detectAiChatLocale(input.text),
       workflowAction: null,
     };
   }
@@ -550,7 +563,7 @@ export function inputToUserMessage(input: ChatInput) {
   const content = workflowActionToMessage(input.action);
   return {
     content,
-    locale: detectAssistantLocale(content),
+    locale: detectAiChatLocale(content),
     workflowAction: input.action,
   };
 }

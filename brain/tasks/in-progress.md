@@ -1,15 +1,19 @@
 # In Progress
 
 ## Purpose
+
 Tracks tasks currently being worked on.
 
 ## How To Use
+
 - Move tasks here when implementation starts.
 - Update status notes frequently.
 - Move completed tasks to done.
 
 ## Template
+
 ## Task Item
+
 - ID:
 - Title:
 - Started:
@@ -18,6 +22,7 @@ Tracks tasks currently being worked on.
 - Owner:
 
 ## Task Item
+
 - ID: WEB-002
 - Title: Design tenant website configuration persistence model
 - Started: 2026-04-08
@@ -26,6 +31,7 @@ Tracks tasks currently being worked on.
 - Owner: Codex
 
 ## Task Item
+
 - ID: WEB-003
 - Title: Implement template registry and multi-page preview flow
 - Started: 2026-04-08
@@ -34,17 +40,28 @@ Tracks tasks currently being worked on.
 - Owner: Codex
 
 ## Task Item
+
 - ID: AI-001
-- Title: Productize dashboard AI chat assistant
+- Title: Productize dashboard AI chat
 - Started: 2026-04-15
-- Current status: Added assistant persistence schema, tenant assistant config model, server-side conversation/run/tool/feedback helpers, role-aware capability gating, explicit mutation confirmation flow, expanded operational tools, history/settings/analytics widget views, and focused assistant-only typecheck coverage via `tsconfig.assistant.json`.
+- Current status: Added assistant persistence schema, tenant AI config model, server-side conversation/run/tool/feedback helpers, role-aware capability gating, explicit mutation confirmation flow, expanded operational tools, a single persistent chat-only FAB surface, focused AI-chat typecheck coverage via `tsconfig.assistant.json`, and a Caltext-style `packages/ai` foundation for shared capabilities, schemas, prompts, and provider selection.
 - Blockers: Prisma migration rollout has not been executed yet, and full dashboard `tsc --noEmit` is still blocked by the unrelated parse error in `src/components/configure-term.tsx`.
 - Owner: Codex
 
 ## Task Item
+
 - ID: FIN-IA-001
 - Title: Rebuild Account & Finance UI information architecture and navigation
 - Started: 2026-06-05
 - Current status: Partially implemented. Account & Finance sidebar grouping, Receive Student Payment/Service Bills/Owing sidebar exposure, canonical route wrappers, Payables tabs with page-matching labels, canonical account detail route, major old-route redirects with query preservation, deprecated hardcoded finance URL cleanup, canonical finance metadata/search aliases, data-backed finance Overview command-center pass, explicit student collection header actions, improved canonical route copy, workflow-specific finance table header/empty-state copy/actions, mobile-stacked finance and ledger table headers, Service Billables create path, account-oriented visible route/nav/table/form/metadata copy, All Payables/Service Bills/Payroll filter contract fixes, charge-row payment actions, payable-aware Finance Payment sheet behavior/copy with payer-context URL state and filtered charge invalidation, and account-oriented transfer wording exist in the current worktree. The updated implementation guide and remaining-work audit are documented in `brain/tasks/account-finance-ui-rebuild-handoff.md`.
 - Blockers: Runtime sidebar ownership still needs confirmation before final signoff. Remaining work includes runtime redirect/navigation verification, Overview design verification, deeper workflow-specific actions, deeper empty-state actions, richer overview read models where needed, and runtime permission verification. Static breadcrumb audit found no central finance breadcrumb renderer to update.
 - Owner: Unassigned
+
+## Task Item
+
+- ID: ASMT-001
+- Title: Make assessments and sub-assessments reliable across recording, reports, print, and PDF output
+- Started: 2026-06-07
+- Current status: Product rules and target print behavior are documented in `brain/features/assessment-results-and-sub-assessments.md`. Required work includes fixing term-scoped report queries, preserving assessment order, separating scoreable assessment data from printable columns, skipping no-weight assessments in student result print/PDF, adding grouped-assessment print modes (`expanded` and `total`), showing parent-child labels consistently, and adding validation/warnings for grouped and zero-weight assessment cases.
+- Blockers: None. Implementation has not been fully completed or verified yet.
+- Owner: Codex

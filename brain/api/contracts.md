@@ -160,7 +160,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: onboarding link no longer matches a staff record
 - Notes: used after password reset in the onboarding link flow to complete the staff profile and mark onboarding active
 
-## Assistant Contracts
+## AI Chat Contracts
 - Route: `POST /api/chat`
 - Request schema: `{ conversationId, input }` where `input` is either `{ kind: "text", text }` or `{ kind: "workflow", action }`
 - Response schema: AI SDK UI message stream response, plus response headers `x-school-clerk-conversation-id`, `x-school-clerk-run-id`, `x-school-clerk-provider`, and `x-school-clerk-model`
@@ -171,7 +171,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: none
 - Response schema: `{ conversations[], capabilities[], config }`
 - Error cases: unauthorized tenant/user
-- Notes: returns tenant-user scoped history summary for the widget
+- Notes: returns tenant-user scoped conversation summaries, but the FAB treats the first/latest active conversation as the single canonical chat and does not expose conversation switching
 
 - Route: `POST /api/chat/conversations/:conversationId/messages`
 - Request schema: `{ role: "assistant" | "system", content, parts[] }`

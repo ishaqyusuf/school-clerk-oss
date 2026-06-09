@@ -17,13 +17,15 @@ import { useSubjectParams } from "@/hooks/use-subject-params";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ButtonGroup } from "@school-clerk/ui/button-group";
 import {
+  ArrowDown,
+  ArrowUp,
   BarChart3,
   CalendarClock,
-  ChevronRight,
   Clock3,
   FileText,
   FolderTree,
   ListPlus,
+  Trash2,
 } from "lucide-react";
 import { Separator } from "@school-clerk/ui/separator";
 import { cn } from "@school-clerk/ui/cn";
@@ -74,6 +76,9 @@ export function SubjectAssessments(props: Props) {
         _qc.invalidateQueries({
           queryKey: _trpc.subjects.overview.queryKey({}),
         });
+        _qc.invalidateQueries({
+          queryKey: _trpc.assessments.getClassroomReportSheet.queryKey({}),
+        });
         refetch();
       },
       onError(data, variables, context) {},
@@ -86,7 +91,65 @@ export function SubjectAssessments(props: Props) {
       },
     })
   );
+  const invalidateAssessmentViews = () => {
+    _qc.invalidateQueries({
+      queryKey: _trpc.subjects.overview.queryKey({}),
+    });
+    _qc.invalidateQueries({
+      queryKey: _trpc.assessments.getClassroomReportSheet.queryKey({}),
+    });
+    _qc.invalidateQueries({
+      queryKey: _trpc.assessments.getSubjectAssessmentRecordings.queryKey({}),
+    });
+  };
+  const { mutate: deleteAssessment, isPending: isDeletingAssessment } =
+    useMutation(
+      _trpc.assessments.deleteAssessment.mutationOptions({
+        onSuccess() {
+          invalidateAssessmentViews();
+        },
+        meta: {
+          toastTitle: {
+            error: "Unable to delete assessment",
+            loading: "Deleting...",
+            success: "Assessment deleted",
+          },
+        },
+      })
+    );
+  const { mutate: reorderAssessments, isPending: isReorderingAssessments } =
+    useMutation(
+      _trpc.assessments.reorderAssessments.mutationOptions({
+        onSuccess() {
+          invalidateAssessmentViews();
+        },
+        meta: {
+          toastTitle: {
+            error: "Unable to reorder assessments",
+            loading: "Saving order...",
+            success: "Assessment order saved",
+          },
+        },
+      })
+    );
   const { setParams } = useSubjectParams();
+
+  function moveAssessment(id: number, direction: "up" | "down") {
+    const currentIds = assessments?.map((assessment) => assessment.id) ?? [];
+    const index = currentIds.indexOf(id);
+    const nextIndex = direction === "up" ? index - 1 : index + 1;
+    if (index < 0 || nextIndex < 0 || nextIndex >= currentIds.length) return;
+
+    const nextIds = [...currentIds];
+    const item = nextIds[index];
+    if (item === undefined) return;
+    nextIds.splice(index, 1);
+    nextIds.splice(nextIndex, 0, item);
+    reorderAssessments({
+      departmentSubjectId: deptSubjectId,
+      assessmentIds: nextIds,
+    });
+  }
 
   const Suggestion = ({
     children,
@@ -261,6 +324,25 @@ export function SubjectAssessments(props: Props) {
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               size="sm"
+                              variant="ghost"
+                              disabled={ai === 0 || isReorderingAssessments}
+                              onClick={() => moveAssessment(a.id, "up")}
+                            >
+                              <ArrowUp className="size-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={
+                                ai === assessments.length - 1 ||
+                                isReorderingAssessments
+                              }
+                              onClick={() => moveAssessment(a.id, "down")}
+                            >
+                              <ArrowDown className="size-4" />
+                            </Button>
+                            <Button
+                              size="sm"
                               variant="outline"
                               className="gap-2"
                               onClick={() => {
@@ -287,7 +369,22 @@ export function SubjectAssessments(props: Props) {
                               <Icons.Edit className="size-4" />
                               Edit
                             </Button>
-                            <ChevronRight className="size-4 text-muted-foreground" />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={isDeletingAssessment}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `Delete ${a.title}? Existing scores for this assessment will be hidden.`,
+                                  )
+                                ) {
+                                  deleteAssessment({ id: a.id });
+                                }
+                              }}
+                            >
+                              <Trash2 className="size-4 text-destructive" />
+                            </Button>
                           </div>
                         </div>
 
@@ -370,9 +467,7 @@ export function SubjectAssessments(props: Props) {
                     <AssessmentFormAction
                       onSuccess={(e) => {
                         setDefaultFormValue(null);
-                        _qc.invalidateQueries({
-                          queryKey: _trpc.subjects.overview.queryKey({}),
-                        });
+                        invalidateAssessmentViews();
                       }}
                     />
                   </div>

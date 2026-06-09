@@ -162,6 +162,66 @@ export async function saveAssessement(
   });
 }
 
+export const deleteAssessmentSchema = z.object({
+  id: z.number(),
+});
+export type DeleteAssessmentSchema = z.infer<typeof deleteAssessmentSchema>;
+
+export async function deleteAssessment(
+  ctx: TRPCContext,
+  data: DeleteAssessmentSchema,
+) {
+  const deletedAt = new Date();
+  return ctx.db.$transaction(async (tx) => {
+    await tx.classroomSubjectAssessment.updateMany({
+      where: {
+        parentAssessmentId: data.id,
+      },
+      data: {
+        deletedAt,
+      },
+    });
+
+    return tx.classroomSubjectAssessment.update({
+      where: {
+        id: data.id,
+      },
+      data: {
+        deletedAt,
+      },
+    });
+  });
+}
+
+export const reorderAssessmentsSchema = z.object({
+  departmentSubjectId: z.string(),
+  assessmentIds: z.array(z.number()),
+});
+export type ReorderAssessmentsSchema = z.infer<
+  typeof reorderAssessmentsSchema
+>;
+
+export async function reorderAssessments(
+  ctx: TRPCContext,
+  data: ReorderAssessmentsSchema,
+) {
+  return ctx.db.$transaction(
+    data.assessmentIds.map((id, index) =>
+      ctx.db.classroomSubjectAssessment.updateMany({
+        where: {
+          id,
+          departmentSubjectId: data.departmentSubjectId,
+          parentAssessmentId: null,
+          deletedAt: null,
+        },
+        data: {
+          index,
+        },
+      }),
+    ),
+  );
+}
+
 /*
 getSubjectAssessmentRecordings: publicProcedure
       .input(getSubjectAssessmentRecordingsSchema)

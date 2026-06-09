@@ -48,6 +48,9 @@ type QuickLoginUser = {
   email: string;
   name: string | null;
   role: string | null;
+  isOnboarded?: boolean;
+  staffId?: string;
+  token?: string;
 };
 
 type ClientProps = {
@@ -411,6 +414,7 @@ function LoginQuickLoginFab({
   users: QuickLoginUser[];
 }) {
   const form = useFormContext<LoginFormValues>();
+  const router = useTenantRouter();
 
   return (
     <DevTenantQuickLoginFab
@@ -420,6 +424,17 @@ function LoginQuickLoginFab({
         ...user,
         quickLoginHref: "#",
         onQuickLogin: () => {
+          if (user.isOnboarded === false && user.staffId) {
+            router.push(
+              `/reset-password?onboarding=1&staffId=${
+                user.staffId
+              }&email=${encodeURIComponent(user.email)}&tok=${encodeURIComponent(
+                user.token || "",
+              )}`,
+            );
+            return;
+          }
+
           const values = {
             email: user.email,
             password: quickLoginPassword,

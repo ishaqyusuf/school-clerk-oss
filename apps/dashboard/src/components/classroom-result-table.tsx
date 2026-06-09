@@ -1,17 +1,29 @@
 "use client";
 
 import { updateStudentReportCookieByName } from "@/actions/cookies/student-report";
+import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
+import { SubjectAssessments } from "@/components/subject-assessments";
 import { useReportPageContext } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
-import { studentDisplayName } from "@/utils/utils";
+import {
+	buildResultRows,
+	filterResultStudents,
+	filterResultSubjects,
+	getDuplicateStudentNameKeys,
+	getStudentDisplayName,
+	getStudentSearchKey,
+	type ResultRow,
+} from "@school-clerk/assessment-results";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { Checkbox } from "@school-clerk/ui/checkbox";
 import { cn } from "@school-clerk/ui/cn";
-import { Card, Table } from "@school-clerk/ui/composite";
+import { Card, Dialog, DropdownMenu } from "@school-clerk/ui/composite";
+import { Input } from "@school-clerk/ui/input";
 import { Spinner } from "@school-clerk/ui/spinner";
 import { Switch } from "@school-clerk/ui/switch";
 import {
+	Table,
 	TableBody,
 	TableCell,
 	TableHead,
@@ -20,19 +32,18 @@ import {
 } from "@school-clerk/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
 import { toast } from "@school-clerk/ui/use-toast";
-import { sum } from "@school-clerk/utils";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
-	AlertCircle,
 	ArrowDown,
 	ArrowUp,
 	ArrowUpDown,
 	BookOpenText,
-	Check,
 	FileSpreadsheet,
 	Languages,
 	Printer,
+	Search,
 	Users,
+	X,
 } from "lucide-react";
 import {
 	Fragment,
@@ -40,12 +51,10 @@ import {
 	useDeferredValue,
 	useEffect,
 	useMemo,
-	useRef,
 	useState,
   useTransition,
 } from "react";
-import { useDebouncedCallback } from "use-debounce";
-import { _qc, _trpc } from "./static-trpc";
+import { _trpc } from "./static-trpc";
 
 type SortColumn = "student" | "grandTotal";
 type SortDirection = "asc" | "desc";
@@ -57,39 +66,6 @@ function csvCell(value: string | number) {
 		return `"${text.replace(/"/g, '""')}"`;
 	}
 	return text;
-}
-
-function computeGrandTotal(
-	studentId: string,
-	subjects: Array<{
-		assessments: Array<{
-			obtainable: number;
-			percentageObtainable: number | null;
-			assessmentResults: Array<{
-				obtained: number | null;
-				studentTermFormId: string | null;
-			}>;
-		}>;
-	}>,
-) {
-	let grandTotal = 0;
-	for (const subject of subjects) {
-		for (const assessment of subject.assessments) {
-			const result = assessment.assessmentResults.find(
-				(r) => r.studentTermFormId === studentId,
-			);
-			const obtained = result?.obtained ?? null;
-			if (obtained !== null) {
-				const percentageObtainable = assessment.percentageObtainable;
-				const score =
-					percentageObtainable && percentageObtainable !== assessment.obtainable
-						? (obtained / assessment.obtainable) * percentageObtainable
-						: obtained;
-				grandTotal += score;
-			}
-		}
-	}
-	return grandTotal;
 }
 
 function SortIcon({ column, sort }: { column: SortColumn; sort: SortState }) {
@@ -118,6 +94,10 @@ export function ClassroomResultTable({
 
 	const [sort, setSort] = useState<SortState>(null);
 	const [totalsOnly, setTotalsOnly] = useState(false);
+	const [subjectFilterIds, setSubjectFilterIds] = useState<string[]>([]);
+	const [nameSearch, setNameSearch] = useState("");
+	const [openSubjectId, setOpenSubjectId] = useState<string | null>(null);
+	const deferredNameSearch = useDeferredValue(nameSearch);
   const [classroomLayout, setClassroomLayout] = useState<"ltr" | "rtl">(
     defaultClassroomLayout,
   );
@@ -139,109 +119,61 @@ export function ClassroomResultTable({
 		});
 	}, []);
 
-	// Hide assessment columns where no student has a valid (non-null) score,
-	// and hide entire subject groups if all their assessments are hidden.
+	// Keep configured assessment columns visible even when no scores exist yet,
+	// so the classroom roster can still be reviewed and filled in from here.
 	const visibleSubjects = useMemo(() => {
-		return allSubjects
-			.map((subj) => ({
-				...subj,
-				assessments: subj.assessments.filter((asmt) =>
-					asmt.assessmentResults.some((r) => r.obtained !== null),
-				),
-			}))
-			.filter((subj) => subj.assessments.length > 0);
-	}, [allSubjects]);
-
-  const duplicateNames = useMemo(() => {
-    const counts = new Map<string, number>();
-
-    for (const student of students) {
-      const name = studentDisplayName(student.student)?.trim().toLowerCase();
-      if (!name) continue;
-      counts.set(name, (counts.get(name) ?? 0) + 1);
-    }
-
-    return new Set(
-      Array.from(counts.entries())
-        .filter(([, count]) => count > 1)
-        .map(([name]) => name),
-    );
-  }, [students]);
-
-	const grandTotalsMap = useMemo(() => {
-		const map = new Map<string, number>();
-		for (const student of students) {
-			map.set(student.id, computeGrandTotal(student.id, visibleSubjects));
-		}
-		return map;
-	}, [students, visibleSubjects]);
-
-	const sortedStudents = useMemo(() => {
-		if (!sort) return students;
-		const sorted = [...students].sort((a, b) => {
-			if (sort.column === "student") {
-				const nameA = studentDisplayName(a.student).toLowerCase();
-				const nameB = studentDisplayName(b.student).toLowerCase();
-				return nameA.localeCompare(nameB);
-			}
-			return (grandTotalsMap.get(a.id) ?? 0) - (grandTotalsMap.get(b.id) ?? 0);
+		return filterResultSubjects({
+			subjects: allSubjects,
+			selectedSubjectIds: subjectFilterIds,
 		});
+	}, [allSubjects, subjectFilterIds]);
+
+	const filteredStudents = useMemo(() => {
+		return filterResultStudents({
+			students,
+			search: deferredNameSearch,
+		});
+	}, [deferredNameSearch, students]);
+
+	const resultRows = useMemo(() => {
+		const rows = buildResultRows({
+			subjects: visibleSubjects,
+			students: filteredStudents,
+		});
+
+		if (!sort) return rows;
+
+		const sorted = [...rows].sort((a, b) => {
+			if (sort.column === "student") {
+				return a.studentName.toLowerCase().localeCompare(
+					b.studentName.toLowerCase(),
+				);
+			}
+
+			return a.grandTotal - b.grandTotal;
+		});
+
 		if (sort.direction === "desc") sorted.reverse();
 		return sorted;
-	}, [students, grandTotalsMap, sort]);
+	}, [filteredStudents, sort, visibleSubjects]);
+
+  const duplicateNames = useMemo(() => {
+		return getDuplicateStudentNameKeys(filteredStudents);
+  }, [filteredStudents]);
 
 	const reportRows = useMemo(() => {
-		const totalObtainable = visibleSubjects.reduce(
-			(acc, subject) =>
-				acc +
-				sum(
-					subject.assessments.map(
-						(a) => a.percentageObtainable || a.obtainable,
-					),
-				),
-			0,
-		);
-		return sortedStudents.map((student, index) => {
-			const subjectTotals = visibleSubjects.map((subject) => {
-				const assessmentScores = subject.assessments.map((assessment) => {
-					const result = assessment.assessmentResults.find(
-						(r) => r.studentTermFormId === student.id,
-					);
-					const obtained = result?.obtained ?? null;
-					if (obtained === null) return null;
-					const percentageObtainable = assessment.percentageObtainable;
-					return percentageObtainable &&
-						percentageObtainable !== assessment.obtainable
-						? (obtained / assessment.obtainable) * percentageObtainable
-						: obtained;
-				});
-				return {
-					subject,
-					assessmentScores,
-					subjectTotal: assessmentScores.reduce(
-						(acc, score) => acc + (score ?? 0),
-						0,
-					),
-				};
-			});
-
-			const grandTotal = subjectTotals.reduce(
-				(acc, item) => acc + item.subjectTotal,
-				0,
-			);
-			const percentage =
-				totalObtainable > 0
-					? +((grandTotal / totalObtainable) * 100).toFixed(1)
-					: 0;
-			return {
-				studentName: studentDisplayName(student.student),
+		return resultRows.map((row, index) => ({
+				studentName: row.studentName,
 				index,
-				subjectTotals,
-				grandTotal,
-				percentage,
-			};
-		});
-	}, [sortedStudents, visibleSubjects]);
+				subjectTotals: row.subjectTotals.map((subjectRow) => ({
+					subject: subjectRow.subject,
+					assessmentScores: subjectRow.cells.map((cell) => cell.score),
+					subjectTotal: subjectRow.total,
+				})),
+				grandTotal: row.grandTotal,
+				percentage: row.percentage,
+			}));
+	}, [resultRows]);
 
 	const totalAssessments = useMemo(
 		() =>
@@ -250,6 +182,21 @@ export function ClassroomResultTable({
 				0,
 			),
 		[visibleSubjects],
+	);
+
+	const subjectFilterLabel = subjectFilterIds.length
+		? `${subjectFilterIds.length} selected`
+		: "All subjects";
+	const hasActiveTableFilters = !!nameSearch.trim() || !!subjectFilterIds.length;
+	const openSubjectOverview = useQuery(
+		_trpc.subjects.overview.queryOptions(
+			{
+				departmentSubjectId: openSubjectId ?? "",
+			},
+			{
+				enabled: !!openSubjectId,
+			},
+		),
 	);
 
 	const exportToExcel = useCallback(() => {
@@ -398,31 +345,35 @@ export function ClassroomResultTable({
 
 	const printOrder = filters.printOrder ?? [];
 	const activeDepts = filters.activeDepts ?? [];
+	const tableStudents = useMemo(
+		() => resultRows.map((row) => row.student),
+		[resultRows],
+	);
 	const allSelected =
-		students.length > 0 && students.every((student) => printOrder.includes(student.id));
+		tableStudents.length > 0 && tableStudents.every((student) => printOrder.includes(student.id));
 	const someSelected =
-		!allSelected && students.some((student) => printOrder.includes(student.id));
+		!allSelected && tableStudents.some((student) => printOrder.includes(student.id));
 
 	const toggleAll = useCallback(() => {
 		if (allSelected) {
 			setFilters({
 				printOrder: printOrder.filter(
-					(termFormId) => !students.some((student) => student.id === termFormId),
+					(termFormId) => !tableStudents.some((student) => student.id === termFormId),
 				),
 			});
 		} else {
 			const otherSelections = printOrder.filter(
-				(termFormId) => !students.some((student) => student.id === termFormId),
+				(termFormId) => !tableStudents.some((student) => student.id === termFormId),
 			);
 			setFilters({
-				printOrder: [...otherSelections, ...students.map((student) => student.id)],
+				printOrder: [...otherSelections, ...tableStudents.map((student) => student.id)],
 				activeDepts:
 					filters.departmentId && !activeDepts.includes(filters.departmentId)
 						? [...activeDepts, filters.departmentId]
 						: activeDepts,
 			});
 		}
-	}, [activeDepts, allSelected, filters.departmentId, printOrder, setFilters, students]);
+	}, [activeDepts, allSelected, filters.departmentId, printOrder, setFilters, tableStudents]);
 
 	const toggleStudent = useCallback(
 		(termFormId: string) => {
@@ -440,15 +391,33 @@ export function ClassroomResultTable({
 		[activeDepts, filters.departmentId, printOrder, setFilters],
 	);
 
-	if (!visibleSubjects.length || !students.length) {
+	if (!filters.departmentId) {
 		return (
 			<div className="flex items-center justify-center py-12 text-muted-foreground">
-				No result data available. Select a classroom with assessment records.
+				Select a classroom to view students.
+			</div>
+		);
+	}
+
+	if (reportData === undefined) {
+		return (
+			<div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+				<Spinner size={16} />
+				Loading classroom results...
+			</div>
+		);
+	}
+
+	if (!students.length) {
+		return (
+			<div className="flex items-center justify-center py-12 text-muted-foreground">
+				No students found for this classroom in the selected term.
 			</div>
 		);
 	}
 
 	return (
+		<>
 		<div className="space-y-3">
 			<Card className="overflow-hidden border-border/70 shadow-sm">
 				<Card.Header className="gap-5 border-b bg-gradient-to-r from-muted/50 via-background to-muted/20 p-4 sm:p-5">
@@ -480,7 +449,10 @@ export function ClassroomResultTable({
 									className="gap-1.5 rounded-full px-3 py-1"
 								>
 									<Users className="size-3.5" />
-									{students.length} students
+									{filteredStudents.length === students.length
+										? students.length
+										: `${filteredStudents.length}/${students.length}`}{" "}
+									students
 								</Badge>
 								<Badge
 									variant="outline"
@@ -494,7 +466,9 @@ export function ClassroomResultTable({
 									className="gap-1.5 rounded-full px-3 py-1"
 								>
 									<FileSpreadsheet className="size-3.5" />
-									{totalsOnly ? visibleSubjects.length : totalAssessments}{" "}
+									{totalsOnly
+										? visibleSubjects.length
+										: totalAssessments + visibleSubjects.length}{" "}
 									visible columns
 								</Badge>
 							</div>
@@ -567,6 +541,81 @@ export function ClassroomResultTable({
 					</div>
 				</Card.Header>
 				<Card.Content className="p-0">
+					<div className="flex flex-col gap-3 border-b bg-background p-3 md:flex-row md:items-center md:justify-between">
+						<div className="relative w-full md:max-w-xs">
+							<Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+							<Input
+								value={nameSearch}
+								onChange={(event) => setNameSearch(event.target.value)}
+								placeholder="Search student name"
+								className="pl-9 pr-9"
+							/>
+							{nameSearch ? (
+								<button
+									type="button"
+									onClick={() => setNameSearch("")}
+									className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+								>
+									<X className="size-4" />
+								</button>
+							) : null}
+						</div>
+						<div className="flex flex-wrap items-center gap-2">
+							<DropdownMenu>
+								<DropdownMenu.Trigger asChild>
+									<Button variant="outline" className="gap-2">
+										<BookOpenText className="size-4" />
+										{subjectFilterLabel}
+									</Button>
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Content align="end" className="w-64">
+									<DropdownMenu.Item
+										onSelect={() =>
+											setSubjectFilterIds(allSubjects.map((subject) => subject.id))
+										}
+									>
+										Select all
+									</DropdownMenu.Item>
+									<DropdownMenu.Item onSelect={() => setSubjectFilterIds([])}>
+										Clear selection
+									</DropdownMenu.Item>
+									<DropdownMenu.Separator />
+									{allSubjects.map((subject) => {
+										const checked = subjectFilterIds.includes(subject.id);
+										return (
+											<DropdownMenu.CheckboxItem
+												key={subject.id}
+												checked={checked}
+												onSelect={(event) => event.preventDefault()}
+												onCheckedChange={(value) => {
+													setSubjectFilterIds((current) =>
+														value
+															? [...current, subject.id]
+															: current.filter((id) => id !== subject.id),
+													);
+												}}
+											>
+												{subject.subject.title}
+											</DropdownMenu.CheckboxItem>
+										);
+									})}
+								</DropdownMenu.Content>
+							</DropdownMenu>
+							{hasActiveTableFilters ? (
+								<Button
+									variant="ghost"
+									className="gap-2"
+									onClick={() => {
+										setNameSearch("");
+										setSubjectFilterIds([]);
+									}}
+								>
+									<X className="size-4" />
+									Clear
+								</Button>
+							) : null}
+						</div>
+					</div>
 					<div className="overflow-auto max-h-[calc(100vh-250px)]">
 						<Table dir={isRtl ? "rtl" : "ltr"}>
 							<TableHeader className="sticky top-0 z-20">
@@ -626,7 +675,13 @@ export function ClassroomResultTable({
 											)}
 											dir={isRtl ? "rtl" : "ltr"}
 										>
-											{subject.subject.title}
+											<button
+												type="button"
+												onClick={() => setOpenSubjectId(subject.id)}
+												className="font-semibold underline-offset-4 hover:underline"
+											>
+												{subject.subject.title}
+											</button>
 										</TableHead>
 									))}
 									<TableHead
@@ -670,75 +725,89 @@ export function ClassroomResultTable({
 														</div>
 													</TableHead>
 												))}
-											<Table.Head
+											<TableHead
 												className={cn(
 													"text-center text-xs font-semibold min-w-[60px] bg-background",
 													dividerClass,
 												)}
 											>
 												Total
-											</Table.Head>
+											</TableHead>
 										</Fragment>
 									))}
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{sortedStudents.map((student, si) => {
+								{resultRows.length ? resultRows.map((row, si) => {
 									return (
 										<StudentResultRow
-											key={student.id}
-											student={student}
-											subjects={visibleSubjects}
+											key={row.student.id}
+											row={row}
 											showAssessments={!totalsOnly}
 											index={si}
-											isSelected={printOrder.includes(student.id)}
+											isSelected={printOrder.includes(row.student.id)}
 											onToggle={toggleStudent}
 											isRtl={isRtl}
 											dividerClass={dividerClass}
                       isDuplicateName={duplicateNames.has(
-                        studentDisplayName(student.student).trim().toLowerCase(),
+                        getStudentSearchKey(row.student.student),
                       )}
 										/>
 									);
-								})}
+								}) : (
+									<TableRow>
+										<TableCell
+											colSpan={
+												3 +
+												visibleSubjects.reduce(
+													(total, subject) =>
+														total +
+														(totalsOnly ? 1 : subject.assessments.length + 1),
+													0,
+												) +
+												2
+											}
+											className="h-24 text-center text-muted-foreground"
+										>
+											No students match the current filters.
+										</TableCell>
+									</TableRow>
+								)}
 							</TableBody>
 						</Table>
 					</div>
 				</Card.Content>
 			</Card>
 		</div>
+		<Dialog.Root
+			open={!!openSubjectId}
+			onOpenChange={(open) => {
+				if (!open) setOpenSubjectId(null);
+			}}
+		>
+			<Dialog.Content className="max-h-[90vh] max-w-5xl overflow-auto">
+				<Dialog.Header>
+					<Dialog.Title>Subject assessments</Dialog.Title>
+					<Dialog.Description>
+						Add, edit, remove, or reorder the assessment columns shown in this
+						table.
+					</Dialog.Description>
+				</Dialog.Header>
+				{openSubjectOverview.data ? (
+					<SubjectAssessments overview={openSubjectOverview.data} />
+				) : (
+					<div className="flex h-32 items-center justify-center">
+						<Spinner size={16} />
+					</div>
+				)}
+			</Dialog.Content>
+		</Dialog.Root>
+		</>
 	);
 }
 
 interface StudentResultRowProps {
-	student: {
-		id: string;
-		student: {
-			id: string;
-			gender: string | null;
-			name: string | null;
-			otherName: string | null;
-			surname: string | null;
-		} | null;
-	};
-	subjects: Array<{
-		id: string;
-		assessments: Array<{
-			id: number;
-			title: string;
-			obtainable: number;
-			percentageObtainable: number | null;
-			index: number | null;
-			assessmentResults: Array<{
-				id: number;
-				obtained: number | null;
-				percentageScore: number | null;
-				studentTermFormId: string | null;
-				studentId: string | null;
-			}>;
-		}>;
-		subject: { title: string };
-	}>;
+	row: ResultRow<any>;
 	showAssessments: boolean;
 	index: number;
 	isSelected: boolean;
@@ -749,8 +818,7 @@ interface StudentResultRowProps {
 }
 
 function StudentResultRow({
-	student,
-	subjects,
+	row,
 	showAssessments,
 	index,
 	isSelected,
@@ -759,47 +827,7 @@ function StudentResultRow({
 	dividerClass,
   isDuplicateName,
 }: StudentResultRowProps) {
-	const subjectTotals = useMemo(() => {
-		return subjects.map((subject) => {
-			let subjectTotal = 0;
-			const assessmentScores = subject.assessments.map((assessment) => {
-				const result = assessment.assessmentResults.find(
-					(r) => r.studentTermFormId === student.id,
-				);
-				const obtained = result?.obtained ?? null;
-				if (obtained !== null) {
-					const percentageObtainable = assessment.percentageObtainable;
-					const score =
-						percentageObtainable &&
-						percentageObtainable !== assessment.obtainable
-							? (obtained / assessment.obtainable) * percentageObtainable
-							: obtained;
-					subjectTotal += score;
-				}
-				return { obtained, result };
-			});
-			return { subjectTotal, assessmentScores };
-		});
-	}, [subjects, student.id]);
-
-	let grandTotal = 0;
-	for (const subjectTotal of subjectTotals) {
-		grandTotal += subjectTotal.subjectTotal;
-	}
-
-	const totalObtainable = subjects.reduce(
-		(acc, subject) =>
-			acc +
-			sum(
-				subject.assessments.map((a) => a.percentageObtainable || a.obtainable),
-			),
-		0,
-	);
-
-	const percentage =
-		totalObtainable > 0
-			? +((grandTotal / totalObtainable) * 100).toFixed(1)
-			: 0;
+	const student = row.student;
 
 	return (
 		<TableRow
@@ -836,7 +864,7 @@ function StudentResultRow({
 				dir={isRtl ? "rtl" : "ltr"}
 			>
         <div className="flex items-center gap-2">
-				  <span>{studentDisplayName(student.student)}</span>
+				  <span>{getStudentDisplayName(student.student)}</span>
           {isDuplicateName ? (
             <Badge variant="warning" className="text-[10px] uppercase">
               duplicate
@@ -844,22 +872,21 @@ function StudentResultRow({
           ) : null}
         </div>
 			</TableCell>
-			{subjects.map((subject, si) => {
-				const { subjectTotal, assessmentScores } = subjectTotals[si];
+			{row.subjectTotals.map((subjectTotal) => {
+				const subject = subjectTotal.subject;
 				return (
 					<Fragment key={subject.id}>
 						{showAssessments &&
-							subject.assessments.map((assessment, ai) => {
-								const { result } = assessmentScores[ai];
+							subjectTotal.cells.map((cell) => {
 								return (
-									<ScoreCell
-										key={`${student.id}-${assessment.id}`}
-										assessmentId={assessment.id}
-										obtainable={assessment.obtainable}
+									<AssessmentResultsScoreCell
+										key={`${student.id}-${cell.assessment.id}`}
+										assessmentId={cell.assessment.id}
+										obtainable={cell.assessment.obtainable}
 										studentTermFormId={student.id}
 										studentId={student.student?.id}
 										departmentSubjectId={subject.id}
-										result={result}
+										result={cell.result}
 										dividerClass={dividerClass}
 									/>
 								);
@@ -867,150 +894,17 @@ function StudentResultRow({
 						<TableCell
 							className={cn("text-center font-medium text-sm", dividerClass)}
 						>
-							{subjectTotal > 0 ? subjectTotal.toFixed(1) : "-"}
+							{subjectTotal.total > 0 ? subjectTotal.total.toFixed(1) : "-"}
 						</TableCell>
 					</Fragment>
 				);
 			})}
 			<TableCell className={cn("text-center font-semibold", dividerClass)}>
-				{grandTotal > 0 ? grandTotal.toFixed(1) : "-"}
+				{row.grandTotal > 0 ? row.grandTotal.toFixed(1) : "-"}
 			</TableCell>
 			<TableCell className={cn("text-center font-semibold", dividerClass)}>
-				{percentage > 0 ? `${percentage}%` : "-"}
+				{row.percentage > 0 ? `${row.percentage}%` : "-"}
 			</TableCell>
 		</TableRow>
-	);
-}
-
-interface ScoreCellProps {
-	assessmentId: number;
-	obtainable: number;
-	studentTermFormId: string;
-	studentId: string | undefined;
-	departmentSubjectId: string;
-	dividerClass: string;
-	result:
-		| {
-				id: number;
-				obtained: number | null;
-				percentageScore: number | null;
-				studentTermFormId: string | null;
-				studentId: string | null;
-		  }
-		| null
-		| undefined;
-}
-
-function ScoreCell({
-	assessmentId,
-	obtainable,
-	studentTermFormId,
-	studentId,
-	departmentSubjectId,
-	dividerClass,
-	result,
-}: ScoreCellProps) {
-	const [isEditing, setIsEditing] = useState(false);
-	const [localValue, setLocalValue] = useState<string>(
-		result?.obtained != null ? String(result.obtained) : "",
-	);
-	const displayValue = useDeferredValue(localValue);
-	const inputRef = useRef<HTMLInputElement>(null);
-
-	useEffect(() => {
-		if (!isEditing) return;
-		inputRef.current?.focus();
-		inputRef.current?.select();
-	}, [isEditing]);
-
-	const { isPending, mutate, isSuccess, error, reset } = useMutation(
-		_trpc.assessments.updateAssessmentScore.mutationOptions({
-			onSuccess(data) {
-				setLocalValue(data.obtained != null ? String(data.obtained) : "");
-				_qc.invalidateQueries({
-					queryKey: _trpc.assessments.getClassroomReportSheet.queryKey({}),
-				});
-				setTimeout(() => {
-					reset();
-				}, 1500);
-			},
-		}),
-	);
-
-	const handleSave = useDebouncedCallback((value: string) => {
-		const numValue = value ? +value : null;
-		mutate({
-			id: result?.id,
-			obtained: numValue,
-			assessmentId,
-			studentTermId: studentTermFormId,
-			studentId: studentId ?? "",
-			departmentId: departmentSubjectId,
-		});
-	}, 600);
-
-	if (!isEditing) {
-		return (
-			<TableCell
-				className={cn(
-					"text-center cursor-pointer hover:bg-accent/50 transition-colors min-w-[70px] p-0",
-					dividerClass,
-				)}
-				onClick={() => setIsEditing(true)}
-			>
-				<div className="flex items-center justify-center h-full py-2 px-1">
-					<span
-						className={cn(
-							"text-sm",
-							result?.obtained == null && "text-muted-foreground",
-						)}
-					>
-						{result?.obtained != null ? result.obtained : "-"}
-					</span>
-				</div>
-			</TableCell>
-		);
-	}
-
-	return (
-		<TableCell className={cn("text-center p-0 min-w-[70px]", dividerClass)}>
-			<div className="flex items-center gap-1">
-				<input
-					ref={inputRef}
-					type="number"
-					className={cn(
-						"w-full h-8 text-center text-sm bg-transparent border-0 outline-none",
-						"focus:ring-1 focus:ring-primary rounded",
-						"[appearance:textfield]",
-						"[&::-webkit-inner-spin-button]:appearance-none",
-						"[&::-webkit-outer-spin-button]:appearance-none",
-						+displayValue > obtainable && "text-destructive",
-					)}
-					defaultValue={displayValue}
-					onBlur={() => {
-						setTimeout(() => setIsEditing(false), 200);
-					}}
-					onChange={(e) => {
-						setLocalValue(e.target.value);
-						handleSave(e.target.value);
-					}}
-					onKeyDown={(e) => {
-						if (e.key === "Escape") {
-							setIsEditing(false);
-						}
-					}}
-					placeholder="-"
-				/>
-				<div className="w-4 mr-1">
-					{isPending ? (
-							<Spinner size={12} />
-					) : error ? (
-						<AlertCircle className="text-destructive size-3" />
-					) : isSuccess ? (
-						<Check className="text-green-500 size-3" />
-					) : null}
-				</div>
-			</div>
-		</TableCell>
 	);
 }

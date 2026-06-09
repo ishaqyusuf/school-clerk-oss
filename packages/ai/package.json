@@ -1,0 +1,36 @@
+{
+  "name": "@school-clerk/ai",
+  "version": "1.0.0",
+  "private": true,
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./agent": "./src/agent.ts",
+    "./capabilities": "./src/capabilities.ts",
+    "./prompts": "./src/prompts.ts",
+    "./providers": "./src/providers.ts",
+    "./schemas": "./src/schemas.ts",
+    "./tools": "./src/tools/index.ts",
+    "./workflows": "./src/workflows/index.ts"
+  },
+  "scripts": {
+    "clean": "rm -rf .turbo node_modules",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.69",
+    "@ai-sdk/deepseek": "^2.0.35",
+    "@ai-sdk/google": "^3.0.61",
+    "@ai-sdk/openai": "^3.0.52",
+    "@school-clerk/db": "workspace:*",
+    "@school-clerk/utils": "workspace:*",
+    "ai": "^6.0.158",
+    "zod": "3.25.64"
+  },
+  "devDependencies": {
+    "@school-clerk/tsconfig": "workspace:*",
+    "typescript": "^5.9.2"
+  }
+}

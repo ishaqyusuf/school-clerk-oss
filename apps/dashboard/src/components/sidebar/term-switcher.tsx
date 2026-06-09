@@ -18,7 +18,6 @@ export function TermSwitcher() {
 	const currentTerm = dashboardData?.sessions
 		?.flatMap((session) =>
 			session.terms
-				.filter((term) => term.startDate)
 				.map((term) => ({
 					...term,
 					sessionId: session.id,
@@ -70,8 +69,7 @@ export function TermSwitcher() {
 						</div>
 						<div className="space-y-0.5 pb-1">
 							{session.terms
-								?.filter((term) => term.startDate)
-								.map((term) => {
+								?.map((term) => {
 								const isActive = term.id === auth.profile?.termId;
 								return (
 									<DropdownMenu.Item

@@ -1,5 +1,4 @@
 import type { TRPCContext } from "@api/trpc/init";
-import { sum } from "@school-clerk/utils";
 import { z } from "zod";
 
 export const getClassroomReportSheetSchema = z.object({
@@ -114,14 +113,6 @@ export async function getClassroomReportSheet(
     if (dups.length > 1) {
       // duplicates found
     }
-  });
-  department.subjects = department.subjects.filter((a) => {
-    if (
-      a.assessments?.length == 0 ||
-      sum(a.assessments.map((s) => s.assessmentResults.length)) == 0
-    )
-      return false;
-    return true;
   });
   return department;
 }

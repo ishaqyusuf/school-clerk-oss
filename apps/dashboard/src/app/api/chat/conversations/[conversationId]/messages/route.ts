@@ -3,14 +3,14 @@ import {
   getAssistantSessionContext,
   saveAssistantMessage,
 } from "@/lib/assistant/server";
-import { assistantMessagePartSchema } from "@/lib/assistant/shared";
+import { aiMessagePartSchema } from "@school-clerk/ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 const saveMessageSchema = z.object({
   role: z.enum(["assistant", "system"]),
   content: z.string(),
-  parts: z.array(assistantMessagePartSchema),
+  parts: z.array(aiMessagePartSchema),
 });
 
 export async function POST(
@@ -29,7 +29,10 @@ export async function POST(
     userId: context.userId,
   });
   if (!conversation) {
-    return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Conversation not found" },
+      { status: 404 },
+    );
   }
 
   const body = saveMessageSchema.parse(await req.json());

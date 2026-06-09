@@ -130,11 +130,7 @@ function ReportContent({
         )}
       </TabsContent>
       <TabsContent value="classroom-results" className="flex-1 mt-0 p-4">
-        {unavailable ? (
-          <ReportUnavailable compact />
-        ) : (
-          <ClassroomResultTable defaultClassroomLayout={defaultClassroomLayout} />
-        )}
+        <ClassroomResultTable defaultClassroomLayout={defaultClassroomLayout} />
       </TabsContent>
     </Tabs>
   );

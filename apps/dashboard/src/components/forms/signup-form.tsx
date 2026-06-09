@@ -43,6 +43,7 @@ import { Input } from "@school-clerk/ui/input";
 import { Badge } from "@school-clerk/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@school-clerk/ui/select";
 import { toast } from "@school-clerk/ui/use-toast";
+import { QuickFill } from "@/components/quick-fill";
 
 const trustPoints = [
   "Tenant-ready school workspace in minutes",
@@ -123,53 +124,7 @@ export default function SignupForm({ hostSuffix }: SignupFormProps) {
       .replace(/^-|-$/g, "");
   }, [watchedInstitutionName]);
 
-  const devQuickFill = () => {
-    const seed = Date.now().toString().slice(-5);
-    const firstNames = ["Aisha", "Fatima", "Zainab", "Maryam", "Yusuf"];
-    const lastNames = ["Bello", "Okafor", "Danjuma", "Adewale", "Garba"];
-    const schoolPrefixes = ["Atlas", "Cedar", "Summit", "Greenfield", "Lagoon"];
-    const schoolSuffixes = ["Academy", "College", "Preparatory School", "Learning Centre", "International School"];
-    const educationSystems = ["British", "National", "International", "Hybrid"];
-    const curriculumNotes = [
-      "National + Cambridge blend",
-      "British core curriculum",
-      "Nigerian curriculum with STEM focus",
-      "International primary programme",
-    ];
-    const languages = ["English", "Mixed"];
 
-    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
-    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
-    const schoolPrefix =
-      schoolPrefixes[Math.floor(Math.random() * schoolPrefixes.length)];
-    const schoolSuffix =
-      schoolSuffixes[Math.floor(Math.random() * schoolSuffixes.length)];
-    const educationSystem =
-      educationSystems[Math.floor(Math.random() * educationSystems.length)];
-    const curriculumType =
-      curriculumNotes[Math.floor(Math.random() * curriculumNotes.length)];
-    const languageOfInstruction =
-      languages[Math.floor(Math.random() * languages.length)];
-
-    const institutionName = `${schoolPrefix} ${schoolSuffix}`;
-    const subdomain = `${schoolPrefix.toLowerCase()}-${seed}`;
-
-    form.reset({
-      institutionName,
-      institutionType: "k12",
-      adminName: `${firstName} ${lastName}`,
-      email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}+${seed}@schoolclerk.dev`,
-      password: "lorem-ipsum",
-      studentCount: String(120 + Math.floor(Math.random() * 780)),
-      country: "Nigeria",
-      phone: `+23480${Math.floor(10000000 + Math.random() * 89999999)}`,
-      educationSystem,
-      curriculumType,
-      languageOfInstruction,
-      domainName: subdomain,
-    });
-    setIsDomainValid(false);
-  };
 
   const onSubmit = form.handleSubmit((values) => {
     if (!isDomainValid) {
@@ -262,24 +217,19 @@ export default function SignupForm({ hostSuffix }: SignupFormProps) {
 
       <section className="bg-background px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
         <div className="mx-auto max-w-2xl">
-          <div className="mb-6 flex items-center justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">
-                Self-serve signup
-              </p>
-              <h2 className="text-3xl font-semibold tracking-[-0.04em]">
-                Build your workspace
-              </h2>
-            </div>
-            {process.env.NODE_ENV !== "production" ? (
-              <Button variant="outline" type="button" onClick={devQuickFill}>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Quick fill
-              </Button>
-            ) : null}
-          </div>
-
           <Form {...form}>
+            <div className="mb-6 flex items-center justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Self-serve signup
+                </p>
+                <h2 className="text-3xl font-semibold tracking-[-0.04em]">
+                  Build your workspace
+                </h2>
+              </div>
+              <QuickFill name="signup" args={{ setIsDomainValid }} />
+            </div>
+
             <form onSubmit={onSubmit} className="space-y-8">
               <Card className="rounded-3xl border-border/70 shadow-sm">
                 <CardContent className="space-y-6 p-6 sm:p-7">
@@ -598,7 +548,7 @@ export default function SignupForm({ hostSuffix }: SignupFormProps) {
                       control={form.control}
                       name="languageOfInstruction"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="flex items-center gap-2">
                           <FormLabel className="flex items-center gap-2">
                             <Languages className="h-4 w-4 text-muted-foreground" />
                             Language of instruction

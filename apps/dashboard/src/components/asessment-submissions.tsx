@@ -2,11 +2,17 @@ import { Skeletons } from "@school-clerk/ui/skeletons";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useDeferredValue, useEffect, useState } from "react";
 import { _trpc } from "./static-trpc";
-import { Accordion, InputGroup, Table } from "@school-clerk/ui/composite";
+import { InputGroup } from "@school-clerk/ui/composite";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@school-clerk/ui/table";
 import { ScoreData, useAssessmentStore } from "@/store/assessment";
-import { NumberInput } from "./currency-input";
 import { cn } from "@school-clerk/ui/cn";
-import { Input } from "@school-clerk/ui/input";
 import { useDebouncedCallback } from "use-debounce";
 import { getScoreKey } from "@api/db/queries/assessments";
 import { useDebugToast } from "@/hooks/use-debug-console";
@@ -33,7 +39,7 @@ export function AssessmentSubmissions(props: Props) {
   );
 }
 function Content(props: Props) {
-  const { filters, setFilters } = useAssessmentRecordingParams();
+  const { filters } = useAssessmentRecordingParams();
   const { data, isPending } = useSuspenseQuery(
     _trpc.assessments.getSubjectAssessmentRecordings.queryOptions({
       deparmentSubjectId: props.deparmentSubjectId, //props.overview?.subject?.id,
@@ -45,41 +51,46 @@ function Content(props: Props) {
     if (isPending) return;
     useAssessmentStore.getState().update("data", data);
   }, [data, isPending]);
+  const tableData =
+    store.data?.departmentId === data.departmentId &&
+    store.data?.sessionTermId === data.sessionTermId
+      ? store.data
+      : data;
+  const visibleAssessments =
+    tableData?.assessments?.filter((a) => !!a?.percentageObtainable) ?? [];
   return (
     <Table dir="rtl">
-      <Table.Header dir="rtl">
-        <Table.Row>
-          <Table.Head dir="rtl" className="text-start">
+      <TableHeader dir="rtl">
+        <TableRow>
+          <TableHead dir="rtl" className="text-start">
             الطالب
-          </Table.Head>
-          {store?.data?.assessments
-            ?.filter((a) => !!a?.percentageObtainable)
-            ?.map((a) => (
-              <Table.Head key={a.id} className="w-32">
-                {a.displayTitle || a.title}
-              </Table.Head>
-            ))}
-        </Table.Row>
-      </Table.Header>
-      <Table.Body>
-        {store?.data?.students?.map((student, si) => (
-          <Table.Row key={student.id}>
-            <Table.Cell dir="rtl">
+          </TableHead>
+          {visibleAssessments.map((a) => (
+            <TableHead key={a.id} className="w-32">
+              {a.displayTitle || a.title}
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {tableData?.students?.map((student, si) => (
+          <TableRow key={student.id}>
+            <TableCell dir="rtl">
               {enToAr(si + 1)}. {student.name}
-            </Table.Cell>
-            {store.data?.assessments
-              ?.filter((a) => !!a?.percentageObtainable)
-              ?.map((a) => (
-                <ScoreInput
-                  key={a.id}
-                  assessment={a}
-                  student={student}
-                  scoreKey={getScoreKey(a.id, student.termId)}
-                />
-              ))}
-          </Table.Row>
+            </TableCell>
+            {visibleAssessments.map((a) => (
+              <ScoreInput
+                key={a.id}
+                assessment={a}
+                student={student}
+                scoreKey={getScoreKey(a.id, student.termId)}
+                scoreData={tableData.scores[getScoreKey(a.id, student.termId)]}
+                departmentId={tableData.departmentId}
+              />
+            ))}
+          </TableRow>
         ))}
-      </Table.Body>
+      </TableBody>
     </Table>
   );
 }
@@ -87,14 +98,31 @@ interface ScoreInputProps {
   assessment: ScoreData["assessments"][number];
   student: ScoreData["students"][number];
   scoreKey: string;
+  scoreData: ScoreData["scores"][string];
+  departmentId: string;
 }
-function ScoreInput({ scoreKey, student, assessment }: ScoreInputProps) {
-  const prefix = `${assessment.title}: `;
-  const {
-    data: { scores, departmentId },
-    update,
-  } = useAssessmentStore();
-  const value = useDeferredValue(scores[scoreKey]?.obtained);
+function ScoreInput({
+  scoreKey,
+  student,
+  assessment,
+  scoreData,
+  departmentId,
+}: ScoreInputProps) {
+  const { update } = useAssessmentStore();
+  const storeScore = useAssessmentStore(
+    (state) => state.data?.scores?.[scoreKey],
+  );
+  const currentScore =
+    storeScore ??
+    scoreData ??
+    {
+      assessmentId: assessment.id,
+      studentTermId: student.termId,
+      obtained: null,
+      percentageObtained: null,
+      scoreKey,
+    };
+  const value = useDeferredValue(currentScore?.obtained);
   const { isPending, mutate, error, isSuccess, reset } = useMutation(
     _trpc.assessments.updateAssessmentScore.mutationOptions({
       onSuccess(data, variables, onMutateResult, context) {
@@ -110,11 +138,10 @@ function ScoreInput({ scoreKey, student, assessment }: ScoreInputProps) {
   useDebugToast("Error", error);
 
   const handleUpdate = useDebouncedCallback((v) => {
-    const scoreData = scores?.[scoreKey];
     // console.log(v, scoreData, scores, scoreKey, student);
     // return;
     mutate({
-      ...scoreData,
+      ...currentScore,
       studentId: student?.id,
       studentTermId: student?.termId,
       obtained: v || null,
@@ -123,7 +150,7 @@ function ScoreInput({ scoreKey, student, assessment }: ScoreInputProps) {
   }, 800);
   const [focus, setFocus] = useState(false);
   return (
-    <Table.Cell className="w-32 border p-0">
+    <TableCell className="w-32 border p-0">
       <InputGroup
         onFocus={() => setFocus(true)}
         onBlur={() => setFocus(false)}
@@ -175,10 +202,7 @@ function ScoreInput({ scoreKey, student, assessment }: ScoreInputProps) {
             )}
           </InputGroup.Button>
         </InputGroup.Addon>
-        {/* <InputGroup.Addon className="pr-2" align="inline-start">
-        {prefix}
-      </InputGroup.Addon> */}
       </InputGroup>
-    </Table.Cell>
+    </TableCell>
   );
 }

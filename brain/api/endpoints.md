@@ -83,7 +83,7 @@ Catalog of API routes and responsibilities.
 - `GET /api/pdf/student-payment-receipt`
 - `GET /api/pdf/result`
 
-### AI Assistant
+### AI Chat
 - `POST /api/chat`
 - `GET /api/chat/conversations`
 - `POST /api/chat/conversations`
@@ -104,4 +104,4 @@ Catalog of API routes and responsibilities.
 - `trpc.staff.*`: staff list/form data and staff-management APIs
 - `trpc.notifications.*`: notification list/read/count actions
 - `trpc.subjects.*`, `trpc.enrollments.*`, `trpc.assessments.*`, `trpc.filters.*`, `trpc.auth.*`: domain-specific supporting routers
-- `app/api/chat/*`: dashboard assistant history, execution, settings, analytics, and feedback surfaces
+- `app/api/chat/*`: dashboard AI chat execution, single-chat bootstrap, settings, analytics, and feedback surfaces

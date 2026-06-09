@@ -10,7 +10,7 @@ export function useAssessmentRecordingParams() {
       "none",
       "subject",
       "all",
-    ]).withDefault("none"),
+    ]).withDefault("all"),
   });
   const permissions = {
     subjects: ["classroom", "all", "subject"].includes(filters.permission),

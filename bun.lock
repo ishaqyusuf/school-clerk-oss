@@ -65,11 +65,14 @@
         "@ai-sdk/google": "^3.0.61",
         "@ai-sdk/openai": "^3.0.52",
         "@dinero.js/currencies": "2.0.0-alpha.14",
+        "@faker-js/faker": "^10.4.0",
         "@formatjs/intl-localematcher": "0.5.4",
         "@hookform/resolvers": "^3.10.0",
         "@next/mdx": "^16.0.1",
         "@number-flow/react": "^0.4.1",
+        "@school-clerk/ai": "workspace:*",
         "@school-clerk/api": "workspace:*",
+        "@school-clerk/assessment-results": "workspace:*",
         "@school-clerk/auth": "workspace:*",
         "@school-clerk/db": "workspace:*",
         "@school-clerk/navigation": "workspace:*",
@@ -190,6 +193,32 @@
         "eslint-config-next": "15.5.5",
         "tailwindcss": "^4.1.17",
         "typescript": "^5.9.3",
+      },
+    },
+    "packages/ai": {
+      "name": "@school-clerk/ai",
+      "version": "1.0.0",
+      "dependencies": {
+        "@ai-sdk/anthropic": "^3.0.69",
+        "@ai-sdk/deepseek": "^2.0.35",
+        "@ai-sdk/google": "^3.0.61",
+        "@ai-sdk/openai": "^3.0.52",
+        "@school-clerk/db": "workspace:*",
+        "@school-clerk/utils": "workspace:*",
+        "ai": "^6.0.158",
+        "zod": "3.25.64",
+      },
+      "devDependencies": {
+        "@school-clerk/tsconfig": "workspace:*",
+        "typescript": "^5.9.2",
+      },
+    },
+    "packages/assessment-results": {
+      "name": "@school-clerk/assessment-results",
+      "version": "1.0.0",
+      "devDependencies": {
+        "@school-clerk/tsconfig": "workspace:*",
+        "typescript": "^5.9.2",
       },
     },
     "packages/auth": {
@@ -821,6 +850,8 @@
     "@eslint/object-schema": ["@eslint/object-schema@2.1.7", "", {}, "sha512-VtAOaymWVfZcmZbp6E2mympDIHvyjXs/12LqWYjVw6qjrfF+VK+fyG33kChz3nnK+SU5/NeHOqrTEHS8sXO3OA=="],
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.4.1", "", { "dependencies": { "@eslint/core": "^0.17.0", "levn": "^0.4.1" } }, "sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA=="],
+
+    "@faker-js/faker": ["@faker-js/faker@10.4.0", "", {}, "sha512-sDBWI3yLy8EcDzgobvJTWq1MJYzAkQdpjXuPukga9wXonhpMRvd1Izuo2Qgwey2OiEoRIBr35RMU9HJRoOHzpw=="],
 
     "@fast-csv/format": ["@fast-csv/format@5.0.2", "", { "dependencies": { "lodash.escaperegexp": "^4.1.2", "lodash.isboolean": "^3.0.3", "lodash.isequal": "^4.5.0", "lodash.isfunction": "^3.0.9", "lodash.isnil": "^4.0.0" } }, "sha512-fRYcWvI8vs0Zxa/8fXd/QlmQYWWkJqKZPAXM+vksnplb3owQFKTPPh9JqOtD0L3flQw/AZjjXdPkD7Kp/uHm8g=="],
 
@@ -1486,7 +1517,11 @@
 
     "@scalar/types": ["@scalar/types@0.4.0", "", { "dependencies": { "@scalar/openapi-types": "0.5.1", "nanoid": "5.1.5", "type-fest": "5.0.0", "zod": "4.1.11" } }, "sha512-vOD1GZez7kPdVA+UQit05QE9dbALfevhK9kqRTsqcPX7FvvZ9eQWSNl1GKmKtmRiAZGThv2agM5AvHRxkH2JSw=="],
 
+    "@school-clerk/ai": ["@school-clerk/ai@workspace:packages/ai"],
+
     "@school-clerk/api": ["@school-clerk/api@workspace:apps/api"],
+
+    "@school-clerk/assessment-results": ["@school-clerk/assessment-results@workspace:packages/assessment-results"],
 
     "@school-clerk/auth": ["@school-clerk/auth@workspace:packages/auth"],
 

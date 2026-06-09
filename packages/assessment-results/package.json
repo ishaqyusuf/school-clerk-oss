@@ -1,0 +1,19 @@
+{
+  "name": "@school-clerk/assessment-results",
+  "version": "1.0.0",
+  "private": true,
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "clean": "rm -rf .turbo node_modules",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@school-clerk/tsconfig": "workspace:*",
+    "typescript": "^5.9.2"
+  }
+}

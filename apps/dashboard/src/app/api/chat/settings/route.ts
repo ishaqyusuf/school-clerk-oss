@@ -2,7 +2,7 @@ import {
   ensureAssistantConfig,
   getAssistantSessionContext,
 } from "@/lib/assistant/server";
-import { assistantCapabilities } from "@/lib/assistant/shared";
+import { aiCapabilities } from "@school-clerk/ai";
 import { prisma } from "@school-clerk/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -30,7 +30,7 @@ export async function GET() {
   const config = await ensureAssistantConfig(context.schoolId);
   return NextResponse.json({
     config,
-    capabilities: assistantCapabilities,
+    capabilities: aiCapabilities,
   });
 }
 

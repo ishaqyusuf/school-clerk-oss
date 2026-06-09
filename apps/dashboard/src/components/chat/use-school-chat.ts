@@ -1,15 +1,12 @@
 "use client";
 
-import type {
-  AssistantMessagePart,
-  WorkflowAction,
-} from "@/lib/assistant/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AiMessagePart, WorkflowAction } from "@school-clerk/ai";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant" | "system";
-  parts: AssistantMessagePart[];
+  parts: AiMessagePart[];
   content?: string | null;
   createdAt?: string | null;
 };
@@ -23,29 +20,6 @@ export type ConversationListItem = {
   lastMessageAt: string | null;
   preview: string;
   lastRunStatus: string | null;
-};
-
-export type AssistantAnalytics = {
-  conversationCount: number;
-  runCount: number;
-  failedRuns: number;
-  toolUsage: Record<string, number>;
-  avgRating: number | null;
-  recentRuns: {
-    id: string;
-    status: string;
-    requestType: string | null;
-    promptSummary: string | null;
-    createdAt: string | null;
-    toolCount: number;
-  }[];
-  unresolvedDemand: {
-    id: string;
-    promptSummary: string | null;
-    status: string;
-    createdAt: string | null;
-    failedTools: string[];
-  }[];
 };
 
 export type AssistantSettings = {
@@ -102,49 +76,29 @@ async function readUIStream(
 
 export function useSchoolChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [conversations, setConversations] = useState<ConversationListItem[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeConversationId, setActiveConversationId] = useState<
+    string | null
+  >(null);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [capabilities, setCapabilities] = useState<string[]>([]);
   const [settings, setSettings] = useState<AssistantSettings | null>(null);
-  const [analytics, setAnalytics] = useState<AssistantAnalytics | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+  const ensureConversationRef = useRef<Promise<string> | null>(null);
 
-  const refreshConversations = useCallback(async () => {
+  const fetchChatState = useCallback(async () => {
     const res = await fetch("/api/chat/conversations", { cache: "no-store" });
-    if (!res.ok) throw new Error("Failed to load conversations.");
+    if (!res.ok) throw new Error("Failed to load chat.");
     const data = (await res.json()) as {
       conversations: ConversationListItem[];
       capabilities: string[];
       config: AssistantSettings;
     };
-    setConversations(data.conversations);
     setCapabilities(data.capabilities);
     setSettings((prev) => ({ ...(prev ?? {}), ...data.config }));
-
-    if (!activeConversationId && data.conversations[0]?.id) {
-      setActiveConversationId(data.conversations[0].id);
-    }
-    return data.conversations;
-  }, [activeConversationId]);
-
-  const refreshAnalytics = useCallback(async () => {
-    const res = await fetch("/api/chat/analytics", { cache: "no-store" });
-    if (!res.ok) return;
-    const data = (await res.json()) as { analytics: AssistantAnalytics };
-    setAnalytics(data.analytics);
-  }, []);
-
-  const refreshSettings = useCallback(async () => {
-    const res = await fetch("/api/chat/settings", { cache: "no-store" });
-    if (!res.ok) return;
-    const data = (await res.json()) as {
-      config: AssistantSettings;
-    };
-    setSettings(data.config);
+    return data;
   }, []);
 
   const loadConversation = useCallback(async (conversationId: string) => {
@@ -162,31 +116,56 @@ export function useSchoolChat() {
     setLastRunId(data.conversation.runs[0]?.id ?? null);
   }, []);
 
-  useEffect(() => {
-    void refreshConversations();
-    void refreshSettings();
-    void refreshAnalytics();
-  }, [refreshAnalytics, refreshConversations, refreshSettings]);
-
-  useEffect(() => {
-    if (!activeConversationId) return;
-    void loadConversation(activeConversationId);
-  }, [activeConversationId, loadConversation]);
-
-  const createConversation = useCallback(async () => {
+  const createCanonicalConversation = useCallback(async () => {
     const res = await fetch("/api/chat/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ title: "School AI", locale: "en" }),
     });
-    if (!res.ok) throw new Error("Failed to create conversation.");
+    if (!res.ok) throw new Error("Failed to create chat.");
     const data = (await res.json()) as { conversation: { id: string } };
-    await refreshConversations();
-    setActiveConversationId(data.conversation.id);
-    setMessages([]);
-    setLastRunId(null);
     return data.conversation.id;
-  }, [refreshConversations]);
+  }, []);
+
+  const ensureConversation = useCallback(async () => {
+    if (activeConversationId) return activeConversationId;
+    if (ensureConversationRef.current) return ensureConversationRef.current;
+
+    ensureConversationRef.current = (async () => {
+      const data = await fetchChatState();
+      const existingConversationId = data.conversations[0]?.id;
+
+      if (existingConversationId) {
+        setActiveConversationId(existingConversationId);
+        await loadConversation(existingConversationId);
+        return existingConversationId;
+      }
+
+      const conversationId = await createCanonicalConversation();
+      setActiveConversationId(conversationId);
+      setMessages([]);
+      setLastRunId(null);
+      return conversationId;
+    })();
+
+    try {
+      return await ensureConversationRef.current;
+    } finally {
+      ensureConversationRef.current = null;
+    }
+  }, [
+    activeConversationId,
+    createCanonicalConversation,
+    fetchChatState,
+    loadConversation,
+  ]);
+
+  useEffect(() => {
+    void ensureConversation().catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : "Failed to load chat");
+      setStatus("error");
+    });
+  }, [ensureConversation]);
 
   const persistAssistantMessage = useCallback(
     async (conversationId: string, message: ChatMessage) => {
@@ -199,7 +178,8 @@ export function useSchoolChat() {
             message.parts
               .filter((part) => part.type === "text")
               .map((part) => part.text)
-              .join("") || message.content ||
+              .join("") ||
+            message.content ||
             "",
           parts: message.parts,
         }),
@@ -237,23 +217,21 @@ export function useSchoolChat() {
       const abortController = new AbortController();
       abortRef.current = abortController;
 
-      let conversationId = activeConversationId;
-      if (!conversationId) {
-        conversationId = await createConversation();
-      }
-
-      const userMessage: ChatMessage = {
-        id: `user-${Date.now()}`,
-        role: "user",
-        parts: [{ type: "text", text, state: "done" }],
-        content: text,
-      };
-
-      setMessages((prev) => [...prev, userMessage]);
       setStatus("loading");
       setError(null);
 
       try {
+        const conversationId = await ensureConversation();
+
+        const userMessage: ChatMessage = {
+          id: `user-${Date.now()}`,
+          role: "user",
+          parts: [{ type: "text", text, state: "done" }],
+          content: text,
+        };
+
+        setMessages((prev) => [...prev, userMessage]);
+
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -300,7 +278,11 @@ export function useSchoolChat() {
               const type = chunk.type as string;
 
               if (type === "text-start") {
-                updated.parts.push({ type: "text", text: "", state: "streaming" });
+                updated.parts.push({
+                  type: "text",
+                  text: "",
+                  state: "streaming",
+                });
               } else if (type === "text-delta") {
                 const last = updated.parts[updated.parts.length - 1];
                 if (last?.type === "text") {
@@ -374,8 +356,7 @@ export function useSchoolChat() {
           await persistAssistantMessage(conversationId, assistantMsg);
         }
 
-        await refreshConversations();
-        await refreshAnalytics();
+        await fetchChatState();
         await loadConversation(conversationId);
       } catch (err: unknown) {
         if ((err as Error)?.name === "AbortError") {
@@ -387,12 +368,10 @@ export function useSchoolChat() {
       }
     },
     [
-      activeConversationId,
-      createConversation,
+      ensureConversation,
+      fetchChatState,
       loadConversation,
       persistAssistantMessage,
-      refreshAnalytics,
-      refreshConversations,
     ],
   );
 
@@ -422,57 +401,23 @@ export function useSchoolChat() {
           comment: comment ?? null,
         }),
       });
-      await refreshAnalytics();
     },
-    [activeConversationId, lastRunId, refreshAnalytics],
+    [activeConversationId, lastRunId],
   );
-
-  const saveSettings = useCallback(async (nextSettings: AssistantSettings) => {
-    const res = await fetch("/api/chat/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(nextSettings),
-    });
-    if (!res.ok) throw new Error("Failed to save assistant settings.");
-    const data = (await res.json()) as { config: AssistantSettings };
-    setSettings(data.config);
-    await refreshConversations();
-  }, [refreshConversations]);
-
-  const selectConversation = useCallback((conversationId: string) => {
-    setActiveConversationId(conversationId);
-  }, []);
 
   const isLoading = status === "loading" || status === "streaming";
-  const topTools = useMemo(
-    () =>
-      analytics
-        ? Object.entries(analytics.toolUsage)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
-        : [],
-    [analytics],
-  );
 
   return {
     messages,
-    conversations,
     activeConversationId,
     status,
     error,
     isLoading,
     capabilities,
     settings,
-    analytics,
-    topTools,
     lastRunId,
     sendMessage,
     sendWorkflowAction,
-    createConversation,
-    selectConversation,
-    refreshConversations,
-    refreshAnalytics,
-    saveSettings,
     submitFeedback,
   };
 }

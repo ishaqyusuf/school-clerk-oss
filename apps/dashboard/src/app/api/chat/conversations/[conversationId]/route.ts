@@ -2,7 +2,7 @@ import {
   getAssistantConversation,
   getAssistantSessionContext,
 } from "@/lib/assistant/server";
-import { safeJsonParse } from "@/lib/assistant/shared";
+import { safeJsonParse } from "@school-clerk/ai";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -22,7 +22,10 @@ export async function GET(
   });
 
   if (!conversation) {
-    return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Conversation not found" },
+      { status: 404 },
+    );
   }
 
   return NextResponse.json({

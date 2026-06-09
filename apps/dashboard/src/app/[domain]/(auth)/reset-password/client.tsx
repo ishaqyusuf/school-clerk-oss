@@ -5,7 +5,9 @@ import type React from "react";
 import { useParams } from "next/navigation";
 import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { useState } from "react";
+import { FormProvider, useForm } from "react-hook-form";
 
+import { QuickFill } from "@/components/quick-fill";
 import { completeStaffOnboardingAction } from "@/actions/save-staff";
 import { authClient } from "@/auth/client";
 import { useLoadingToast } from "@/hooks/use-loading-toast";
@@ -35,14 +37,16 @@ export function Client() {
 	const [onboardingFlag] = useQueryState("onboarding");
 	const token = tokenFromCallback || legacyToken;
 	const isOnboardingFlow = onboardingFlag === "1" && Boolean(staffId);
-	const [formData, setFormData] = useState({
-		email: emailFromQuery || "",
-		password: "",
-		name: "",
-		title: "",
-		phone: "",
-		phone2: "",
-		address: "",
+	const form = useForm({
+		defaultValues: {
+			email: emailFromQuery || "",
+			password: "",
+			name: "",
+			title: "",
+			phone: "",
+			phone2: "",
+			address: "",
+		},
 	});
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
@@ -62,14 +66,7 @@ export function Client() {
 		},
 	});
 
-	const handleInputChange = (field: string, value: string) => {
-		setFormData((prev) => ({ ...prev, [field]: value }));
-		setError("");
-	};
-
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-
+	const handleSubmit = form.handleSubmit(async (values) => {
 		if (!token) {
 			setError("This onboarding link is missing its reset token.");
 			return;
@@ -79,20 +76,26 @@ export function Client() {
 		setError("");
 
 		try {
-			await authClient.resetPassword({
-				newPassword: formData.password,
+			const resetResponse = await authClient.resetPassword({
+				newPassword: values.password,
 				token,
 			});
+
+			if (resetResponse.error) {
+				throw new Error(
+					resetResponse.error.message || "Could not reset your password.",
+				);
+			}
 
 			if (isOnboardingFlow && staffId) {
 				completeOnboarding.execute({
 					staffId,
-					email: formData.email,
-					name: formData.name,
-					title: formData.title,
-					phone: formData.phone,
-					phone2: formData.phone2,
-					address: formData.address,
+					email: values.email,
+					name: values.name,
+					title: values.title,
+					phone: values.phone,
+					phone2: values.phone2,
+					address: values.address,
 				});
 				return;
 			}
@@ -107,7 +110,7 @@ export function Client() {
 					: "Could not reset your password.",
 			);
 		}
-	};
+	});
 
 	return (
 		<div className="min-h-screen bg-background">
@@ -133,7 +136,13 @@ export function Client() {
 								</Alert>
 							) : null}
 
+							<FormProvider {...form}>
 							<form onSubmit={handleSubmit} className="space-y-4">
+								{isOnboardingFlow && (
+									<div className="flex justify-end">
+										<QuickFill name="staffOnboarding" />
+									</div>
+								)}
 								<div>
 									<Label htmlFor="email">Email address</Label>
 									<div className="relative">
@@ -142,7 +151,7 @@ export function Client() {
 											disabled
 											id="email"
 											type="email"
-											value={formData.email}
+											{...form.register("email")}
 											className="pl-10"
 											required
 										/>
@@ -158,10 +167,7 @@ export function Client() {
 												<Input
 													id="name"
 													placeholder="Aisha Bello"
-													value={formData.name}
-													onChange={(e) =>
-														handleInputChange("name", e.target.value)
-													}
+													{...form.register("name")}
 													className="pl-10"
 													required
 												/>
@@ -173,10 +179,7 @@ export function Client() {
 											<Input
 												id="title"
 												placeholder="Mr, Mrs, Dr..."
-												value={formData.title}
-												onChange={(e) =>
-													handleInputChange("title", e.target.value)
-												}
+												{...form.register("title")}
 											/>
 										</div>
 
@@ -187,10 +190,7 @@ export function Client() {
 												<Input
 													id="phone"
 													placeholder="+234..."
-													value={formData.phone}
-													onChange={(e) =>
-														handleInputChange("phone", e.target.value)
-													}
+													{...form.register("phone")}
 													className="pl-10"
 												/>
 											</div>
@@ -201,10 +201,7 @@ export function Client() {
 											<Input
 												id="phone2"
 												placeholder="Optional"
-												value={formData.phone2}
-												onChange={(e) =>
-													handleInputChange("phone2", e.target.value)
-												}
+												{...form.register("phone2")}
 											/>
 										</div>
 
@@ -213,10 +210,7 @@ export function Client() {
 											<Textarea
 												id="address"
 												placeholder="Enter your address"
-												value={formData.address}
-												onChange={(e) =>
-													handleInputChange("address", e.target.value)
-												}
+												{...form.register("address")}
 											/>
 										</div>
 									</div>
@@ -230,10 +224,7 @@ export function Client() {
 											id="password"
 											type={showPassword ? "text" : "password"}
 											placeholder="Choose a password"
-											value={formData.password}
-											onChange={(e) =>
-												handleInputChange("password", e.target.value)
-											}
+											{...form.register("password")}
 											className="pl-10 pr-10"
 											required
 										/>
@@ -259,6 +250,7 @@ export function Client() {
 											: "Update password"}
 								</Button>
 							</form>
+							</FormProvider>
 						</CardContent>
 					</Card>
 				</div>

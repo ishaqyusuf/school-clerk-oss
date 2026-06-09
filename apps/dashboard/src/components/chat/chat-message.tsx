@@ -1,6 +1,6 @@
 "use client";
 
-import type { WorkflowAction } from "@/lib/assistant/shared";
+import type { WorkflowAction } from "@school-clerk/ai";
 import { Button } from "@school-clerk/ui/button";
 import { Loader2, ThumbsDown, ThumbsUp } from "lucide-react";
 import type { ChatMessage as ChatMsg } from "./use-school-chat";
@@ -43,8 +43,8 @@ function ConfirmationCard({
     <div className="w-full rounded-xl border bg-card p-4">
       <p className="text-sm font-medium">{summary}</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        Review the action before confirming. The assistant will execute it immediately after
-        confirmation.
+        Review the action before confirming. The AI will execute it immediately
+        after confirmation.
       </p>
       <Button
         className="mt-3"
@@ -103,7 +103,10 @@ export function ChatMessage({
             );
           }
 
-          if (part.type === "tool-invocation" && part.state === "output-available") {
+          if (
+            part.type === "tool-invocation" &&
+            part.state === "output-available"
+          ) {
             const result = part.output as any;
             const toolName = part.toolName;
 

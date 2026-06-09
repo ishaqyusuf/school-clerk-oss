@@ -1,108 +1,131 @@
 "use client";
-import { AssessmentSubmissions } from "@/components/asessment-submissions";
+import { AssessmentRecordingResultsTable } from "@/components/assessment-recording-results-table";
 import { _trpc } from "@/components/static-trpc";
 import { useAssessmentRecordingParams } from "@/hooks/use-assessment-recording-params";
 import { Card, DropdownMenu } from "@school-clerk/ui/composite";
-import { Menu } from "@school-clerk/ui/custom/menu";
 import { enToAr } from "@school-clerk/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
+import { useAuth } from "@/hooks/use-auth";
 
 export function AssessmentRecording() {
   const { filters, permissions, setFilters } = useAssessmentRecordingParams();
+  const auth = useAuth();
+  const effectiveTermId = filters.termId ?? auth.profile?.termId ?? "";
+  const canLoadSubjects = !!filters.deptId && !!effectiveTermId;
   const { data } = useQuery(
     _trpc.subjects.byClassroom.queryOptions(
       {
-        departmentId: filters?.deptId,
-        sessionTermId: filters?.termId,
+        departmentId: filters.deptId ?? "",
+        sessionTermId: effectiveTermId,
       },
       {
-        // enabled: permissions.subjects && !!filters?.deptId,
+        enabled: canLoadSubjects,
       },
     ),
   );
   const { data: departments } = useQuery(
     _trpc.classrooms.all.queryOptions(
       {
-        sessionTermId: filters.termId,
+        sessionTermId: effectiveTermId || filters.termId,
       },
       {
         // enabled: permissions.classrooms,
       },
     ),
   );
-  if (!data) return null;
-  const { subjects, ...department } = data;
+  const subjects = data?.subjects ?? [];
+  const selectedDepartment = departments?.data?.find(
+    (dept) => dept.id === filters.deptId,
+  );
   const subject = subjects.find((s) => s.id === filters?.deptSubjectId);
   return (
     <>
       <div className="sm:mx-auto gap-4 px-4 sm:px-0 flex-col flex py-4 sm:max-w-4xl">
-        <div className="fixed w-full sm:max-w-4xl top-0 border-b border-border">
+        <div className="fixed z-10 w-full sm:max-w-4xl top-0 border-b border-border">
           <Card.Header
             className="bg-background flex flex-row gap-4 items-center h-16"
             dir="rtl"
           >
             {!permissions.classrooms || (
-              <>
-                <Menu>
+              <DropdownMenu dir="rtl">
+                <DropdownMenu.Trigger
+                  dir="rtl"
+                  className="flex rounded-xl border-border border items-center p-0.5 px-2 gap-2 w-min hover:bg-muted"
+                >
+                  <Card.Title className="whitespace-nowrap text-base">
+                    {data?.departmentName ||
+                      selectedDepartment?.displayName ||
+                      "Select Classroom"}
+                  </Card.Title>
+                  <div className="rounded-full size-4 p-0">
+                    <ChevronDown className="size-4" />
+                  </div>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content>
                   {departments?.data?.map((dept) => (
-                    <Menu.Item
-                      onClick={(e) => {
+                    <DropdownMenu.Item
+                      onSelect={() =>
                         setFilters({
                           deptId: dept.id,
-                        });
-                      }}
+                          deptSubjectId: null,
+                          termId: effectiveTermId || null,
+                        })
+                      }
                       dir="rtl"
                       key={dept?.id}
                     >
                       {dept?.departmentName}
-                    </Menu.Item>
+                    </DropdownMenu.Item>
                   ))}
-                </Menu>
-              </>
+                </DropdownMenu.Content>
+              </DropdownMenu>
             )}
-            <Card.Title>
-              {department?.departmentName}
-            </Card.Title>
-            {/* <Separator orientation="vertical" className="h-full" /> */}
             {!permissions.subjects || (
               <DropdownMenu dir="rtl">
                 <DropdownMenu.Trigger
                   dir="rtl"
-                  className="flex rounded-xl border-border border items-center p-0.5 px-2 gap-2 w-[56px]s  w-min "
+                  className="flex rounded-xl border-border border items-center p-0.5 px-2 gap-2 w-min hover:bg-muted"
                 >
-                  <Card.Description className="whitespace-nowrap">
-                    {subject?.subject?.title}
+                  <Card.Description className="whitespace-nowrap font-medium text-foreground">
+                    {subject?.subject?.title ||
+                      (filters.deptId ? "Select Subject" : "Select Classroom")}
                   </Card.Description>
                   <div className="rounded-full size-4 p-0">
                     <ChevronDown className="size-4" />
                   </div>
                 </DropdownMenu.Trigger>
                 <DropdownMenu.Content>
-                  {subjects?.map((s, i) => (
-                    <DropdownMenu.Item
-                      onClick={(e) => {
-                        setFilters({
-                          deptSubjectId: s.id,
-                        });
-                      }}
-                      dir="rtl"
-                      key={s.id}
-                    >
-                      <>
-                        {enToAr(i + 1)}.{s.subject?.title} |{" "}
-                        {s.submissionPercentage}%
-                      </>
+                  {!filters.deptId ? (
+                    <DropdownMenu.Item disabled>
+                      Select a classroom first
                     </DropdownMenu.Item>
-                  ))}
+                  ) : subjects.length ? (
+                    subjects.map((s, i) => (
+                      <DropdownMenu.Item
+                        onSelect={() => setFilters({ deptSubjectId: s.id })}
+                        dir="rtl"
+                        key={s.id}
+                      >
+                        <>
+                          {enToAr(i + 1)}.{s.subject?.title} |{" "}
+                          {s.submissionPercentage}%
+                        </>
+                      </DropdownMenu.Item>
+                    ))
+                  ) : (
+                    <DropdownMenu.Item disabled>
+                      No subjects found
+                    </DropdownMenu.Item>
+                  )}
                 </DropdownMenu.Content>
               </DropdownMenu>
             )}
             {!permissions.all || (
               <Link
                 target="_blank"
-                href={`/student-report?deptId=${filters.deptId}&permission=all&termId=${filters.termId}`}
+                href={`/student-report?deptId=${filters.deptId}&permission=all&termId=${effectiveTermId}`}
               >
                 Report Sheet
               </Link>
@@ -110,7 +133,17 @@ export function AssessmentRecording() {
           </Card.Header>
         </div>
         <div className="mt-16 mb-28">
-          <AssessmentSubmissions deparmentSubjectId={filters.deptSubjectId} />
+          {filters.deptId && effectiveTermId ? (
+            <AssessmentRecordingResultsTable
+              departmentId={filters.deptId}
+              termId={effectiveTermId}
+              selectedSubjectId={filters.deptSubjectId}
+            />
+          ) : (
+            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+              Please select a classroom to view and record assessments.
+            </div>
+          )}
         </div>
       </div>
     </>
