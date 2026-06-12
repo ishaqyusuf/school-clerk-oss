@@ -154,6 +154,12 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: missing tenant context, no staff email, onboarding already completed, invite delivery failure
 - Notes: resets invite state to pending and records resend timestamp
 
+- Route: `action.copyStaffOnboardingLinkAction`
+- Request schema: `staffId`
+- Response schema: `{ inviteLink }`
+- Error cases: missing tenant context, no staff email, onboarding already completed, invalid staff role, link generation failure
+- Notes: generates a fresh Better Auth reset-password onboarding URL without sending email so admins can copy and share it from the staff directory.
+
 - Route: `action.completeStaffOnboardingAction`
 - Request schema: `staffId`, `email`, `name`, optional `title`, optional `phone`, optional `phone2`, optional `address`
 - Response schema: `{ staffId, completed: true }`

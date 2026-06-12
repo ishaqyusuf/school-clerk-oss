@@ -13,6 +13,10 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { ensureCredentialAccount } from "./ensure-credential-account";
 
+import {
+	RESET_PASSWORD_URL_CAPTURE_HEADER,
+	getCapturedResetPasswordUrl,
+} from "@school-clerk/auth";
 import { ensureNotificationContact, prisma } from "@school-clerk/db";
 import { createNotificationFromType } from "@school-clerk/notifications";
 import {
@@ -92,13 +96,20 @@ async function getCurrentOrigin() {
 async function sendOnboardingInvite({
 	email,
 	staffId,
+	captureOnly = false,
 }: {
 	email: string;
 	staffId: string;
+	captureOnly?: boolean;
 }) {
 	const currentOrigin = await getCurrentOrigin();
 	const requestHeaders = new Headers(await headers());
 	requestHeaders.set("origin", currentOrigin);
+	const captureId = captureOnly ? crypto.randomUUID() : null;
+
+	if (captureId) {
+		requestHeaders.set(RESET_PASSWORD_URL_CAPTURE_HEADER, captureId);
+	}
 
 	const redirectTo = new URL(`${currentOrigin}/reset-password`);
 	redirectTo.searchParams.set("onboarding", "1");
@@ -112,6 +123,18 @@ async function sendOnboardingInvite({
 		},
 		headers: requestHeaders,
 	});
+
+	if (!captureId) {
+		return null;
+	}
+
+	const inviteLink = getCapturedResetPasswordUrl(captureId);
+
+	if (!inviteLink) {
+		throw new Error("Unable to generate onboarding link.");
+	}
+
+	return inviteLink;
 }
 
 function inviteErrorMessage(error: unknown) {
@@ -705,6 +728,71 @@ export const resendStaffOnboardingAction = actionClient
 			});
 			throw new Error(message);
 		}
+	});
+
+export const copyStaffOnboardingLinkAction = actionClient
+	.schema(
+		z.object({
+			staffId: z.string(),
+		}),
+	)
+	.action(async ({ parsedInput }) => {
+		const { profile, school } = await getSchoolContext();
+
+		const staff = await prisma.staffProfile.findFirst({
+			where: {
+				id: parsedInput.staffId,
+				schoolProfileId: profile.schoolId,
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+				email: true,
+				onboardedAt: true,
+			},
+		});
+
+		if (!staff?.email) {
+			throw new Error("This staff member does not have an onboarding email.");
+		}
+
+		if (staff.onboardedAt) {
+			throw new Error("This staff member has already completed onboarding.");
+		}
+
+		const user = await prisma.user.findFirst({
+			where: {
+				email: staff.email,
+				saasAccountId: school.accountId,
+				deletedAt: null,
+			},
+			select: {
+				id: true,
+				role: true,
+			},
+		});
+
+		staffRoleSchema.parse(user?.role ?? "Teacher");
+
+		if (user?.id) {
+			await ensureCredentialAccount(prisma as any, user.id);
+		}
+
+		const inviteLink = await sendOnboardingInvite({
+			email: staff.email,
+			staffId: staff.id,
+			captureOnly: true,
+		});
+
+		await syncInviteState({
+			staffId: staff.id,
+			status: "PENDING",
+		});
+		staffChanged();
+
+		return {
+			inviteLink,
+		};
 	});
 
 export const completeStaffOnboardingAction = actionClient

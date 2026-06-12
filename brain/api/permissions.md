@@ -56,12 +56,13 @@ Defines access control rules for each API surface.
 ## Staff Role and Onboarding Rules
 - The admin staff form is invite-first: admins only enter the staff email, role, and teaching assignments.
 - Classroom and subject assignment should remain teacher-only for now; non-teaching roles persist with empty assignment sets even if the client tries to submit classroom data.
-- Pending onboarding is a first-class staff-management state and supports resend from the staff directory.
+- Pending onboarding is a first-class staff-management state and supports resend plus copyable share links from the staff directory.
 - Staff complete their profile details on the onboarding/reset-password screen after setting their password.
 
 ## Staff Invite Status
 - Staff save now sends onboarding automatically when needed instead of relying on an explicit "Send onboarding email" toggle.
 - Invites create or update the tenant user record and trigger Better Auth's reset-password flow with a staff-scoped onboarding link so the staff member can set a password and fill their own profile details.
+- Copying an onboarding link generates a fresh Better Auth reset-password token but suppresses email delivery; the copied URL follows the same staff-scoped onboarding path as emailed invites.
 
 ## Staff Management Navigation Split
 - `/staff/teachers` remains the admin teacher-management page.

@@ -1,6 +1,9 @@
 "use client";
 
-import { resendStaffOnboardingAction } from "@/actions/save-staff";
+import {
+	copyStaffOnboardingLinkAction,
+	resendStaffOnboardingAction,
+} from "@/actions/save-staff";
 import { staffPageQuery } from "@/app/[domain]/(sidebar)/staff/teachers/search-params";
 import { MiddaySearchFilter } from "@/components/midday-search-filter/search-filter";
 import { useLoadingToast } from "@/hooks/use-loading-toast";
@@ -37,6 +40,7 @@ import {
 import {
 	AlertTriangle,
 	Clock3,
+	Copy,
 	School,
 	ShieldCheck,
 	Users2,
@@ -129,6 +133,29 @@ export function DataTable({ search, status }: Props) {
 		},
 		onError({ error }) {
 			toast.error(error.serverError || "Could not resend onboarding email.");
+		},
+	});
+
+	const copyInviteLink = useAction(copyStaffOnboardingLinkAction, {
+		async onSuccess({ data }) {
+			if (!data?.inviteLink) {
+				toast.error("Could not generate onboarding link.");
+				return;
+			}
+
+			try {
+				await navigator.clipboard.writeText(data.inviteLink);
+				toast.success("Onboarding link copied.");
+				qc.invalidateQueries({ queryKey: trpc.staff.getStaffList.queryKey() });
+			} catch {
+				toast.error("Could not copy link to clipboard.", {
+					description: data.inviteLink,
+					duration: 6000,
+				});
+			}
+		},
+		onError({ error }) {
+			toast.error(error.serverError || "Could not create onboarding link.");
 		},
 	});
 
@@ -356,6 +383,19 @@ export function DataTable({ search, status }: Props) {
 																size="sm"
 																variant="outline"
 																onClick={() =>
+																	copyInviteLink.execute({ staffId: item.id })
+																}
+																disabled={copyInviteLink.isExecuting}
+															>
+																<Copy className="mr-1.5 size-3.5" />
+																Copy link
+															</Button>
+														) : null}
+														{item.canResend ? (
+															<Button
+																size="sm"
+																variant="outline"
+																onClick={() =>
 																	resendInvite.execute({ staffId: item.id })
 																}
 																disabled={resendInvite.isExecuting}
@@ -460,6 +500,19 @@ export function DataTable({ search, status }: Props) {
 												>
 													Quick view
 												</Button>
+												{item.canResend ? (
+													<Button
+														size="sm"
+														variant="outline"
+														onClick={() =>
+															copyInviteLink.execute({ staffId: item.id })
+														}
+														disabled={copyInviteLink.isExecuting}
+													>
+														<Copy className="mr-1.5 size-3.5" />
+														Copy link
+													</Button>
+												) : null}
 												{item.canResend ? (
 													<Button
 														size="sm"

@@ -376,12 +376,12 @@ export function ClassroomResultTable({
 				for (const subjectRow of row.subjectTotals) {
 					if (!totalsOnly) {
 						cells.push(
-							...subjectRow.assessmentScores.map(() => `<td></td>`),
+							...subjectRow.assessmentScores.map(() => `<td>-</td>`),
 						);
 					}
-					cells.push(`<td></td>`);
+					cells.push(`<td>-</td>`);
 				}
-				cells.push(`<td></td>`, `<td></td>`);
+				cells.push(`<td>-</td>`, `<td>-</td>`);
 				return `<tr>${cells.join("")}</tr>`;
 			})
 			.join("");
