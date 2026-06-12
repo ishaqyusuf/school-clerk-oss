@@ -6,6 +6,13 @@ import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@school-clerk/ui/card";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@school-clerk/ui/select";
 import { Spinner } from "@school-clerk/ui/spinner";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpenText, ClipboardList } from "lucide-react";
@@ -16,6 +23,8 @@ type TeacherSubject = {
 	title: string;
 	classRoomDepartmentId: string;
 	displayName: string;
+	numberOfAssessments: number;
+	numberOfRecordings: number;
 };
 
 type Props = {
@@ -54,7 +63,7 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 
 	return (
 		<div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-			<Card>
+			<Card className="hidden xl:block">
 				<CardHeader>
 					<CardTitle>Assigned subjects</CardTitle>
 				</CardHeader>
@@ -77,8 +86,16 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 									<p className="mt-1 text-xs text-muted-foreground">
 										{subject.displayName}
 									</p>
+									<div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+										<Badge variant="secondary" className="px-1.5 py-0 font-normal">
+											{subject.numberOfAssessments} assessments
+										</Badge>
+										<Badge variant="secondary" className="px-1.5 py-0 font-normal">
+											{subject.numberOfRecordings} recordings
+										</Badge>
+									</div>
 								</div>
-								<BookOpenText className="size-4 text-muted-foreground" />
+								<BookOpenText className="size-4 shrink-0 text-muted-foreground" />
 							</div>
 						</button>
 					))}
@@ -86,6 +103,28 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 			</Card>
 
 			<div className="space-y-4">
+				<div className="xl:hidden">
+					<Select
+						value={selectedSubjectId}
+						onValueChange={setSelectedSubjectId}
+					>
+						<SelectTrigger className="w-full bg-background h-auto py-2 px-3">
+							<SelectValue placeholder="Select a subject" />
+						</SelectTrigger>
+						<SelectContent>
+							{subjects.map((subject) => (
+								<SelectItem key={subject.id} value={subject.id}>
+									<div className="flex flex-col gap-1 py-1 text-left">
+										<span className="font-medium">{subject.title}</span>
+										<span className="text-xs text-muted-foreground">
+											{subject.displayName} · {subject.numberOfAssessments} assessments · {subject.numberOfRecordings} recordings
+										</span>
+									</div>
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</div>
 				<Card>
 					<CardContent className="flex flex-col gap-3 py-5 lg:flex-row lg:items-center lg:justify-between">
 						<div>

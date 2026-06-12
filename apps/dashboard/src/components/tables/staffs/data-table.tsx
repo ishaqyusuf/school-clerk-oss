@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
 	copyStaffOnboardingLinkAction,
 	resendStaffOnboardingAction,
@@ -29,6 +30,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@school-clerk/ui/card";
+import { Input } from "@school-clerk/ui/input";
 import {
 	Table,
 	TableBody,
@@ -44,6 +46,7 @@ import {
 	School,
 	ShieldCheck,
 	Users2,
+	X,
 } from "lucide-react";
 
 type Props = {
@@ -94,6 +97,34 @@ function statusLabel(status: string) {
 	}
 }
 
+async function copyTextToClipboard(text: string) {
+	if (navigator.clipboard?.writeText) {
+		try {
+			await navigator.clipboard.writeText(text);
+			return true;
+		} catch {
+			// Fall through to the textarea fallback for browsers that expose the
+			// Clipboard API but deny writes outside a focused/secure context.
+		}
+	}
+
+	const textarea = document.createElement("textarea");
+	textarea.value = text;
+	textarea.setAttribute("readonly", "");
+	textarea.style.position = "fixed";
+	textarea.style.left = "-9999px";
+	textarea.style.top = "0";
+	document.body.appendChild(textarea);
+	textarea.focus();
+	textarea.select();
+
+	try {
+		return document.execCommand("copy");
+	} finally {
+		document.body.removeChild(textarea);
+	}
+}
+
 export function DataTable({ search, status }: Props) {
 	const { setParams } = useStaffParams();
 	const router = useRouter();
@@ -104,6 +135,7 @@ export function DataTable({ search, status }: Props) {
 	const toast = useLoadingToast();
 	const trpc = useTRPC();
 	const qc = useQueryClient();
+	const [manualInviteLink, setManualInviteLink] = useState<string | null>(null);
 	const activeStatus = status || "all";
 	const queryInput = {
 		...(search ? { q: search } : {}),
@@ -143,13 +175,30 @@ export function DataTable({ search, status }: Props) {
 				return;
 			}
 
+			qc.invalidateQueries({
+				queryKey: trpc.staff.getStaffList.queryKey(),
+			});
+
 			try {
-				await navigator.clipboard.writeText(data.inviteLink);
-				toast.success("Onboarding link copied.");
-				qc.invalidateQueries({ queryKey: trpc.staff.getStaffList.queryKey() });
+				const copied = await copyTextToClipboard(data.inviteLink);
+
+				if (copied) {
+					setManualInviteLink(null);
+					toast.success("Onboarding link copied.");
+					return;
+				}
+
+				setManualInviteLink(data.inviteLink);
+				toast.display({
+					title: "Onboarding link ready",
+					description: "Use the link field above the table to copy it.",
+					duration: 6000,
+				});
 			} catch {
-				toast.error("Could not copy link to clipboard.", {
-					description: data.inviteLink,
+				setManualInviteLink(data.inviteLink);
+				toast.display({
+					title: "Onboarding link ready",
+					description: "Use the link field above the table to copy it.",
 					duration: 6000,
 				});
 			}
@@ -274,6 +323,49 @@ export function DataTable({ search, status }: Props) {
 				</CardHeader>
 
 				<CardContent className="space-y-4">
+					{manualInviteLink ? (
+						<div className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-3 sm:flex-row sm:items-end">
+							<div className="min-w-0 flex-1 space-y-2">
+								<p className="text-sm font-medium">Onboarding link ready</p>
+								<Input
+									readOnly
+									value={manualInviteLink}
+									onFocus={(event) => event.currentTarget.select()}
+									className="font-mono text-xs"
+								/>
+							</div>
+							<div className="flex gap-2">
+								<Button
+									type="button"
+									size="sm"
+									variant="outline"
+									onClick={async () => {
+										const copied = await copyTextToClipboard(manualInviteLink);
+
+										if (copied) {
+											setManualInviteLink(null);
+											toast.success("Onboarding link copied.");
+											return;
+										}
+
+										toast.error("Select and copy the link manually.");
+									}}
+								>
+									<Copy className="mr-1.5 size-3.5" />
+									Copy
+								</Button>
+								<Button
+									type="button"
+									size="icon"
+									variant="ghost"
+									aria-label="Close onboarding link"
+									onClick={() => setManualInviteLink(null)}
+								>
+									<X className="size-4" />
+								</Button>
+							</div>
+						</div>
+					) : null}
 					{!data.items.length ? (
 						<div className="rounded-xl border border-dashed p-8 text-center">
 							<p className="text-sm font-medium">No staff found</p>

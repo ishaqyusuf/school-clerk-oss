@@ -6,29 +6,6 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 
-export const RESET_PASSWORD_URL_CAPTURE_HEADER =
-	"x-school-clerk-reset-url-capture-id";
-
-const resetPasswordUrlCaptures = globalThis as unknown as {
-	__schoolClerkResetPasswordUrlCaptures?: Map<string, string>;
-};
-
-function getResetPasswordUrlCaptures() {
-	resetPasswordUrlCaptures.__schoolClerkResetPasswordUrlCaptures ??= new Map<
-		string,
-		string
-	>();
-
-	return resetPasswordUrlCaptures.__schoolClerkResetPasswordUrlCaptures;
-}
-
-export function getCapturedResetPasswordUrl(captureId: string) {
-	const captures = getResetPasswordUrlCaptures();
-	const url = captures.get(captureId) ?? null;
-	captures.delete(captureId);
-	return url;
-}
-
 async function sendAuthEmail({
 	to,
 	subject,
@@ -169,15 +146,6 @@ export function initAuth(options: {
 				// },
 			},
 			async sendResetPassword(data, _request) {
-				const captureId = _request?.headers.get(
-					RESET_PASSWORD_URL_CAPTURE_HEADER,
-				);
-
-				if (captureId) {
-					getResetPasswordUrlCaptures().set(captureId, data.url);
-					return;
-				}
-
 				await sendAuthEmail({
 					to: data.user.email,
 					subject: "Set or reset your School Clerk password",

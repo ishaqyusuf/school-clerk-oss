@@ -78,15 +78,7 @@ export default async function Page({ params }) {
             if (!isOnboarded) {
               token = crypto.randomUUID();
               const identifier = `reset-password:${token}`;
-              await ensureCredentialAccount(prisma, user.id);
-              await prisma.verification.deleteMany({
-                where: {
-                  identifier: {
-                    startsWith: "reset-password:",
-                  },
-                  value: user.id,
-                },
-              });
+              await ensureCredentialAccount(prisma as any, user.id);
               await prisma.verification.create({
                 data: {
                   identifier,

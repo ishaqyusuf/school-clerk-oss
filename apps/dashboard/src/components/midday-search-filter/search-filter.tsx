@@ -89,10 +89,13 @@ export function MiddaySearchFilter({
     }
   };
   const shouldFetch = isOpen || isFocused || !filterList?.length;
+  const trpcFilterOptions = trpcFilter?.queryOptions?.();
 
   const { data: trpcFilterData } = useQuery({
-    enabled: shouldFetch,
-    ...(trpcFilter?.queryOptions?.() || {}),
+    queryKey: ["midday-search-filter", "empty"],
+    queryFn: async () => [],
+    ...(trpcFilterOptions || {}),
+    enabled: Boolean(trpcFilterOptions) && shouldFetch,
   });
   const deb = useDebounce(prompt, 1500);
   const hasMounted = useRef(false);

@@ -106,6 +106,25 @@ export async function getTeacherWorkspaceAction({
 									},
 								},
 							},
+							_count: {
+								select: {
+									assessments: {
+										where: { deletedAt: null },
+									},
+								},
+							},
+							assessments: {
+								where: { deletedAt: null },
+								select: {
+									_count: {
+										select: {
+											assessmentResults: {
+												where: { deletedAt: null },
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -233,17 +252,26 @@ export async function getTeacherWorkspaceAction({
 	const assignedSubjects = staffProfile.subjects
 		.map((item) => item.departmentSubject)
 		.filter(Boolean)
-		.map((subject) => ({
-			id: subject.id,
-			title: subject.subject.title,
-			classRoomDepartmentId: subject.classRoomDepartment?.id ?? "",
-			className: subject.classRoomDepartment?.classRoom?.name ?? "—",
-			departmentName: subject.classRoomDepartment?.departmentName ?? "—",
-      displayName: classroomDisplayName({
-        className: subject.classRoomDepartment?.classRoom?.name,
-        departmentName: subject.classRoomDepartment?.departmentName,
-      }),
-		}));
+		.map((subject) => {
+			let numberOfRecordings = 0;
+			subject.assessments.forEach((assessment) => {
+				numberOfRecordings += assessment._count.assessmentResults;
+			});
+
+			return {
+				id: subject.id,
+				title: subject.subject.title,
+				classRoomDepartmentId: subject.classRoomDepartment?.id ?? "",
+				className: subject.classRoomDepartment?.classRoom?.name ?? "—",
+				departmentName: subject.classRoomDepartment?.departmentName ?? "—",
+				displayName: classroomDisplayName({
+					className: subject.classRoomDepartment?.classRoom?.name,
+					departmentName: subject.classRoomDepartment?.departmentName,
+				}),
+				numberOfAssessments: subject._count.assessments,
+				numberOfRecordings,
+			};
+		});
 
 	return {
 		teacher: {
@@ -323,6 +351,8 @@ function emptyTeacherWorkspace(signedInEmail: string | null) {
 			className: string;
 			departmentName: string;
       displayName: string;
+			numberOfAssessments: number;
+			numberOfRecordings: number;
 		}>,
 		students: [] as Array<{
 			id: string;

@@ -158,7 +158,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `staffId`
 - Response schema: `{ inviteLink }`
 - Error cases: missing tenant context, no staff email, onboarding already completed, invalid staff role, link generation failure
-- Notes: generates a fresh Better Auth reset-password onboarding URL without sending email so admins can copy and share it from the staff directory.
+- Notes: creates a fresh reset-password verification token and returns a staff-scoped onboarding URL with the canonical `token` query parameter, without sending email or revoking other active reset tokens.
 
 - Route: `action.completeStaffOnboardingAction`
 - Request schema: `staffId`, `email`, `name`, optional `title`, optional `phone`, optional `phone2`, optional `address`

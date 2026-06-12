@@ -137,15 +137,7 @@ export default async function LayoutNew({ children, params }) {
         } else {
           const token = crypto.randomUUID();
           const identifier = `reset-password:${token}`;
-          await ensureCredentialAccount(prisma, user.id);
-          await prisma.verification.deleteMany({
-            where: {
-              identifier: {
-                startsWith: "reset-password:",
-              },
-              value: user.id,
-            },
-          });
+          await ensureCredentialAccount(prisma as any, user.id);
           await prisma.verification.create({
             data: {
               identifier,
@@ -157,7 +149,7 @@ export default async function LayoutNew({ children, params }) {
             tenantUrlContext,
             `/reset-password?onboarding=1&staffId=${
               staff?.id
-            }&email=${encodeURIComponent(user.email)}&tok=${encodeURIComponent(
+            }&email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(
               token,
             )}`,
             tenantUrlConfig,

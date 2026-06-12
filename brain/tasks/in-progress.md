@@ -76,3 +76,35 @@ Tracks tasks currently being worked on.
 - Intake File: brain/intake/2026-06-12-classroom-report-sheet-access-and-empty-print.md
 - Handoff File: brain/handoffs/ready/2026-06-12-admin-empty-classroom-report-spreadsheet-print-handoff.md
 - Started Date: 2026-06-12
+
+## Task Item
+- ID: STUD-IMP-001
+- Title: Student Import Input And Name Parsing
+- Started: 2026-06-12
+- Current status: Approved and queued for implementation. Handoff created at `brain/handoffs/ready/2026-06-12-student-import-input-and-name-parsing-handoff.md`; queue item at `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-student-import-input-and-name-parsing.json`.
+- Blockers: None.
+- Owner: antigravity
+
+## Task Item
+- ID: STUD-IMP-002
+- Title: Student Import Verification And Matching Service
+- Started: 2026-06-12
+- Current status: Approved and queued for implementation. Handoff created at `brain/handoffs/ready/2026-06-12-student-import-verification-and-matching-service-handoff.md`; queue item at `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-student-import-verification-and-matching-service.json`.
+- Blockers: None.
+- Owner: open-code
+
+## Task Item
+- ID: STUD-IMP-003
+- Title: Student Import Review And Resolution UI
+- Started: 2026-06-12
+- Current status: Approved and queued for implementation. Handoff created at `brain/handoffs/ready/2026-06-12-student-import-review-and-resolution-ui-handoff.md`; queue item at `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-student-import-review-and-resolution-ui.json`.
+- Blockers: None.
+- Owner: antigravity
+
+## Task Item
+- ID: STUD-IMP-004
+- Title: Student Import Execution And Term Sheet Creation
+- Started: 2026-06-12
+- Current status: Approved and queued for implementation. Handoff created at `brain/handoffs/ready/2026-06-12-student-import-execution-and-term-sheet-creation-handoff.md`; queue item at `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-student-import-execution-and-term-sheet-creation.json`.
+- Blockers: None.
+- Owner: open-code

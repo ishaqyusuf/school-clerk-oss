@@ -13,10 +13,6 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { ensureCredentialAccount } from "./ensure-credential-account";
 
-import {
-	RESET_PASSWORD_URL_CAPTURE_HEADER,
-	getCapturedResetPasswordUrl,
-} from "@school-clerk/auth";
 import { ensureNotificationContact, prisma } from "@school-clerk/db";
 import { createNotificationFromType } from "@school-clerk/notifications";
 import {
@@ -96,20 +92,13 @@ async function getCurrentOrigin() {
 async function sendOnboardingInvite({
 	email,
 	staffId,
-	captureOnly = false,
 }: {
 	email: string;
 	staffId: string;
-	captureOnly?: boolean;
 }) {
 	const currentOrigin = await getCurrentOrigin();
 	const requestHeaders = new Headers(await headers());
 	requestHeaders.set("origin", currentOrigin);
-	const captureId = captureOnly ? crypto.randomUUID() : null;
-
-	if (captureId) {
-		requestHeaders.set(RESET_PASSWORD_URL_CAPTURE_HEADER, captureId);
-	}
 
 	const redirectTo = new URL(`${currentOrigin}/reset-password`);
 	redirectTo.searchParams.set("onboarding", "1");
@@ -123,18 +112,36 @@ async function sendOnboardingInvite({
 		},
 		headers: requestHeaders,
 	});
+}
 
-	if (!captureId) {
-		return null;
-	}
+async function createCopyableOnboardingLink({
+	email,
+	staffId,
+	userId,
+}: {
+	email: string;
+	staffId: string;
+	userId: string;
+}) {
+	const currentOrigin = await getCurrentOrigin();
+	const token = crypto.randomUUID();
+	const identifier = `reset-password:${token}`;
 
-	const inviteLink = getCapturedResetPasswordUrl(captureId);
+	await prisma.verification.create({
+		data: {
+			identifier,
+			value: userId,
+			expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+		},
+	});
 
-	if (!inviteLink) {
-		throw new Error("Unable to generate onboarding link.");
-	}
+	const inviteLink = new URL(`${currentOrigin}/reset-password`);
+	inviteLink.searchParams.set("onboarding", "1");
+	inviteLink.searchParams.set("staffId", staffId);
+	inviteLink.searchParams.set("email", email);
+	inviteLink.searchParams.set("token", token);
 
-	return inviteLink;
+	return inviteLink.toString();
 }
 
 function inviteErrorMessage(error: unknown) {
@@ -774,14 +781,16 @@ export const copyStaffOnboardingLinkAction = actionClient
 
 		staffRoleSchema.parse(user?.role ?? "Teacher");
 
-		if (user?.id) {
-			await ensureCredentialAccount(prisma as any, user.id);
+		if (!user?.id) {
+			throw new Error("This staff member does not have a login account yet.");
 		}
 
-		const inviteLink = await sendOnboardingInvite({
+		await ensureCredentialAccount(prisma as any, user.id);
+
+		const inviteLink = await createCopyableOnboardingLink({
 			email: staff.email,
 			staffId: staff.id,
-			captureOnly: true,
+			userId: user.id,
 		});
 
 		await syncInviteState({

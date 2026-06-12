@@ -428,7 +428,7 @@ function LoginQuickLoginFab({
             router.push(
               `/reset-password?onboarding=1&staffId=${
                 user.staffId
-              }&email=${encodeURIComponent(user.email)}&tok=${encodeURIComponent(
+              }&email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(
                 user.token || "",
               )}`,
             );
