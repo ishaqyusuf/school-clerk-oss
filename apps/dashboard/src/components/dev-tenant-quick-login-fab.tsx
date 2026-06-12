@@ -34,6 +34,10 @@ export function DevTenantQuickLoginFab({
 }) {
   const pathname = usePathname();
 
+  if (process.env.NODE_ENV === "production") {
+    return null;
+  }
+
   if (hideOnLogin && (pathname === "/login" || pathname?.endsWith("/login"))) {
     return null;
   }

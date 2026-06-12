@@ -1,4 +1,16 @@
-export * from "@prisma/client";
+export {
+  ActivitySource,
+  ActivityType,
+  Gender,
+  Prisma,
+  PrismaClient,
+  type AssistantConversation,
+  type AssistantFeedback,
+  type AssistantMessage,
+  type AssistantRun,
+  type AssistantToolExecution,
+  type SchoolAssistantConfig,
+} from "@prisma/client";
 export * from "./prisma";
 export * from "./notification-contacts";
 export * from "./website";
