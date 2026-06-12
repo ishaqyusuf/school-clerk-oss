@@ -1,5 +1,5 @@
 import { arToEn, enToAr } from "@/utils/utils";
-import { Payment } from "@api/db/queries/first-term-data";
+import type { Payment } from "@api/db/queries/first-term-data";
 
 export const data = `الأوّل التمهيدي ا class
 male

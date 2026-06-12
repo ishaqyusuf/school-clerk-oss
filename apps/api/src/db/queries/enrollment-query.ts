@@ -3,10 +3,14 @@ import type { TRPCContext } from "@api/trpc/init";
 import type { EnrollmentQuery } from "@api/trpc/schemas/schemas";
 import type { PageFilterData } from "@api/type";
 import { composeQuery } from "@api/utils";
+import {
+  entrollStudentToTermSchema,
+  type EntrollStudentToTerm,
+} from "@school-clerk/assessment-results";
 import type { Prisma } from "@school-clerk/db";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 
-import { z } from "zod";
+export { entrollStudentToTermSchema } from "@school-clerk/assessment-results";
 
 export async function enrollmentsIndex(
   ctx: TRPCContext,
@@ -215,17 +219,6 @@ entrollStudentToTerm: publicProcedure
         return entrollStudentToTerm(props.ctx.db, props.input);
       }),
 */
-export const entrollStudentToTermSchema = z.object({
-  studentId: z.string(),
-  // termId: z.string(),
-  classroomDepartmentId: z.string().optional().nullable(),
-  // classroomId: z.string().optional().nullable(),
-  studentSessionFormId: z.string().optional().nullable(),
-  schoolSessionId: z.string(),
-  sessionTermId: z.string(),
-});
-export type EntrollStudentToTerm = z.infer<typeof entrollStudentToTermSchema>;
-
 export async function entrollStudentToTerm(
   { db, profile }: TRPCContext,
   data: EntrollStudentToTerm
@@ -254,14 +247,16 @@ export async function entrollStudentToTerm(
       },
     });
 
-    await applyFeeHistoriesToStudentTermForm(tx, {
-      schoolProfileId: profile.schoolId,
-      studentId: data.studentId,
-      studentTermFormId: termForm.id,
-      schoolSessionId: data.schoolSessionId,
-      sessionTermId: data.sessionTermId,
-      classroomDepartmentId: data.classroomDepartmentId,
-    });
+    if (data.classroomDepartmentId) {
+      await applyFeeHistoriesToStudentTermForm(tx, {
+        schoolProfileId: profile.schoolId,
+        studentId: data.studentId,
+        studentTermFormId: termForm.id,
+        schoolSessionId: data.schoolSessionId,
+        sessionTermId: data.sessionTermId,
+        classroomDepartmentId: data.classroomDepartmentId,
+      });
+    }
     // throw new Error("CREATED DEBUG!");
   });
 }

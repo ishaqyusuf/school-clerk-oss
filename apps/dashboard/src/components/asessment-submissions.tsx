@@ -14,7 +14,7 @@ import {
 import { ScoreData, useAssessmentStore } from "@/store/assessment";
 import { cn } from "@school-clerk/ui/cn";
 import { useDebouncedCallback } from "use-debounce";
-import { getScoreKey } from "@api/db/queries/assessments";
+import { getScoreKey } from "@school-clerk/assessment-results";
 import { useDebugToast } from "@/hooks/use-debug-console";
 import { AlertCircle, Check, X } from "lucide-react";
 import { Spinner } from "@school-clerk/ui/spinner";

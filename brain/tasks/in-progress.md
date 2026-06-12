@@ -65,3 +65,14 @@ Tracks tasks currently being worked on.
 - Current status: Product rules and target print behavior are documented in `brain/features/assessment-results-and-sub-assessments.md`. Required work includes fixing term-scoped report queries, preserving assessment order, separating scoreable assessment data from printable columns, skipping no-weight assessments in student result print/PDF, adding grouped-assessment print modes (`expanded` and `total`), showing parent-child labels consistently, and adding validation/warnings for grouped and zero-weight assessment cases.
 - Blockers: None. Implementation has not been fully completed or verified yet.
 - Owner: Codex
+
+### Admin Empty Classroom Report Spreadsheet Print
+- Priority: Medium
+- Description: Track plan in `brain/plans/2026-06-12-feature-admin-empty-classroom-report-spreadsheet-print.md`.
+- Related Feature: assessment results and manual report records
+- Status: In Progress
+- Plan Status: In Progress
+- Plan File: brain/plans/2026-06-12-feature-admin-empty-classroom-report-spreadsheet-print.md
+- Intake File: brain/intake/2026-06-12-classroom-report-sheet-access-and-empty-print.md
+- Handoff File: brain/handoffs/ready/2026-06-12-admin-empty-classroom-report-spreadsheet-print-handoff.md
+- Started Date: 2026-06-12

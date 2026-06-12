@@ -29,6 +29,7 @@ Defines implementation standards for consistency, maintainability, and reliabili
 - Use `getAuthCookie()` to scope dashboard-side data access to the active school, session, and term.
 - Prefer app-relative product routes like `/finance/...`, `/students/...`, and `/academic/...` instead of hardcoding `/dashboard/...`.
 - Use shared `@school-clerk/ui` components instead of raw one-off HTML primitives where an approved component already exists.
+- Dashboard client components must not import `@api/db/queries/*`, `@school-clerk/db`, or other server/database modules for schemas or helpers. Move browser-safe schemas/helpers into a shared client-safe package and have server modules re-export them when older server imports need compatibility.
 
 ## Midday Architecture Standards
 - Treat `/Users/M1PRO/Documents/code/_kitchen_sink/midday` as the primary implementation reference for pages, tables, modals, sheets, sidebar, forms, onboarding, layouts, tRPC calls, loading states, error states, and caching patterns.

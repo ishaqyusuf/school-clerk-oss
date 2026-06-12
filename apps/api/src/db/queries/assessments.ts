@@ -1,4 +1,9 @@
 import type { TRPCContext } from "@api/trpc/init";
+import {
+  getScoreKey,
+  saveAssessementSchema,
+  type SaveAssessementSchema,
+} from "@school-clerk/assessment-results";
 import { z } from "zod";
 import { studentDisplayName } from "./enrollment-query";
 import {
@@ -11,35 +16,7 @@ import {
   assertTeacherCanAccessDepartmentSubject,
 } from "../../lib/teacher-authorization";
 
-const subAssessmentSchema = z.object({
-  id: z.number().optional().nullable(),
-  title: z.string().min(1),
-  obtainable: z.number().min(0),
-  percentageObtainable: z.number().min(0),
-});
-
-export const saveAssessementSchema = z
-  .object({
-    id: z.number().optional().nullable(),
-    title: z.string().min(1),
-    obtainable: z.number().min(0),
-    index: z.number(),
-    percentageObtainable: z.number().min(0),
-    departmentSubjectId: z.string(),
-    isGroup: z.boolean().optional().default(false),
-    parentAssessmentId: z.number().optional().nullable(),
-    childAssessments: z.array(subAssessmentSchema).optional().default([]),
-  })
-  .superRefine((value, ctx) => {
-    if (value.isGroup && !value.childAssessments?.length) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["childAssessments"],
-        message: "Add at least one sub-assessment for grouped items.",
-      });
-    }
-  });
-export type SaveAssessementSchema = z.infer<typeof saveAssessementSchema>;
+export { saveAssessementSchema } from "@school-clerk/assessment-results";
 
 export async function saveAssessement(
   ctx: TRPCContext,
@@ -480,10 +457,6 @@ export async function updateAssessmentScore(
   });
   return resp;
 }
-export function getScoreKey(assessmentId, studentTermId) {
-  return `${assessmentId}-${studentTermId}`;
-}
-
 export const getAssessmentSuggestionsSchema = z.object({
   deptSubjectId: z.string().optional().nullable(),
 });

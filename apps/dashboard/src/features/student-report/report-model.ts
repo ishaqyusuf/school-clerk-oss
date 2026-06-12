@@ -1,4 +1,4 @@
-import { getResultComment } from "@api/db/queries/first-term-data";
+import { getResultComment } from "@school-clerk/assessment-results";
 import { classroomDisplayName, sum } from "@school-clerk/utils";
 
 const assessmentOrder = ["الحضور", "الاختبار", "الامتحان"];

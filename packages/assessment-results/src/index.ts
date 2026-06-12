@@ -1,3 +1,113 @@
+import { z } from "zod";
+
+const subAssessmentSchema = z.object({
+  id: z.number().optional().nullable(),
+  title: z.string().min(1),
+  obtainable: z.number().min(0),
+  percentageObtainable: z.number().min(0),
+});
+
+export const saveAssessementSchema = z
+  .object({
+    id: z.number().optional().nullable(),
+    title: z.string().min(1),
+    obtainable: z.number().min(0),
+    index: z.number(),
+    percentageObtainable: z.number().min(0),
+    departmentSubjectId: z.string(),
+    isGroup: z.boolean().optional().default(false),
+    parentAssessmentId: z.number().optional().nullable(),
+    childAssessments: z.array(subAssessmentSchema).optional().default([]),
+  })
+  .superRefine((value, ctx) => {
+    if (value.isGroup && !value.childAssessments?.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["childAssessments"],
+        message: "Add at least one sub-assessment for grouped items.",
+      });
+    }
+  });
+
+export type SaveAssessementSchema = z.infer<typeof saveAssessementSchema>;
+
+export const saveSubjectSchema = z.object({
+  title: z.string(),
+  description: z.string().optional().nullable(),
+  subjectId: z.string().optional().nullable(),
+  departmentId: z.string().optional().nullable(),
+  departmentSubjectId: z.string().optional().nullable(),
+  sessionTermId: z.string().optional().nullable(),
+});
+
+export type SaveSubjectSchema = z.infer<typeof saveSubjectSchema>;
+
+export const entrollStudentToTermSchema = z.object({
+  studentId: z.string(),
+  classroomDepartmentId: z.string().optional().nullable(),
+  studentSessionFormId: z.string().optional().nullable(),
+  schoolSessionId: z.string(),
+  sessionTermId: z.string(),
+});
+
+export type EntrollStudentToTerm = z.infer<typeof entrollStudentToTermSchema>;
+
+export const applyPaymentSchema = z.any();
+export const cancelStudentFeeSchema = z.any();
+export const cancelStudentPaymentSchema = z.any();
+export const createSchoolFeeSchema = z.any();
+export const createStudentFeeSchema = z.any();
+
+export function getScoreKey(assessmentId: number, studentTermId: string) {
+  return `${assessmentId}-${studentTermId}`;
+}
+
+export function getResultComment(score: number) {
+  const comments = [
+    {
+      min: 90,
+      max: 100,
+      arabic: "ممتاز! أداء رائع واستثنائي.",
+      english: "Excellent! Outstanding and exceptional performance.",
+    },
+    {
+      min: 80,
+      max: 89,
+      arabic: "جيد جدًا! أداء قوي وجهد ملحوظ.",
+      english: "Very good! Strong performance and great effort.",
+    },
+    {
+      min: 70,
+      max: 79,
+      arabic: "جيد! عمل جيد ولكن هناك مجال للتحسين.",
+      english: "Good! Well done, but there is room for improvement.",
+    },
+    {
+      min: 60,
+      max: 69,
+      arabic: "مقبول! تحتاج إلى بذل المزيد من الجهد.",
+      english: "Satisfactory! Needs more effort.",
+    },
+    {
+      min: 50,
+      max: 59,
+      arabic: "ضعيف! حاول تحسين أدائك في المستقبل.",
+      english: "Weak! Try to improve your performance in the future.",
+    },
+    {
+      min: 0,
+      max: 49,
+      arabic: "راسب! بحاجة إلى العمل الجاد والمثابرة.",
+      english: "Fail! Needs hard work and persistence.",
+    },
+  ];
+
+  const comment = comments.find((c) => score > c.min - 1 && score < c.max + 1);
+  return comment
+    ? comment
+    : { arabic: "درجة غير صالحة", english: "Invalid score" };
+}
+
 export type AssessmentResultRecord = {
   id?: number | null;
   obtained?: number | null;

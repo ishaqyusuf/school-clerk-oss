@@ -7,7 +7,7 @@ import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@school-clerk/ui/button";
 import { Icons } from "@school-clerk/ui/custom/icons";
-import { createSchoolFeeSchema } from "@api/db/queries/accounting";
+import { createSchoolFeeSchema } from "@school-clerk/assessment-results";
 import { FormDebugBtn } from "./form-debug-btn";
 
 interface Props {

@@ -12,6 +12,9 @@
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "zod": "3.25.64"
+  },
   "devDependencies": {
     "@school-clerk/tsconfig": "workspace:*",
     "typescript": "^5.9.2"

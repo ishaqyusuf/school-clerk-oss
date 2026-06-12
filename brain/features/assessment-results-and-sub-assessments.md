@@ -60,6 +60,11 @@ Make classroom assessment recording, classroom result review, student result pri
 - Grouped assessment with `printMode = total`: print one parent total column if summed child weight is greater than zero.
 - Child assessment with no weight or zero weight: do not print as a column.
 - Recording/classroom review may still show zero-weight scoreable items when they are useful for internal tracking.
+- **Blank Manual Spreadsheet Print**:
+  - Admins can print blank classroom spreadsheets containing active students and configured subject/assessment columns.
+  - All score cells, totals, grand totals, and percentage fields must render blank for manual record keeping.
+  - Print layout is optimized for landscape paper with double-bordered school headers (Arabic/English), classroom meta details, and print date.
+  - Restricted to authenticated `ADMIN` users on the dashboard interface.
 
 ## Recommended PDF Patterns
 - Default parent-facing PDF should prefer grouped total-only columns for clean output.

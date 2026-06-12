@@ -10,7 +10,7 @@ import { z } from "zod";
 
 import { usePostMutate } from "../../use-global";
 import { useState } from "react";
-import { ClassPostData, Student } from "@api/db/queries/first-term-data";
+import type { ClassPostData, Student } from "@api/db/queries/first-term-data";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 

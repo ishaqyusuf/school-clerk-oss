@@ -5,6 +5,8 @@ import { AssessmentResultsScoreCell } from "@/components/assessment-results-scor
 import { SubjectAssessments } from "@/components/subject-assessments";
 import { useReportPageContext } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
+import { useAuth } from "@/hooks/use-auth";
+import { configs } from "@/configs";
 import {
 	buildResultRows,
 	filterResultStudents,
@@ -87,6 +89,9 @@ export function ClassroomResultTable({
 	const ctx = useReportPageContext();
 	const reportData = ctx.reportData;
 	const { filters, setFilters } = useStudentReportFilterParams();
+	const auth = useAuth();
+	const role = auth.role;
+	const isAdmin = role === "ADMIN" || role === "Admin";
   const [, startSavingLayout] = useTransition();
 
 	const allSubjects = reportData?.subjects ?? [];
@@ -343,6 +348,116 @@ export function ClassroomResultTable({
 		printWindow.print();
 	}, [ctx.classroomName, isRtl, reportRows, totalsOnly, visibleSubjects]);
 
+	const printEmptySpreadsheet = useCallback(() => {
+		if (!reportRows.length) return;
+		const headers = [
+			"<th>S/N</th>",
+			"<th>Student</th>",
+			...visibleSubjects.flatMap((subject) => {
+				if (totalsOnly) return [`<th>${subject.subject.title} Total</th>`];
+				return [
+					...subject.assessments.map(
+						(assessment) =>
+							`<th>${subject.subject.title} - ${assessment.title}</th>`,
+					),
+					`<th>${subject.subject.title} Total</th>`,
+				];
+			}),
+			"<th>Grand Total</th>",
+			"<th>%</th>",
+		];
+
+		const rows = reportRows
+			.map((row) => {
+				const cells = [
+					`<td>${row.index + 1}</td>`,
+					`<td>${row.studentName}</td>`,
+				];
+				for (const subjectRow of row.subjectTotals) {
+					if (!totalsOnly) {
+						cells.push(
+							...subjectRow.assessmentScores.map(() => `<td></td>`),
+						);
+					}
+					cells.push(`<td></td>`);
+				}
+				cells.push(`<td></td>`, `<td></td>`);
+				return `<tr>${cells.join("")}</tr>`;
+			})
+			.join("");
+
+		const printWindow = window.open("", "_blank", "width=1200,height=800");
+		if (!printWindow) {
+			toast({
+				title: "Unable to open print window",
+				description:
+					"Your browser may have blocked the pop-up. Please allow pop-ups for this site and try again.",
+				variant: "destructive",
+			});
+			return;
+		}
+
+		const schoolName = configs.schoolName;
+		const schoolAddress = configs.schoolAddress;
+		const classroomName = ctx.classroomName ?? "—";
+		const sessionName = auth.profile?.sessionTitle ?? "—";
+		const termName = auth.profile?.termTitle ?? "—";
+		const printDate = new Date().toLocaleDateString("en-GB");
+		const printMode = totalsOnly ? "Totals-Only Mode" : "Full Assessment Mode";
+
+		printWindow.document.write(`
+      <html>
+        <head>
+          <title>Blank Spreadsheet - ${classroomName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111; }
+            .header-container { text-align: center; margin-bottom: 15px; }
+            .school-name { font-size: 18px; font-weight: bold; color: #111; margin: 0 0 4px 0; }
+            .school-address { font-size: 11px; color: #555; margin: 0; }
+            .divider { border-bottom: 3px double #999; margin: 10px 0; }
+            .report-title { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin: 8px 0; text-align: center; }
+            .meta-grid { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+            .meta-item { display: flex; gap: 4px; }
+            .meta-label { font-weight: bold; color: #444; }
+            .meta-value { border-bottom: 1px dashed #888; padding: 0 4px; min-width: 80px; text-align: center; }
+            table { border-collapse: collapse; width: 100%; font-size: 10px; page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
+            th, td { border: 1px solid #333; padding: 6px 4px; text-align: center; height: 24px; }
+            th { background: #f2f2f2; font-weight: bold; }
+            td:nth-child(2), th:nth-child(2) { text-align: ${isRtl ? "right" : "left"}; padding-left: 6px; padding-right: 6px; font-size: 11px; font-weight: 500; }
+            @media print {
+              body { padding: 0; margin: 0; }
+              @page { size: landscape; margin: 8mm; }
+            }
+          </style>
+        </head>
+        <body dir="${isRtl ? "rtl" : "ltr"}">
+          <div class="header-container">
+            <h1 class="school-name">${schoolName}</h1>
+            <p class="school-address">${schoolAddress}</p>
+            <div class="divider"></div>
+            <div class="report-title">Blank Classroom Report Spreadsheet</div>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-item"><span class="meta-label">Classroom:</span><span class="meta-value">${classroomName}</span></div>
+            <div class="meta-item"><span class="meta-label">Session:</span><span class="meta-value">${sessionName}</span></div>
+            <div class="meta-item"><span class="meta-label">Term:</span><span class="meta-value">${termName}</span></div>
+            <div class="meta-item"><span class="meta-label">Date:</span><span class="meta-value">${printDate}</span></div>
+            <div class="meta-item"><span class="meta-label">Mode:</span><span class="meta-value">${printMode}</span></div>
+          </div>
+          <table>
+            <thead><tr>${headers.join("")}</tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </body>
+      </html>
+    `);
+		printWindow.document.close();
+		printWindow.focus();
+		printWindow.print();
+	}, [ctx.classroomName, isRtl, reportRows, totalsOnly, visibleSubjects, auth.profile?.sessionTitle, auth.profile?.termTitle]);
+
 	const printOrder = filters.printOrder ?? [];
 	const activeDepts = filters.activeDepts ?? [];
 	const tableStudents = useMemo(
@@ -518,6 +633,17 @@ export function ClassroomResultTable({
 									/>
 								</div>
 								<div className="flex flex-wrap gap-2">
+									{isAdmin && (
+										<Button
+											variant="outline"
+											size="sm"
+											className="flex-1 gap-2 border-dashed"
+											onClick={printEmptySpreadsheet}
+										>
+											<Printer className="size-4 text-muted-foreground" />
+											Print Empty Sheet
+										</Button>
+									)}
 									<Button
 										variant="outline"
 										size="sm"

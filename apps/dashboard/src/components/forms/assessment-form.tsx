@@ -8,7 +8,7 @@ import { FormInput } from "@school-clerk/ui/controls/form-input";
 import { Suspense, useEffect, useMemo } from "react";
 import { FormSkeleton } from "@school-clerk/ui/custom/form-skeleton";
 import { toast } from "@school-clerk/ui/use-toast";
-import { saveAssessementSchema } from "@api/db/queries/assessments";
+import { saveAssessementSchema } from "@school-clerk/assessment-results";
 import FormSwitch from "@school-clerk/ui/controls/form-switch";
 import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";

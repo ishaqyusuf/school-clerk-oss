@@ -8,7 +8,7 @@ import {
   PopoverTrigger,
 } from "@school-clerk/ui/popover";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { StudentSubjectAssessment } from "@api/db/queries/first-term-data";
+import type { StudentSubjectAssessment } from "@api/db/queries/first-term-data";
 import { NumericFormat, type NumericFormatProps } from "react-number-format";
 import { enToAr, sum } from "@/utils/utils";
 import { RouterOutputs } from "@api/trpc/routers/_app";

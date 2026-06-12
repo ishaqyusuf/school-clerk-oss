@@ -194,3 +194,11 @@ Record of completed tasks and delivery outcomes.
 - Outcome: Updated the backend to support filtering by `payerType`, `type`, and `excludeType`. Standardized all finance frontend pages (student-fees, collections, payments, fees-management, billables, bills) to pass down relevant filters so data is accurately segregated by domain. Designed the `FinanceOverview` and quick action components with a bespoke `shadcn/ui` layout featuring rich aesthetics, custom gradients, and micro-animations.
 - Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/api/src/db/queries/finance.ts`, `apps/dashboard/src/components/finance/finance-charges-page.tsx`, `apps/dashboard/src/components/finance/finance-items-page.tsx`, `apps/dashboard/src/components/finance/finance-payments-page.tsx`, `apps/dashboard/src/components/finance/finance-overview-stats.tsx`, `apps/dashboard/src/components/finance/forms/create-stream-form.tsx`, `apps/dashboard/src/components/finance/forms/create-item-form.tsx`, `apps/dashboard/src/components/finance/forms/transfer-funds-form.tsx`
 - Owner: Codex
+
+## Completed Task
+- ID: 2026-06-12-staff-classroom-report-sheet-access
+- Title: Staff Classroom Report Sheet Access
+- Completed: 2026-06-12
+- Outcome: Teacher/staff reports now reuse the classroom report sheet workflow, seed the default term, constrain/default teacher classroom selection to assigned classrooms, clear invalid classroom state, hide Result Entry until classroom and term are valid, and expose the same reusable report sheet from academic reports for authorized staff.
+- Related changes: `apps/dashboard/src/components/teachers/teacher-report-sheet.tsx`, `apps/dashboard/src/components/student-report-filters.tsx`, `apps/dashboard/src/app/[domain]/(sidebar)/(k-12-teachers)/teacher/reports/page.tsx`, `apps/dashboard/src/app/[domain]/(sidebar)/academic/reports/page.tsx`, `brain/progress.md`
+- Owner: OpenCode, reviewed by Codex

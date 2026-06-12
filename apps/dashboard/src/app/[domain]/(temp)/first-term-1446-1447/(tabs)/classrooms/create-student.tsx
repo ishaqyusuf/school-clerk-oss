@@ -18,7 +18,7 @@ import {
 
 import { usePostMutate } from "../../use-global";
 import { useState } from "react";
-import { Student } from "@api/db/queries/first-term-data";
+import type { Student } from "@api/db/queries/first-term-data";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 

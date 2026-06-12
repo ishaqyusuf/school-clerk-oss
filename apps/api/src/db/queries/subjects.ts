@@ -6,6 +6,10 @@ import type {
   GetSubjectsSchema,
 } from "@api/trpc/schemas/students";
 import { composeQuery } from "@api/utils";
+import {
+  saveSubjectSchema,
+  type SaveSubjectSchema,
+} from "@school-clerk/assessment-results";
 import { Prisma } from "@school-clerk/db";
 import { z } from "zod";
 import { getClassroomDepartments } from "./classroom";
@@ -14,6 +18,8 @@ import {
   assertTeacherCanAccessClassroomDepartment,
   assertTeacherCanAccessDepartmentSubject,
 } from "../../lib/teacher-authorization";
+
+export { saveSubjectSchema } from "@school-clerk/assessment-results";
 
 export async function getSubjects(ctx: TRPCContext, query: GetSubjectsSchema) {
   const { db } = ctx;
@@ -326,16 +332,6 @@ export async function getClassroomSubjectByName(
     });
   return classroomSubject;
 }
-export const saveSubjectSchema = z.object({
-  title: z.string(),
-  description: z.string().optional().nullable(),
-  subjectId: z.string().optional().nullable(),
-  departmentId: z.string().optional().nullable(),
-  departmentSubjectId: z.string().optional().nullable(),
-  sessionTermId: z.string().optional().nullable(),
-});
-export type SaveSubjectSchema = z.infer<typeof saveSubjectSchema>;
-
 export async function saveSubject(ctx: TRPCContext, data: SaveSubjectSchema) {
   const { db, profile } = ctx;
   if (!data.sessionTermId) data.sessionTermId = profile.termId;

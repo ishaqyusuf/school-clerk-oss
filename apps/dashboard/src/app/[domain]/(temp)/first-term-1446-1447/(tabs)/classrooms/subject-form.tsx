@@ -13,7 +13,10 @@ import { Form } from "@school-clerk/ui/form";
 import FormInput from "@/components/controls/form-input";
 import FormSelect from "@/components/controls/form-select";
 import { SubmitButton } from "@/components/submit-button";
-import { ClassSubject, SubjectPostData } from "@api/db/queries/first-term-data";
+import type {
+  ClassSubject,
+  SubjectPostData,
+} from "@api/db/queries/first-term-data";
 import { generateRandomString } from "@school-clerk/utils";
 import { toast } from "@school-clerk/ui/use-toast";
 

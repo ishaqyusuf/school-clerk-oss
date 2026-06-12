@@ -7,7 +7,7 @@ import { TableSkeleton } from "../tables/skeleton";
 import { Suspense } from "react";
 
 import { useZodForm } from "@/hooks/use-zod-form";
-import { entrollStudentToTermSchema } from "@api/db/queries/enrollment-query";
+import { entrollStudentToTermSchema } from "@school-clerk/assessment-results";
 import { Form } from "@school-clerk/ui/form";
 import { useDebugToast } from "@/hooks/use-debug-console";
 import { SubmitButton } from "../submit-button";

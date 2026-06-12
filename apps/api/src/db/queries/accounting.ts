@@ -1,10 +1,10 @@
-import { z } from "zod";
-
-export const applyPaymentSchema = z.any();
-export const cancelStudentFeeSchema = z.any();
-export const cancelStudentPaymentSchema = z.any();
-export const createSchoolFeeSchema = z.any();
-export const createStudentFeeSchema = z.any();
+export {
+	applyPaymentSchema,
+	cancelStudentFeeSchema,
+	cancelStudentPaymentSchema,
+	createSchoolFeeSchema,
+	createStudentFeeSchema,
+} from "@school-clerk/assessment-results";
 
 const resetPayload = {
 	success: false,

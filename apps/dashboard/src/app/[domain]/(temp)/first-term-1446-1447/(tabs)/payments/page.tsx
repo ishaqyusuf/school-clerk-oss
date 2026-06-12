@@ -5,7 +5,7 @@ import { usePostMutate } from "../../use-global";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { composePayments } from "../../data";
-import { Payment, PaymentRaw } from "@api/db/queries/first-term-data";
+import type { Payment, PaymentRaw } from "@api/db/queries/first-term-data";
 import { toast } from "@school-clerk/ui/use-toast";
 import { Badge } from "@school-clerk/ui/badge";
 import { Menu } from "@/components/menu";

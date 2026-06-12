@@ -7,9 +7,7 @@ import {
 } from "@school-clerk/ui/composite";
 import { useEffect, useState } from "react";
 import { AssessmentForm, AssessmentFormAction } from "./forms/assessment-form";
-import {
-  saveAssessementSchema,
-} from "@api/db/queries/assessments";
+import { saveAssessementSchema } from "@school-clerk/assessment-results";
 import { _qc, _trpc } from "./static-trpc";
 import { Badge } from "@school-clerk/ui/badge";
 import { Icons } from "@school-clerk/ui/icons";

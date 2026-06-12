@@ -15,8 +15,10 @@ import { Menu } from "@school-clerk/ui/custom/menu";
 
 export function StudentReportFilter({
   controlsOnly = false,
+  allowedClassroomIds,
 }: {
   controlsOnly?: boolean;
+  allowedClassroomIds?: string[];
 }) {
   const { setFilters, filters } = useStudentReportFilterParams();
   const ctx = useReportPageContext();
@@ -80,6 +82,11 @@ export function StudentReportFilter({
   const allSelected =
     !!ctx?.termForms?.length && currentClassSelected === ctx.termForms.length;
 
+  const isResultEntryAllowed =
+    !!filters.departmentId &&
+    !!filters.termId &&
+    (!allowedClassroomIds || allowedClassroomIds.includes(filters.departmentId));
+
   const controls = (
     <>
       <Field.Group className={controlsOnly ? "grid gap-3 md:grid-cols-[minmax(0,220px)_minmax(0,260px)_auto] md:items-end" : undefined}>
@@ -122,7 +129,10 @@ export function StudentReportFilter({
               <Select.Value placeholder="Select classroom" />
             </Select.Trigger>
             <Select.Content>
-              {ctx?.classRooms?.map((c) => (
+              {(allowedClassroomIds
+                ? ctx?.classRooms?.filter((c) => allowedClassroomIds.includes(c?.id ?? ""))
+                : ctx?.classRooms
+              )?.map((c) => (
                 <Select.Item value={c?.id} key={c?.id}>
                   {c?.displayName ?? c?.departmentName}
                 </Select.Item>
@@ -130,17 +140,19 @@ export function StudentReportFilter({
             </Select.Content>
           </Select>
         </Field>
-        <div className={controlsOnly ? "flex items-end" : undefined}>
-          <Button asChild variant="outline" className="gap-2">
-            <a
-              href={`/assessment-recording?deptId=${filters.departmentId}&permission=all&termId=${filters.termId}`}
-              target="_blank"
-            >
-              <ExternalLinkIcon className="size-4" />
-              Result Entry
-            </a>
-          </Button>
-        </div>
+        {isResultEntryAllowed && (
+          <div className={controlsOnly ? "flex items-end" : undefined}>
+            <Button asChild variant="outline" className="gap-2">
+              <a
+                href={`/assessment-recording?deptId=${filters.departmentId}&permission=all&termId=${filters.termId}`}
+                target="_blank"
+              >
+                <ExternalLinkIcon className="size-4" />
+                Result Entry
+              </a>
+            </Button>
+          </div>
+        )}
       </Field.Group>
     </>
   );

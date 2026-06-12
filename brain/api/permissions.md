@@ -90,3 +90,7 @@ Defines access control rules for each API surface.
 - Finance write routes are enforced server-side for `Admin` and `Accountant` roles.
 - This enforcement now covers streams, payroll, service payments, student payment receipt/reversal, billables, bills, collections, and stream-funding operations.
 - Large discretionary finance actions above `NGN 250,000` now require `Admin` role even within finance write access.
+
+## Results and Reports Permissions
+- Blank manual classroom report sheet print (`Print Empty Sheet`) is restricted to the `ADMIN` role.
+- Filled result sheet printing/exporting remains available to all authorized academic/report users.

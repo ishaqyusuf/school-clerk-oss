@@ -15,7 +15,7 @@ import { Form } from "@school-clerk/ui/form";
 import FormInput from "@/components/controls/form-input";
 import { SubmitButton } from "@/components/submit-button";
 import FormSelect from "@/components/controls/form-select";
-import { ClassSubjectAssessment } from "@api/db/queries/first-term-data";
+import type { ClassSubjectAssessment } from "@api/db/queries/first-term-data";
 // import { ClassroomSubjectData } from "@/components/tables/subjects/columns";
 import { SubjectForm } from "./subject-form";
 import { toast } from "@school-clerk/ui/use-toast";

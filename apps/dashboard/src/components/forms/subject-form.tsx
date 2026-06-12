@@ -1,6 +1,6 @@
 import { useZodForm } from "@/hooks/use-zod-form";
 import { useTRPC } from "@/trpc/client";
-import { saveSubjectSchema } from "@api/db/queries/subjects";
+import { saveSubjectSchema } from "@school-clerk/assessment-results";
 import { Form } from "@school-clerk/ui/form";
 import { useFormContext } from "react-hook-form";
 import { SubmitButton } from "../submit-button";
