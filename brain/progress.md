@@ -70,3 +70,24 @@
 - Expanded `isAdmin` gate in `classroom-result-table.tsx` from `role === "ADMIN"` (SaaS owner only) to `role === "ADMIN" || role === "Admin"` (owners + school admins)
 - Code inspection confirms: blank cells regardless of existing scores, filled print unchanged, non-admin gate working, landscape print CSS, proper school/classroom/term/date/mode header
 - Full browser/print verification pending stable dev server with test data
+
+## Student Import Verification and Matching Service (2026-06-12)
+
+### Completed
+- Implemented an optimized backend procedure `students.verifyStudentImport` in [students.ts](file:///Users/M1PRO/Documents/code/.brain-worktrees/2026-06-12-school-clerk-student-import-verification-and-matching-service/apps/api/src/db/queries/students.ts) to verify an entire batch of pasted students in a single network call.
+- Validated that the target classroom department belongs to the active institution/session.
+- Implemented missing gender inference based on existing student records with the same normalized first name (requires confidence >= 80% and at least 2 samples).
+- Classified matches into exact (`fullMatch`, confidence = 100) and typos/close matches (`suspectedMatches`, distance <= 2).
+- Registered the endpoint in the tRPC router [students.routes.ts](file:///Users/M1PRO/Documents/code/.brain-worktrees/2026-06-12-school-clerk-student-import-verification-and-matching-service/apps/api/src/trpc/routers/students.routes.ts).
+- Reworked the import modal UI [import-activities.tsx](file:///Users/M1PRO/Documents/code/.brain-worktrees/2026-06-12-school-clerk-student-import-verification-and-matching-service/apps/dashboard/src/components/modals/student-import/import-activities.tsx) to invoke the new single-query tRPC verification endpoint, auto-selecting the target classroom department from the pasted data context, showing a target classroom select dropdown, and listing matches/suspected typos inline with actionable check/link buttons.
+- Handled manual gender selection inline if gender is required and could not be inferred.
+
+### Changed Files
+- [students.ts](file:///Users/M1PRO/Documents/code/.brain-worktrees/2026-06-12-school-clerk-student-import-verification-and-matching-service/apps/api/src/db/queries/students.ts)
+- [students.routes.ts](file:///Users/M1PRO/Documents/code/.brain-worktrees/2026-06-12-school-clerk-student-import-verification-and-matching-service/apps/api/src/trpc/routers/students.routes.ts)
+- [import-activities.tsx](file:///Users/M1PRO/Documents/code/.brain-worktrees/2026-06-12-school-clerk-student-import-verification-and-matching-service/apps/dashboard/src/components/modals/student-import/import-activities.tsx)
+- [endpoints.md](file:///Users/M1PRO/Documents/code/.brain-worktrees/2026-06-12-school-clerk-student-import-verification-and-matching-service/brain/api/endpoints.md)
+- [contracts.md](file:///Users/M1PRO/Documents/code/.brain-worktrees/2026-06-12-school-clerk-student-import-verification-and-matching-service/brain/api/contracts.md)
+
+### Verification
+- Ran `bun install` and typecheck validation.

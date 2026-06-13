@@ -22,6 +22,12 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Notes:
 
 ## Student Contracts
+- Route: `students.verifyStudentImport`
+- Request schema: `classroomDepartmentId` (string), `rows` array of `{ lineNumber: number, originalText: string, name: string, surname: string, otherName?: string | null, gender?: string | null }`
+- Response schema: `{ results: Array<{ lineNumber, originalText, name, surname, otherName, inputGender, inferredGender, genderInferenceDetails: { confidence: number, sampleSize: number, source: string } | null, needsGender: boolean, status: 'readyToImport' | 'matchFound' | 'needsAttention', fullMatch: MatchMeta | null, suspectedMatches: MatchMeta[] }> }` where MatchMeta is a student record metadata block containing name, classroom, term/session details, match confidence (0-100), and matching reason.
+- Error cases: classroom department not found or unauthorized.
+- Notes: performs single-query batch validation for pasted student imports. Checks exact matches, flags edit-distance name typos (<= 2), infers missing gender with confidence >= 80% (min 2 samples), and avoids large child records to keep payloads compact.
+
 - Route: `students.bulkDeleteTermSheets`
 - Request schema: `ids[]` where each id is a `StudentTermForm.id`
 - Response schema: `{ count: number }`
@@ -158,7 +164,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `staffId`
 - Response schema: `{ inviteLink }`
 - Error cases: missing tenant context, no staff email, onboarding already completed, invalid staff role, link generation failure
-- Notes: generates a fresh Better Auth reset-password onboarding URL without sending email so admins can copy and share it from the staff directory.
+- Notes: creates a fresh reset-password verification token and returns a staff-scoped onboarding URL with the canonical `token` query parameter, without sending email or revoking other active reset tokens.
 
 - Route: `action.completeStaffOnboardingAction`
 - Request schema: `staffId`, `email`, `name`, optional `title`, optional `phone`, optional `phone2`, optional `address`

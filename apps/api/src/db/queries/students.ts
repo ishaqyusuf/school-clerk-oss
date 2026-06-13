@@ -1068,3 +1068,317 @@ export async function bulkDeleteTermSheets(
     count: result.count,
   };
 }
+
+function normalizeArabic(str: string): string {
+  if (!str) return "";
+  str = str
+    .normalize("NFC")
+    .replace(
+      /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u08D3-\u08FF\u0640]/g,
+      ""
+    );
+  const map: Record<string, string> = {
+    "أ": "ا",
+    "إ": "ا",
+    "آ": "ا",
+    "ٱ": "ا",
+    "ى": "ي",
+    "ئ": "ي",
+    "ؤ": "w",
+    "ة": "ه",
+  };
+  str = str.replace(/[\u0621-\u06D3\u06FA-\u06FF]/g, (ch) => map[ch] || ch);
+  return str.replace(/\s+/g, " ").trim();
+}
+
+function normalizeName(str: string): string {
+  return normalizeArabic(str).toLowerCase().trim();
+}
+
+function levenshteinDistance(s1: string, s2: string): number {
+  const track: number[][] = Array(s2.length + 1)
+    .fill(undefined)
+    .map(() => Array(s1.length + 1).fill(0) as number[]);
+  for (let i = 0; i <= s1.length; i += 1) track[0][i] = i;
+  for (let j = 0; j <= s2.length; j += 1) track[j][0] = j;
+  for (let j = 1; j <= s2.length; j += 1) {
+    for (let i = 1; i <= s1.length; i += 1) {
+      const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+      track[j][i] = Math.min(
+        track[j][i - 1] + 1,
+        track[j - 1][i] + 1,
+        track[j - 1][i - 1] + indicator
+      );
+    }
+  }
+  return track[s2.length][s1.length];
+}
+
+export const verifyStudentImportSchema = z.object({
+  classroomDepartmentId: z.string().min(1),
+  rows: z.array(
+    z.object({
+      lineNumber: z.number(),
+      originalText: z.string(),
+      name: z.string().min(1),
+      surname: z.string(),
+      otherName: z.string().optional().nullable(),
+      gender: z.string().optional().nullable(),
+    })
+  ),
+});
+
+export type VerifyStudentImportSchema = z.infer<typeof verifyStudentImportSchema>;
+
+export async function verifyStudentImport(
+  ctx: TRPCContext,
+  input: VerifyStudentImportSchema
+) {
+  const { db, profile } = ctx;
+  const sessionTermId = profile.termId;
+  const schoolSessionId = profile.sessionId;
+
+  // 1. Validate classroom department belongs to the active school AND session
+  const classRoomDept = await db.classRoomDepartment.findFirst({
+    where: {
+      id: input.classroomDepartmentId,
+      classRoom: {
+        schoolProfileId: profile.schoolId,
+        schoolSessionId: profile.sessionId,
+      },
+    },
+    include: {
+      classRoom: true,
+    },
+  });
+
+  if (!classRoomDept) {
+    throw new Error("Selected classroom department not found, unauthorized, or not in active session.");
+  }
+
+  // 2. Fetch candidate students
+  const existingStudents = await db.students.findMany({
+    where: {
+      schoolProfileId: profile.schoolId,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      name: true,
+      surname: true,
+      otherName: true,
+      gender: true,
+      termForms: {
+        where: {
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          sessionTermId: true,
+          schoolSessionId: true,
+          classroomDepartmentId: true,
+          sessionTerm: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          schoolSession: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          classroomDepartment: {
+            select: {
+              id: true,
+              departmentName: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // 3. Build gender frequency map from normalized first names
+  const genderFreq = new Map<string, { male: number; female: number }>();
+  for (const s of existingStudents) {
+    if (!s.gender) continue;
+    const normName = normalizeName(s.name);
+    const counts = genderFreq.get(normName) || { male: 0, female: 0 };
+    if (s.gender === "Male") {
+      counts.male += 1;
+    } else if (s.gender === "Female") {
+      counts.female += 1;
+    }
+    genderFreq.set(normName, counts);
+  }
+
+  const results = [];
+
+  for (const row of input.rows) {
+    const inputGender: string | null = (row.gender || null) as string | null;
+    let inferredGender: "Male" | "Female" | null = null;
+    let genderInferenceDetails: {
+      confidence: number;
+      sampleSize: number;
+      source: string;
+    } | null = null;
+    let needsGender = false;
+
+    // Check if gender is missing
+    if (!inputGender) {
+      const normFirstName = normalizeName(row.name);
+      const counts = genderFreq.get(normFirstName);
+      if (counts) {
+        const total = counts.male + counts.female;
+        if (total >= 2) {
+          const maleRatio = counts.male / total;
+          if (maleRatio >= 0.8) {
+            inferredGender = "Male";
+            genderInferenceDetails = {
+              confidence: Math.round(maleRatio * 100),
+              sampleSize: total,
+              source: "existing_first_names",
+            };
+          } else if (maleRatio <= 0.2) {
+            inferredGender = "Female";
+            genderInferenceDetails = {
+              confidence: Math.round((1 - maleRatio) * 100),
+              sampleSize: total,
+              source: "existing_first_names",
+            };
+          }
+        }
+      }
+      if (!inferredGender) {
+        needsGender = true;
+      }
+    }
+
+    // Matching comparison
+    interface MatchMeta {
+      id: string;
+      name: string;
+      surname: string | null;
+      otherName: string | null;
+      gender: string | null;
+      classRoom: string | null;
+      classroomDepartmentId: string | null;
+      studentSessionFormId: string | null;
+      studentTermFormId: string | null;
+      termId: string | null;
+      termName: string | null;
+      sessionId: string | null;
+      sessionName: string | null;
+      isCurrentTermMatch: boolean;
+      isCurrentClassroomMatch: boolean;
+      confidence: number;
+      reason: string;
+    }
+    let fullMatch: MatchMeta | null = null;
+    const suspectedMatches: MatchMeta[] = [];
+
+    for (const candidate of existingStudents) {
+      const normCandName = normalizeName(candidate.name);
+      const normCandSurname = normalizeName(candidate.surname);
+      const normRowName = normalizeName(row.name);
+      const normRowSurname = normalizeName(row.surname);
+
+      // Exact match on Name & Surname
+      const isExactName = normCandName === normRowName;
+      const isExactSurname = normCandSurname === normRowSurname;
+
+      let confidence = 0;
+      let reason = "";
+
+      if (isExactName && isExactSurname) {
+        confidence = 100;
+        reason = "Exact match on first name and surname";
+      } else {
+        // Check edit distance for typos
+        const nameDist = levenshteinDistance(normCandName, normRowName);
+        const surnameDist = levenshteinDistance(normCandSurname, normRowSurname);
+
+        if (nameDist <= 2 && isExactSurname) {
+          confidence = 80 - nameDist * 10;
+          reason = `Surname matches exactly; first name is a suspected typo (edit distance: ${nameDist})`;
+        } else if (surnameDist <= 2 && isExactName) {
+          confidence = 80 - surnameDist * 10;
+          reason = `First name matches exactly; surname is a suspected typo (edit distance: ${surnameDist})`;
+        } else if (nameDist <= 2 && surnameDist <= 2) {
+          confidence = 60 - (nameDist + surnameDist) * 5;
+          reason = `Suspected typos in both first name and surname`;
+        }
+      }
+
+      if (confidence > 0) {
+        // Resolve term sheet / classroom metadata
+        const activeTermSheet = candidate.termForms.find(
+          (tf) => tf.sessionTermId === sessionTermId
+        );
+        const activeSessionForm = candidate.termForms.find(
+          (tf) => tf.schoolSessionId === schoolSessionId
+        );
+
+        const currentTermSheet = activeTermSheet || candidate.termForms[0];
+
+        const matchMeta: MatchMeta = {
+          id: candidate.id,
+          name: candidate.name,
+          surname: candidate.surname,
+          otherName: candidate.otherName,
+          gender: candidate.gender,
+          classRoom: currentTermSheet?.classroomDepartment?.departmentName || null,
+          classroomDepartmentId: currentTermSheet?.classroomDepartment?.id || null,
+          studentSessionFormId: null,
+          studentTermFormId: currentTermSheet?.id || null,
+          termId: currentTermSheet?.sessionTermId || null,
+          termName: currentTermSheet?.sessionTerm?.title || null,
+          sessionId: currentTermSheet?.schoolSessionId || null,
+          sessionName: currentTermSheet?.schoolSession?.name || null,
+          isCurrentTermMatch: activeTermSheet?.sessionTermId === sessionTermId,
+          isCurrentClassroomMatch: activeTermSheet?.classroomDepartmentId === input.classroomDepartmentId,
+          confidence,
+          reason,
+        };
+
+        if (confidence === 100) {
+          fullMatch = matchMeta;
+        } else {
+          suspectedMatches.push(matchMeta);
+        }
+      }
+    }
+
+    // Sort suspected matches by confidence descending, limit to top 5
+    suspectedMatches.sort((a, b) => b.confidence - a.confidence);
+    const topSuspected = suspectedMatches.slice(0, 5);
+
+    let status: "readyToImport" | "matchFound" | "needsAttention" = "readyToImport";
+    if (fullMatch) {
+      status = "matchFound";
+    } else if (needsGender || topSuspected.some((m) => m.confidence >= 70)) {
+      status = "needsAttention";
+    }
+
+    results.push({
+      lineNumber: row.lineNumber,
+      originalText: row.originalText,
+      name: row.name,
+      surname: row.surname,
+      otherName: row.otherName || null,
+      inputGender,
+      inferredGender,
+      genderInferenceDetails,
+      needsGender,
+      status,
+      fullMatch,
+      suspectedMatches: topSuspected,
+    });
+  }
+
+  return {
+    results,
+  };
+}

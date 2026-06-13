@@ -15,6 +15,7 @@ Catalog of API routes and responsibilities.
 - `POST /students`
 - `GET /students/:id`
 - `PATCH /students/:id`
+- `trpc.students.verifyStudentImport` (batch verify student import rows for duplicates, typos, and gender inference)
 
 ### Admissions
 - `GET /admissions`
