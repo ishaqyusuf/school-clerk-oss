@@ -89,7 +89,7 @@ Tracks tasks currently being worked on.
 - ID: STUD-IMP-002
 - Title: Student Import Verification And Matching Service
 - Started: 2026-06-12
-- Current status: Approved and queued for implementation. Handoff created at `brain/handoffs/ready/2026-06-12-student-import-verification-and-matching-service-handoff.md`; queue item at `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-student-import-verification-and-matching-service.json`.
+- Current status: Approved by review and being landed into `main`; queue item at `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-student-import-verification-and-matching-service.json`.
 - Blockers: None.
 - Owner: open-code
 

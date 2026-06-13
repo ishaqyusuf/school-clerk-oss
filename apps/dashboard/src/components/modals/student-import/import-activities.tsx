@@ -2,7 +2,7 @@ import { _qc, _trpc } from "@/components/static-trpc";
 import { useZodForm } from "@/hooks/use-zod-form";
 import { Collapsible, Item, Select, Tabs } from "@school-clerk/ui/composite";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { motion } from "framer-motion";
@@ -16,6 +16,7 @@ import { RouterInputs } from "@api/trpc/routers/_app";
 import { Arabic } from "@/components/arabic";
 import { Button } from "@school-clerk/ui/button";
 import { Separator } from "@school-clerk/ui/separator";
+
 interface Props {
   classrooms: { title: string }[];
   students: {
@@ -30,25 +31,32 @@ interface Props {
     parsedGender?: "M" | "F";
   }[];
 }
+
 const matches = z.object({
   id: z.string(),
   name: z.string(),
-  surname: z.string(),
+  surname: z.string().optional().nullable(),
   otherName: z.string().optional().nullable(),
   gender: z.string().optional().nullable(),
-  classRoom: z.string(),
-  classroomDepartmentId: z.string(),
+  classRoom: z.string().optional().nullable(),
+  classroomDepartmentId: z.string().optional().nullable(),
   studentSessionFormId: z.string().optional().nullable(),
-  termId: z.string(),
-  termSheetId: z.string(),
-  termName: z.string(),
-  termStartDate: z.any(),
-  sessionName: z.string(),
+  studentTermFormId: z.string().optional().nullable(),
+  termId: z.string().optional().nullable(),
+  termSheetId: z.string().optional().nullable(),
+  termName: z.string().optional().nullable(),
+  sessionId: z.string().optional().nullable(),
+  sessionName: z.string().optional().nullable(),
+  isCurrentTermMatch: z.boolean().optional().nullable(),
+  isCurrentClassroomMatch: z.boolean().optional().nullable(),
+  confidence: z.number().optional().nullable(),
+  reason: z.string().optional().nullable(),
 });
+
 const schema = z.object({
   activities: z.array(
     z.object({
-      resolution: z.enum(["create_term", "create", "ignore", "delete_match"]),
+      resolution: z.enum(["create_term", "create", "ignore", "delete_match"]).optional().nullable(),
       status: z.enum(["ready", "conflict", "success", "pending"]),
       partialMatches: z.array(matches),
       matches: z.array(matches),
@@ -67,67 +75,118 @@ const schema = z.object({
       classRoom: z.object({
         id: z.string(),
         departmentName: z.string(),
-      }),
+      }).optional().nullable(),
+      needsGender: z.boolean().optional().nullable(),
+      inferredGender: z.string().optional().nullable(),
+      genderInferenceDetails: z.any().optional().nullable(),
     })
   ),
 });
 export function ImportActivity({ classrooms, students }: Props) {
-  const { data: records, refetch } = useQuery(
+  const [classroomDeptId, setClassroomDeptId] = useState<string>("");
+  const { data: records, refetch, isPending: isRecentRecordsPending } = useQuery(
     _trpc.students.studentsRecentRecord.queryOptions({})
   );
   const form = useZodForm(schema, {});
 
   useEffect(() => {
-    if (!records?.students?.length) return;
+    if (classroomDeptId) return;
+    if (!records?.classDepartments?.length) return;
+    const firstStudent = students[0];
+    if (!firstStudent) return;
+    if (firstStudent.classroomDepartmentId) {
+      setClassroomDeptId(firstStudent.classroomDepartmentId);
+      return;
+    }
+    const matched = records.classDepartments.find(
+      (cd) =>
+        compareArabic(cd.departmentName, firstStudent.classRoom) ||
+        compareArabic(cd.classRoom.name, firstStudent.classRoom)
+    );
+    if (matched) {
+      setClassroomDeptId(matched.id);
+    } else {
+      setClassroomDeptId(records.classDepartments[0].id);
+    }
+  }, [records, students, classroomDeptId]);
 
-    const activities = students.map((student) => {
-      const nameMatching = records.students.filter((m) =>
-        // m.name.localeCompare(student.name)
-        compareArabic(student.name, m.name)
-      );
-      const matches = records.students.filter(
-        (m) =>
-          compareArabic(student.name, m.name) &&
-          compareArabic(student.surname, m.surname)
-        // m.name.localeCompare(student.name) &&
-        // m.surname.localeCompare(student.surname)
-      );
-      const partialMatches = records.students.filter(
-        (m) =>
-          compareArabic(student.name, m.name) ||
-          compareArabic(student.surname, m.surname)
-        // m.name.localeCompare(student.name) &&
-        // m.surname.localeCompare(student.surname)
-      );
-      const classRoom = records.classDepartments.find((cd) =>
-        cd.id === student.classroomDepartmentId
-      );
-      const classMatch = matches.some(
-        (a) => a.classroomDepartmentId === classRoom?.id
-      );
-      const termMatch = matches.some(
-        (a) => a.termId === records?.sessionTermId
-      );
+  const verifyInput = useMemo(() => {
+    if (!classroomDeptId || !students.length) return null;
+    return {
+      classroomDepartmentId: classroomDeptId,
+      rows: students.map((s) => ({
+        lineNumber: s.lineNumber,
+        originalText: s.originalText,
+        name: s.name,
+        surname: s.surname,
+        originalClassRoom: s.classRoom,
+        otherName: s.otherName || null,
+        gender:
+          s.gender === "M"
+            ? "Male"
+            : s.gender === "F"
+              ? "Female"
+              : s.gender || null,
+      })),
+    };
+  }, [classroomDeptId, students]);
+
+  const { data: verificationReport, isPending: isVerifying, refetch: refetchVerification } = useQuery(
+    _trpc.students.verifyStudentImport.queryOptions(verifyInput!, {
+      enabled: !!verifyInput,
+    })
+  );
+
+  useEffect(() => {
+    if (!verificationReport?.results || !records) return;
+
+    const classRoom = records.classDepartments.find((cd) => cd.id === classroomDeptId);
+
+    const activities = verificationReport.results.map((row) => {
+      let uiStatus: "ready" | "conflict" | "success" | "pending" = "ready";
+      if (row.status === "matchFound" && row.fullMatch) {
+        if (row.fullMatch.isCurrentTermMatch && row.fullMatch.isCurrentClassroomMatch) {
+          uiStatus = "success";
+        } else if (row.fullMatch.isCurrentClassroomMatch && !row.fullMatch.isCurrentTermMatch) {
+          uiStatus = "pending";
+        } else {
+          uiStatus = "conflict";
+        }
+      } else if (row.status === "needsAttention") {
+        uiStatus = "conflict";
+      }
+
       return {
-        matches,
-        student,
-        classRoom,
-        partialMatches,
-        status: matches.length
-          ? classMatch && termMatch
-            ? "success"
-            : classMatch
-            ? "pending"
-            : "conflict"
-          : "ready",
+        matches: row.fullMatch ? [row.fullMatch] : [],
+        partialMatches: row.suspectedMatches || [],
+        student: {
+          id: String(row.lineNumber),
+          name: row.name,
+          surname: row.surname,
+          otherName: row.otherName || null,
+          gender: row.inferredGender || row.inputGender || null,
+          classRoom: classRoom?.departmentName || "",
+          classroomDepartmentId: classroomDeptId,
+          lineNumber: row.lineNumber,
+          originalText: row.originalText,
+          parsedGender: undefined,
+        },
+        classRoom: classRoom ? {
+          id: classRoom.id,
+          departmentName: classRoom.departmentName,
+        } : undefined,
+        status: uiStatus,
         resolution: undefined,
+        needsGender: row.needsGender,
+        inferredGender: row.inferredGender,
+        genderInferenceDetails: row.genderInferenceDetails,
       };
     });
-    // console.log({ activities, records });
+
     form.reset({
       activities: activities as any,
     });
-  }, [records, classrooms, students]);
+  }, [verificationReport, records, classroomDeptId]);
   const { fields, append, insert, update } = useFieldArray({
     name: "activities",
     control: form.control,
@@ -227,220 +286,305 @@ export function ImportActivity({ classrooms, students }: Props) {
   );
   const opts = ["all", "imported", "conflict", "new"] as const;
   const [show, setShow] = useState<(typeof opts)[number]>("all");
+
   return (
     <>
-      <div className="flex gap-4 pb-2">
-	        <Select
-	          value={show}
-	          onValueChange={(e) => {
-	            setShow(e as (typeof opts)[number]);
-	          }}
-	        >
-          <Select.Trigger value={show}>
-            <Select.Value />
-          </Select.Trigger>
-          <Select.Content>
-            {opts.map((o) => (
-              <Select.Item value={o} key={o}>
-                {o}
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select>
-        <Menu>
-          <Menu.Item
-            onClick={(e) => {
-              refetch();
+      <div className="flex gap-4 pb-2 items-end">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Target Classroom</span>
+          <Select
+            value={classroomDeptId}
+            onValueChange={(e) => {
+              setClassroomDeptId(e);
             }}
           >
-            Refresh
-          </Menu.Item>
-        </Menu>
-      </div>
-      <Separator />
-      <div className="space-y-2 font-mono text-xs max-h-96 overflow-y-auto">
-        {fields.length === 0 ? (
-          <div className="text-muted-foreground">No activities yet</div>
-        ) : (
-          fields
-            ?.filter((a) => {
-              switch (show) {
-                case "all":
-                  return true;
-                case "conflict":
-                  return a.status == "conflict";
-                case "new":
-                  return a.status == "ready";
-                case "imported":
-                  return a.status == "success";
-              }
-              return true;
-            })
-            .map((activity, idx) => (
-              <Collapsible
-                className={cn(
-                  `rounded border ${statusColors[activity.status]}`
-                )}
-                key={activity._id}
-              >
-                <Collapsible.Trigger
-                  // asChild={!activity?.matches?.length}
-                  className="flex w-full"
-                >
-                  <div
-                    key={activity._id}
-                    // initial={{ opacity: 0, x: -10 }}
-                    // animate={{ opacity: 1, x: 0 }}
-                    // transition={{ delay: idx * 0.05 }}
-                    className={`p-2 flex w-full items-center justify-between`}
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-lg">
-                        {idx + 1}. {statusIcon[activity.status]}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="truncate inline-flex gap-1">
-                          {/* <span className="text-muted-foreground">
-                              line {idx + 1}:
-                            </span>{" "} */}
-                          <Arabic className="font-medium text-sm">
-                            {studentDisplayName(activity.student)}
-                            {/* {activity.student.name} {activity.student.surname} */}
-                          </Arabic>
+            <Select.Trigger value={classroomDeptId} className="w-64 h-9">
+              <Select.Value placeholder="Select Classroom" />
+            </Select.Trigger>
+            <Select.Content className="max-h-60 overflow-y-auto">
+              {records?.classDepartments?.map((cd) => (
+                <Select.Item value={cd.id} key={cd.id}>
+                  {cd.classRoom.name} - {cd.departmentName}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select>
+        </div>
 
-                          <Arabic className={cn("text-muted-foreground ml-1")}>
-                            {activity.classRoom?.departmentName ||
-                              activity.student.classRoom}
-                            {activity?.classRoom?.id && (
-                              <>{statusIcon?.success}</>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Filter Status</span>
+          <Select
+            value={show}
+            onValueChange={(e) => {
+              setShow(e as (typeof opts)[number]);
+            }}
+          >
+            <Select.Trigger value={show} className="w-32 h-9">
+              <Select.Value />
+            </Select.Trigger>
+            <Select.Content>
+              {opts.map((o) => (
+                <Select.Item value={o} key={o}>
+                  {o}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select>
+        </div>
+
+        <Button
+          variant="outline"
+          onClick={() => {
+            refetch();
+            refetchVerification();
+          }}
+          className="h-9 ml-auto"
+        >
+          Refresh
+        </Button>
+      </div>
+
+      <Separator />
+
+      {isVerifying ? (
+        <div className="flex flex-col items-center justify-center p-12 space-y-4 font-mono text-xs">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <p className="text-muted-foreground animate-pulse">Running verification and match analysis...</p>
+        </div>
+      ) : (
+        <div className="space-y-2 font-mono text-xs max-h-[50vh] overflow-y-auto pr-1">
+          {fields.length === 0 ? (
+            <div className="text-muted-foreground p-4 text-center">No activities yet</div>
+          ) : (
+            fields
+              ?.filter((a) => {
+                switch (show) {
+                  case "all":
+                    return true;
+                  case "conflict":
+                    return a.status == "conflict";
+                  case "new":
+                    return a.status == "ready";
+                  case "imported":
+                    return a.status == "success";
+                }
+                return true;
+              })
+              .map((activity, idx) => (
+                <Collapsible
+                  className={cn(
+                    `rounded-lg border transition-all duration-200 ${statusColors[activity.status]} bg-card`
+                  )}
+                  key={activity._id}
+                >
+                  <Collapsible.Trigger className="flex w-full text-left p-3 hover:bg-muted/30 focus:outline-none transition-colors">
+                    <div className="flex w-full items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="text-base flex-shrink-0">
+                          {statusIcon[activity.status]}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Arabic className="font-semibold text-sm">
+                              {studentDisplayName(activity.student)}
+                            </Arabic>
+                            <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">
+                              {activity.student.gender || "No Gender Specified"}
+                            </span>
+                            {activity.student.otherName && (
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                ({activity.student.otherName})
+                              </span>
                             )}
-                          </Arabic>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            Status: <span className="font-semibold uppercase">{activity.status}</span>
+                            {activity.matches?.length > 0 && ` | ${activity.matches.length} exact match(es)`}
+                            {activity.partialMatches?.length > 0 && ` | ${activity.partialMatches.length} suspected match(es)`}
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {activity.status} | {activity?.matches?.length}
-                        </div>
-                        {!activity?.matches?.length && (
-                          <Button
-                            disabled={!activity.student.gender}
-                            onClick={(e) => {
-                              const student = activity.student;
-                              e.preventDefault();
-                              const formData = {
-                                name: student.name,
-                                surname: student.surname,
-                                otherName: student.otherName,
-                                gender:
-                                  student.gender === "M" ? "Male" : "Female",
-                                classRoomId: activity.classRoom.id,
-                                termForms: [
-                                  {
-                                    sessionTermId: records.sessionTermId,
-                                    schoolSessionId: records.schoolSessionId,
-                                  },
-                                ],
-                              } as RouterInputs["students"]["createStudent"];
-                              // return;
-                              createStudent(formData);
+                      </div>
+                      <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                        Line {idx + 1}
+                      </span>
+                    </div>
+                  </Collapsible.Trigger>
+
+                  <Collapsible.Content className="p-3 border-t border-dashed bg-muted/10 space-y-3">
+                    {/* Gender Selection & Inference Details */}
+                    {activity.needsGender && !activity.student.gender && (
+                      <div className="flex flex-col gap-1.5 bg-destructive/5 dark:bg-destructive/10 p-2.5 rounded border border-destructive/20">
+                        <span className="text-[10px] text-destructive font-bold uppercase">Gender Required</span>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={activity.student.gender || ""}
+                            onValueChange={(val) => {
+                              const currentActivities = form.getValues("activities");
+                              currentActivities[idx].student.gender = val;
+                              currentActivities[idx].needsGender = false;
+                              form.reset({ activities: currentActivities });
                             }}
                           >
-                            <Import className="size-4" />
-                          </Button>
-                        )}
-                        <Menu
-                          Icon={Link}
-                          label={activity?.partialMatches?.length}
-                          disabled={!activity?.partialMatches?.length}
-                          className="h-56 overflow-auto"
-                        >
-                          {activity?.partialMatches?.map((a) => (
-                            <Menu.Item
-                              onClick={(e) => {
-                                updateStudent({
-                                  id: a.id,
-                                  data: {
-                                    name: activity.student.name,
-                                    otherName: activity.student.otherName,
-                                    surname: activity.student.surname,
-                                    gender: activity.student.gender
-                                      ? (activity.student.gender === "M"
-                                        ? "Male"
-                                        : "Female")
-                                      : undefined,
-                                  },
-                                });
-                              }}
-                            >
-                              {studentDisplayName(a)}
-                            </Menu.Item>
-                          ))}
-                        </Menu>
+                            <Select.Trigger className="h-8 text-[11px] w-32">
+                              <Select.Value placeholder="Select Gender" />
+                            </Select.Trigger>
+                            <Select.Content>
+                              <Select.Item value="Male">Male</Select.Item>
+                              <Select.Item value="Female">Female</Select.Item>
+                            </Select.Content>
+                          </Select>
+                          <span className="text-[10px] text-muted-foreground">Select a gender to proceed with import.</span>
+                        </div>
                       </div>
-                    </div>
-                    {/* {activity.action && (
-                    <div className="text-xs text-muted-foreground ml-2 flex-shrink-0">
-                      {activity.action}
-                    </div>
-                  )} */}
-                  </div>
-                </Collapsible.Trigger>
-                <Collapsible.Content className="p-2 text-primary">
-                  <Item.Group dir="rtl">
-                    {activity.matches?.map((m, mi) => (
-                      <Item variant="muted" key={mi}>
-                        <Item.Title>{studentDisplayName(m)}</Item.Title>
-                        <Item.Content>
-                          <Arabic>
-                            <Item.Description>
-                              <span>{m.classRoom || "no class"}</span>
-                              <span>
-                                {m.termName} | {m.sessionName}
-                              </span>
-                            </Item.Description>
-                          </Arabic>
-                          <Item.Actions>
-                            <SubmitButton
-                              variant="outline"
-                              size="icon"
-                              isSubmitting={isEnrolling}
-                              onClick={(e) => {
-                                const enrollData = {
-                                  classroomDepartmentId: activity.classRoom.id,
-                                  schoolSessionId: records.schoolSessionId,
-                                  sessionTermId: records.sessionTermId,
-                                  studentId: m.id,
-                                  studentSessionFormId: m.studentSessionFormId,
-                                } as RouterInputs["academics"]["entrollStudentToTerm"];
-                                console.log(enrollData);
+                    )}
 
-                                enroll(enrollData);
-                              }}
-                              type="button"
-                            >
-                              <Check className="size-4" />
-                            </SubmitButton>
-                            {/* <Menu Icon={MenuIcon}>
-                                <Menu.Item></Menu.Item>
-                              </Menu> */}
-                          </Item.Actions>
-                        </Item.Content>
-                      </Item>
-                    ))}
-                  </Item.Group>
-                </Collapsible.Content>
-              </Collapsible>
-            ))
-        )}
-      </div>
+                    {activity.inferredGender && (
+                      <div className="bg-emerald-50 dark:bg-emerald-950/20 p-2.5 rounded border border-emerald-200/50 flex flex-col gap-1">
+                        <span className="text-[10px] text-emerald-600 font-bold uppercase">Gender Inferred</span>
+                        <span className="text-xs">
+                          Inferred as <span className="font-semibold">{activity.inferredGender}</span>
+                          {activity.genderInferenceDetails && (
+                            <span className="text-muted-foreground font-normal ml-1 text-[10px]">
+                              (confidence: {activity.genderInferenceDetails.confidence}%, samples: {activity.genderInferenceDetails.sampleSize})
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Exact Matches (Enrolling) */}
+                    {activity.matches && activity.matches.length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider block">Exact Matching Student Found</span>
+                        <Item.Group dir="rtl" className="w-full">
+                          {activity.matches.map((m, mi) => (
+                            <Item variant="muted" key={mi} className="w-full flex items-center justify-between p-2 rounded bg-background/50 border">
+                              <div className="flex flex-col gap-0.5 text-right flex-1">
+                                <span className="font-semibold text-xs">{studentDisplayName(m)}</span>
+                                <span className="text-[9px] text-muted-foreground">
+                                  Classroom: {m.classRoom || "No Classroom"} | Term: {m.termName || "None"} ({m.sessionName || "No Session"})
+                                </span>
+                              </div>
+                              <Item.Actions className="flex items-center gap-2">
+                                <span className="text-[10px] text-emerald-600 font-semibold px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 rounded border border-emerald-200">
+                                  {m.isCurrentTermMatch && m.isCurrentClassroomMatch ? "Enrolled" : "Existing"}
+                                </span>
+                                {(!m.isCurrentTermMatch || !m.isCurrentClassroomMatch) && (
+                                  <SubmitButton
+                                    variant="outline"
+                                    size="sm"
+                                    isSubmitting={isEnrolling}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      const enrollData = {
+                                        classroomDepartmentId: classroomDeptId,
+                                        schoolSessionId: records.schoolSessionId,
+                                        sessionTermId: records.sessionTermId,
+                                        studentId: m.id,
+                                        studentSessionFormId: m.studentSessionFormId,
+                                      } as RouterInputs["academics"]["entrollStudentToTerm"];
+                                      enroll(enrollData);
+                                    }}
+                                    type="button"
+                                    className="h-7 text-[10px] px-2.5"
+                                  >
+                                    <Check className="size-3 mr-1" /> Enroll in this Classroom & Term
+                                  </SubmitButton>
+                                )}
+                              </Item.Actions>
+                            </Item>
+                          ))}
+                        </Item.Group>
+                      </div>
+                    )}
+
+                    {/* Suspected Matches (Update / Link) */}
+                    {activity.partialMatches && activity.partialMatches.length > 0 && (
+                      <div className="space-y-1.5 border-t border-dashed pt-2">
+                        <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider block">Suspected Existing Students (Typos / Close Matches)</span>
+                        <div className="space-y-1.5">
+                          {activity.partialMatches.map((a, pIdx) => (
+                            <div key={pIdx} className="flex items-center justify-between bg-background/50 p-2 rounded border border-amber-200/30">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-xs font-semibold">{studentDisplayName(a)}</span>
+                                <span className="text-[9px] text-muted-foreground">
+                                  Classroom: {a.classRoom || "No classroom"} | Confidence: <span className="font-semibold">{a.confidence}%</span>
+                                  {a.reason && ` - ${a.reason}`}
+                                </span>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-[10px] px-2.5"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  updateStudent({
+                                    id: a.id,
+                                    data: {
+                                      name: activity.student.name,
+                                      otherName: activity.student.otherName,
+                                      surname: activity.student.surname,
+                                      gender: activity.student.gender === "Male" || activity.student.gender === "M" ? "Male" : "Female",
+                                    },
+                                  });
+                                }}
+                              >
+                                Link & Update Student Profile
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Import As New Button */}
+                    {activity.status === "ready" && (
+                      <div className="border-t border-dashed pt-2 flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground">This student name does not match any existing record.</span>
+                        <Button
+                          disabled={activity.needsGender && !activity.student.gender}
+                          onClick={(e) => {
+                            const student = activity.student;
+                            e.preventDefault();
+                            const formData = {
+                              name: student.name,
+                              surname: student.surname,
+                              otherName: student.otherName,
+                              gender: student.gender === "Male" || student.gender === "M" ? "Male" : "Female",
+                              classRoomId: classroomDeptId,
+                              termForms: [
+                                {
+                                  sessionTermId: records.sessionTermId,
+                                  schoolSessionId: records.schoolSessionId,
+                                },
+                              ],
+                            } as RouterInputs["students"]["createStudent"];
+                            createStudent(formData);
+                          }}
+                          className="h-8 text-[11px] px-3"
+                        >
+                          <Import className="size-3.5 mr-1" /> Import as New Student
+                        </Button>
+                      </div>
+                    )}
+                  </Collapsible.Content>
+                </Collapsible>
+              ))
+          )}
+        </div>
+      )}
     </>
   );
 }
-const statusColors = {
-  pending: "text-yellow-600   ",
-  success: "text-green-600  ",
-  conflict: "text-orange-600    ",
-  error: "text-red-600    ",
+const statusColors: Record<string, string> = {
+  ready: "text-blue-600",
+  pending: "text-yellow-600",
+  success: "text-green-600",
+  conflict: "text-orange-600",
+  error: "text-red-600",
 };
-const statusIcon = {
+const statusIcon: Record<string, string> = {
+  ready: "○",
   pending: "⏳",
   success: "✓",
   conflict: "⚠",

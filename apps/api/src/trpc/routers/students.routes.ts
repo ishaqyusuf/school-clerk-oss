@@ -19,6 +19,8 @@ import {
   bulkDeleteTermSheets,
   changeStudentGenderSchema,
   changeStudentGender,
+  verifyStudentImportSchema,
+  verifyStudentImport,
 } from "../../db/queries/students";
 import {
   getStudentOverviewSchema,
@@ -105,6 +107,11 @@ export const studentsRouter = createTRPCRouter({
     .input(studentsRecentRecordSchema)
     .query(async (props) => {
       return studentsRecentRecord(props.ctx, props.input);
+    }),
+  verifyStudentImport: publicProcedure
+    .input(verifyStudentImportSchema)
+    .query(async (props) => {
+      return verifyStudentImport(props.ctx, props.input);
     }),
   getTermFormDetails: publicProcedure
     .input(deleteTermSheetSchema) // reuse { id: string }

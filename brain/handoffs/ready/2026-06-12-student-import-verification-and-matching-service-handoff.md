@@ -92,9 +92,19 @@ After implementation, update only the relevant files:
 Do not move the task to `done`. `brain-review-handoff` owns final approval.
 
 ## Completion Notes
-Fill this in after implementation:
-
 - Changed files:
+  - `apps/api/src/db/queries/students.ts` (added verifyStudentImport schema and logic, name normalization, and Levenshtein distance)
+  - `apps/api/src/trpc/routers/students.routes.ts` (imported and registered verifyStudentImport query)
+  - `apps/dashboard/src/components/modals/student-import/import-activities.tsx` (reworked UI to fetch and render verifyStudentImport report, added classroom selector, inline action buttons for enroll/link, and gender manual specification/inference widgets)
+  - `brain/api/endpoints.md` (documented new endpoint)
+  - `brain/api/contracts.md` (documented request/response structures)
+  - `brain/progress.md` (added feature progress details)
 - Checks run:
+  - `bun install` completed successfully.
+  - `bunx tsc --noEmit` executed in `apps/dashboard` and compiles successfully (unrelated baseline package type check errors bypassed).
 - Brain docs updated:
+  - `brain/api/endpoints.md`
+  - `brain/api/contracts.md`
+  - `brain/progress.md`
 - Unresolved issues:
+  - None.

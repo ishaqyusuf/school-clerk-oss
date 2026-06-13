@@ -104,3 +104,24 @@
 - Updated `brain/api/permissions.md` to accurately align with the implemented `ADMIN` and `Admin` role gate for the empty print sheet.
 - Attempted to run browser verification but lacked test credentials and populated data to test visually.
 - Marked work as `blocked` in queue so a human or authenticated agent can complete the final verification.
+
+## Student Import Verification and Matching Service (2026-06-12)
+
+### Completed
+- Implemented an optimized backend procedure `students.verifyStudentImport` in `apps/api/src/db/queries/students.ts` to verify an entire batch of pasted students in a single network call.
+- Validated that the target classroom department belongs to the active institution/session.
+- Implemented missing gender inference based on existing student records with the same normalized first name (requires confidence >= 80% and at least 2 samples).
+- Classified matches into exact (`fullMatch`, confidence = 100) and typos/close matches (`suspectedMatches`, distance <= 2).
+- Registered the endpoint in the tRPC router `apps/api/src/trpc/routers/students.routes.ts`.
+- Reworked the import modal UI `apps/dashboard/src/components/modals/student-import/import-activities.tsx` to invoke the new single-query tRPC verification endpoint, auto-selecting the target classroom department from the pasted data context, showing a target classroom select dropdown, and listing matches/suspected typos inline with actionable check/link buttons.
+- Handled manual gender selection inline if gender is required and could not be inferred.
+
+### Changed Files
+- `apps/api/src/db/queries/students.ts`
+- `apps/api/src/trpc/routers/students.routes.ts`
+- `apps/dashboard/src/components/modals/student-import/import-activities.tsx`
+- `brain/api/endpoints.md`
+- `brain/api/contracts.md`
+
+### Verification
+- Ran `bun install` and typecheck validation.
