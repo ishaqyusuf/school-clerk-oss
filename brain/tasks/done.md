@@ -1,15 +1,19 @@
 # Done
 
 ## Purpose
+
 Record of completed tasks and delivery outcomes.
 
 ## How To Use
+
 - Move finished items from in-progress.
 - Capture completion date and outcome.
 - Reference PR/commit when available.
 
 ## Template
+
 ## Completed Task
+
 - ID:
 - Title:
 - Completed:
@@ -18,6 +22,7 @@ Record of completed tasks and delivery outcomes.
 - Owner:
 
 ## Completed Task
+
 - ID: TASK-2026-04-06-staff-management-onboarding-redesign
 - Title: Redesign staff management around invite-first onboarding, richer status tracking, and mobile-responsive staff directory
 - Completed: 2026-04-06
@@ -26,6 +31,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Codex
 
 ## Completed Task
+
 - ID: TASK-2026-03-16-auth-navigation-hardening
 - Title: Harden tenant auth flow and align dashboard redirects with permitted navigation
 - Completed: 2026-03-16
@@ -34,6 +40,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Codex
 
 ## Completed Task
+
 - ID: TASK-2026-03-25-dashboard-proxy-host-compat
 - Title: Broaden dashboard proxy host compatibility across localhost, portless dev hosts, and production
 - Completed: 2026-03-25
@@ -42,6 +49,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Codex
 
 ## Completed Task
+
 - ID: TASK-2026-04-01-teachers-page-loading
 - Title: Fix teachers page loading failure and document current staff invite/teacher permission gaps
 - Completed: 2026-04-01
@@ -50,6 +58,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Copilot
 
 ## Completed Task
+
 - ID: TASK-2026-04-01-staff-invite-and-permissions
 - Title: Implement staff invite onboarding and teacher classroom/subject assignment workflow
 - Completed: 2026-04-01
@@ -58,6 +67,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Copilot
 
 ## Completed Task
+
 - ID: TASK-2026-04-01-k12-teacher-workspace
 - Title: Add dedicated K-12 teacher workspace routes and basic staff overview pages
 - Completed: 2026-04-01
@@ -66,6 +76,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Copilot
 
 ## Completed Task
+
 - ID: FIN-001
 - Title: Bulk fee application — apply fee to all eligible students in a class
 - Completed: 2026-04-02
@@ -74,6 +85,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Codex
 
 ## Completed Task
+
 - ID: FIN-002
 - Title: Student payment tab (StudentTransactionOverview) upgrade
 - Completed: 2026-04-02
@@ -82,6 +94,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Codex
 
 ## Completed Task
+
 - ID: FIN-003
 - Title: Fees management — edit, soft-delete, and prefetch fix
 - Completed: 2026-04-02
@@ -90,6 +103,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Codex
 
 ## Completed Task
+
 - ID: FIN-004
 - Title: Post-payment receipt PDF generation
 - Completed: 2026-04-02
@@ -98,6 +112,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Codex
 
 ## Completed Task
+
 - ID: FIN-005
 - Title: Billables page relabelling — clarify staff/service-only purpose
 - Completed: 2026-04-02
@@ -106,6 +121,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Codex
 
 ## Completed Task
+
 - ID: FIN-006
 - Title: Finance payment cancellation and notification system rollout
 - Completed: 2026-04-03
@@ -114,6 +130,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Codex
 
 ## Completed Task
+
 - ID: FIN-007
 - Title: Stream funding model for payables, owing, and stream-wide record visibility
 - Completed: 2026-04-25
@@ -188,6 +205,7 @@ Record of completed tasks and delivery outcomes.
 - Related changes: `apps/api/src/trpc/routers/finance.routes.ts`, `apps/dashboard/src/components/payroll.tsx`, `apps/dashboard/src/components/service-payments.tsx`, `brain/features/stream-funding.md`, `brain/features/finance-operations.md`
 
 ## Completed Task
+
 - ID: FIN-019
 - Title: Standardize accounting and finance funnel and bespoke shadcn design
 - Completed: 2026-06-05
@@ -196,6 +214,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Codex
 
 ## Completed Task
+
 - ID: 2026-06-12-staff-classroom-report-sheet-access
 - Title: Staff Classroom Report Sheet Access
 - Completed: 2026-06-12
@@ -204,6 +223,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: OpenCode, reviewed by Codex
 
 ## Completed Task
+
 - ID: STUD-IMP-001
 - Title: Student Import Input And Name Parsing
 - Completed: 2026-06-13
@@ -212,6 +232,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: antigravity, reviewed by Codex
 
 ## Completed Task
+
 - ID: STUD-IMP-002
 - Title: Student Import Verification And Matching Service
 - Completed: 2026-06-13
@@ -220,9 +241,19 @@ Record of completed tasks and delivery outcomes.
 - Owner: open-code, reviewed by Codex
 
 ## Completed Task
+
 - ID: STUD-IMP-004
 - Title: Student Import Execution And Term Sheet Creation
 - Completed: 2026-06-13
 - Outcome: Approved and landed the execution/term-sheet worktree into `main` at merge commit `b6d37da`. Batch execution now supports import-new, keep-match, and update-match decisions while ensuring current session/term enrollment records are created or reused.
 - Related changes: `apps/api/src/db/queries/students.ts`, `apps/api/src/trpc/routers/students.routes.ts`, `apps/dashboard/src/components/modals/student-import/import-activities.tsx`, `brain/api/contracts.md`, `brain/api/endpoints.md`, `brain/features/student-import.md`, `brain/plans/2026-06-12-feature-student-import-execution-and-term-sheet-creation.md`, `brain/handoffs/completed/2026-06-12-student-import-execution-and-term-sheet-creation-fix-3.md`
 - Owner: open-code, reviewed by Codex
+
+## Completed Task
+
+- ID: STUD-IMP-003
+- Title: Student Import Review And Resolution UI
+- Completed: 2026-06-13
+- Outcome: Resolved the blocked landing from worktree `/Users/M1PRO/Documents/code/.brain-worktrees/2026-06-12-school-clerk-student-import-review-and-resolution-ui` into `main`. The import review screen now uses Ready to import, Match Found, and Needs attention tabs with batch defaults, row-level decisions, full candidate metadata, manual gender resolution, and suspected-match validation that only requires a selected candidate for keep/update decisions.
+- Related changes: `apps/dashboard/src/components/modals/student-import/import-activities.tsx`, `brain/features/student-import.md`, `brain/progress.md`
+- Owner: Antigravity/OpenCode, landed by Codex

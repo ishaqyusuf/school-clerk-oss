@@ -3,6 +3,7 @@
 ## Student Import Input And Name Parsing (2026-06-12)
 
 ### Completed
+
 - Redesigned the student import modal interface to include a Target Classroom department selector and an optional Global Gender selector.
 - Replaced the comma-based parsing rule with a robust deterministic parser that splits name tokens into `name`, `surname`, and `otherName` while identifying explicit row gender and global gender fallbacks.
 - Provided real-time UI validation and warning feedback (line numbers, missing surnames, unrecognized genders) directly below the data entry area.
@@ -11,14 +12,17 @@
 - Prevented silent defaulting of missing gender values to `Female` inside the matched student resolution logic.
 
 ### Changed Files
+
 - `apps/dashboard/src/components/modals/student-import/index.tsx`
 - `apps/dashboard/src/components/modals/student-import/import-activities.tsx`
 - `brain/features/student-import.md`
 
 ### Verification
+
 - Ran TypeScript compile checks for the dashboard application (`bun --filter @school-clerk/dashboard typecheck` and direct tsc compilation).
 
 ### Fix 1 (2026-06-12) — Input & Name Parsing Compilation and Data Flow
+
 - Fixed TS compilation error by correctly referencing `activity.student.gender` inside `import-activities.tsx`.
 - Extended the student schema to carry `classroomDepartmentId` from the input select, mapping the created activity directly to the classroom without brittle display-name matching.
 - Changed the empty global gender dropdown value to `"unset"`.
@@ -26,12 +30,14 @@
 - Reverted unrelated Brain API doc edits.
 
 ### Fix 2 (2026-06-13) — Formatting & Schema Documentation
+
 - Removed trailing blank line at EOF in `index.tsx` so `git diff --check` passes cleanly.
 - Explicitly documented in `brain/features/student-import.md` that `student.gender` acts as the canonical effective input gender, while `student.parsedGender` retains the exact row-level value.
 
 ## Admin Empty Classroom Report Spreadsheet Print (2026-06-12)
 
 ### Completed
+
 - Added client-side role checks using the `useAuth` hook in [classroom-result-table.tsx](file:///Users/M1PRO/Documents/code/school-clerk/apps/dashboard/src/components/classroom-result-table.tsx).
 - Gated the new "Print Empty Sheet" action to users with the `ADMIN` role.
 - Implemented the `printEmptySpreadsheet` callback to render student names and assessment/subject headers while keeping all score, total, grand total, and percentage cells empty for manual paper record-keeping.
@@ -39,14 +45,17 @@
 - Preserved the existing filled "Print Spreadsheet" and "Export Excel" functionalities completely unchanged.
 
 ### Changed Files
+
 - [classroom-result-table.tsx](file:///Users/M1PRO/Documents/code/school-clerk/apps/dashboard/src/components/classroom-result-table.tsx) — Added `useAuth` integration, configs import, admin-only button, and blank print callback.
 
 ### Verification
+
 - Dashboard typecheck run successfully with no new errors in the changed file.
 
 ## Staff Classroom Report Sheet Access (2026-06-12)
 
 ### Completed
+
 - Added `allowedClassroomIds` prop to `StudentReportFilter` to constrain classroom dropdown
 - Created `TeacherReportSheet` client component wrapping `ReportPageProvider`, `StudentReportFilter`, and `ClassroomResultTable`
 - Updated teacher reports page (`/teacher/reports`) to render the full classroom report sheet with classroom constraint
@@ -55,16 +64,19 @@
 - Score editing, assessment management, print, export, and filter controls all reused from existing `ClassroomResultTable` without duplication
 
 ### Changed Files
+
 - `apps/dashboard/src/components/student-report-filters.tsx` — added `allowedClassroomIds` prop
 - `apps/dashboard/src/components/teachers/teacher-report-sheet.tsx` — new reusable report sheet shell
 - `apps/dashboard/src/app/[domain]/(sidebar)/(k-12-teachers)/teacher/reports/page.tsx` — wired to report sheet
 - `apps/dashboard/src/app/[domain]/(sidebar)/academic/reports/page.tsx` — replaced "Coming soon"
 
 ### Verification
+
 - Dashboard and API typechecks run; no new errors in changed files
 - Pre-existing type errors in unrelated files (finance, Prisma client compat, sidebar) remain as documented in `brain/tasks/in-progress.md`
 
 ### Fix 1 (2026-06-12) — Classroom Default Selection & Invalid State Guard
+
 - `TeacherReportSheet` now seeds `departmentId` to first assigned classroom on mount when no classroom is selected
 - Invalid `departmentId` (not in allowed list) is automatically cleared or replaced with first assigned classroom
 - Teachers with zero assigned classrooms get an empty classroom dropdown (not unrestricted)
@@ -75,6 +87,7 @@
   - `apps/dashboard/src/app/[domain]/(sidebar)/(k-12-teachers)/teacher/reports/page.tsx` — always passes array (no `undefined` fallback)
 
 ### Fix 2 (2026-06-12) — Restore Default Term Query-State Seeding
+
 - Restored `termId` seeding from `defaultTermId` into `filters.termId` in `TeacherReportSheetInner`
 - Term seed runs before classroom seed; both apply on first mount
 - Result Entry link now appears when valid classroom + default term are present
@@ -87,8 +100,8 @@
   - `apps/dashboard/src/components/student-report-filters.tsx` — added `isResultEntryAllowed` guard
   - `apps/dashboard/src/app/[domain]/(sidebar)/(k-12-teachers)/teacher/reports/page.tsx` — always passes array (no `undefined` fallback)
 
-
 ### Review Approval (2026-06-12)
+
 - Codex reviewed Fix 2 and approved Staff Classroom Report Sheet Access.
 - Queue item approved: `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-staff-report-sheet-access.json`
 - Review file: `brain/reviews/2026-06-12-staff-classroom-report-sheet-access-review-v3.md`
@@ -96,11 +109,13 @@
 - Remaining caveat: full dashboard/API typechecks still have known unrelated baseline failures; focused code review and `git diff --check` passed.
 
 ### Fix 1 (2026-06-12) — Admin Empty Print: Role Gate Fix
+
 - Expanded `isAdmin` gate in `classroom-result-table.tsx` from `role === "ADMIN"` (SaaS owner only) to `role === "ADMIN" || role === "Admin"` (owners + school admins)
 - Code inspection confirms: blank cells regardless of existing scores, filled print unchanged, non-admin gate working, landscape print CSS, proper school/classroom/term/date/mode header
 - Full browser/print verification pending stable dev server with test data
 
 ### Fix 2 (2026-06-13) — Admin Empty Print: Docs Alignment & Blocked Verification
+
 - Updated `brain/api/permissions.md` to accurately align with the implemented `ADMIN` and `Admin` role gate for the empty print sheet.
 - Attempted to run browser verification but lacked test credentials and populated data to test visually.
 - Marked work as `blocked` in queue so a human or authenticated agent can complete the final verification.
@@ -108,6 +123,7 @@
 ## Student Import Verification and Matching Service (2026-06-12)
 
 ### Completed
+
 - Implemented an optimized backend procedure `students.verifyStudentImport` in `apps/api/src/db/queries/students.ts` to verify an entire batch of pasted students in a single network call.
 - Validated that the target classroom department belongs to the active institution/session.
 - Implemented missing gender inference based on existing student records with the same normalized first name (requires confidence >= 80% and at least 2 samples).
@@ -117,6 +133,7 @@
 - Handled manual gender selection inline if gender is required and could not be inferred.
 
 ### Changed Files
+
 - `apps/api/src/db/queries/students.ts`
 - `apps/api/src/trpc/routers/students.routes.ts`
 - `apps/dashboard/src/components/modals/student-import/import-activities.tsx`
@@ -124,11 +141,13 @@
 - `brain/api/contracts.md`
 
 ### Verification
+
 - Ran `bun install` and typecheck validation.
 
 ## Student Import Execution And Term Sheet Creation (2026-06-12)
 
 ### Fix 3 (2026-06-13) — Parse Error, Classroom Derivation, and Error Feedback
+
 - Removed leftover `updateStudent` object fragment causing parse errors in `import-activities.tsx` (lines 460-475)
 - Replaced `fields[0]?.classRoom?.id` with validated single-classroom derivation that checks all rows for unique classroom IDs
 - Added `preSubmitError` state with clear user-facing messages for: no classroom found, multiple classrooms detected, matched rows without action selection
@@ -141,8 +160,32 @@
   - `brain/progress.md` — fix-3 completion notes
 
 ### Review Approval and Landing (2026-06-13)
+
 - Approved and landed Student Import Input And Name Parsing into `main` at merge commit `2ebe1d2`.
 - Approved and landed Student Import Verification And Matching Service into `main` at merge commit `0e19470`.
 - Approved and landed Student Import Execution And Term Sheet Creation into `main` at merge commit `b6d37da`.
 - Marked the three landed handoff queue items approved/landed and moved their active Brain handoffs to `brain/handoffs/completed/`.
 - Left Student Import Review And Resolution UI in `reviewed-fix-request` because review blockers remain for batch defaults, per-candidate metadata, and final feature documentation.
+
+## Student Import Review And Resolution UI Landing (2026-06-13)
+
+### Completed
+
+- Resolved the blocked landing for queue item `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-student-import-review-and-resolution-ui.json`.
+- Reworked the current `executeStudentImport` review screen into the approved `Ready to import`, `Match Found`, and `Needs attention` tab flow without reverting the already-landed verification and execution endpoints.
+- Added batch defaults for ready rows, exact matches, and suspected matches while preserving row-level overrides.
+- Added candidate metadata cards with confidence, reason, class, session, term, current-term status, and current-classroom status.
+- Fixed suspected-match blocked-state behavior so `Import new` and `Skip` are complete decisions, while `Keep match` and `Update match with name` still require a selected candidate.
+- Kept `Skip` as a dashboard-only decision that omits the row from the execution payload.
+
+### Changed Files
+
+- `apps/dashboard/src/components/modals/student-import/import-activities.tsx`
+- `brain/features/student-import.md`
+- `brain/tasks/in-progress.md`
+- `brain/tasks/done.md`
+
+### Verification
+
+- `bun --filter @school-clerk/dashboard typecheck` still fails on existing baseline errors outside the touched import UI, including finance transaction-client types, missing `toMoney` imports, nav `LinkItem` shape mismatches, and unrelated finance/classroom form issues.
+- The rerun produced no errors for `apps/dashboard/src/components/modals/student-import/import-activities.tsx`.

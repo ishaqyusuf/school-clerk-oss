@@ -14,7 +14,9 @@ Allow school operators to import multiple students from pasted text data, assign
 2. **Verification & Matching**:
    - The parsed batch is verified against existing records to detect conflicts, duplicates, suspected typo matches, and missing gender.
 3. **Review & Resolution**:
-   - The user chooses per-row actions for matches or suspected matches.
+   - The user reviews rows in `Ready to import`, `Match Found`, and `Needs attention` tabs.
+   - Exact matches default to `Keep match`; suspected matches require an explicit action and only require a selected candidate when the action targets an existing student.
+   - Batch defaults are available for ready rows, exact matches, and suspected matches while preserving row-level overrides.
 4. **Execution**:
    - The batch mutation creates new students, keeps existing matches, or updates matched names.
    - Session and term sheets are created idempotently for the active classroom/session/term.
@@ -70,6 +72,25 @@ In the parsed output payload, `student.gender` is the effective input gender aft
 - Suspected matches with confidence `>= 70%` trigger a needs-attention status for operator review.
 - Rows with no exact match and no high-confidence suspected match default to ready-to-import.
 
+## Review And Resolution UI
+
+### Tabs
+
+- **Ready to import**: rows with no existing match and complete required fields. These default to `Import new`, and the tab includes an `Import all ready` batch action for untouched rows.
+- **Match Found**: rows with exact or suspected existing-student matches. Exact matches default to `Keep match`; suspected matches start unresolved unless a batch default or row action is selected.
+- **Needs attention**: rows that are not matched but still need a required manual value, such as gender.
+
+### Batch And Row Decisions
+
+- Exact-match and suspected-match batch defaults only apply to rows the operator has not touched.
+- `Keep match` and `Update match with name` require a selected candidate before execution.
+- `Import new` and `Skip` are complete decisions for suspected-match rows and do not require selecting an existing candidate.
+- `Skip` is a dashboard-only review action. Skipped rows are omitted from the `executeStudentImport` payload and counted in the review summary.
+
+### Candidate Metadata
+
+The match UI exposes each candidate's student ID, display name, gender, class, session, term, confidence, reason, current-term status, and current-classroom status so operators can resolve exact and suspected matches without leaving the modal.
+
 ## Gender Inference
 
 ### Inference Rules
@@ -88,21 +109,21 @@ In the parsed output payload, `student.gender` is the effective input gender aft
 
 Each match (`fullMatch` or `suspectedMatches[]`) includes:
 
-| Field | Description |
-|-------|-------------|
-| `id` | Student ID |
-| `name`, `surname`, `otherName` | Student name fields |
-| `gender` | Student gender |
-| `classRoom` | Classroom department display name |
-| `classroomDepartmentId` | Classroom department ID |
-| `studentTermFormId` | Current term form ID (the term sheet) |
-| `studentSessionFormId` | Session form ID; currently null until enrollment creates it where needed |
-| `termId`, `termName` | Active term |
-| `sessionId`, `sessionName` | Active session |
-| `isCurrentTermMatch` | Whether the student's term form matches the active term |
-| `isCurrentClassroomMatch` | Whether the student's term form matches the selected classroom |
-| `confidence` | Match confidence, 0-100 |
-| `reason` | Human-readable match reason |
+| Field                          | Description                                                              |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| `id`                           | Student ID                                                               |
+| `name`, `surname`, `otherName` | Student name fields                                                      |
+| `gender`                       | Student gender                                                           |
+| `classRoom`                    | Classroom department display name                                        |
+| `classroomDepartmentId`        | Classroom department ID                                                  |
+| `studentTermFormId`            | Current term form ID (the term sheet)                                    |
+| `studentSessionFormId`         | Session form ID; currently null until enrollment creates it where needed |
+| `termId`, `termName`           | Active term                                                              |
+| `sessionId`, `sessionName`     | Active session                                                           |
+| `isCurrentTermMatch`           | Whether the student's term form matches the active term                  |
+| `isCurrentClassroomMatch`      | Whether the student's term form matches the selected classroom           |
+| `confidence`                   | Match confidence, 0-100                                                  |
+| `reason`                       | Human-readable match reason                                              |
 
 ## Batch Execution
 
@@ -151,11 +172,12 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 
 ### Row Actions
 
-| Action | Behavior |
-|--------|----------|
-| `import_new` | Creates a new `Students` record with `StudentSessionForm` and `StudentTermForm`. Applies fee histories. |
-| `keep_match` | Validates the existing student exists in the tenant. Creates session/term forms idempotently if missing. Does not modify student identity. |
-| `update_match_with_name` | Updates matched student's name/surname/otherName, then acts like `keep_match` for forms. |
+| Action                   | Behavior                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `import_new`             | Creates a new `Students` record with `StudentSessionForm` and `StudentTermForm`. Applies fee histories.                                    |
+| `keep_match`             | Validates the existing student exists in the tenant. Creates session/term forms idempotently if missing. Does not modify student identity. |
+| `update_match_with_name` | Updates matched student's name/surname/otherName, then acts like `keep_match` for forms.                                                   |
+| `skip`                   | Dashboard-only review action. Excludes the row from the execution payload.                                                                 |
 
 ### Term Sheet Creation
 

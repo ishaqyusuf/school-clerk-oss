@@ -1,21 +1,22 @@
 import { _qc, _trpc } from "@/components/static-trpc";
-import { useZodForm } from "@/hooks/use-zod-form";
-import { Collapsible, Item, Select, Tabs } from "@school-clerk/ui/composite";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState, useMemo } from "react";
-import { useFieldArray } from "react-hook-form";
-import { z } from "zod";
-import { motion } from "framer-motion";
-import { cn } from "@school-clerk/ui/cn";
-import { studentDisplayName } from "@/utils/utils";
-import { Menu } from "@school-clerk/ui/custom/menu";
-import { Check, Import, Link } from "lucide-react";
-
-import { SubmitButton } from "@/components/submit-button";
-import { RouterInputs } from "@api/trpc/routers/_app";
 import { Arabic } from "@/components/arabic";
+import { SubmitButton } from "@/components/submit-button";
+import { studentDisplayName } from "@/utils/utils";
+import type { RouterOutputs } from "@api/trpc/routers/_app";
+import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
+import { cn } from "@school-clerk/ui/cn";
+import { Select, Tabs } from "@school-clerk/ui/composite";
 import { Separator } from "@school-clerk/ui/separator";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Import,
+  RefreshCw,
+} from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 interface Props {
   classrooms: { title: string }[];
@@ -32,258 +33,157 @@ interface Props {
   }[];
 }
 
-const matches = z.object({
-  id: z.string(),
-  name: z.string(),
-  surname: z.string().optional().nullable(),
-  otherName: z.string().optional().nullable(),
-  gender: z.string().optional().nullable(),
-  classRoom: z.string().optional().nullable(),
-  classroomDepartmentId: z.string().optional().nullable(),
-  studentSessionFormId: z.string().optional().nullable(),
-  studentTermFormId: z.string().optional().nullable(),
-  termId: z.string().optional().nullable(),
-  termSheetId: z.string().optional().nullable(),
-  termName: z.string().optional().nullable(),
-  sessionId: z.string().optional().nullable(),
-  sessionName: z.string().optional().nullable(),
-  isCurrentTermMatch: z.boolean().optional().nullable(),
-  isCurrentClassroomMatch: z.boolean().optional().nullable(),
-  confidence: z.number().optional().nullable(),
-  reason: z.string().optional().nullable(),
-});
+type VerifyResult =
+  RouterOutputs["students"]["verifyStudentImport"]["results"][number];
+type MatchCandidate = NonNullable<VerifyResult["fullMatch"]>;
+type ExecuteRow = {
+  lineNumber: number;
+  name: string;
+  surname: string;
+  otherName: string | null;
+  gender: "Male" | "Female";
+  action: "import_new" | "keep_match" | "update_match_with_name";
+  existingStudentId: string | null;
+};
+type ImportAction =
+  | "import_new"
+  | "keep_match"
+  | "update_match_with_name"
+  | "skip";
 
-const schema = z.object({
-  activities: z.array(
-    z.object({
-      resolution: z.enum(["create_term", "create", "ignore", "delete_match"]).optional().nullable(),
-      status: z.enum(["ready", "conflict", "success", "pending"]),
-      partialMatches: z.array(matches),
-      matches: z.array(matches),
-      student: z.object({
-        id: z.string(),
-        name: z.string(),
-        surname: z.string(),
-        otherName: z.string().optional().nullable(),
-        gender: z.string().optional().nullable(),
-        classRoom: z.string(),
-        classroomDepartmentId: z.string(),
-        lineNumber: z.number(),
-        originalText: z.string(),
-        parsedGender: z.string().optional().nullable(),
-      }),
-      classRoom: z.object({
-        id: z.string(),
-        departmentName: z.string(),
-      }).optional().nullable(),
-      needsGender: z.boolean().optional().nullable(),
-      inferredGender: z.string().optional().nullable(),
-      genderInferenceDetails: z.any().optional().nullable(),
-    })
-  ),
-});
-export function ImportActivity({ classrooms, students }: Props) {
+type RowDecision = {
+  action?: ImportAction;
+  existingStudentId?: string | null;
+  touched?: boolean;
+};
+
+const actionLabels: Record<ImportAction, string> = {
+  import_new: "Import new",
+  keep_match: "Keep match",
+  update_match_with_name: "Update match with name",
+  skip: "Skip",
+};
+
+export function ImportActivity({ students }: Props) {
   const [classroomDeptId, setClassroomDeptId] = useState<string>("");
-  const { data: records, refetch, isPending: isRecentRecordsPending } = useQuery(
-    _trpc.students.studentsRecentRecord.queryOptions({})
+  const [activeTab, setActiveTab] = useState<"ready" | "matched" | "attention">(
+    "ready",
   );
-  const form = useZodForm(schema, {});
+  const [rowDecisions, setRowDecisions] = useState<Record<number, RowDecision>>(
+    {},
+  );
+  const [manualGenders, setManualGenders] = useState<
+    Record<number, "Male" | "Female">
+  >({});
+  const [preSubmitError, setPreSubmitError] = useState<string | null>(null);
+
+  const {
+    data: records,
+    refetch: refetchRecentRecords,
+    isPending: isRecentRecordsPending,
+  } = useQuery(_trpc.students.studentsRecentRecord.queryOptions({}));
 
   useEffect(() => {
     if (classroomDeptId) return;
     if (!records?.classDepartments?.length) return;
+
     const firstStudent = students[0];
     if (!firstStudent) return;
+
     if (firstStudent.classroomDepartmentId) {
       setClassroomDeptId(firstStudent.classroomDepartmentId);
       return;
     }
+
     const matched = records.classDepartments.find(
       (cd) =>
         compareArabic(cd.departmentName, firstStudent.classRoom) ||
-        compareArabic(cd.classRoom.name, firstStudent.classRoom)
+        compareArabic(cd.classRoom.name, firstStudent.classRoom),
     );
-    if (matched) {
-      setClassroomDeptId(matched.id);
-    } else {
-      setClassroomDeptId(records.classDepartments[0].id);
-    }
-  }, [records, students, classroomDeptId]);
+
+    setClassroomDeptId(matched?.id || records.classDepartments[0]?.id || "");
+  }, [classroomDeptId, records, students]);
 
   const verifyInput = useMemo(() => {
     if (!classroomDeptId || !students.length) return null;
+
     return {
       classroomDepartmentId: classroomDeptId,
-      rows: students.map((s) => ({
-        lineNumber: s.lineNumber,
-        originalText: s.originalText,
-        name: s.name,
-        surname: s.surname,
-        originalClassRoom: s.classRoom,
-        otherName: s.otherName || null,
+      rows: students.map((student) => ({
+        lineNumber: student.lineNumber,
+        originalText: student.originalText,
+        name: student.name,
+        surname: student.surname,
+        originalClassRoom: student.classRoom,
+        otherName: student.otherName || null,
         gender:
-          s.gender === "M"
+          student.gender === "M"
             ? "Male"
-            : s.gender === "F"
+            : student.gender === "F"
               ? "Female"
-              : s.gender || null,
+              : student.gender || null,
       })),
     };
   }, [classroomDeptId, students]);
 
-  const { data: verificationReport, isPending: isVerifying, refetch: refetchVerification } = useQuery(
+  const {
+    data: verificationReport,
+    isPending: isVerifying,
+    refetch: refetchVerification,
+  } = useQuery(
     _trpc.students.verifyStudentImport.queryOptions(verifyInput!, {
       enabled: !!verifyInput,
-    })
+    }),
   );
+
+  const rows = verificationReport?.results || [];
+
+  const readyRows = rows.filter(
+    (row) =>
+      !row.fullMatch && row.suspectedMatches.length === 0 && !row.needsGender,
+  );
+  const exactRows = rows.filter((row) => row.fullMatch);
+  const suspectedRows = rows.filter(
+    (row) => !row.fullMatch && row.suspectedMatches.length > 0,
+  );
+  const attentionRows = rows.filter(
+    (row) =>
+      !row.fullMatch && row.suspectedMatches.length === 0 && row.needsGender,
+  );
+  const matchedCount = exactRows.length + suspectedRows.length;
 
   useEffect(() => {
-    if (!verificationReport?.results || !records) return;
+    const defaults: Record<number, RowDecision> = {};
 
-    const classRoom = records.classDepartments.find((cd) => cd.id === classroomDeptId);
-
-    const activities = verificationReport.results.map((row) => {
-      let uiStatus: "ready" | "conflict" | "success" | "pending" = "ready";
-      if (row.status === "matchFound" && row.fullMatch) {
-        if (row.fullMatch.isCurrentTermMatch && row.fullMatch.isCurrentClassroomMatch) {
-          uiStatus = "success";
-        } else if (row.fullMatch.isCurrentClassroomMatch && !row.fullMatch.isCurrentTermMatch) {
-          uiStatus = "pending";
-        } else {
-          uiStatus = "conflict";
-        }
-      } else if (row.status === "needsAttention") {
-        uiStatus = "conflict";
+    for (const row of rows) {
+      if (row.fullMatch) {
+        defaults[row.lineNumber] = {
+          action: "keep_match",
+          existingStudentId: row.fullMatch.id,
+          touched: false,
+        };
+      } else if (!row.needsGender && row.suspectedMatches.length === 0) {
+        defaults[row.lineNumber] = {
+          action: "import_new",
+          existingStudentId: null,
+          touched: false,
+        };
       }
+    }
 
-      return {
-        matches: row.fullMatch ? [row.fullMatch] : [],
-        partialMatches: row.suspectedMatches || [],
-        student: {
-          id: String(row.lineNumber),
-          name: row.name,
-          surname: row.surname,
-          otherName: row.otherName || null,
-          gender: row.inferredGender || row.inputGender || null,
-          classRoom: classRoom?.departmentName || "",
-          classroomDepartmentId: classroomDeptId,
-          lineNumber: row.lineNumber,
-          originalText: row.originalText,
-          parsedGender: undefined,
-        },
-        classRoom: classRoom ? {
-          id: classRoom.id,
-          departmentName: classRoom.departmentName,
-        } : undefined,
-        status: uiStatus,
-        resolution: undefined,
-        needsGender: row.needsGender,
-        inferredGender: row.inferredGender,
-        genderInferenceDetails: row.genderInferenceDetails,
-      };
-    });
+    setRowDecisions(defaults);
+    setManualGenders({});
+    setPreSubmitError(null);
+  }, [rows]);
 
-    form.reset({
-      activities: activities as any,
-    });
-  }, [verificationReport, records, classroomDeptId]);
-  const { fields, append, insert, update } = useFieldArray({
-    name: "activities",
-    control: form.control,
-    keyName: "_id",
-  });
-  const {
-    mutate: enroll,
-    data: enrolledData,
-    error,
-    isPending: isEnrolling,
-  } = useMutation(
-    _trpc.academics.entrollStudentToTerm.mutationOptions({
-      onSuccess(data, variables, onMutateResult, context) {
-        // onSuccess() {
-        const studentId = (variables as any).studentId;
-        const index = fields.findIndex((a) =>
-          a.matches?.some((s) => s.id === studentId)
-        );
-        const studentIndex = fields[index]?.matches?.findIndex(
-          (i) => i.id === studentId
-        );
-        update(index, {
-          ...fields[index],
-          status: "success",
-        });
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.index.infiniteQueryKey(),
-        });
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.analytics.queryKey(),
-        });
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.studentsRecentRecord.queryKey(),
-        });
-      },
-      meta: {
-        toastTitle: {
-          loading: "Enrolling...",
-          success: "Enrolled",
-          error: "Unable to complete!",
-        },
-      },
-    })
-  );
-  const { mutate: updateStudent, isPending: isUpdatingStudent } = useMutation(
-    _trpc.students.updateStudentBasicProfile.mutationOptions({
-      onSuccess(data, variables, onMutateResult, context) {
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.index.infiniteQueryKey(),
-        });
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.analytics.queryKey(),
-        });
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.studentsRecentRecord.queryKey(),
-        });
-      },
-      onError(error, variables, onMutateResult, context) {
-        console.log({
-          error,
-          variables,
-        });
-      },
-      meta: {
-        toastTitle: {
-          error: "Unable to complete",
-          loading: "Processing...",
-          success: "Done!.",
-        },
-      },
-    })
-  );
-  const { mutate: createStudent, isPending: isCreating } = useMutation(
-    _trpc.students.createStudent.mutationOptions({
-      onSuccess(data, variables, onMutateResult, context) {
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.index.infiniteQueryKey(),
-        });
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.studentsRecentRecord.queryKey(),
-        });
-      },
-      onError(error, variables, onMutateResult, context) {
-        console.log({
-          error,
-          variables,
-        });
-      },
-      meta: {
-        toastTitle: {
-          error: "Unable to complete",
-          loading: "Processing...",
-          success: "Done!.",
-        },
-      },
-    })
-  );
+  useEffect(() => {
+    if (activeTab === "matched" && matchedCount === 0) {
+      setActiveTab(readyRows.length > 0 ? "ready" : "attention");
+    }
+    if (activeTab === "attention" && attentionRows.length === 0) {
+      setActiveTab(matchedCount > 0 ? "matched" : "ready");
+    }
+  }, [activeTab, attentionRows.length, matchedCount, readyRows.length]);
 
   const {
     mutate: executeBatch,
@@ -312,94 +212,147 @@ export function ImportActivity({ classrooms, students }: Props) {
           error: "Import failed",
         },
       },
-    })
+    }),
   );
 
-  const [rowSelections, setRowSelections] = useState<
-    Record<
-      number,
-      {
-        action: "import_new" | "keep_match" | "update_match_with_name";
-        existingStudentId: string | null;
+  const setDecision = (
+    lineNumber: number,
+    decision: RowDecision | ((current: RowDecision) => RowDecision),
+  ) => {
+    setRowDecisions((current) => {
+      const previous = current[lineNumber] || {};
+      return {
+        ...current,
+        [lineNumber]:
+          typeof decision === "function" ? decision(previous) : decision,
+      };
+    });
+  };
+
+  const setAction = (row: VerifyResult, action: ImportAction) => {
+    setDecision(row.lineNumber, (current) => {
+      const needsExisting =
+        action === "keep_match" || action === "update_match_with_name";
+      const fallbackMatchId = row.fullMatch?.id || current.existingStudentId;
+
+      return {
+        action,
+        existingStudentId: needsExisting ? fallbackMatchId || null : null,
+        touched: true,
+      };
+    });
+  };
+
+  const setCandidate = (row: VerifyResult, candidateId: string) => {
+    setDecision(row.lineNumber, (current) => ({
+      action:
+        current.action === "update_match_with_name"
+          ? "update_match_with_name"
+          : "keep_match",
+      existingStudentId: candidateId,
+      touched: true,
+    }));
+  };
+
+  const applyBatch = (
+    target: "ready" | "exact" | "suspected",
+    action: ImportAction,
+  ) => {
+    const targetRows =
+      target === "ready"
+        ? readyRows
+        : target === "exact"
+          ? exactRows
+          : suspectedRows;
+
+    setRowDecisions((current) => {
+      const next = { ...current };
+
+      for (const row of targetRows) {
+        const existing = next[row.lineNumber];
+        if (existing?.touched) continue;
+
+        const needsExisting =
+          action === "keep_match" || action === "update_match_with_name";
+
+        next[row.lineNumber] = {
+          action,
+          existingStudentId: needsExisting ? row.fullMatch?.id || null : null,
+          touched: false,
+        };
       }
-    >
-  >({});
-  const [preSubmitError, setPreSubmitError] = useState<string | null>(null);
+
+      return next;
+    });
+  };
 
   const executeAll = () => {
     setPreSubmitError(null);
 
     if (!classroomDeptId) {
-      setPreSubmitError("Select a target classroom before executing the import.");
+      setPreSubmitError(
+        "Select a target classroom before executing the import.",
+      );
       return;
     }
 
-    const importRows: Array<{
-      lineNumber: number;
-      name: string;
-      surname: string;
-      otherName: string | null;
-      gender: "Male" | "Female";
-      action: "import_new" | "keep_match" | "update_match_with_name";
-      existingStudentId: string | null;
-    }> = [];
+    const importRows: ExecuteRow[] = [];
     const needsDecisionLines: number[] = [];
+    let skippedBeforeExecution = 0;
 
-    fields.forEach((activity, idx) => {
-      const selection = rowSelections[idx];
-      const gender =
-        activity.student.gender === "Female" || activity.student.gender === "F"
-          ? "Female"
-          : activity.student.gender === "Male" || activity.student.gender === "M"
-            ? "Male"
-            : null;
+    for (const row of rows) {
+      const decision = rowDecisions[row.lineNumber];
+      const action = decision?.action;
+      const gender = resolveGender(row, manualGenders[row.lineNumber]);
+      const needsExisting =
+        action === "keep_match" || action === "update_match_with_name";
 
       if (!gender) {
-        needsDecisionLines.push(idx + 1);
-        return;
+        needsDecisionLines.push(row.lineNumber);
+        continue;
       }
 
-      if (selection) {
-        importRows.push({
-          lineNumber: activity.student.lineNumber || idx + 1,
-          name: activity.student.name,
-          surname: activity.student.surname,
-          otherName: activity.student.otherName ?? null,
-          gender,
-          action: selection.action,
-          existingStudentId: selection.existingStudentId,
-        });
-        return;
+      if (!action) {
+        needsDecisionLines.push(row.lineNumber);
+        continue;
       }
 
-      const hasMatches = Boolean(activity.matches?.length || activity.partialMatches?.length);
-      if (!hasMatches) {
-        importRows.push({
-          lineNumber: activity.student.lineNumber || idx + 1,
-          name: activity.student.name,
-          surname: activity.student.surname,
-          otherName: activity.student.otherName ?? null,
-          gender,
-          action: "import_new",
-          existingStudentId: null,
-        });
-        return;
+      if (needsExisting && !decision?.existingStudentId) {
+        needsDecisionLines.push(row.lineNumber);
+        continue;
       }
 
-      needsDecisionLines.push(idx + 1);
-    });
+      if (action === "skip") {
+        skippedBeforeExecution += 1;
+        continue;
+      }
+
+      importRows.push({
+        lineNumber: row.lineNumber,
+        name: row.name,
+        surname: row.surname,
+        otherName: row.otherName ?? null,
+        gender,
+        action,
+        existingStudentId: decision?.existingStudentId || null,
+      });
+    }
 
     if (needsDecisionLines.length > 0) {
       setPreSubmitError(
         "Lines " +
           needsDecisionLines.join(", ") +
-          " need gender or an import action before execution."
+          " need gender, an import action, or a selected match before execution.",
       );
       return;
     }
 
     if (!importRows.length) {
-      setPreSubmitError("No rows to execute.");
+      setPreSubmitError(
+        skippedBeforeExecution
+          ? "All rows are marked Skip. Choose at least one row to execute."
+          : "No rows to execute.",
+      );
       return;
     }
 
@@ -409,48 +362,39 @@ export function ImportActivity({ classrooms, students }: Props) {
     });
   };
 
-  const opts = ["all", "imported", "conflict", "new"] as const;
-  const [show, setShow] = useState<(typeof opts)[number]>("all");
+  const selectedClassroom = records?.classDepartments?.find(
+    (classroom) => classroom.id === classroomDeptId,
+  );
+  const skippedBeforeExecution = rows.filter(
+    (row) => rowDecisions[row.lineNumber]?.action === "skip",
+  ).length;
 
   return (
-    <>
-      <div className="flex gap-4 pb-2 items-end">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Target Classroom</span>
+    <div className="flex max-h-[80vh] flex-col gap-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex min-w-64 flex-col gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Target Classroom
+          </span>
           <Select
             value={classroomDeptId}
-            onValueChange={(e) => {
-              setClassroomDeptId(e);
+            onValueChange={(value) => {
+              setClassroomDeptId(value);
             }}
           >
-            <Select.Trigger value={classroomDeptId} className="w-64 h-9">
-              <Select.Value placeholder="Select Classroom" />
+            <Select.Trigger value={classroomDeptId} className="h-9 w-72">
+              <Select.Value
+                placeholder={
+                  isRecentRecordsPending
+                    ? "Loading classrooms..."
+                    : "Select classroom"
+                }
+              />
             </Select.Trigger>
             <Select.Content className="max-h-60 overflow-y-auto">
-              {records?.classDepartments?.map((cd) => (
-                <Select.Item value={cd.id} key={cd.id}>
-                  {cd.classRoom.name} - {cd.departmentName}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Filter Status</span>
-          <Select
-            value={show}
-            onValueChange={(e) => {
-              setShow(e as (typeof opts)[number]);
-            }}
-          >
-            <Select.Trigger value={show} className="w-32 h-9">
-              <Select.Value />
-            </Select.Trigger>
-            <Select.Content>
-              {opts.map((o) => (
-                <Select.Item value={o} key={o}>
-                  {o}
+              {records?.classDepartments?.map((classroom) => (
+                <Select.Item value={classroom.id} key={classroom.id}>
+                  {classroom.classRoom.name} - {classroom.departmentName}
                 </Select.Item>
               ))}
             </Select.Content>
@@ -460,39 +404,71 @@ export function ImportActivity({ classrooms, students }: Props) {
         <Button
           variant="outline"
           onClick={() => {
-            refetch();
+            refetchRecentRecords();
             refetchVerification();
           }}
-          className="h-9 ml-auto"
+          className="h-9"
+          type="button"
         >
+          <RefreshCw className="mr-2 size-4" />
           Refresh
         </Button>
+
         <SubmitButton
           isSubmitting={isExecutingBatch}
           onClick={executeAll}
-          className="h-9"
+          className="ml-auto h-9"
           type="button"
         >
           Execute All
         </SubmitButton>
       </div>
 
-      {preSubmitError && (
-        <div className="mb-2 rounded border border-red-300 bg-red-50 p-2 text-xs text-red-700">
+      {selectedClassroom ? (
+        <div className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          Reviewing {rows.length || students.length} pasted row(s) for{" "}
+          <span className="font-medium text-foreground">
+            {selectedClassroom.classRoom.name} -{" "}
+            {selectedClassroom.departmentName}
+          </span>
+          {skippedBeforeExecution > 0 ? (
+            <span className="ml-2 text-amber-600">
+              {skippedBeforeExecution} row(s) marked Skip
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {preSubmitError ? (
+        <div className="rounded-md border border-red-300 bg-red-50 p-2 text-xs text-red-700">
           {preSubmitError}
         </div>
-      )}
-      {batchResult && (
-        <div className="mb-2 rounded border bg-muted/20 p-3 text-xs font-mono">
-          <div className="flex flex-wrap gap-4">
-            <span className="text-green-600">Created: {batchResult.createdStudents}</span>
-            <span className="text-blue-600">Kept: {batchResult.keptMatches}</span>
-            <span className="text-orange-600">Updated: {batchResult.updatedMatches}</span>
-            <span className="text-yellow-600">Term Sheets: {batchResult.termSheetsCreated}</span>
-            <span className="text-red-600">Failed: {batchResult.failedRows}</span>
+      ) : null}
+
+      {batchResult ? (
+        <div className="rounded-md border bg-muted/20 p-3 text-xs">
+          <div className="flex flex-wrap gap-3">
+            <span className="text-green-600">
+              Created: {batchResult.createdStudents}
+            </span>
+            <span className="text-blue-600">
+              Kept: {batchResult.keptMatches}
+            </span>
+            <span className="text-orange-600">
+              Updated: {batchResult.updatedMatches}
+            </span>
+            <span className="text-yellow-600">
+              Term Sheets: {batchResult.termSheetsCreated}
+            </span>
+            <span className="text-muted-foreground">
+              Skipped: {batchResult.skippedRows + skippedBeforeExecution}
+            </span>
+            <span className="text-red-600">
+              Failed: {batchResult.failedRows}
+            </span>
           </div>
-          {batchResult.rows.filter((row) => row.status === "failed").length > 0 && (
-            <div className="mt-1 text-red-600">
+          {batchResult.rows.some((row) => row.status === "failed") ? (
+            <div className="mt-2 space-y-1 text-red-600">
               {batchResult.rows
                 .filter((row) => row.status === "failed")
                 .map((row) => (
@@ -501,293 +477,548 @@ export function ImportActivity({ classrooms, students }: Props) {
                   </div>
                 ))}
             </div>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
 
       <Separator />
 
       {isVerifying ? (
-        <div className="flex flex-col items-center justify-center p-12 space-y-4 font-mono text-xs">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          <p className="text-muted-foreground animate-pulse">Running verification and match analysis...</p>
+        <div className="flex flex-col items-center justify-center gap-4 p-12 text-xs">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+          <p className="text-muted-foreground">
+            Running verification and match analysis...
+          </p>
         </div>
       ) : (
-        <div className="space-y-2 font-mono text-xs max-h-[50vh] overflow-y-auto pr-1">
-          {fields.length === 0 ? (
-            <div className="text-muted-foreground p-4 text-center">No activities yet</div>
-          ) : (
-            fields
-              ?.filter((a) => {
-                switch (show) {
-                  case "all":
-                    return true;
-                  case "conflict":
-                    return a.status == "conflict";
-                  case "new":
-                    return a.status == "ready";
-                  case "imported":
-                    return a.status == "success";
+        <Tabs.Root
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as any)}
+        >
+          <Tabs.List className="grid w-full grid-cols-3">
+            <Tabs.Trigger value="ready">
+              Ready to import ({readyRows.length})
+            </Tabs.Trigger>
+            <Tabs.Trigger value="matched">
+              Match Found ({matchedCount})
+            </Tabs.Trigger>
+            <Tabs.Trigger value="attention">
+              Needs attention ({attentionRows.length})
+            </Tabs.Trigger>
+          </Tabs.List>
+
+          <div className="mt-3 max-h-[56vh] overflow-y-auto pr-1">
+            <Tabs.Content value="ready" className="m-0 space-y-3">
+              <SectionHeader
+                title="Ready to import"
+                detail="Rows with no existing match and complete required fields."
+                action={
+                  readyRows.length > 0 ? (
+                    <Button
+                      size="sm"
+                      type="button"
+                      onClick={() => applyBatch("ready", "import_new")}
+                    >
+                      <Import className="mr-2 size-4" />
+                      Import all ready
+                    </Button>
+                  ) : null
                 }
-                return true;
-              })
-              .map((activity, idx) => (
-                <Collapsible
-                  className={cn(
-                    `rounded-lg border transition-all duration-200 ${statusColors[activity.status]} bg-card`
-                  )}
-                  key={activity._id}
-                >
-                  <Collapsible.Trigger className="flex w-full text-left p-3 hover:bg-muted/30 focus:outline-none transition-colors">
-                    <div className="flex w-full items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <span className="text-base flex-shrink-0">
-                          {statusIcon[activity.status]}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Arabic className="font-semibold text-sm">
-                              {studentDisplayName(activity.student)}
-                            </Arabic>
-                            <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">
-                              {activity.student.gender || "No Gender Specified"}
-                            </span>
-                            {activity.student.otherName && (
-                              <span className="text-[10px] text-muted-foreground font-normal">
-                                ({activity.student.otherName})
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground mt-0.5">
-                            Status: <span className="font-semibold uppercase">{activity.status}</span>
-                            {activity.matches?.length > 0 && ` | ${activity.matches.length} exact match(es)`}
-                            {activity.partialMatches?.length > 0 && ` | ${activity.partialMatches.length} suspected match(es)`}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-muted-foreground flex-shrink-0">
-                        Line {idx + 1}
-                      </span>
-                    </div>
-                  </Collapsible.Trigger>
+              />
+              <RowsList
+                emptyText="No rows are currently ready to import."
+                rows={readyRows}
+                rowDecisions={rowDecisions}
+                manualGenders={manualGenders}
+                onActionChange={setAction}
+                onCandidateChange={setCandidate}
+                onGenderChange={(lineNumber, gender) =>
+                  setManualGenders((current) => ({
+                    ...current,
+                    [lineNumber]: gender,
+                  }))
+                }
+              />
+            </Tabs.Content>
 
-                  <Collapsible.Content className="p-3 border-t border-dashed bg-muted/10 space-y-3">
-                    {/* Gender Selection & Inference Details */}
-                    {activity.needsGender && !activity.student.gender && (
-                      <div className="flex flex-col gap-1.5 bg-destructive/5 dark:bg-destructive/10 p-2.5 rounded border border-destructive/20">
-                        <span className="text-[10px] text-destructive font-bold uppercase">Gender Required</span>
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={activity.student.gender || ""}
-                            onValueChange={(val) => {
-                              const currentActivities = form.getValues("activities");
-                              currentActivities[idx].student.gender = val;
-                              currentActivities[idx].needsGender = false;
-                              form.reset({ activities: currentActivities });
-                            }}
-                          >
-                            <Select.Trigger className="h-8 text-[11px] w-32">
-                              <Select.Value placeholder="Select Gender" />
-                            </Select.Trigger>
-                            <Select.Content>
-                              <Select.Item value="Male">Male</Select.Item>
-                              <Select.Item value="Female">Female</Select.Item>
-                            </Select.Content>
-                          </Select>
-                          <span className="text-[10px] text-muted-foreground">Select a gender to proceed with import.</span>
-                        </div>
-                      </div>
-                    )}
+            <Tabs.Content value="matched" className="m-0 space-y-4">
+              <SectionHeader
+                title="Exact Matches"
+                detail="Name and surname match an existing student. Defaults apply only to untouched rows."
+                action={
+                  exactRows.length > 0 ? (
+                    <BatchActionSelect
+                      defaultValue="keep_match"
+                      onValueChange={(action) => applyBatch("exact", action)}
+                    />
+                  ) : null
+                }
+              />
+              <RowsList
+                emptyText="No exact matches found."
+                rows={exactRows}
+                rowDecisions={rowDecisions}
+                manualGenders={manualGenders}
+                onActionChange={setAction}
+                onCandidateChange={setCandidate}
+                onGenderChange={(lineNumber, gender) =>
+                  setManualGenders((current) => ({
+                    ...current,
+                    [lineNumber]: gender,
+                  }))
+                }
+              />
 
-                    {activity.inferredGender && (
-                      <div className="bg-emerald-50 dark:bg-emerald-950/20 p-2.5 rounded border border-emerald-200/50 flex flex-col gap-1">
-                        <span className="text-[10px] text-emerald-600 font-bold uppercase">Gender Inferred</span>
-                        <span className="text-xs">
-                          Inferred as <span className="font-semibold">{activity.inferredGender}</span>
-                          {activity.genderInferenceDetails && (
-                            <span className="text-muted-foreground font-normal ml-1 text-[10px]">
-                              (confidence: {activity.genderInferenceDetails.confidence}%, samples: {activity.genderInferenceDetails.sampleSize})
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    )}
+              <SectionHeader
+                title="Possible Matches"
+                detail="Suspected typo or partial-name matches. Keep/update requires a selected candidate; Import new and Skip do not."
+                action={
+                  suspectedRows.length > 0 ? (
+                    <BatchActionSelect
+                      placeholder="Set default"
+                      onValueChange={(action) =>
+                        applyBatch("suspected", action)
+                      }
+                    />
+                  ) : null
+                }
+              />
+              <RowsList
+                emptyText="No possible matches found."
+                rows={suspectedRows}
+                rowDecisions={rowDecisions}
+                manualGenders={manualGenders}
+                onActionChange={setAction}
+                onCandidateChange={setCandidate}
+                onGenderChange={(lineNumber, gender) =>
+                  setManualGenders((current) => ({
+                    ...current,
+                    [lineNumber]: gender,
+                  }))
+                }
+              />
+            </Tabs.Content>
 
-                    {/* Exact Matches (Enrolling) */}
-                    {activity.matches && activity.matches.length > 0 && (
-                      <div className="space-y-1.5">
-                        <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider block">Exact Matching Student Found</span>
-                        <Item.Group dir="rtl" className="w-full">
-                          {activity.matches.map((m, mi) => (
-                            <Item variant="muted" key={mi} className="w-full flex items-center justify-between p-2 rounded bg-background/50 border">
-                              <div className="flex flex-col gap-0.5 text-right flex-1">
-                                <span className="font-semibold text-xs">{studentDisplayName(m)}</span>
-                                <span className="text-[9px] text-muted-foreground">
-                                  Classroom: {m.classRoom || "No Classroom"} | Term: {m.termName || "None"} ({m.sessionName || "No Session"})
-                                </span>
-                              </div>
-                              <Item.Actions className="flex items-center gap-2">
-                                <span className="text-[10px] text-emerald-600 font-semibold px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 rounded border border-emerald-200">
-                                  {m.isCurrentTermMatch && m.isCurrentClassroomMatch ? "Enrolled" : "Existing"}
-                                </span>
-                                <Button
-                                  variant={
-                                    rowSelections[idx]?.action === "keep_match" &&
-                                    rowSelections[idx]?.existingStudentId === m.id
-                                      ? "default"
-                                      : "outline"
-                                  }
-                                  size="sm"
-                                  className="h-7 text-[10px] px-2.5"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setRowSelections((prev) => ({
-                                      ...prev,
-                                      [idx]: { action: "keep_match", existingStudentId: m.id },
-                                    }));
-                                  }}
-                                >
-                                  Keep Match
-                                </Button>
-                                {(!m.isCurrentTermMatch || !m.isCurrentClassroomMatch) && (
-                                  <SubmitButton
-                                    variant="outline"
-                                    size="sm"
-                                    isSubmitting={isEnrolling}
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      const enrollData = {
-                                        classroomDepartmentId: classroomDeptId,
-                                        schoolSessionId: records.schoolSessionId,
-                                        sessionTermId: records.sessionTermId,
-                                        studentId: m.id,
-                                        studentSessionFormId: m.studentSessionFormId,
-                                      } as RouterInputs["academics"]["entrollStudentToTerm"];
-                                      enroll(enrollData);
-                                    }}
-                                    type="button"
-                                    className="h-7 text-[10px] px-2.5"
-                                  >
-                                    <Check className="size-3 mr-1" /> Enroll in this Classroom & Term
-                                  </SubmitButton>
-                                )}
-                              </Item.Actions>
-                            </Item>
-                          ))}
-                        </Item.Group>
-                      </div>
-                    )}
-
-                    {/* Suspected Matches (Update / Link) */}
-                    {activity.partialMatches && activity.partialMatches.length > 0 && (
-                      <div className="space-y-1.5 border-t border-dashed pt-2">
-                        <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider block">Suspected Existing Students (Typos / Close Matches)</span>
-                        <div className="space-y-1.5">
-                          {activity.partialMatches.map((a, pIdx) => (
-                            <div key={pIdx} className="flex items-center justify-between bg-background/50 p-2 rounded border border-amber-200/30">
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-xs font-semibold">{studentDisplayName(a)}</span>
-                                <span className="text-[9px] text-muted-foreground">
-                                  Classroom: {a.classRoom || "No classroom"} | Confidence: <span className="font-semibold">{a.confidence}%</span>
-                                  {a.reason && ` - ${a.reason}`}
-                                </span>
-                              </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-[10px] px-2.5"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setRowSelections((prev) => ({
-                                    ...prev,
-                                    [idx]: {
-                                      action: "update_match_with_name",
-                                      existingStudentId: a.id,
-                                    },
-                                  }));
-                                }}
-                              >
-                                Select Update Match
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Import As New Button */}
-                    {activity.status === "ready" && (
-                      <div className="border-t border-dashed pt-2 flex items-center justify-between">
-                        <span className="text-[10px] text-muted-foreground">This student name does not match any existing record.</span>
-                        <Button
-                          disabled={activity.needsGender && !activity.student.gender}
-                          onClick={(e) => {
-                            const student = activity.student;
-                            e.preventDefault();
-                            setRowSelections((prev) => ({
-                              ...prev,
-                              [idx]: { action: "import_new", existingStudentId: null },
-                            }));
-                          }}
-                          className="h-8 text-[11px] px-3"
-                        >
-                          <Import className="size-3.5 mr-1" /> Select Import as New
-                        </Button>
-                      </div>
-                    )}
-                  </Collapsible.Content>
-                </Collapsible>
-              ))
-          )}
-        </div>
+            <Tabs.Content value="attention" className="m-0 space-y-3">
+              <SectionHeader
+                title="Needs attention"
+                detail="Rows that need manual gender or another required field before import."
+              />
+              <RowsList
+                emptyText="No rows need manual attention."
+                rows={attentionRows}
+                rowDecisions={rowDecisions}
+                manualGenders={manualGenders}
+                onActionChange={setAction}
+                onCandidateChange={setCandidate}
+                onGenderChange={(lineNumber, gender) =>
+                  setManualGenders((current) => ({
+                    ...current,
+                    [lineNumber]: gender,
+                  }))
+                }
+              />
+            </Tabs.Content>
+          </div>
+        </Tabs.Root>
       )}
-    </>
+    </div>
   );
 }
-const statusColors: Record<string, string> = {
-  ready: "text-blue-600",
-  pending: "text-yellow-600",
-  success: "text-green-600",
-  conflict: "text-orange-600",
-  error: "text-red-600",
-};
-const statusIcon: Record<string, string> = {
-  ready: "○",
-  pending: "⏳",
-  success: "✓",
-  conflict: "⚠",
-  error: "✕",
-};
-function normalizeArabic(str) {
+
+function SectionHeader({
+  title,
+  detail,
+  action,
+}: {
+  title: string;
+  detail: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/20 p-2">
+      <div>
+        <h3 className="text-sm font-semibold">{title}</h3>
+        <p className="text-xs text-muted-foreground">{detail}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function BatchActionSelect({
+  defaultValue,
+  placeholder = "Default action",
+  onValueChange,
+}: {
+  defaultValue?: ImportAction;
+  placeholder?: string;
+  onValueChange: (action: ImportAction) => void;
+}) {
+  return (
+    <Select
+      defaultValue={defaultValue}
+      onValueChange={(value) => onValueChange(value as ImportAction)}
+    >
+      <Select.Trigger className="h-8 w-48 bg-background text-xs">
+        <Select.Value placeholder={placeholder} />
+      </Select.Trigger>
+      <Select.Content>
+        <Select.Item value="keep_match">Keep match</Select.Item>
+        <Select.Item value="update_match_with_name">
+          Update match with name
+        </Select.Item>
+        <Select.Item value="import_new">Import new</Select.Item>
+        <Select.Item value="skip">Skip</Select.Item>
+      </Select.Content>
+    </Select>
+  );
+}
+
+function RowsList({
+  emptyText,
+  rows,
+  rowDecisions,
+  manualGenders,
+  onActionChange,
+  onCandidateChange,
+  onGenderChange,
+}: {
+  emptyText: string;
+  rows: VerifyResult[];
+  rowDecisions: Record<number, RowDecision>;
+  manualGenders: Record<number, "Male" | "Female">;
+  onActionChange: (row: VerifyResult, action: ImportAction) => void;
+  onCandidateChange: (row: VerifyResult, candidateId: string) => void;
+  onGenderChange: (lineNumber: number, gender: "Male" | "Female") => void;
+}) {
+  if (!rows.length) {
+    return (
+      <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
+        {emptyText}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {rows.map((row) => (
+        <RowCard
+          key={row.lineNumber}
+          row={row}
+          decision={rowDecisions[row.lineNumber]}
+          manualGender={manualGenders[row.lineNumber]}
+          onActionChange={onActionChange}
+          onCandidateChange={onCandidateChange}
+          onGenderChange={onGenderChange}
+        />
+      ))}
+    </div>
+  );
+}
+
+function RowCard({
+  row,
+  decision,
+  manualGender,
+  onActionChange,
+  onCandidateChange,
+  onGenderChange,
+}: {
+  row: VerifyResult;
+  decision?: RowDecision;
+  manualGender?: "Male" | "Female";
+  onActionChange: (row: VerifyResult, action: ImportAction) => void;
+  onCandidateChange: (row: VerifyResult, candidateId: string) => void;
+  onGenderChange: (lineNumber: number, gender: "Male" | "Female") => void;
+}) {
+  const candidates = useMemo(() => getCandidates(row), [row]);
+  const action = decision?.action;
+  const resolvedGender = resolveGender(row, manualGender);
+  const needsExistingMatch =
+    (action === "keep_match" || action === "update_match_with_name") &&
+    !decision?.existingStudentId;
+  const needsResolution = !action;
+  const needsGender = !resolvedGender;
+  const isBlocked = needsGender || needsResolution || needsExistingMatch;
+  const matchKind = row.fullMatch
+    ? "Exact match"
+    : row.suspectedMatches.length > 0
+      ? "Possible match"
+      : "No match";
+
+  return (
+    <div
+      className={cn(
+        "rounded-md border bg-card p-3 text-xs",
+        isBlocked
+          ? "border-red-300 bg-red-50/50 dark:bg-red-950/20"
+          : "border-border",
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">Line {row.lineNumber}</Badge>
+            <Badge
+              variant={
+                row.fullMatch
+                  ? "success"
+                  : row.suspectedMatches.length
+                    ? "warning"
+                    : "secondary"
+              }
+            >
+              {matchKind}
+            </Badge>
+            {isBlocked ? (
+              <span className="inline-flex items-center gap-1 text-red-600">
+                <AlertCircle className="size-3.5" />
+                Action required
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-green-600">
+                <CheckCircle2 className="size-3.5" />
+                Ready
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-muted-foreground">Original:</span>
+              <Arabic className="font-semibold">{row.originalText}</Arabic>
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+              <Arabic>
+                Parsed: {row.name} {row.surname} {row.otherName || ""}
+              </Arabic>
+              <span>
+                Gender:{" "}
+                {resolvedGender ? (
+                  <span className="font-medium text-foreground">
+                    {resolvedGender}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-orange-600">
+                    <AlertTriangle className="size-3" />
+                    Missing
+                  </span>
+                )}
+              </span>
+              {row.inferredGender ? (
+                <span>
+                  Inferred from existing names
+                  {row.genderInferenceDetails
+                    ? ` (${row.genderInferenceDetails.confidence}%, ${row.genderInferenceDetails.sampleSize} samples)`
+                    : ""}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {needsGender ? (
+            <Select
+              value={manualGender || ""}
+              onValueChange={(value) =>
+                onGenderChange(row.lineNumber, value as "Male" | "Female")
+              }
+            >
+              <Select.Trigger className="h-8 w-32 bg-background text-xs">
+                <Select.Value placeholder="Gender" />
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Item value="Male">Male</Select.Item>
+                <Select.Item value="Female">Female</Select.Item>
+              </Select.Content>
+            </Select>
+          ) : null}
+
+          <Select
+            value={action || ""}
+            onValueChange={(value) =>
+              onActionChange(row, value as ImportAction)
+            }
+          >
+            <Select.Trigger className="h-8 w-48 bg-background text-xs">
+              <Select.Value placeholder="Select action" />
+            </Select.Trigger>
+            <Select.Content>
+              <Select.Item value="import_new">Import new</Select.Item>
+              <Select.Item value="keep_match" disabled={!candidates.length}>
+                Keep match
+              </Select.Item>
+              <Select.Item
+                value="update_match_with_name"
+                disabled={!candidates.length}
+              >
+                Update match with name
+              </Select.Item>
+              <Select.Item value="skip">Skip</Select.Item>
+            </Select.Content>
+          </Select>
+        </div>
+      </div>
+
+      {candidates.length > 0 ? (
+        <div className="mt-3 rounded-md border bg-muted/20 p-2">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="font-semibold text-muted-foreground">
+              Match candidates
+            </span>
+            {needsExistingMatch ? (
+              <span className="text-red-600">
+                Select a candidate for {actionLabels[action!]}
+              </span>
+            ) : null}
+          </div>
+          <div className="grid gap-2">
+            {candidates.map((candidate) => (
+              <CandidateCard
+                key={candidate.id}
+                candidate={candidate}
+                selected={decision?.existingStudentId === candidate.id}
+                onSelect={() => onCandidateChange(row, candidate.id)}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CandidateCard({
+  candidate,
+  selected,
+  onSelect,
+}: {
+  candidate: MatchCandidate;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "grid w-full gap-2 rounded-md border bg-background p-3 text-left transition-colors hover:bg-muted/60 sm:grid-cols-[1fr_auto]",
+        selected ? "border-primary ring-1 ring-primary" : "border-border",
+      )}
+    >
+      <div className="min-w-0 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={cn(
+              "flex size-4 shrink-0 items-center justify-center rounded-full border",
+              selected ? "border-primary" : "border-muted-foreground",
+            )}
+          >
+            {selected ? (
+              <span className="size-2 rounded-full bg-primary" />
+            ) : null}
+          </span>
+          <Arabic className="font-semibold">
+            {studentDisplayName(candidate)}
+          </Arabic>
+          <span className="text-[10px] text-muted-foreground">
+            ID {candidate.id.slice(0, 8)}
+          </span>
+        </div>
+        <div className="grid gap-1 text-[10px] text-muted-foreground sm:grid-cols-2">
+          <span>Gender: {candidate.gender || "N/A"}</span>
+          <Arabic>Class: {candidate.classRoom || "No classroom"}</Arabic>
+          <span>Session: {candidate.sessionName || "No session"}</span>
+          <span>Term: {candidate.termName || "No term"}</span>
+        </div>
+        {candidate.reason ? (
+          <p className="text-[10px] text-muted-foreground">
+            {candidate.reason}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+        <Badge variant={candidate.confidence === 100 ? "success" : "warning"}>
+          {candidate.confidence}% confidence
+        </Badge>
+        <Badge
+          variant={candidate.isCurrentTermMatch ? "success" : "outline"}
+          className="whitespace-nowrap"
+        >
+          {candidate.isCurrentTermMatch
+            ? "Term sheet exists"
+            : "No current term"}
+        </Badge>
+        <Badge
+          variant={candidate.isCurrentClassroomMatch ? "success" : "outline"}
+          className="whitespace-nowrap"
+        >
+          {candidate.isCurrentClassroomMatch
+            ? "Same classroom"
+            : "Different class"}
+        </Badge>
+      </div>
+    </button>
+  );
+}
+
+function getCandidates(row: VerifyResult): MatchCandidate[] {
+  const candidates = [
+    ...(row.fullMatch ? [row.fullMatch] : []),
+    ...row.suspectedMatches,
+  ];
+  const seen = new Set<string>();
+
+  return candidates.filter((candidate) => {
+    if (seen.has(candidate.id)) return false;
+    seen.add(candidate.id);
+    return true;
+  });
+}
+
+function resolveGender(
+  row: VerifyResult,
+  manualGender?: "Male" | "Female",
+): "Male" | "Female" | null {
+  const gender = manualGender || row.inferredGender || row.inputGender;
+
+  if (gender === "Male" || gender === "M") return "Male";
+  if (gender === "Female" || gender === "F") return "Female";
+
+  return null;
+}
+
+function normalizeArabic(str: string | undefined | null) {
   if (!str) return "";
 
-  // remove tashkeel / diacritics and other mark ranges
-  // common ranges: \u064B-\u065F (harakat + tashkeel), \u0610-\u061A, \u06D6-\u06ED (extended marks)
-  // also remove tatweel (ـ)
   str = str
     .normalize("NFC")
     .replace(
       /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u08D3-\u08FF\u0640]/g,
-      ""
+      "",
     );
 
-  // normalize common letter variants
-  const map = {
+  const map: Record<string, string> = {
     أ: "ا",
     إ: "ا",
     آ: "ا",
     ٱ: "ا",
     ى: "ي",
-    ئ: "ي", // optional: sometimes map hamza-y to ي
-    ؤ: "و", // optional: map hamza-w to و
-    ة: "ه", // optional: map ta marbuta to ه (use only if you want this)
+    ئ: "ي",
+    ؤ: "و",
+    ة: "ه",
   };
 
   str = str.replace(/[\u0621-\u06D3\u06FA-\u06FF]/g, (ch) => map[ch] || ch);
 
-  // trim & collapse spaces
   return str.replace(/\s+/g, " ").trim();
 }
-function compareArabic(a, b) {
+
+function compareArabic(
+  a: string | undefined | null,
+  b: string | undefined | null,
+) {
   return normalizeArabic(a) === normalizeArabic(b);
 }

@@ -67,6 +67,7 @@ Tracks tasks currently being worked on.
 - Owner: Codex
 
 ### Admin Empty Classroom Report Spreadsheet Print
+
 - Priority: Medium
 - Description: Track plan in `brain/plans/2026-06-12-feature-admin-empty-classroom-report-spreadsheet-print.md`.
 - Related Feature: assessment results and manual report records
@@ -76,11 +77,3 @@ Tracks tasks currently being worked on.
 - Intake File: brain/intake/2026-06-12-classroom-report-sheet-access-and-empty-print.md
 - Handoff File: brain/handoffs/ready/2026-06-12-admin-empty-classroom-report-spreadsheet-print-handoff.md
 - Started Date: 2026-06-12
-
-## Task Item
-- ID: STUD-IMP-003
-- Title: Student Import Review And Resolution UI
-- Started: 2026-06-12
-- Current status: Reviewed with fix request. Queue item at `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-student-import-review-and-resolution-ui.json`.
-- Blockers: Needs implementation fixes for batch defaults, complete per-candidate metadata, and final student-import feature documentation before approval.
-- Owner: antigravity
