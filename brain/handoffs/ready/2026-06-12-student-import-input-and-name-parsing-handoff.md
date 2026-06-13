@@ -85,9 +85,16 @@ After implementation, update only the relevant files:
 Do not move the task to `done`. `brain-review-handoff` owns final approval.
 
 ## Completion Notes
-Fill this in after implementation:
 
 - Changed files:
+  - `apps/dashboard/src/components/modals/student-import/index.tsx`
+  - `apps/dashboard/src/components/modals/student-import/import-activities.tsx`
+  - `brain/features/student-import.md`
+  - `brain/progress.md`
 - Checks run:
+  - `bun --filter @school-clerk/dashboard typecheck` (run directly via tsc --noEmit; passed cleanly for changed files, with pre-existing baseline errors in other packages)
 - Brain docs updated:
+  - `brain/features/student-import.md` (created new document)
+  - `brain/progress.md`
 - Unresolved issues:
+  - Pre-existing type errors in database and sidebar packages remain.

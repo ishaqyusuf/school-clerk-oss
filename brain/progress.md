@@ -1,5 +1,34 @@
 # Progress
 
+## Student Import Input And Name Parsing (2026-06-12)
+
+### Completed
+- Redesigned the student import modal interface to include a Target Classroom department selector and an optional Global Gender selector.
+- Replaced the comma-based parsing rule with a robust deterministic parser that splits name tokens into `name`, `surname`, and `otherName` while identifying explicit row gender and global gender fallbacks.
+- Provided real-time UI validation and warning feedback (line numbers, missing surnames, unrecognized genders) directly below the data entry area.
+- Gated the form submission to require a target classroom selection before proceeding to the verification activity.
+- Preserved existing raw text local storage persistence.
+- Prevented silent defaulting of missing gender values to `Female` inside the matched student resolution logic.
+
+### Changed Files
+- `apps/dashboard/src/components/modals/student-import/index.tsx`
+- `apps/dashboard/src/components/modals/student-import/import-activities.tsx`
+- `brain/features/student-import.md`
+
+### Verification
+- Ran TypeScript compile checks for the dashboard application (`bun --filter @school-clerk/dashboard typecheck` and direct tsc compilation).
+
+### Fix 1 (2026-06-12) — Input & Name Parsing Compilation and Data Flow
+- Fixed TS compilation error by correctly referencing `activity.student.gender` inside `import-activities.tsx`.
+- Extended the student schema to carry `classroomDepartmentId` from the input select, mapping the created activity directly to the classroom without brittle display-name matching.
+- Changed the empty global gender dropdown value to `"unset"`.
+- Preserved missing gender logic, sending `undefined` in updates rather than silently mapping to `"Female"`.
+- Reverted unrelated Brain API doc edits.
+
+### Fix 2 (2026-06-13) — Formatting & Schema Documentation
+- Removed trailing blank line at EOF in `index.tsx` so `git diff --check` passes cleanly.
+- Explicitly documented in `brain/features/student-import.md` that `student.gender` acts as the canonical effective input gender, while `student.parsedGender` retains the exact row-level value.
+
 ## Admin Empty Classroom Report Spreadsheet Print (2026-06-12)
 
 ### Completed
