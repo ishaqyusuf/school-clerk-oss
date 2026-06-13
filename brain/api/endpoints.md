@@ -96,13 +96,16 @@ Catalog of API routes and responsibilities.
 - `POST /api/chat/feedback`
 
 ## Router Ownership Map
-- `trpc.students.*`: student listing, detail, overview, and student-centric workflows
+- `trpc.students.*`: student listing, detail, overview, student-centric workflows, and **student import** (`createStudent`, `updateStudentBasicProfile`, `executeStudentImport`)
 - `trpc.classrooms.*`: classroom lists, overview, and classroom-scoped actions
-- `trpc.academics.*`: academic session, term, enrollment, and promotion flows
+- `trpc.academics.*`: academic session, term, enrollment, and promotion flows (includes `entrollStudentToTerm` used during import workflow)
 - `trpc.transactions.*`: fee definitions, fee imports, and other transaction-oriented finance writes
-- `trpc.finance.*`: streams, bills, payroll, receive-payment, and finance reporting workflows
+- `trpc.finance.*`: streams, bills, payroll, receive-payment, and finance reporting workflows (includes fee-application logic triggered by import term-sheet creation)
 - `trpc.attendance.*`: classroom attendance capture and student attendance history
 - `trpc.staff.*`: staff list/form data and staff-management APIs
 - `trpc.notifications.*`: notification list/read/count actions
 - `trpc.subjects.*`, `trpc.enrollments.*`, `trpc.assessments.*`, `trpc.filters.*`, `trpc.auth.*`: domain-specific supporting routers
 - `app/api/chat/*`: dashboard AI chat execution, single-chat bootstrap, settings, analytics, and feedback surfaces
+
+### Student Import
+- `trpc.students.executeStudentImport`: batch mutation applying import-new, keep-match, and update-match-with-name actions. Creates students and term sheets idempotently, validates classroom/session ancestry, applies fee histories.

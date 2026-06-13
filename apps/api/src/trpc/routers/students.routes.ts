@@ -21,6 +21,8 @@ import {
   changeStudentGender,
   verifyStudentImportSchema,
   verifyStudentImport,
+  executeStudentImportSchema,
+  executeStudentImport,
 } from "../../db/queries/students";
 import {
   getStudentOverviewSchema,
@@ -71,6 +73,11 @@ export const studentsRouter = createTRPCRouter({
     .input(changeStudentGenderSchema)
     .mutation(async (props) => {
       return changeStudentGender(props.ctx, props.input);
+    }),
+  executeStudentImport: publicProcedure
+    .input(executeStudentImportSchema)
+    .mutation(async (props) => {
+      return executeStudentImport(props.ctx, props.input);
     }),
   analytics: publicProcedure
     .input(studentsAnalyticsSchema)

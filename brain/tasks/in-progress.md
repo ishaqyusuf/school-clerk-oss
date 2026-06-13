@@ -89,7 +89,7 @@ Tracks tasks currently being worked on.
 - ID: STUD-IMP-002
 - Title: Student Import Verification And Matching Service
 - Started: 2026-06-12
-- Current status: Approved by review and being landed into `main`; queue item at `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-student-import-verification-and-matching-service.json`.
+- Current status: Approved by review and landed into `main`; queue item at `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-student-import-verification-and-matching-service.json`.
 - Blockers: None.
 - Owner: open-code
 
@@ -105,6 +105,6 @@ Tracks tasks currently being worked on.
 - ID: STUD-IMP-004
 - Title: Student Import Execution And Term Sheet Creation
 - Started: 2026-06-12
-- Current status: Approved and queued for implementation. Handoff created at `brain/handoffs/ready/2026-06-12-student-import-execution-and-term-sheet-creation-handoff.md`; queue item at `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-student-import-execution-and-term-sheet-creation.json`.
+- Current status: Approved by review and landed into `main`; queue item at `/Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-12-school-clerk-student-import-execution-and-term-sheet-creation.json`.
 - Blockers: None.
 - Owner: open-code

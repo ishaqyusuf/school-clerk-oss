@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Allow school operators to import multiple students from pasted text data, assign the batch to one active-session classroom, verify rows against existing records, surface matches or suspected typo matches, and resolve gender before import/enrollment.
+Allow school operators to import multiple students from pasted text data, assign the batch to one active-session classroom, verify rows against existing records, surface matches or suspected typo matches, resolve gender, and execute selected import/enrollment actions safely.
 
 ## User Flow
 
@@ -14,7 +14,10 @@ Allow school operators to import multiple students from pasted text data, assign
 2. **Verification & Matching**:
    - The parsed batch is verified against existing records to detect conflicts, duplicates, suspected typo matches, and missing gender.
 3. **Review & Resolution**:
-   - The user resolves warnings or conflicts before executing the import.
+   - The user chooses per-row actions for matches or suspected matches.
+4. **Execution**:
+   - The batch mutation creates new students, keeps existing matches, or updates matched names.
+   - Session and term sheets are created idempotently for the active classroom/session/term.
 
 ## Input Parsing Contract
 
@@ -101,16 +104,83 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 | `confidence` | Match confidence, 0-100 |
 | `reason` | Human-readable match reason |
 
-## API Endpoint
+## Batch Execution
+
+### Endpoint
 
 - `trpc.students.verifyStudentImport`: single-query batch verification with classroom scoping, edit-distance matching, and gender inference.
+- `trpc.students.executeStudentImport`: batch mutation for row-level import decisions.
+
+### Execute Input Schema
+
+```ts
+{
+  classroomDepartmentId: string;
+  rows: {
+    lineNumber: number;
+    name: string;
+    surname: string;
+    otherName?: string | null;
+    gender: "Male" | "Female";
+    action: "import_new" | "keep_match" | "update_match_with_name";
+    existingStudentId?: string | null;
+  }[];
+}
+```
+
+### Execute Result Schema
+
+```ts
+{
+  createdStudents: number;
+  keptMatches: number;
+  updatedMatches: number;
+  termSheetsCreated: number;
+  skippedRows: number;
+  failedRows: number;
+  rows: {
+    lineNumber: number;
+    action: string;
+    status: "created" | "kept" | "updated" | "skipped" | "failed";
+    studentId?: string | null;
+    termSheetCreated?: boolean;
+    reason?: string;
+  }[];
+}
+```
+
+### Row Actions
+
+| Action | Behavior |
+|--------|----------|
+| `import_new` | Creates a new `Students` record with `StudentSessionForm` and `StudentTermForm`. Applies fee histories. |
+| `keep_match` | Validates the existing student exists in the tenant. Creates session/term forms idempotently if missing. Does not modify student identity. |
+| `update_match_with_name` | Updates matched student's name/surname/otherName, then acts like `keep_match` for forms. |
+
+### Term Sheet Creation
+
+- Checks for any non-deleted `StudentTermForm` for the same student, active session, and active term.
+- If one exists in the same classroom, it is reused without duplicate creation.
+- If one exists in a different classroom, the row fails with the conflicting classroom name.
+- If none exists, the system creates `StudentSessionForm` when needed, then creates `StudentTermForm`, then applies fee histories.
+
+### Dashboard Invalidation
+
+After successful execution, the dashboard invalidates:
+
+- `students.index`
+- `students.analytics`
+- `students.studentsRecentRecord`
+- `classrooms.all`
+
+Report-sheet and finance query keys are parameterized per classroom/student and refresh on navigation. See `brain/api/contracts.md` for the full invalidation notes.
 
 ## Files
 
-- `apps/api/src/db/queries/students.ts`: `verifyStudentImport` and student import execution functions.
+- `apps/api/src/db/queries/students.ts`: `verifyStudentImport`, `executeStudentImport`, and student import helpers.
 - `apps/api/src/trpc/routers/students.routes.ts`: tRPC wiring.
 - `apps/dashboard/src/components/modals/student-import/index.tsx`: input parsing and classroom/global gender start screen.
-- `apps/dashboard/src/components/modals/student-import/import-activities.tsx`: review and resolution UI.
+- `apps/dashboard/src/components/modals/student-import/import-activities.tsx`: review, resolution, and execution UI.
 
 ## Implementation Plans
 
@@ -118,3 +188,9 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 - `brain/plans/2026-06-12-feature-student-import-verification-and-matching-service.md`
 - `brain/plans/2026-06-12-feature-student-import-review-and-resolution-ui.md`
 - `brain/plans/2026-06-12-feature-student-import-execution-and-term-sheet-creation.md`
+
+## Brain Docs To Keep Updated
+
+- `brain/api/contracts.md`
+- `brain/api/endpoints.md`
+- `brain/database/relationships.md`

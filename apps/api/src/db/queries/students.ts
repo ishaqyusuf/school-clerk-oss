@@ -1099,19 +1099,19 @@ function levenshteinDistance(s1: string, s2: string): number {
   const track: number[][] = Array(s2.length + 1)
     .fill(undefined)
     .map(() => Array(s1.length + 1).fill(0) as number[]);
-  for (let i = 0; i <= s1.length; i += 1) track[0][i] = i;
-  for (let j = 0; j <= s2.length; j += 1) track[j][0] = j;
+  for (let i = 0; i <= s1.length; i += 1) track[0]![i] = i;
+  for (let j = 0; j <= s2.length; j += 1) track[j]![0] = j;
   for (let j = 1; j <= s2.length; j += 1) {
     for (let i = 1; i <= s1.length; i += 1) {
       const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
-      track[j][i] = Math.min(
-        track[j][i - 1] + 1,
-        track[j - 1][i] + 1,
-        track[j - 1][i - 1] + indicator
+      track[j]![i] = Math.min(
+        track[j]![i - 1]! + 1,
+        track[j - 1]![i]! + 1,
+        track[j - 1]![i - 1]! + indicator
       );
     }
   }
-  return track[s2.length][s1.length];
+  return track[s2.length]![s1.length]!;
 }
 
 export const verifyStudentImportSchema = z.object({
@@ -1186,7 +1186,7 @@ export async function verifyStudentImport(
           schoolSession: {
             select: {
               id: true,
-              name: true,
+              title: true,
             },
           },
           classroomDepartment: {
@@ -1214,7 +1214,44 @@ export async function verifyStudentImport(
     genderFreq.set(normName, counts);
   }
 
-  const results = [];
+  const results: Array<{
+    lineNumber: number;
+    originalText: string;
+    name: string;
+    surname: string;
+    otherName: string | null;
+    inputGender: string | null;
+    inferredGender: "Male" | "Female" | null;
+    genderInferenceDetails: {
+      confidence: number;
+      sampleSize: number;
+      source: string;
+    } | null;
+    needsGender: boolean;
+    status: "readyToImport" | "matchFound" | "needsAttention";
+    fullMatch: MatchMeta | null;
+    suspectedMatches: MatchMeta[];
+  }> = [];
+
+  interface MatchMeta {
+    id: string;
+    name: string;
+    surname: string | null;
+    otherName: string | null;
+    gender: string | null;
+    classRoom: string | null;
+    classroomDepartmentId: string | null;
+    studentSessionFormId: string | null;
+    studentTermFormId: string | null;
+    termId: string | null;
+    termName: string | null;
+    sessionId: string | null;
+    sessionName: string | null;
+    isCurrentTermMatch: boolean;
+    isCurrentClassroomMatch: boolean;
+    confidence: number;
+    reason: string;
+  }
 
   for (const row of input.rows) {
     const inputGender: string | null = (row.gender || null) as string | null;
@@ -1257,31 +1294,12 @@ export async function verifyStudentImport(
     }
 
     // Matching comparison
-    interface MatchMeta {
-      id: string;
-      name: string;
-      surname: string | null;
-      otherName: string | null;
-      gender: string | null;
-      classRoom: string | null;
-      classroomDepartmentId: string | null;
-      studentSessionFormId: string | null;
-      studentTermFormId: string | null;
-      termId: string | null;
-      termName: string | null;
-      sessionId: string | null;
-      sessionName: string | null;
-      isCurrentTermMatch: boolean;
-      isCurrentClassroomMatch: boolean;
-      confidence: number;
-      reason: string;
-    }
     let fullMatch: MatchMeta | null = null;
     const suspectedMatches: MatchMeta[] = [];
 
     for (const candidate of existingStudents) {
       const normCandName = normalizeName(candidate.name);
-      const normCandSurname = normalizeName(candidate.surname);
+      const normCandSurname = normalizeName(candidate.surname ?? "");
       const normRowName = normalizeName(row.name);
       const normRowSurname = normalizeName(row.surname);
 
@@ -1336,7 +1354,7 @@ export async function verifyStudentImport(
           termId: currentTermSheet?.sessionTermId || null,
           termName: currentTermSheet?.sessionTerm?.title || null,
           sessionId: currentTermSheet?.schoolSessionId || null,
-          sessionName: currentTermSheet?.schoolSession?.name || null,
+          sessionName: currentTermSheet?.schoolSession?.title || null,
           isCurrentTermMatch: activeTermSheet?.sessionTermId === sessionTermId,
           isCurrentClassroomMatch: activeTermSheet?.classroomDepartmentId === input.classroomDepartmentId,
           confidence,
@@ -1381,4 +1399,389 @@ export async function verifyStudentImport(
   return {
     results,
   };
+}
+
+export const executeStudentImportSchema = z.object({
+  classroomDepartmentId: z.string().min(1),
+  rows: z.array(
+    z.object({
+      lineNumber: z.number(),
+      name: z.string().min(1),
+      surname: z.string().min(1),
+      otherName: z.string().optional().nullable(),
+      gender: z.enum(["Male", "Female"]),
+      action: z.enum(["import_new", "keep_match", "update_match_with_name"]),
+      existingStudentId: z.string().optional().nullable(),
+    })
+  ),
+});
+
+export type ExecuteStudentImport = z.infer<typeof executeStudentImportSchema>;
+
+export type ImportRowResult = {
+  lineNumber: number;
+  action: string;
+  status: "created" | "kept" | "updated" | "skipped" | "failed";
+  studentId?: string | null;
+  termSheetCreated?: boolean;
+  reason?: string;
+};
+
+export type ExecuteStudentImportResult = {
+  createdStudents: number;
+  keptMatches: number;
+  updatedMatches: number;
+  termSheetsCreated: number;
+  skippedRows: number;
+  failedRows: number;
+  rows: ImportRowResult[];
+};
+
+export async function executeStudentImport(
+  ctx: TRPCContext,
+  input: ExecuteStudentImport
+): Promise<ExecuteStudentImportResult> {
+  const { db } = ctx;
+  const profile = ctx.profile;
+
+  if (!profile.schoolId || !profile.sessionId || !profile.termId) {
+    throw new Error("Active school, session, and term are required");
+  }
+
+  const classroom = await db.classRoomDepartment.findFirst({
+    where: {
+      id: input.classroomDepartmentId,
+      schoolProfileId: profile.schoolId,
+    },
+    include: {
+      classRoom: {
+        select: { schoolSessionId: true },
+      },
+    },
+  });
+
+  if (!classroom) {
+    throw new Error("Selected classroom does not belong to the active school");
+  }
+
+  if (classroom.classRoom?.schoolSessionId !== profile.sessionId) {
+    throw new Error("Selected classroom does not belong to the active session");
+  }
+
+  const rows: ImportRowResult[] = [];
+  let createdStudents = 0;
+  let keptMatches = 0;
+  let updatedMatches = 0;
+  let termSheetsCreated = 0;
+  let skippedRows = 0;
+  let failedRows = 0;
+
+  for (const row of input.rows) {
+    try {
+      const result = await db.$transaction(async (tx) => {
+        switch (row.action) {
+          case "import_new": {
+            const student = await tx.students.create({
+              data: {
+                gender: row.gender,
+                name: row.name,
+                surname: row.surname,
+                otherName: row.otherName ?? undefined,
+                schoolProfileId: profile.schoolId,
+                sessionForms: {
+                  create: {
+                    schoolSessionId: profile.sessionId,
+                    schoolProfileId: profile.schoolId,
+                    classroomDepartmentId: input.classroomDepartmentId,
+                    termForms: {
+                      create: {
+                        schoolProfileId: profile.schoolId,
+                        sessionTermId: profile.termId,
+                        schoolSessionId: profile.sessionId,
+                        classroomDepartmentId: input.classroomDepartmentId,
+                      },
+                    },
+                  },
+                },
+              },
+              include: {
+                sessionForms: {
+                  include: { termForms: true },
+                },
+              },
+            });
+
+            const sessionForm = student.sessionForms[0];
+            const termForm = sessionForm?.termForms[0];
+
+            if (sessionForm && termForm) {
+              await tx.studentTermForm.update({
+                where: { id: termForm.id },
+                data: { studentId: student.id },
+              });
+
+              await applyFeeHistoriesToStudentTermForm(tx, {
+                schoolProfileId: profile.schoolId,
+                studentId: student.id,
+                studentTermFormId: termForm.id,
+                schoolSessionId: profile.sessionId,
+                sessionTermId: profile.termId,
+                classroomDepartmentId: input.classroomDepartmentId,
+              });
+            }
+
+            return {
+              lineNumber: row.lineNumber,
+              action: "import_new",
+              status: "created" as const,
+              studentId: student.id,
+              termSheetCreated: true,
+            };
+          }
+
+          case "keep_match": {
+            const existingStudentId = row.existingStudentId;
+            if (!existingStudentId) {
+              return {
+                lineNumber: row.lineNumber,
+                action: "keep_match",
+                status: "failed" as const,
+                reason: "No existing student selected for match",
+              };
+            }
+
+            const existing = await tx.students.findFirst({
+              where: {
+                id: existingStudentId,
+                schoolProfileId: profile.schoolId,
+                deletedAt: null,
+              },
+            });
+
+            if (!existing) {
+              return {
+                lineNumber: row.lineNumber,
+                action: "keep_match",
+                status: "failed" as const,
+                reason: "Selected student not found in active tenant",
+              };
+            }
+
+            const termSheetResult = await createTermSheetIfMissing(
+              tx,
+              existingStudentId,
+              profile,
+              input.classroomDepartmentId
+            );
+
+            if (termSheetResult.conflictClassroom) {
+              return {
+                lineNumber: row.lineNumber,
+                action: "keep_match",
+                status: "failed" as const,
+                reason: `Student already has current term sheet in ${termSheetResult.conflictClassroom}. Manual review required.`,
+              };
+            }
+
+            return {
+              lineNumber: row.lineNumber,
+              action: "keep_match",
+              status: "kept" as const,
+              studentId: existingStudentId,
+              termSheetCreated: termSheetResult.created,
+            };
+          }
+
+          case "update_match_with_name": {
+            const existingStudentId = row.existingStudentId;
+            if (!existingStudentId) {
+              return {
+                lineNumber: row.lineNumber,
+                action: "update_match_with_name",
+                status: "failed" as const,
+                reason: "No existing student selected for match",
+              };
+            }
+
+            const existing = await tx.students.findFirst({
+              where: {
+                id: existingStudentId,
+                schoolProfileId: profile.schoolId,
+                deletedAt: null,
+              },
+            });
+
+            if (!existing) {
+              return {
+                lineNumber: row.lineNumber,
+                action: "update_match_with_name",
+                status: "failed" as const,
+                reason: "Selected student not found in active tenant",
+              };
+            }
+
+            await tx.students.update({
+              where: { id: existingStudentId },
+              data: {
+                name: row.name,
+                surname: row.surname,
+                otherName: row.otherName ?? undefined,
+              },
+            });
+
+            const termSheetResult = await createTermSheetIfMissing(
+              tx,
+              existingStudentId,
+              profile,
+              input.classroomDepartmentId
+            );
+
+            if (termSheetResult.conflictClassroom) {
+              return {
+                lineNumber: row.lineNumber,
+                action: "update_match_with_name",
+                status: "failed" as const,
+                reason: `Student already has current term sheet in ${termSheetResult.conflictClassroom}. Manual review required.`,
+              };
+            }
+
+            return {
+              lineNumber: row.lineNumber,
+              action: "update_match_with_name",
+              status: "updated" as const,
+              studentId: existingStudentId,
+              termSheetCreated: termSheetResult.created,
+            };
+          }
+
+          default:
+            return {
+              lineNumber: row.lineNumber,
+              action: row.action,
+              status: "skipped" as const,
+              reason: `Unsupported action: ${row.action}`,
+            };
+        }
+      });
+
+      rows.push(result);
+
+      switch (result.status) {
+        case "created":
+          createdStudents++;
+          if (result.termSheetCreated) termSheetsCreated++;
+          break;
+        case "kept":
+          keptMatches++;
+          if (result.termSheetCreated) termSheetsCreated++;
+          break;
+        case "updated":
+          updatedMatches++;
+          if (result.termSheetCreated) termSheetsCreated++;
+          break;
+        case "skipped":
+          skippedRows++;
+          break;
+        case "failed":
+          failedRows++;
+          break;
+      }
+    } catch (error) {
+      failedRows++;
+      rows.push({
+        lineNumber: row.lineNumber,
+        action: row.action,
+        status: "failed",
+        reason: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+
+  return {
+    createdStudents,
+    keptMatches,
+    updatedMatches,
+    termSheetsCreated,
+    skippedRows,
+    failedRows,
+    rows,
+  };
+}
+
+async function createTermSheetIfMissing(
+  tx: any,
+  studentId: string,
+  profile: { schoolId?: string; sessionId?: string; termId?: string },
+  classroomDepartmentId: string
+): Promise<{ created: boolean; conflictClassroom?: string }> {
+  const existingCurrentTermForm = await tx.studentTermForm.findFirst({
+    where: {
+      studentId,
+      sessionTermId: profile.termId,
+      schoolSessionId: profile.sessionId,
+      deletedAt: null,
+    },
+    include: {
+      classroomDepartment: {
+        select: { departmentName: true },
+      },
+    },
+  });
+
+  if (existingCurrentTermForm) {
+    if (existingCurrentTermForm.classroomDepartmentId === classroomDepartmentId) {
+      return { created: false };
+    }
+
+    return {
+      created: false,
+      conflictClassroom:
+        existingCurrentTermForm.classroomDepartment?.departmentName ??
+        "another classroom",
+    };
+  }
+
+  let sessionFormId = (
+    await tx.studentSessionForm.findFirst({
+      where: {
+        studentId,
+        schoolSessionId: profile.sessionId,
+      },
+      select: { id: true },
+    })
+  )?.id;
+
+  if (!sessionFormId) {
+    const newSessionForm = await tx.studentSessionForm.create({
+      data: {
+        studentId,
+        schoolSessionId: profile.sessionId,
+        schoolProfileId: profile.schoolId,
+        classroomDepartmentId,
+      },
+    });
+    sessionFormId = newSessionForm.id;
+  }
+
+  const newTermForm = await tx.studentTermForm.create({
+    data: {
+      studentId,
+      studentSessionFormId: sessionFormId,
+      sessionTermId: profile.termId,
+      schoolSessionId: profile.sessionId,
+      schoolProfileId: profile.schoolId,
+      classroomDepartmentId,
+    },
+  });
+
+  await applyFeeHistoriesToStudentTermForm(tx, {
+    schoolProfileId: profile.schoolId!,
+    studentId,
+    studentTermFormId: newTermForm.id,
+    schoolSessionId: profile.sessionId!,
+    sessionTermId: profile.termId!,
+    classroomDepartmentId,
+  });
+
+  return { created: true };
 }

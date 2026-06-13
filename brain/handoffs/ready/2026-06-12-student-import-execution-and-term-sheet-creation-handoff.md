@@ -102,9 +102,14 @@ After implementation, update only the relevant files:
 Do not move the task to `done`. `brain-review-handoff` owns final approval.
 
 ## Completion Notes
-Fill this in after implementation:
 
 - Changed files:
+  - `apps/api/src/db/queries/students.ts`: Added `executeStudentImportSchema`, `executeStudentImport` mutation, and `createTermSheetIfMissing` helper. The mutation processes batch row actions (import_new, keep_match, update_match_with_name) in per-row transactions with idempotent term sheet creation and fee history application.
+  - `apps/api/src/trpc/routers/students.routes.ts`: Wired `executeStudentImport` as a tRPC mutation.
+  - `apps/dashboard/src/components/modals/student-import/import-activities.tsx`: Added `executeBatch` mutation hook and "Execute All" button with results summary display.
 - Checks run:
+  - TypeScript compilation: No new errors from changed files. All errors (~100+) are pre-existing (ungenerated Prisma client, missing radix-ui types, etc.)
 - Brain docs updated:
+  - `brain/handoffs/ready/...handoff.md`: Completion notes filled
 - Unresolved issues:
+  - Full `bun run typecheck` blocked by pre-existing Prisma client generation and missing type dependencies in the worktree

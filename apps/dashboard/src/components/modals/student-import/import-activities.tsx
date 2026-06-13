@@ -284,6 +284,131 @@ export function ImportActivity({ classrooms, students }: Props) {
       },
     })
   );
+
+  const {
+    mutate: executeBatch,
+    isPending: isExecutingBatch,
+    data: batchResult,
+  } = useMutation(
+    _trpc.students.executeStudentImport.mutationOptions({
+      onSuccess() {
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.index.infiniteQueryKey(),
+        });
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.analytics.queryKey(),
+        });
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.studentsRecentRecord.queryKey(),
+        });
+        _qc.invalidateQueries({
+          queryKey: _trpc.classrooms.all.queryKey({}),
+        });
+      },
+      meta: {
+        toastTitle: {
+          loading: "Executing import...",
+          success: "Import executed",
+          error: "Import failed",
+        },
+      },
+    })
+  );
+
+  const [rowSelections, setRowSelections] = useState<
+    Record<
+      number,
+      {
+        action: "import_new" | "keep_match" | "update_match_with_name";
+        existingStudentId: string | null;
+      }
+    >
+  >({});
+  const [preSubmitError, setPreSubmitError] = useState<string | null>(null);
+
+  const executeAll = () => {
+    setPreSubmitError(null);
+
+    if (!classroomDeptId) {
+      setPreSubmitError("Select a target classroom before executing the import.");
+      return;
+    }
+
+    const importRows: Array<{
+      lineNumber: number;
+      name: string;
+      surname: string;
+      otherName: string | null;
+      gender: "Male" | "Female";
+      action: "import_new" | "keep_match" | "update_match_with_name";
+      existingStudentId: string | null;
+    }> = [];
+    const needsDecisionLines: number[] = [];
+
+    fields.forEach((activity, idx) => {
+      const selection = rowSelections[idx];
+      const gender =
+        activity.student.gender === "Female" || activity.student.gender === "F"
+          ? "Female"
+          : activity.student.gender === "Male" || activity.student.gender === "M"
+            ? "Male"
+            : null;
+
+      if (!gender) {
+        needsDecisionLines.push(idx + 1);
+        return;
+      }
+
+      if (selection) {
+        importRows.push({
+          lineNumber: activity.student.lineNumber || idx + 1,
+          name: activity.student.name,
+          surname: activity.student.surname,
+          otherName: activity.student.otherName ?? null,
+          gender,
+          action: selection.action,
+          existingStudentId: selection.existingStudentId,
+        });
+        return;
+      }
+
+      const hasMatches = Boolean(activity.matches?.length || activity.partialMatches?.length);
+      if (!hasMatches) {
+        importRows.push({
+          lineNumber: activity.student.lineNumber || idx + 1,
+          name: activity.student.name,
+          surname: activity.student.surname,
+          otherName: activity.student.otherName ?? null,
+          gender,
+          action: "import_new",
+          existingStudentId: null,
+        });
+        return;
+      }
+
+      needsDecisionLines.push(idx + 1);
+    });
+
+    if (needsDecisionLines.length > 0) {
+      setPreSubmitError(
+        "Lines " +
+          needsDecisionLines.join(", ") +
+          " need gender or an import action before execution."
+      );
+      return;
+    }
+
+    if (!importRows.length) {
+      setPreSubmitError("No rows to execute.");
+      return;
+    }
+
+    executeBatch({
+      classroomDepartmentId: classroomDeptId,
+      rows: importRows,
+    });
+  };
+
   const opts = ["all", "imported", "conflict", "new"] as const;
   const [show, setShow] = useState<(typeof opts)[number]>("all");
 
@@ -342,7 +467,43 @@ export function ImportActivity({ classrooms, students }: Props) {
         >
           Refresh
         </Button>
+        <SubmitButton
+          isSubmitting={isExecutingBatch}
+          onClick={executeAll}
+          className="h-9"
+          type="button"
+        >
+          Execute All
+        </SubmitButton>
       </div>
+
+      {preSubmitError && (
+        <div className="mb-2 rounded border border-red-300 bg-red-50 p-2 text-xs text-red-700">
+          {preSubmitError}
+        </div>
+      )}
+      {batchResult && (
+        <div className="mb-2 rounded border bg-muted/20 p-3 text-xs font-mono">
+          <div className="flex flex-wrap gap-4">
+            <span className="text-green-600">Created: {batchResult.createdStudents}</span>
+            <span className="text-blue-600">Kept: {batchResult.keptMatches}</span>
+            <span className="text-orange-600">Updated: {batchResult.updatedMatches}</span>
+            <span className="text-yellow-600">Term Sheets: {batchResult.termSheetsCreated}</span>
+            <span className="text-red-600">Failed: {batchResult.failedRows}</span>
+          </div>
+          {batchResult.rows.filter((row) => row.status === "failed").length > 0 && (
+            <div className="mt-1 text-red-600">
+              {batchResult.rows
+                .filter((row) => row.status === "failed")
+                .map((row) => (
+                  <div key={row.lineNumber}>
+                    Line {row.lineNumber}: {row.reason}
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <Separator />
 
@@ -469,6 +630,25 @@ export function ImportActivity({ classrooms, students }: Props) {
                                 <span className="text-[10px] text-emerald-600 font-semibold px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 rounded border border-emerald-200">
                                   {m.isCurrentTermMatch && m.isCurrentClassroomMatch ? "Enrolled" : "Existing"}
                                 </span>
+                                <Button
+                                  variant={
+                                    rowSelections[idx]?.action === "keep_match" &&
+                                    rowSelections[idx]?.existingStudentId === m.id
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  size="sm"
+                                  className="h-7 text-[10px] px-2.5"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setRowSelections((prev) => ({
+                                      ...prev,
+                                      [idx]: { action: "keep_match", existingStudentId: m.id },
+                                    }));
+                                  }}
+                                >
+                                  Keep Match
+                                </Button>
                                 {(!m.isCurrentTermMatch || !m.isCurrentClassroomMatch) && (
                                   <SubmitButton
                                     variant="outline"
@@ -518,18 +698,16 @@ export function ImportActivity({ classrooms, students }: Props) {
                                 className="h-7 text-[10px] px-2.5"
                                 onClick={(e) => {
                                   e.preventDefault();
-                                  updateStudent({
-                                    id: a.id,
-                                    data: {
-                                      name: activity.student.name,
-                                      otherName: activity.student.otherName,
-                                      surname: activity.student.surname,
-                                      gender: activity.student.gender === "Male" || activity.student.gender === "M" ? "Male" : "Female",
+                                  setRowSelections((prev) => ({
+                                    ...prev,
+                                    [idx]: {
+                                      action: "update_match_with_name",
+                                      existingStudentId: a.id,
                                     },
-                                  });
+                                  }));
                                 }}
                               >
-                                Link & Update Student Profile
+                                Select Update Match
                               </Button>
                             </div>
                           ))}
@@ -546,24 +724,14 @@ export function ImportActivity({ classrooms, students }: Props) {
                           onClick={(e) => {
                             const student = activity.student;
                             e.preventDefault();
-                            const formData = {
-                              name: student.name,
-                              surname: student.surname,
-                              otherName: student.otherName,
-                              gender: student.gender === "Male" || student.gender === "M" ? "Male" : "Female",
-                              classRoomId: classroomDeptId,
-                              termForms: [
-                                {
-                                  sessionTermId: records.sessionTermId,
-                                  schoolSessionId: records.schoolSessionId,
-                                },
-                              ],
-                            } as RouterInputs["students"]["createStudent"];
-                            createStudent(formData);
+                            setRowSelections((prev) => ({
+                              ...prev,
+                              [idx]: { action: "import_new", existingStudentId: null },
+                            }));
                           }}
                           className="h-8 text-[11px] px-3"
                         >
-                          <Import className="size-3.5 mr-1" /> Import as New Student
+                          <Import className="size-3.5 mr-1" /> Select Import as New
                         </Button>
                       </div>
                     )}

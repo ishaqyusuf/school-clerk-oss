@@ -68,6 +68,7 @@ Defines access control rules for each API surface.
 - `/staff/teachers` remains the admin teacher-management page.
 - `/staff/non-teaching`, `/staff/departments`, and `/staff/attendance` are now basic tenant-scoped admin/HR overview pages.
 - Broad teacher access was removed from the Academic sidebar module; teacher day-to-day navigation now lives in the dedicated teacher workspace instead.
+
 ## Assistant Permission Snapshot (session 2026-04)
 - Assistant access is tenant-scoped and tied to the authenticated Better Auth user plus tenant cookie context.
 - Tenant admins can update assistant settings through `POST /api/chat/settings`.

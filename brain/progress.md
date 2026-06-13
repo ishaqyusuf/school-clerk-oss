@@ -125,3 +125,17 @@
 
 ### Verification
 - Ran `bun install` and typecheck validation.
+
+## Student Import Execution And Term Sheet Creation (2026-06-12)
+
+### Fix 3 (2026-06-13) — Parse Error, Classroom Derivation, and Error Feedback
+- Removed leftover `updateStudent` object fragment causing parse errors in `import-activities.tsx` (lines 460-475)
+- Replaced `fields[0]?.classRoom?.id` with validated single-classroom derivation that checks all rows for unique classroom IDs
+- Added `preSubmitError` state with clear user-facing messages for: no classroom found, multiple classrooms detected, matched rows without action selection
+- Added `_trpc.classrooms.all` invalidation to batch execution onSuccess
+- Documented invalidation scope and limitations in `brain/api/contracts.md` and `brain/features/student-import.md`
+- Changed files:
+  - `apps/dashboard/src/components/modals/student-import/import-activities.tsx` — removed parse error, rewrote Execute All handler with classroom validation and pre-submit errors, added classroom invalidation
+  - `brain/api/contracts.md` — added Dashboard Invalidation section to executeStudentImport contract
+  - `brain/features/student-import.md` — updated Dashboard Invalidation section
+  - `brain/progress.md` — fix-3 completion notes
