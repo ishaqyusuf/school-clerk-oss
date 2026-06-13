@@ -217,17 +217,55 @@ export function ImportActivity({ classrooms, students }: Props) {
       },
     })
   );
+
+  const {
+    mutate: executeBatch,
+    isPending: isExecutingBatch,
+    data: batchResult,
+  } = useMutation(
+    _trpc.students.executeStudentImport.mutationOptions({
+      onSuccess(result) {
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.index.infiniteQueryKey(),
+        });
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.analytics.queryKey(),
+        });
+        _qc.invalidateQueries({
+          queryKey: _trpc.students.studentsRecentRecord.queryKey(),
+        });
+        _qc.invalidateQueries({
+          queryKey: _trpc.classrooms.all.queryKey({}),
+        });
+      },
+      meta: {
+        toastTitle: {
+          loading: "Executing import...",
+          success: "Import executed",
+          error: "Import failed",
+        },
+      },
+    })
+  );
+
+  const [rowSelections, setRowSelections] = useState<
+    Record<
+      number,
+      { action: "import_new" | "keep_match" | "update_match_with_name"; existingStudentId: string | null }
+    >
+  >({});
+  const [preSubmitError, setPreSubmitError] = useState<string | null>(null);
   const opts = ["all", "imported", "conflict", "new"] as const;
   const [show, setShow] = useState<(typeof opts)[number]>("all");
   return (
     <>
       <div className="flex gap-4 pb-2">
-	        <Select
-	          value={show}
-	          onValueChange={(e) => {
-	            setShow(e as (typeof opts)[number]);
-	          }}
-	        >
+          <Select
+            value={show}
+            onValueChange={(e) => {
+              setShow(e as (typeof opts)[number]);
+            }}
+          >
           <Select.Trigger value={show}>
             <Select.Value />
           </Select.Trigger>
@@ -248,7 +286,139 @@ export function ImportActivity({ classrooms, students }: Props) {
             Refresh
           </Menu.Item>
         </Menu>
+        <SubmitButton
+          isSubmitting={isExecutingBatch}
+          onClick={() => {
+            setPreSubmitError(null);
+
+            const classroomIds = new Set<string>();
+            const missingClassroomLines: number[] = [];
+
+            fields.forEach((activity, idx) => {
+              if (activity.classRoom?.id) {
+                classroomIds.add(activity.classRoom.id);
+              } else {
+                missingClassroomLines.push(idx + 1);
+              }
+            });
+
+            if (classroomIds.size === 0) {
+              setPreSubmitError(
+                "No classroom found in any import row. Ensure classroom names are matched."
+              );
+              return;
+            }
+
+            if (classroomIds.size > 1) {
+              setPreSubmitError(
+                "Multiple classrooms detected. All import rows must belong to the same classroom."
+              );
+              return;
+            }
+
+            const classroomDepartmentId = [...classroomIds][0];
+
+            const importRows: Array<{
+              lineNumber: number;
+              name: string;
+              surname: string;
+              otherName: string | null;
+              gender: "Male" | "Female";
+              action: "import_new" | "keep_match" | "update_match_with_name";
+              existingStudentId: string | null;
+            }> = [];
+            const needsDecisionLines: number[] = [];
+
+            fields.forEach((activity, idx) => {
+              if (!activity.classRoom?.id) {
+                needsDecisionLines.push(idx + 1);
+                return;
+              }
+
+              const selection = rowSelections[idx];
+
+              if (selection) {
+                importRows.push({
+                  lineNumber: idx + 1,
+                  name: activity.student.name,
+                  surname: activity.student.surname,
+                  otherName: activity.student.otherName ?? null,
+                  gender: (activity.student.gender === "F" ? "Female" : "Male") as
+                    | "Male"
+                    | "Female",
+                  action: selection.action,
+                  existingStudentId: selection.existingStudentId,
+                });
+                return;
+              }
+
+              const hasMatches = activity.matches?.length;
+              if (!hasMatches) {
+                importRows.push({
+                  lineNumber: idx + 1,
+                  name: activity.student.name,
+                  surname: activity.student.surname,
+                  otherName: activity.student.otherName ?? null,
+                  gender: (activity.student.gender === "F" ? "Female" : "Male") as
+                    | "Male"
+                    | "Female",
+                  action: "import_new" as const,
+                  existingStudentId: null,
+                });
+                return;
+              }
+
+              needsDecisionLines.push(idx + 1);
+            });
+
+            if (needsDecisionLines.length > 0) {
+              setPreSubmitError(
+                `Lines ${needsDecisionLines.join(", ")} have matches but no action selected. Choose Import as New, Keep Match, or Update Match for each row.`
+              );
+              return;
+            }
+
+            if (!importRows.length) {
+              setPreSubmitError("No rows to execute.");
+              return;
+            }
+
+            executeBatch({
+              classroomDepartmentId,
+              rows: importRows as any,
+            });
+          }}
+        >
+          Execute All
+        </SubmitButton>
       </div>
+      {preSubmitError && (
+        <div className="mb-2 p-2 rounded border border-red-300 bg-red-50 text-red-700 text-xs">
+          {preSubmitError}
+        </div>
+      )}
+      {batchResult && (
+        <div className="mb-2 p-3 rounded border bg-muted/20 text-xs font-mono">
+          <div className="flex gap-4 flex-wrap">
+            <span className="text-green-600">Created: {batchResult.createdStudents}</span>
+            <span className="text-blue-600">Kept: {batchResult.keptMatches}</span>
+            <span className="text-orange-600">Updated: {batchResult.updatedMatches}</span>
+            <span className="text-yellow-600">Term Sheets: {batchResult.termSheetsCreated}</span>
+            <span className="text-red-600">Failed: {batchResult.failedRows}</span>
+          </div>
+          {batchResult.rows.filter((r) => r.status === "failed").length > 0 && (
+            <div className="mt-1 text-red-600">
+              {batchResult.rows
+                .filter((r) => r.status === "failed")
+                .map((r) => (
+                  <div key={r.lineNumber}>
+                    Line {r.lineNumber}: {r.reason}
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
       <Separator />
       <div className="space-y-2 font-mono text-xs max-h-96 overflow-y-auto">
         {fields.length === 0 ? (
@@ -314,25 +484,13 @@ export function ImportActivity({ classrooms, students }: Props) {
                         {!activity?.matches?.length && (
                           <Button
                             onClick={(e) => {
-                              const student = activity.student;
                               e.preventDefault();
-                              const formData = {
-                                name: student.name,
-                                surname: student.surname,
-                                otherName: student.otherName,
-                                gender:
-                                  student.gender == "M" ? "Male" : "Female",
-                                classRoomId: activity.classRoom.id,
-                                termForms: [
-                                  {
-                                    sessionTermId: records.sessionTermId,
-                                    schoolSessionId: records.schoolSessionId,
-                                  },
-                                ],
-                              } as RouterInputs["students"]["createStudent"];
-                              // return;
-                              createStudent(formData);
+                              setRowSelections((prev) => ({
+                                ...prev,
+                                [idx]: { action: "import_new", existingStudentId: null },
+                              }));
                             }}
+                            variant={rowSelections[idx]?.action === "import_new" ? "default" : "outline"}
                           >
                             <Import className="size-4" />
                           </Button>
@@ -346,18 +504,13 @@ export function ImportActivity({ classrooms, students }: Props) {
                           {activity?.partialMatches?.map((a) => (
                             <Menu.Item
                               onClick={(e) => {
-                                updateStudent({
-                                  id: a.id,
-                                  data: {
-                                    name: activity.student.name,
-                                    otherName: activity.student.otherName,
-                                    surname: activity.student.surname,
-                                    gender:
-                                      activity.student.gender == "M"
-                                        ? "Male"
-                                        : "Female",
+                                setRowSelections((prev) => ({
+                                  ...prev,
+                                  [idx]: {
+                                    action: "update_match_with_name",
+                                    existingStudentId: a.id,
                                   },
-                                });
+                                }));
                               }}
                             >
                               {studentDisplayName(a)}
@@ -393,16 +546,13 @@ export function ImportActivity({ classrooms, students }: Props) {
                               size="icon"
                               isSubmitting={isEnrolling}
                               onClick={(e) => {
-                                const enrollData = {
-                                  classroomDepartmentId: activity.classRoom.id,
-                                  schoolSessionId: records.schoolSessionId,
-                                  sessionTermId: records.sessionTermId,
-                                  studentId: m.id,
-                                  studentSessionFormId: m.studentSessionFormId,
-                                } as RouterInputs["academics"]["entrollStudentToTerm"];
-                                console.log(enrollData);
-
-                                enroll(enrollData);
+                                setRowSelections((prev) => ({
+                                  ...prev,
+                                  [idx]: {
+                                    action: "keep_match",
+                                    existingStudentId: m.id,
+                                  },
+                                }));
                               }}
                               type="button"
                             >

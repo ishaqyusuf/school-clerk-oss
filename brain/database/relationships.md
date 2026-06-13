@@ -44,3 +44,13 @@ Describes entity relationships and cardinality constraints.
 - Planned website ownership invariant: `WebsitePublishedConfig.websiteConfigId` must always reference a `WebsiteTemplateConfig` owned by the same `schoolProfileId`.
 - Legacy models (`school`, `guardian`, `session_class`) use separate relation chains and need consolidation rules.
 - TODO: add DB-level indexes/constraints audit for tenant scoping fields.
+
+## Term Sheet Creation & Reuse Rules
+
+- A `StudentTermForm` is the canonical "current term sheet" for a student in a given session/term/classroom tuple.
+- `Students` 1:N `StudentTermForm` per session; at most one non-deleted `StudentTermForm` per (student, sessionTerm, schoolSession) should exist.
+- Import execution creates a `StudentTermForm` only when no non-deleted current-term form exists for the student+session+term.
+- If a current-term form already exists in the same classroom department, it is reused without modification.
+- If a current-term form already exists in a different classroom department, the import reports a row-level failure with the conflicting classroom name — no duplicate is created.
+- Newly created term sheets trigger `applyFeeHistoriesToStudentTermForm` to auto-assign active `FinanceItem` charges for the classroom department.
+- `StudentSessionForm` is created lazily (only if none exists for the student+session) before creating a `StudentTermForm`.

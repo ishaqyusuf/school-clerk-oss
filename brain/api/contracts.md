@@ -28,6 +28,50 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: empty selection, invalid term form ids, missing tenant context
 - Notes: soft-deletes multiple student term records in one request for classroom results batch removal, scoped to the active school tenant and limited to non-deleted rows
 
+## Student Import Contracts
+
+- Route: `students.executeStudentImport`
+- Request schema:
+  ```ts
+  {
+    classroomDepartmentId: string;
+    rows: {
+      lineNumber: number;
+      name: string;
+      surname: string;
+      otherName?: string | null;
+      gender: "Male" | "Female";
+      action: "import_new" | "keep_match" | "update_match_with_name";
+      existingStudentId?: string | null;
+    }[];
+  }
+  ```
+- Response schema:
+  ```ts
+  {
+    createdStudents: number;
+    keptMatches: number;
+    updatedMatches: number;
+    termSheetsCreated: number;
+    skippedRows: number;
+    failedRows: number;
+    rows: {
+      lineNumber: number;
+      action: string;
+      status: "created" | "kept" | "updated" | "skipped" | "failed";
+      studentId?: string | null;
+      termSheetCreated?: boolean;
+      reason?: string;
+    }[];
+  }
+  ```
+- Error cases: missing active school/session/term context, classroom not in active school or session, existing student not in tenant, student has current term sheet in conflicting classroom
+- Notes: batch mutation that creates students, keeps/updates matched students, and idempotently creates term sheets. Validates classroom against active school AND session ancestry. Detects cross-classroom current-term conflicts and reports them as row-level failures rather than creating duplicates. Applies fee histories to newly-created term sheets. Per-row failures do not block successful rows.
+- Dashboard cache invalidation on success:
+  - Invalidates: `students.index`, `students.analytics`, `students.studentsRecentRecord`, `classrooms.all`
+  - Report-sheet queries (`classroomReportSheet`, `getSubjectAssessmentRecordings`) require parameterized keys (classroom + term) not available in the import component context; these views refresh on navigation.
+  - Finance query keys (fee histories, transaction streams, student balances) are parameterized per-student/per-classroom; fee histories applied during import are reflected on navigation.
+
 ## Finance Contracts
 - Route: `transactions.createSchoolFee`
 - Request schema: `title`, `amount`, optional `description`, optional `feeId`, optional `streamId`/`streamName`, `classroomDepartmentIds[]`
@@ -158,7 +202,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `staffId`
 - Response schema: `{ inviteLink }`
 - Error cases: missing tenant context, no staff email, onboarding already completed, invalid staff role, link generation failure
-- Notes: generates a fresh Better Auth reset-password onboarding URL without sending email so admins can copy and share it from the staff directory.
+- Notes: creates a fresh reset-password verification token and returns a staff-scoped onboarding URL with the canonical `token` query parameter, without sending email or revoking other active reset tokens.
 
 - Route: `action.completeStaffOnboardingAction`
 - Request schema: `staffId`, `email`, `name`, optional `title`, optional `phone`, optional `phone2`, optional `address`

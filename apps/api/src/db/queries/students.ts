@@ -1068,3 +1068,388 @@ export async function bulkDeleteTermSheets(
     count: result.count,
   };
 }
+
+export const executeStudentImportSchema = z.object({
+  classroomDepartmentId: z.string().min(1),
+  rows: z.array(
+    z.object({
+      lineNumber: z.number(),
+      name: z.string().min(1),
+      surname: z.string().min(1),
+      otherName: z.string().optional().nullable(),
+      gender: z.enum(["Male", "Female"]),
+      action: z.enum(["import_new", "keep_match", "update_match_with_name"]),
+      existingStudentId: z.string().optional().nullable(),
+    })
+  ),
+});
+
+export type ExecuteStudentImport = z.infer<typeof executeStudentImportSchema>;
+
+export type ImportRowResult = {
+  lineNumber: number;
+  action: string;
+  status: "created" | "kept" | "updated" | "skipped" | "failed";
+  studentId?: string | null;
+  termSheetCreated?: boolean;
+  reason?: string;
+};
+
+export type ExecuteStudentImportResult = {
+  createdStudents: number;
+  keptMatches: number;
+  updatedMatches: number;
+  termSheetsCreated: number;
+  skippedRows: number;
+  failedRows: number;
+  rows: ImportRowResult[];
+};
+
+export async function executeStudentImport(
+  ctx: TRPCContext,
+  input: ExecuteStudentImport
+): Promise<ExecuteStudentImportResult> {
+  const { db } = ctx;
+  const profile = ctx.profile;
+
+  if (!profile.schoolId || !profile.sessionId || !profile.termId) {
+    throw new Error("Active school, session, and term are required");
+  }
+
+  const classroom = await db.classRoomDepartment.findFirst({
+    where: {
+      id: input.classroomDepartmentId,
+      schoolProfileId: profile.schoolId,
+    },
+    include: {
+      classRoom: {
+        select: { schoolSessionId: true },
+      },
+    },
+  });
+
+  if (!classroom) {
+    throw new Error("Selected classroom does not belong to the active school");
+  }
+
+  if (classroom.classRoom?.schoolSessionId !== profile.sessionId) {
+    throw new Error("Selected classroom does not belong to the active session");
+  }
+
+  const rows: ImportRowResult[] = [];
+  let createdStudents = 0;
+  let keptMatches = 0;
+  let updatedMatches = 0;
+  let termSheetsCreated = 0;
+  let skippedRows = 0;
+  let failedRows = 0;
+
+  for (const row of input.rows) {
+    try {
+      const result = await db.$transaction(async (tx) => {
+        switch (row.action) {
+          case "import_new": {
+            const student = await tx.students.create({
+              data: {
+                gender: row.gender,
+                name: row.name,
+                surname: row.surname,
+                otherName: row.otherName ?? undefined,
+                schoolProfileId: profile.schoolId,
+                sessionForms: {
+                  create: {
+                    schoolSessionId: profile.sessionId,
+                    schoolProfileId: profile.schoolId,
+                    classroomDepartmentId: input.classroomDepartmentId,
+                    termForms: {
+                      create: {
+                        schoolProfileId: profile.schoolId,
+                        sessionTermId: profile.termId,
+                        schoolSessionId: profile.sessionId,
+                        classroomDepartmentId: input.classroomDepartmentId,
+                      },
+                    },
+                  },
+                },
+              },
+              include: {
+                sessionForms: {
+                  include: { termForms: true },
+                },
+              },
+            });
+
+            const sessionForm = student.sessionForms[0];
+            const termForm = sessionForm?.termForms[0];
+
+            if (sessionForm && termForm) {
+              await tx.studentTermForm.update({
+                where: { id: termForm.id },
+                data: { studentId: student.id },
+              });
+
+              await applyFeeHistoriesToStudentTermForm(tx, {
+                schoolProfileId: profile.schoolId,
+                studentId: student.id,
+                studentTermFormId: termForm.id,
+                schoolSessionId: profile.sessionId,
+                sessionTermId: profile.termId,
+                classroomDepartmentId: input.classroomDepartmentId,
+              });
+            }
+
+            return {
+              lineNumber: row.lineNumber,
+              action: "import_new",
+              status: "created" as const,
+              studentId: student.id,
+              termSheetCreated: true,
+            };
+          }
+
+          case "keep_match": {
+            const existingStudentId = row.existingStudentId;
+            if (!existingStudentId) {
+              return {
+                lineNumber: row.lineNumber,
+                action: "keep_match",
+                status: "failed" as const,
+                reason: "No existing student selected for match",
+              };
+            }
+
+            const existing = await tx.students.findFirst({
+              where: {
+                id: existingStudentId,
+                schoolProfileId: profile.schoolId,
+                deletedAt: null,
+              },
+            });
+
+            if (!existing) {
+              return {
+                lineNumber: row.lineNumber,
+                action: "keep_match",
+                status: "failed" as const,
+                reason: "Selected student not found in active tenant",
+              };
+            }
+
+            const termSheetResult = await createTermSheetIfMissing(
+              tx,
+              existingStudentId,
+              profile,
+              input.classroomDepartmentId
+            );
+
+            if (termSheetResult.conflictClassroom) {
+              return {
+                lineNumber: row.lineNumber,
+                action: "keep_match",
+                status: "failed" as const,
+                reason: `Student already has current term sheet in ${termSheetResult.conflictClassroom}. Manual review required.`,
+              };
+            }
+
+            return {
+              lineNumber: row.lineNumber,
+              action: "keep_match",
+              status: "kept" as const,
+              studentId: existingStudentId,
+              termSheetCreated: termSheetResult.created,
+            };
+          }
+
+          case "update_match_with_name": {
+            const existingStudentId = row.existingStudentId;
+            if (!existingStudentId) {
+              return {
+                lineNumber: row.lineNumber,
+                action: "update_match_with_name",
+                status: "failed" as const,
+                reason: "No existing student selected for match",
+              };
+            }
+
+            const existing = await tx.students.findFirst({
+              where: {
+                id: existingStudentId,
+                schoolProfileId: profile.schoolId,
+                deletedAt: null,
+              },
+            });
+
+            if (!existing) {
+              return {
+                lineNumber: row.lineNumber,
+                action: "update_match_with_name",
+                status: "failed" as const,
+                reason: "Selected student not found in active tenant",
+              };
+            }
+
+            await tx.students.update({
+              where: { id: existingStudentId },
+              data: {
+                name: row.name,
+                surname: row.surname,
+                otherName: row.otherName ?? undefined,
+              },
+            });
+
+            const termSheetResult = await createTermSheetIfMissing(
+              tx,
+              existingStudentId,
+              profile,
+              input.classroomDepartmentId
+            );
+
+            if (termSheetResult.conflictClassroom) {
+              return {
+                lineNumber: row.lineNumber,
+                action: "update_match_with_name",
+                status: "failed" as const,
+                reason: `Student already has current term sheet in ${termSheetResult.conflictClassroom}. Manual review required.`,
+              };
+            }
+
+            return {
+              lineNumber: row.lineNumber,
+              action: "update_match_with_name",
+              status: "updated" as const,
+              studentId: existingStudentId,
+              termSheetCreated: termSheetResult.created,
+            };
+          }
+
+          default:
+            return {
+              lineNumber: row.lineNumber,
+              action: row.action,
+              status: "skipped" as const,
+              reason: `Unsupported action: ${row.action}`,
+            };
+        }
+      });
+
+      rows.push(result);
+
+      switch (result.status) {
+        case "created":
+          createdStudents++;
+          if (result.termSheetCreated) termSheetsCreated++;
+          break;
+        case "kept":
+          keptMatches++;
+          if (result.termSheetCreated) termSheetsCreated++;
+          break;
+        case "updated":
+          updatedMatches++;
+          if (result.termSheetCreated) termSheetsCreated++;
+          break;
+        case "skipped":
+          skippedRows++;
+          break;
+        case "failed":
+          failedRows++;
+          break;
+      }
+    } catch (error) {
+      failedRows++;
+      rows.push({
+        lineNumber: row.lineNumber,
+        action: row.action,
+        status: "failed",
+        reason: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+
+  return {
+    createdStudents,
+    keptMatches,
+    updatedMatches,
+    termSheetsCreated,
+    skippedRows,
+    failedRows,
+    rows,
+  };
+}
+
+async function createTermSheetIfMissing(
+  tx: any,
+  studentId: string,
+  profile: { schoolId?: string; sessionId?: string; termId?: string },
+  classroomDepartmentId: string
+): Promise<{ created: boolean; conflictClassroom?: string }> {
+  const existingCurrentTermForm = await tx.studentTermForm.findFirst({
+    where: {
+      studentId,
+      sessionTermId: profile.termId,
+      schoolSessionId: profile.sessionId,
+      deletedAt: null,
+    },
+    include: {
+      classroomDepartment: {
+        select: { departmentName: true },
+      },
+    },
+  });
+
+  if (existingCurrentTermForm) {
+    if (existingCurrentTermForm.classroomDepartmentId === classroomDepartmentId) {
+      return { created: false };
+    }
+
+    return {
+      created: false,
+      conflictClassroom:
+        existingCurrentTermForm.classroomDepartment?.departmentName ??
+        "another classroom",
+    };
+  }
+
+  let sessionFormId = (
+    await tx.studentSessionForm.findFirst({
+      where: {
+        studentId,
+        schoolSessionId: profile.sessionId,
+      },
+      select: { id: true },
+    })
+  )?.id;
+
+  if (!sessionFormId) {
+    const newSessionForm = await tx.studentSessionForm.create({
+      data: {
+        studentId,
+        schoolSessionId: profile.sessionId,
+        schoolProfileId: profile.schoolId,
+        classroomDepartmentId,
+      },
+    });
+    sessionFormId = newSessionForm.id;
+  }
+
+  const newTermForm = await tx.studentTermForm.create({
+    data: {
+      studentId,
+      studentSessionFormId: sessionFormId,
+      sessionTermId: profile.termId,
+      schoolSessionId: profile.sessionId,
+      schoolProfileId: profile.schoolId,
+      classroomDepartmentId,
+    },
+  });
+
+  await applyFeeHistoriesToStudentTermForm(tx, {
+    schoolProfileId: profile.schoolId!,
+    studentId,
+    studentTermFormId: newTermForm.id,
+    schoolSessionId: profile.sessionId!,
+    sessionTermId: profile.termId!,
+    classroomDepartmentId,
+  });
+
+  return { created: true };
+}
