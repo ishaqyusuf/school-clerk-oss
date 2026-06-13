@@ -139,3 +139,10 @@
   - `brain/api/contracts.md` — added Dashboard Invalidation section to executeStudentImport contract
   - `brain/features/student-import.md` — updated Dashboard Invalidation section
   - `brain/progress.md` — fix-3 completion notes
+
+### Review Approval and Landing (2026-06-13)
+- Approved and landed Student Import Input And Name Parsing into `main` at merge commit `2ebe1d2`.
+- Approved and landed Student Import Verification And Matching Service into `main` at merge commit `0e19470`.
+- Approved and landed Student Import Execution And Term Sheet Creation into `main` at merge commit `b6d37da`.
+- Marked the three landed handoff queue items approved/landed and moved their active Brain handoffs to `brain/handoffs/completed/`.
+- Left Student Import Review And Resolution UI in `reviewed-fix-request` because review blockers remain for batch defaults, per-candidate metadata, and final feature documentation.

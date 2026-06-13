@@ -202,3 +202,27 @@ Record of completed tasks and delivery outcomes.
 - Outcome: Teacher/staff reports now reuse the classroom report sheet workflow, seed the default term, constrain/default teacher classroom selection to assigned classrooms, clear invalid classroom state, hide Result Entry until classroom and term are valid, and expose the same reusable report sheet from academic reports for authorized staff.
 - Related changes: `apps/dashboard/src/components/teachers/teacher-report-sheet.tsx`, `apps/dashboard/src/components/student-report-filters.tsx`, `apps/dashboard/src/app/[domain]/(sidebar)/(k-12-teachers)/teacher/reports/page.tsx`, `apps/dashboard/src/app/[domain]/(sidebar)/academic/reports/page.tsx`, `brain/progress.md`
 - Owner: OpenCode, reviewed by Codex
+
+## Completed Task
+- ID: STUD-IMP-001
+- Title: Student Import Input And Name Parsing
+- Completed: 2026-06-13
+- Outcome: Approved and landed the input/name parsing worktree into `main` at merge commit `2ebe1d2`. The import modal now uses an explicit target classroom selector, optional global gender, deterministic name parsing, row validation, and preserved raw-text persistence.
+- Related changes: `apps/dashboard/src/components/modals/student-import/index.tsx`, `apps/dashboard/src/components/modals/student-import/import-activities.tsx`, `brain/features/student-import.md`, `brain/plans/2026-06-12-feature-student-import-input-and-name-parsing.md`, `brain/handoffs/completed/2026-06-13-student-import-input-and-name-parsing-fix-2.md`
+- Owner: antigravity, reviewed by Codex
+
+## Completed Task
+- ID: STUD-IMP-002
+- Title: Student Import Verification And Matching Service
+- Completed: 2026-06-13
+- Outcome: Approved and landed the verification/matching worktree into `main` at merge commit `0e19470`. Batch verification now runs through `students.verifyStudentImport`, validates the selected classroom, returns match metadata, and infers missing gender when existing-name evidence is decisive.
+- Related changes: `apps/api/src/db/queries/students.ts`, `apps/api/src/trpc/routers/students.routes.ts`, `apps/dashboard/src/components/modals/student-import/import-activities.tsx`, `brain/api/contracts.md`, `brain/api/endpoints.md`, `brain/features/student-import.md`, `brain/plans/2026-06-12-feature-student-import-verification-and-matching-service.md`, `brain/handoffs/completed/2026-06-12-student-import-verification-and-matching-service-handoff.md`
+- Owner: open-code, reviewed by Codex
+
+## Completed Task
+- ID: STUD-IMP-004
+- Title: Student Import Execution And Term Sheet Creation
+- Completed: 2026-06-13
+- Outcome: Approved and landed the execution/term-sheet worktree into `main` at merge commit `b6d37da`. Batch execution now supports import-new, keep-match, and update-match decisions while ensuring current session/term enrollment records are created or reused.
+- Related changes: `apps/api/src/db/queries/students.ts`, `apps/api/src/trpc/routers/students.routes.ts`, `apps/dashboard/src/components/modals/student-import/import-activities.tsx`, `brain/api/contracts.md`, `brain/api/endpoints.md`, `brain/features/student-import.md`, `brain/plans/2026-06-12-feature-student-import-execution-and-term-sheet-creation.md`, `brain/handoffs/completed/2026-06-12-student-import-execution-and-term-sheet-creation-fix-3.md`
+- Owner: open-code, reviewed by Codex

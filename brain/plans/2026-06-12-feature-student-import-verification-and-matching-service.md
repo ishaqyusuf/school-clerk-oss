@@ -4,13 +4,13 @@
 Feature
 
 ## Status
-In Progress
+Done
 
 ## Created Date
 2026-06-12
 
 ## Last Updated
-2026-06-12
+2026-06-13
 
 ## Intake
 - Intake File: brain/intake/2026-06-12-student-import-polish.md
@@ -105,6 +105,12 @@ Add a server-side verification procedure that accepts parsed import rows plus se
 - Update `brain/api/contracts.md` with the verification payload/response contract.
 - Update `brain/api/endpoints.md` with the new or changed tRPC procedure.
 - Update or create `brain/features/student-import.md` with matching and gender inference rules.
+
+## Completion
+- Completed: 2026-06-13
+- Landed Commit: `0e19470`
+- Active Handoff: `brain/handoffs/completed/2026-06-12-student-import-verification-and-matching-service-handoff.md`
+- Outcome: Approved verification service landed into `main`; batch verification now runs through `students.verifyStudentImport` with gender inference and match metadata.
 
 ## Lower-Agent Readiness
 - Implementation scope is clear: Yes

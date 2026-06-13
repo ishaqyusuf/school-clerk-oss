@@ -4,13 +4,13 @@
 Feature
 
 ## Status
-In Progress
+Done
 
 ## Created Date
 2026-06-12
 
 ## Last Updated
-2026-06-12
+2026-06-13
 
 ## Intake
 - Intake File: brain/intake/2026-06-12-student-import-polish.md
@@ -79,6 +79,12 @@ Replace the free-form classroom-in-line behavior with an explicit classroom sele
 ## Brain Update Requirements
 - Update or create `brain/features/student-import.md` after implementation to document the new input contract.
 - Update `brain/progress.md` or current task tracking when implementation completes.
+
+## Completion
+- Completed: 2026-06-13
+- Landed Commit: `2ebe1d2`
+- Active Handoff: `brain/handoffs/completed/2026-06-13-student-import-input-and-name-parsing-fix-2.md`
+- Outcome: Approved review fixes landed into `main`; import input now uses explicit classroom/global gender controls and deterministic name parsing.
 
 ## Lower-Agent Readiness
 - Implementation scope is clear: Yes

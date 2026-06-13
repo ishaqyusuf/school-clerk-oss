@@ -4,13 +4,13 @@
 Feature
 
 ## Status
-In Progress
+Done
 
 ## Created Date
 2026-06-12
 
 ## Last Updated
-2026-06-12
+2026-06-13
 
 ## Intake
 - Intake File: brain/intake/2026-06-12-student-import-polish.md
@@ -112,6 +112,12 @@ Add a batch import execution mutation that accepts the verified rows and selecte
 - Update or create `brain/features/student-import.md` with import action semantics.
 - Update `brain/database/relationships.md` if the term sheet creation/reuse rule is newly formalized.
 - Update `brain/progress.md` or current task tracking when implementation completes.
+
+## Completion
+- Completed: 2026-06-13
+- Landed Commit: `b6d37da`
+- Active Handoff: `brain/handoffs/completed/2026-06-12-student-import-execution-and-term-sheet-creation-fix-3.md`
+- Outcome: Approved execution fixes landed into `main`; batch import execution now supports keep/update/new decisions and current-term sheet creation.
 
 ## Lower-Agent Readiness
 - Implementation scope is clear: Yes
