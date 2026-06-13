@@ -24,6 +24,10 @@ interface Props {
     otherName?: string;
     gender?: string;
     classRoom: string;
+    classroomDepartmentId: string;
+    lineNumber: number;
+    originalText: string;
+    parsedGender?: "M" | "F";
   }[];
 }
 const matches = z.object({
@@ -55,6 +59,10 @@ const schema = z.object({
         otherName: z.string().optional().nullable(),
         gender: z.string().optional().nullable(),
         classRoom: z.string(),
+        classroomDepartmentId: z.string(),
+        lineNumber: z.number(),
+        originalText: z.string(),
+        parsedGender: z.string().optional().nullable(),
       }),
       classRoom: z.object({
         id: z.string(),
@@ -92,7 +100,7 @@ export function ImportActivity({ classrooms, students }: Props) {
         // m.surname.localeCompare(student.surname)
       );
       const classRoom = records.classDepartments.find((cd) =>
-        compareArabic(cd.departmentName, student.classRoom)
+        cd.id === student.classroomDepartmentId
       );
       const classMatch = matches.some(
         (a) => a.classroomDepartmentId === classRoom?.id
@@ -313,6 +321,7 @@ export function ImportActivity({ classrooms, students }: Props) {
                         </div>
                         {!activity?.matches?.length && (
                           <Button
+                            disabled={!activity.student.gender}
                             onClick={(e) => {
                               const student = activity.student;
                               e.preventDefault();
@@ -321,7 +330,7 @@ export function ImportActivity({ classrooms, students }: Props) {
                                 surname: student.surname,
                                 otherName: student.otherName,
                                 gender:
-                                  student.gender == "M" ? "Male" : "Female",
+                                  student.gender === "M" ? "Male" : "Female",
                                 classRoomId: activity.classRoom.id,
                                 termForms: [
                                   {
@@ -352,10 +361,11 @@ export function ImportActivity({ classrooms, students }: Props) {
                                     name: activity.student.name,
                                     otherName: activity.student.otherName,
                                     surname: activity.student.surname,
-                                    gender:
-                                      activity.student.gender == "M"
+                                    gender: activity.student.gender
+                                      ? (activity.student.gender === "M"
                                         ? "Male"
-                                        : "Female",
+                                        : "Female")
+                                      : undefined,
                                   },
                                 });
                               }}
