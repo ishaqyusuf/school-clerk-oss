@@ -93,5 +93,5 @@ Defines access control rules for each API surface.
 - Large discretionary finance actions above `NGN 250,000` now require `Admin` role even within finance write access.
 
 ## Results and Reports Permissions
-- Blank manual classroom report sheet print (`Print Empty Sheet`) is restricted to the `ADMIN` role.
+- Blank manual classroom report sheet print (`Print Empty Sheet`) is restricted to `ADMIN` SaaS owners and `Admin` staff admins.
 - Filled result sheet printing/exporting remains available to all authorized academic/report users.

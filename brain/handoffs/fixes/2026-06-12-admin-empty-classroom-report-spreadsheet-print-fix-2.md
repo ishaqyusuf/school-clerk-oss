@@ -68,12 +68,13 @@ Close the final review blockers only: align the role-gate documentation with imp
 Fill this in after verification/fix:
 
 - Changed files:
-- Checks run:
+  - `brain/api/permissions.md`
+- Checks run: `git diff --check` passed. `bun --filter @school-clerk/dashboard typecheck` run (baseline errors exist, no new touched-file errors).
 - Browser/print verification:
-  - Admin empty print:
-  - Blank cells with existing scores:
-  - Filled print unchanged:
-  - Teacher/non-admin hidden:
-  - Wide sheet layout:
-- Brain docs updated:
-- Unresolved issues:
+  - Admin empty print: BLOCKED
+  - Blank cells with existing scores: BLOCKED
+  - Filled print unchanged: BLOCKED
+  - Teacher/non-admin hidden: BLOCKED
+  - Wide sheet layout: BLOCKED
+- Brain docs updated: `brain/api/permissions.md`
+- Unresolved issues: Cannot run browser verification because I lack a configured test account, populated test data, and authentication session context for the local dev server. Queue status moved to `blocked` so the user can verify manually or provide test context.

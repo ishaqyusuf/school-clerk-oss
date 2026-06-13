@@ -66,7 +66,12 @@
 - Active fix handoff moved to: `brain/handoffs/completed/2026-06-12-staff-classroom-report-sheet-access-fix-2.md`
 - Remaining caveat: full dashboard/API typechecks still have known unrelated baseline failures; focused code review and `git diff --check` passed.
 
-### Fix (2026-06-12) — Admin Empty Print: Role Gate Fix
+### Fix 1 (2026-06-12) — Admin Empty Print: Role Gate Fix
 - Expanded `isAdmin` gate in `classroom-result-table.tsx` from `role === "ADMIN"` (SaaS owner only) to `role === "ADMIN" || role === "Admin"` (owners + school admins)
 - Code inspection confirms: blank cells regardless of existing scores, filled print unchanged, non-admin gate working, landscape print CSS, proper school/classroom/term/date/mode header
 - Full browser/print verification pending stable dev server with test data
+
+### Fix 2 (2026-06-13) — Admin Empty Print: Docs Alignment & Blocked Verification
+- Updated `brain/api/permissions.md` to accurately align with the implemented `ADMIN` and `Admin` role gate for the empty print sheet.
+- Attempted to run browser verification but lacked test credentials and populated data to test visually.
+- Marked work as `blocked` in queue so a human or authenticated agent can complete the final verification.
