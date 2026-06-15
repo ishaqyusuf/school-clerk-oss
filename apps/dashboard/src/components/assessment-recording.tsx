@@ -3,7 +3,6 @@ import { AssessmentRecordingResultsTable } from "@/components/assessment-recordi
 import { _trpc } from "@/components/static-trpc";
 import { useAssessmentRecordingParams } from "@/hooks/use-assessment-recording-params";
 import { Card, DropdownMenu } from "@school-clerk/ui/composite";
-import { enToAr } from "@school-clerk/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
@@ -13,18 +12,6 @@ export function AssessmentRecording() {
   const { filters, permissions, setFilters } = useAssessmentRecordingParams();
   const auth = useAuth();
   const effectiveTermId = filters.termId ?? auth.profile?.termId ?? "";
-  const canLoadSubjects = !!filters.deptId && !!effectiveTermId;
-  const { data } = useQuery(
-    _trpc.subjects.byClassroom.queryOptions(
-      {
-        departmentId: filters.deptId ?? "",
-        sessionTermId: effectiveTermId,
-      },
-      {
-        enabled: canLoadSubjects,
-      },
-    ),
-  );
   const { data: departments } = useQuery(
     _trpc.classrooms.all.queryOptions(
       {
@@ -35,29 +22,25 @@ export function AssessmentRecording() {
       },
     ),
   );
-  const subjects = data?.subjects ?? [];
   const selectedDepartment = departments?.data?.find(
     (dept) => dept.id === filters.deptId,
   );
-  const subject = subjects.find((s) => s.id === filters?.deptSubjectId);
   return (
     <>
-      <div className="sm:mx-auto gap-4 px-4 sm:px-0 flex-col flex py-4 sm:max-w-4xl">
-        <div className="fixed z-10 w-full sm:max-w-4xl top-0 border-b border-border">
+      <div className="flex flex-col gap-4 px-2 py-3 sm:mx-auto sm:max-w-4xl sm:px-0 sm:py-4">
+        <div className="fixed inset-x-0 top-0 z-10 border-b border-border bg-background sm:left-1/2 sm:w-full sm:max-w-4xl sm:-translate-x-1/2">
           <Card.Header
-            className="bg-background flex flex-row gap-4 items-center h-16"
+            className="flex min-h-16 flex-wrap items-center gap-3 bg-background px-3 py-2 sm:flex-nowrap sm:px-6"
             dir="rtl"
           >
             {!permissions.classrooms || (
               <DropdownMenu dir="rtl">
                 <DropdownMenu.Trigger
                   dir="rtl"
-                  className="flex rounded-xl border-border border items-center p-0.5 px-2 gap-2 w-min hover:bg-muted"
+                  className="flex max-w-full items-center gap-2 rounded-xl border border-border px-2 py-1 hover:bg-muted"
                 >
-                  <Card.Title className="whitespace-nowrap text-base">
-                    {data?.departmentName ||
-                      selectedDepartment?.displayName ||
-                      "Select Classroom"}
+                  <Card.Title className="max-w-[70vw] truncate text-base sm:max-w-xs">
+                    {selectedDepartment?.displayName || "Select Classroom"}
                   </Card.Title>
                   <div className="rounded-full size-4 p-0">
                     <ChevronDown className="size-4" />
@@ -82,48 +65,9 @@ export function AssessmentRecording() {
                 </DropdownMenu.Content>
               </DropdownMenu>
             )}
-            {!permissions.subjects || (
-              <DropdownMenu dir="rtl">
-                <DropdownMenu.Trigger
-                  dir="rtl"
-                  className="flex rounded-xl border-border border items-center p-0.5 px-2 gap-2 w-min hover:bg-muted"
-                >
-                  <Card.Description className="whitespace-nowrap font-medium text-foreground">
-                    {subject?.subject?.title ||
-                      (filters.deptId ? "Select Subject" : "Select Classroom")}
-                  </Card.Description>
-                  <div className="rounded-full size-4 p-0">
-                    <ChevronDown className="size-4" />
-                  </div>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content>
-                  {!filters.deptId ? (
-                    <DropdownMenu.Item disabled>
-                      Select a classroom first
-                    </DropdownMenu.Item>
-                  ) : subjects.length ? (
-                    subjects.map((s, i) => (
-                      <DropdownMenu.Item
-                        onSelect={() => setFilters({ deptSubjectId: s.id })}
-                        dir="rtl"
-                        key={s.id}
-                      >
-                        <>
-                          {enToAr(i + 1)}.{s.subject?.title} |{" "}
-                          {s.submissionPercentage}%
-                        </>
-                      </DropdownMenu.Item>
-                    ))
-                  ) : (
-                    <DropdownMenu.Item disabled>
-                      No subjects found
-                    </DropdownMenu.Item>
-                  )}
-                </DropdownMenu.Content>
-              </DropdownMenu>
-            )}
             {!permissions.all || (
               <Link
+                className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                 target="_blank"
                 href={`/student-report?deptId=${filters.deptId}&permission=all&termId=${effectiveTermId}`}
               >

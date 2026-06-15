@@ -120,6 +120,62 @@
 - Attempted to run browser verification but lacked test credentials and populated data to test visually.
 - Marked work as `blocked` in queue so a human or authenticated agent can complete the final verification.
 
+### Final Landing (2026-06-15)
+
+- Landed the existing empty print implementation and permission documentation on `main`.
+- Browser/print verification was explicitly skipped by user instruction for this landing pass.
+- Completion evidence is code/documentation inspection: `Print Empty Sheet` remains restricted to `ADMIN` and `Admin`, prints student names and assessment headers, and leaves score/total/percentage cells blank.
+
+## Assessment Recording Page Polish (2026-06-15)
+
+### Completed
+
+- Removed the assessment recording header subject selector so the page focuses on classroom context and score entry.
+- Reduced mobile horizontal padding and made the fixed header wrap/truncate long classroom names without clipping.
+- Defaulted the score-entry table to the first loaded subject when no explicit `deptSubjectId` is present, while preserving explicit subject links.
+- Removed subject total columns from the assessment recording score-entry table and added the cue: "Click a subject to update assessments."
+- Browser/manual verification was skipped by user instruction.
+
+### Changed Files
+
+- `apps/dashboard/src/components/assessment-recording.tsx`
+- `apps/dashboard/src/components/assessment-recording-results-table.tsx`
+- `brain/features/assessment-results-and-sub-assessments.md`
+
+## Student Report Workspace Cleanup (2026-06-15)
+
+### Completed
+
+- Removed the live Print View tab from the student report workspace and opened the page directly into Classroom Results.
+- Kept print rendering available through the print-only report output and selection footer.
+- Changed the default student-report tab query state to `classroom-results`.
+- Restricted the Assessment Recording CTA to staff/teacher contexts with an allowed classroom and valid term, hiding it from the general admin report view.
+- Shortened the classroom result table header copy.
+- Browser/manual verification was skipped by user instruction.
+
+### Changed Files
+
+- `apps/dashboard/src/app/[domain]/(sidebar)/(student-result-portal)/student-report/student-report-view.tsx`
+- `apps/dashboard/src/hooks/use-student-report-filter-params.ts`
+- `apps/dashboard/src/components/student-report-filters.tsx`
+- `apps/dashboard/src/components/classroom-result-table.tsx`
+
+## GND-Style Sidebar Refresh (2026-06-15)
+
+### Completed
+
+- Ported the isolated sidebar refresh into `main`.
+- Updated the desktop sidebar to the wider GND-style collapsed/expanded rail, faster hover expansion, sidebar color tokens, subtle dividers, and stronger active module styling.
+- Updated nav list spacing, keys, section labels, active module expansion, and link selection propagation.
+- Aligned the sidebar shell offset with the new collapsed rail width.
+- Browser/manual verification was skipped by user instruction.
+
+### Changed Files
+
+- `packages/site-nav/src/components/sidebar.tsx`
+- `packages/site-nav/src/components/sidebar-shell.tsx`
+- `packages/site-nav/src/components/navs-list.tsx`
+
 ## Student Import Verification and Matching Service (2026-06-12)
 
 ### Completed

@@ -12,7 +12,9 @@ export const studentReportFilterParams = {
 	printOrder: parseAsArrayOf(parseAsString),
 	// departments that have been visited / have selected students — we load data for all of them
 	activeDepts: parseAsArrayOf(parseAsString),
-	tab: parseAsStringEnum(["print", "classroom-results"]).withDefault("print"),
+	tab: parseAsStringEnum(["print", "classroom-results"]).withDefault(
+		"classroom-results",
+	),
 };
 
 export function useStudentReportFilterParams() {

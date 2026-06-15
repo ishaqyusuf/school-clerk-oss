@@ -10,13 +10,7 @@ import {
 } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
 import { cn } from "@school-clerk/ui/cn";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@school-clerk/ui/tabs";
-import { FileText, FolderX, TableIcon } from "lucide-react";
+import { FolderX } from "lucide-react";
 import { useEffect, useMemo } from "react";
 
 function PageTitleSync() {
@@ -56,7 +50,6 @@ export function StudentReportView({
         <div className="flex min-h-screen flex-col">
           <ReportContent
             filters={filters}
-            setFilters={setFilters}
             defaultClassroomLayout={defaultClassroomLayout}
           />
         </div>
@@ -72,11 +65,9 @@ export function StudentReportView({
 
 function ReportContent({
   filters,
-  setFilters,
   defaultClassroomLayout,
 }: {
   filters: ReturnType<typeof useStudentReportFilterParams>["filters"];
-  setFilters: ReturnType<typeof useStudentReportFilterParams>["setFilters"];
   defaultClassroomLayout: "ltr" | "rtl";
 }) {
   const ctx = useReportPageContext();
@@ -90,49 +81,20 @@ function ReportContent({
     ctx.reportData !== undefined;
 
   return (
-    <Tabs
-      value={filters.tab}
-      onValueChange={(v) => setFilters({ tab: v as typeof filters.tab })}
-      className="flex flex-col flex-1"
-    >
+    <div className="flex flex-1 flex-col">
       <div className="sticky top-0 z-10 border-b bg-background px-4 py-3">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3">
           <StudentReportFilter controlsOnly />
-        <TabsList className="w-full sm:w-auto rounded-lg">
-          <TabsTrigger
-            value="print"
-            className="flex items-center gap-2 rounded-md"
-          >
-            <FileText className="size-4" />
-            Print View
-          </TabsTrigger>
-          <TabsTrigger
-            value="classroom-results"
-            className="flex items-center gap-2 rounded-md"
-          >
-            <TableIcon className="size-4" />
-            Classroom Results
-          </TabsTrigger>
-        </TabsList>
         </div>
       </div>
-      <TabsContent value="print" className="flex-1 mt-0">
+      <div className="mt-0 flex-1 p-4">
         {unavailable ? (
           <ReportUnavailable />
         ) : (
-          <div className="flex flex-col justify-center items-center dotted-bg p-4 lg:p-6 xl:p-0">
-            <div className="flex flex-col w-full py-6 mx-auto lg:max-w-4xl">
-              <div className="pb-24 lg:pb-28">
-                <Reports />
-              </div>
-            </div>
-          </div>
+          <ClassroomResultTable defaultClassroomLayout={defaultClassroomLayout} />
         )}
-      </TabsContent>
-      <TabsContent value="classroom-results" className="flex-1 mt-0 p-4">
-        <ClassroomResultTable defaultClassroomLayout={defaultClassroomLayout} />
-      </TabsContent>
-    </Tabs>
+      </div>
+    </div>
   );
 }
 

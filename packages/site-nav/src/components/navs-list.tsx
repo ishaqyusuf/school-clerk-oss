@@ -1,7 +1,6 @@
 import { cn, cva } from "@school-clerk/ui/cn";
 import { Icons } from "@school-clerk/ui/custom/icons";
 import { Fragment, useEffect, useMemo, useState } from "react";
-
 import type { NavLink } from "../lib/types";
 import {
   getActiveLinkFromMap,
@@ -24,7 +23,13 @@ const sectionLabel = cva("", {
   },
 });
 
-export function NavsList({ mobile = false }) {
+export function NavsList({
+  mobile = false,
+  onSelect,
+}: {
+  mobile?: boolean;
+  onSelect?: () => void;
+}) {
   const {
     linkModules,
     activeLink,
@@ -117,16 +122,13 @@ export function NavsList({ mobile = false }) {
     setStableLinkModules(linkModules);
   }, [linkModules]);
   useEffect(() => {
-    if (!isExpanded) setExpandModule(null);
-  }, [isExpanded]);
-  useEffect(() => {
     if (!isExpanded) return;
     setExpandModule(visibleModuleName);
   }, [isExpanded, visibleModuleName]);
   return (
-    <div className="mt-6 w-full">
+    <div className="mt-3 w-full px-3">
       <nav className="w-full overflow-auto">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           {renderedLinkModules?.modules.map((module, mi) => {
             if (isExpanded && !module?.activeLinkCount) return null;
             const hasModuleTitle = Boolean(module?.name?.trim());
@@ -142,7 +144,7 @@ export function NavsList({ mobile = false }) {
               !isExpanded && (!hasModuleTitle || isActiveModule);
             const show = showExpandedState || showCollapsedState;
             return (
-              <Fragment key={mi}>
+              <Fragment key={module?.name || `module-${mi}`}>
                 {hasModuleTitle ? (
                   <button
                     type="button"
@@ -150,15 +152,28 @@ export function NavsList({ mobile = false }) {
                       setExpandModule(isExpandedModule ? null : module.name);
                     }}
                     className={cn(
-                      "flex w-full justify-between gap-2 items-center uppercase pl-3 text-[10px] tracking-[0.08em] font-semibold text-muted-foreground/50 cursor-pointer h-7 select-none bg-transparent",
+                      "group mb-1.5 flex h-8 w-full cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 text-left transition-colors duration-200 hover:bg-sidebar-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                      isExpandedModule &&
+                        "bg-sidebar-accent text-sidebar-foreground shadow-[inset_0_0_0_1px_rgba(99,91,255,0.08)]",
                       !isExpanded && "hidden",
-                      !mobile ? "pr-3" : "",
                     )}
+                    aria-expanded={show}
                   >
-                    <span>{module.name}</span>
+                    <div className="min-w-0 flex-1">
+                      <span
+                        className={cn(
+                          "block truncate text-[12px] font-medium text-sidebar-foreground/66 group-hover:text-sidebar-foreground",
+                          isExpandedModule &&
+                            "font-semibold text-sidebar-foreground",
+                        )}
+                      >
+                        {module.name}
+                      </span>
+                    </div>
                     <Icons.chevronDown
                       className={cn(
-                        "size-3 transition-transform duration-200",
+                        "size-3.5 text-sidebar-foreground/38 transition-transform duration-200 group-hover:text-sidebar-foreground/70",
+                        isExpandedModule && "text-sidebar-foreground/80",
                         show ? "" : "-rotate-90",
                       )}
                     />
@@ -174,13 +189,13 @@ export function NavsList({ mobile = false }) {
                 >
                   {module?.sections?.map((section, si) => (
                     <div
-                      key={si}
+                      key={section?.name || section?.title || `section-${si}`}
                       className={cn(!section?.linksCount && "hidden")}
                     >
                       {!isExpanded && si > 0 ? null : (
                         <div
                           className={cn(
-                            "uppercase hidden text-xs mx-4 mt-4 font-semibold text-muted-foreground",
+                            "mx-4 mt-4 hidden text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/36",
                             activeLink?.module !== module.name &&
                               sectionLabel({
                                 renderMode: isExpanded
@@ -203,10 +218,13 @@ export function NavsList({ mobile = false }) {
                         {section?.links
                           ?.filter((l) => l?.show)
                           ?.map((link, li) => (
-                            <Fragment key={li}>
+                            <Fragment
+                              key={link?.href || link?.name || `link-${li}`}
+                            >
                               <NavItem
                                 isExpanded={isExpanded}
                                 isItemExpanded={expandedItem === link.href}
+                                onSelect={onSelect}
                                 onToggle={(path) => {
                                   setExpandedItem(
                                     expandedItem === path ? null : path,

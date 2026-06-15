@@ -66,14 +66,13 @@ Tracks tasks currently being worked on.
 - Blockers: None. Implementation has not been fully completed or verified yet.
 - Owner: Codex
 
-### Admin Empty Classroom Report Spreadsheet Print
-
-- Priority: Medium
-- Description: Track plan in `brain/plans/2026-06-12-feature-admin-empty-classroom-report-spreadsheet-print.md`.
-- Related Feature: assessment results and manual report records
+### Shared Report Roster Sorting And Gender Controls
+- Priority: High
+- Description: Track plan in `brain/plans/2026-06-12-ux-ui-shared-report-roster-sorting-and-gender-controls.md`.
+- Related Feature: assessment results and classroom report sheets
 - Status: In Progress
 - Plan Status: In Progress
-- Plan File: brain/plans/2026-06-12-feature-admin-empty-classroom-report-spreadsheet-print.md
-- Intake File: brain/intake/2026-06-12-classroom-report-sheet-access-and-empty-print.md
-- Handoff File: brain/handoffs/ready/2026-06-12-admin-empty-classroom-report-spreadsheet-print-handoff.md
-- Started Date: 2026-06-12
+- Plan File: brain/plans/2026-06-12-ux-ui-shared-report-roster-sorting-and-gender-controls.md
+- Intake File: brain/intake/2026-06-12-report-pages-and-sidebar-polish.md
+- Handoff File: brain/handoffs/ready/2026-06-13-shared-report-roster-sorting-and-gender-controls-handoff.md
+- Started Date: 2026-06-13

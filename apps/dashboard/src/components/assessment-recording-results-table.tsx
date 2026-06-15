@@ -54,11 +54,20 @@ export function AssessmentRecordingResultsTable({
 		),
 	);
 
-	useEffect(() => {
-		setSubjectFilterIds(selectedSubjectId ? [selectedSubjectId] : []);
-	}, [selectedSubjectId]);
-
 	const allSubjects = data?.subjects ?? [];
+	const firstSubjectId = allSubjects[0]?.id;
+
+	useEffect(() => {
+		if (selectedSubjectId) {
+			setSubjectFilterIds([selectedSubjectId]);
+			return;
+		}
+
+		if (firstSubjectId) {
+			setSubjectFilterIds([firstSubjectId]);
+		}
+	}, [firstSubjectId, selectedSubjectId]);
+
 	const visibleSubjects = useMemo(
 		() =>
 			filterResultSubjects({
@@ -139,6 +148,9 @@ export function AssessmentRecordingResultsTable({
 						) : null}
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
+						<span className="text-xs text-muted-foreground">
+							Click a subject to update assessments.
+						</span>
 						<Badge variant="outline" className="gap-1.5 rounded-full px-3 py-1">
 							{filteredStudents.length}/{data.studentTermForms.length} students
 						</Badge>
@@ -191,7 +203,7 @@ export function AssessmentRecordingResultsTable({
 								{visibleSubjects.map((subject) => (
 									<TableHead
 										key={subject.id}
-										colSpan={subject.assessments.length + 1}
+										colSpan={Math.max(subject.assessments.length, 1)}
 										className="text-center"
 									>
 										<button
@@ -207,7 +219,8 @@ export function AssessmentRecordingResultsTable({
 							<TableRow>
 								{visibleSubjects.map((subject) => (
 									<Fragment key={subject.id}>
-										{subject.assessments.map((assessment) => (
+										{subject.assessments.length ? (
+											subject.assessments.map((assessment) => (
 											<TableHead
 												key={`${subject.id}-${assessment.id}`}
 												className="min-w-[70px] text-center text-xs"
@@ -217,10 +230,12 @@ export function AssessmentRecordingResultsTable({
 													({assessment.obtainable})
 												</div>
 											</TableHead>
-										))}
-										<TableHead className="min-w-[70px] text-center text-xs">
-											Total
-										</TableHead>
+											))
+										) : (
+											<TableHead className="min-w-[90px] text-center text-xs text-muted-foreground">
+												No assessments
+											</TableHead>
+										)}
 									</Fragment>
 								))}
 							</TableRow>
@@ -234,7 +249,8 @@ export function AssessmentRecordingResultsTable({
 										</TableCell>
 										{row.subjectTotals.map((subjectTotal) => (
 											<Fragment key={subjectTotal.subject.id}>
-												{subjectTotal.cells.map((cell) => (
+												{subjectTotal.cells.length ? (
+													subjectTotal.cells.map((cell) => (
 													<AssessmentResultsScoreCell
 														key={`${row.student.id}-${cell.assessment.id}`}
 														assessmentId={cell.assessment.id}
@@ -244,12 +260,12 @@ export function AssessmentRecordingResultsTable({
 														departmentSubjectId={subjectTotal.subject.id}
 														result={cell.result}
 													/>
-												))}
-												<TableCell className="text-center font-medium">
-													{subjectTotal.total > 0
-														? subjectTotal.total.toFixed(1)
-														: "-"}
-												</TableCell>
+													))
+												) : (
+													<TableCell className="text-center text-muted-foreground">
+														-
+													</TableCell>
+												)}
 											</Fragment>
 										))}
 									</TableRow>
@@ -261,7 +277,7 @@ export function AssessmentRecordingResultsTable({
 											1 +
 											visibleSubjects.reduce(
 												(total, subject) =>
-													total + subject.assessments.length + 1,
+													total + Math.max(subject.assessments.length, 1),
 												0,
 											)
 										}

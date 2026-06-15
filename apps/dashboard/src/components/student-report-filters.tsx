@@ -83,9 +83,10 @@ export function StudentReportFilter({
     !!ctx?.termForms?.length && currentClassSelected === ctx.termForms.length;
 
   const isResultEntryAllowed =
+    !!allowedClassroomIds &&
     !!filters.departmentId &&
     !!filters.termId &&
-    (!allowedClassroomIds || allowedClassroomIds.includes(filters.departmentId));
+    allowedClassroomIds.includes(filters.departmentId);
 
   const controls = (
     <>
@@ -148,7 +149,7 @@ export function StudentReportFilter({
                 target="_blank"
               >
                 <ExternalLinkIcon className="size-4" />
-                Result Entry
+                Assessment Recording
               </a>
             </Button>
           </div>

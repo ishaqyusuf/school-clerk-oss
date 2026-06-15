@@ -257,3 +257,39 @@ Record of completed tasks and delivery outcomes.
 - Outcome: Resolved the blocked landing from worktree `/Users/M1PRO/Documents/code/.brain-worktrees/2026-06-12-school-clerk-student-import-review-and-resolution-ui` into `main`. The import review screen now uses Ready to import, Match Found, and Needs attention tabs with batch defaults, row-level decisions, full candidate metadata, manual gender resolution, and suspected-match validation that only requires a selected candidate for keep/update decisions.
 - Related changes: `apps/dashboard/src/components/modals/student-import/import-activities.tsx`, `brain/features/student-import.md`, `brain/progress.md`
 - Owner: Antigravity/OpenCode, landed by Codex
+
+## Completed Task
+
+- ID: 2026-06-12-school-clerk-empty-report-spreadsheet-print
+- Title: Admin Empty Classroom Report Spreadsheet Print
+- Completed: 2026-06-15
+- Outcome: Landed the admin blank classroom report spreadsheet print workflow on `main`; `Print Empty Sheet` is available to `ADMIN` SaaS owners and `Admin` staff admins, keeps student/assessment headers visible, and renders score/total/percentage cells blank for manual records. Browser/print verification was skipped by user instruction.
+- Related changes: `apps/dashboard/src/components/classroom-result-table.tsx`, `brain/api/permissions.md`, `brain/features/assessment-results-and-sub-assessments.md`, `brain/progress.md`
+- Owner: Codex
+
+## Completed Task
+
+- ID: 2026-06-13-school-clerk-assessment-recording-page-polish
+- Title: Assessment Recording Page Polish
+- Completed: 2026-06-15
+- Outcome: Removed the header subject selector, tightened mobile spacing, defaulted the score-entry table to the first loaded subject when no explicit subject is selected, hid subject total columns from score entry, and added a subject-click cue. Browser/manual verification was skipped by user instruction.
+- Related changes: `apps/dashboard/src/components/assessment-recording.tsx`, `apps/dashboard/src/components/assessment-recording-results-table.tsx`, `brain/features/assessment-results-and-sub-assessments.md`, `brain/progress.md`
+- Owner: Codex
+
+## Completed Task
+
+- ID: 2026-06-13-school-clerk-student-report-workspace-cleanup
+- Title: Student Report Workspace Cleanup
+- Completed: 2026-06-15
+- Outcome: Removed the live Print View tab, opened student report directly to Classroom Results, preserved print-only report output, restricted the Assessment Recording CTA to valid staff/teacher classroom context, and shortened classroom result copy. Browser/manual verification was skipped by user instruction.
+- Related changes: `apps/dashboard/src/app/[domain]/(sidebar)/(student-result-portal)/student-report/student-report-view.tsx`, `apps/dashboard/src/hooks/use-student-report-filter-params.ts`, `apps/dashboard/src/components/student-report-filters.tsx`, `apps/dashboard/src/components/classroom-result-table.tsx`, `brain/progress.md`
+- Owner: Codex
+
+## Completed Task
+
+- ID: 2026-06-13-school-clerk-gnd-style-sidebar-refresh
+- Title: GND-Style Sidebar Refresh
+- Completed: 2026-06-15
+- Outcome: Landed the GND-style sidebar rail refresh with wider collapsed/expanded widths, faster hover expansion, sidebar color tokens, active module styling, updated nav spacing/keys, link selection propagation, and matching shell offset. Browser/manual verification was skipped by user instruction.
+- Related changes: `packages/site-nav/src/components/sidebar.tsx`, `packages/site-nav/src/components/sidebar-shell.tsx`, `packages/site-nav/src/components/navs-list.tsx`, `brain/progress.md`
+- Owner: Codex

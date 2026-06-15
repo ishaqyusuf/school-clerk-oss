@@ -553,9 +553,8 @@ export function ClassroomResultTable({
 									Review scores, sort quickly, and print with confidence
 								</Card.Title>
 								<Card.Description className="max-w-2xl text-sm leading-6">
-									Switch between left-to-right and right-to-left layouts,
-									collapse to subject totals when needed, and export the current
-									classroom grid for printing or spreadsheets.
+									Review scores, sort, and export the current classroom grid for
+									printing or spreadsheets.
 								</Card.Description>
 							</div>
 							<div className="flex flex-wrap gap-2">

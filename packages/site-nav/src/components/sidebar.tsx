@@ -1,9 +1,7 @@
 import { cn } from "@school-clerk/ui/cn";
 import { useEffect, useRef } from "react";
-import { useSiteNav } from "./use-site-nav";
 import { NavsList } from "./navs-list";
-
-interface Props {}
+import { useSiteNav } from "./use-site-nav";
 
 export function Sidebar({ children }: { children?: React.ReactNode }) {
   const ctx = useSiteNav();
@@ -22,13 +20,15 @@ export function Sidebar({ children }: { children?: React.ReactNode }) {
   return (
     <aside
       className={cn(
-        "relative h-screen flex-shrink-0 flex-col desktop:overflow-hidden desktop:rounded-tl-[10px] desktop:rounded-bl-[10px] justify-between fixed top-0 pb-4 items-center hidden md:flex z-50 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
-
-        " border-r border-border",
-        isExpanded ? "w-[240px]" : "w-[70px]",
-        "bg-background bg-secondary",
+        "fixed top-0 z-50 hidden h-screen flex-shrink-0 flex-col justify-between overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04),0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:flex desktop:rounded-bl-lg desktop:rounded-tl-lg",
+        isExpanded ? "w-[268px]" : "w-[84px]",
       )}
     >
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-x-5 top-[70px] h-px bg-sidebar-border/80" />
+        <div className="absolute inset-y-0 right-0 w-px bg-sidebar-border/70" />
+        <div className="absolute left-0 top-0 h-full w-1 bg-sidebar-primary" />
+      </div>
       <div
         ref={mainMenuRef}
         onMouseEnter={() => {
@@ -38,7 +38,7 @@ export function Sidebar({ children }: { children?: React.ReactNode }) {
           expandTimeoutRef.current = setTimeout(() => {
             setIsExpanded(true);
             expandTimeoutRef.current = null;
-          }, 333);
+          }, 140);
         }}
         onMouseLeave={() => {
           if (expandTimeoutRef.current) {
@@ -47,7 +47,7 @@ export function Sidebar({ children }: { children?: React.ReactNode }) {
           }
           setIsExpanded(false);
         }}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-hide w-full pb-[100px] pt-[75px]"
+        className="scrollbar-hide relative flex min-h-0 w-full flex-1 flex-col overflow-y-auto pb-4 pt-[70px]"
       >
         <NavsList />
       </div>
