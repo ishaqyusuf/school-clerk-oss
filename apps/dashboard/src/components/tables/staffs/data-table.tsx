@@ -214,7 +214,7 @@ export function DataTable({ search, status }: Props) {
 
 	return (
 		<div className="flex flex-col gap-6">
-			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+			<div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
 				<StatCard
 					label="Total staff"
 					value={data.stats.total}

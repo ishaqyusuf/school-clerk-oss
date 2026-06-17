@@ -386,7 +386,7 @@ function Content() {
 			</Collapsible>
 
 			{/* Summary Cards */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+			<div className="hidden md:grid md:grid-cols-3 gap-4">
 				{/* Total Invoiced */}
 				<Card className="bg-card rounded-xl shadow-sm">
 					<CardContent className="p-5">

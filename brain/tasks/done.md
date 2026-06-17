@@ -23,6 +23,15 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: STUD-IMP-005
+- Title: Student Import Follow-Up Refinements
+- Completed: 2026-06-17
+- Outcome: Completed the student batch import UX polish pass. Import parsing now supports comma/dot-delimited name parts while preserving recognized row-level gender aliases, global/manual gender inputs use compact `M` / `F` toggle controls, review rows show parsed name chips, no-match rows default to `Import new`, `Skip` is disabled for no-match rows, and `Cancel Import` returns to the initial import screen before execution.
+- Related changes: `apps/dashboard/src/components/modals/student-import/index.tsx`, `apps/dashboard/src/components/modals/student-import/import-activities.tsx`, `brain/features/student-import.md`, `brain/plans/2026-06-13-ux-ui-student-import-follow-up-refinements.md`, `brain/tasks/roadmap.md`, `brain/progress.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: TASK-2026-06-15-production-to-local-db-import
 - Title: Add production-to-local database import tooling
 - Completed: 2026-06-15

@@ -8,6 +8,7 @@ import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
 import { Select, Tabs } from "@school-clerk/ui/composite";
 import { Separator } from "@school-clerk/ui/separator";
+import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -31,6 +32,7 @@ interface Props {
     originalText: string;
     parsedGender?: "M" | "F";
   }[];
+  onCancelImport?: () => void;
 }
 
 type VerifyResult =
@@ -66,7 +68,7 @@ const actionLabels: Record<ImportAction, string> = {
   skip: "Skip",
 };
 
-export function ImportActivity({ students }: Props) {
+export function ImportActivity({ students, onCancelImport }: Props) {
   const [classroomDeptId, setClassroomDeptId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"ready" | "matched" | "attention">(
     "ready",
@@ -167,7 +169,7 @@ export function ImportActivity({ students }: Props) {
           existingStudentId: row.fullMatch.id,
           touched: false,
         };
-      } else if (!row.needsGender && row.suspectedMatches.length === 0) {
+      } else if (row.suspectedMatches.length === 0) {
         defaults[row.lineNumber] = {
           action: "import_new",
           existingStudentId: null,
@@ -235,6 +237,8 @@ export function ImportActivity({ students }: Props) {
   };
 
   const setAction = (row: VerifyResult, action: ImportAction) => {
+    if (action === "skip" && !getCandidates(row).length) return;
+
     setDecision(row.lineNumber, (current) => {
       const needsExisting =
         action === "keep_match" || action === "update_match_with_name";
@@ -418,6 +422,18 @@ export function ImportActivity({ students }: Props) {
           <RefreshCw className="mr-2 size-4" />
           Refresh
         </Button>
+
+        {onCancelImport ? (
+          <Button
+            variant="ghost"
+            onClick={onCancelImport}
+            className="h-9"
+            type="button"
+            disabled={isExecutingBatch}
+          >
+            Cancel Import
+          </Button>
+        ) : null}
 
         <SubmitButton
           isSubmitting={isExecutingBatch}
@@ -795,9 +811,14 @@ function RowCard({
               <Arabic className="font-semibold">{row.originalText}</Arabic>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
-              <Arabic>
-                Parsed: {row.name} {row.surname} {row.otherName || ""}
-              </Arabic>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span>Parsed:</span>
+                <NamePartChip label="Name" value={row.name} />
+                <NamePartChip label="Surname" value={row.surname} />
+                {row.otherName ? (
+                  <NamePartChip label="Other" value={row.otherName} />
+                ) : null}
+              </div>
               <span>
                 Gender:{" "}
                 {resolvedGender ? (
@@ -825,20 +846,10 @@ function RowCard({
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           {needsGender ? (
-            <Select
-              value={manualGender || ""}
-              onValueChange={(value) =>
-                onGenderChange(row.lineNumber, value as "Male" | "Female")
-              }
-            >
-              <Select.Trigger className="h-8 w-32 bg-background text-xs">
-                <Select.Value placeholder="Gender" />
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="Male">Male</Select.Item>
-                <Select.Item value="Female">Female</Select.Item>
-              </Select.Content>
-            </Select>
+            <GenderToggle
+              value={manualGender}
+              onValueChange={(gender) => onGenderChange(row.lineNumber, gender)}
+            />
           ) : null}
 
           <Select
@@ -861,7 +872,9 @@ function RowCard({
               >
                 Update match with name
               </Select.Item>
-              <Select.Item value="skip">Skip</Select.Item>
+              <Select.Item value="skip" disabled={!candidates.length}>
+                Skip
+              </Select.Item>
             </Select.Content>
           </Select>
         </div>
@@ -892,6 +905,58 @@ function RowCard({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function NamePartChip({ label, value }: { label: string; value: string }) {
+  return (
+    <Badge
+      variant="outline"
+      className="max-w-full gap-1 rounded-sm bg-background px-1.5 py-0.5 font-normal"
+    >
+      <span className="text-[10px] uppercase text-muted-foreground">
+        {label}
+      </span>
+      <Arabic className="font-medium text-foreground">{value}</Arabic>
+    </Badge>
+  );
+}
+
+function GenderToggle({
+  value,
+  onValueChange,
+}: {
+  value?: "Male" | "Female";
+  onValueChange: (gender: "Male" | "Female") => void;
+}) {
+  return (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      value={value || ""}
+      onValueChange={(nextValue) => {
+        if (nextValue === "Male" || nextValue === "Female") {
+          onValueChange(nextValue);
+        }
+      }}
+      className="justify-start"
+    >
+      <ToggleGroupItem
+        value="Male"
+        aria-label="Set row gender to Male"
+        className="h-8 w-10 bg-background"
+      >
+        M
+      </ToggleGroupItem>
+      <ToggleGroupItem
+        value="Female"
+        aria-label="Set row gender to Female"
+        className="h-8 w-10 bg-background"
+      >
+        F
+      </ToggleGroupItem>
+    </ToggleGroup>
   );
 }
 

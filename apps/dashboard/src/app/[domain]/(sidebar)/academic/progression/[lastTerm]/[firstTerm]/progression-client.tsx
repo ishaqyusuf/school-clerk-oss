@@ -818,7 +818,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+          <div className="hidden gap-4 md:grid md:grid-cols-3 xl:grid-cols-5">
             <StatCard
               label="Total Students"
               value={String(total)}

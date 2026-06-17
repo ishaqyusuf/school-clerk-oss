@@ -1,5 +1,43 @@
 # Progress
 
+## Mobile Analytics Section Visibility (2026-06-17)
+
+### Completed
+
+- Hid analytics/stat card sections below the `md` breakpoint on non-dashboard pages, while preserving dashboard analytics sections.
+- Applied the responsive behavior to student, staff, teacher workspace, finance/account, attendance, assessment, academic progression, promotion, and school profile stat sections.
+
+### Changed Files
+
+- `apps/dashboard/src/components/**`
+- `apps/dashboard/src/app/[domain]/(sidebar)/**`
+
+### Verification
+
+- Lightweight diff inspection only. Project-wide typecheck and browser verification were not run in this pass.
+
+## Student Import Follow-Up Refinements (2026-06-17)
+
+### Completed
+
+- Updated student import parsing so comma- or dot-delimited name parts map deterministically to `name`, `surname`, and `otherName`, while preserving recognized final gender aliases such as `M`, `F`, `Male`, and `Female`.
+- Replaced global and manual row gender selects with compact `M` / `F` toggle controls mapped to canonical `Male` / `Female` values.
+- Added parsed name-part chips in the review rows, kept no-match rows defaulted to `Import new`, disabled `Skip` for no-match rows, and added a pre-execution `Cancel Import` path back to the initial import screen.
+- Marked the follow-up refinement plan and roadmap task as done.
+
+### Changed Files
+
+- `apps/dashboard/src/components/modals/student-import/index.tsx`
+- `apps/dashboard/src/components/modals/student-import/import-activities.tsx`
+- `brain/features/student-import.md`
+- `brain/plans/2026-06-13-ux-ui-student-import-follow-up-refinements.md`
+- `brain/tasks/roadmap.md`
+- `brain/tasks/done.md`
+
+### Verification
+
+- Lightweight diff inspection only. Project-wide typecheck was not run in this pass.
+
 ## Assessment Recording Fallback Context And Current Term Selection (2026-06-15)
 
 ### Completed

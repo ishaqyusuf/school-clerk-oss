@@ -152,7 +152,7 @@ function Content() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="hidden md:grid md:grid-cols-4 gap-4">
         <Card className="p-6 flex flex-col gap-2">
           <div className="flex justify-between items-start">
             <p className="text-muted-foreground text-sm font-medium">Total Disbursed</p>

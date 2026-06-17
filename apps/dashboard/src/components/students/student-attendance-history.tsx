@@ -43,7 +43,7 @@ function Content() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
       {/* Attendance Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="hidden md:grid md:grid-cols-3 gap-4">
         {/* Attendance Rate Card */}
         <Card className="bg-card rounded-xl shadow-sm">
           <CardContent className="p-5 flex items-center justify-between">

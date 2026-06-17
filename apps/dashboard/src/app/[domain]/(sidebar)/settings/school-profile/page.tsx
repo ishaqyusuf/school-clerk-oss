@@ -88,7 +88,7 @@ export default async function Page() {
         </Card>
 
         {/* Stats */}
-        <Card>
+        <Card className="hidden md:block">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground font-medium">
               Total Students
@@ -99,7 +99,7 @@ export default async function Page() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hidden md:block">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground font-medium">
               Academic Sessions

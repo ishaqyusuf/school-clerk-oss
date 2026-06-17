@@ -95,7 +95,7 @@ export function FinanceReconciliationView() {
 				</Button>
 			</div>
 
-			<div className="grid gap-3 md:grid-cols-3">
+			<div className="hidden gap-3 md:grid md:grid-cols-3">
 				<MetricCard label="Credits" value={integrity.totals.totalCredit} />
 				<MetricCard label="Debits" value={integrity.totals.totalDebit} />
 				<MetricCard label="Balance" value={integrity.totals.totalBalance} />

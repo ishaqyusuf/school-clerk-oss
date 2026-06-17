@@ -15,7 +15,7 @@ export function StudentStatsCards() {
     isLoading ? "--" : (value ?? 0).toLocaleString();
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-4">
       <Card className="bg-card p-5 rounded-xl shadow-sm">
         <CardContent className="p-0">
           <div className="flex items-center justify-between mb-2">

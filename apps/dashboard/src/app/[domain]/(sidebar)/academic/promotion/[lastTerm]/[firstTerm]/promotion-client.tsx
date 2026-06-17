@@ -673,7 +673,7 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
       ) : (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="hidden md:grid md:grid-cols-4 gap-4">
             <StatCard
               icon={<Users className="h-5 w-5 text-primary" />}
               label="Total Students"

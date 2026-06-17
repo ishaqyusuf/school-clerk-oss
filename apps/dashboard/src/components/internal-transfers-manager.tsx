@@ -136,7 +136,7 @@ export function InternalTransfersManager() {
 										</div>
 									</div>
 
-									<div className="grid gap-3 md:grid-cols-3">
+									<div className="hidden gap-3 md:grid md:grid-cols-3">
 										<TransferMetaCard
 											label="From stream"
 											value={transfer.fromWalletName || "Unknown"}

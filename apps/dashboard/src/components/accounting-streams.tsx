@@ -205,7 +205,7 @@ function Content() {
 			</div>
 
 			{/* KPI Stats */}
-			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+			<div className="hidden md:grid md:grid-cols-2 xl:grid-cols-4 gap-4">
 				<Card className="p-6 flex flex-col justify-between">
 					<div className="flex justify-between items-start">
 						<div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg text-green-600 dark:text-green-400">

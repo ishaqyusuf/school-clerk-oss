@@ -201,7 +201,7 @@ export function SubjectAssessments(props: Props) {
         >
           <Accordion.Item className="border-none" value="general">
             <Accordion.Content>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
                 <StatCard
                   icon={FileText}
                   label="Score items"

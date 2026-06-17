@@ -64,7 +64,7 @@ export function FinanceStreamDetail({ streamId }: FinanceStreamDetailProps) {
 				</p>
 			</div>
 
-			<div className="grid gap-3 md:grid-cols-3">
+			<div className="hidden gap-3 md:grid md:grid-cols-3">
 				<StreamStat label="Credit" value={data.totalIn} icon={ArrowUpRight} />
 				<StreamStat label="Debit" value={data.totalOut} icon={ArrowDownRight} />
 				<StreamStat label="Balance" value={data.balance} icon={Wallet} />

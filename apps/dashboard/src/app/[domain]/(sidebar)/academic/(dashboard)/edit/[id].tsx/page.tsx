@@ -65,7 +65,7 @@ const SessionDetails = ({}) => {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="hidden md:grid md:grid-cols-3 gap-4">
         <Card className="p-6 flex flex-col justify-center">
           <p className="text-muted-foreground text-sm font-medium mb-1">
             Session Duration

@@ -109,7 +109,7 @@ function Content() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="hidden md:grid md:grid-cols-4 gap-4">
         <Card className="p-6 flex flex-col gap-2">
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm font-medium text-muted-foreground">Total Paid (This Term)</p>

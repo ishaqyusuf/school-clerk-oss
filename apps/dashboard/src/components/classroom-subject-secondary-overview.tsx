@@ -110,7 +110,7 @@ function Content() {
                 </div>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="hidden gap-3 md:grid md:grid-cols-3">
                 <div className="rounded-2xl border border-border bg-muted/30 p-4">
                   <div className="flex items-center gap-3">
                     <div className="rounded-xl bg-emerald-100 p-2 text-emerald-700">

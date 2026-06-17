@@ -25,8 +25,11 @@ Allow school operators to import multiple students from pasted text data, assign
 
 Each pasted line is parsed as follows:
 
-- The line is split by the first comma `,` into a **Name Part** and an optional **Gender Part**.
-- The **Name Part** is trimmed and split by whitespace into tokens:
+- If the line contains comma `,` or dot `.` delimiters, the line is split on those delimiters, trimmed, and empty parts are ignored.
+- If the final comma/dot-delimited part is a recognized gender alias, that final part becomes the row-level gender and the preceding parts remain the name source.
+- If no comma or dot delimiter is present, the line is split by whitespace.
+- If the name source has only one part before a recognized row-level gender, that one part is split by whitespace so `John Doe, Male` still maps correctly.
+- The resulting name tokens are assigned deterministically:
   - Token 1: `name` (first name)
   - Token 2: `surname` (family name)
   - Remaining tokens: `otherName` (middle or additional names)
@@ -45,8 +48,8 @@ In the parsed output payload, `student.gender` is the effective input gender aft
 - Empty lines are ignored.
 - Missing name parts are surfaced with line numbers.
 - Missing surnames are surfaced as warnings.
-- Unrecognized gender aliases are surfaced as warnings.
 - Proceeding to the verification tab requires a valid classroom selection.
+- The optional global gender and manual row gender resolution use compact grouped `M` / `F` controls mapped to canonical `Male` / `Female` values.
 
 ## Matching Rules
 
@@ -78,14 +81,16 @@ In the parsed output payload, `student.gender` is the effective input gender aft
 
 - **Ready to import**: rows with no existing match and complete required fields. These default to `Import new`, and the tab includes an `Import all ready` batch action for untouched rows.
 - **Match Found**: rows with exact or suspected existing-student matches. Exact matches default to `Keep match`; suspected matches start unresolved unless a batch default or row action is selected.
-- **Needs attention**: rows that are not matched but still need a required manual value, such as gender.
+- **Needs attention**: rows that are not matched but still need a required manual value, such as gender. No-match rows still default to `Import new` so they become executable as soon as the missing gender is resolved.
 
 ### Batch And Row Decisions
 
 - Exact-match and suspected-match batch defaults only apply to rows the operator has not touched.
 - `Keep match` and `Update match with name` require a selected candidate before execution.
 - `Import new` and `Skip` are complete decisions for suspected-match rows and do not require selecting an existing candidate.
-- `Skip` is a dashboard-only review action. Skipped rows are omitted from the `executeStudentImport` payload and counted in the review summary.
+- `Skip` is a dashboard-only review action for matched or attention rows. It is disabled for no-match rows so ready imports cannot be accidentally omitted. Skipped rows are omitted from the `executeStudentImport` payload and counted in the review summary.
+- Review rows display parsed `name`, `surname`, and `otherName` as separate chips beside the original pasted line.
+- `Cancel Import` is available before execution and returns the operator to the initial import screen, clearing staged verification/review state without writing new student records.
 
 ### Candidate Metadata
 

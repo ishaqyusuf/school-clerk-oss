@@ -273,7 +273,7 @@ export function StaffOverviewShell({
 
 			{resolvedTab === "overview" ? (
 				<div className="space-y-6">
-					<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+					<div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
 						<MetricCard
 							icon={IdCard}
 							label="Staff ID"
@@ -621,7 +621,7 @@ function StaffOverviewSkeleton({ mode = "sheet" }: { mode?: "sheet" | "page" }) 
 				<Skeleton className="h-8 w-28" />
 				<Skeleton className="h-8 w-28" />
 			</div>
-			<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+			<div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
 				{Array.from({ length: 4 }).map((_, index) => (
 					<Skeleton key={index} className="h-28 w-full rounded-2xl" />
 				))}

@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@school-clerk/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
 import { parseAsString, useQueryStates } from "nuqs";
 import { useEffect, useMemo, useState } from "react";
 import { Controller } from "react-hook-form";
@@ -35,6 +36,20 @@ interface ParsedWarning {
   warning: string;
 }
 
+function parseGenderAlias(value: string): "M" | "F" | undefined {
+  const lowerGender = value.trim().toLowerCase();
+
+  if (lowerGender === "m" || lowerGender === "male") {
+    return "M";
+  }
+
+  if (lowerGender === "f" || lowerGender === "female") {
+    return "F";
+  }
+
+  return undefined;
+}
+
 function parseRawInput(
   rawText: string,
   classRoomName: string,
@@ -54,11 +69,26 @@ function parseRawInput(
     const trimmed = line.trim();
     if (!trimmed) return;
 
-    const parts = trimmed.split(",").map((p) => p.trim());
-    const namePart = parts[0] || "";
-    const genderPart = parts[1] || "";
+    const hasPunctuationNameDelimiter = /[,.]/.test(trimmed);
+    const delimitedParts = hasPunctuationNameDelimiter
+      ? trimmed
+          .split(/[,.]/)
+          .map((part) => part.trim())
+          .filter(Boolean)
+      : [];
+    const lastDelimitedPart = delimitedParts[delimitedParts.length - 1] || "";
+    const parsedGenderFromDelimitedPart = lastDelimitedPart
+      ? parseGenderAlias(lastDelimitedPart)
+      : undefined;
+    const nameSourceParts = parsedGenderFromDelimitedPart
+      ? delimitedParts.slice(0, -1)
+      : delimitedParts;
+    const nameTokens =
+      hasPunctuationNameDelimiter && nameSourceParts.length > 1
+        ? nameSourceParts
+        : (nameSourceParts[0] || trimmed).split(/\s+/).filter(Boolean);
 
-    if (!namePart) {
+    if (!nameTokens.length) {
       warnings.push({
         lineNumber,
         text: trimmed,
@@ -67,31 +97,16 @@ function parseRawInput(
       return;
     }
 
-    let parsedGender: "M" | "F" | undefined = undefined;
-    if (genderPart) {
-      const lowerGender = genderPart.toLowerCase();
-      if (lowerGender === "m" || lowerGender === "male") {
-        parsedGender = "M";
-      } else if (lowerGender === "f" || lowerGender === "female") {
-        parsedGender = "F";
-      } else {
-        warnings.push({
-          lineNumber,
-          text: trimmed,
-          warning: `Unrecognized gender alias: "${genderPart}"`,
-        });
-      }
-    }
+    const parsedGender: "M" | "F" | undefined = parsedGenderFromDelimitedPart;
 
     const effectiveGender =
       parsedGender ||
       (globalGender === "Male"
         ? "M"
-        : globalGender === "Female"
-          ? "F"
-          : undefined);
+          : globalGender === "Female"
+            ? "F"
+            : undefined);
 
-    const nameTokens = namePart.split(/\s+/).filter(Boolean);
     const name = nameTokens[0] || "";
     const surname = nameTokens[1] || "";
     const otherName = nameTokens.slice(2).join(" ") || undefined;
@@ -234,24 +249,39 @@ export function StudentImportModal() {
                     control={form.control}
                     render={({ field }) => (
                       <Field>
-                        <Field.Label htmlFor="global-gender-select">
+                        <Field.Label>
                           Global Gender (Optional)
                         </Field.Label>
-                        <Select
-                          value={field.value || ""}
-                          onValueChange={field.onChange}
+                        <ToggleGroup
+                          type="single"
+                          variant="outline"
+                          size="sm"
+                          value={
+                            field.value === "Male" ||
+                            field.value === "Female"
+                              ? field.value
+                              : ""
+                          }
+                          onValueChange={(value) =>
+                            field.onChange(value || "unset")
+                          }
+                          className="justify-start"
                         >
-                          <SelectTrigger id="global-gender-select">
-                            <SelectValue placeholder="Unset (infer or specify per row)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unset">
-                              Unset (infer or specify per row)
-                            </SelectItem>
-                            <SelectItem value="Male">Male</SelectItem>
-                            <SelectItem value="Female">Female</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          <ToggleGroupItem
+                            value="Male"
+                            aria-label="Use Male as the global gender"
+                            className="w-14"
+                          >
+                            M
+                          </ToggleGroupItem>
+                          <ToggleGroupItem
+                            value="Female"
+                            aria-label="Use Female as the global gender"
+                            className="w-14"
+                          >
+                            F
+                          </ToggleGroupItem>
+                        </ToggleGroup>
                       </Field>
                     )}
                   />
@@ -321,6 +351,7 @@ export function StudentImportModal() {
                 classList?.data?.map((c) => ({ title: c.departmentName })) || []
               }
               students={parse?.students || []}
+              onCancelImport={() => setTab("main")}
             />
           </Tabs.Content>
         </Tabs.Root>

@@ -50,7 +50,7 @@ function StatGrid({
 	}>;
 }) {
 	return (
-		<div className="grid gap-4 md:grid-cols-3">
+		<div className="hidden gap-4 md:grid md:grid-cols-3">
 			{items.map((item) => (
 				<Card key={item.label}>
 					<CardHeader className="flex flex-row items-center justify-between pb-2">

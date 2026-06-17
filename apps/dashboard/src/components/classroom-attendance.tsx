@@ -95,7 +95,7 @@ function Content({ departmentId }: { departmentId?: string | null }) {
   return (
     <div className="flex flex-col gap-6">
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="hidden md:grid md:grid-cols-3 gap-4">
         <div className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col justify-between hover:border-primary/30 transition-colors">
           <div className="flex items-start justify-between mb-4">
             <div>

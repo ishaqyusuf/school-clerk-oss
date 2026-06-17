@@ -122,7 +122,7 @@ export function DataTable() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Total transactions"
               value={String(stats.total)}

@@ -4,13 +4,13 @@
 UX/UI
 
 ## Status
-Proposed
+Done
 
 ## Created Date
 2026-06-13
 
 ## Last Updated
-2026-06-13
+2026-06-17
 
 ## Intake
 - Intake File: brain/intake/2026-06-13-student-import-follow-up-refinements.md
@@ -112,3 +112,8 @@ Lower agent must report:
 ## Linked Task
 - Task Title: Student Import Follow-Up Refinements
 - Task File: brain/tasks/roadmap.md
+
+## Completion
+- Completed: 2026-06-17
+- Outcome: The student import follow-up refinements are implemented. The parser now supports comma/dot-delimited name parts while preserving row-level gender aliases, global/manual gender selection uses compact `M`/`F` toggle controls, review rows show parsed name chips, no-match rows default to `Import new`, `Skip` is disabled where there is no match candidate, and `Cancel Import` returns to the initial import screen before execution.
+- Brain Updates: `brain/features/student-import.md`, `brain/progress.md`, `brain/tasks/done.md`, `brain/tasks/roadmap.md`.

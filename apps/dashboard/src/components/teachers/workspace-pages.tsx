@@ -45,7 +45,7 @@ function TeacherStatGrid({
 	}>;
 }) {
 	return (
-		<div className="grid gap-4 md:grid-cols-4">
+		<div className="hidden gap-4 md:grid md:grid-cols-4">
 			{stats.map((item) => (
 				<Card key={item.label}>
 					<CardHeader className="flex flex-row items-center justify-between pb-2">
