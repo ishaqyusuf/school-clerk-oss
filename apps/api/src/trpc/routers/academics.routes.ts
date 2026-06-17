@@ -34,50 +34,76 @@ const previewApplicableFeeHistoriesSchema = z.object({
   classroomDepartmentId: z.string().optional().nullable(),
 });
 
-export const academicsRouter = createTRPCRouter({
-  getReportTerms: publicProcedure.input(z.object({}).optional()).query(async ({ ctx }) => {
-    const terms = await ctx.db.sessionTerm.findMany({
-      where: {
-        schoolId: ctx.profile.schoolId,
-        deletedAt: null,
-        startDate: {
-          not: null,
-        },
-      },
-      select: {
-        id: true,
-        title: true,
-        startDate: true,
-        endDate: true,
-        session: {
-          select: {
-            id: true,
-            title: true,
-          },
-        },
-      },
-      orderBy: [
-        {
-          startDate: {
-            sort: "desc",
-            nulls: "last",
-          },
-        },
-        {
-          createdAt: "desc",
-        },
-      ],
-    });
+function findCurrentDatedTerm<
+  T extends {
+    startDate: Date | null;
+    endDate: Date | null;
+    createdAt?: Date | null;
+  },
+>(terms: T[], now = new Date()) {
+  const startedTerms = terms.filter(
+    (term) => term.startDate && term.startDate <= now,
+  );
+  const activeBoundedTerm = startedTerms
+    .filter((term) => term.endDate && term.endDate >= now)
+    .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0];
 
-    return terms.map((term) => ({
-      id: term.id,
-      title: term.title,
-      sessionTitle: term.session?.title ?? null,
-      label: [term.session?.title, term.title].filter(Boolean).join(" • "),
-      startDate: term.startDate,
-      endDate: term.endDate,
-    }));
-  }),
+  if (activeBoundedTerm) return activeBoundedTerm;
+
+  return (
+    startedTerms
+      .filter((term) => !term.endDate)
+      .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0] ??
+    null
+  );
+}
+
+export const academicsRouter = createTRPCRouter({
+  getReportTerms: publicProcedure
+    .input(z.object({}).optional())
+    .query(async ({ ctx }) => {
+      const terms = await ctx.db.sessionTerm.findMany({
+        where: {
+          schoolId: ctx.profile.schoolId,
+          deletedAt: null,
+          startDate: {
+            not: null,
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          startDate: true,
+          endDate: true,
+          session: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+        },
+        orderBy: [
+          {
+            startDate: {
+              sort: "desc",
+              nulls: "last",
+            },
+          },
+          {
+            createdAt: "desc",
+          },
+        ],
+      });
+
+      return terms.map((term) => ({
+        id: term.id,
+        title: term.title,
+        sessionTitle: term.session?.title ?? null,
+        label: [term.session?.title, term.title].filter(Boolean).join(" • "),
+        startDate: term.startDate,
+        endDate: term.endDate,
+      }));
+    }),
   dashboard: publicProcedure.input(z.object({})).query(async (props) => {
     const { ctx, input } = props;
     const db = ctx.db;
@@ -118,12 +144,10 @@ export const academicsRouter = createTRPCRouter({
       },
     });
     const now = new Date();
-    const currentTerm =
-      sessions
-        .flatMap((session) => session.terms)
-        .filter((term) => term.startDate && term.startDate <= now)
-        .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0] ??
-      null;
+    const currentTerm = findCurrentDatedTerm(
+      sessions.flatMap((session) => session.terms),
+      now,
+    );
     const currentSessionId = currentTerm?.sessionId ?? ctx.profile.sessionId;
     const currentSessionIdx = sessions.findIndex(
       (s) => s.id === currentSessionId,

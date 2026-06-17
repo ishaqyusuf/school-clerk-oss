@@ -15,6 +15,10 @@ Change log for database schema migrations and rollout notes.
 - Use `bun run db:push` only for the server/production database. This resolves through `packages/db/.env.production`.
 - Use `bun run db:studio` for Prisma Studio against the local database unless you intentionally override the env.
 - If the Docker DB is not running yet, start it with `docker compose up -d postgres` from the repo root.
+- Use `bun run db:update:local:dry-run` to inspect production-to-local import changes before writing to the local Docker database.
+- Use `bun run db:update:local` to sync production data into the local database. The command reads production source URLs from explicit source env vars first, then `packages/db/.env.production`, then repo root `.env.production`; it reads the local target from local env files and falls back to `postgresql://postgres:postgres@127.0.0.1:55432/school_clerk`.
+- The production-to-local sync refuses to write unless the target database host is local, writes cursor state under `.local-db-sync/`, temporarily disables triggers on all local target tables while importing table-by-table data, casts raw upsert parameters to the target PostgreSQL column types, preserves native PostgreSQL arrays while JSON-stringifying JSON values, re-enables triggers before disconnecting, and normalizes imported tenant domains for local dashboard routing by default.
+- Local domain normalization keeps `SchoolProfile.subDomain`, `TenantDomain.subdomain`, and legacy `school.sub_domain` as slug-only values compatible with `<tenant>.school-clerk-dashboard.localhost:1355`; imported production custom domains are cleared unless `--keep-custom-domains` is passed.
 
 ## Template
 ## Migration Entry

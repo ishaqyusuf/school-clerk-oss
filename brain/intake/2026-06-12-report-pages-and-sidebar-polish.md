@@ -1,13 +1,13 @@
 # Brain Intake: Report Pages And Sidebar Polish
 
 ## Status
-Proposed
+Handed Off
 
 ## Created Date
 2026-06-12
 
 ## Last Updated
-2026-06-12
+2026-06-13
 
 ## Raw Input
 Assessment-recording page: remove the header subject selector, reduce mobile horizontal padding, default the subject filter to the first subject, make the header cleaner and mobile responsive, hide total columns, add helper information that clicking a subject updates assessments, rename the staff report CTA to Assessment Recording, sort student lists alphabetically with male students first, and add a gender picker column for updates including the report sheet table.
@@ -17,10 +17,10 @@ Student report page: reduce mobile horizontal padding, remove the Print View tab
 Sidebar: the current sidebar feels outdated; update it fully using the GND project sidebar as the reference.
 
 ## Generated Plans
-- [ ] Shared Report Roster Sorting And Gender Controls - `brain/plans/2026-06-12-ux-ui-shared-report-roster-sorting-and-gender-controls.md` - Status: Proposed
-- [ ] Assessment Recording Page Polish - `brain/plans/2026-06-12-ux-ui-assessment-recording-page-polish.md` - Status: Proposed
-- [ ] Student Report Workspace Cleanup - `brain/plans/2026-06-12-ux-ui-student-report-workspace-cleanup.md` - Status: Proposed
-- [ ] GND-Style Sidebar Refresh - `brain/plans/2026-06-12-ux-ui-gnd-style-sidebar-refresh.md` - Status: Proposed
+- [x] Shared Report Roster Sorting And Gender Controls - `brain/plans/2026-06-12-ux-ui-shared-report-roster-sorting-and-gender-controls.md` - Status: In Progress
+- [x] Assessment Recording Page Polish - `brain/plans/2026-06-12-ux-ui-assessment-recording-page-polish.md` - Status: In Progress
+- [x] Student Report Workspace Cleanup - `brain/plans/2026-06-12-ux-ui-student-report-workspace-cleanup.md` - Status: In Progress
+- [x] GND-Style Sidebar Refresh - `brain/plans/2026-06-12-ux-ui-gnd-style-sidebar-refresh.md` - Status: In Progress
 
 ## Recommended Execution Order
 1. Shared Report Roster Sorting And Gender Controls - both assessment recording and classroom report sheet need the same student ordering and gender update behavior.
@@ -50,7 +50,26 @@ Sidebar: the current sidebar feels outdated; update it fully using the GND proje
 - None.
 
 ## Approval Notes
-- None.
+- Approved by user on 2026-06-13 and immediately converted to implementation handoffs.
 
 ## Handoff Notes
-- Use `brain-batch-handoff` to convert approved plans into handoffs and queue items.
+- Shared Report Roster Sorting And Gender Controls
+  - Handoff: brain/handoffs/ready/2026-06-13-shared-report-roster-sorting-and-gender-controls-handoff.md
+  - Queue Item: /Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-13-school-clerk-shared-report-roster-sorting-and-gender-controls.json
+  - Agent: open-code
+  - Status: queued
+- Assessment Recording Page Polish
+  - Handoff: brain/handoffs/ready/2026-06-13-assessment-recording-page-polish-handoff.md
+  - Queue Item: /Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-13-school-clerk-assessment-recording-page-polish.json
+  - Agent: open-code
+  - Status: queued
+- Student Report Workspace Cleanup
+  - Handoff: brain/handoffs/ready/2026-06-13-student-report-workspace-cleanup-handoff.md
+  - Queue Item: /Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-13-school-clerk-student-report-workspace-cleanup.json
+  - Agent: open-code
+  - Status: queued
+- GND-Style Sidebar Refresh
+  - Handoff: brain/handoffs/ready/2026-06-13-gnd-style-sidebar-refresh-handoff.md
+  - Queue Item: /Users/M1PRO/.codex/brain-project-manager/queues/handoffs/2026-06-13-school-clerk-gnd-style-sidebar-refresh.json
+  - Agent: antigravity
+  - Status: queued

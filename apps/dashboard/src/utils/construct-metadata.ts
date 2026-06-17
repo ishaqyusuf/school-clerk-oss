@@ -1,34 +1,56 @@
 import type { Metadata } from "next";
 
+const defaultIcons: Metadata["icons"] =
+	process.env.NODE_ENV === "development"
+		? [
+				{
+					rel: "apple-touch-icon",
+					sizes: "128x128",
+					url: "/favicon-dev.png",
+				},
+				{
+					rel: "icon",
+					type: "image/svg+xml",
+					url: "/favicon-dev.svg",
+				},
+				{
+					rel: "icon",
+					type: "image/png",
+					sizes: "128x128",
+					url: "/favicon-dev.png",
+				},
+			]
+		: [
+				{
+					rel: "apple-touch-icon",
+					sizes: "128x128",
+					url: "/favicon.png",
+				},
+				{
+					rel: "icon",
+					type: "image/svg+xml",
+					media: "(prefers-color-scheme: light)",
+					url: "/logo-light.svg",
+				},
+				{
+					rel: "icon",
+					type: "image/svg+xml",
+					media: "(prefers-color-scheme: dark)",
+					url: "/logo-dark.svg",
+				},
+				{
+					rel: "icon",
+					type: "image/png",
+					sizes: "128x128",
+					url: "/favicon.png",
+				},
+			];
+
 export function constructMetadata({
 	title = `${process.env.NEXT_PUBLIC_APP_NAME} | School Operations Platform`,
 	description = `${process.env.NEXT_PUBLIC_APP_NAME} helps schools manage academics, finance, staff, and student records in one workspace.`,
 	image = "https://assets.gndprodesk.com/thumbnail.png",
-	icons = [
-		{
-			rel: "apple-touch-icon",
-			sizes: "128x128",
-			url: "/favicon.png",
-		},
-		{
-			rel: "icon",
-			type: "image/svg+xml",
-			media: "(prefers-color-scheme: light)",
-			url: "/logo-light.svg",
-		},
-		{
-			rel: "icon",
-			type: "image/svg+xml",
-			media: "(prefers-color-scheme: dark)",
-			url: "/logo-dark.svg",
-		},
-		{
-			rel: "icon",
-			type: "image/png",
-			sizes: "128x128",
-			url: "/favicon.png",
-		},
-	],
+	icons = defaultIcons,
 	noIndex = false,
 	metadataBase,
 }: {

@@ -62,6 +62,9 @@ Make classroom assessment recording, classroom result review, student result pri
 - Recording/classroom review may still show zero-weight scoreable items when they are useful for internal tracking.
 - Assessment recording defaults to the first loaded subject when no explicit subject is selected, while preserving explicit `deptSubjectId` deep links.
 - Assessment recording score-entry tables show editable assessment cells only; subject total columns are reserved for classroom result review rather than score entry.
+- Assessment recording supports bare `/assessment-recording` links by showing a fallback context selector when `deptId` or `termId` is missing.
+- Assessment recording should resolve a missing `termId` from the workspace-selected current term before asking the user to choose one.
+- Dashboard current-term selection is date-aware: terms with no start date are not considered current; terms whose start/end span today are preferred; started terms without an end date are the fallback current term.
 - **Blank Manual Spreadsheet Print**:
   - Admins can print blank classroom spreadsheets containing active students and configured subject/assessment columns.
   - All score cells, totals, grand totals, and percentage fields must render blank for manual record keeping.

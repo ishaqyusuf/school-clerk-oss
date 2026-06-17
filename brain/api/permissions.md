@@ -36,6 +36,7 @@ Defines access control rules for each API surface.
 - Dashboard login stores tenant-scoped cookie state with school, session, and term identifiers when available.
 - Tenant auth cookie reset must tolerate tenants with no school record, no academic sessions, or no terms yet; missing values should not crash login.
 - Dashboard host parsing treats `tenant.localhost[:port]`, `tenant.school-clerk-dashboard.localhost:1355`, production tenant subdomains, and verified custom domains as equivalent inputs for tenant resolution.
+- Development quick login no longer assumes imported users already have the seed `lorem-ipsum` password. In local/dev only, it creates a short-lived Better Auth reset token for the selected tenant user, signs in with the dev password, and restores the previous credential hash after session preparation so production-imported passwords remain usable.
 
 ## Current Dashboard Navigation Authorization
 - Dashboard navigation access is currently driven from `apps/dashboard/src/components/sidebar/links.ts`, with the legacy sidebar utility file kept in sync for older consumers.

@@ -20,7 +20,7 @@ import { screens } from "@school-clerk/utils/responsive";
 import Portal from "./portal";
 
 const sheetContentVariant = cva(
-  "flex flex-col h-screen sh-[vh] transition-all duration-300 ease-in-out  w-full overflow-x-hidden ",
+  "flex flex-col h-[100dvh] transition-all duration-300 ease-in-out  w-full overflow-x-hidden ",
   {
     variants: {
       floating: {

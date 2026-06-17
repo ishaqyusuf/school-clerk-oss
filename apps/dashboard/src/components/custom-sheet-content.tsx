@@ -20,7 +20,7 @@ import { Icons } from "@school-clerk/ui/custom/icons";
 import { screens } from "@/utils/responsive";
 
 const sheetContentVariant = cva(
-  "flex flex-col h-screen sh-[vh]  w-full overflow-x-hidden ",
+  "flex flex-col h-[100dvh]  w-full overflow-x-hidden ",
   {
     variants: {
       floating: {

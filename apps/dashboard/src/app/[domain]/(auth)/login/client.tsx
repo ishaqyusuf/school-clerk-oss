@@ -6,6 +6,10 @@ import { useQueryState } from "nuqs";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 
 import { resetCookie } from "@/actions/cookies/auth-cookie";
+import {
+  prepareDevQuickLogin,
+  restoreDevQuickLoginCredential,
+} from "@/actions/dev-quick-login";
 import { authClient } from "@/auth/client";
 import { DevTenantQuickLoginFab } from "@/components/dev-tenant-quick-login-fab";
 import { getFirstPermittedHref } from "@/components/sidebar/links";
@@ -50,10 +54,10 @@ type QuickLoginUser = {
   role: string | null;
   isOnboarded?: boolean;
   staffId?: string;
-  token?: string;
 };
 
 type ClientProps = {
+  domain: string;
   schoolName: string;
   signupHref: string;
   quickLoginUsers?: QuickLoginUser[];
@@ -65,9 +69,14 @@ type LoginFormValues = {
   rememberMe: boolean;
 };
 
+type LoginSubmitValues = LoginFormValues & {
+  afterSessionPrepared?: () => Promise<void>;
+};
+
 const quickLoginPassword = "lorem-ipsum";
 
 export function Client({
+  domain,
   schoolName,
   signupHref,
   quickLoginUsers = [],
@@ -95,6 +104,7 @@ export function Client({
   const attemptedAutoLoginRef = useRef(false);
   const emailFromQuery = searchParams.get("email") ?? "";
   const passwordFromQuery = searchParams.get("password") ?? "";
+  const devRestoreTokenFromQuery = searchParams.get("dev_restore_token") ?? "";
   const shouldAutoLogin =
     process.env.NODE_ENV !== "production" &&
     searchParams.get("autologin") === "1";
@@ -110,12 +120,24 @@ export function Client({
   };
 
   const submitCredentials = async ({
+    afterSessionPrepared,
     email,
     password,
     rememberMe,
-  }: LoginFormValues) => {
+  }: LoginSubmitValues) => {
     setIsLoading(true);
     setError("");
+    let afterSessionPreparedRan = false;
+    const runAfterSessionPrepared = async () => {
+      if (afterSessionPreparedRan) return;
+      afterSessionPreparedRan = true;
+
+      try {
+        await afterSessionPrepared?.();
+      } catch (restoreError) {
+        console.warn("Dev quick login credential restore failed", restoreError);
+      }
+    };
 
     try {
       const resp = await authClient.signIn.email({
@@ -126,7 +148,8 @@ export function Client({
 
       if (resp.error) {
         setError(resp.error.message || "Unable to sign in right now.");
-        return;
+        await runAfterSessionPrepared();
+        return false;
       }
 
       const bearerToken = resp.data?.token;
@@ -134,7 +157,8 @@ export function Client({
 
       if (!bearerToken || !userId) {
         setError("Login succeeded, but your session could not be prepared.");
-        return;
+        await runAfterSessionPrepared();
+        return false;
       }
 
       const defaultHref = getFirstPermittedHref({
@@ -151,7 +175,8 @@ export function Client({
           "Signed in, but your school workspace could not be loaded for this tenant.",
         );
         router.refresh();
-        return;
+        await runAfterSessionPrepared();
+        return false;
       }
 
       const normalizedReturnTo = returnTo
@@ -166,14 +191,17 @@ export function Client({
           ? "/onboarding/welcome"
           : defaultHref || "/");
 
+      await runAfterSessionPrepared();
       router.push(redirectUrl);
       router.refresh();
+      return true;
     } catch (error) {
       setError(
         error instanceof Error
           ? error.message
           : "Unable to sign in right now. Please try again.",
       );
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -195,11 +223,22 @@ export function Client({
 
     attemptedAutoLoginRef.current = true;
     void submitCredentials({
+      afterSessionPrepared: devRestoreTokenFromQuery
+        ? () =>
+            restoreDevQuickLoginCredential({
+              restoreToken: devRestoreTokenFromQuery,
+            }).then(() => undefined)
+        : undefined,
       email: emailFromQuery,
       password: passwordFromQuery,
       rememberMe: true,
     });
-  }, [emailFromQuery, passwordFromQuery, shouldAutoLogin]);
+  }, [
+    devRestoreTokenFromQuery,
+    emailFromQuery,
+    passwordFromQuery,
+    shouldAutoLogin,
+  ]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -376,7 +415,8 @@ export function Client({
                 </FieldGroup>
               </form>
               <LoginQuickLoginFab
-                domain={schoolName}
+                displayDomain={schoolName}
+                tenantDomain={domain}
                 onFilled={markFieldFilled}
                 onSubmit={submitCredentials}
                 users={quickLoginUsers}
@@ -403,14 +443,16 @@ export function Client({
 }
 
 function LoginQuickLoginFab({
-  domain,
+  displayDomain,
   onFilled,
   onSubmit,
+  tenantDomain,
   users,
 }: {
-  domain: string;
+  displayDomain: string;
   onFilled: () => void;
-  onSubmit: (values: LoginFormValues) => Promise<void>;
+  onSubmit: (values: LoginSubmitValues) => Promise<boolean>;
+  tenantDomain: string;
   users: QuickLoginUser[];
 }) {
   const form = useFormContext<LoginFormValues>();
@@ -418,20 +460,41 @@ function LoginQuickLoginFab({
 
   return (
     <DevTenantQuickLoginFab
-      domain={domain}
+      domain={displayDomain}
       hideOnLogin={false}
       users={users.map((user) => ({
         ...user,
         quickLoginHref: "#",
-        onQuickLogin: () => {
-          if (user.isOnboarded === false && user.staffId) {
+        onQuickLogin: async () => {
+          const prepared = await prepareDevQuickLogin({
+            domain: tenantDomain,
+            email: user.email,
+          });
+
+          if (prepared.isOnboarded === false && prepared.staffId) {
             router.push(
               `/reset-password?onboarding=1&staffId=${
-                user.staffId
+                prepared.staffId
               }&email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(
-                user.token || "",
+                prepared.resetToken,
               )}`,
             );
+            return;
+          }
+
+          const resetResponse = await authClient.resetPassword({
+            newPassword: quickLoginPassword,
+            token: prepared.resetToken,
+          });
+
+          if (resetResponse.error) {
+            toast({
+              title: "Quick login failed",
+              description:
+                resetResponse.error.message ||
+                "Could not prepare this local account for quick login.",
+              variant: "destructive",
+            });
             return;
           }
 
@@ -449,7 +512,15 @@ function LoginQuickLoginFab({
             title: "Quick login started",
             description: `Signing in as ${user.email}.`,
           });
-          void onSubmit(values);
+          void onSubmit({
+            ...values,
+            afterSessionPrepared: prepared.restoreToken
+              ? () =>
+                  restoreDevQuickLoginCredential({
+                    restoreToken: prepared.restoreToken!,
+                  }).then(() => undefined)
+              : undefined,
+          });
         },
       }))}
     />

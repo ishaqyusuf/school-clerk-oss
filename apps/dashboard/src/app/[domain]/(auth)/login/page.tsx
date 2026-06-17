@@ -2,7 +2,6 @@ import { buildTenantPageMetadata } from "@/utils/tenant-page-metadata";
 import { prisma } from "@school-clerk/db";
 import { headers } from "next/headers";
 import { buildDashboardSignupUrl } from "@/features/signup/tenant-urls";
-import { ensureCredentialAccount } from "@/actions/ensure-credential-account";
 import { Client } from "./client";
 
 export async function generateMetadata({ params }) {
@@ -51,7 +50,6 @@ export default async function Page({ params }) {
               createdAt: "asc",
             },
             select: {
-              id: true,
               email: true,
               name: true,
               role: true,
@@ -66,41 +64,25 @@ export default async function Page({ params }) {
   const quickLoginUsers =
     process.env.NODE_ENV === "production"
       ? []
-      : await Promise.all(
-          (tenant?.account?.users ?? []).map(async (user) => {
-            const staff = tenant?.staffProfiles?.find(
-              (s) => s.email === user.email,
-            );
-            const isOnboarded =
-              user.role === "ADMIN" || !staff || staff.onboardedAt !== null;
+      : (tenant?.account?.users ?? []).map((user) => {
+          const staff = tenant?.staffProfiles?.find(
+            (s) => s.email === user.email,
+          );
+          const isOnboarded =
+            user.role === "ADMIN" || !staff || staff.onboardedAt !== null;
 
-            let token = "";
-            if (!isOnboarded) {
-              token = crypto.randomUUID();
-              const identifier = `reset-password:${token}`;
-              await ensureCredentialAccount(prisma as any, user.id);
-              await prisma.verification.create({
-                data: {
-                  identifier,
-                  value: user.id,
-                  expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
-                },
-              });
-            }
-
-            return {
-              email: user.email,
-              name: user.name,
-              role: user.role,
-              isOnboarded,
-              staffId: staff?.id,
-              token,
-            };
-          }),
-        );
+          return {
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            isOnboarded,
+            staffId: staff?.id,
+          };
+        });
 
   return (
     <Client
+      domain={domain}
       schoolName={tenant?.name ?? domain}
       signupHref={signupHref}
       quickLoginUsers={quickLoginUsers}

@@ -20,6 +20,31 @@ export interface AuthCookie {
   };
 }
 const getCookieName = (domain) => `${domain}-session-cookie`;
+
+function findCurrentDatedTerm<
+  T extends {
+    startDate: Date | null;
+    endDate: Date | null;
+    createdAt?: Date | null;
+  },
+>(terms: T[], now = new Date()) {
+  const startedTerms = terms.filter(
+    (term) => term.startDate && term.startDate <= now,
+  );
+  const activeBoundedTerm = startedTerms
+    .filter((term) => term.endDate && term.endDate >= now)
+    .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0];
+
+  if (activeBoundedTerm) return activeBoundedTerm;
+
+  return (
+    startedTerms
+      .filter((term) => !term.endDate)
+      .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0] ??
+    null
+  );
+}
+
 export async function getTenantDomain() {
   const requestHeaders = await headers();
   const tenantUrlConfig = getDashboardTenantUrlConfig();
@@ -98,6 +123,10 @@ export async function resetCookie({ bearerToken, userId, redirectUrl = null }) {
             select: {
               id: true,
               title: true,
+              sessionId: true,
+              startDate: true,
+              endDate: true,
+              createdAt: true,
             },
             orderBy: {
               createdAt: "desc",
@@ -108,12 +137,23 @@ export async function resetCookie({ bearerToken, userId, redirectUrl = null }) {
     },
   });
 
+  const termProfiles =
+    school?.sessions.flatMap((session) =>
+      session.terms.map((term) => ({
+        ...term,
+        sessionId: session.id,
+        sessionTitle: session.title,
+      })),
+    ) ?? [];
+  const selectedTerm = termProfiles.find(
+    (term) => term.id === authCookie?.termId,
+  );
+  const term =
+    selectedTerm ?? findCurrentDatedTerm(termProfiles) ?? termProfiles[0];
   const session =
+    school?.sessions?.find((s) => s.id === term?.sessionId) ||
     school?.sessions?.find((s) => s.id === authCookie?.sessionId) ||
     school?.sessions?.[0];
-  const term =
-    session?.terms?.find((s) => s.id === authCookie?.termId) ||
-    session?.terms?.[0];
 
   authCookie = {
     ...authCookie,
@@ -135,9 +175,18 @@ export async function resetCookie({ bearerToken, userId, redirectUrl = null }) {
   return authCookie;
 }
 export async function switchSessionTerm(
-  { termId, termTitle, sessionId, sessionTitle },
+  input:
+    | string
+    | {
+        termId?: string | null;
+        termTitle?: string | null;
+        sessionId?: string | null;
+        sessionTitle?: string | null;
+      },
   tx = null,
 ) {
+  const { termId, termTitle, sessionId, sessionTitle } =
+    typeof input === "string" ? { termId: input } : input;
   const { domain } = await getTenantDomain();
 
   const cookie = await cookies();
@@ -145,10 +194,10 @@ export async function switchSessionTerm(
   let authCookie = await getAuthCookie();
   authCookie = {
     ...authCookie,
-    termId,
-    termTitle,
-    sessionId,
-    sessionTitle,
+    termId: termId ?? authCookie.termId,
+    termTitle: termTitle ?? authCookie.termTitle,
+    sessionId: sessionId ?? authCookie.sessionId,
+    sessionTitle: sessionTitle ?? authCookie.sessionTitle,
   };
   cookie.set(cookieName, JSON.stringify(authCookie));
 }

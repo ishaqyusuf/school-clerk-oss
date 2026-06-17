@@ -80,7 +80,7 @@ export const dashboardNavRegistry: NavModuleDefinition[] = [
             workspace: "teacher",
           },
           {
-            href: "/teacher/reports",
+            href: "/assessment-recording",
             icon: "file-text",
             key: "teacher-reports",
             module: "teacher-workspace",

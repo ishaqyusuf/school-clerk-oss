@@ -196,7 +196,7 @@ export const linkModules = [
       createNavLink("Grading", "award", "/teacher/grading").access(
         _role.is("Teacher"),
       ).data,
-      createNavLink("Reports", "file-text", "/teacher/reports").access(
+      createNavLink("Reports", "file-text", "/assessment-recording").access(
         _role.is("Teacher"),
       ).data,
       createNavLink("Timetable", "calendar", "/teacher/timetable").access(

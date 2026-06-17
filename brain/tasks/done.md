@@ -23,6 +23,15 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: TASK-2026-06-15-production-to-local-db-import
+- Title: Add production-to-local database import tooling
+- Completed: 2026-06-15
+- Outcome: Added a GND-style PostgreSQL sync command that can dry-run, incrementally upsert production rows into the local Docker database, reset cursors, sync one table, refresh small static tables, and normalize imported tenant domains so local dashboard hosts resolve correctly.
+- Related changes: `packages/db/src/local-sync.ts`, `packages/db/scripts/sync-prod-to-local.ts`, `packages/db/package.json`, `package.json`, `.gitignore`, `brain/database/migrations.md`, `brain/progress.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: TASK-2026-04-06-staff-management-onboarding-redesign
 - Title: Redesign staff management around invite-first onboarding, richer status tracking, and mobile-responsive staff directory
 - Completed: 2026-04-06

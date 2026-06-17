@@ -1,5 +1,50 @@
 # Progress
 
+## Assessment Recording Fallback Context And Current Term Selection (2026-06-15)
+
+### Completed
+
+- Added a fallback selector state to `/assessment-recording` so bare sidebar links can recover by selecting a term and classroom instead of rendering a broken assessment table state.
+- Made assessment recording use the workspace-selected term automatically when `termId` is missing from the URL, while still preserving explicit `termId` deep links.
+- Guarded classroom loading until a term is available, preventing empty term queries from running on the assessment recording page.
+- Updated dashboard current-term detection to prefer terms whose start/end dates contain today, fall back to started terms without an end date, and ignore terms without a start date.
+- Added dashboard shell bootstrap behavior that auto-selects the dated current term when the authenticated workspace has no term selected.
+
+### Changed Files
+
+- `apps/dashboard/src/components/assessment-recording.tsx`
+- `apps/dashboard/src/components/nav-layout-client.tsx`
+- `apps/dashboard/src/actions/cookies/auth-cookie.ts`
+- `apps/api/src/trpc/routers/academics.routes.ts`
+- `brain/features/assessment-results-and-sub-assessments.md`
+
+### Verification
+
+- `git diff --check`
+- `bun --filter @school-clerk/dashboard typecheck` still fails on existing baseline errors outside the changed files, including finance transaction-client types, missing `toMoney` utilities, legacy sidebar `LinkItem` shape issues, and unrelated classroom/finance form types.
+
+## Production-To-Local Database Import Tooling (2026-06-15)
+
+### Completed
+
+- Added a GND-style production-to-local database sync command for SchoolClerk's PostgreSQL database.
+- Implemented dry-run, single-table sync, cursor reset, static table refresh, cursor state, local target safety checks, and batched upsert behavior.
+- Updated the importer to temporarily disable triggers on all local target tables during table-by-table image imports, then restore them before disconnecting.
+- Updated raw upserts to cast values to the target PostgreSQL column type so enum-backed columns import correctly.
+- Updated value normalization to preserve native PostgreSQL arrays while still serializing JSON/JSONB payloads correctly.
+- Added default local tenant domain normalization so imported production data resolves through local dashboard hosts such as `<tenant>.school-clerk-dashboard.localhost:1355`.
+- Wired root commands: `db:update:local`, `db:update:local:dry-run`, `db:update:local:reset`, `db:sync:prod-to-local`, `db:sync:prod-to-local:dry-run`, and `db:sync:prod-to-local:table`.
+
+### Changed Files
+
+- `packages/db/src/local-sync.ts`
+- `packages/db/scripts/sync-prod-to-local.ts`
+- `packages/db/package.json`
+- `package.json`
+- `.gitignore`
+- `brain/database/migrations.md`
+- `brain/tasks/done.md`
+
 ## Student Import Input And Name Parsing (2026-06-12)
 
 ### Completed
@@ -168,13 +213,34 @@
 - Updated the desktop sidebar to the wider GND-style collapsed/expanded rail, faster hover expansion, sidebar color tokens, subtle dividers, and stronger active module styling.
 - Updated nav list spacing, keys, section labels, active module expansion, and link selection propagation.
 - Aligned the sidebar shell offset with the new collapsed rail width.
-- Browser/manual verification was skipped by user instruction.
+- Added the missing dashboard header account avatar dropdown with a logout action.
+- Updated the mobile sidebar to use the refreshed site-nav drawer, SchoolClerk logo, registry-backed nav list, link-close behavior, and bottom user account menu.
+- Verified the shared site-nav package typecheck. Authenticated browser verification could not be completed because the local database was unavailable at `localhost:55432`; the tenant login host still resolved.
 
 ### Changed Files
 
+- `apps/dashboard/src/components/header.tsx`
+- `apps/dashboard/src/components/header-user-menu.tsx`
+- `apps/dashboard/src/components/nav-layout-client.tsx`
+- `packages/site-nav/src/components/mobile-sidebar.tsx`
 - `packages/site-nav/src/components/sidebar.tsx`
 - `packages/site-nav/src/components/sidebar-shell.tsx`
 - `packages/site-nav/src/components/navs-list.tsx`
+- `packages/site-nav/src/components/user.tsx`
+- `packages/site-nav/src/components/use-site-nav.tsx`
+
+## Teacher Report Link Target (2026-06-15)
+
+### Completed
+
+- Changed teacher-facing Reports navigation and workspace shortcuts to open `/assessment-recording` instead of the report review workflow.
+- Kept the existing `/teacher/reports` page in place for direct/backward-compatible access.
+
+### Changed Files
+
+- `apps/dashboard/src/features/navigation/dashboard-nav-registry.ts`
+- `apps/dashboard/src/sidebar/utils.ts`
+- `apps/dashboard/src/components/teachers/workspace-pages.tsx`
 
 ## Student Import Verification and Matching Service (2026-06-12)
 

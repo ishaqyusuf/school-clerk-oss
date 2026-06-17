@@ -2,7 +2,7 @@
 import { AssessmentRecordingResultsTable } from "@/components/assessment-recording-results-table";
 import { _trpc } from "@/components/static-trpc";
 import { useAssessmentRecordingParams } from "@/hooks/use-assessment-recording-params";
-import { Card, DropdownMenu } from "@school-clerk/ui/composite";
+import { Card, DropdownMenu, Field, Select } from "@school-clerk/ui/composite";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
@@ -12,19 +12,24 @@ export function AssessmentRecording() {
   const { filters, permissions, setFilters } = useAssessmentRecordingParams();
   const auth = useAuth();
   const effectiveTermId = filters.termId ?? auth.profile?.termId ?? "";
-  const { data: departments } = useQuery(
+  const { data: terms, isLoading: isLoadingTerms } = useQuery(
+    _trpc.academics.getReportTerms.queryOptions(),
+  );
+  const { data: departments, isLoading: isLoadingDepartments } = useQuery(
     _trpc.classrooms.all.queryOptions(
       {
-        sessionTermId: effectiveTermId || filters.termId,
+        sessionTermId: effectiveTermId,
       },
       {
-        // enabled: permissions.classrooms,
+        enabled: !!effectiveTermId && permissions.classrooms,
       },
     ),
   );
   const selectedDepartment = departments?.data?.find(
     (dept) => dept.id === filters.deptId,
   );
+  const needsSetup = !filters.deptId || !effectiveTermId;
+
   return (
     <>
       <div className="flex flex-col gap-4 px-2 py-3 sm:mx-auto sm:max-w-4xl sm:px-0 sm:py-4">
@@ -65,7 +70,7 @@ export function AssessmentRecording() {
                 </DropdownMenu.Content>
               </DropdownMenu>
             )}
-            {!permissions.all || (
+            {permissions.all && filters.deptId && effectiveTermId ? (
               <Link
                 className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                 target="_blank"
@@ -73,19 +78,92 @@ export function AssessmentRecording() {
               >
                 Report Sheet
               </Link>
-            )}
+            ) : null}
           </Card.Header>
         </div>
         <div className="mt-16 mb-28">
-          {filters.deptId && effectiveTermId ? (
+          {!needsSetup ? (
             <AssessmentRecordingResultsTable
               departmentId={filters.deptId}
               termId={effectiveTermId}
               selectedSubjectId={filters.deptSubjectId}
             />
           ) : (
-            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-              Please select a classroom to view and record assessments.
+            <div className="mx-auto mt-8 max-w-xl rounded-lg border border-border bg-background p-4 shadow-sm">
+              <div className="mb-4">
+                <h2 className="text-base font-semibold">
+                  Select assessment context
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Choose a term and classroom to continue.
+                </p>
+              </div>
+              <Field.Group className="grid gap-3 sm:grid-cols-2">
+                <Field>
+                  <Field.Label>Term</Field.Label>
+                  <Select
+                    value={effectiveTermId || undefined}
+                    onValueChange={(termId) => {
+                      setFilters({
+                        termId: termId || null,
+                        deptId: null,
+                        deptSubjectId: null,
+                      });
+                    }}
+                  >
+                    <Select.Trigger>
+                      <Select.Value
+                        placeholder={
+                          isLoadingTerms ? "Loading terms..." : "Select term"
+                        }
+                      />
+                    </Select.Trigger>
+                    <Select.Content>
+                      {terms?.map((term) => (
+                        <Select.Item value={term.id} key={term.id}>
+                          {term.label}
+                        </Select.Item>
+                      ))}
+                    </Select.Content>
+                  </Select>
+                </Field>
+                {!permissions.classrooms || (
+                  <Field>
+                    <Field.Label>Classroom</Field.Label>
+                    <Select
+                      dir="rtl"
+                      value={filters.deptId || undefined}
+                      disabled={!effectiveTermId || isLoadingDepartments}
+                      onValueChange={(deptId) => {
+                        setFilters({
+                          deptId,
+                          deptSubjectId: null,
+                          termId: effectiveTermId || null,
+                        });
+                      }}
+                    >
+                      <Select.Trigger>
+                        <Select.Value
+                          placeholder={
+                            !effectiveTermId
+                              ? "Select term first"
+                              : isLoadingDepartments
+                                ? "Loading classrooms..."
+                                : "Select classroom"
+                          }
+                        />
+                      </Select.Trigger>
+                      <Select.Content>
+                        {departments?.data?.map((dept) => (
+                          <Select.Item value={dept.id} key={dept.id}>
+                            {dept.displayName ?? dept.departmentName}
+                          </Select.Item>
+                        ))}
+                      </Select.Content>
+                    </Select>
+                  </Field>
+                )}
+              </Field.Group>
             </div>
           )}
         </div>

@@ -68,8 +68,7 @@ export function DevTenantQuickLoginFab({
         <DropdownMenuLabel className="flex flex-col gap-1 px-2 py-2">
           <span>{domain} tenant</span>
           <span className="text-xs font-normal leading-5 text-muted-foreground">
-            Dev-only sign-in shortcuts using password{" "}
-            <span className="font-medium text-foreground">lorem-ipsum</span>.
+            Dev-only sign-in shortcuts for local tenant testing.
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

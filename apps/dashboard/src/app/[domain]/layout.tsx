@@ -82,7 +82,9 @@ export default async function DomainLayout({ children, params }) {
       role: user.role,
       quickLoginHref: buildTenantHref(
         tenantUrlContext,
-        `/login?email=${encodeURIComponent(user.email)}&password=${encodeURIComponent("lorem-ipsum")}&autologin=1&return_to=${encodeURIComponent("/")}`,
+        `/dev-quick-login?email=${encodeURIComponent(
+          user.email,
+        )}&return_to=${encodeURIComponent("/")}`,
         tenantUrlConfig,
       ),
     })) ?? [];

@@ -57,6 +57,8 @@ type RowDecision = {
   touched?: boolean;
 };
 
+const EMPTY_IMPORT_ROWS: VerifyResult[] = [];
+
 const actionLabels: Record<ImportAction, string> = {
   import_new: "Import new",
   keep_match: "Keep match",
@@ -136,7 +138,8 @@ export function ImportActivity({ students }: Props) {
     }),
   );
 
-  const rows = verificationReport?.results || [];
+  const verificationRows = verificationReport?.results;
+  const rows = verificationRows ?? EMPTY_IMPORT_ROWS;
 
   const readyRows = rows.filter(
     (row) =>
@@ -153,9 +156,11 @@ export function ImportActivity({ students }: Props) {
   const matchedCount = exactRows.length + suspectedRows.length;
 
   useEffect(() => {
+    if (!verificationRows) return;
+
     const defaults: Record<number, RowDecision> = {};
 
-    for (const row of rows) {
+    for (const row of verificationRows) {
       if (row.fullMatch) {
         defaults[row.lineNumber] = {
           action: "keep_match",
@@ -174,7 +179,7 @@ export function ImportActivity({ students }: Props) {
     setRowDecisions(defaults);
     setManualGenders({});
     setPreSubmitError(null);
-  }, [rows]);
+  }, [verificationRows]);
 
   useEffect(() => {
     if (activeTab === "matched" && matchedCount === 0) {
@@ -382,7 +387,7 @@ export function ImportActivity({ students }: Props) {
               setClassroomDeptId(value);
             }}
           >
-            <Select.Trigger value={classroomDeptId} className="h-9 w-72">
+            <Select.Trigger className="h-9 w-72">
               <Select.Value
                 placeholder={
                   isRecentRecordsPending

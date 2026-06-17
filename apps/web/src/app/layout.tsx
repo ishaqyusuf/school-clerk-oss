@@ -1,35 +1,58 @@
 import type { Metadata } from "next";
 import "@school-clerk/ui/globals.css";
 import "@/styles/globals.css";
+
+const icons: Metadata["icons"] =
+  process.env.NODE_ENV === "development"
+    ? [
+        {
+          rel: "apple-touch-icon",
+          sizes: "128x128",
+          url: "/favicon-dev.png",
+        },
+        {
+          rel: "icon",
+          type: "image/svg+xml",
+          url: "/favicon-dev.svg",
+        },
+        {
+          rel: "icon",
+          type: "image/png",
+          sizes: "128x128",
+          url: "/favicon-dev.png",
+        },
+      ]
+    : [
+        {
+          rel: "apple-touch-icon",
+          sizes: "128x128",
+          url: "/favicon.png",
+        },
+        {
+          rel: "icon",
+          type: "image/svg+xml",
+          media: "(prefers-color-scheme: light)",
+          url: "/logo-light.svg",
+        },
+        {
+          rel: "icon",
+          type: "image/svg+xml",
+          media: "(prefers-color-scheme: dark)",
+          url: "/logo-dark.svg",
+        },
+        {
+          rel: "icon",
+          type: "image/png",
+          sizes: "128x128",
+          url: "/favicon.png",
+        },
+      ];
+
 export const metadata: Metadata = {
   title: "School Clerk — Modern School Management System",
   description:
     "School Clerk is an open-source school management platform for handling academics, attendance, finance, inventory, and staffing — all in one place.",
-  icons: [
-    {
-      rel: "apple-touch-icon",
-      sizes: "128x128",
-      url: "/favicon.png",
-    },
-    {
-      rel: "icon",
-      type: "image/svg+xml",
-      media: "(prefers-color-scheme: light)",
-      url: "/logo-light.svg",
-    },
-    {
-      rel: "icon",
-      type: "image/svg+xml",
-      media: "(prefers-color-scheme: dark)",
-      url: "/logo-dark.svg",
-    },
-    {
-      rel: "icon",
-      type: "image/png",
-      sizes: "128x128",
-      url: "/favicon.png",
-    },
-  ],
+  icons,
 };
 
 export default function RootLayout({

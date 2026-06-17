@@ -195,7 +195,7 @@ export async function TeacherDashboardPanel() {
 								<Link href="/teacher/assessments">Assessments</Link>
 							</Button>
 							<Button asChild variant="outline">
-								<Link href="/teacher/reports">Reports</Link>
+								<Link href="/assessment-recording">Reports</Link>
 							</Button>
 						</div>
 					</CardContent>
@@ -373,7 +373,7 @@ export async function TeacherGradingPanel() {
 						<Link href="/teacher/assessments">Review assigned subjects</Link>
 					</Button>
 					<Button asChild variant="outline">
-						<Link href="/teacher/reports">Open report workflow</Link>
+						<Link href="/assessment-recording">Open report workflow</Link>
 					</Button>
 				</div>
 				<div className="rounded-xl border p-4">
