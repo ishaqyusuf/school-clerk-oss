@@ -31,6 +31,15 @@ Change log for database schema migrations and rollout notes.
 - Owner:
 
 ## Migration Entry
+- Date: 2026-06-17
+- ID: 20260617120000_find_anything_classroom_search_indexes
+- Summary: Added index-only support for Find Anything classroom search using active tenant/session classroom indexes and trigram indexes for classroom and stream names.
+- Affected entities: `ClassRoom`, `ClassRoomDepartment`
+- Backfill required: No
+- Rollback plan: Drop the added classroom search indexes if the global classroom search source is reverted.
+- Owner: Codex
+
+## Migration Entry
 - Date: 2026-06-03
 - ID: 20260603152000_reset_legacy_finance
 - Summary: Removed legacy, non-operational finance/accounting storage so the standardized school finance ledger can be rebuilt cleanly.

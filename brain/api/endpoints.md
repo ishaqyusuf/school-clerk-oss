@@ -71,6 +71,9 @@ Catalog of API routes and responsibilities.
 - `trpc.notifications.markRead`
 - `trpc.notifications.markAllRead`
 
+### Global Search
+- `trpc.search.global`
+
 ### Staff Management
 - `trpc.staff.getStaffList`
 - `trpc.staff.getFormData`
@@ -104,6 +107,7 @@ Catalog of API routes and responsibilities.
 - `trpc.attendance.*`: classroom attendance capture and student attendance history
 - `trpc.staff.*`: staff list/form data and staff-management APIs
 - `trpc.notifications.*`: notification list/read/count actions
+- `trpc.search.global`: tenant-scoped command palette search across local navigation plus remote student, classroom, and staff records
 - `trpc.subjects.*`, `trpc.enrollments.*`, `trpc.assessments.*`, `trpc.filters.*`, `trpc.auth.*`: domain-specific supporting routers
 - `app/api/chat/*`: dashboard AI chat execution, single-chat bootstrap, settings, analytics, and feedback surfaces
 

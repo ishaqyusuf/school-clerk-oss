@@ -11,20 +11,20 @@ export type LocalSearchItem = {
 
 export type RemoteSearchItem = {
   id: string;
-  group: "Students" | "Staff";
+  group: "Students" | "Staff" | "Classrooms";
   href: string;
   rank: number;
   subtitle: string | null;
   title: string;
-  type: "student" | "staff";
+  type: "student" | "staff" | "classroom";
 };
 
 export type SearchItem = {
   href: string;
   id: string;
-  group: LocalSearchGroup | "Students" | "Staff";
+  group: LocalSearchGroup | "Students" | "Staff" | "Classrooms";
   rank: number;
   subtitle: string | null;
   title: string;
-  type: "page" | "action" | "student" | "staff";
+  type: "page" | "action" | "student" | "staff" | "classroom";
 };

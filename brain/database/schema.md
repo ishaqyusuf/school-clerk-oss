@@ -72,6 +72,11 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 - `Students`, `StudentSessionForm`, `StudentTermForm`
 - `StaffProfile`, `StaffTermProfile`, `StaffClassroomDepartmentTermProfiles`, `StaffSubject`
 
+### Classroom Search Indexes (updated — session 2026-06)
+- Find Anything classroom search is backed by active-row indexes on `ClassRoom.schoolProfileId + schoolSessionId` and `ClassRoomDepartment.schoolProfileId`.
+- Trigram search indexes support fuzzy matching on `ClassRoom.name` and `ClassRoomDepartment.departmentName`.
+- These indexes are search/read optimizations only and do not change classroom relationships or write behavior.
+
 ### StaffProfile (updated — session 2026-04)
 | Field | Type | Notes |
 |-------|------|-------|

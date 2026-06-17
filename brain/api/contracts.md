@@ -21,6 +21,13 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases:
 - Notes:
 
+## Search Contracts
+- Route: `search.global`
+- Request schema: `{ query: string, limit?: number }` where `query` is trimmed and capped at 100 characters, and `limit` is 1-20.
+- Response schema: `Array<{ id: string, type: "student" | "classroom" | "staff", group: "Students" | "Classrooms" | "Staff", title: string, subtitle: string | null, href: string, rank: number }>`
+- Error cases: missing tenant context returns an empty result set; queries shorter than 2 characters do not run remote record search.
+- Notes: results are tenant-scoped by `schoolProfileId`; classroom results are current-session scoped when session context is available and link to `/academic/classes?viewClassroomId=<departmentId>&classroomTab=students`; student results link to `/students/<studentId>`.
+
 ## Student Contracts
 - Route: `students.verifyStudentImport`
 - Request schema: `classroomDepartmentId` (string), `rows` array of `{ lineNumber: number, originalText: string, name: string, surname: string, otherName?: string | null, gender?: string | null }`

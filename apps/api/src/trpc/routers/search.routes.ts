@@ -1,5 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { Prisma } from "@school-clerk/db";
+import { classroomDisplayName } from "@school-clerk/utils";
 import { authenticatedProcedure, createTRPCRouter } from "../init";
 
 const globalSearchSchema = z.object({
@@ -9,8 +10,8 @@ const globalSearchSchema = z.object({
 
 type GlobalSearchItem = {
 	id: string;
-	type: "student" | "staff";
-	group: "Students" | "Staff";
+	type: "student" | "staff" | "classroom";
+	group: "Students" | "Staff" | "Classrooms";
 	title: string;
 	subtitle: string | null;
 	href: string;
@@ -121,6 +122,73 @@ function buildStaffSearchSql(params: {
   `;
 }
 
+function buildClassroomSearchSql(params: {
+	query: string;
+	schoolId: string;
+	sessionId?: string | null;
+	similarityThreshold: number;
+	take: number;
+}) {
+	const prefixQuery = `${params.query}%`;
+
+	return Prisma.sql`
+    WITH candidates AS (
+      SELECT
+        cd.id,
+        cd."departmentName" AS department_name,
+        cr.name AS class_name,
+        ss.title AS session_title,
+        lower(trim(concat_ws(' ', cr.name, cd."departmentName"))) AS search_text,
+        COALESCE(cd."createdAt", cr."createdAt", NOW()) AS created_at,
+        COUNT(student.id)::int AS student_count
+      FROM "ClassRoomDepartment" cd
+      JOIN "ClassRoom" cr ON cr.id = cd."classRoomsId"
+      LEFT JOIN "SchoolSession" ss ON ss.id = cr."schoolSessionId"
+      LEFT JOIN "StudentSessionForm" ssf ON ssf."classroomDepartmentId" = cd.id
+        AND ssf."deletedAt" IS NULL
+      LEFT JOIN "Students" student ON student.id = ssf."studentId"
+        AND student."deletedAt" IS NULL
+      WHERE cd."schoolProfileId" = ${params.schoolId}
+        AND cd."deletedAt" IS NULL
+        AND cr."schoolProfileId" = ${params.schoolId}
+        AND cr."deletedAt" IS NULL
+        AND (${params.sessionId ?? null}::text IS NULL OR cr."schoolSessionId" = ${params.sessionId ?? null})
+      GROUP BY
+        cd.id,
+        cd."departmentName",
+        cr.name,
+        ss.title,
+        cr."createdAt"
+    )
+    SELECT
+      id,
+      department_name,
+      class_name,
+      session_title,
+      student_count,
+      CASE
+        WHEN search_text = ${params.query} THEN 400
+        WHEN search_text LIKE ${prefixQuery} THEN 250
+        WHEN similarity(search_text, ${params.query}) >= ${params.similarityThreshold}
+          THEN similarity(search_text, ${params.query}) * 100
+        ELSE 0
+      END AS rank
+    FROM candidates
+    WHERE search_text LIKE ${prefixQuery}
+      OR similarity(search_text, ${params.query}) >= ${params.similarityThreshold}
+    ORDER BY
+      rank DESC,
+      class_name ASC,
+      department_name ASC,
+      created_at DESC
+    LIMIT ${params.take}
+  `;
+}
+
+function formatStudentCount(count: number) {
+	return `${count} student${count === 1 ? "" : "s"}`;
+}
+
 export const searchRouter = createTRPCRouter({
 	global: authenticatedProcedure
 		.input(globalSearchSchema)
@@ -135,8 +203,9 @@ export const searchRouter = createTRPCRouter({
 			const role = ctx.currentUser?.role ?? null;
 			const similarityThreshold = clampSimilarityThreshold(query);
 			const peopleTake = Math.min(input.limit, 8);
+			const classroomTake = Math.min(input.limit, 8);
 
-			const [students, staff] = await Promise.all([
+			const [students, classrooms, staff] = await Promise.all([
 				ctx.db.$queryRaw<
 					Array<{ id: string; full_name: string; rank: number }>
 				>(
@@ -147,6 +216,26 @@ export const searchRouter = createTRPCRouter({
 						take: peopleTake,
 					}),
 				),
+				role === "Admin"
+					? ctx.db.$queryRaw<
+							Array<{
+								id: string;
+								department_name: string | null;
+								class_name: string | null;
+								session_title: string | null;
+								student_count: number;
+								rank: number;
+							}>
+						>(
+							buildClassroomSearchSql({
+								query,
+								schoolId,
+								sessionId: ctx.profile.sessionId,
+								similarityThreshold,
+								take: classroomTake,
+							}),
+						)
+					: Promise.resolve([]),
 				role === "Teacher" || role === "Admin" || role === "HR"
 					? ctx.db.$queryRaw<
 							Array<{
@@ -176,6 +265,25 @@ export const searchRouter = createTRPCRouter({
 					href: `/students/${student.id}`,
 					rank: Number(student.rank) || 0,
 				})),
+				...classrooms.map((classroom) => {
+					const title = classroomDisplayName({
+						className: classroom.class_name,
+						departmentName: classroom.department_name,
+					});
+					const sessionPrefix = classroom.session_title
+						? `${classroom.session_title} · `
+						: "";
+
+					return {
+						id: classroom.id,
+						type: "classroom" as const,
+						group: "Classrooms" as const,
+						title: title || "Classroom",
+						subtitle: `${sessionPrefix}${formatStudentCount(classroom.student_count)}`,
+						href: `/academic/classes?viewClassroomId=${classroom.id}&classroomTab=students`,
+						rank: Number(classroom.rank) || 0,
+					};
+				}),
 				...staff.map((member) => ({
 					id: member.id,
 					type: "staff" as const,

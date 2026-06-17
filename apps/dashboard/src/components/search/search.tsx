@@ -14,7 +14,14 @@ import {
 	CommandSeparator,
 } from "@school-clerk/ui/command";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Search, Sparkles, UserRound, Users } from "lucide-react";
+import {
+	GraduationCap,
+	Loader2,
+	Search,
+	Sparkles,
+	UserRound,
+	Users,
+} from "lucide-react";
 import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getLocalSearchResults } from "./search-catalog";
@@ -24,6 +31,8 @@ function groupIcon(group: SearchItem["group"]) {
 	switch (group) {
 		case "Students":
 			return <Users className="size-4 text-muted-foreground" />;
+		case "Classrooms":
+			return <GraduationCap className="size-4 text-muted-foreground" />;
 		case "Staff":
 			return <UserRound className="size-4 text-muted-foreground" />;
 		case "Quick Actions":
@@ -93,6 +102,7 @@ export function SearchPanel() {
 			"Quick Actions",
 			"Pages",
 			"Students",
+			"Classrooms",
 			"Staff",
 		];
 		const allResults = [...localResults, ...remoteResults];
@@ -122,7 +132,7 @@ export function SearchPanel() {
 						ref={inputRef}
 						className="h-12"
 						onValueChange={setQuery}
-						placeholder="Find pages, students, staff..."
+						placeholder="Find pages, students, classrooms, staff..."
 						value={query}
 					/>
 					{remoteQuery.isFetching ? (
@@ -133,8 +143,8 @@ export function SearchPanel() {
 				<CommandList className="max-h-[468px]">
 					<CommandEmpty className="px-4 py-8 text-sm text-muted-foreground">
 						{normalizedQuery.length >= 2
-							? "No matching pages, students, or staff were found."
-							: "Type at least 2 characters to search students and staff."}
+							? "No matching pages, students, classrooms, or staff were found."
+							: "Type at least 2 characters to search students, classrooms, and staff."}
 					</CommandEmpty>
 
 					{groupedResults.map((entry, index) => (
@@ -172,7 +182,7 @@ export function SearchPanel() {
 
 					{!hasResults && normalizedQuery.length < 2 ? (
 						<div className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
-							Top pages and quick actions are shown immediately. People search
+							Top pages and quick actions are shown immediately. Record search
 							starts after 2 characters.
 						</div>
 					) : null}
