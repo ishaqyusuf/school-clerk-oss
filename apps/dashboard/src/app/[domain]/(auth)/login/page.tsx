@@ -12,8 +12,8 @@ export async function generateMetadata({ params }) {
     noIndex: true,
   });
 }
-export default async function Page({ params }) {
-  const { domain } = await params;
+export default async function Page({ params, searchParams }) {
+  const [{ domain }, query] = await Promise.all([params, searchParams]);
   const requestHeaders = await headers();
   const signupHref = buildDashboardSignupUrl({
     currentHost: requestHeaders.get("host"),
@@ -30,16 +30,6 @@ export default async function Page({ params }) {
     },
     select: {
       name: true,
-      staffProfiles: {
-        where: {
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          email: true,
-          onboardedAt: true,
-        },
-      },
       account: {
         select: {
           users: {
@@ -64,25 +54,20 @@ export default async function Page({ params }) {
   const quickLoginUsers =
     process.env.NODE_ENV === "production"
       ? []
-      : (tenant?.account?.users ?? []).map((user) => {
-          const staff = tenant?.staffProfiles?.find(
-            (s) => s.email === user.email,
-          );
-          const isOnboarded =
-            user.role === "ADMIN" || !staff || staff.onboardedAt !== null;
-
-          return {
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            isOnboarded,
-            staffId: staff?.id,
-          };
-        });
+      : (tenant?.account?.users ?? []).map((user) => ({
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        }));
 
   return (
     <Client
-      domain={domain}
+      initialEmail={typeof query?.email === "string" ? query.email : ""}
+      initialError={typeof query?.error === "string" ? query.error : ""}
+      initialPassword={
+        typeof query?.password === "string" ? query.password : ""
+      }
+      initialRememberMe={query?.rememberMe === "1"}
       schoolName={tenant?.name ?? domain}
       signupHref={signupHref}
       quickLoginUsers={quickLoginUsers}

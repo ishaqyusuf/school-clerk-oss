@@ -3,18 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQueryState } from "nuqs";
-import { FormProvider, useForm, useFormContext } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 
 import { resetCookie } from "@/actions/cookies/auth-cookie";
-import {
-  prepareDevQuickLogin,
-  restoreDevQuickLoginCredential,
-} from "@/actions/dev-quick-login";
+import { restoreDevQuickLoginCredential } from "@/actions/dev-quick-login";
 import { authClient } from "@/auth/client";
 import { DevTenantQuickLoginFab } from "@/components/dev-tenant-quick-login-fab";
 import { getFirstPermittedHref } from "@/components/sidebar/links";
 import { SubmitButton } from "@/components/submit-button";
 import { ThemeSwitch } from "@/components/theme-switch";
+import { loginWithPasswordAction } from "./actions";
 import {
   TenantLink as Link,
   useTenantRouter,
@@ -46,18 +44,18 @@ import {
   Mail,
   ShieldCheck,
 } from "lucide-react";
-import { toast } from "@school-clerk/ui/use-toast";
 
 type QuickLoginUser = {
   email: string;
   name: string | null;
   role: string | null;
-  isOnboarded?: boolean;
-  staffId?: string;
 };
 
 type ClientProps = {
-  domain: string;
+  initialEmail?: string;
+  initialError?: string;
+  initialPassword?: string;
+  initialRememberMe?: boolean;
   schoolName: string;
   signupHref: string;
   quickLoginUsers?: QuickLoginUser[];
@@ -76,7 +74,10 @@ type LoginSubmitValues = LoginFormValues & {
 const quickLoginPassword = "lorem-ipsum";
 
 export function Client({
-  domain,
+  initialEmail = "",
+  initialError = "",
+  initialPassword = "",
+  initialRememberMe = false,
   schoolName,
   signupHref,
   quickLoginUsers = [],
@@ -85,9 +86,9 @@ export function Client({
   const searchParams = useSearchParams();
   const form = useForm<LoginFormValues>({
     defaultValues: {
-      email: "",
-      password: "",
-      rememberMe: false,
+      email: initialEmail,
+      password: initialPassword,
+      rememberMe: initialRememberMe,
     },
   });
   const emailField = form.register("email", {
@@ -99,11 +100,13 @@ export function Client({
   const rememberMe = form.watch("rememberMe");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError);
   const [returnTo] = useQueryState("return_to");
   const attemptedAutoLoginRef = useRef(false);
   const emailFromQuery = searchParams.get("email") ?? "";
+  const errorFromQuery = searchParams.get("error") ?? "";
   const passwordFromQuery = searchParams.get("password") ?? "";
+  const rememberMeFromQuery = searchParams.get("rememberMe") === "1";
   const devRestoreTokenFromQuery = searchParams.get("dev_restore_token") ?? "";
   const shouldAutoLogin =
     process.env.NODE_ENV !== "production" &&
@@ -208,14 +211,37 @@ export function Client({
   };
 
   useEffect(() => {
+    setError(errorFromQuery);
+  }, [errorFromQuery]);
+
+  useEffect(() => {
     if (!emailFromQuery && !passwordFromQuery) return;
 
-    form.reset({
-      email: emailFromQuery || form.getValues("email"),
-      password: passwordFromQuery || form.getValues("password"),
-      rememberMe: form.getValues("rememberMe"),
-    });
-  }, [emailFromQuery, form, passwordFromQuery]);
+    if (emailFromQuery) {
+      form.setValue("email", emailFromQuery, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+      setNativeInputValue("email", emailFromQuery);
+    }
+
+    if (passwordFromQuery) {
+      form.setValue("password", passwordFromQuery, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+      setNativeInputValue("password", passwordFromQuery);
+    }
+
+    if (rememberMeFromQuery) {
+      form.setValue("rememberMe", true, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+    }
+
+    markFieldFilled();
+  }, [emailFromQuery, form, passwordFromQuery, rememberMeFromQuery]);
 
   useEffect(() => {
     if (!shouldAutoLogin || attemptedAutoLoginRef.current) return;
@@ -331,7 +357,11 @@ export function Client({
             )}
 
             <FormProvider {...form}>
-              <form onSubmit={form.handleSubmit(submitCredentials)}>
+              <form
+                action={loginWithPasswordAction}
+                method="post"
+                onSubmit={form.handleSubmit(submitCredentials)}
+              >
                 <FieldGroup>
                   <Field>
                     <FieldLabel htmlFor="email">Email address</FieldLabel>
@@ -346,6 +376,7 @@ export function Client({
                         autoComplete="email"
                         required
                         {...emailField}
+                        defaultValue={initialEmail}
                       />
                     </InputGroup>
                   </Field>
@@ -371,6 +402,7 @@ export function Client({
                         autoComplete="current-password"
                         required
                         {...passwordField}
+                        defaultValue={initialPassword}
                       />
                       <InputGroupAddon align="inline-end">
                         <InputGroupButton
@@ -387,6 +419,11 @@ export function Client({
                   </Field>
 
                   <Field orientation="horizontal">
+                    <input
+                      type="hidden"
+                      name="rememberMe"
+                      value={rememberMe ? "on" : ""}
+                    />
                     <Checkbox
                       id="remember-me"
                       checked={rememberMe}
@@ -416,9 +453,6 @@ export function Client({
               </form>
               <LoginQuickLoginFab
                 displayDomain={schoolName}
-                tenantDomain={domain}
-                onFilled={markFieldFilled}
-                onSubmit={submitCredentials}
                 users={quickLoginUsers}
               />
             </FormProvider>
@@ -444,85 +478,33 @@ export function Client({
 
 function LoginQuickLoginFab({
   displayDomain,
-  onFilled,
-  onSubmit,
-  tenantDomain,
   users,
 }: {
   displayDomain: string;
-  onFilled: () => void;
-  onSubmit: (values: LoginSubmitValues) => Promise<boolean>;
-  tenantDomain: string;
   users: QuickLoginUser[];
 }) {
-  const form = useFormContext<LoginFormValues>();
-  const router = useTenantRouter();
-
   return (
     <DevTenantQuickLoginFab
       domain={displayDomain}
       hideOnLogin={false}
       users={users.map((user) => ({
         ...user,
-        quickLoginHref: "#",
-        onQuickLogin: async () => {
-          const prepared = await prepareDevQuickLogin({
-            domain: tenantDomain,
-            email: user.email,
-          });
-
-          if (prepared.isOnboarded === false && prepared.staffId) {
-            router.push(
-              `/reset-password?onboarding=1&staffId=${
-                prepared.staffId
-              }&email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(
-                prepared.resetToken,
-              )}`,
-            );
-            return;
-          }
-
-          const resetResponse = await authClient.resetPassword({
-            newPassword: quickLoginPassword,
-            token: prepared.resetToken,
-          });
-
-          if (resetResponse.error) {
-            toast({
-              title: "Quick login failed",
-              description:
-                resetResponse.error.message ||
-                "Could not prepare this local account for quick login.",
-              variant: "destructive",
-            });
-            return;
-          }
-
-          const values = {
-            email: user.email,
-            password: quickLoginPassword,
-            rememberMe: true,
-          };
-
-          form.reset(values, {
-            keepErrors: false,
-          });
-          onFilled();
-          toast({
-            title: "Quick login started",
-            description: `Signing in as ${user.email}.`,
-          });
-          void onSubmit({
-            ...values,
-            afterSessionPrepared: prepared.restoreToken
-              ? () =>
-                  restoreDevQuickLoginCredential({
-                    restoreToken: prepared.restoreToken!,
-                  }).then(() => undefined)
-              : undefined,
-          });
-        },
+        quickLoginHref: `?email=${encodeURIComponent(
+          user.email,
+        )}&password=${encodeURIComponent(
+          quickLoginPassword,
+        )}&rememberMe=1`,
       }))}
     />
   );
+}
+
+function setNativeInputValue(id: string, value: string) {
+  const input = document.getElementById(id);
+
+  if (!(input instanceof HTMLInputElement)) return;
+
+  input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
 }
