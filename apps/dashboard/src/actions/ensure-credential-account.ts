@@ -1,10 +1,28 @@
 import "server-only";
 
-import type { Prisma } from "@school-clerk/db";
-
 export const BETTER_AUTH_CREDENTIAL_PROVIDER_ID = "credential";
 
-type CredentialAccountClient = Pick<Prisma.TransactionClient, "account">;
+type CredentialAccountClient = {
+	account: {
+		upsert(args: {
+			create: {
+				accountId: string;
+				providerId: string;
+				userId: string;
+			};
+			update: {
+				deletedAt: null;
+				userId: string;
+			};
+			where: {
+				providerId_accountId: {
+					accountId: string;
+					providerId: string;
+				};
+			};
+		}): Promise<unknown>;
+	};
+};
 
 export async function ensureCredentialAccount(
 	db: CredentialAccountClient,

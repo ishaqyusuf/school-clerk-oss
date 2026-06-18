@@ -15,7 +15,7 @@ type FinanceDb = Pick<TRPCContext["db"], "financeStream">;
 type StudentTermFormDb = Pick<TRPCContext["db"], "studentTermForm">;
 type StudentChargeReconciliationDb = Pick<
 	TRPCContext["db"],
-	"$queryRaw" | "financeCharge" | "financeItem"
+	"$executeRaw" | "financeCharge" | "financeItem"
 >;
 
 function requireSchoolId(ctx: TRPCContext) {
@@ -86,13 +86,13 @@ type StudentTermChargeForm = {
 };
 
 async function lockStudentTermChargeReconciliation(
-	tx: Pick<TRPCContext["db"], "$queryRaw">,
+	tx: Pick<TRPCContext["db"], "$executeRaw">,
 	params: {
 		schoolProfileId: string;
 		studentTermFormId: string;
 	},
 ) {
-	await tx.$queryRaw`
+	await tx.$executeRaw`
 		SELECT pg_advisory_xact_lock(
 			hashtext(${params.schoolProfileId}),
 			hashtext(${params.studentTermFormId})

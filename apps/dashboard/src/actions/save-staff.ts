@@ -8,13 +8,15 @@ import {
 	createStaffSchema,
 	staffRoleSchema,
 } from "@/actions/schema";
-import { auth } from "@/auth/server";
 import { headers } from "next/headers";
+import React from "react";
 import { z } from "zod";
 import { ensureCredentialAccount } from "./ensure-credential-account";
 
+import { StaffInvitationEmail, render } from "@school-clerk/email";
 import { ensureNotificationContact, prisma } from "@school-clerk/db";
 import { createNotificationFromType } from "@school-clerk/notifications";
+import { getRecipient } from "@school-clerk/utils";
 import {
 	STAFF_ASSIGNMENT_ROLES,
 	type StaffInviteStatus,
@@ -91,27 +93,67 @@ async function getCurrentOrigin() {
 
 async function sendOnboardingInvite({
 	email,
+	invitedByName,
+	roleLabel,
+	schoolName,
+	staffName,
 	staffId,
+	userId,
 }: {
 	email: string;
+	invitedByName?: string | null;
+	roleLabel: string;
+	schoolName: string;
+	staffName: string;
 	staffId: string;
+	userId: string;
 }) {
-	const currentOrigin = await getCurrentOrigin();
-	const requestHeaders = new Headers(await headers());
-	requestHeaders.set("origin", currentOrigin);
+	const apiKey = process.env.RESEND_API_KEY;
+	const from =
+		process.env.RESEND_FROM_EMAIL ??
+		"School Clerk <noreply@school-clerkprodesk.com>";
 
-	const redirectTo = new URL(`${currentOrigin}/reset-password`);
-	redirectTo.searchParams.set("onboarding", "1");
-	redirectTo.searchParams.set("staffId", staffId);
-	redirectTo.searchParams.set("email", email);
+	if (!apiKey) {
+		throw new Error(
+			"RESEND_API_KEY is not configured; onboarding email was not sent.",
+		);
+	}
 
-	await auth.api.requestPasswordReset({
-		body: {
-			email,
-			redirectTo: redirectTo.toString(),
-		},
-		headers: requestHeaders,
+	const inviteLink = await createCopyableOnboardingLink({
+		email,
+		staffId,
+		userId,
 	});
+	const html = await render(
+		React.createElement(StaffInvitationEmail, {
+			ctaHref: inviteLink,
+			inviteeName: staffName,
+			inviterName: invitedByName,
+			roleLabel,
+			schoolName,
+		}),
+	);
+
+	const response = await fetch("https://api.resend.com/emails", {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${apiKey}`,
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			from,
+			to: [getRecipient(email)],
+			subject: `${schoolName}: you're invited to join as ${roleLabel}`,
+			html,
+		}),
+	});
+
+	if (!response.ok) {
+		const errorText = await response.text();
+		throw new Error(`Failed to send onboarding email: ${errorText}`);
+	}
+
+	return inviteLink;
 }
 
 async function createCopyableOnboardingLink({
@@ -219,7 +261,10 @@ async function createStaffInvitationNotification(input: {
 		return;
 	}
 
-	const notification = createNotificationFromType("staff_invitation", input.payload);
+	const notification = createNotificationFromType(
+		"staff_invitation",
+		input.payload,
+	);
 
 	if (!notification.channels.includes("in_app")) {
 		return;
@@ -233,15 +278,14 @@ async function createStaffInvitationNotification(input: {
 			userId: input.userId,
 		});
 
-		const authorContact =
-			input.actorUserId
-				? await ensureNotificationContact(tx, {
-						displayName: input.actorName ?? undefined,
-						role: "user",
-						schoolProfileId: input.schoolProfileId,
-						userId: input.actorUserId,
-					})
-				: null;
+		const authorContact = input.actorUserId
+			? await ensureNotificationContact(tx, {
+					displayName: input.actorName ?? undefined,
+					role: "user",
+					schoolProfileId: input.schoolProfileId,
+					userId: input.actorUserId,
+				})
+			: null;
 
 		await tx.notification.create({
 			data: {
@@ -592,9 +636,14 @@ export const saveStaffAction = actionClient
 
 		if (savedStaff.shouldSendInvite) {
 			try {
-				await sendOnboardingInvite({
+				const inviteLink = await sendOnboardingInvite({
 					email: savedStaff.email,
+					invitedByName: actor?.name ?? null,
+					roleLabel: parsedInput.role,
+					schoolName: school.name,
+					staffName: savedStaff.name,
 					staffId: savedStaff.id,
+					userId: savedStaff.userId,
 				});
 				invited = true;
 				await syncInviteState({
@@ -605,7 +654,7 @@ export const saveStaffAction = actionClient
 					actorName: actor?.name ?? null,
 					actorUserId: profile.auth?.userId ?? null,
 					payload: {
-						inviteLink: null,
+						inviteLink,
 						invitedByName: actor?.name ?? null,
 						recipientEmail: savedStaff.email,
 						roleLabel: parsedInput.role,
@@ -694,9 +743,14 @@ export const resendStaffOnboardingAction = actionClient
 				await ensureCredentialAccount(prisma, user.id);
 			}
 
-			await sendOnboardingInvite({
+			const inviteLink = await sendOnboardingInvite({
 				email: staff.email,
+				invitedByName: actor?.name ?? null,
+				roleLabel: user.role ?? "Teacher",
+				schoolName: school.name,
+				staffName: staff.name ?? buildPendingStaffName(staff.email),
 				staffId: staff.id,
+				userId: user.id,
 			});
 			await syncInviteState({
 				staffId: staff.id,
@@ -708,7 +762,7 @@ export const resendStaffOnboardingAction = actionClient
 					actorName: actor?.name ?? null,
 					actorUserId: profile.auth?.userId ?? null,
 					payload: {
-						inviteLink: null,
+						inviteLink,
 						invitedByName: actor?.name ?? null,
 						recipientEmail: staff.email,
 						roleLabel: user.role ?? "Teacher",

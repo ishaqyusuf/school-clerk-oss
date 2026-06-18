@@ -245,13 +245,13 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `email`, `role`, `assignments[]` where each assignment is `{ classRoomDepartmentId, departmentSubjectIds[] }`
 - Response schema: `{ invited, inviteError, staffId }`
 - Error cases: invalid classroom/subject combinations, missing tenant context, invite delivery failure
-- Notes: creates or updates the staff record, syncs tenant user role, persists teacher-only assignments, and automatically sends onboarding when required
+- Notes: creates or updates the staff record, syncs tenant user role, persists teacher-only assignments, creates a staff-scoped onboarding reset token, and automatically sends the shared staff invitation email when required
 
 - Route: `action.resendStaffOnboardingAction`
 - Request schema: `staffId`
 - Response schema: `{ invited: true }`
 - Error cases: missing tenant context, no staff email, onboarding already completed, invite delivery failure
-- Notes: resets invite state to pending and records resend timestamp
+- Notes: creates a fresh staff-scoped onboarding reset token, sends the shared staff invitation email, resets invite state to pending, and records resend timestamp
 
 - Route: `action.copyStaffOnboardingLinkAction`
 - Request schema: `staffId`

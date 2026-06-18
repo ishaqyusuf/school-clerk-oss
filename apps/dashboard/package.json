@@ -28,6 +28,7 @@
     "@school-clerk/assessment-results": "workspace:*",
     "@school-clerk/auth": "workspace:*",
     "@school-clerk/db": "workspace:*",
+    "@school-clerk/email": "workspace:*",
     "@school-clerk/navigation": "workspace:*",
     "@school-clerk/notifications": "workspace:*",
     "@school-clerk/notifications-react": "workspace:*",

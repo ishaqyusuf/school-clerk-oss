@@ -62,7 +62,7 @@ Defines access control rules for each API surface.
 
 ## Staff Invite Status
 - Staff save now sends onboarding automatically when needed instead of relying on an explicit "Send onboarding email" toggle.
-- Invites create or update the tenant user record and trigger Better Auth's reset-password flow with a staff-scoped onboarding link so the staff member can set a password and fill their own profile details.
+- Invites create or update the tenant user record, create a Better Auth-compatible reset token, and send the shared staff invitation email with a staff-scoped onboarding link so the staff member can set a password and fill their own profile details.
 - Copying an onboarding link creates a fresh reset-password verification token directly and returns a staff-scoped onboarding URL without using email delivery or revoking other active reset tokens.
 
 ## Staff Management Navigation Split

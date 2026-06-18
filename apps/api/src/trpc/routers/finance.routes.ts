@@ -229,10 +229,13 @@ function normalizeStudentQuery(
 		});
 	}
 
+	const termId = parsed.termId ?? ctx.profile.termId ?? null;
+
 	return {
 		studentId,
-		termId: parsed.termId ?? ctx.profile.termId ?? null,
-		sessionId: parsed.sessionId ?? ctx.profile.sessionId ?? null,
+		termId,
+		sessionId:
+			parsed.sessionId ?? (parsed.termId ? null : ctx.profile.sessionId ?? null),
 	};
 }
 
