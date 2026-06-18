@@ -25,10 +25,11 @@ Allow school operators to import multiple students from pasted text data, assign
 
 Each pasted line is parsed as follows:
 
-- If the line contains comma `,` or dot `.` delimiters, the line is split on those delimiters, trimmed, and empty parts are ignored.
+- If the line contains comma `,`, Arabic comma `،`, or dot `.` delimiters, the line is split on those delimiters, trimmed, and empty parts are ignored.
 - If the final comma/dot-delimited part is a recognized gender alias, that final part becomes the row-level gender and the preceding parts remain the name source.
-- If no comma or dot delimiter is present, the line is split by whitespace.
-- If the name source has only one part before a recognized row-level gender, that one part is split by whitespace so `John Doe, Male` still maps correctly.
+- If explicit name delimiters are not present, the parser fetches a tenant-scoped import name guide from existing student `name`, `surname`, and `otherName` values, trims and deduplicates the list, and greedily matches the longest known name part before falling back to whitespace tokens.
+- The guided fallback uses the same Arabic normalization family as import verification, including tashkeel removal and common Arabic letter variants, so known multi-word Arabic name parts are not split only because they contain spaces.
+- If the name source has only one part before a recognized row-level gender, that one part also uses the guided fallback so `John Doe, Male` and `عبد الله محمد، M` still map correctly.
 - The resulting name tokens are assigned deterministically:
   - Token 1: `name` (first name)
   - Token 2: `surname` (family name)
@@ -79,22 +80,28 @@ In the parsed output payload, `student.gender` is the effective input gender aft
 
 ### Tabs
 
-- **Ready to import**: rows with no existing match and complete required fields. These default to `Import new`, and the tab includes an `Import all ready` batch action for untouched rows.
+- **Ready to import**: rows with no existing match and complete required fields. These default to `Import new`, and the tab includes an `Import checked` batch action for checked, untouched rows.
 - **Match Found**: rows with exact or suspected existing-student matches. Exact matches default to `Keep match`; suspected matches start unresolved unless a batch default or row action is selected.
 - **Needs attention**: rows that are not matched but still need a required manual value, such as gender. No-match rows still default to `Import new` so they become executable as soon as the missing gender is resolved.
 
 ### Batch And Row Decisions
 
 - Exact-match and suspected-match batch defaults only apply to rows the operator has not touched.
+- Each import row has a checkbox. Batch execution sends only checked rows; unchecked rows are omitted before validation and execution.
+- Each review tab exposes local check/uncheck-all controls for the rows visible in that tab.
 - `Keep match` and `Update match with name` require a selected candidate before execution.
 - `Import new` and `Skip` are complete decisions for suspected-match rows and do not require selecting an existing candidate.
 - `Skip` is a dashboard-only review action for matched or attention rows. It is disabled for no-match rows so ready imports cannot be accidentally omitted. Skipped rows are omitted from the `executeStudentImport` payload and counted in the review summary.
-- Review rows display parsed `name`, `surname`, and `otherName` as separate chips beside the original pasted line.
+- Review rows display parsed `name`, `surname`, and `otherName` as separate editable fields.
+- Review row name parts are clickable dropdown controls. Before a row is edited, each part can choose from the full set of contiguous name-token combinations. After a selection, only the explicitly selected span is treated as taken and removed from the other part dropdowns; adjacent fields that were auto-adjusted remain available until the operator selects them. A reset control appears to clear the edited split. Selecting a possible name/surname/other-name combination recalculates the adjacent name fields from the original pasted tokens before execution, then locally re-checks existing students and surfaces an approvable suggested match when the edited name aligns with an existing record.
+- Review rows include a search control for finding existing students. When the search field is empty, the dropdown recommends existing students ranked by the import row's parsed name parts. Selecting a student normalizes the import row to that student's stored name fields and exposes a `Move to match found` action that treats the selected student as the row's match.
+- Review rows use a compact card layout with a status header, parsed-name fields, row actions, existing-student search, and match candidates separated into clear scan areas. The original pasted line is no longer shown in each row.
+- The import modal uses a fixed viewport height; modal headers, classroom/action controls, and tab selectors remain stable while the active tab body is the only scrollable review surface.
 - `Cancel Import` is available before execution and returns the operator to the initial import screen, clearing staged verification/review state without writing new student records.
 
 ### Candidate Metadata
 
-The match UI exposes each candidate's student ID, display name, gender, class, session, term, confidence, reason, current-term status, and current-classroom status so operators can resolve exact and suspected matches without leaving the modal.
+The match UI exposes each candidate's display name, classroom, current term-sheet status, same-classroom status, and confidence so operators can resolve exact and suspected matches without leaving the modal. Current term-sheet and same-classroom badges are green for matching/current records and red when missing or different.
 
 ## Gender Inference
 
@@ -125,7 +132,7 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 | `studentSessionFormId`         | Session form ID; currently null until enrollment creates it where needed |
 | `termId`, `termName`           | Active term                                                              |
 | `sessionId`, `sessionName`     | Active session                                                           |
-| `isCurrentTermMatch`           | Whether the student's term form matches the active term                  |
+| `isCurrentTermMatch`           | Whether the student's term form matches the active session and term      |
 | `isCurrentClassroomMatch`      | Whether the student's term form matches the selected classroom           |
 | `confidence`                   | Match confidence, 0-100                                                  |
 | `reason`                       | Human-readable match reason                                              |
@@ -134,6 +141,7 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 
 ### Endpoint
 
+- `trpc.students.getImportNameGuide`: compact tenant-scoped existing-name guide for whitespace-only import parsing.
 - `trpc.students.verifyStudentImport`: single-query batch verification with classroom scoping, edit-distance matching, and gender inference.
 - `trpc.students.executeStudentImport`: batch mutation for row-level import decisions.
 
@@ -206,7 +214,8 @@ Report-sheet and finance query keys are parameterized per classroom/student and 
 
 - `apps/api/src/db/queries/students.ts`: `verifyStudentImport`, `executeStudentImport`, and student import helpers.
 - `apps/api/src/trpc/routers/students.routes.ts`: tRPC wiring.
-- `apps/dashboard/src/components/modals/student-import/index.tsx`: input parsing and classroom/global gender start screen.
+- `apps/dashboard/src/components/modals/student-import/index.tsx`: classroom/global gender start screen and import guide fetch.
+- `apps/dashboard/src/components/modals/student-import/parser.ts`: input parsing, delimiter handling, and Arabic-aware guided fallback.
 - `apps/dashboard/src/components/modals/student-import/import-activities.tsx`: review, resolution, and execution UI.
 
 ## Implementation Plans

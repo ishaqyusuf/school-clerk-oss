@@ -23,6 +23,7 @@ import {
   verifyStudentImport,
   executeStudentImportSchema,
   executeStudentImport,
+  getImportNameGuide,
 } from "../../db/queries/students";
 import {
   getStudentOverviewSchema,
@@ -115,6 +116,9 @@ export const studentsRouter = createTRPCRouter({
     .query(async (props) => {
       return studentsRecentRecord(props.ctx, props.input);
     }),
+  getImportNameGuide: publicProcedure.query(async (props) => {
+    return getImportNameGuide(props.ctx);
+  }),
   verifyStudentImport: publicProcedure
     .input(verifyStudentImportSchema)
     .query(async (props) => {

@@ -1,5 +1,4 @@
 import { useZodForm } from "@/hooks/use-zod-form";
-import { Button } from "@school-clerk/ui/button";
 import { Dialog, Field, InputGroup, Tabs } from "@school-clerk/ui/composite";
 import {
   Select,
@@ -17,123 +16,7 @@ import { ImportActivity } from "./import-activities";
 import { _trpc } from "@/components/static-trpc";
 import { useQuery } from "@tanstack/react-query";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-
-interface ParsedStudent {
-  name: string;
-  surname: string;
-  otherName?: string;
-  gender?: string;
-  classRoom: string;
-  classroomDepartmentId: string;
-  lineNumber: number;
-  originalText: string;
-  parsedGender?: "M" | "F";
-}
-
-interface ParsedWarning {
-  lineNumber: number;
-  text: string;
-  warning: string;
-}
-
-function parseGenderAlias(value: string): "M" | "F" | undefined {
-  const lowerGender = value.trim().toLowerCase();
-
-  if (lowerGender === "m" || lowerGender === "male") {
-    return "M";
-  }
-
-  if (lowerGender === "f" || lowerGender === "female") {
-    return "F";
-  }
-
-  return undefined;
-}
-
-function parseRawInput(
-  rawText: string,
-  classRoomName: string,
-  classRoomId: string,
-  globalGender?: "Male" | "Female" | "unset" | ""
-): { students: ParsedStudent[]; warnings: ParsedWarning[] } {
-  const students: ParsedStudent[] = [];
-  const warnings: ParsedWarning[] = [];
-
-  if (!rawText) {
-    return { students, warnings };
-  }
-
-  const lines = rawText.split("\n");
-  lines.forEach((line, index) => {
-    const lineNumber = index + 1;
-    const trimmed = line.trim();
-    if (!trimmed) return;
-
-    const hasPunctuationNameDelimiter = /[,.]/.test(trimmed);
-    const delimitedParts = hasPunctuationNameDelimiter
-      ? trimmed
-          .split(/[,.]/)
-          .map((part) => part.trim())
-          .filter(Boolean)
-      : [];
-    const lastDelimitedPart = delimitedParts[delimitedParts.length - 1] || "";
-    const parsedGenderFromDelimitedPart = lastDelimitedPart
-      ? parseGenderAlias(lastDelimitedPart)
-      : undefined;
-    const nameSourceParts = parsedGenderFromDelimitedPart
-      ? delimitedParts.slice(0, -1)
-      : delimitedParts;
-    const nameTokens =
-      hasPunctuationNameDelimiter && nameSourceParts.length > 1
-        ? nameSourceParts
-        : (nameSourceParts[0] || trimmed).split(/\s+/).filter(Boolean);
-
-    if (!nameTokens.length) {
-      warnings.push({
-        lineNumber,
-        text: trimmed,
-        warning: "Empty student name part on line",
-      });
-      return;
-    }
-
-    const parsedGender: "M" | "F" | undefined = parsedGenderFromDelimitedPart;
-
-    const effectiveGender =
-      parsedGender ||
-      (globalGender === "Male"
-        ? "M"
-          : globalGender === "Female"
-            ? "F"
-            : undefined);
-
-    const name = nameTokens[0] || "";
-    const surname = nameTokens[1] || "";
-    const otherName = nameTokens.slice(2).join(" ") || undefined;
-
-    if (!surname) {
-      warnings.push({
-        lineNumber,
-        text: trimmed,
-        warning: "Surname missing",
-      });
-    }
-
-    students.push({
-      name,
-      surname,
-      otherName,
-      gender: effectiveGender,
-      classRoom: classRoomName,
-      classroomDepartmentId: classRoomId,
-      lineNumber,
-      originalText: trimmed,
-      parsedGender,
-    });
-  });
-
-  return { students, warnings };
-}
+import { parseRawInput } from "./parser";
 
 const studentImportSchema = z.object({
   classRoomId: z
@@ -150,9 +33,15 @@ export function StudentImportModal() {
     action: parseAsString,
   });
   const [ls, setLs] = useLocalStorage("student-import-data", "");
+  const open = action == "student-import";
 
   const { data: classList, isLoading: isClassListLoading } = useQuery(
     _trpc.classrooms.getCurrentSessionClassroom.queryOptions()
+  );
+  const { data: importNameGuide } = useQuery(
+    _trpc.students.getImportNameGuide.queryOptions(undefined, {
+      enabled: open,
+    })
   );
 
   const form = useZodForm(studentImportSchema, {
@@ -168,7 +57,6 @@ export function StudentImportModal() {
     setTab("importing");
   };
 
-  const open = action == "student-import";
   const raw = form.watch("raw");
   const classRoomId = form.watch("classRoomId");
   const globalGender = form.watch("globalGender");
@@ -181,8 +69,14 @@ export function StudentImportModal() {
         : selectedDept.departmentName
       : "";
 
-    return parseRawInput(raw, classRoomName, classRoomId, globalGender);
-  }, [raw, classRoomId, classList?.data, globalGender]);
+    return parseRawInput(
+      raw,
+      classRoomName,
+      classRoomId,
+      globalGender,
+      importNameGuide?.names || []
+    );
+  }, [raw, classRoomId, classList?.data, globalGender, importNameGuide?.names]);
 
   useEffect(() => {
     setLs(raw);
@@ -195,15 +89,15 @@ export function StudentImportModal() {
         setParams(null);
       }}
     >
-      <Dialog.Content>
+      <Dialog.Content className="flex h-[85vh] max-h-[85vh] flex-col overflow-hidden">
         <Dialog.Header>
           <Dialog.Title>Import Students</Dialog.Title>
           <Dialog.Description>
             Select a classroom and paste one student name per line.
           </Dialog.Description>
         </Dialog.Header>
-        <Tabs.Root value={tab}>
-          <Tabs.Content value="main">
+        <Tabs.Root value={tab} className="flex min-h-0 flex-1 flex-col">
+          <Tabs.Content value="main" className="min-h-0 flex-1 overflow-y-auto pr-1">
             <form id="form-rhf-demo" onSubmit={form.handleSubmit(onSubmit)}>
               <div className="grid w-full gap-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -296,6 +190,12 @@ export function StudentImportModal() {
                         <Field.Label htmlFor="student-data">
                           Student Data (One student per line)
                         </Field.Label>
+                        <p className="text-xs text-muted-foreground">
+                          Use dots or English/Arabic commas to split name
+                          parts. If no dot or comma is used, SchoolClerk uses
+                          existing student names as a guide before splitting by
+                          spaces.
+                        </p>
 
                         <InputGroup>
                           <InputGroup.TextArea
@@ -345,7 +245,7 @@ export function StudentImportModal() {
               </div>
             </form>
           </Tabs.Content>
-          <Tabs.Content value="importing">
+          <Tabs.Content value="importing" className="min-h-0 flex-1 overflow-hidden">
             <ImportActivity
               classrooms={
                 classList?.data?.map((c) => ({ title: c.departmentName })) || []

@@ -116,6 +116,7 @@ Tracks architectural patterns, boundaries, and major design choices.
 - The website template platform uses a shared shadcn-based design foundation.
 - Templates are presentation layers composed from shared primitives and website blocks, not isolated design systems.
 - Template-specific identity should come from composition, theming, typography, spacing, and section presentation while preserving shared accessibility and editor compatibility.
+- Shadcn semantic color tokens keep `primary` for brand actions and `accent`/`sidebar-accent` for low-emphasis hover or selection surfaces. Saturated brand color should not be assigned to `accent`, because shared primitives such as tabs, menus, selects, command items, and ghost buttons rely on accent surfaces for readable interaction states.
 
 ## Cross-Cutting Concerns
 

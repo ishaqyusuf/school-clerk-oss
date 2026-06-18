@@ -29,6 +29,18 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Notes: results are tenant-scoped by `schoolProfileId`; classroom results are current-session scoped when session context is available and link to `/academic/classes?viewClassroomId=<departmentId>&classroomTab=students`; student results link to `/students/<studentId>`.
 
 ## Student Contracts
+- Route: `students.getImportNameGuide`
+- Request schema: none
+- Response schema: `{ names: string[] }`
+- Error cases: missing tenant context
+- Notes: returns a compact tenant-scoped unique list from non-deleted existing students' `name`, `surname`, and `otherName` fields. The dashboard import parser uses this guide for whitespace-only name splitting, including Arabic-aware normalization, before falling back to plain whitespace tokens.
+
+- Route: `students.studentsRecentRecord`
+- Request schema: none
+- Response schema: `{ students, sessionTermId, schoolSessionId, classDepartments, term }`, where `students` contains non-deleted tenant students with basic identity, gender, current/recent classroom metadata, `termId`, `schoolSessionId`, term sheet id, term/session labels, and current-session form id when applicable.
+- Error cases: missing tenant context
+- Notes: used by student import review for classroom selection, existing-student search, and same-session/same-term match badges.
+
 - Route: `students.verifyStudentImport`
 - Request schema: `classroomDepartmentId` (string), `rows` array of `{ lineNumber: number, originalText: string, name: string, surname: string, otherName?: string | null, gender?: string | null }`
 - Response schema: `{ results: Array<{ lineNumber, originalText, name, surname, otherName, inputGender, inferredGender, genderInferenceDetails: { confidence: number, sampleSize: number, source: string } | null, needsGender: boolean, status: 'readyToImport' | 'matchFound' | 'needsAttention', fullMatch: MatchMeta | null, suspectedMatches: MatchMeta[] }> }` where MatchMeta is a student record metadata block containing name, classroom, term/session details, match confidence (0-100), and matching reason.

@@ -815,6 +815,7 @@ export async function studentsRecentRecord(
   const students = await db.students.findMany({
     where: {
       schoolProfileId: profile.schoolId,
+      deletedAt: null,
     },
     select: {
       id: true,
@@ -927,6 +928,7 @@ export async function studentsRecentRecord(
       return {
         ...rest,
         termId: termForm?.sessionTermId,
+        schoolSessionId: termForm?.schoolSessionId,
         classroomDepartmentId:
           termForm?.classroomDepartmentId ||
           termForm?.sessionForm?.classroomDepartment?.id,
@@ -1067,6 +1069,32 @@ export async function bulkDeleteTermSheets(
   return {
     count: result.count,
   };
+}
+
+export async function getImportNameGuide(ctx: TRPCContext) {
+  const { db, profile } = ctx;
+  const students = await db.students.findMany({
+    where: {
+      schoolProfileId: profile.schoolId,
+      deletedAt: null,
+    },
+    select: {
+      name: true,
+      surname: true,
+      otherName: true,
+    },
+  });
+
+  const names = Array.from(
+    new Set(
+      students
+        .flatMap((student) => [student.name, student.surname, student.otherName])
+        .map((name) => name?.replace(/\s+/g, " ").trim())
+        .filter((name): name is string => Boolean(name))
+    )
+  );
+
+  return { names };
 }
 
 function normalizeArabic(str: string): string {
@@ -1333,7 +1361,9 @@ export async function verifyStudentImport(
       if (confidence > 0) {
         // Resolve term sheet / classroom metadata
         const activeTermSheet = candidate.termForms.find(
-          (tf) => tf.sessionTermId === sessionTermId
+          (tf) =>
+            tf.sessionTermId === sessionTermId &&
+            tf.schoolSessionId === schoolSessionId
         );
         const activeSessionForm = candidate.termForms.find(
           (tf) => tf.schoolSessionId === schoolSessionId
@@ -1355,7 +1385,7 @@ export async function verifyStudentImport(
           termName: currentTermSheet?.sessionTerm?.title || null,
           sessionId: currentTermSheet?.schoolSessionId || null,
           sessionName: currentTermSheet?.schoolSession?.title || null,
-          isCurrentTermMatch: activeTermSheet?.sessionTermId === sessionTermId,
+          isCurrentTermMatch: Boolean(activeTermSheet),
           isCurrentClassroomMatch: activeTermSheet?.classroomDepartmentId === input.classroomDepartmentId,
           confidence,
           reason,
