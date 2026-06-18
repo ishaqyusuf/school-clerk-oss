@@ -9,6 +9,7 @@ import { Checkbox } from "@school-clerk/ui/checkbox";
 import { cn } from "@school-clerk/ui/cn";
 import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
 import { Item, Select, Tabs } from "@school-clerk/ui/composite";
+import { Progress } from "@school-clerk/ui/progress";
 import { Separator } from "@school-clerk/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -16,10 +17,16 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  FileCheck2,
   Import,
+  MinusCircle,
+  PencilLine,
   RefreshCw,
   Search,
+  UserCheck,
+  UserPlus,
   X,
+  XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
@@ -44,6 +51,7 @@ type VerifyResult =
 type MatchCandidate = NonNullable<VerifyResult["fullMatch"]>;
 type ExistingStudent =
   RouterOutputs["students"]["studentsRecentRecord"]["students"][number];
+type ExecuteResult = RouterOutputs["students"]["executeStudentImport"];
 type ExecuteRow = {
   lineNumber: number;
   name: string;
@@ -88,8 +96,9 @@ type StudentSearchItem = {
 };
 
 const EMPTY_IMPORT_ROWS: VerifyResult[] = [];
-const EMPTY_LOCKED_NAME_SPANS: Partial<Record<EditableNamePart, NameTokenSpan>> =
-  {};
+const EMPTY_LOCKED_NAME_SPANS: Partial<
+  Record<EditableNamePart, NameTokenSpan>
+> = {};
 
 const actionLabels: Record<ImportAction, string> = {
   import_new: "Import new",
@@ -123,6 +132,7 @@ export function ImportActivity({ students, onCancelImport }: Props) {
     Record<number, MatchCandidate>
   >({});
   const [preSubmitError, setPreSubmitError] = useState<string | null>(null);
+  const [lastExecutionSkippedRows, setLastExecutionSkippedRows] = useState(0);
 
   const {
     data: records,
@@ -261,6 +271,7 @@ export function ImportActivity({ students, onCancelImport }: Props) {
     setPendingSearchMatches({});
     setPendingNameMatches({});
     setPreSubmitError(null);
+    setLastExecutionSkippedRows(0);
   }, [verificationRows]);
 
   useEffect(() => {
@@ -276,6 +287,7 @@ export function ImportActivity({ students, onCancelImport }: Props) {
     mutate: executeBatch,
     isPending: isExecutingBatch,
     data: batchResult,
+    error: batchError,
   } = useMutation(
     _trpc.students.executeStudentImport.mutationOptions({
       onSuccess() {
@@ -395,17 +407,13 @@ export function ImportActivity({ students, onCancelImport }: Props) {
     }));
   };
 
-  const setNamePart = (
-    row: VerifyResult,
-    option: NamePartOption,
-  ) => {
+  const setNamePart = (row: VerifyResult, option: NamePartOption) => {
     const nextNames = resolveNameSelection(row, option);
     const editedRow = {
       ...row,
       name: nextNames.name ?? row.name,
       surname: nextNames.surname ?? row.surname,
-      otherName:
-        "otherName" in nextNames ? nextNames.otherName : row.otherName,
+      otherName: "otherName" in nextNames ? nextNames.otherName : row.otherName,
     };
     const suggestedMatch = findEditedNameMatch(
       editedRow,
@@ -600,6 +608,7 @@ export function ImportActivity({ students, onCancelImport }: Props) {
       return;
     }
 
+    setLastExecutionSkippedRows(skippedBeforeExecution);
     executeBatch({
       classroomDepartmentId: classroomDeptId,
       rows: importRows,
@@ -617,6 +626,10 @@ export function ImportActivity({ students, onCancelImport }: Props) {
   const selectedRowCount = rows.filter((row) =>
     isRowChecked(checkedRows, row.lineNumber),
   ).length;
+  const executableRowCount = Math.max(
+    selectedRowCount - skippedBeforeExecution,
+    0,
+  );
   const studentSearchItems = useMemo(
     () =>
       (records?.students || []).map((student) => ({
@@ -690,73 +703,51 @@ export function ImportActivity({ students, onCancelImport }: Props) {
           </Button>
         ) : null}
 
-        <SubmitButton
-          isSubmitting={isExecutingBatch}
-          onClick={executeAll}
-          className="ml-auto h-9"
-          type="button"
-        >
-          Execute checked
-        </SubmitButton>
+        <div className="ml-auto flex items-end gap-3">
+          <div className="hidden text-right text-[11px] leading-tight text-muted-foreground sm:block">
+            <div className="font-medium text-foreground">
+              {executableRowCount} ready to execute
+            </div>
+            <div>
+              {selectedRowCount} checked
+              {skippedBeforeExecution > 0
+                ? ` · ${skippedBeforeExecution} skip`
+                : ""}
+            </div>
+          </div>
+          <SubmitButton
+            isSubmitting={isExecutingBatch}
+            disabled={!selectedRowCount || isVerifying}
+            onClick={executeAll}
+            className="h-9"
+            type="button"
+          >
+            <Import className="size-4" />
+            {isExecutingBatch
+              ? "Importing..."
+              : `Execute import (${executableRowCount})`}
+          </SubmitButton>
+        </div>
       </div>
 
-      {selectedClassroom ? (
-        <div className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          Reviewing {selectedRowCount} of {rows.length || students.length}{" "}
-          pasted row(s) for{" "}
-          <span className="font-medium text-foreground">
-            {selectedClassroom.classRoom.name} -{" "}
-            {selectedClassroom.departmentName}
-          </span>
-          {skippedBeforeExecution > 0 ? (
-            <span className="ml-2 text-amber-600">
-              {skippedBeforeExecution} row(s) marked Skip
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-
-      {preSubmitError ? (
-        <div className="rounded-md border border-red-300 bg-red-50 p-2 text-xs text-red-700">
-          {preSubmitError}
-        </div>
-      ) : null}
-
-      {batchResult ? (
-        <div className="rounded-md border bg-muted/20 p-3 text-xs">
-          <div className="flex flex-wrap gap-3">
-            <span className="text-green-600">
-              Created: {batchResult.createdStudents}
-            </span>
-            <span className="text-blue-600">
-              Kept: {batchResult.keptMatches}
-            </span>
-            <span className="text-orange-600">
-              Updated: {batchResult.updatedMatches}
-            </span>
-            <span className="text-yellow-600">
-              Term Sheets: {batchResult.termSheetsCreated}
-            </span>
-            <span className="text-muted-foreground">
-              Skipped: {batchResult.skippedRows + skippedBeforeExecution}
-            </span>
-            <span className="text-red-600">
-              Failed: {batchResult.failedRows}
-            </span>
-          </div>
-          {batchResult.rows.some((row) => row.status === "failed") ? (
-            <div className="mt-2 space-y-1 text-red-600">
-              {batchResult.rows
-                .filter((row) => row.status === "failed")
-                .map((row) => (
-                  <div key={row.lineNumber}>
-                    Line {row.lineNumber}: {row.reason}
-                  </div>
-                ))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      <ImportExecutionPanel
+        classroomLabel={
+          selectedClassroom
+            ? `${selectedClassroom.classRoom.name} - ${selectedClassroom.departmentName}`
+            : null
+        }
+        pastedRowCount={rows.length || students.length}
+        selectedRowCount={selectedRowCount}
+        executableRowCount={executableRowCount}
+        skippedBeforeExecution={
+          batchResult || batchError
+            ? lastExecutionSkippedRows
+            : skippedBeforeExecution
+        }
+        isExecuting={isExecutingBatch}
+        result={batchResult}
+        errorMessage={preSubmitError || batchError?.message || null}
+      />
 
       <Separator />
 
@@ -980,6 +971,264 @@ export function ImportActivity({ students, onCancelImport }: Props) {
   );
 }
 
+function ImportExecutionPanel({
+  classroomLabel,
+  pastedRowCount,
+  selectedRowCount,
+  executableRowCount,
+  skippedBeforeExecution,
+  isExecuting,
+  result,
+  errorMessage,
+}: {
+  classroomLabel: string | null;
+  pastedRowCount: number;
+  selectedRowCount: number;
+  executableRowCount: number;
+  skippedBeforeExecution: number;
+  isExecuting: boolean;
+  result?: ExecuteResult;
+  errorMessage?: string | null;
+}) {
+  const backendSkippedRows = result?.skippedRows ?? 0;
+  const skippedRows = skippedBeforeExecution + backendSkippedRows;
+  const successfulRows = result
+    ? result.createdStudents + result.keptMatches + result.updatedMatches
+    : 0;
+  const analyzedRows = result
+    ? successfulRows + result.failedRows + skippedRows
+    : selectedRowCount;
+  const progressValue = result
+    ? analyzedRows
+      ? Math.round(((successfulRows + skippedRows) / analyzedRows) * 100)
+      : 100
+    : isExecuting
+      ? 66
+      : 0;
+  const failedRows =
+    result?.rows.filter((row) => row.status === "failed") ?? [];
+  const hasResult = Boolean(result);
+  const hasError = Boolean(errorMessage) && !isExecuting;
+  const hasFailures = Boolean(result?.failedRows);
+  const statusIcon = isExecuting ? (
+    <RefreshCw className="size-4 animate-spin" />
+  ) : hasFailures || (hasError && !hasResult) ? (
+    <XCircle className="size-4" />
+  ) : hasResult ? (
+    <CheckCircle2 className="size-4" />
+  ) : (
+    <FileCheck2 className="size-4" />
+  );
+  const statusTitle = isExecuting
+    ? "Importing selected rows"
+    : hasFailures
+      ? "Import completed with issues"
+      : hasResult
+        ? "Import complete"
+        : hasError
+          ? "Import needs attention"
+          : "Ready for import";
+  const statusDetail = isExecuting
+    ? "Creating students, preparing term sheets, and applying classroom fees."
+    : hasResult
+      ? `${successfulRows} row(s) applied, ${skippedRows} skipped, ${result?.failedRows ?? 0} failed.`
+      : hasError
+        ? errorMessage
+        : classroomLabel
+          ? `Reviewing ${selectedRowCount} of ${pastedRowCount} pasted row(s) for ${classroomLabel}.`
+          : "Select a target classroom before executing the import.";
+
+  return (
+    <div
+      className={cn(
+        "rounded-md border bg-background text-xs",
+        hasFailures || (hasError && !hasResult)
+          ? "border-red-200 dark:border-red-900/70"
+          : hasResult
+            ? "border-green-200 dark:border-green-900/70"
+            : "border-border",
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3 p-3">
+        <div className="flex min-w-0 items-start gap-2">
+          <span
+            className={cn(
+              "mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md border bg-muted/30",
+              hasFailures || (hasError && !hasResult)
+                ? "border-red-200 text-red-600 dark:border-red-900"
+                : hasResult
+                  ? "border-green-200 text-green-600 dark:border-green-900"
+                  : "text-muted-foreground",
+            )}
+          >
+            {statusIcon}
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-semibold text-foreground">{statusTitle}</h3>
+              {classroomLabel ? (
+                <Badge variant="outline" className="bg-background">
+                  <Arabic>{classroomLabel}</Arabic>
+                </Badge>
+              ) : null}
+            </div>
+            <p className="mt-1 text-muted-foreground">{statusDetail}</p>
+          </div>
+        </div>
+
+        <Badge
+          variant={hasResult && !hasFailures ? "success" : "outline"}
+          className={cn(
+            "bg-background",
+            hasFailures || (hasError && !hasResult)
+              ? "border-red-200 text-red-600 dark:border-red-900"
+              : "",
+          )}
+        >
+          {isExecuting
+            ? "Working"
+            : hasResult
+              ? hasFailures
+                ? "Partial"
+                : "Success"
+              : `${executableRowCount} executable`}
+        </Badge>
+      </div>
+
+      <div className="border-t px-3 py-2">
+        <div className="mb-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <span>Import analysis</span>
+          <span>
+            {hasResult
+              ? `${progressValue}% clean`
+              : `${selectedRowCount} checked · ${skippedBeforeExecution} skipped`}
+          </span>
+        </div>
+        <Progress
+          value={progressValue}
+          className={cn("h-2", !hasResult && !isExecuting && "opacity-40")}
+        />
+      </div>
+
+      <div className="grid border-t sm:grid-cols-2 lg:grid-cols-6">
+        <ImportStat
+          icon={<UserPlus className="size-4" />}
+          label="New created"
+          value={
+            hasResult ? (result?.createdStudents ?? 0) : executableRowCount
+          }
+          detail={hasResult ? "student records" : "rows to import"}
+          tone="success"
+        />
+        <ImportStat
+          icon={<FileCheck2 className="size-4" />}
+          label="Term sheets"
+          value={hasResult ? (result?.termSheetsCreated ?? 0) : "-"}
+          detail="created"
+          tone="info"
+        />
+        <ImportStat
+          icon={<UserCheck className="size-4" />}
+          label="Names unchanged"
+          value={hasResult ? (result?.keptMatches ?? 0) : "-"}
+          detail="students kept"
+          tone="neutral"
+        />
+        <ImportStat
+          icon={<PencilLine className="size-4" />}
+          label="Names updated"
+          value={hasResult ? (result?.updatedMatches ?? 0) : "-"}
+          detail="matched records"
+          tone="warning"
+        />
+        <ImportStat
+          icon={<MinusCircle className="size-4" />}
+          label="Skipped"
+          value={skippedRows}
+          detail="not executed"
+          tone="neutral"
+        />
+        <ImportStat
+          icon={<AlertCircle className="size-4" />}
+          label="Errors"
+          value={hasResult ? (result?.failedRows ?? 0) : hasError ? 1 : 0}
+          detail="need review"
+          tone={hasFailures || (hasError && !hasResult) ? "danger" : "neutral"}
+        />
+      </div>
+
+      {hasError && !hasResult ? (
+        <div className="border-t bg-red-50/70 px-3 py-2 text-red-700 dark:bg-red-950/15 dark:text-red-300">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      {failedRows.length > 0 ? (
+        <div className="border-t bg-red-50/70 px-3 py-2 dark:bg-red-950/15">
+          <div className="mb-1 font-medium text-red-700 dark:text-red-300">
+            Failed row analysis
+          </div>
+          <div className="space-y-1 text-red-700 dark:text-red-300">
+            {failedRows.map((row) => (
+              <div
+                key={row.lineNumber}
+                className="flex flex-wrap items-center gap-2"
+              >
+                <Badge
+                  variant="outline"
+                  className="border-red-200 bg-background text-red-600 dark:border-red-900"
+                >
+                  Line {row.lineNumber}
+                </Badge>
+                <span>{row.reason || "Unknown import error"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ImportStat({
+  icon,
+  label,
+  value,
+  detail,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+  detail: string;
+  tone: "success" | "info" | "warning" | "danger" | "neutral";
+}) {
+  return (
+    <div className="min-w-0 border-b p-3 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0">
+      <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <span
+          className={cn(
+            "inline-flex size-6 shrink-0 items-center justify-center rounded-md border bg-muted/20",
+            tone === "success" && "border-green-200 text-green-600",
+            tone === "info" && "border-blue-200 text-blue-600",
+            tone === "warning" && "border-amber-200 text-amber-600",
+            tone === "danger" && "border-red-200 text-red-600",
+          )}
+        >
+          {icon}
+        </span>
+        <span className="truncate">{label}</span>
+      </div>
+      <div className="text-lg font-semibold leading-none text-foreground">
+        {value}
+      </div>
+      <div className="mt-1 truncate text-[11px] text-muted-foreground">
+        {detail}
+      </div>
+    </div>
+  );
+}
+
 function SectionHeader({
   title,
   detail,
@@ -1105,10 +1354,7 @@ function RowsList({
   onCheckedChange: (lineNumber: number, checked: boolean) => void;
   onActionChange: (row: VerifyResult, action: ImportAction) => void;
   onCandidateChange: (row: VerifyResult, candidateId: string) => void;
-  onNamePartChange: (
-    row: VerifyResult,
-    option: NamePartOption,
-  ) => void;
+  onNamePartChange: (row: VerifyResult, option: NamePartOption) => void;
   onNamePartsReset: (lineNumber: number) => void;
   onSearchStudentSelect: (row: VerifyResult, student: ExistingStudent) => void;
   onPromoteSearchMatch: (row: VerifyResult) => void;
@@ -1187,10 +1433,7 @@ function RowCard({
   onCheckedChange: (lineNumber: number, checked: boolean) => void;
   onActionChange: (row: VerifyResult, action: ImportAction) => void;
   onCandidateChange: (row: VerifyResult, candidateId: string) => void;
-  onNamePartChange: (
-    row: VerifyResult,
-    option: NamePartOption,
-  ) => void;
+  onNamePartChange: (row: VerifyResult, option: NamePartOption) => void;
   onNamePartsReset: (lineNumber: number) => void;
   onSearchStudentSelect: (row: VerifyResult, student: ExistingStudent) => void;
   onPromoteSearchMatch: (row: VerifyResult) => void;
@@ -1547,7 +1790,9 @@ function StudentSearchPanel({
           popoverProps={{ className: "w-[360px] p-0" }}
           onSearch={setSearchValue}
           renderSelectedItem={(item) => (
-            <Arabic className="truncate">{studentDisplayName(item.student)}</Arabic>
+            <Arabic className="truncate">
+              {studentDisplayName(item.student)}
+            </Arabic>
           )}
           renderListItem={({ item, isChecked }) => (
             <div className="flex w-full items-center justify-between gap-3">
@@ -1568,12 +1813,7 @@ function StudentSearchPanel({
           onSelect={(item) => onSelect(item.student)}
         />
         {pendingMatch ? (
-          <Button
-            type="button"
-            size="sm"
-            className="h-9"
-            onClick={onPromote}
-          >
+          <Button type="button" size="sm" className="h-9" onClick={onPromote}>
             Move to match found
           </Button>
         ) : null}
@@ -1731,7 +1971,9 @@ function findEditedNameMatch(
         score: scoreStudentRecommendation(row, student),
       };
     })
-    .filter(({ isExactNameSurname, score }) => isExactNameSurname || score >= 70)
+    .filter(
+      ({ isExactNameSurname, score }) => isExactNameSurname || score >= 70,
+    )
     .sort((a, b) => {
       if (a.isExactNameSurname !== b.isExactNameSurname) {
         return a.isExactNameSurname ? -1 : 1;
@@ -1852,10 +2094,7 @@ function getPossibleNamePartOptions(
   return dedupeNamePartOptions(possibleNames);
 }
 
-function buildContiguousNameOptions(
-  tokens: string[],
-  as: EditableNamePart,
-) {
+function buildContiguousNameOptions(tokens: string[], as: EditableNamePart) {
   const options: NamePartOption[] = [];
 
   for (let start = 0; start < tokens.length; start += 1) {
@@ -1895,9 +2134,9 @@ function spansOverlap(
 }
 
 function extractNameTokens(row: VerifyResult) {
-  const source = row.originalText || [row.name, row.surname, row.otherName]
-    .filter(Boolean)
-    .join(" ");
+  const source =
+    row.originalText ||
+    [row.name, row.surname, row.otherName].filter(Boolean).join(" ");
   const parts = source
     .split(/[,.،]/)
     .map((part) => part.trim())
@@ -1982,7 +2221,11 @@ function findTokenSpan(tokens: string[], selectedTokens: string[]) {
 function findTokenSpanRange(tokens: string[], selectedTokens: string[]) {
   if (!selectedTokens.length) return null;
 
-  for (let start = 0; start <= tokens.length - selectedTokens.length; start += 1) {
+  for (
+    let start = 0;
+    start <= tokens.length - selectedTokens.length;
+    start += 1
+  ) {
     const matches = selectedTokens.every(
       (token, index) =>
         normalizeArabic(tokens[start + index]) === normalizeArabic(token),
@@ -2002,10 +2245,10 @@ function studentToMatchCandidate(
 ): MatchCandidate {
   const isCurrentTermMatch = Boolean(
     sessionTermId &&
-      schoolSessionId &&
-      student.termId === sessionTermId &&
-      student.schoolSessionId === schoolSessionId &&
-      student.termSheetId,
+    schoolSessionId &&
+    student.termId === sessionTermId &&
+    student.schoolSessionId === schoolSessionId &&
+    student.termSheetId,
   );
 
   return {

@@ -13,21 +13,21 @@ export function getAppUrl() {
   return "http://localhost:3000";
 }
 
-function getDevelopmentTestEmail() {
-  const testEmail = process.env.TEST_EMAIL?.trim();
+function getDevelopmentEmailRecipient() {
+  const devEmailRecipient = process.env.DEV_EMAIL_RECIPIENT?.trim();
 
-  if (!testEmail) {
+  if (!devEmailRecipient) {
     throw new Error(
-      "TEST_EMAIL must be configured in development before sending email.",
+      "DEV_EMAIL_RECIPIENT must be configured in development before sending email.",
     );
   }
 
-  return testEmail;
+  return devEmailRecipient;
 }
 
 export function getRecipient(recipient: string | string[]) {
   if (process.env.NODE_ENV === "development") {
-    return getDevelopmentTestEmail();
+    return getDevelopmentEmailRecipient();
   }
 
   return recipient;

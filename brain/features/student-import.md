@@ -97,6 +97,7 @@ In the parsed output payload, `student.gender` is the effective input gender aft
 - Review rows include a search control for finding existing students. When the search field is empty, the dropdown recommends existing students ranked by the import row's parsed name parts. Selecting a student normalizes the import row to that student's stored name fields and exposes a `Move to match found` action that treats the selected student as the row's match.
 - Review rows use a compact card layout with a status header, parsed-name fields, row actions, existing-student search, and match candidates separated into clear scan areas. The original pasted line is no longer shown in each row.
 - The import modal uses a fixed viewport height; modal headers, classroom/action controls, and tab selectors remain stable while the active tab body is the only scrollable review surface.
+- The execute action shows the selected/executable row count before import, then transitions through importing, success, partial-success, and error states in an import analysis panel. The panel summarizes new students created, term sheets created, existing students kept without name changes, matched names updated, skipped rows, and failed rows with line-level failure reasons.
 - `Cancel Import` is available before execution and returns the operator to the initial import screen, clearing staged verification/review state without writing new student records.
 
 ### Candidate Metadata

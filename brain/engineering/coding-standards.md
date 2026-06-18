@@ -57,6 +57,7 @@ Defines implementation standards for consistency, maintainability, and reliabili
 ## Email Standards
 - Build emails on the shared `packages/email/components` foundation and keep that structure aligned with the `midday` reference package under `/Users/M1PRO/Documents/code/_kitchen_sink/midday/packages/email`.
 - New email templates should compose `EmailThemeProvider`, `Logo`, `Footer`, and the shared email `Button` instead of redefining layout primitives inline.
+- Development email delivery must route through `getRecipient(...)`, which sends to `DEV_EMAIL_RECIPIENT` when `NODE_ENV=development`.
 
 ## Dashboard Page Standards
 - Add `PageTitle` to new dashboard pages.
