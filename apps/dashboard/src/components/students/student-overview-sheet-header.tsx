@@ -6,9 +6,16 @@ import { useStudentsStore } from "@/store/student";
 import { Avatar } from "@school-clerk/ui/composite";
 import { getInitials } from "@school-clerk/utils";
 import { Badge } from "@school-clerk/ui/badge";
-import { IdCard, GraduationCap, Download, Edit, ChevronDown } from "lucide-react";
+import {
+  IdCard,
+  GraduationCap,
+  Download,
+  Edit,
+  ChevronDown,
+} from "lucide-react";
 import { Icons } from "@school-clerk/ui/icons";
 import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
+import { useStudentParams } from "@/hooks/use-student-params";
 
 interface Props {
   overview: RouterOutputs["students"]["overview"];
@@ -20,6 +27,7 @@ export function StudentOverviewSheetHeader({
 }: Props) {
   const { activeStudentTerm, selectStudent, selectTerm } =
     useStudentOverviewSheet();
+  const { setParams } = useStudentParams();
   const store = useStudentsStore();
   const studentName = overview?.student?.studentName || "Student";
   const current = activeStudentTerm;
@@ -29,7 +37,7 @@ export function StudentOverviewSheetHeader({
     <section
       className={cn(
         "rounded-2xl border border-border bg-card shadow-sm",
-        mode === "page" ? "p-6 md:p-8" : "p-5"
+        mode === "page" ? "p-6 md:p-8" : "p-5",
       )}
     >
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -76,7 +84,9 @@ export function StudentOverviewSheetHeader({
                           ) : undefined
                         }
                       >
-                        <div className="whitespace-nowrap">{student.studentName}</div>
+                        <div className="whitespace-nowrap">
+                          {student.studentName}
+                        </div>
                       </Menu.Item>
                     ))}
                   </Menu>
@@ -130,7 +140,9 @@ export function StudentOverviewSheetHeader({
                           <div
                             className={cn(
                               "size-2 rounded-full",
-                              term.studentTermId ? "bg-primary" : "bg-muted-foreground/40"
+                              term.studentTermId
+                                ? "bg-primary"
+                                : "bg-muted-foreground/40",
                             )}
                           />
                           <span className="whitespace-nowrap">{term.term}</span>
@@ -155,7 +167,15 @@ export function StudentOverviewSheetHeader({
             <Download className="h-4 w-4" />
             Report Card
           </Button>
-          <Button variant="secondary" size="sm" className="gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="gap-2"
+            onClick={() => {
+              if (!overview?.student?.id) return;
+              setParams({ studentEditId: overview.student.id });
+            }}
+          >
             <Edit className="h-4 w-4" />
             Edit
           </Button>

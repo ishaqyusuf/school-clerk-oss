@@ -217,6 +217,7 @@ function requirePaymentChargeId(value: string | null | undefined) {
 
 function normalizeStudentQuery(
 	input: z.infer<typeof financeStudentQueryCompatSchema>,
+	ctx: TRPCContext,
 ) {
 	const parsed = financeStudentQuerySchema.parse(input);
 	const studentId = parsed.studentId;
@@ -230,8 +231,8 @@ function normalizeStudentQuery(
 
 	return {
 		studentId,
-		termId: parsed.termId,
-		sessionId: parsed.sessionId,
+		termId: parsed.termId ?? ctx.profile.termId ?? null,
+		sessionId: parsed.sessionId ?? ctx.profile.sessionId ?? null,
 	};
 }
 
@@ -475,7 +476,7 @@ export const financeRouter = createTRPCRouter({
 	getStudentStatement: authenticatedProcedure
 		.input(financeStudentQueryCompatSchema)
 		.query(async ({ ctx, input }) =>
-			getStudentFinanceStatement(ctx, normalizeStudentQuery(input)),
+			getStudentFinanceStatement(ctx, normalizeStudentQuery(input, ctx)),
 		),
 
 	getFinanceIntegrityReport: authenticatedProcedure
@@ -597,14 +598,14 @@ export const financeRouter = createTRPCRouter({
 	getReceivePaymentData: authenticatedProcedure
 		.input(financeStudentQueryCompatSchema)
 		.query(async ({ ctx, input }) =>
-			getStudentFinanceStatement(ctx, normalizeStudentQuery(input)),
+			getStudentFinanceStatement(ctx, normalizeStudentQuery(input, ctx)),
 		),
 	getStudentPayments: authenticatedProcedure
 		.input(financeStudentQueryCompatSchema)
 		.query(async ({ ctx, input }) => {
 			const statement = await getStudentFinanceStatement(
 				ctx,
-				normalizeStudentQuery(input),
+				normalizeStudentQuery(input, ctx),
 			);
 			return statement.charges.flatMap((charge) => charge.payments);
 		}),

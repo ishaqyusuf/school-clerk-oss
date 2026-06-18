@@ -44,6 +44,8 @@ interface Props {
     parsedGender?: "M" | "F";
   }[];
   onCancelImport?: () => void;
+  onStartNewImport?: () => void;
+  onCloseImport?: () => void;
 }
 
 type VerifyResult =
@@ -107,7 +109,12 @@ const actionLabels: Record<ImportAction, string> = {
   skip: "Skip",
 };
 
-export function ImportActivity({ students, onCancelImport }: Props) {
+export function ImportActivity({
+  students,
+  onCancelImport,
+  onStartNewImport,
+  onCloseImport,
+}: Props) {
   const [classroomDeptId, setClassroomDeptId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"ready" | "matched" | "attention">(
     "ready",
@@ -288,6 +295,7 @@ export function ImportActivity({ students, onCancelImport }: Props) {
     isPending: isExecutingBatch,
     data: batchResult,
     error: batchError,
+    reset: resetExecuteBatch,
   } = useMutation(
     _trpc.students.executeStudentImport.mutationOptions({
       onSuccess() {
@@ -630,6 +638,12 @@ export function ImportActivity({ students, onCancelImport }: Props) {
     selectedRowCount - skippedBeforeExecution,
     0,
   );
+  const showExecutionOnly = isExecutingBatch || Boolean(batchResult);
+  const executionErrorMessage = preSubmitError || batchError?.message || null;
+  const dismissExecutionError = () => {
+    setPreSubmitError(null);
+    resetExecuteBatch();
+  };
   const studentSearchItems = useMemo(
     () =>
       (records?.students || []).map((student) => ({
@@ -648,325 +662,376 @@ export function ImportActivity({ students, onCancelImport }: Props) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex min-w-64 flex-col gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Target Classroom
-          </span>
-          <Select
-            value={classroomDeptId}
-            onValueChange={(value) => {
-              setClassroomDeptId(value);
-            }}
-          >
-            <Select.Trigger className="h-9 w-72">
-              <Select.Value
-                placeholder={
-                  isRecentRecordsPending
-                    ? "Loading classrooms..."
-                    : "Select classroom"
-                }
-              />
-            </Select.Trigger>
-            <Select.Content className="max-h-60 overflow-y-auto">
-              {records?.classDepartments?.map((classroom) => (
-                <Select.Item value={classroom.id} key={classroom.id}>
-                  {classroom.classRoom.name} - {classroom.departmentName}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select>
-        </div>
-
-        <Button
-          variant="outline"
-          onClick={() => {
-            refetchRecentRecords();
-            refetchVerification();
-          }}
-          className="h-9"
-          type="button"
-        >
-          <RefreshCw className="mr-2 size-4" />
-          Refresh
-        </Button>
-
-        {onCancelImport ? (
-          <Button
-            variant="ghost"
-            onClick={onCancelImport}
-            className="h-9"
-            type="button"
-            disabled={isExecutingBatch}
-          >
-            Cancel Import
-          </Button>
-        ) : null}
-
-        <div className="ml-auto flex items-end gap-3">
-          <div className="hidden text-right text-[11px] leading-tight text-muted-foreground sm:block">
-            <div className="font-medium text-foreground">
-              {executableRowCount} ready to execute
-            </div>
-            <div>
-              {selectedRowCount} checked
-              {skippedBeforeExecution > 0
-                ? ` · ${skippedBeforeExecution} skip`
-                : ""}
-            </div>
+      {!showExecutionOnly ? (
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex min-w-64 flex-col gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Target Classroom
+            </span>
+            <Select
+              value={classroomDeptId}
+              onValueChange={(value) => {
+                setClassroomDeptId(value);
+              }}
+            >
+              <Select.Trigger className="h-9 w-72">
+                <Select.Value
+                  placeholder={
+                    isRecentRecordsPending
+                      ? "Loading classrooms..."
+                      : "Select classroom"
+                  }
+                />
+              </Select.Trigger>
+              <Select.Content className="max-h-60 overflow-y-auto">
+                {records?.classDepartments?.map((classroom) => (
+                  <Select.Item value={classroom.id} key={classroom.id}>
+                    {classroom.classRoom.name} - {classroom.departmentName}
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select>
           </div>
-          <SubmitButton
-            isSubmitting={isExecutingBatch}
-            disabled={!selectedRowCount || isVerifying}
-            onClick={executeAll}
+
+          <Button
+            variant="outline"
+            onClick={() => {
+              refetchRecentRecords();
+              refetchVerification();
+            }}
             className="h-9"
             type="button"
           >
-            <Import className="size-4" />
-            {isExecutingBatch
-              ? "Importing..."
-              : `Execute import (${executableRowCount})`}
-          </SubmitButton>
+            <RefreshCw className="mr-2 size-4" />
+            Refresh
+          </Button>
+
+          {onCancelImport ? (
+            <Button
+              variant="ghost"
+              onClick={onCancelImport}
+              className="h-9"
+              type="button"
+              disabled={isExecutingBatch}
+            >
+              Cancel Import
+            </Button>
+          ) : null}
+
+          <div className="ml-auto flex items-end gap-3">
+            <div className="hidden text-right text-[11px] leading-tight text-muted-foreground sm:block">
+              <div className="font-medium text-foreground">
+                {executableRowCount} ready to execute
+              </div>
+              <div>
+                {selectedRowCount} checked
+                {skippedBeforeExecution > 0
+                  ? ` · ${skippedBeforeExecution} skip`
+                  : ""}
+              </div>
+            </div>
+            <SubmitButton
+              isSubmitting={isExecutingBatch}
+              disabled={!selectedRowCount || isVerifying}
+              onClick={executeAll}
+              className="h-9"
+              type="button"
+            >
+              <Import className="size-4" />
+              {isExecutingBatch
+                ? "Importing..."
+                : `Execute import (${executableRowCount})`}
+            </SubmitButton>
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      <ImportExecutionPanel
-        classroomLabel={
-          selectedClassroom
-            ? `${selectedClassroom.classRoom.name} - ${selectedClassroom.departmentName}`
-            : null
-        }
-        pastedRowCount={rows.length || students.length}
-        selectedRowCount={selectedRowCount}
-        executableRowCount={executableRowCount}
-        skippedBeforeExecution={
-          batchResult || batchError
-            ? lastExecutionSkippedRows
-            : skippedBeforeExecution
-        }
-        isExecuting={isExecutingBatch}
-        result={batchResult}
-        errorMessage={preSubmitError || batchError?.message || null}
-      />
+      {isExecutingBatch || batchResult ? (
+        <ImportExecutionPanel
+          classroomLabel={
+            selectedClassroom
+              ? `${selectedClassroom.classRoom.name} - ${selectedClassroom.departmentName}`
+              : null
+          }
+          pastedRowCount={rows.length || students.length}
+          selectedRowCount={selectedRowCount}
+          executableRowCount={executableRowCount}
+          skippedBeforeExecution={
+            batchResult || batchError
+              ? lastExecutionSkippedRows
+              : skippedBeforeExecution
+          }
+          isExecuting={isExecutingBatch}
+          result={batchResult}
+          errorMessage={null}
+          onStartNewImport={onStartNewImport || onCancelImport}
+          onCloseImport={onCloseImport}
+        />
+      ) : null}
 
-      <Separator />
+      {!showExecutionOnly ? (
+        <>
+          {executionErrorMessage ? (
+            <ImportExecutionErrorAlert
+              message={executionErrorMessage}
+              onDismiss={dismissExecutionError}
+            />
+          ) : null}
 
-      {isVerifying ? (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-12 text-xs">
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
-          <p className="text-muted-foreground">
-            Running verification and match analysis...
-          </p>
-        </div>
-      ) : (
-        <Tabs.Root
-          value={activeTab}
-          onValueChange={(value) => setActiveTab(value as any)}
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          <Tabs.List className="grid w-full grid-cols-3">
-            <Tabs.Trigger value="ready">
-              Ready to import ({readyRows.length})
-            </Tabs.Trigger>
-            <Tabs.Trigger value="matched">
-              Match Found ({matchedCount})
-            </Tabs.Trigger>
-            <Tabs.Trigger value="attention">
-              Needs attention ({attentionRows.length})
-            </Tabs.Trigger>
-          </Tabs.List>
+          <Separator />
 
-          <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
-            <Tabs.Content value="ready" className="m-0 space-y-3">
-              <SectionHeader
-                title="Ready to import"
-                detail="Rows with no existing match and complete required fields."
-                action={
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <TabSelectionActions
-                      rows={readyRows}
-                      checkedRows={checkedRows}
-                      onCheckAll={() => setRowsChecked(readyRows, true)}
-                      onUncheckAll={() => setRowsChecked(readyRows, false)}
-                    />
-                    {readyRows.length > 0 ? (
-                      <Button
-                        size="sm"
-                        type="button"
-                        onClick={() => applyBatch("ready", "import_new")}
-                      >
-                        <Import className="mr-2 size-4" />
-                        Import checked
-                      </Button>
-                    ) : null}
-                  </div>
-                }
-              />
-              <RowsList
-                emptyText="No rows are currently ready to import."
-                rows={readyRows}
-                rowDecisions={rowDecisions}
-                manualGenders={manualGenders}
-                checkedRows={checkedRows}
-                nameOverrides={nameOverrides}
-                pendingSearchMatches={pendingSearchMatches}
-                pendingNameMatches={pendingNameMatches}
-                studentSearchItems={studentSearchItems}
-                onCheckedChange={setRowChecked}
-                onActionChange={setAction}
-                onCandidateChange={setCandidate}
-                onNamePartChange={setNamePart}
-                onNamePartsReset={resetNameParts}
-                onSearchStudentSelect={selectSearchStudent}
-                onPromoteSearchMatch={promoteSearchMatch}
-                onPromoteNameMatch={promoteNameMatch}
-                onGenderChange={(lineNumber, gender) =>
-                  setManualGenders((current) => ({
-                    ...current,
-                    [lineNumber]: gender,
-                  }))
-                }
-              />
-            </Tabs.Content>
+          {isVerifying ? (
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-12 text-xs">
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+              <p className="text-muted-foreground">
+                Running verification and match analysis...
+              </p>
+            </div>
+          ) : (
+            <Tabs.Root
+              value={activeTab}
+              onValueChange={(value) => setActiveTab(value as any)}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <Tabs.List className="grid w-full grid-cols-3">
+                <Tabs.Trigger value="ready">
+                  Ready to import ({readyRows.length})
+                </Tabs.Trigger>
+                <Tabs.Trigger value="matched">
+                  Match Found ({matchedCount})
+                </Tabs.Trigger>
+                <Tabs.Trigger value="attention">
+                  Needs attention ({attentionRows.length})
+                </Tabs.Trigger>
+              </Tabs.List>
 
-            <Tabs.Content value="matched" className="m-0 space-y-4">
-              <SectionHeader
-                title="Exact Matches"
-                detail="Name and surname match an existing student. Defaults apply only to untouched rows."
-                action={
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <TabSelectionActions
-                      rows={exactRows}
-                      checkedRows={checkedRows}
-                      onCheckAll={() => setRowsChecked(exactRows, true)}
-                      onUncheckAll={() => setRowsChecked(exactRows, false)}
-                    />
-                    {exactRows.length > 0 ? (
-                      <BatchActionSelect
-                        defaultValue="keep_match"
-                        onValueChange={(action) => applyBatch("exact", action)}
-                      />
-                    ) : null}
-                  </div>
-                }
-              />
-              <RowsList
-                emptyText="No exact matches found."
-                rows={exactRows}
-                rowDecisions={rowDecisions}
-                manualGenders={manualGenders}
-                checkedRows={checkedRows}
-                nameOverrides={nameOverrides}
-                pendingSearchMatches={pendingSearchMatches}
-                pendingNameMatches={pendingNameMatches}
-                studentSearchItems={studentSearchItems}
-                onCheckedChange={setRowChecked}
-                onActionChange={setAction}
-                onCandidateChange={setCandidate}
-                onNamePartChange={setNamePart}
-                onNamePartsReset={resetNameParts}
-                onSearchStudentSelect={selectSearchStudent}
-                onPromoteSearchMatch={promoteSearchMatch}
-                onPromoteNameMatch={promoteNameMatch}
-                onGenderChange={(lineNumber, gender) =>
-                  setManualGenders((current) => ({
-                    ...current,
-                    [lineNumber]: gender,
-                  }))
-                }
-              />
+              <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+                <Tabs.Content value="ready" className="m-0 space-y-3">
+                  <SectionHeader
+                    title="Ready to import"
+                    detail="Rows with no existing match and complete required fields."
+                    action={
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <TabSelectionActions
+                          rows={readyRows}
+                          checkedRows={checkedRows}
+                          onCheckAll={() => setRowsChecked(readyRows, true)}
+                          onUncheckAll={() => setRowsChecked(readyRows, false)}
+                        />
+                        {readyRows.length > 0 ? (
+                          <Button
+                            size="sm"
+                            type="button"
+                            onClick={() => applyBatch("ready", "import_new")}
+                          >
+                            <Import className="mr-2 size-4" />
+                            Import checked
+                          </Button>
+                        ) : null}
+                      </div>
+                    }
+                  />
+                  <RowsList
+                    emptyText="No rows are currently ready to import."
+                    rows={readyRows}
+                    rowDecisions={rowDecisions}
+                    manualGenders={manualGenders}
+                    checkedRows={checkedRows}
+                    nameOverrides={nameOverrides}
+                    pendingSearchMatches={pendingSearchMatches}
+                    pendingNameMatches={pendingNameMatches}
+                    studentSearchItems={studentSearchItems}
+                    onCheckedChange={setRowChecked}
+                    onActionChange={setAction}
+                    onCandidateChange={setCandidate}
+                    onNamePartChange={setNamePart}
+                    onNamePartsReset={resetNameParts}
+                    onSearchStudentSelect={selectSearchStudent}
+                    onPromoteSearchMatch={promoteSearchMatch}
+                    onPromoteNameMatch={promoteNameMatch}
+                    onGenderChange={(lineNumber, gender) =>
+                      setManualGenders((current) => ({
+                        ...current,
+                        [lineNumber]: gender,
+                      }))
+                    }
+                  />
+                </Tabs.Content>
 
-              <SectionHeader
-                title="Possible Matches"
-                detail="Suspected typo or partial-name matches. Keep/update requires a selected candidate; Import new and Skip do not."
-                action={
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <TabSelectionActions
-                      rows={suspectedRows}
-                      checkedRows={checkedRows}
-                      onCheckAll={() => setRowsChecked(suspectedRows, true)}
-                      onUncheckAll={() => setRowsChecked(suspectedRows, false)}
-                    />
-                    {suspectedRows.length > 0 ? (
-                      <BatchActionSelect
-                        placeholder="Set default"
-                        onValueChange={(action) =>
-                          applyBatch("suspected", action)
+                <Tabs.Content value="matched" className="m-0 space-y-4">
+                  <SectionHeader
+                    title="Exact Matches"
+                    detail="Name and surname match an existing student. Defaults apply only to untouched rows."
+                    action={
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <TabSelectionActions
+                          rows={exactRows}
+                          checkedRows={checkedRows}
+                          onCheckAll={() => setRowsChecked(exactRows, true)}
+                          onUncheckAll={() => setRowsChecked(exactRows, false)}
+                        />
+                        {exactRows.length > 0 ? (
+                          <BatchActionSelect
+                            defaultValue="keep_match"
+                            onValueChange={(action) =>
+                              applyBatch("exact", action)
+                            }
+                          />
+                        ) : null}
+                      </div>
+                    }
+                  />
+                  <RowsList
+                    emptyText="No exact matches found."
+                    rows={exactRows}
+                    rowDecisions={rowDecisions}
+                    manualGenders={manualGenders}
+                    checkedRows={checkedRows}
+                    nameOverrides={nameOverrides}
+                    pendingSearchMatches={pendingSearchMatches}
+                    pendingNameMatches={pendingNameMatches}
+                    studentSearchItems={studentSearchItems}
+                    onCheckedChange={setRowChecked}
+                    onActionChange={setAction}
+                    onCandidateChange={setCandidate}
+                    onNamePartChange={setNamePart}
+                    onNamePartsReset={resetNameParts}
+                    onSearchStudentSelect={selectSearchStudent}
+                    onPromoteSearchMatch={promoteSearchMatch}
+                    onPromoteNameMatch={promoteNameMatch}
+                    onGenderChange={(lineNumber, gender) =>
+                      setManualGenders((current) => ({
+                        ...current,
+                        [lineNumber]: gender,
+                      }))
+                    }
+                  />
+
+                  <SectionHeader
+                    title="Possible Matches"
+                    detail="Suspected typo or partial-name matches. Keep/update requires a selected candidate; Import new and Skip do not."
+                    action={
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <TabSelectionActions
+                          rows={suspectedRows}
+                          checkedRows={checkedRows}
+                          onCheckAll={() => setRowsChecked(suspectedRows, true)}
+                          onUncheckAll={() =>
+                            setRowsChecked(suspectedRows, false)
+                          }
+                        />
+                        {suspectedRows.length > 0 ? (
+                          <BatchActionSelect
+                            placeholder="Set default"
+                            onValueChange={(action) =>
+                              applyBatch("suspected", action)
+                            }
+                          />
+                        ) : null}
+                      </div>
+                    }
+                  />
+                  <RowsList
+                    emptyText="No possible matches found."
+                    rows={suspectedRows}
+                    rowDecisions={rowDecisions}
+                    manualGenders={manualGenders}
+                    checkedRows={checkedRows}
+                    nameOverrides={nameOverrides}
+                    pendingSearchMatches={pendingSearchMatches}
+                    pendingNameMatches={pendingNameMatches}
+                    studentSearchItems={studentSearchItems}
+                    onCheckedChange={setRowChecked}
+                    onActionChange={setAction}
+                    onCandidateChange={setCandidate}
+                    onNamePartChange={setNamePart}
+                    onNamePartsReset={resetNameParts}
+                    onSearchStudentSelect={selectSearchStudent}
+                    onPromoteSearchMatch={promoteSearchMatch}
+                    onPromoteNameMatch={promoteNameMatch}
+                    onGenderChange={(lineNumber, gender) =>
+                      setManualGenders((current) => ({
+                        ...current,
+                        [lineNumber]: gender,
+                      }))
+                    }
+                  />
+                </Tabs.Content>
+
+                <Tabs.Content value="attention" className="m-0 space-y-3">
+                  <SectionHeader
+                    title="Needs attention"
+                    detail="Rows that need manual gender or another required field before import."
+                    action={
+                      <TabSelectionActions
+                        rows={attentionRows}
+                        checkedRows={checkedRows}
+                        onCheckAll={() => setRowsChecked(attentionRows, true)}
+                        onUncheckAll={() =>
+                          setRowsChecked(attentionRows, false)
                         }
                       />
-                    ) : null}
-                  </div>
-                }
-              />
-              <RowsList
-                emptyText="No possible matches found."
-                rows={suspectedRows}
-                rowDecisions={rowDecisions}
-                manualGenders={manualGenders}
-                checkedRows={checkedRows}
-                nameOverrides={nameOverrides}
-                pendingSearchMatches={pendingSearchMatches}
-                pendingNameMatches={pendingNameMatches}
-                studentSearchItems={studentSearchItems}
-                onCheckedChange={setRowChecked}
-                onActionChange={setAction}
-                onCandidateChange={setCandidate}
-                onNamePartChange={setNamePart}
-                onNamePartsReset={resetNameParts}
-                onSearchStudentSelect={selectSearchStudent}
-                onPromoteSearchMatch={promoteSearchMatch}
-                onPromoteNameMatch={promoteNameMatch}
-                onGenderChange={(lineNumber, gender) =>
-                  setManualGenders((current) => ({
-                    ...current,
-                    [lineNumber]: gender,
-                  }))
-                }
-              />
-            </Tabs.Content>
-
-            <Tabs.Content value="attention" className="m-0 space-y-3">
-              <SectionHeader
-                title="Needs attention"
-                detail="Rows that need manual gender or another required field before import."
-                action={
-                  <TabSelectionActions
-                    rows={attentionRows}
-                    checkedRows={checkedRows}
-                    onCheckAll={() => setRowsChecked(attentionRows, true)}
-                    onUncheckAll={() => setRowsChecked(attentionRows, false)}
+                    }
                   />
-                }
-              />
-              <RowsList
-                emptyText="No rows need manual attention."
-                rows={attentionRows}
-                rowDecisions={rowDecisions}
-                manualGenders={manualGenders}
-                checkedRows={checkedRows}
-                nameOverrides={nameOverrides}
-                pendingSearchMatches={pendingSearchMatches}
-                pendingNameMatches={pendingNameMatches}
-                studentSearchItems={studentSearchItems}
-                onCheckedChange={setRowChecked}
-                onActionChange={setAction}
-                onCandidateChange={setCandidate}
-                onNamePartChange={setNamePart}
-                onNamePartsReset={resetNameParts}
-                onSearchStudentSelect={selectSearchStudent}
-                onPromoteSearchMatch={promoteSearchMatch}
-                onPromoteNameMatch={promoteNameMatch}
-                onGenderChange={(lineNumber, gender) =>
-                  setManualGenders((current) => ({
-                    ...current,
-                    [lineNumber]: gender,
-                  }))
-                }
-              />
-            </Tabs.Content>
-          </div>
-        </Tabs.Root>
-      )}
+                  <RowsList
+                    emptyText="No rows need manual attention."
+                    rows={attentionRows}
+                    rowDecisions={rowDecisions}
+                    manualGenders={manualGenders}
+                    checkedRows={checkedRows}
+                    nameOverrides={nameOverrides}
+                    pendingSearchMatches={pendingSearchMatches}
+                    pendingNameMatches={pendingNameMatches}
+                    studentSearchItems={studentSearchItems}
+                    onCheckedChange={setRowChecked}
+                    onActionChange={setAction}
+                    onCandidateChange={setCandidate}
+                    onNamePartChange={setNamePart}
+                    onNamePartsReset={resetNameParts}
+                    onSearchStudentSelect={selectSearchStudent}
+                    onPromoteSearchMatch={promoteSearchMatch}
+                    onPromoteNameMatch={promoteNameMatch}
+                    onGenderChange={(lineNumber, gender) =>
+                      setManualGenders((current) => ({
+                        ...current,
+                        [lineNumber]: gender,
+                      }))
+                    }
+                  />
+                </Tabs.Content>
+              </div>
+            </Tabs.Root>
+          )}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function ImportExecutionErrorAlert({
+  message,
+  onDismiss,
+}: {
+  message: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50/70 px-3 py-2 text-xs text-red-700 dark:border-red-900/70 dark:bg-red-950/15 dark:text-red-300">
+      <AlertCircle className="mt-0.5 size-4 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="font-medium">Import needs attention</div>
+        <p className="mt-0.5 text-red-700/90 dark:text-red-300/90">{message}</p>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-6 w-6 shrink-0 px-0 text-red-700 hover:bg-red-100 hover:text-red-700 dark:text-red-300 dark:hover:bg-red-950/40"
+        onClick={onDismiss}
+        aria-label="Dismiss import error"
+      >
+        <X className="size-3.5" />
+      </Button>
     </div>
   );
 }
@@ -980,6 +1045,8 @@ function ImportExecutionPanel({
   isExecuting,
   result,
   errorMessage,
+  onStartNewImport,
+  onCloseImport,
 }: {
   classroomLabel: string | null;
   pastedRowCount: number;
@@ -989,6 +1056,8 @@ function ImportExecutionPanel({
   isExecuting: boolean;
   result?: ExecuteResult;
   errorMessage?: string | null;
+  onStartNewImport?: () => void;
+  onCloseImport?: () => void;
 }) {
   const backendSkippedRows = result?.skippedRows ?? 0;
   const skippedRows = skippedBeforeExecution + backendSkippedRows;
@@ -1110,7 +1179,7 @@ function ImportExecutionPanel({
         />
       </div>
 
-      <div className="grid border-t sm:grid-cols-2 lg:grid-cols-6">
+      <div className="grid grid-cols-3 border-t">
         <ImportStat
           icon={<UserPlus className="size-4" />}
           label="New created"
@@ -1186,6 +1255,21 @@ function ImportExecutionPanel({
           </div>
         </div>
       ) : null}
+
+      {hasResult ? (
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t bg-muted/10 p-3">
+          {onStartNewImport ? (
+            <Button type="button" variant="outline" onClick={onStartNewImport}>
+              Start new import
+            </Button>
+          ) : null}
+          {onCloseImport ? (
+            <Button type="button" onClick={onCloseImport}>
+              Close
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1204,7 +1288,7 @@ function ImportStat({
   tone: "success" | "info" | "warning" | "danger" | "neutral";
 }) {
   return (
-    <div className="min-w-0 border-b p-3 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0">
+    <div className="min-w-0 border-b border-r p-3 [&:nth-child(3n)]:border-r-0 [&:nth-last-child(-n+3)]:border-b-0">
       <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <span
           className={cn(

@@ -79,6 +79,8 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 - These are applicable `FeeHistory` records for the current term that haven't yet been applied to the student (no `StudentFee.feeHistoryId` match).
 - Classroom filtering: only returns fee histories applicable to the student's current classroom department.
 - Summary totals now include unapplied `manualFeeHistories` in `totalDue` and `totalPending`, so overview cards and the receive-payment sheet show the student's true current-term balance even before the fee is applied.
+- Finance charge reconciliation is serialized per student term sheet before creating missing charge rows, so concurrent payment/payable queries cannot temporarily create duplicate all-classroom charges.
+- When no explicit term is supplied, finance student queries default to the active dashboard term instead of the latest-created student term sheet, keeping payables aligned with the selected operational term.
 
 ### `finance.receiveStudentPayment`
 - Handles allocation source `"feeHistory"`:
@@ -125,6 +127,7 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 - Adding a fee creates a `"feeHistory"`-source allocation row in the payment table
 - Alert shown when there are unapplied fees (combined with unapplied billables count)
 - Outstanding summary includes unapplied school fees, so collectors see the full amount due before choosing which items to allocate
+- Payment totals are calculated from the line-level **Pay now** amounts and manual stream rows; the form no longer asks for a separate top-level amount received.
 - Successful submissions show immediate **Print Receipt** and **Download PDF** actions backed by the payment IDs returned from the API
 
 ### Dashboard Quick Link
@@ -133,6 +136,7 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 ### Student Payment History
 - Each successful payment row now exposes receipt actions so staff can print or download a receipt later from the student overview.
 - The cancellation action is now labeled `Cancel` instead of `Reverse`, matching the new cancellation wording used across finance and notifications.
+- The student overview payment history renders as stacked, labeled payment cards on mobile while preserving the dense table layout on desktop.
 
 ### Student Billing Form
 - Creating a student fee from the student finance tab now opens the same "apply fee to students" confirmation modal used on fees management when the fee is backed by a `FeeHistory`.

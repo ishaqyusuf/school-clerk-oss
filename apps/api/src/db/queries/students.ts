@@ -36,7 +36,7 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
   const { response, searchMeta, where } = await composeQueryData(
     query,
     whereStudents(query, ctx),
-    model
+    model,
   );
 
   const list = await model.findMany({
@@ -117,7 +117,7 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
         termFormId,
         termFormSessionTermId,
       };
-    })
+    }),
   );
 }
 export async function getStudent(ctx: TRPCContext, query: GetStudentsSchema) {
@@ -311,7 +311,7 @@ export async function getStudentsQueryParams(ctx: TRPCContext) {
             label: `${t.title} | ${s.title}`,
             subLabel: s.title,
             value: t.id,
-          }))
+          })),
         )
         .flat(),
       type: "checkbox",
@@ -325,11 +325,11 @@ export async function getStudentsQueryParams(ctx: TRPCContext) {
           ...sessionList.map((s) =>
             s.classRooms
               .map((c) =>
-                c.classRoomDepartments.map((d) => d.departmentName).flat()
+                c.classRoomDepartments.map((d) => d.departmentName).flat(),
               )
-              .flat()
-          )
-        )
+              .flat(),
+          ),
+        ),
       ).map((name) => ({
         label: name as any,
         value: name as any,
@@ -345,7 +345,7 @@ export async function getStudentsQueryParams(ctx: TRPCContext) {
           id: c.id,
           depsCount: c.classRoomDepartments.length,
         }))
-        .flat()
+        .flat(),
     )
     .flat()
     .filter((a) => a.depsCount > 1);
@@ -390,16 +390,19 @@ export const createStudentSchema = z.object({
       z.object({
         sessionTermId: z.string(),
         schoolSessionId: z.string(),
-      })
+      }),
     )
     .optional()
     .nullable(),
-  initialPayment: z.object({
-    amount: z.number().min(0),
-    method: z.string(),
-    reference: z.string().optional().nullable(),
-    paymentDate: z.date().optional().nullable(),
-  }).optional().nullable(),
+  initialPayment: z
+    .object({
+      amount: z.number().min(0),
+      method: z.string(),
+      reference: z.string().optional().nullable(),
+      paymentDate: z.date().optional().nullable(),
+    })
+    .optional()
+    .nullable(),
 });
 type CreateStudent = typeof createStudentSchema._type;
 export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
@@ -479,15 +482,17 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
   });
 
   const initialSessionForm =
-    student.sessionForms.find((form) => form.schoolSessionId === profile.sessionId) ??
-    student.sessionForms[0];
+    student.sessionForms.find(
+      (form) => form.schoolSessionId === profile.sessionId,
+    ) ?? student.sessionForms[0];
   const initialTermForm =
-    initialSessionForm?.termForms.find((form) => form.sessionTermId === profile.termId) ??
-    initialSessionForm?.termForms[0];
+    initialSessionForm?.termForms.find(
+      (form) => form.sessionTermId === profile.termId,
+    ) ?? initialSessionForm?.termForms[0];
 
-  let feeHistoryApplication:
-    | Awaited<ReturnType<typeof applyFeeHistoriesToStudentTermForm>>
-    | null = null;
+  let feeHistoryApplication: Awaited<
+    ReturnType<typeof applyFeeHistoriesToStudentTermForm>
+  > | null = null;
 
   if (initialSessionForm && initialTermForm) {
     await tx.studentTermForm.update({
@@ -512,7 +517,7 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
 
   if (data.initialPayment && feeHistoryApplication?.charges?.length) {
     let remainingAmount = toMoney(data.initialPayment.amount);
-    
+
     // Create a payment record
     const payment = await tx.financePayment.create({
       data: {
@@ -532,7 +537,9 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
       if (remainingAmount.lessThanOrEqualTo(0)) break;
 
       const chargeAmount = toMoney(charge.amount);
-      const allocatedAmount = remainingAmount.greaterThan(chargeAmount) ? chargeAmount : remainingAmount;
+      const allocatedAmount = remainingAmount.greaterThan(chargeAmount)
+        ? chargeAmount
+        : remainingAmount;
 
       await tx.financePaymentAllocation.create({
         data: {
@@ -546,7 +553,9 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
         where: { id: charge.id },
         data: {
           amountPaid: allocatedAmount,
-          status: allocatedAmount.equals(chargeAmount) ? "PAID" : "PARTIALLY_PAID",
+          status: allocatedAmount.equals(chargeAmount)
+            ? "PAID"
+            : "PARTIALLY_PAID",
         },
       });
 
@@ -649,7 +658,7 @@ export async function updateStudentTermFormStudentId(ctx: TRPCContext) {
 }
 export async function createStudentForm(
   ctx: TRPCContext,
-  data: typeof createStudentSchema._type
+  data: typeof createStudentSchema._type,
 ) {
   const student = await ctx.db.$transaction(async (tx) => {
     if (!data?.guardian?.name) data.guardian = null;
@@ -672,7 +681,7 @@ export type StudentsAnalyticsSchema = z.infer<typeof studentsAnalyticsSchema>;
 
 export async function studentsAnalytics(
   ctx: TRPCContext,
-  _query: StudentsAnalyticsSchema
+  _query: StudentsAnalyticsSchema,
 ) {
   const { db, profile } = ctx;
   const now = new Date();
@@ -786,7 +795,7 @@ export async function studentsAnalytics(
 
 export async function studentsRecentRecord(
   ctx: TRPCContext,
-  query: StudentsRecentRecordSchema
+  query: StudentsRecentRecordSchema,
 ) {
   const { db, profile } = ctx;
   // await db.studentSessionForm.updateMany({
@@ -922,7 +931,7 @@ export async function studentsRecentRecord(
         termForms.find((a) => a.schoolSessionId == schoolSessionId) ||
         termForms?.[0];
       const dept = classDepartments?.find(
-        (a) => a.id === termForm?.classroomDepartmentId
+        (a) => a.id === termForm?.classroomDepartmentId,
       );
       const studentSessionFormId = termForm?.studentSessionFormId;
       return {
@@ -963,13 +972,17 @@ updateStudentBasicProfile: publicProcedure
 */
 export const updateStudentBasicProfileSchema = z.object({
   id: z.string(),
-  data: createStudentSchema.pick({
-    gender: true,
-    name: true,
-    otherName: true,
-    surname: true,
-    dob: true,
-  }),
+  data: createStudentSchema
+    .pick({
+      gender: true,
+      name: true,
+      otherName: true,
+      surname: true,
+      dob: true,
+    })
+    .extend({
+      guardian: guardianSchema.optional().nullable(),
+    }),
 });
 export type UpdateStudentBasicProfileSchema = z.infer<
   typeof updateStudentBasicProfileSchema
@@ -977,17 +990,141 @@ export type UpdateStudentBasicProfileSchema = z.infer<
 
 export async function updateStudentBasicProfile(
   ctx: TRPCContext,
-  query: UpdateStudentBasicProfileSchema
+  query: UpdateStudentBasicProfileSchema,
 ) {
-  const { db } = ctx;
-  await db.students.update({
-    where: {
-      id: query.id,
-    },
-    data: Object.fromEntries(
-      Object.entries(query.data).filter(([a, b]) => !!b)
-    ),
+  const { db, profile } = ctx;
+  if (!profile.schoolId) {
+    throw new Error("Active school context is required");
+  }
+
+  const guardian = normalizeGuardianInput(query.data.guardian);
+
+  await db.$transaction(async (tx) => {
+    const existingStudent = await tx.students.findFirstOrThrow({
+      where: {
+        id: query.id,
+        schoolProfileId: profile.schoolId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    const student = await tx.students.update({
+      where: {
+        id: existingStudent.id,
+      },
+      data: {
+        gender: query.data.gender,
+        name: query.data.name,
+        otherName: query.data.otherName || null,
+        surname: query.data.surname,
+        dob: query.data.dob || null,
+      },
+      select: {
+        id: true,
+        guardians: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: {
+            id: true,
+            guardiansId: true,
+          },
+        },
+      },
+    });
+
+    const currentGuardianLink = student.guardians[0];
+
+    if (!guardian) {
+      if (currentGuardianLink) {
+        await tx.studentGuardians.update({
+          where: { id: currentGuardianLink.id },
+          data: { deletedAt: new Date() },
+        });
+      }
+      return;
+    }
+
+    let guardianRecord;
+
+    if (guardian.id) {
+      const existingGuardian = await tx.guardians.findFirstOrThrow({
+        where: {
+          id: guardian.id,
+          schoolProfileId: profile.schoolId,
+        },
+        select: { id: true },
+      });
+
+      guardianRecord = await tx.guardians.update({
+        where: { id: existingGuardian.id },
+        data: {
+          name: guardian.name,
+          phone: guardian.phone,
+          phone2: guardian.phone2 || null,
+          deletedAt: null,
+        },
+      });
+    } else {
+      guardianRecord = await tx.guardians.upsert({
+        where: {
+          name_phone_schoolProfileId: {
+            name: guardian.name,
+            phone: guardian.phone,
+            schoolProfileId: profile.schoolId,
+          },
+        },
+        update: {
+          name: guardian.name,
+          phone2: guardian.phone2 || null,
+          deletedAt: null,
+        },
+        create: {
+          name: guardian.name,
+          phone: guardian.phone,
+          phone2: guardian.phone2 || null,
+          schoolProfileId: profile.schoolId,
+        },
+      });
+    }
+
+    if (currentGuardianLink) {
+      await tx.studentGuardians.update({
+        where: { id: currentGuardianLink.id },
+        data: {
+          guardiansId: guardianRecord.id,
+          deletedAt: null,
+        },
+      });
+      return;
+    }
+
+    await tx.studentGuardians.create({
+      data: {
+        studentId: student.id,
+        guardiansId: guardianRecord.id,
+      },
+    });
   });
+}
+
+function normalizeGuardianInput(
+  guardian: UpdateStudentBasicProfileSchema["data"]["guardian"],
+) {
+  const name = guardian?.name?.trim();
+  const phone = guardian?.phone?.trim();
+  const phone2 = guardian?.phone2?.trim();
+
+  if (!name && !phone && !phone2) return null;
+  if (!name || !phone) return null;
+
+  return {
+    id: guardian?.id || null,
+    name,
+    phone,
+    phone2: phone2 || null,
+  };
 }
 
 export const deleteStudentSchema = z.object({
@@ -997,7 +1134,7 @@ export type DeleteStudentSchema = z.infer<typeof deleteStudentSchema>;
 
 export async function deleteStudent(
   ctx: TRPCContext,
-  query: DeleteStudentSchema
+  query: DeleteStudentSchema,
 ) {
   const { db } = ctx;
   await db.students.update({
@@ -1012,11 +1149,13 @@ export const changeStudentGenderSchema = z.object({
   id: z.string(),
   gender: z.enum(["Male", "Female"]),
 });
-export type ChangeStudentGenderSchema = z.infer<typeof changeStudentGenderSchema>;
+export type ChangeStudentGenderSchema = z.infer<
+  typeof changeStudentGenderSchema
+>;
 
 export async function changeStudentGender(
   ctx: TRPCContext,
-  query: ChangeStudentGenderSchema
+  query: ChangeStudentGenderSchema,
 ) {
   const { db } = ctx;
   await db.students.update({
@@ -1039,7 +1178,7 @@ export type BulkDeleteTermSheetsSchema = z.infer<
 
 export async function deleteTermSheet(
   ctx: TRPCContext,
-  query: DeleteTermSheetSchema
+  query: DeleteTermSheetSchema,
 ) {
   const { db } = ctx;
   await db.studentTermForm.update({
@@ -1052,7 +1191,7 @@ export async function deleteTermSheet(
 
 export async function bulkDeleteTermSheets(
   ctx: TRPCContext,
-  query: BulkDeleteTermSheetsSchema
+  query: BulkDeleteTermSheetsSchema,
 ) {
   const { db } = ctx;
   const result = await db.studentTermForm.updateMany({
@@ -1088,10 +1227,14 @@ export async function getImportNameGuide(ctx: TRPCContext) {
   const names = Array.from(
     new Set(
       students
-        .flatMap((student) => [student.name, student.surname, student.otherName])
+        .flatMap((student) => [
+          student.name,
+          student.surname,
+          student.otherName,
+        ])
         .map((name) => name?.replace(/\s+/g, " ").trim())
-        .filter((name): name is string => Boolean(name))
-    )
+        .filter((name): name is string => Boolean(name)),
+    ),
   );
 
   return { names };
@@ -1103,17 +1246,17 @@ function normalizeArabic(str: string): string {
     .normalize("NFC")
     .replace(
       /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u08D3-\u08FF\u0640]/g,
-      ""
+      "",
     );
   const map: Record<string, string> = {
-    "أ": "ا",
-    "إ": "ا",
-    "آ": "ا",
-    "ٱ": "ا",
-    "ى": "ي",
-    "ئ": "ي",
-    "ؤ": "w",
-    "ة": "ه",
+    أ: "ا",
+    إ: "ا",
+    آ: "ا",
+    ٱ: "ا",
+    ى: "ي",
+    ئ: "ي",
+    ؤ: "w",
+    ة: "ه",
   };
   str = str.replace(/[\u0621-\u06D3\u06FA-\u06FF]/g, (ch) => map[ch] || ch);
   return str.replace(/\s+/g, " ").trim();
@@ -1135,7 +1278,7 @@ function levenshteinDistance(s1: string, s2: string): number {
       track[j]![i] = Math.min(
         track[j]![i - 1]! + 1,
         track[j - 1]![i]! + 1,
-        track[j - 1]![i - 1]! + indicator
+        track[j - 1]![i - 1]! + indicator,
       );
     }
   }
@@ -1152,15 +1295,17 @@ export const verifyStudentImportSchema = z.object({
       surname: z.string(),
       otherName: z.string().optional().nullable(),
       gender: z.string().optional().nullable(),
-    })
+    }),
   ),
 });
 
-export type VerifyStudentImportSchema = z.infer<typeof verifyStudentImportSchema>;
+export type VerifyStudentImportSchema = z.infer<
+  typeof verifyStudentImportSchema
+>;
 
 export async function verifyStudentImport(
   ctx: TRPCContext,
-  input: VerifyStudentImportSchema
+  input: VerifyStudentImportSchema,
 ) {
   const { db, profile } = ctx;
   const sessionTermId = profile.termId;
@@ -1181,7 +1326,9 @@ export async function verifyStudentImport(
   });
 
   if (!classRoomDept) {
-    throw new Error("Selected classroom department not found, unauthorized, or not in active session.");
+    throw new Error(
+      "Selected classroom department not found, unauthorized, or not in active session.",
+    );
   }
 
   // 2. Fetch candidate students
@@ -1344,7 +1491,10 @@ export async function verifyStudentImport(
       } else {
         // Check edit distance for typos
         const nameDist = levenshteinDistance(normCandName, normRowName);
-        const surnameDist = levenshteinDistance(normCandSurname, normRowSurname);
+        const surnameDist = levenshteinDistance(
+          normCandSurname,
+          normRowSurname,
+        );
 
         if (nameDist <= 2 && isExactSurname) {
           confidence = 80 - nameDist * 10;
@@ -1363,10 +1513,10 @@ export async function verifyStudentImport(
         const activeTermSheet = candidate.termForms.find(
           (tf) =>
             tf.sessionTermId === sessionTermId &&
-            tf.schoolSessionId === schoolSessionId
+            tf.schoolSessionId === schoolSessionId,
         );
         const activeSessionForm = candidate.termForms.find(
-          (tf) => tf.schoolSessionId === schoolSessionId
+          (tf) => tf.schoolSessionId === schoolSessionId,
         );
 
         const currentTermSheet = activeTermSheet || candidate.termForms[0];
@@ -1377,8 +1527,10 @@ export async function verifyStudentImport(
           surname: candidate.surname,
           otherName: candidate.otherName,
           gender: candidate.gender,
-          classRoom: currentTermSheet?.classroomDepartment?.departmentName || null,
-          classroomDepartmentId: currentTermSheet?.classroomDepartment?.id || null,
+          classRoom:
+            currentTermSheet?.classroomDepartment?.departmentName || null,
+          classroomDepartmentId:
+            currentTermSheet?.classroomDepartment?.id || null,
           studentSessionFormId: null,
           studentTermFormId: currentTermSheet?.id || null,
           termId: currentTermSheet?.sessionTermId || null,
@@ -1386,7 +1538,9 @@ export async function verifyStudentImport(
           sessionId: currentTermSheet?.schoolSessionId || null,
           sessionName: currentTermSheet?.schoolSession?.title || null,
           isCurrentTermMatch: Boolean(activeTermSheet),
-          isCurrentClassroomMatch: activeTermSheet?.classroomDepartmentId === input.classroomDepartmentId,
+          isCurrentClassroomMatch:
+            activeTermSheet?.classroomDepartmentId ===
+            input.classroomDepartmentId,
           confidence,
           reason,
         };
@@ -1403,7 +1557,8 @@ export async function verifyStudentImport(
     suspectedMatches.sort((a, b) => b.confidence - a.confidence);
     const topSuspected = suspectedMatches.slice(0, 5);
 
-    let status: "readyToImport" | "matchFound" | "needsAttention" = "readyToImport";
+    let status: "readyToImport" | "matchFound" | "needsAttention" =
+      "readyToImport";
     if (fullMatch) {
       status = "matchFound";
     } else if (needsGender || topSuspected.some((m) => m.confidence >= 70)) {
@@ -1442,7 +1597,7 @@ export const executeStudentImportSchema = z.object({
       gender: z.enum(["Male", "Female"]),
       action: z.enum(["import_new", "keep_match", "update_match_with_name"]),
       existingStudentId: z.string().optional().nullable(),
-    })
+    }),
   ),
 });
 
@@ -1469,7 +1624,7 @@ export type ExecuteStudentImportResult = {
 
 export async function executeStudentImport(
   ctx: TRPCContext,
-  input: ExecuteStudentImport
+  input: ExecuteStudentImport,
 ): Promise<ExecuteStudentImportResult> {
   const { db } = ctx;
   const profile = ctx.profile;
@@ -1601,7 +1756,7 @@ export async function executeStudentImport(
               tx,
               existingStudentId,
               profile,
-              input.classroomDepartmentId
+              input.classroomDepartmentId,
             );
 
             if (termSheetResult.conflictClassroom) {
@@ -1663,7 +1818,7 @@ export async function executeStudentImport(
               tx,
               existingStudentId,
               profile,
-              input.classroomDepartmentId
+              input.classroomDepartmentId,
             );
 
             if (termSheetResult.conflictClassroom) {
@@ -1742,7 +1897,7 @@ async function createTermSheetIfMissing(
   tx: any,
   studentId: string,
   profile: { schoolId?: string; sessionId?: string; termId?: string },
-  classroomDepartmentId: string
+  classroomDepartmentId: string,
 ): Promise<{ created: boolean; conflictClassroom?: string }> {
   const existingCurrentTermForm = await tx.studentTermForm.findFirst({
     where: {
@@ -1759,7 +1914,9 @@ async function createTermSheetIfMissing(
   });
 
   if (existingCurrentTermForm) {
-    if (existingCurrentTermForm.classroomDepartmentId === classroomDepartmentId) {
+    if (
+      existingCurrentTermForm.classroomDepartmentId === classroomDepartmentId
+    ) {
       return { created: false };
     }
 

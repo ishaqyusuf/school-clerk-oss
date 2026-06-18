@@ -29,6 +29,36 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Notes: results are tenant-scoped by `schoolProfileId`; classroom results are current-session scoped when session context is available and link to `/academic/classes?viewClassroomId=<departmentId>&classroomTab=students`; student results link to `/students/<studentId>`.
 
 ## Student Contracts
+- Route: `students.overview`
+- Request schema: `{ studentId: string, termSheetId?: string | null }`
+- Response schema: `{ id?: string, student: { id, name, surname, otherName, dob, gender, guardian, studentName }, studentTerms }`, where `guardian` is the first non-deleted linked guardian with `id`, `name`, `phone`, and `phone2`.
+- Error cases: student not found for the active tenant; requested term sheet not found returns no active `id` while student overview data still loads.
+- Notes: used by the student overview sheet/page and by the focused basic-info edit sheet. Student and term-sheet lookups are tenant-scoped by `schoolProfileId` and ignore soft-deleted rows.
+
+- Route: `students.updateStudentBasicProfile`
+- Request schema:
+  ```ts
+  {
+    id: string;
+    data: {
+      name: string;
+      surname: string;
+      otherName?: string | null;
+      gender: "Male" | "Female";
+      dob?: Date | null;
+      guardian?: {
+        id?: string | null;
+        name?: string | null;
+        phone?: string | null;
+        phone2?: string | null;
+      } | null;
+    };
+  }
+  ```
+- Response schema: mutation success with no response body.
+- Error cases: missing active tenant context, student not found in active tenant, guardian id not found in active tenant, invalid required student fields.
+- Notes: updates student names, gender, and DOB. Parent details are normalized by trimming whitespace; blank or incomplete parent details clear the first existing guardian link, a supplied guardian id updates that tenant guardian, and complete parent details without an id upsert by name + phone + tenant before linking to the student.
+
 - Route: `students.getImportNameGuide`
 - Request schema: none
 - Response schema: `{ names: string[] }`

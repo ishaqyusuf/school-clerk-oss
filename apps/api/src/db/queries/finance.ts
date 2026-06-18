@@ -12,6 +12,11 @@ import type {
 } from "../../trpc/schemas/finance";
 
 type FinanceDb = Pick<TRPCContext["db"], "financeStream">;
+type StudentTermFormDb = Pick<TRPCContext["db"], "studentTermForm">;
+type StudentChargeReconciliationDb = Pick<
+	TRPCContext["db"],
+	"$queryRaw" | "financeCharge" | "financeItem"
+>;
 
 function requireSchoolId(ctx: TRPCContext) {
 	const schoolId = ctx.profile.schoolId;
@@ -80,6 +85,21 @@ type StudentTermChargeForm = {
 	classroomDepartmentId: string | null;
 };
 
+async function lockStudentTermChargeReconciliation(
+	tx: Pick<TRPCContext["db"], "$queryRaw">,
+	params: {
+		schoolProfileId: string;
+		studentTermFormId: string;
+	},
+) {
+	await tx.$queryRaw`
+		SELECT pg_advisory_xact_lock(
+			hashtext(${params.schoolProfileId}),
+			hashtext(${params.studentTermFormId})
+		)
+	`;
+}
+
 async function getOrCreateStream(
 	db: FinanceDb,
 	params: {
@@ -133,7 +153,7 @@ async function getOrCreateStream(
 }
 
 async function reconcileStudentTermChargesForForm(
-	tx: Prisma.TransactionClient,
+	tx: StudentChargeReconciliationDb,
 	params: {
 		schoolProfileId: string;
 		createdById?: string | null;
@@ -144,6 +164,11 @@ async function reconcileStudentTermChargesForForm(
 	if (!termForm.studentId || !termForm.sessionTermId) {
 		return { created: 0, updated: 0, cancelled: 0 };
 	}
+
+	await lockStudentTermChargeReconciliation(tx, {
+		schoolProfileId,
+		studentTermFormId: termForm.id,
+	});
 
 	const classApplicability: Prisma.FinanceItemWhereInput[] = [
 		{
@@ -317,7 +342,7 @@ async function reconcileStudentTermChargesForForm(
 }
 
 async function findStudentTermFormForFinance(
-	tx: Prisma.TransactionClient,
+	tx: StudentTermFormDb,
 	params: {
 		schoolProfileId: string;
 		studentId: string;

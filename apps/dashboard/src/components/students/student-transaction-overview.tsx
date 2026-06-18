@@ -176,8 +176,11 @@ function Content() {
 
 	const { data: rpData } = useQuery(
 		trpc.finance.getReceivePaymentData.queryOptions(
-			{ studentId: studentId ?? "" },
-			{ enabled: !!studentId },
+			{
+				studentId: studentId ?? "",
+				termId: activeStudentTerm?.termId ?? undefined,
+			},
+			{ enabled: !!studentId && !!activeStudentTerm?.termId },
 		),
 	);
 
@@ -621,8 +624,141 @@ function PaymentHistoryList({
 					No recorded payments yet for this term.
 				</div>
 			) : (
-				<div className="overflow-x-auto">
-					<table className="w-full text-sm text-left">
+				<>
+					<div className="divide-y divide-border md:hidden">
+						{payments.map((p) => {
+							const date = p.walletTransaction?.transactionDate || p.createdAt;
+							const canReverse =
+								p.status === "success" &&
+								p.walletTransaction?.status === "success" &&
+								p.walletTransaction?.id;
+							const method =
+								p.description?.split("•")[0]?.trim() ||
+								p.walletTransaction?.summary?.split("•")[0]?.trim() ||
+								(p.type === "PURCHASE" ? "Purchase" : "Payment");
+							const paymentId = p.id ?? p.walletTransaction?.id ?? "";
+							const refId = p.walletTransaction?.id
+								? `#${p.walletTransaction.id.slice(0, 8).toUpperCase()}`
+								: paymentId
+									? `#${paymentId.slice(0, 8).toUpperCase()}`
+									: "#PAYMENT";
+							const statusClass =
+								p.status === "success"
+									? "border-green-300 text-green-600 dark:border-green-800 dark:text-green-400"
+									: p.status === "draft"
+										? "border-yellow-300 text-yellow-700 dark:border-yellow-800 dark:text-yellow-400"
+										: "border-red-300 text-red-500 dark:border-red-800 dark:text-red-400";
+
+							return (
+								<article
+									key={paymentId || refId}
+									className="space-y-4 px-4 py-4"
+								>
+									<div className="flex items-start justify-between gap-3">
+										<div className="min-w-0">
+											<p className="truncate text-sm font-semibold text-foreground">
+												{p.studentFee?.feeTitle || p.paymentType || "Payment"}
+											</p>
+											{p.description ? (
+												<p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+													{p.description}
+												</p>
+											) : null}
+										</div>
+										<Badge
+											variant="outline"
+											className={cn("shrink-0 text-xs", statusClass)}
+										>
+											{p.status}
+										</Badge>
+									</div>
+
+									<div className="rounded-lg border border-border bg-muted/20 p-3">
+										<div className="flex items-baseline justify-between gap-3">
+											<span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+												Amount
+											</span>
+											<span className="text-base font-bold text-foreground">
+												<AnimatedNumber value={p.amount ?? 0} currency="NGN" />
+											</span>
+										</div>
+										<div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+											<div>
+												<p className="font-medium uppercase tracking-wide text-muted-foreground">
+													Date
+												</p>
+												<p className="mt-1 text-foreground">
+													{date ? format(new Date(date), "dd MMM yyyy") : "-"}
+												</p>
+											</div>
+											<div>
+												<p className="font-medium uppercase tracking-wide text-muted-foreground">
+													Method
+												</p>
+												<p className="mt-1 truncate text-foreground">{method}</p>
+											</div>
+											<div className="col-span-2">
+												<p className="font-medium uppercase tracking-wide text-muted-foreground">
+													Ref ID
+												</p>
+												<p className="mt-1 font-mono text-muted-foreground">
+													{refId}
+												</p>
+											</div>
+										</div>
+									</div>
+
+									{p.status === "success" || canReverse ? (
+										<div className="grid gap-2 sm:grid-cols-3">
+											{p.status === "success" ? (
+												<>
+													<Button
+														variant="outline"
+														size="sm"
+														type="button"
+														className="w-full"
+														onClick={() => paymentId && openReceipt(paymentId)}
+													>
+														Print
+													</Button>
+													<Button
+														variant="outline"
+														size="sm"
+														type="button"
+														className="w-full"
+														onClick={() =>
+															paymentId && openReceipt(paymentId, true)
+														}
+													>
+														Download
+													</Button>
+												</>
+											) : null}
+											{canReverse ? (
+												<Button
+													variant="ghost"
+													size="sm"
+													type="button"
+													className="w-full text-destructive hover:text-destructive"
+													disabled={isPending}
+													onClick={() =>
+														reverse({
+															paymentId,
+														})
+													}
+												>
+													Cancel
+												</Button>
+											) : null}
+										</div>
+									) : null}
+								</article>
+							);
+						})}
+					</div>
+
+					<div className="hidden overflow-x-auto md:block">
+						<table className="w-full text-left text-sm">
 						<thead className="text-xs text-muted-foreground uppercase bg-muted/40">
 							<tr>
 								<th className="px-5 py-3 font-medium">Date</th>
@@ -652,6 +788,12 @@ function PaymentHistoryList({
 									: paymentId
 										? `#${paymentId.slice(0, 8).toUpperCase()}`
 										: "#PAYMENT";
+								const statusClass =
+									p.status === "success"
+										? "border-green-300 text-green-600 dark:border-green-800 dark:text-green-400"
+										: p.status === "draft"
+											? "border-yellow-300 text-yellow-700 dark:border-yellow-800 dark:text-yellow-400"
+											: "border-red-300 text-red-500 dark:border-red-800 dark:text-red-400";
 
 								return (
 									<tr
@@ -683,14 +825,7 @@ function PaymentHistoryList({
 										<td className="px-5 py-4">
 											<Badge
 												variant="outline"
-												className={cn(
-													"text-xs",
-													p.status === "success"
-														? "border-green-300 text-green-600 dark:border-green-800 dark:text-green-400"
-														: p.status === "draft"
-															? "border-yellow-300 text-yellow-700 dark:border-yellow-800 dark:text-yellow-400"
-															: "border-red-300 text-red-500 dark:border-red-800 dark:text-red-400",
-												)}
+												className={cn("text-xs", statusClass)}
 											>
 												{p.status}
 											</Badge>
@@ -729,8 +864,7 @@ function PaymentHistoryList({
 														disabled={isPending}
 														onClick={() =>
 															reverse({
-																studentPaymentId: paymentId,
-																transactionId: p.walletTransaction.id,
+																paymentId,
 															})
 														}
 													>
@@ -743,8 +877,9 @@ function PaymentHistoryList({
 								);
 							})}
 						</tbody>
-					</table>
-				</div>
+						</table>
+					</div>
+				</>
 			)}
 		</div>
 	);

@@ -15,6 +15,8 @@ Catalog of API routes and responsibilities.
 - `POST /students`
 - `GET /students/:id`
 - `PATCH /students/:id`
+- `trpc.students.overview` (tenant-scoped student overview payload with active term options, identity fields, and first guardian for overview/page hosts)
+- `trpc.students.updateStudentBasicProfile` (tenant-scoped mutation for names, gender, DOB, and first parent/guardian details)
 - `trpc.students.getImportNameGuide` (tenant-scoped existing name-part guide for student import parsing)
 - `trpc.students.verifyStudentImport` (batch verify student import rows for duplicates, typos, and gender inference)
 
@@ -100,7 +102,7 @@ Catalog of API routes and responsibilities.
 - `POST /api/chat/feedback`
 
 ## Router Ownership Map
-- `trpc.students.*`: student listing, detail, overview, student-centric workflows, and **student import** (`createStudent`, `updateStudentBasicProfile`, `getImportNameGuide`, `executeStudentImport`)
+- `trpc.students.*`: student listing, detail, overview, student-centric workflows, focused basic-profile edits, and **student import** (`createStudent`, `updateStudentBasicProfile`, `getImportNameGuide`, `executeStudentImport`)
 - `trpc.classrooms.*`: classroom lists, overview, and classroom-scoped actions
 - `trpc.academics.*`: academic session, term, enrollment, and promotion flows (includes `entrollStudentToTerm` used during import workflow)
 - `trpc.transactions.*`: fee definitions, fee imports, and other transaction-oriented finance writes

@@ -11,6 +11,7 @@ import { ReceivePaymentSheet } from "./receive-payment-sheet";
 import { SchoolFeeCreateSheet } from "./school-fee-create-sheet";
 import { StaffCreateSheet } from "./staff-create-sheet";
 import { StaffOverviewSheet } from "./staff-overview-sheet";
+import { StudentBasicInfoEditSheet } from "./student-basic-info-edit-sheet";
 import { StudentCreateSheet } from "./student-create-sheet";
 import { StudentOverviewSheet } from "./student-overview-sheet";
 
@@ -22,6 +23,7 @@ export function GlobalSheets() {
 			<BillableCreateSheet />
 			<SchoolFeeCreateSheet />
 			<StudentCreateSheet />
+			<StudentBasicInfoEditSheet />
 			<StaffCreateSheet />
 			<StaffOverviewSheet />
 			<StudentOverviewSheet />

@@ -170,7 +170,6 @@ export function ReceivePaymentSheet() {
 		format(new Date(), "yyyy-MM-dd"),
 	);
 	const [reference, setReference] = useState("");
-	const [amountReceived, setAmountReceived] = useState("");
 	const [selection, setSelection] = useState<SelectionState>({});
 	const [openTermId, setOpenTermId] = useState<string | null>(null);
 	const [manualRows, setManualRows] = useState<ManualStreamRow[]>([]);
@@ -184,7 +183,6 @@ export function ReceivePaymentSheet() {
 		setPaymentMethod(paymentMethods[0]);
 		setPaymentDate(format(new Date(), "yyyy-MM-dd"));
 		setReference("");
-		setAmountReceived("");
 		setReceiptState(null);
 	};
 
@@ -436,8 +434,7 @@ export function ReceivePaymentSheet() {
 		0,
 	);
 	const totalAllocated = totalSelected + manualTotal;
-	const amountReceivedNumber = toNumber(amountReceived);
-	const amountDiff = amountReceivedNumber - totalAllocated;
+	const amountReceivedNumber = totalAllocated;
 
 	const currentTerm =
 		terms.find((term) => term.id === openTermId) ??
@@ -487,7 +484,6 @@ export function ReceivePaymentSheet() {
 					totalAllocated: result.totalAllocated,
 				});
 				resetAllocationState();
-				setAmountReceived("");
 				setReference("");
 			},
 		}),
@@ -571,21 +567,18 @@ export function ReceivePaymentSheet() {
 	};
 
 	const autoAllocate = () => {
-		let remaining = amountReceivedNumber;
 		const next: SelectionState = {};
 
 		for (const row of allRows) {
 			const due = Number(row.pendingAmount || 0);
-			if (remaining <= 0 || due <= 0 || row.status === "PAID") {
+			if (due <= 0 || row.status === "PAID") {
 				next[row.key] = { selected: false, amount: "0" };
 				continue;
 			}
-			const allocated = Math.min(due, remaining);
 			next[row.key] = {
-				selected: allocated > 0,
-				amount: String(allocated),
+				selected: true,
+				amount: String(due),
 			};
-			remaining -= allocated;
 		}
 
 		setSelection(next);
@@ -739,9 +732,7 @@ export function ReceivePaymentSheet() {
 
 	const canSubmit =
 		Boolean(selectedStudentId) &&
-		totalAllocated > 0 &&
-		amountReceivedNumber > 0 &&
-		Math.abs(amountDiff) < 0.001;
+		totalAllocated > 0;
 
 	return (
 		<Sheet
@@ -824,16 +815,6 @@ export function ReceivePaymentSheet() {
 						</div>
 
 						<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-							<div className="space-y-2">
-								<Label>Amount received</Label>
-								<Input
-									type="number"
-									min="0"
-									value={amountReceived}
-									onChange={(event) => setAmountReceived(event.target.value)}
-									placeholder="0.00"
-								/>
-							</div>
 							<div className="space-y-2">
 								<Label>Payment method</Label>
 								<Select value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -1000,10 +981,10 @@ export function ReceivePaymentSheet() {
 									className="w-full gap-2 sm:w-auto"
 									type="button"
 									onClick={autoAllocate}
-									disabled={!allRows.length || amountReceivedNumber <= 0}
+									disabled={!allRows.length}
 								>
 									<Wand2 className="h-4 w-4" />
-									Auto-allocate
+									Select all pending
 								</Button>
 							</div>
 						</div>
@@ -1539,9 +1520,9 @@ export function ReceivePaymentSheet() {
 					<div className="rounded-lg border bg-muted/20 p-4">
 						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<div>
-								<p className="text-sm font-semibold">Validation</p>
+								<p className="text-sm font-semibold">Payment total</p>
 								<p className="text-sm text-muted-foreground">
-									Received amount must equal the sum of stream allocations.
+									The payment amount is calculated from the Pay now fields.
 								</p>
 							</div>
 							<div className="flex items-center gap-3">
@@ -1554,16 +1535,12 @@ export function ReceivePaymentSheet() {
 							</div>
 						</div>
 
-						{Math.abs(amountDiff) < 0.001 && amountReceivedNumber > 0 ? (
+						{amountReceivedNumber > 0 ? (
 							<div className="mt-4 flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-green-700">
 								<CheckCircle2 className="mt-0.5 h-4 w-4" />
 								<p className="text-sm">
-									Balanced. The amount received matches the allocation exactly.
+									Ready to record {formatCurrency(amountReceivedNumber)}.
 								</p>
-							</div>
-						) : amountReceivedNumber > 0 ? (
-							<div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-								Allocation difference: {formatCurrency(Math.abs(amountDiff))}
 							</div>
 						) : null}
 					</div>

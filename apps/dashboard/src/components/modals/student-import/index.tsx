@@ -36,12 +36,12 @@ export function StudentImportModal() {
   const open = action == "student-import";
 
   const { data: classList, isLoading: isClassListLoading } = useQuery(
-    _trpc.classrooms.getCurrentSessionClassroom.queryOptions()
+    _trpc.classrooms.getCurrentSessionClassroom.queryOptions(),
   );
   const { data: importNameGuide } = useQuery(
     _trpc.students.getImportNameGuide.queryOptions(undefined, {
       enabled: open,
-    })
+    }),
   );
 
   const form = useZodForm(studentImportSchema, {
@@ -55,6 +55,19 @@ export function StudentImportModal() {
   const [tab, setTab] = useState("main");
   const onSubmit = () => {
     setTab("importing");
+  };
+  const startNewImport = () => {
+    form.setValue("raw", "", {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setLs("");
+    setTab("main");
+  };
+  const closeImport = () => {
+    setTab("main");
+    setParams(null);
   };
 
   const raw = form.watch("raw");
@@ -74,7 +87,7 @@ export function StudentImportModal() {
       classRoomName,
       classRoomId,
       globalGender,
-      importNameGuide?.names || []
+      importNameGuide?.names || [],
     );
   }, [raw, classRoomId, classList?.data, globalGender, importNameGuide?.names]);
 
@@ -97,7 +110,10 @@ export function StudentImportModal() {
           </Dialog.Description>
         </Dialog.Header>
         <Tabs.Root value={tab} className="flex min-h-0 flex-1 flex-col">
-          <Tabs.Content value="main" className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <Tabs.Content
+            value="main"
+            className="min-h-0 flex-1 overflow-y-auto pr-1"
+          >
             <form id="form-rhf-demo" onSubmit={form.handleSubmit(onSubmit)}>
               <div className="grid w-full gap-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -107,7 +123,8 @@ export function StudentImportModal() {
                     render={({ field, fieldState }) => (
                       <Field data-invalid={fieldState.invalid}>
                         <Field.Label htmlFor="classroom-select">
-                          Target Classroom <span className="text-red-500">*</span>
+                          Target Classroom{" "}
+                          <span className="text-red-500">*</span>
                         </Field.Label>
                         <Select
                           value={field.value || ""}
@@ -143,16 +160,13 @@ export function StudentImportModal() {
                     control={form.control}
                     render={({ field }) => (
                       <Field>
-                        <Field.Label>
-                          Global Gender (Optional)
-                        </Field.Label>
+                        <Field.Label>Global Gender (Optional)</Field.Label>
                         <ToggleGroup
                           type="single"
                           variant="outline"
                           size="sm"
                           value={
-                            field.value === "Male" ||
-                            field.value === "Female"
+                            field.value === "Male" || field.value === "Female"
                               ? field.value
                               : ""
                           }
@@ -191,10 +205,9 @@ export function StudentImportModal() {
                           Student Data (One student per line)
                         </Field.Label>
                         <p className="text-xs text-muted-foreground">
-                          Use dots or English/Arabic commas to split name
-                          parts. If no dot or comma is used, SchoolClerk uses
-                          existing student names as a guide before splitting by
-                          spaces.
+                          Use dots or English/Arabic commas to split name parts.
+                          If no dot or comma is used, SchoolClerk uses existing
+                          student names as a guide before splitting by spaces.
                         </p>
 
                         <InputGroup>
@@ -245,13 +258,18 @@ export function StudentImportModal() {
               </div>
             </form>
           </Tabs.Content>
-          <Tabs.Content value="importing" className="min-h-0 flex-1 overflow-hidden">
+          <Tabs.Content
+            value="importing"
+            className="min-h-0 flex-1 overflow-hidden"
+          >
             <ImportActivity
               classrooms={
                 classList?.data?.map((c) => ({ title: c.departmentName })) || []
               }
               students={parse?.students || []}
               onCancelImport={() => setTab("main")}
+              onStartNewImport={startNewImport}
+              onCloseImport={closeImport}
             />
           </Tabs.Content>
         </Tabs.Root>

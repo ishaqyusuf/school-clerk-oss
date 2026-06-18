@@ -5,7 +5,7 @@ import { studentDisplayName } from "./enrollment-query";
 
 export async function studentsOverview(
   ctx: TRPCContext,
-  query: GetStudentOverviewSchema
+  query: GetStudentOverviewSchema,
 ) {
   const { termSheetId, studentId } = query;
   const [termSheet, studentRecord, studentTerms] = await Promise.all([
@@ -14,10 +14,12 @@ export async function studentsOverview(
         ? {
             id: termSheetId,
             studentId,
+            schoolProfileId: ctx.profile.schoolId,
             deletedAt: null,
           }
         : {
             studentId,
+            schoolProfileId: ctx.profile.schoolId,
             deletedAt: null,
           },
       select: {
@@ -27,13 +29,35 @@ export async function studentsOverview(
     ctx.db.students.findFirstOrThrow({
       where: {
         id: studentId,
+        schoolProfileId: ctx.profile.schoolId,
+        deletedAt: null,
       },
       select: {
         id: true,
         name: true,
         surname: true,
         otherName: true,
+        dob: true,
         gender: true,
+        guardians: {
+          where: {
+            deletedAt: null,
+          },
+          orderBy: {
+            createdAt: "asc",
+          },
+          take: 1,
+          select: {
+            guardian: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                phone2: true,
+              },
+            },
+          },
+        },
       },
     }),
     getStudentTermsList(ctx, {
@@ -43,7 +67,12 @@ export async function studentsOverview(
 
   const student = {
     id: studentRecord.id,
+    name: studentRecord.name,
+    surname: studentRecord.surname,
+    otherName: studentRecord.otherName,
+    dob: studentRecord.dob,
     gender: studentRecord.gender,
+    guardian: studentRecord.guardians[0]?.guardian ?? null,
     studentName: studentDisplayName(studentRecord),
   };
 

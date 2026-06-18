@@ -17,6 +17,8 @@ The shared shell keeps the same overview, academics, attendance, and payments fe
 | `apps/dashboard/src/hooks/use-student-overview-sheet.ts` | Host-aware provider for sheet and page modes |
 | `apps/dashboard/src/components/students/student-overview-shell.tsx` | Shared header + tabs + tab-content shell |
 | `apps/dashboard/src/components/students/student-overview-sheet-header.tsx` | Reusable profile header card |
+| `apps/dashboard/src/components/sheets/student-basic-info-edit-sheet.tsx` | Sheet host for editing student identity and parent details from the overview header |
+| `apps/dashboard/src/components/forms/student-basic-info-form.tsx` | Focused basic-info form for names, gender, DOB, and parent contact fields |
 | `apps/dashboard/src/components/students/student-overview.tsx` | Overview tab layout |
 | `apps/dashboard/src/components/sheets/student-overview-sheet.tsx` | Sheet host using the shared shell |
 | `apps/dashboard/src/components/students/student-overview-page-client.tsx` | Page host using the shared shell |
@@ -27,9 +29,11 @@ The shared shell keeps the same overview, academics, attendance, and payments fe
 - Shared surfaces use semantic shadcn-style tokens like `bg-card`, `bg-background`, `text-foreground`, `text-muted-foreground`, `border-border`, and `bg-primary/10` to preserve theme support.
 - The page host adds breadcrumb chrome while the sheet host keeps the compact scrollable sheet container.
 - The shell uses one tab state model per host, so sheet interactions do not leak into the page view and page interactions do not require sheet query params.
+- The overview header's Edit action opens a focused student information sheet using the `studentEditId` query param. It edits names, gender, DOB, and the first linked parent/guardian without exposing enrollment or fee setup fields.
 
 ## Data Behavior
-- Overview data still comes from `students.overview`.
+- Overview data still comes from `students.overview`, which includes basic identity fields plus the first non-deleted guardian for edit prefill.
 - The provider resolves the active term from `studentTerms`, preferring the selected term and otherwise falling back to the latest enrolled term.
 - Sheet mode syncs term selection back into `studentViewTermId` and `studentTermSheetId`.
 - Page mode keeps its own local tab and term state, which allows attendance, finance, academics, and overview components to work outside the sheet.
+- Saving the focused edit sheet calls `students.updateStudentBasicProfile`, which tenant-scopes the student lookup, updates basic student fields, and creates, updates, reconnects, or clears the first guardian link based on the submitted parent details.

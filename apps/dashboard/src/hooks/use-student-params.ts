@@ -13,8 +13,9 @@ export function useStudentParams(options?: { shallow: boolean }) {
       studentViewTermId: parseAsString,
       studentViewTab: parseAsString,
       studentTermSheetId: parseAsString,
+      studentEditId: parseAsString,
     },
-    options
+    options,
   );
   return {
     ...params,
