@@ -83,12 +83,12 @@ export function AssessmentResultsScoreCell({
 		return (
 			<TableCell
 				className={cn(
-					"text-center cursor-pointer hover:bg-accent/50 transition-colors min-w-[70px] p-0",
+					"w-[70px] min-w-[70px] max-w-[70px] cursor-pointer p-0 text-center transition-colors hover:bg-accent/50",
 					dividerClass,
 				)}
 				onClick={() => setIsEditing(true)}
 			>
-				<div className="flex items-center justify-center h-full py-2 px-1">
+				<div className="flex h-full min-h-9 w-[70px] items-center justify-center px-1 py-2">
 					<span
 						className={cn(
 							"text-sm",
@@ -103,14 +103,19 @@ export function AssessmentResultsScoreCell({
 	}
 
 	return (
-		<TableCell className={cn("text-center p-0 min-w-[70px]", dividerClass)}>
-			<div className="flex items-center gap-1">
+		<TableCell
+			className={cn(
+				"w-[70px] min-w-[70px] max-w-[70px] p-0 text-center",
+				dividerClass,
+			)}
+		>
+			<div className="relative flex min-h-9 w-[70px] items-center">
 				<input
 					ref={inputRef}
 					type="number"
 					className={cn(
-						"w-full h-8 text-center text-sm bg-transparent border-0 outline-none",
-						"focus:ring-1 focus:ring-primary rounded",
+						"h-8 w-full min-w-0 bg-transparent px-1 pr-5 text-center text-sm outline-none",
+						"rounded border-0 focus:ring-1 focus:ring-primary",
 						"[appearance:textfield]",
 						"[&::-webkit-inner-spin-button]:appearance-none",
 						"[&::-webkit-outer-spin-button]:appearance-none",
@@ -131,7 +136,7 @@ export function AssessmentResultsScoreCell({
 					}}
 					placeholder="-"
 				/>
-				<div className="w-4 mr-1">
+				<div className="pointer-events-none absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center">
 					{isPending ? (
 						<Spinner size={12} />
 					) : error ? (

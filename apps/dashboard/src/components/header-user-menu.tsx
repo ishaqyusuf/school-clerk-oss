@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@school-clerk/ui/dropdown-menu";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
+import { useLocalTenantHref } from "@school-clerk/tenant-url/react";
 import { useQuery } from "@tanstack/react-query";
 import { Bell, ChevronDown, LogOut, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -35,6 +36,7 @@ function getInitials(name?: string, email?: string) {
 export function HeaderUserMenu() {
   const auth = useAuth();
   const trpc = useTRPC();
+  const tenantHref = useLocalTenantHref();
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const { data: unreadCount = 0 } = useQuery(
@@ -122,7 +124,7 @@ export function HeaderUserMenu() {
         </div>
         <DropdownMenuItem
           onSelect={() => {
-            window.location.href = "/signout";
+            window.location.href = tenantHref("/signout");
           }}
         >
           <LogOut className="mr-2 size-4" />

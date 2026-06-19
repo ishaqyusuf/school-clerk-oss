@@ -49,6 +49,7 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 			},
 		),
 	);
+	const selectedTermId = overview?.subject?.sessionTermId;
 
 	if (!subjects.length) {
 		return (
@@ -148,7 +149,12 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 						{selectedSubject ? (
 							<Button asChild variant="outline">
 								<Link
-									href={`/assessment-recording?deptId=${selectedSubject.classRoomDepartmentId}&deptSubjectId=${selectedSubject.id}&permission=subject`}
+									href={`/assessment-recording?${new URLSearchParams({
+										...(selectedTermId ? { termId: selectedTermId } : {}),
+										deptId: selectedSubject.classRoomDepartmentId,
+										deptSubjectId: selectedSubject.id,
+										permission: "subject",
+									}).toString()}`}
 								>
 									<ClipboardList className="mr-2 size-4" />
 									Record scores

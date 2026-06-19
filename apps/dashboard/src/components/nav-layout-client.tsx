@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 import { Header } from "./header";
 import { linkModules } from "./sidebar/links";
 import { TenantLink } from "@school-clerk/tenant-url/next";
-import { useTenantUrl } from "@school-clerk/tenant-url/react";
+import { useLocalTenantHref, useTenantUrl } from "@school-clerk/tenant-url/react";
 import { ChatWidget } from "./chat/chat-widget";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
@@ -23,10 +23,11 @@ export function NavLayoutClient({
   const auth = useAuth();
   const pathName = usePathname();
   const tenantUrl = useTenantUrl();
+  const tenantHref = useLocalTenantHref();
   const productPathName = tenantUrl?.context.productPath ?? pathName;
   const canUseChat = initialRole === "Admin";
   const onLogout = () => {
-    window.location.href = "/signout";
+    window.location.href = tenantHref("/signout");
   };
 
   return (

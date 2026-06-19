@@ -276,7 +276,7 @@ export function AssessmentRecordingResultsTable({
 											subject.assessments.map((assessment) => (
 											<TableHead
 												key={`${subject.id}-${assessment.id}`}
-												className="min-w-[70px] text-center text-xs"
+												className="w-[70px] min-w-[70px] max-w-[70px] text-center text-xs"
 											>
 												<div>{assessment.title}</div>
 												<div className="text-muted-foreground">
@@ -350,7 +350,7 @@ export function AssessmentRecordingResultsTable({
 					if (!open) setOpenSubjectId(null);
 				}}
 			>
-				<Dialog.Content className="max-h-[90vh] max-w-5xl overflow-auto">
+				<Dialog.Content className="max-h-[90vh] max-w-5xl overflow-auto rounded-none border-y border-x-0 shadow-none sm:border-x">
 					<Dialog.Header>
 						<Dialog.Title>Subject assessments</Dialog.Title>
 						<Dialog.Description>

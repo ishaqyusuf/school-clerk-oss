@@ -11,7 +11,7 @@ import { saveAssessementSchema } from "@school-clerk/assessment-results";
 import { _qc, _trpc } from "./static-trpc";
 import { Badge } from "@school-clerk/ui/badge";
 import { Icons } from "@school-clerk/ui/icons";
-import { useSubjectParams } from "@/hooks/use-subject-params";
+import { useLocalTenantHref } from "@school-clerk/tenant-url/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ButtonGroup } from "@school-clerk/ui/button-group";
 import {
@@ -58,6 +58,16 @@ export function SubjectAssessments(props: Props) {
     setView(defaultFormValue ? "form" : "general");
   }, [defaultFormValue]);
   const deptSubjectId = props.overview.subject.id;
+  const tenantHref = useLocalTenantHref();
+  const recordingHref =
+    props.overview.subject.sessionTermId &&
+    props.overview.subject.classRoomDepartment?.id
+      ? `/assessment-recording?termId=${encodeURIComponent(
+          props.overview.subject.sessionTermId,
+        )}&deptId=${encodeURIComponent(
+          props.overview.subject.classRoomDepartment.id,
+        )}&deptSubjectId=${encodeURIComponent(deptSubjectId)}`
+      : null;
   const { data: suggestions, refetch } = useQuery(
     _trpc.assessments.getAssessmentSuggestions.queryOptions(
       {
@@ -130,8 +140,6 @@ export function SubjectAssessments(props: Props) {
         },
       })
     );
-  const { setParams } = useSubjectParams();
-
   function moveAssessment(id: number, direction: "up" | "down") {
     const currentIds = assessments?.map((assessment) => assessment.id) ?? [];
     const index = currentIds.indexOf(id);
@@ -192,7 +200,7 @@ export function SubjectAssessments(props: Props) {
   );
   return (
     <>
-      <div className="grid gap-6">
+      <div className="grid gap-4">
         <Accordion
           collapsible
           type="single"
@@ -201,7 +209,7 @@ export function SubjectAssessments(props: Props) {
         >
           <Accordion.Item className="border-none" value="general">
             <Accordion.Content>
-              <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
+              <div className="hidden border-y border-border md:grid md:grid-cols-4">
                 <StatCard
                   icon={FileText}
                   label="Score items"
@@ -228,8 +236,8 @@ export function SubjectAssessments(props: Props) {
                 />
               </div>
 
-              <div className="mt-2 flex flex-col gap-4 rounded-3xl border border-border bg-background p-5 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="mt-4 flex flex-col gap-4 bg-background">
+                <div className="flex flex-col gap-4 border-y border-border py-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <h2 className="text-lg font-bold text-foreground">
                       Assessments
@@ -261,10 +269,10 @@ export function SubjectAssessments(props: Props) {
                     <Button
                       size="sm"
                       variant="outline"
+                      disabled={!recordingHref}
                       onClick={() => {
-                        setParams({
-                          subjectTab: "recordings",
-                        });
+                        if (!recordingHref) return;
+                        window.location.assign(tenantHref(recordingHref));
                       }}
                     >
                       Record submission
@@ -273,15 +281,15 @@ export function SubjectAssessments(props: Props) {
                 </div>
 
                 {assessments?.length ? (
-                  <div className="grid gap-4">
+                  <div className="border-y border-border">
                     {assessments.map((a, ai) => (
                       <div
                         key={a.id}
-                        className="rounded-3xl border border-border bg-muted/20 p-5 transition-colors hover:bg-muted/30"
+                        className="border-b border-border bg-background py-4 transition-colors last:border-b-0 hover:bg-muted/30"
                       >
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                           <div className="flex min-w-0 items-start gap-4">
-                            <div className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                            <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-background text-muted-foreground">
                               <CalendarClock className="size-5" />
                             </div>
                             <div className="min-w-0 space-y-2">
@@ -387,11 +395,11 @@ export function SubjectAssessments(props: Props) {
                         </div>
 
                         {a.childAssessments?.length ? (
-                          <div className="mt-5 grid gap-3 border-t border-border/70 pt-4">
+                          <div className="mt-4 border-t border-border">
                             {a.childAssessments.map((child, childIndex) => (
                               <div
                                 key={child.id}
-                                className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background px-4 py-3 md:flex-row md:items-center md:justify-between"
+                                className="flex flex-col gap-3 border-b border-border/70 bg-background py-3 last:border-b-0 md:flex-row md:items-center md:justify-between"
                               >
                                 <div>
                                   <p className="font-medium text-foreground">
@@ -443,7 +451,7 @@ export function SubjectAssessments(props: Props) {
           </Accordion.Item>
           <Accordion.Item value="form" className="border-none">
             <Accordion.Content>
-              <div className="rounded-3xl border border-border bg-background p-5 shadow-sm">
+              <div className="border-y border-border bg-background py-4">
                 <div className="mb-5 space-y-1">
                   <h2 className="text-lg font-bold text-foreground">
                     {defaultFormValue?.id ? "Edit assessment" : "Create assessment"}
@@ -497,9 +505,9 @@ function StatCard({
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-background p-4 shadow-sm">
+    <div className="border-r border-border bg-background p-4 first:border-l">
       <div className="flex items-center gap-3">
-        <div className={cn("rounded-xl p-2", toneStyles[tone])}>
+        <div className={cn("p-2", toneStyles[tone])}>
           <Icon className="size-5" />
         </div>
         <div>

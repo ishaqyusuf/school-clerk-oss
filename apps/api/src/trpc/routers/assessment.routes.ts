@@ -208,27 +208,17 @@ export const assessmentRouter = createTRPCRouter({
           endDate: term.endDate,
         }));
 
-      const requestedTermId = input?.termId ?? null;
-      const cookieTermId = ctx.profile.termId ?? null;
-      const currentDatedTerm = findCurrentDatedTerm(terms);
-      const defaultTermId =
-        (requestedTermId && terms.some((term) => term.id === requestedTermId)
-          ? requestedTermId
-          : null) ??
-        (cookieTermId && terms.some((term) => term.id === cookieTermId)
-          ? cookieTermId
-          : null) ??
-        currentDatedTerm?.id ??
-        null;
-
-      const classroomAssignments = defaultTermId
+      const termIds = terms.map((term) => term.id);
+      const classroomAssignments = termIds.length
         ? await ctx.db.staffClassroomDepartmentTermProfiles.findMany({
             where: {
               deletedAt: null,
               staffTermProfile: {
                 deletedAt: null,
                 staffProfileId: staffProfile.id,
-                sessionTermId: defaultTermId,
+                sessionTermId: {
+                  in: termIds,
+                },
               },
               classRoomDepartment: {
                 deletedAt: null,
@@ -236,6 +226,11 @@ export const assessmentRouter = createTRPCRouter({
               },
             },
             select: {
+              staffTermProfile: {
+                select: {
+                  sessionTermId: true,
+                },
+              },
               classRoomDepartment: {
                 select: {
                   id: true,
@@ -273,18 +268,62 @@ export const assessmentRouter = createTRPCRouter({
           })
         : [];
 
-      const classrooms = classroomAssignments
-        .map((assignment) => assignment.classRoomDepartment)
-        .filter((department): department is NonNullable<typeof department> =>
-          Boolean(department),
-        )
-        .map((department) => ({
+      const classroomsByTerm = new Map<
+        string,
+        Array<{
+          id: string;
+          departmentName: string | null;
+          departmentLevel: number | null;
+          classRoom: {
+            id: string;
+            name: string;
+            classLevel: number | null;
+          } | null;
+          displayName: string;
+        }>
+      >();
+
+      for (const assignment of classroomAssignments) {
+        const termId = assignment.staffTermProfile.sessionTermId;
+        const department = assignment.classRoomDepartment;
+        if (!termId || !department) continue;
+
+        const termClassrooms = classroomsByTerm.get(termId) ?? [];
+        if (termClassrooms.some((classroom) => classroom.id === department.id)) {
+          continue;
+        }
+
+        termClassrooms.push({
           ...department,
           displayName: classroomDisplayName({
             className: department.classRoom?.name,
             departmentName: department.departmentName,
           }),
-        }));
+        });
+        classroomsByTerm.set(termId, termClassrooms);
+      }
+
+      const requestedTermId = input?.termId ?? null;
+      const cookieTermId = ctx.profile.termId ?? null;
+      const currentDatedTerm = findCurrentDatedTerm(terms);
+      const hasTerm = (termId?: string | null) =>
+        !!termId && terms.some((term) => term.id === termId);
+      const firstAssignedTermId =
+        terms.find((term) => (classroomsByTerm.get(term.id)?.length ?? 0) > 0)
+          ?.id ?? null;
+      const currentDatedTermId = currentDatedTerm?.id ?? null;
+      const defaultTermId =
+        (hasTerm(requestedTermId) ? requestedTermId : null) ??
+        (hasTerm(cookieTermId) ? cookieTermId : null) ??
+        (currentDatedTermId
+          ? (classroomsByTerm.get(currentDatedTermId)?.length ?? 0) > 0
+            ? currentDatedTermId
+            : firstAssignedTermId ?? currentDatedTermId
+          : null);
+
+      const classrooms = defaultTermId
+        ? (classroomsByTerm.get(defaultTermId) ?? [])
+        : [];
 
       return {
         scoped: true,

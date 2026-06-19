@@ -64,10 +64,13 @@ Make classroom assessment recording, classroom result review, student result pri
 - Assessment recording defaults to the first loaded subject when no explicit subject is selected, while preserving explicit `deptSubjectId` deep links.
 - Assessment recording score-entry tables show editable assessment cells only; subject total columns are reserved for classroom result review rather than score entry.
 - Assessment recording supports bare `/assessment-recording` links by auto-selecting a default term/classroom when one can be resolved instead of showing an inline context selector.
-- Assessment recording resolves a missing `termId` from the workspace-selected term, then the date-current term. If no date-current term can be inferred, it opens a current-term modal and persists the user choice to the session profile cookie.
+- Assessment recording resolves a missing `termId` from the workspace-selected term, then the date-current term. For teacher users, if the date-current term has no assigned classrooms but another assigned term does, the page defaults to the first assigned term with classrooms. If no date-current/default term can be inferred, it opens a current-term modal and persists the user choice to the session profile cookie.
 - Teacher assessment recording is scoped by staff assignments: Teacher users only see terms from their non-deleted `StaffTermProfile` rows and classrooms from their `StaffClassroomDepartmentTermProfiles` for the selected term. Invalid teacher deep links auto-correct to a valid scoped default when available.
 - The assessment recording header hides the `Report Sheet` shortcut for staff-facing roles; it remains an admin-only shortcut from the recording screen.
 - The classroom context selector belongs inside the assessment recording table header beside the subject filter, not in a fixed viewport header, so classroom and subject filtering live in one control cluster.
+- Assessment recording score cells keep a fixed column width in display and edit modes so focusing an input does not resize the assessment column.
+- The subject assessment editor modal uses a flat tool-panel layout: no nested card shell, flat assessment rows, and simple bordered stat/form sections.
+- The subject assessment editor `Record submission` action opens `/assessment-recording` with `termId`, `deptId`, and `deptSubjectId` prefilled so the score-entry table is filtered to that subject.
 - Dashboard current-term selection is date-aware: terms with no start date are not considered current; terms whose start/end span today are preferred; started terms without an end date are the fallback current term.
 - **Blank Manual Spreadsheet Print**:
   - Admins can print blank classroom spreadsheets containing active students and configured subject/assessment columns.
