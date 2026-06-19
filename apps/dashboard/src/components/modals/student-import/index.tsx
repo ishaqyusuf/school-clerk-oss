@@ -225,7 +225,7 @@ export function StudentImportModal() {
                               size="sm"
                               variant="default"
                               disabled={
-                                !form.formState.isValid ||
+                                !raw?.trim() ||
                                 isClassListLoading ||
                                 !parse?.students?.length
                               }

@@ -201,12 +201,25 @@ export function ImportActivity({
   const {
     data: verificationReport,
     isPending: isVerifying,
-    refetch: refetchVerification,
-  } = useQuery(
-    _trpc.students.verifyStudentImport.queryOptions(verifyInput!, {
-      enabled: !!verifyInput,
-    }),
+    mutate: verifyStudents,
+    error: verificationError,
+    reset: resetVerification,
+  } = useMutation(
+    _trpc.students.verifyStudentImportBatch.mutationOptions(),
   );
+
+  useEffect(() => {
+    if (!verifyInput) return;
+
+    resetVerification();
+    verifyStudents(verifyInput);
+  }, [resetVerification, verifyInput, verifyStudents]);
+
+  const refetchVerification = () => {
+    if (!verifyInput) return;
+
+    verifyStudents(verifyInput);
+  };
 
   const verificationRows = verificationReport?.results;
   const baseRows = verificationRows ?? EMPTY_IMPORT_ROWS;
@@ -667,7 +680,8 @@ export function ImportActivity({
     0,
   );
   const showExecutionOnly = isExecutingBatch || Boolean(batchResult);
-  const executionErrorMessage = preSubmitError || batchError?.message || null;
+  const executionErrorMessage =
+    preSubmitError || verificationError?.message || batchError?.message || null;
   const dismissExecutionError = () => {
     setPreSubmitError(null);
     resetExecuteBatch();

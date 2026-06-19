@@ -83,9 +83,9 @@ function normalizeNameGuideValue(value: string) {
 
 function normalizeClassroomLabel(value: string) {
   return normalizeNameGuideValue(value)
-    .replace(/[()]/g, " ")
-    .replace(/\s*[-–—]\s*/g, " - ")
-    .replace(/\s+/g, " ")
+    .replace(/[()[\]{}]/g, "")
+    .replace(/[-–—_:;|/\\]+/g, "")
+    .replace(/\s+/g, "")
     .trim();
 }
 

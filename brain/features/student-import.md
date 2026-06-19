@@ -26,7 +26,7 @@ Allow school operators to import multiple students from pasted text data, assign
 Each pasted line is parsed as follows:
 
 - A line that exactly matches a current-session classroom display label becomes a class section header. Following student rows use that classroom until the next class section header.
-- Supported classroom label forms include the combined class/department display, department name when unique, class name when unique, and class plus department words normalized for whitespace and dash variants.
+- Supported classroom label forms include the combined class/department display, department name when unique, class name when unique, and class plus department words normalized with all whitespace ignored and dash/separator variants removed.
 - When a class header is read, the active batch gender resets to unset.
 - A line that exactly matches `M`, `Male`, `F`, `Female`, `M | Male`, or `F | Female` becomes a batch-gender marker for following student rows in the active class section.
 - Batch gender applies only when the student row does not have an explicit row-level gender.
@@ -166,6 +166,7 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 
 - `trpc.students.getImportNameGuide`: compact tenant-scoped existing-name guide for whitespace-only import parsing.
 - `trpc.students.verifyStudentImport`: single-query batch verification with row-level classroom scoping, edit-distance matching, and gender inference.
+- `trpc.students.verifyStudentImportBatch`: POST-backed verification mutation with the same input/output as `verifyStudentImport`, used by the dashboard modal so large pasted batches are not constrained by query URL length.
 - `trpc.students.executeStudentImport`: batch mutation for row-level import decisions.
 
 ### Execute Input Schema

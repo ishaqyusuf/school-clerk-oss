@@ -94,4 +94,39 @@ describe("parseRawInput", () => {
       otherName: "Name",
     });
   });
+
+  test("matches classroom headers while ignoring whitespace and dash variants", () => {
+    const result = parseRawInput(
+      "الأولالتمهيدي ا\nM\nإبراهيم عبد القادر\n\nالأول التمهيدي-ب\nF\nعائشة عبد الله",
+      "",
+      "",
+      undefined,
+      ["إبراهيم", "عبد القادر", "عائشة", "عبد الله"],
+      [
+        {
+          id: "classroom-a",
+          departmentName: "ا",
+          classRoom: { name: "الأول التمهيدي" },
+        },
+        {
+          id: "classroom-b",
+          departmentName: "ب",
+          classRoom: { name: "الأول التمهيدي" },
+        },
+      ],
+    );
+
+    expect(result.students).toHaveLength(2);
+    expect(result.students[0]).toMatchObject({
+      classroomDepartmentId: "classroom-a",
+      classroomSource: "header",
+      gender: "M",
+    });
+    expect(result.students[1]).toMatchObject({
+      classroomDepartmentId: "classroom-b",
+      classroomSource: "header",
+      gender: "F",
+    });
+    expect(result.warnings).toEqual([]);
+  });
 });

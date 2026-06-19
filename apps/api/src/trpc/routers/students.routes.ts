@@ -124,6 +124,11 @@ export const studentsRouter = createTRPCRouter({
     .query(async (props) => {
       return verifyStudentImport(props.ctx, props.input);
     }),
+  verifyStudentImportBatch: publicProcedure
+    .input(verifyStudentImportSchema)
+    .mutation(async (props) => {
+      return verifyStudentImport(props.ctx, props.input);
+    }),
   getTermFormDetails: publicProcedure
     .input(deleteTermSheetSchema) // reuse { id: string }
     .query(async ({ ctx, input }) => {

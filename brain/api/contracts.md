@@ -149,6 +149,12 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: any supplied classroom department not found, unauthorized, or outside the active session.
 - Notes: performs single-query batch validation for pasted student imports. Checks exact matches, flags edit-distance name typos (<= 2), infers missing gender with confidence >= 80% (min 2 samples), validates all supplied row-level classroom ids once, and avoids large child records to keep payloads compact. Rows without a row-level or fallback classroom are returned as `needsAttention`.
 
+- Route: `students.verifyStudentImportBatch`
+- Request schema: same as `students.verifyStudentImport`
+- Response schema: same as `students.verifyStudentImport`
+- Error cases: same as `students.verifyStudentImport`
+- Notes: POST-backed mutation wrapper for the dashboard student-import modal. Use it for large pasted batches to avoid URL-length limits while preserving the same verification semantics as the query route.
+
 - Route: `students.bulkDeleteTermSheets`
 - Request schema: `ids[]` where each id is a `StudentTermForm.id`
 - Response schema: `{ count: number }`
