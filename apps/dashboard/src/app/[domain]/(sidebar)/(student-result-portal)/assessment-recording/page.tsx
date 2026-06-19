@@ -4,8 +4,20 @@ import { prisma } from "@school-clerk/db";
 
 export async function generateMetadata({ params, searchParams }) {
 	const { domain } = await params;
-	const departmentId = (await searchParams).deptId;
-	const subjectId = (await searchParams).deptSubjectId;
+	const query = await searchParams;
+	const departmentId = query.deptId;
+	const subjectId = query.deptSubjectId;
+
+	if (!departmentId) {
+		return buildTenantPageMetadata({
+			domain,
+			pathname: "/assessment-recording",
+			title: "Assessment Recording",
+			description: "Record assessments and manage subject score entry.",
+			noIndex: true,
+		});
+	}
+
 	const s = await prisma.classRoomDepartment.findUnique({
 		where: {
 			id: departmentId,
@@ -24,9 +36,13 @@ export async function generateMetadata({ params, searchParams }) {
 						},
 					},
 				},
-				where: {
-					id: subjectId,
-				},
+				...(subjectId
+					? {
+							where: {
+								id: subjectId,
+							},
+						}
+					: {}),
 			},
 		},
 	});

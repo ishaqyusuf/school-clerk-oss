@@ -35,6 +35,7 @@ const DEFAULT_ALLOWED_ROLES = [
   "Teacher",
   "Staff",
 ];
+const CURRENT_RELEASED_CHAT_ROLES = ["Admin"];
 const DEFAULT_PREFERRED_PROVIDER = "deepseek";
 const DEFAULT_ROLLOUT_STAGE = "beta";
 
@@ -121,7 +122,12 @@ export function getAllowedCapabilities({
     safeJsonParse<AiCapabilityKey[]>(config.disabledCapabilities, []),
   );
 
-  if (!config.enabled || !role || !allowedRoles.includes(role)) {
+  if (
+    !config.enabled ||
+    !role ||
+    !CURRENT_RELEASED_CHAT_ROLES.includes(role) ||
+    !allowedRoles.includes(role)
+  ) {
     return [] as AiCapabilityKey[];
   }
 

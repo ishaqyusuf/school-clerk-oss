@@ -21,21 +21,34 @@ import {
 	TableHeader,
 	TableRow,
 } from "@school-clerk/ui/table";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpenText, Search, X } from "lucide-react";
+import { BookOpenText, School, Search, X } from "lucide-react";
 import { Fragment, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { _trpc } from "./static-trpc";
+
+type ClassroomFilterOption = {
+	id: string;
+	displayName?: string | null;
+	departmentName?: string | null;
+};
 
 type Props = {
 	departmentId: string;
 	termId: string;
 	selectedSubjectId?: string | null;
+	classrooms?: ClassroomFilterOption[];
+	onClassroomChange?: (departmentId: string) => void;
+	reportSheetHref?: string | null;
 };
 
 export function AssessmentRecordingResultsTable({
 	departmentId,
 	termId,
 	selectedSubjectId,
+	classrooms = [],
+	onClassroomChange,
+	reportSheetHref,
 }: Props) {
 	const [subjectFilterIds, setSubjectFilterIds] = useState<string[]>([]);
 	const [nameSearch, setNameSearch] = useState("");
@@ -107,6 +120,13 @@ export function AssessmentRecordingResultsTable({
 	const subjectFilterLabel = subjectFilterIds.length
 		? `${subjectFilterIds.length} selected`
 		: "All subjects";
+	const selectedClassroom = classrooms.find(
+		(classroom) => classroom.id === departmentId,
+	);
+	const selectedClassroomLabel =
+		selectedClassroom?.displayName ||
+		selectedClassroom?.departmentName ||
+		"Select classroom";
 
 	if (isLoading) {
 		return (
@@ -127,8 +147,8 @@ export function AssessmentRecordingResultsTable({
 
 	return (
 		<>
-			<div className="rounded-lg border bg-background">
-				<div className="flex flex-col gap-3 border-b p-3 md:flex-row md:items-center md:justify-between">
+			<div className="border-y bg-background">
+				<div className="flex flex-col gap-3 border-b bg-muted/10 p-3 md:flex-row md:items-center md:justify-between">
 					<div className="relative w-full md:max-w-xs">
 						<Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 						<Input
@@ -147,13 +167,37 @@ export function AssessmentRecordingResultsTable({
 							</button>
 						) : null}
 					</div>
-					<div className="flex flex-wrap items-center gap-2">
+					<div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
 						<span className="text-xs text-muted-foreground">
 							Click a subject to update assessments.
 						</span>
-						<Badge variant="outline" className="gap-1.5 rounded-full px-3 py-1">
+						<Badge variant="outline" className="gap-1.5 px-3 py-1">
 							{filteredStudents.length}/{data.studentTermForms.length} students
 						</Badge>
+						{classrooms.length ? (
+							<DropdownMenu dir="rtl">
+								<DropdownMenu.Trigger asChild>
+									<Button
+										variant="outline"
+										className="min-w-0 max-w-full justify-start gap-2 sm:max-w-56"
+									>
+										<School className="size-4 shrink-0" />
+										<span className="truncate">{selectedClassroomLabel}</span>
+									</Button>
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Content align="end" className="w-64">
+									{classrooms.map((classroom) => (
+										<DropdownMenu.Item
+											key={classroom.id}
+											dir="rtl"
+											onSelect={() => onClassroomChange?.(classroom.id)}
+										>
+											{classroom.displayName ?? classroom.departmentName}
+										</DropdownMenu.Item>
+									))}
+								</DropdownMenu.Content>
+							</DropdownMenu>
+						) : null}
 						<DropdownMenu>
 							<DropdownMenu.Trigger asChild>
 								<Button variant="outline" className="gap-2">
@@ -191,13 +235,22 @@ export function AssessmentRecordingResultsTable({
 								))}
 							</DropdownMenu.Content>
 						</DropdownMenu>
+						{reportSheetHref ? (
+							<Link
+								className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+								target="_blank"
+								href={reportSheetHref}
+							>
+								Report Sheet
+							</Link>
+						) : null}
 					</div>
 				</div>
 				<div className="max-h-[calc(100vh-180px)] overflow-auto">
 					<Table dir="rtl">
-						<TableHeader className="sticky top-0 z-10 bg-background">
+						<TableHeader className="sticky top-0 z-10 bg-muted/10">
 							<TableRow>
-								<TableHead rowSpan={2} className="sticky right-0 z-20 bg-background">
+								<TableHead rowSpan={2} className="sticky right-0 z-20 bg-muted/10">
 									Student
 								</TableHead>
 								{visibleSubjects.map((subject) => (
@@ -243,7 +296,7 @@ export function AssessmentRecordingResultsTable({
 						<TableBody>
 							{resultRows.length ? (
 								resultRows.map((row, index) => (
-									<TableRow key={row.student.id}>
+									<TableRow key={row.student.id} className="hover:bg-muted/30">
 										<TableCell className="sticky right-0 z-10 whitespace-nowrap bg-background">
 											{index + 1}. {getStudentDisplayName(row.student.student)}
 										</TableCell>

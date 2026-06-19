@@ -77,6 +77,14 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: missing tenant context returns an empty result set; queries shorter than 2 characters do not run remote record search.
 - Notes: results are tenant-scoped by `schoolProfileId`; classroom results are current-session scoped when session context is available and link to `/academic/classes?viewClassroomId=<departmentId>&classroomTab=students`; student results link to `/students/<studentId>`.
 
+## Assessment Contracts
+
+- Route: `assessments.getRecordingContextOptions`
+- Request schema: `{ termId?: string | null }`
+- Response schema: `{ scoped: boolean, terms, classrooms, defaultTermId: string | null, defaultDepartmentId: string | null }`, where each term includes `id`, `title`, `sessionId`, `sessionTitle`, `label`, `startDate`, and `endDate`.
+- Error cases: unauthenticated requests are rejected; missing tenant/session context returns empty scoped options for Teacher users; non-Teacher users receive unrestricted report terms and classrooms for the selected/default term.
+- Notes: Teacher users are scoped to non-deleted `StaffTermProfile` terms and `StaffClassroomDepartmentTermProfiles` classrooms. The assessment recording page uses URL/cookie/date-derived defaults to auto-correct invalid teacher deep links; if no date-current term can be inferred, the client asks the user to choose a current term and persists it through `switchSessionTerm`.
+
 ## School Signup And Owner Verification Contracts
 
 - Route/action: `createSaasProfileAction`

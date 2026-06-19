@@ -3,6 +3,7 @@ import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { GlobalSheets } from "@/components/sheets/global-sheets";
 import { HydrateClient } from "@/trpc/server";
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { getSession } from "@/auth/server";
 import { NavLayoutClient } from "@/components/nav-layout-client";
 import { GlobalModals } from "@/components/modals/global-modals";
 import { Button } from "@school-clerk/ui/button";
@@ -16,7 +17,7 @@ import {
 import { AlertTriangle } from "lucide-react";
 
 export default async function LayoutNew({ children }) {
-  const cookie = await getAuthCookie();
+  const [cookie, session] = await Promise.all([getAuthCookie(), getSession()]);
   if (!cookie?.schoolId) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4 py-8">
@@ -58,7 +59,13 @@ export default async function LayoutNew({ children }) {
 
   return (
     <HydrateClient>
-      <NavLayoutClient>{children}</NavLayoutClient>
+      <NavLayoutClient
+        initialRole={
+          (session?.user as { role?: string | null } | undefined)?.role ?? null
+        }
+      >
+        {children}
+      </NavLayoutClient>
 
       <Suspense>
         <GlobalSheets />

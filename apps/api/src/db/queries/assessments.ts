@@ -231,8 +231,6 @@ export async function getSubjectAssessmentRecordings(
   ctx: TRPCContext,
   query: GetSubjectAssessmentRecordingsSchema,
 ) {
-  await assertTeacherCanAccessDepartmentSubject(ctx, query.deparmentSubjectId);
-
   const { db } = ctx;
   const ds = await db.departmentSubject.findUniqueOrThrow({
     where: {
@@ -279,6 +277,13 @@ export async function getSubjectAssessmentRecordings(
       },
     },
   });
+
+  await assertTeacherCanAccessDepartmentSubject(
+    ctx,
+    query.deparmentSubjectId,
+    ds.sessionTermId,
+  );
+
   const studentTermForms = await db.studentTermForm.findMany({
     where: {
       sessionTermId: ds?.sessionTermId,

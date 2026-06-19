@@ -2,7 +2,12 @@ import {
   getClassroomReportSheet,
   getClassroomReportSheetSchema,
 } from "@api/db/queries/report-sheet";
-import { createTRPCRouter, publicProcedure } from "../init";
+import {
+  authenticatedProcedure,
+  createTRPCRouter,
+  publicProcedure,
+} from "../init";
+import { getClassrooms } from "@api/db/queries/classroom";
 
 import {
   deleteAssessment,
@@ -18,8 +23,277 @@ import {
   updateAssessmentScore,
   updateAssessmentScoreSchema,
 } from "@api/db/queries/assessments";
+import { classroomDisplayName } from "@school-clerk/utils";
 import { z } from "zod";
+
+const recordingContextOptionsSchema = z
+  .object({
+    termId: z.string().optional().nullable(),
+  })
+  .optional();
+
+function findCurrentDatedTerm<
+  T extends {
+    startDate: Date | null;
+    endDate: Date | null;
+  },
+>(terms: T[], now = new Date()) {
+  const startedTerms = terms.filter(
+    (term) => term.startDate && term.startDate <= now,
+  );
+  const activeBoundedTerm = startedTerms
+    .filter((term) => term.endDate && term.endDate >= now)
+    .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0];
+
+  if (activeBoundedTerm) return activeBoundedTerm;
+
+  return (
+    startedTerms
+      .filter((term) => !term.endDate)
+      .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0] ??
+    null
+  );
+}
+
+async function getReportTerms(ctx: Parameters<typeof getClassrooms>[0]) {
+  const terms = await ctx.db.sessionTerm.findMany({
+    where: {
+      schoolId: ctx.profile.schoolId,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      title: true,
+      startDate: true,
+      endDate: true,
+      session: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
+    },
+    orderBy: [
+      {
+        startDate: {
+          sort: "desc",
+          nulls: "last",
+        },
+      },
+      {
+        createdAt: "desc",
+      },
+    ],
+  });
+
+  return terms.map((term) => ({
+    id: term.id,
+    title: term.title,
+    sessionId: term.session?.id ?? null,
+    sessionTitle: term.session?.title ?? null,
+    label: [term.session?.title, term.title].filter(Boolean).join(" • "),
+    startDate: term.startDate,
+    endDate: term.endDate,
+  }));
+}
+
 export const assessmentRouter = createTRPCRouter({
+  getRecordingContextOptions: authenticatedProcedure
+    .input(recordingContextOptionsSchema)
+    .query(async ({ ctx, input }) => {
+      const currentUser = ctx.currentUser;
+
+      if (currentUser.role !== "Teacher") {
+        const terms = await getReportTerms(ctx);
+        const currentDatedTerm = findCurrentDatedTerm(terms);
+        const defaultTermId =
+          (input?.termId && terms.some((term) => term.id === input.termId)
+            ? input.termId
+            : null) ??
+          (terms.some((term) => term.id === ctx.profile.termId)
+            ? ctx.profile.termId
+            : null) ??
+          currentDatedTerm?.id ??
+          null;
+        const classrooms = defaultTermId
+          ? await getClassrooms(ctx, { sessionTermId: defaultTermId })
+          : { data: [] };
+
+        return {
+          scoped: false,
+          terms,
+          classrooms: classrooms.data,
+          defaultTermId,
+          defaultDepartmentId: null,
+        };
+      }
+
+      if (!ctx.profile.schoolId || !currentUser.email) {
+        return {
+          scoped: true,
+          terms: [],
+          classrooms: [],
+          defaultTermId: null,
+          defaultDepartmentId: null,
+        };
+      }
+
+      const staffProfile = await ctx.db.staffProfile.findFirst({
+        where: {
+          deletedAt: null,
+          schoolProfileId: ctx.profile.schoolId,
+          email: {
+            equals: currentUser.email,
+            mode: "insensitive",
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!staffProfile) {
+        return {
+          scoped: true,
+          terms: [],
+          classrooms: [],
+          defaultTermId: null,
+          defaultDepartmentId: null,
+        };
+      }
+
+      const termProfiles = await ctx.db.staffTermProfile.findMany({
+        where: {
+          deletedAt: null,
+          staffProfileId: staffProfile.id,
+          sessionTerm: {
+            deletedAt: null,
+            schoolId: ctx.profile.schoolId,
+          },
+        },
+        select: {
+          id: true,
+          sessionTerm: {
+            select: {
+              id: true,
+              title: true,
+              startDate: true,
+              endDate: true,
+              session: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const terms = termProfiles
+        .map((profile) => profile.sessionTerm)
+        .filter(Boolean)
+        .sort((a, b) => {
+          const aStart = a.startDate?.getTime() ?? 0;
+          const bStart = b.startDate?.getTime() ?? 0;
+          return bStart - aStart;
+        })
+        .map((term) => ({
+          id: term.id,
+          title: term.title,
+          sessionId: term.session?.id ?? null,
+          sessionTitle: term.session?.title ?? null,
+          label: [term.session?.title, term.title].filter(Boolean).join(" • "),
+          startDate: term.startDate,
+          endDate: term.endDate,
+        }));
+
+      const requestedTermId = input?.termId ?? null;
+      const cookieTermId = ctx.profile.termId ?? null;
+      const currentDatedTerm = findCurrentDatedTerm(terms);
+      const defaultTermId =
+        (requestedTermId && terms.some((term) => term.id === requestedTermId)
+          ? requestedTermId
+          : null) ??
+        (cookieTermId && terms.some((term) => term.id === cookieTermId)
+          ? cookieTermId
+          : null) ??
+        currentDatedTerm?.id ??
+        null;
+
+      const classroomAssignments = defaultTermId
+        ? await ctx.db.staffClassroomDepartmentTermProfiles.findMany({
+            where: {
+              deletedAt: null,
+              staffTermProfile: {
+                deletedAt: null,
+                staffProfileId: staffProfile.id,
+                sessionTermId: defaultTermId,
+              },
+              classRoomDepartment: {
+                deletedAt: null,
+                schoolProfileId: ctx.profile.schoolId,
+              },
+            },
+            select: {
+              classRoomDepartment: {
+                select: {
+                  id: true,
+                  departmentName: true,
+                  departmentLevel: true,
+                  classRoom: {
+                    select: {
+                      id: true,
+                      name: true,
+                      classLevel: true,
+                    },
+                  },
+                },
+              },
+            },
+            orderBy: [
+              {
+                classRoomDepartment: {
+                  classRoom: {
+                    classLevel: "asc",
+                  },
+                },
+              },
+              {
+                classRoomDepartment: {
+                  departmentLevel: "asc",
+                },
+              },
+              {
+                classRoomDepartment: {
+                  departmentName: "asc",
+                },
+              },
+            ],
+          })
+        : [];
+
+      const classrooms = classroomAssignments
+        .map((assignment) => assignment.classRoomDepartment)
+        .filter((department): department is NonNullable<typeof department> =>
+          Boolean(department),
+        )
+        .map((department) => ({
+          ...department,
+          displayName: classroomDisplayName({
+            className: department.classRoom?.name,
+            departmentName: department.departmentName,
+          }),
+        }));
+
+      return {
+        scoped: true,
+        terms,
+        classrooms,
+        defaultTermId,
+        defaultDepartmentId: classrooms[0]?.id ?? null,
+      };
+    }),
   saveAssessement: publicProcedure
     .input(saveAssessementSchema)
     .mutation(async (props) => {

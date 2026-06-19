@@ -56,6 +56,7 @@ Defines access control rules for each API surface.
 - If no permitted dashboard link is found, the app falls back to `/`.
 - Teachers now have a dedicated `/teacher` workspace module and authenticated teacher users are redirected there first instead of to mixed admin/academic navigation.
 - Teacher workspace routes are grouped under `(k-12-teachers)` and guarded so only Teacher-role users can access them directly.
+- Teacher sidebar navigation currently renders as a flat list of permitted links while non-teacher roles keep the module-grouped sidebar.
 
 ## Teacher/Classroom Authorization Status
 - The data model has teacher-to-classroom and teacher-to-subject assignment tables via `StaffClassroomDepartmentTermProfiles` and `StaffSubject`.

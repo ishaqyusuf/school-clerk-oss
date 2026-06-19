@@ -14,7 +14,11 @@ export async function getClassroomReportSheet(
   ctx: TRPCContext,
   query: GetClassroomReportSheetSchema
 ) {
-  await assertTeacherCanAccessClassroomDepartment(ctx, query.departmentId);
+  await assertTeacherCanAccessClassroomDepartment(
+    ctx,
+    query.departmentId,
+    query.sessionTermId,
+  );
 
   const { db } = ctx;
   const department = await db.classRoomDepartment.findUniqueOrThrow({

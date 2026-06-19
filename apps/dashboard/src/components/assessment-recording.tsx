@@ -1,173 +1,227 @@
 "use client";
+import { switchSessionTerm } from "@/actions/cookies/auth-cookie";
 import { AssessmentRecordingResultsTable } from "@/components/assessment-recording-results-table";
 import { _trpc } from "@/components/static-trpc";
-import { useAssessmentRecordingParams } from "@/hooks/use-assessment-recording-params";
-import { Card, DropdownMenu, Field, Select } from "@school-clerk/ui/composite";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronDown } from "lucide-react";
-import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useAuth } from "@/hooks/use-auth";
+import { useAssessmentRecordingParams } from "@/hooks/use-assessment-recording-params";
+import { Button } from "@school-clerk/ui/button";
+import { Dialog, Field, Select } from "@school-clerk/ui/composite";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export function AssessmentRecording() {
   const { filters, permissions, setFilters } = useAssessmentRecordingParams();
   const auth = useAuth();
-  const effectiveTermId = filters.termId ?? auth.profile?.termId ?? "";
-  const { data: terms, isLoading: isLoadingTerms } = useQuery(
-    _trpc.academics.getReportTerms.queryOptions(),
+  const [pendingCurrentTermId, setPendingCurrentTermId] = useState("");
+  const [isSavingCurrentTerm, setIsSavingCurrentTerm] = useState(false);
+  const syncedTermRef = useRef<string | null>(null);
+  const { data: contextOptions, isLoading: isLoadingContext } = useQuery(
+    _trpc.assessments.getRecordingContextOptions.queryOptions({
+      termId: filters.termId ?? null,
+    }),
   );
-  const { data: departments, isLoading: isLoadingDepartments } = useQuery(
-    _trpc.classrooms.all.queryOptions(
-      {
-        sessionTermId: effectiveTermId,
-      },
-      {
-        enabled: !!effectiveTermId && permissions.classrooms,
-      },
-    ),
+  const terms = contextOptions?.terms ?? [];
+  const departments = contextOptions?.classrooms ?? [];
+  const effectiveTermId =
+    (contextOptions?.scoped &&
+    filters.termId &&
+    terms.some((term) => term.id === filters.termId)
+      ? filters.termId
+      : null) ??
+    (contextOptions?.scoped
+      ? contextOptions.defaultTermId
+      : filters.termId ?? contextOptions?.defaultTermId) ??
+    "";
+  const effectiveDepartmentId =
+    (filters.deptId &&
+    departments.some((department) => department.id === filters.deptId)
+      ? filters.deptId
+      : null) ??
+    contextOptions?.defaultDepartmentId ??
+    "";
+  const selectedDepartment = departments.find(
+    (dept) => dept.id === effectiveDepartmentId,
   );
-  const selectedDepartment = departments?.data?.find(
-    (dept) => dept.id === filters.deptId,
+  const canLoadTable = contextOptions?.scoped
+    ? !!effectiveTermId && !!effectiveDepartmentId && !!selectedDepartment
+    : !!effectiveTermId && !!effectiveDepartmentId;
+  const needsSetup = !canLoadTable;
+  const canOpenReportSheet = auth.role === "Admin";
+  const shouldPickCurrentTerm =
+    !isLoadingContext && !!contextOptions && !effectiveTermId && terms.length > 0;
+  const termById = useMemo(
+    () => new Map(terms.map((term) => [term.id, term])),
+    [terms],
   );
-  const needsSetup = !filters.deptId || !effectiveTermId;
+  const emptyStateMessage = !terms.length
+    ? contextOptions?.scoped
+      ? "No assessment terms are assigned to your teacher profile yet."
+      : "No assessment terms are available yet."
+    : shouldPickCurrentTerm
+      ? "Pick the current term to continue."
+      : effectiveTermId && !departments.length
+        ? contextOptions?.scoped
+          ? "No classrooms are assigned to your teacher profile for this term."
+          : "No classrooms are available for this term."
+        : "No classroom is available for assessment recording.";
+
+  useEffect(() => {
+    if (!contextOptions || !effectiveTermId) return;
+
+    const hasValidTerm =
+      !!filters.termId && terms.some((term) => term.id === filters.termId);
+    const hasValidDepartment =
+      !!filters.deptId &&
+      departments.some((department) => department.id === filters.deptId);
+    const nextTermId = hasValidTerm ? filters.termId : effectiveTermId;
+    const nextDepartmentId = hasValidDepartment
+      ? filters.deptId
+      : contextOptions.defaultDepartmentId;
+    const patch: {
+      termId?: string | null;
+      deptId?: string | null;
+      deptSubjectId?: string | null;
+    } = {};
+
+    if ((filters.termId ?? null) !== nextTermId) {
+      patch.termId = nextTermId;
+      patch.deptSubjectId = null;
+    }
+
+    if ((filters.deptId ?? null) !== nextDepartmentId) {
+      patch.deptId = nextDepartmentId;
+      patch.deptSubjectId = null;
+    }
+
+    if (Object.keys(patch).length) {
+      setFilters(patch);
+    }
+
+    const selectedTerm = termById.get(effectiveTermId);
+    if (
+      selectedTerm &&
+      !auth.profile?.termId &&
+      syncedTermRef.current !== selectedTerm.id
+    ) {
+      syncedTermRef.current = selectedTerm.id;
+      switchSessionTerm({
+        termId: selectedTerm.id,
+        termTitle: selectedTerm.title,
+        sessionId: selectedTerm.sessionId,
+        sessionTitle: selectedTerm.sessionTitle,
+      }).catch(() => {
+        syncedTermRef.current = null;
+      });
+    }
+  }, [
+    auth.profile?.termId,
+    contextOptions,
+    departments,
+    effectiveTermId,
+    filters.deptId,
+    filters.termId,
+    setFilters,
+    termById,
+    terms,
+  ]);
+
+  useEffect(() => {
+    if (!shouldPickCurrentTerm || pendingCurrentTermId) return;
+    setPendingCurrentTermId(terms[0]?.id ?? "");
+  }, [pendingCurrentTermId, shouldPickCurrentTerm, terms]);
+
+  const saveCurrentTerm = async () => {
+    const selectedTerm = termById.get(pendingCurrentTermId);
+    if (!selectedTerm) return;
+
+    setIsSavingCurrentTerm(true);
+    try {
+      await switchSessionTerm({
+        termId: selectedTerm.id,
+        termTitle: selectedTerm.title,
+        sessionId: selectedTerm.sessionId,
+        sessionTitle: selectedTerm.sessionTitle,
+      });
+      await setFilters({
+        termId: selectedTerm.id,
+        deptId: null,
+        deptSubjectId: null,
+      });
+    } finally {
+      setIsSavingCurrentTerm(false);
+    }
+  };
 
   return (
     <>
       <div className="flex flex-col gap-4 px-2 py-3 sm:mx-auto sm:max-w-4xl sm:px-0 sm:py-4">
-        <div className="fixed inset-x-0 top-0 z-10 border-b border-border bg-background sm:left-1/2 sm:w-full sm:max-w-4xl sm:-translate-x-1/2">
-          <Card.Header
-            className="flex min-h-16 flex-wrap items-center gap-3 bg-background px-3 py-2 sm:flex-nowrap sm:px-6"
-            dir="rtl"
-          >
-            {!permissions.classrooms || (
-              <DropdownMenu dir="rtl">
-                <DropdownMenu.Trigger
-                  dir="rtl"
-                  className="flex max-w-full items-center gap-2 rounded-xl border border-border px-2 py-1 hover:bg-muted"
-                >
-                  <Card.Title className="max-w-[70vw] truncate text-base sm:max-w-xs">
-                    {selectedDepartment?.displayName || "Select Classroom"}
-                  </Card.Title>
-                  <div className="rounded-full size-4 p-0">
-                    <ChevronDown className="size-4" />
-                  </div>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content>
-                  {departments?.data?.map((dept) => (
-                    <DropdownMenu.Item
-                      onSelect={() =>
-                        setFilters({
-                          deptId: dept.id,
-                          deptSubjectId: null,
-                          termId: effectiveTermId || null,
-                        })
-                      }
-                      dir="rtl"
-                      key={dept?.id}
-                    >
-                      {dept?.departmentName}
-                    </DropdownMenu.Item>
-                  ))}
-                </DropdownMenu.Content>
-              </DropdownMenu>
-            )}
-            {permissions.all && filters.deptId && effectiveTermId ? (
-              <Link
-                className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                target="_blank"
-                href={`/student-report?deptId=${filters.deptId}&permission=all&termId=${effectiveTermId}`}
-              >
-                Report Sheet
-              </Link>
-            ) : null}
-          </Card.Header>
-        </div>
-        <div className="mt-16 mb-28">
+        <div className="mb-28">
           {!needsSetup ? (
             <AssessmentRecordingResultsTable
-              departmentId={filters.deptId}
+              departmentId={effectiveDepartmentId}
               termId={effectiveTermId}
               selectedSubjectId={filters.deptSubjectId}
+              classrooms={permissions.classrooms ? departments : []}
+              onClassroomChange={(deptId) => {
+                setFilters({
+                  deptId,
+                  deptSubjectId: null,
+                  termId: effectiveTermId || null,
+                });
+              }}
+              reportSheetHref={
+                canOpenReportSheet &&
+                permissions.all &&
+                effectiveDepartmentId &&
+                effectiveTermId
+                  ? `/student-report?deptId=${effectiveDepartmentId}&permission=all&termId=${effectiveTermId}`
+                  : null
+              }
             />
           ) : (
-            <div className="mx-auto mt-8 max-w-xl rounded-lg border border-border bg-background p-4 shadow-sm">
-              <div className="mb-4">
-                <h2 className="text-base font-semibold">
-                  Select assessment context
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Choose a term and classroom to continue.
-                </p>
-              </div>
-              <Field.Group className="grid gap-3 sm:grid-cols-2">
-                <Field>
-                  <Field.Label>Term</Field.Label>
-                  <Select
-                    value={effectiveTermId || undefined}
-                    onValueChange={(termId) => {
-                      setFilters({
-                        termId: termId || null,
-                        deptId: null,
-                        deptSubjectId: null,
-                      });
-                    }}
-                  >
-                    <Select.Trigger>
-                      <Select.Value
-                        placeholder={
-                          isLoadingTerms ? "Loading terms..." : "Select term"
-                        }
-                      />
-                    </Select.Trigger>
-                    <Select.Content>
-                      {terms?.map((term) => (
-                        <Select.Item value={term.id} key={term.id}>
-                          {term.label}
-                        </Select.Item>
-                      ))}
-                    </Select.Content>
-                  </Select>
-                </Field>
-                {!permissions.classrooms || (
-                  <Field>
-                    <Field.Label>Classroom</Field.Label>
-                    <Select
-                      dir="rtl"
-                      value={filters.deptId || undefined}
-                      disabled={!effectiveTermId || isLoadingDepartments}
-                      onValueChange={(deptId) => {
-                        setFilters({
-                          deptId,
-                          deptSubjectId: null,
-                          termId: effectiveTermId || null,
-                        });
-                      }}
-                    >
-                      <Select.Trigger>
-                        <Select.Value
-                          placeholder={
-                            !effectiveTermId
-                              ? "Select term first"
-                              : isLoadingDepartments
-                                ? "Loading classrooms..."
-                                : "Select classroom"
-                          }
-                        />
-                      </Select.Trigger>
-                      <Select.Content>
-                        {departments?.data?.map((dept) => (
-                          <Select.Item value={dept.id} key={dept.id}>
-                            {dept.displayName ?? dept.departmentName}
-                          </Select.Item>
-                        ))}
-                      </Select.Content>
-                    </Select>
-                  </Field>
-                )}
-              </Field.Group>
+            <div className="mx-auto mt-8 max-w-xl border-y border-border bg-background p-4 text-sm text-muted-foreground">
+              {isLoadingContext ? "Loading assessment context..." : emptyStateMessage}
             </div>
           )}
         </div>
       </div>
+      <Dialog.Root open={shouldPickCurrentTerm}>
+        <Dialog.Content className="max-w-md">
+          <Dialog.Header>
+            <Dialog.Title>Choose current term</Dialog.Title>
+            <Dialog.Description>
+              No date-current term could be detected. Pick the term to use for
+              this session.
+            </Dialog.Description>
+          </Dialog.Header>
+          <Field>
+            <Field.Label>Current term</Field.Label>
+            <Select
+              value={pendingCurrentTermId || undefined}
+              onValueChange={setPendingCurrentTermId}
+            >
+              <Select.Trigger>
+                <Select.Value placeholder="Select term" />
+              </Select.Trigger>
+              <Select.Content>
+                {terms.map((term) => (
+                  <Select.Item value={term.id} key={term.id}>
+                    {term.label}
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select>
+          </Field>
+          <div className="mt-4 flex justify-end">
+            <Button
+              onClick={saveCurrentTerm}
+              disabled={!pendingCurrentTermId || isSavingCurrentTerm}
+            >
+              {isSavingCurrentTerm ? "Saving..." : "Use this term"}
+            </Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Root>
     </>
   );
 }

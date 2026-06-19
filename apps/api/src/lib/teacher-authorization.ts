@@ -9,7 +9,7 @@ async function getTeacherStaffProfile(ctx: TRPCContext) {
     return null;
   }
 
-  if (!ctx.profile.schoolId || !ctx.profile.termId || !currentUser.user.email) {
+  if (!ctx.profile.schoolId || !currentUser.user.email) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Teacher access could not be resolved for this school term.",
@@ -43,11 +43,19 @@ async function getTeacherStaffProfile(ctx: TRPCContext) {
 export async function assertTeacherCanAccessClassroomDepartment(
   ctx: TRPCContext,
   classRoomDepartmentId?: string | null,
+  sessionTermId = ctx.profile.termId,
 ) {
   if (!classRoomDepartmentId) return;
 
   const staffProfile = await getTeacherStaffProfile(ctx);
   if (!staffProfile) return;
+
+  if (!sessionTermId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Teacher access could not be resolved for this school term.",
+    });
+  }
 
   const assignment = await ctx.db.staffClassroomDepartmentTermProfiles.findFirst({
     where: {
@@ -56,7 +64,7 @@ export async function assertTeacherCanAccessClassroomDepartment(
       staffTermProfile: {
         deletedAt: null,
         staffProfileId: staffProfile.id,
-        sessionTermId: ctx.profile.termId,
+        sessionTermId,
       },
     },
     select: {
@@ -75,6 +83,7 @@ export async function assertTeacherCanAccessClassroomDepartment(
 export async function assertTeacherCanAccessDepartmentSubject(
   ctx: TRPCContext,
   departmentSubjectId?: string | null,
+  sessionTermId = ctx.profile.termId,
 ) {
   if (!departmentSubjectId) return;
 
@@ -88,7 +97,7 @@ export async function assertTeacherCanAccessDepartmentSubject(
       departmentSubjectId,
       departmentSubject: {
         deletedAt: null,
-        sessionTermId: ctx.profile.termId,
+        ...(sessionTermId ? { sessionTermId } : {}),
       },
     },
     select: {
@@ -117,11 +126,17 @@ export async function assertTeacherCanAccessAssessment(
     },
     select: {
       departmentSubjectId: true,
+      departmentSubject: {
+        select: {
+          sessionTermId: true,
+        },
+      },
     },
   });
 
   await assertTeacherCanAccessDepartmentSubject(
     ctx,
     assessment?.departmentSubjectId,
+    assessment?.departmentSubject?.sessionTermId,
   );
 }

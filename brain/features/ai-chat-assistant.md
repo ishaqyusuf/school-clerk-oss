@@ -54,6 +54,7 @@ Provide tenant-aware dashboard AI that helps school staff complete real operatio
 ## Current Constraints
 
 - Prisma schema changes require migration rollout before the new AI persistence layer can work outside codegen/type-check level
+- The dashboard chat entry point and server capability gate are temporarily Admin-only while the assistant remains unreleased for staff-facing roles.
 - The route now enforces confirmation for risky mutations, but undo/reversal workflows are still domain-specific and not yet generalized
 - There is no automated eval harness yet; validation is currently based on isolated type-check coverage and runtime instrumentation design
 - Provider/model selection is configurable per tenant AI config; DeepSeek is the default preferred provider with `deepseek-chat` as the fallback model, but cost/performance routing is still static rather than intent-aware

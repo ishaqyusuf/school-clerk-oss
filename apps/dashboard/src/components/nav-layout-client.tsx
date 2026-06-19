@@ -15,13 +15,16 @@ import { useEffect, useRef } from "react";
 
 export function NavLayoutClient({
   children,
+  initialRole,
 }: {
   children: React.ReactNode;
+  initialRole?: string | null;
 }) {
   const auth = useAuth();
   const pathName = usePathname();
   const tenantUrl = useTenantUrl();
   const productPathName = tenantUrl?.context.productPath ?? pathName;
+  const canUseChat = initialRole === "Admin";
   const onLogout = () => {
     window.location.href = "/signout";
   };
@@ -61,9 +64,9 @@ export function NavLayoutClient({
         <SiteNav.Shell className="pb-8">
           <WorkspaceTermBootstrap />
           <Header />
-          <div className="px-6">{children}</div>
+          <div className="px-2 sm:px-6">{children}</div>
         </SiteNav.Shell>
-        <ChatWidget />
+        {canUseChat ? <ChatWidget /> : null}
       </div>
     </SiteNav.Provider>
   );

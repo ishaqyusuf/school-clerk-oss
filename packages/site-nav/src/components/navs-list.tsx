@@ -34,10 +34,11 @@ export function NavsList({
     linkModules,
     activeLink,
     isExpanded: _isExpanded,
-    props: { pathName: rawPathName },
+    props: { pathName: rawPathName, role },
   } = useSiteNav();
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const isExpanded = _isExpanded || mobile;
+  const isTeacherNav = role === "Teacher";
   const [expandModule, setExpandModule] = useState<string | null>(null);
   const [stableModuleName, setStableModuleName] = useState<string | null>(null);
   const [stableLinkModules, setStableLinkModules] = useState(linkModules);
@@ -48,6 +49,23 @@ export function NavsList({
   const normalizedPathName = useMemo(() => {
     return normalizeNavPath(rawPathName?.toLocaleLowerCase() || "");
   }, [rawPathName]);
+  const flatLinks = useMemo(() => {
+    return (renderedLinkModules?.modules || []).flatMap((module, moduleIndex) =>
+      (module?.sections || []).flatMap((section, sectionIndex) =>
+        (section?.links || [])
+          .filter((link): link is NonNullable<NavLink> => Boolean(link?.show))
+          .map((link, linkIndex) => ({
+            key: [
+              module?.name || `module-${moduleIndex}`,
+              section?.name || section?.title || `section-${sectionIndex}`,
+              link?.href || link?.name || `link-${linkIndex}`,
+            ].join(":"),
+            link,
+            module,
+          })),
+      ),
+    );
+  }, [renderedLinkModules?.modules]);
   const currentModuleName = useMemo(() => {
     const pathName = normalizedPathName;
     if (!pathName) return null;
@@ -125,128 +143,150 @@ export function NavsList({
     if (!isExpanded) return;
     setExpandModule(visibleModuleName);
   }, [isExpanded, visibleModuleName]);
+
   return (
     <div className="mt-3 w-full px-3">
       <nav className="w-full overflow-auto">
         <div className="flex flex-col gap-2.5">
-          {renderedLinkModules?.modules.map((module, mi) => {
-            if (isExpanded && !module?.activeLinkCount) return null;
-            const hasModuleTitle = Boolean(module?.name?.trim());
-            const isActiveModule = visibleModuleName === module?.name;
-            const isExpandedModule =
-              hasModuleTitle && expandModule === module.name;
-            const showExpandedState =
-              isExpanded &&
-              (!hasModuleTitle ||
-                isExpandedModule ||
-                (!visibleModuleName && !hasModuleTitle));
-            const showCollapsedState =
-              !isExpanded && (!hasModuleTitle || isActiveModule);
-            const show = showExpandedState || showCollapsedState;
-            return (
-              <Fragment key={module?.name || `module-${mi}`}>
-                {hasModuleTitle ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setExpandModule(isExpandedModule ? null : module.name);
-                    }}
-                    className={cn(
-                      "group mb-1.5 flex h-8 w-full cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 text-left transition-colors duration-200 hover:bg-sidebar-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-                      isExpandedModule &&
-                        "bg-sidebar-accent text-sidebar-foreground shadow-[inset_0_0_0_1px_rgba(99,91,255,0.08)]",
-                      !isExpanded && "hidden",
-                    )}
-                    aria-expanded={show}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <span
+          {isTeacherNav
+            ? flatLinks.map(({ key, link, module }) => (
+                <NavItem
+                  key={key}
+                  isExpanded={isExpanded}
+                  isItemExpanded={expandedItem === link.href}
+                  onSelect={onSelect}
+                  onToggle={(path) => {
+                    setExpandedItem(expandedItem === path ? null : path);
+                  }}
+                  item={link}
+                  module={module}
+                  isActive={isLinkActive(link)}
+                />
+              ))
+            : renderedLinkModules?.modules.map((module, mi) => {
+                if (isExpanded && !module?.activeLinkCount) return null;
+                const hasModuleTitle = Boolean(module?.name?.trim());
+                const isActiveModule = visibleModuleName === module?.name;
+                const isExpandedModule =
+                  hasModuleTitle && expandModule === module.name;
+                const showExpandedState =
+                  isExpanded &&
+                  (!hasModuleTitle ||
+                    isExpandedModule ||
+                    (!visibleModuleName && !hasModuleTitle));
+                const showCollapsedState =
+                  !isExpanded && (!hasModuleTitle || isActiveModule);
+                const show = showExpandedState || showCollapsedState;
+                return (
+                  <Fragment key={module?.name || `module-${mi}`}>
+                    {hasModuleTitle ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandModule(
+                            isExpandedModule ? null : module.name,
+                          );
+                        }}
                         className={cn(
-                          "block truncate text-[12px] font-medium text-sidebar-foreground/66 group-hover:text-sidebar-foreground",
+                          "group mb-1.5 flex h-8 w-full cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 text-left transition-colors duration-200 hover:bg-sidebar-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
                           isExpandedModule &&
-                            "font-semibold text-sidebar-foreground",
+                            "bg-sidebar-accent text-sidebar-foreground shadow-[inset_0_0_0_1px_rgba(99,91,255,0.08)]",
+                          !isExpanded && "hidden",
                         )}
+                        aria-expanded={show}
                       >
-                        {module.name}
-                      </span>
-                    </div>
-                    <Icons.chevronDown
-                      className={cn(
-                        "size-3.5 text-sidebar-foreground/38 transition-transform duration-200 group-hover:text-sidebar-foreground/70",
-                        isExpandedModule && "text-sidebar-foreground/80",
-                        show ? "" : "-rotate-90",
-                      )}
-                    />
-                  </button>
-                ) : null}
-                <div
-                  className={cn(
-                    "overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out",
-                    show
-                      ? "max-h-[3000px] opacity-100"
-                      : "pointer-events-none max-h-0 opacity-0",
-                  )}
-                >
-                  {module?.sections?.map((section, si) => (
-                    <div
-                      key={[
-                        module?.name || `module-${mi}`,
-                        section?.name || section?.title || "section",
-                        si,
-                      ].join(":")}
-                      className={cn(!section?.linksCount && "hidden")}
-                    >
-                      {!isExpanded && si > 0 ? null : (
-                        <div
-                          className={cn(
-                            "mx-4 mt-4 hidden text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/36",
-                            activeLink?.module !== module.name &&
-                              sectionLabel({
-                                renderMode: isExpanded
-                                  ? "default"
-                                  : "suppressed",
-                              }),
-                            !section?.title &&
-                              !section?.name &&
-                              (si > 0 || !module?.name) &&
-                              "hidden",
-                            isExpanded && si > 0 && "block",
-                          )}
-                        >
-                          {si === 0 && !isExpanded
-                            ? module.name
-                            : section?.title || section.name}
+                        <div className="min-w-0 flex-1">
+                          <span
+                            className={cn(
+                              "block truncate text-[12px] font-medium text-sidebar-foreground/66 group-hover:text-sidebar-foreground",
+                              isExpandedModule &&
+                                "font-semibold text-sidebar-foreground",
+                            )}
+                          >
+                            {module.name}
+                          </span>
                         </div>
+                        <Icons.chevronDown
+                          className={cn(
+                            "size-3.5 text-sidebar-foreground/38 transition-transform duration-200 group-hover:text-sidebar-foreground/70",
+                            isExpandedModule && "text-sidebar-foreground/80",
+                            show ? "" : "-rotate-90",
+                          )}
+                        />
+                      </button>
+                    ) : null}
+                    <div
+                      className={cn(
+                        "overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out",
+                        show
+                          ? "max-h-[3000px] opacity-100"
+                          : "pointer-events-none max-h-0 opacity-0",
                       )}
-                      <div>
-                        {section?.links
-                          ?.filter((l) => l?.show)
-                          ?.map((link, li) => (
-                            <Fragment
-                              key={link?.href || link?.name || `link-${li}`}
+                    >
+                      {module?.sections?.map((section, si) => (
+                        <div
+                          key={[
+                            module?.name || `module-${mi}`,
+                            section?.name || section?.title || "section",
+                            si,
+                          ].join(":")}
+                          className={cn(!section?.linksCount && "hidden")}
+                        >
+                          {!isExpanded && si > 0 ? null : (
+                            <div
+                              className={cn(
+                                "mx-4 mt-4 hidden text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/36",
+                                activeLink?.module !== module.name &&
+                                  sectionLabel({
+                                    renderMode: isExpanded
+                                      ? "default"
+                                      : "suppressed",
+                                  }),
+                                !section?.title &&
+                                  !section?.name &&
+                                  (si > 0 || !module?.name) &&
+                                  "hidden",
+                                isExpanded && si > 0 && "block",
+                              )}
                             >
-                              <NavItem
-                                isExpanded={isExpanded}
-                                isItemExpanded={expandedItem === link.href}
-                                onSelect={onSelect}
-                                onToggle={(path) => {
-                                  setExpandedItem(
-                                    expandedItem === path ? null : path,
-                                  );
-                                }}
-                                item={link}
-                                module={module}
-                                isActive={isLinkActive(link)}
-                              />
-                            </Fragment>
-                          ))}
-                      </div>
+                              {si === 0 && !isExpanded
+                                ? module.name
+                                : section?.title || section.name}
+                            </div>
+                          )}
+                          <div>
+                            {section?.links
+                              ?.filter((l) => l?.show)
+                              ?.map((link, li) => (
+                                <Fragment
+                                  key={
+                                    link?.href || link?.name || `link-${li}`
+                                  }
+                                >
+                                  <NavItem
+                                    isExpanded={isExpanded}
+                                    isItemExpanded={
+                                      expandedItem === link.href
+                                    }
+                                    onSelect={onSelect}
+                                    onToggle={(path) => {
+                                      setExpandedItem(
+                                        expandedItem === path ? null : path,
+                                      );
+                                    }}
+                                    item={link}
+                                    module={module}
+                                    isActive={isLinkActive(link)}
+                                  />
+                                </Fragment>
+                              ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </Fragment>
-            );
-          })}
+                  </Fragment>
+                );
+              })}
         </div>
       </nav>
     </div>
