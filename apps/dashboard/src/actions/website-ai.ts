@@ -25,6 +25,9 @@ function buildPrompt(input: GenerateWebsiteFieldAiInput) {
     `Section: ${input.sectionLabel}`,
     `Field label: ${input.field.label}`,
     `Field description: ${input.field.description}`,
+    input.field.aiDescription
+      ? `AI generation guidance: ${input.field.aiDescription}`
+      : null,
     `Content type: ${input.field.contentType}`,
     `Size guidance: ${input.field.sizeGuidance}`,
     input.field.tone ? `Tone: ${input.field.tone}` : null,
@@ -36,7 +39,7 @@ function buildPrompt(input: GenerateWebsiteFieldAiInput) {
 }
 
 export async function generateWebsiteFieldAi(
-  input: GenerateWebsiteFieldAiInput
+  input: GenerateWebsiteFieldAiInput,
 ) {
   if (!env.OPENAI_API_KEY) {
     return {

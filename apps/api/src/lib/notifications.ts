@@ -34,7 +34,7 @@ type CurrentUserContext = {
 function getNotificationEmailFrom() {
 	return (
 		process.env.RESEND_FROM_EMAIL ??
-		"School Clerk Notifications <notifications@school-clerkprodesk.com>"
+		"School Clerk Notifications <notifications@school-clerk.com>"
 	);
 }
 

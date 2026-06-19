@@ -40,7 +40,7 @@ type WebsitePublishTransactionClient = Pick<
 
 function appendAuditEntry(
   analyticsJson: unknown,
-  entry: Record<string, unknown>
+  entry: Record<string, unknown>,
 ): Prisma.InputJsonValue {
   const current =
     typeof analyticsJson === "object" && analyticsJson
@@ -90,7 +90,7 @@ export async function resolveSchoolProfileByHost(host: string) {
 }
 
 export async function getPublishedWebsiteConfigBySchoolProfileId(
-  schoolProfileId: string
+  schoolProfileId: string,
 ) {
   return prisma.websitePublishedConfig.findFirst({
     where: {
@@ -120,7 +120,7 @@ export async function getPublishedWebsiteConfigBySchoolProfileId(
 }
 
 export async function listWebsiteConfigsBySchoolProfileId(
-  schoolProfileId: string
+  schoolProfileId: string,
 ) {
   return prisma.websiteTemplateConfig.findMany({
     where: {
@@ -214,7 +214,7 @@ export async function getWebsiteConfigPreviewById(id: string) {
 }
 
 export async function listWebsiteMediaAssetsBySchoolProfileId(
-  schoolProfileId: string
+  schoolProfileId: string,
 ) {
   return websiteMediaClient.websiteMediaAsset.findMany({
     where: {
@@ -301,6 +301,7 @@ export async function updateWebsiteTemplateDraft(input: {
   seoJson?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
   analyticsJson?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
   templateVersion?: number;
+  templateId?: string;
   updatedByUserId?: string;
   name?: string;
 }) {
@@ -325,11 +326,14 @@ export async function updateWebsiteTemplateDraft(input: {
     },
     data: {
       ...(input.name ? { name: input.name } : {}),
+      ...(input.templateId ? { templateId: input.templateId } : {}),
       ...(input.contentJson ? { contentJson: input.contentJson } : {}),
       ...(input.sectionJson ? { sectionJson: input.sectionJson } : {}),
       ...(input.themeJson ? { themeJson: input.themeJson } : {}),
       ...(input.seoJson !== undefined ? { seoJson: input.seoJson } : {}),
-      ...(input.templateVersion ? { templateVersion: input.templateVersion } : {}),
+      ...(input.templateVersion
+        ? { templateVersion: input.templateVersion }
+        : {}),
       ...(input.analyticsJson !== undefined
         ? { analyticsJson: input.analyticsJson }
         : {

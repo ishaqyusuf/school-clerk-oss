@@ -13,12 +13,15 @@ export type TableId =
 	| "customers"
 	| "invoices"
 	| "vault"
+	| "students"
 	| "financeStreams"
 	| "financeItems"
 	| "financeCharges"
 	| "financePayments"
 	| "financeTransfers"
 	| "financeLedger";
+
+export type TableViewMode = "table" | "grid";
 
 /**
  * Settings for a single table
@@ -27,6 +30,8 @@ export interface TableSettings {
 	columns: VisibilityState;
 	sizing: ColumnSizingState;
 	order: ColumnOrderState;
+	showColumnDividers?: boolean;
+	viewMode?: TableViewMode;
 }
 
 /**
@@ -66,6 +71,7 @@ export const defaultHiddenColumns: Record<TableId, string[]> = {
 		"internalNote",
 	],
 	vault: [], // No hidden columns by default
+	students: [],
 	financeStreams: [],
 	financeItems: [],
 	financeCharges: [],
@@ -96,6 +102,7 @@ export function getDefaultTableSettings(tableId: TableId): TableSettings {
 		columns: getDefaultColumnVisibility(tableId),
 		sizing: {},
 		order: [],
+		viewMode: "table",
 	};
 }
 
@@ -108,9 +115,14 @@ export function mergeWithDefaults(
 ): TableSettings {
 	const defaults = getDefaultTableSettings(tableId);
 	return {
-		columns: saved?.columns ?? defaults.columns,
+		columns: {
+			...defaults.columns,
+			...saved?.columns,
+		},
 		sizing: saved?.sizing ?? defaults.sizing,
 		order: saved?.order ?? defaults.order,
+		showColumnDividers: saved?.showColumnDividers,
+		viewMode: saved?.viewMode ?? defaults.viewMode,
 	};
 }
 

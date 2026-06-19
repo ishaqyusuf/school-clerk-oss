@@ -1,13 +1,14 @@
 "use client";
 
-import { studentPageQuery } from "@/app/[domain]/(sidebar)/students/list/search-params";
-
 import { useStudentParams } from "@/hooks/use-student-params";
-import { useQueryStates } from "nuqs";
 
 import { Button } from "@school-clerk/ui/button";
 
-export function EmptyState() {
+type EmptyStateProps = {
+	onCreate?: () => void;
+};
+
+export function EmptyState({ onCreate }: EmptyStateProps) {
   const { setParams } = useStudentParams();
 
   return (
@@ -23,11 +24,16 @@ export function EmptyState() {
 
         <Button
           variant="outline"
-          onClick={() =>
+          onClick={() => {
+            if (onCreate) {
+              onCreate();
+              return;
+            }
+
             setParams({
               createStudent: true,
-            })
-          }
+            });
+          }}
         >
           Create Student
         </Button>
@@ -36,10 +42,11 @@ export function EmptyState() {
   );
 }
 
-export function NoResults() {
-  const [params, setParams] = useQueryStates({
-    ...studentPageQuery,
-  });
+type NoResultsProps = {
+  onClear?: () => void;
+};
+
+export function NoResults({ onClear }: NoResultsProps) {
   const q = useStudentParams();
   return (
     <div className="flex items-center justify-center ">
@@ -53,13 +60,18 @@ export function NoResults() {
 
         <Button
           variant="outline"
-          onClick={() =>
+          onClick={() => {
+            if (onClear) {
+              onClear();
+              return;
+            }
+
             q.setParams({
               createStudent: true,
-            })
-          }
+            });
+          }}
         >
-          Create
+          {onClear ? "Clear filters" : "Create"}
         </Button>
       </div>
     </div>

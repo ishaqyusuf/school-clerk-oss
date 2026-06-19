@@ -1,16 +1,21 @@
 # API Endpoints
 
 ## Purpose
+
 Catalog of API routes and responsibilities.
 
 ## How To Use
+
 - Update when endpoints are added, removed, or changed.
 - Keep route ownership and tenant scope explicit.
 - Link contracts and permissions docs.
 
 ## Template
+
 ## Domain Endpoints
+
 ### Student Management
+
 - `GET /students`
 - `POST /students`
 - `GET /students/:id`
@@ -18,21 +23,40 @@ Catalog of API routes and responsibilities.
 - `trpc.students.overview` (tenant-scoped student overview payload with active term options, identity fields, and first guardian for overview/page hosts)
 - `trpc.students.updateStudentBasicProfile` (tenant-scoped mutation for names, gender, DOB, and first parent/guardian details)
 - `trpc.students.getImportNameGuide` (tenant-scoped existing name-part guide for student import parsing)
-- `trpc.students.verifyStudentImport` (batch verify student import rows for duplicates, typos, and gender inference)
+- `trpc.students.verifyStudentImport` (batch verify student import rows for duplicates, typos, gender inference, and row-level classroom assignment)
 
 ### Admissions
+
 - `GET /admissions`
 - `POST /admissions`
+- `trpc.enrollmentLinks.listLinks`
+- `trpc.enrollmentLinks.createOrUpdateLink`
+- `trpc.enrollmentLinks.setLinkStatus`
+- `trpc.enrollmentLinks.getApplications`
+- `trpc.enrollmentLinks.approveApplication`
+- `trpc.enrollmentLinks.rejectApplication`
+- `school-site /enroll/[code]` public enrollment form and submission handlers
+
+### Public School Website
+
+- `school-site /login` public tenant-aware redirect to the resolved tenant's shared dashboard login. Website templates link here for sign-in; auth UI and dashboard routing are not template-owned.
+
+### Parent Portal
+
+- `trpc.parents.overview`
 
 ### Attendance
+
 - `GET /attendance`
 - `POST /attendance`
 
 ### Exams and Results
+
 - `GET /results`
 - `POST /results`
 
 ### External Examinations
+
 - `GET /external-exam-bodies`
 - `POST /external-exam-bodies`
 - `GET /external-exams`
@@ -48,6 +72,7 @@ Catalog of API routes and responsibilities.
 - `GET /external-exams/:examId/exports/candidates`
 
 ### Billing and Payments
+
 - `GET /invoices`
 - `POST /invoices`
 - `POST /payments`
@@ -69,15 +94,18 @@ Catalog of API routes and responsibilities.
 - `trpc.finance.reverseStudentPayment`
 
 ### Notifications
+
 - `trpc.notifications.list`
 - `trpc.notifications.unreadCount`
 - `trpc.notifications.markRead`
 - `trpc.notifications.markAllRead`
 
 ### Global Search
+
 - `trpc.search.global`
 
 ### Staff Management
+
 - `trpc.staff.getStaffList`
 - `trpc.staff.getFormData`
 - `trpc.staff.createStaff`
@@ -87,10 +115,12 @@ Catalog of API routes and responsibilities.
 - `action.completeStaffOnboardingAction`
 
 ### PDF Output
+
 - `GET /api/pdf/student-payment-receipt`
 - `GET /api/pdf/result`
 
 ### AI Chat
+
 - `POST /api/chat`
 - `GET /api/chat/conversations`
 - `POST /api/chat/conversations`
@@ -102,6 +132,7 @@ Catalog of API routes and responsibilities.
 - `POST /api/chat/feedback`
 
 ## Router Ownership Map
+
 - `trpc.students.*`: student listing, detail, overview, student-centric workflows, focused basic-profile edits, and **student import** (`createStudent`, `updateStudentBasicProfile`, `getImportNameGuide`, `executeStudentImport`)
 - `trpc.classrooms.*`: classroom lists, overview, and classroom-scoped actions
 - `trpc.academics.*`: academic session, term, enrollment, and promotion flows (includes `entrollStudentToTerm` used during import workflow)
@@ -112,8 +143,11 @@ Catalog of API routes and responsibilities.
 - `trpc.notifications.*`: notification list/read/count actions
 - `trpc.search.global`: tenant-scoped command palette search across local navigation plus remote student, classroom, and staff records
 - `trpc.subjects.*`, `trpc.enrollments.*`, `trpc.assessments.*`, `trpc.filters.*`, `trpc.auth.*`: domain-specific supporting routers
+- `trpc.enrollmentLinks.*`: authenticated Admin/Registrar management for public enrollment links and pending applications
+- `trpc.parents.*`: authenticated Parent overview data scoped through linked guardian records
 - `app/api/chat/*`: dashboard AI chat execution, single-chat bootstrap, settings, analytics, and feedback surfaces
 
 ### Student Import
+
 - `trpc.students.getImportNameGuide`: compact query returning unique tenant-scoped existing student name parts from `name`, `surname`, and `otherName` for guided import parsing.
-- `trpc.students.executeStudentImport`: batch mutation applying import-new, keep-match, and update-match-with-name actions. Creates students and term sheets idempotently, validates classroom/session ancestry, applies fee histories.
+- `trpc.students.executeStudentImport`: batch mutation applying import-new, keep-match, and update-match-with-name actions. Creates students and term sheets idempotently, validates each row's classroom/session ancestry, applies fee histories.

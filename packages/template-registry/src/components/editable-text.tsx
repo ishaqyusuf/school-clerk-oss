@@ -1,6 +1,7 @@
 "use client";
 
 import { useWebsiteEditor } from "../editor-context";
+import type { WebsiteTemplateMode } from "../types";
 
 export function EditableText({
   as: Tag,
@@ -19,7 +20,7 @@ export function EditableText({
   objectListIndex?: number;
   objectListItemKey?: string;
   fallback: string;
-  mode: "preview" | "editor" | "production";
+  mode: WebsiteTemplateMode;
   className?: string;
   style?: React.CSSProperties;
 }) {
@@ -74,7 +75,7 @@ export function EditableText({
             objectListKey,
             objectListIndex,
             objectListItemKey,
-            nextValue
+            nextValue,
           );
           return;
         }

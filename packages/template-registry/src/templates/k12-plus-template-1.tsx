@@ -1,8 +1,11 @@
-import type { CSSProperties, ReactNode } from "react";
 import { EditableMedia } from "../components/editable-media";
 import { EditableText } from "../components/editable-text";
 import { SectionFrame } from "../components/section-frame";
-import { useWebsiteEditor } from "../editor-context";
+import {
+  PageShell,
+  RepeatableAddButton,
+  RepeatableItemActions,
+} from "./k12-plus-template-1-client";
 import {
   createAnnouncementCardBlockField,
   createFeatureCardBlockField,
@@ -113,444 +116,12 @@ function getCollectionItem(
   return items.find((item) => item.slug === slug) ?? items[0];
 }
 
-function getEmptyBlockItem(
-  preset:
-    | "testimonials"
-    | "gallery"
-    | "feature-cards"
-    | "stat-cards"
-    | "staff-cards"
-    | "announcement-cards"
-) {
-  switch (preset) {
-    case "testimonials":
-      return { quote: "", name: "", role: "" } as Record<string, string>;
-    case "gallery":
-      return { title: "", description: "", imageUrl: "" } as Record<string, string>;
-    case "feature-cards":
-      return { title: "", description: "" } as Record<string, string>;
-    case "stat-cards":
-      return { value: "", label: "" } as Record<string, string>;
-    case "staff-cards":
-      return { name: "", role: "", bio: "", imageUrl: "" } as Record<string, string>;
-    case "announcement-cards":
-      return { date: "", title: "", description: "" } as Record<string, string>;
-  }
-}
-
-function RepeatableItemActions({
-  mode,
-  objectListKey,
-  itemIndex,
-}: {
-  mode: WebsiteTemplateRenderContext["mode"];
-  objectListKey: string;
-  itemIndex: number;
-}) {
-  const editor = useWebsiteEditor();
-
-  if (mode !== "editor" || !editor) return null;
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: 12,
-        right: 12,
-        zIndex: 1,
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => editor.removeObjectListItem(objectListKey, itemIndex)}
-        style={inlineCanvasButtonStyle}
-      >
-        Remove
-      </button>
-    </div>
-  );
-}
-
-function RepeatableAddButton({
-  mode,
-  objectListKey,
-  preset,
-  label,
-}: {
-  mode: WebsiteTemplateRenderContext["mode"];
-  objectListKey: string;
-  preset:
-    | "testimonials"
-    | "gallery"
-    | "feature-cards"
-    | "stat-cards"
-    | "staff-cards"
-    | "announcement-cards";
-  label: string;
-}) {
-  const editor = useWebsiteEditor();
-
-  if (mode !== "editor" || !editor) return null;
-
-  return (
-    <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 16 }}>
-      <button
-        type="button"
-        onClick={() => editor.addObjectListItem(objectListKey, getEmptyBlockItem(preset))}
-        style={inlineCanvasButtonStyle}
-      >
-        Add {label}
-      </button>
-    </div>
-  );
-}
-
-function PageShell({
-  context,
-  eyebrow,
-  title,
-  body,
-  cta,
-  imageUrl,
-  highlights,
-  testimonials,
-  gallery,
-  children,
-}: {
-  context: WebsiteTemplateRenderContext;
-  eyebrow: string;
-  title: string;
-  body: string;
-  cta?: string;
-  imageUrl?: string;
-  highlights?: string[];
-  testimonials?: Array<Record<string, string>>;
-  gallery?: Array<Record<string, string>>;
-  children?: ReactNode;
-}) {
-  const theme = context.config.themeConfig;
-  const editor = useWebsiteEditor();
-  const safeTestimonials = testimonials ?? [];
-  const safeGallery = gallery ?? [];
-
-  return (
-    <main
-      style={{
-        background: `linear-gradient(180deg, ${theme.secondaryColor} 0%, #ffffff 35%, #f8fafc 100%)`,
-        color: "#0f172a",
-        minHeight: "100vh",
-        fontFamily: theme.bodyFont,
-      }}
-    >
-      <section
-        style={{
-          margin: "0 auto",
-          maxWidth: 1120,
-          padding: "72px 24px 24px",
-        }}
-      >
-        <div
-          style={{
-            display: "grid",
-            gap: 28,
-            alignItems: "center",
-            gridTemplateColumns: imageUrl ? "minmax(0, 1.1fr) minmax(320px, 0.9fr)" : "1fr",
-          }}
-        >
-          <div>
-            <EditableText
-              as="div"
-              fieldKey={`${context.pageKey}.hero.kicker`}
-              fallback={eyebrow}
-              mode={context.mode}
-              style={{
-                display: "inline-flex",
-                borderRadius: 999,
-                background: "rgba(255,255,255,0.7)",
-                border: `1px solid ${theme.primaryColor}22`,
-                color: theme.primaryColor,
-                fontSize: 12,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                padding: "8px 12px",
-                textTransform: "uppercase",
-              }}
-            />
-            <EditableText
-              as="h1"
-              fieldKey={`${context.pageKey}.hero.title`}
-              fallback={title}
-              mode={context.mode}
-              style={{
-                fontFamily: theme.headingFont,
-                fontSize: "clamp(2.5rem, 5vw, 4.5rem)",
-                lineHeight: 1.02,
-                margin: "20px 0 16px",
-                maxWidth: 760,
-              }}
-            />
-            <EditableText
-              as="p"
-              fieldKey={`${context.pageKey}.hero.body`}
-              fallback={body}
-              mode={context.mode}
-              style={{
-                fontSize: 18,
-                lineHeight: 1.7,
-                margin: 0,
-                maxWidth: 760,
-              }}
-            />
-            {cta ? (
-              <div style={{ marginTop: 24 }}>
-                <button
-                  type="button"
-                  style={{
-                    border: "none",
-                    borderRadius: 999,
-                    background: theme.primaryColor,
-                    color: "#ffffff",
-                    padding: "14px 20px",
-                    fontWeight: 700,
-                    cursor: context.mode === "editor" ? "default" : "pointer",
-                  }}
-                >
-                  <EditableText
-                    as="span"
-                    fieldKey={`${context.pageKey}.hero.cta`}
-                    fallback={cta}
-                    mode={context.mode}
-                    style={{ color: "inherit" }}
-                  />
-                </button>
-              </div>
-            ) : null}
-            {highlights?.length ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 10,
-                  marginTop: 20,
-                }}
-              >
-                {highlights.map((item, index) => (
-                  <div
-                    key={`${item}-${index}`}
-                    style={{
-                      borderRadius: 999,
-                      border: `1px solid ${theme.primaryColor}22`,
-                      background: "#ffffff",
-                      padding: "10px 14px",
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            {safeTestimonials.length || context.mode === "editor" ? (
-              <div>
-                <div
-                  style={{
-                    display: "grid",
-                    gap: 14,
-                    marginTop: 24,
-                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  }}
-                >
-                  {safeTestimonials.map((item, index) => (
-                    <article
-                      key={`${item.name ?? "testimonial"}-${index}`}
-                      style={{
-                        position: "relative",
-                        background: "rgba(255,255,255,0.82)",
-                        border: "1px solid rgba(15, 76, 129, 0.12)",
-                        borderRadius: 24,
-                        padding: 18,
-                      }}
-                    >
-                      <RepeatableItemActions
-                        mode={context.mode}
-                        objectListKey="home.hero.testimonials"
-                        itemIndex={index}
-                      />
-                      <p style={{ fontSize: 14, lineHeight: 1.7, margin: 0 }}>
-                        "{item.quote}"
-                      </p>
-                      <p style={{ margin: "14px 0 0", fontWeight: 700 }}>
-                        {item.name}
-                      </p>
-                      <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748b" }}>
-                        {item.role}
-                      </p>
-                    </article>
-                  ))}
-                </div>
-                <RepeatableAddButton
-                  mode={context.mode}
-                  objectListKey="home.hero.testimonials"
-                  preset="testimonials"
-                  label="Testimonial"
-                />
-              </div>
-            ) : null}
-          </div>
-          {imageUrl ? (
-            <div
-              style={{
-                minHeight: 340,
-                borderRadius: 28,
-                overflow: "hidden",
-                border: "1px solid rgba(15, 76, 129, 0.12)",
-                boxShadow: "0 24px 60px rgba(15, 23, 42, 0.12)",
-                background: "#dbeafe",
-              }}
-            >
-              <EditableMedia
-                alt={`${context.tenant.schoolName} campus preview`}
-                fieldKey={`${context.pageKey}.hero.imageUrl`}
-                fallback={imageUrl}
-                mode={context.mode}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  height: "100%",
-                  minHeight: 340,
-                  objectFit: "cover",
-                }}
-              />
-            </div>
-          ) : null}
-        </div>
-        {safeGallery.length || context.mode === "editor" ? (
-          <div
-            style={{
-              display: "grid",
-              gap: 16,
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              marginTop: 28,
-            }}
-          >
-            {safeGallery.map((item, index) => (
-              <article
-                key={`${item.title ?? "gallery"}-${index}`}
-                style={{
-                  position: "relative",
-                  overflow: "hidden",
-                  borderRadius: 24,
-                  border: "1px solid rgba(15, 76, 129, 0.12)",
-                  background: "#ffffff",
-                }}
-              >
-                <RepeatableItemActions
-                  mode={context.mode}
-                  objectListKey="home.hero.gallery"
-                  itemIndex={index}
-                />
-                <EditableMedia
-                  alt={item.title || `Gallery item ${index + 1}`}
-                  fallback={item.imageUrl || ""}
-                  mode={context.mode}
-                  objectListKey="home.hero.gallery"
-                  objectListIndex={index}
-                  objectListItemKey="imageUrl"
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    height: 180,
-                    objectFit: "cover",
-                    background: "#dbeafe",
-                    borderRadius: 0,
-                  }}
-                />
-                <div style={{ padding: 16 }}>
-                  <p style={{ margin: 0, fontWeight: 700 }}>{item.title}</p>
-                  <p
-                    style={{
-                      margin: "8px 0 0",
-                      fontSize: 13,
-                      lineHeight: 1.6,
-                      color: "#64748b",
-                    }}
-                  >
-                    {item.description}
-                  </p>
-                </div>
-              </article>
-            ))}
-            <div style={{ gridColumn: "1 / -1" }}>
-              <RepeatableAddButton
-                mode={context.mode}
-                objectListKey="home.hero.gallery"
-                preset="gallery"
-                label="Gallery Item"
-              />
-            </div>
-          </div>
-        ) : null}
-      </section>
-      <section
-        style={{
-          margin: "0 auto",
-          maxWidth: 1120,
-          padding: "24px",
-        }}
-      >
-        <nav
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            marginBottom: 28,
-          }}
-        >
-          {[
-            ["/", "Home"],
-            ["/about", "About"],
-            ["/admissions", "Admissions"],
-            ["/blog", "Blog"],
-            ["/contact", "Contact"],
-          ].map(([href, label]) => (
-            <a
-              key={href}
-              href={context.mode === "editor" ? "#" : href}
-              onClick={(event) => {
-                if (context.mode === "editor") event.preventDefault();
-              }}
-              style={{
-                borderRadius: 999,
-                border: `1px solid ${theme.primaryColor}22`,
-                color: theme.primaryColor,
-                padding: "10px 14px",
-                textDecoration: "none",
-                background: "#ffffff",
-                fontWeight: 600,
-                opacity: context.mode === "editor" ? 0.7 : 1,
-              }}
-            >
-              {label}
-            </a>
-          ))}
-        </nav>
-        {context.mode === "editor" && editor ? (
-          <p
-            style={{
-              margin: "0 0 20px",
-              color: "#475569",
-              fontSize: 13,
-            }}
-          >
-            Inline editing is active. Click highlighted text blocks to edit them
-            directly in the preview.
-          </p>
-        ) : null}
-        {children}
-      </section>
-    </main>
-  );
+function collectionToAnnouncementCards(items: WebsiteCollectionItem[]) {
+  return items.map((item) => ({
+    date: item.publishedAt ?? "",
+    title: item.title,
+    description: item.excerpt,
+  }));
 }
 
 function HomePage(context: WebsiteTemplateRenderContext) {
@@ -573,12 +144,12 @@ function HomePage(context: WebsiteTemplateRenderContext) {
         title={getCopy(
           context,
           "home.hero.title",
-          "Build a public school website that actually converts interest into enrollment."
+          `Welcome to ${context.tenant.schoolName}, where every child is known and challenged.`
         )}
         body={getCopy(
           context,
           "home.hero.body",
-          "This starter template registry scaffold proves the public runtime can render from manifest and configuration instead of hardcoded pages."
+          "Discover a caring school community with strong academics, attentive teachers, and a clear path from first enquiry to confident enrollment."
         )}
         cta={getCopy(context, "home.hero.cta", "Start Admission Enquiry")}
         imageUrl={getCopy(
@@ -587,34 +158,34 @@ function HomePage(context: WebsiteTemplateRenderContext) {
           "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1200&q=80"
         )}
         highlights={getList(context, "home.hero.highlights", [
-          "Multi-page templates",
-          "Admissions ready",
-          "Parent-friendly messaging",
+          "Small classes and personal attention",
+          "Clear admissions support",
+          "A safe, joyful campus culture",
         ])}
         testimonials={getObjectList(context, "home.hero.testimonials", [
           {
             quote:
-              "The website made our admissions process feel clearer and more reassuring from the first visit.",
-            name: "Parent Community",
-            role: "Prospective Family Feedback",
+              "Our children are known by name, encouraged by their teachers, and excited to talk about what they learn each day.",
+            name: "Parent Family",
+            role: "School Community",
           },
           {
             quote:
-              "We finally have a public site that feels polished enough for our school brand.",
+              "The school combines academic structure with the warmth families hope to find when choosing a place for their children.",
             name: "School Leadership",
-            role: "Administrative Team",
+            role: "Leadership Team",
           },
         ])}
         gallery={getObjectList(context, "home.hero.gallery", [
           {
             title: "Campus Welcome",
-            description: "Show families the atmosphere they can expect on visit day.",
+            description: "Families are welcomed into calm learning spaces, friendly classrooms, and a community built around student growth.",
             imageUrl:
               "https://images.unsplash.com/photo-1519452575417-564c1401ecc0?auto=format&fit=crop&w=1200&q=80",
           },
           {
             title: "Learning Spaces",
-            description: "Use visual proof to support your academic positioning.",
+            description: "Classrooms, libraries, and activity spaces support focused learning, collaboration, and creativity.",
             imageUrl:
               "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=80",
           },
@@ -647,7 +218,23 @@ function HomePage(context: WebsiteTemplateRenderContext) {
                     getObjectList(
                       context,
                       getScopedContentKey(sectionEntryKey, "cards"),
-                      getObjectList(context, "home.features.cards", [])
+                      getObjectList(context, "home.features.cards", [
+                        {
+                          title: "A strong academic foundation",
+                          description:
+                            "Students build confidence in literacy, numeracy, science, humanities, and creative learning through a balanced curriculum.",
+                        },
+                        {
+                          title: "Teachers who know each learner",
+                          description:
+                            "Class teams pay attention to progress, character, and wellbeing so every child receives the support they need.",
+                        },
+                        {
+                          title: "A clear journey for families",
+                          description:
+                            "From enquiry to enrollment, families receive practical guidance, transparent next steps, and warm communication.",
+                        },
+                      ])
                     )
                   ).map((item, index) => (
                     <article
@@ -726,7 +313,20 @@ function HomePage(context: WebsiteTemplateRenderContext) {
                     getObjectList(
                       context,
                       getScopedContentKey(sectionEntryKey, "cards"),
-                      getObjectList(context, "home.stats.cards", [])
+                      getObjectList(context, "home.stats.cards", [
+                        {
+                          value: "12:1",
+                          label: "Typical student-teacher ratio",
+                        },
+                        {
+                          value: "24+",
+                          label: "Clubs and enrichment activities",
+                        },
+                        {
+                          value: "100%",
+                          label: "Focus on student wellbeing",
+                        },
+                      ])
                     )
                   ).map((item, index) => (
                     <article
@@ -792,7 +392,22 @@ function HomePage(context: WebsiteTemplateRenderContext) {
             const staffCards = getObjectList(
               context,
               getScopedContentKey(sectionEntryKey, "cards"),
-              getObjectList(context, "home.staff.cards", [])
+              getObjectList(context, "home.staff.cards", [
+                {
+                  name: "Mrs. Amina Yusuf",
+                  role: "Head of School",
+                  bio: "Leads the school with a commitment to academic excellence, student care, and a strong partnership with families.",
+                  imageUrl:
+                    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=1200&q=80",
+                },
+                {
+                  name: "Mr. Daniel Okafor",
+                  role: "Admissions Lead",
+                  bio: "Helps families understand the school journey, prepare application documents, and plan a confident visit.",
+                  imageUrl:
+                    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=1200&q=80",
+                },
+              ])
             );
 
             return (
@@ -895,7 +510,13 @@ function HomePage(context: WebsiteTemplateRenderContext) {
             const announcements = getObjectList(
               context,
               getScopedContentKey(sectionEntryKey, "cards"),
-              getObjectList(context, "home.announcements.cards", [])
+              getObjectList(
+                context,
+                "home.announcements.cards",
+                collectionToAnnouncementCards(
+                  getCollectionItems(context, "announcements")
+                )
+              )
             );
 
             return (
@@ -983,11 +604,15 @@ function AboutPage(context: WebsiteTemplateRenderContext) {
       <PageShell
         context={context}
         eyebrow="About the School"
-        title={getCopy(context, "about.story.title", "A clear story builds trust")}
+        title={getCopy(
+          context,
+          "about.story.title",
+          `A caring school community for every learner`
+        )}
         body={getCopy(
           context,
           "about.story.body",
-          "Use this page to introduce the school mission, learning philosophy, and reasons families should believe in the experience."
+          `${context.tenant.schoolName} partners with families to nurture confident learners, thoughtful character, and the habits students need for the next stage of school and life.`
         )}
       />
     </SectionFrame>
@@ -1006,12 +631,12 @@ function AdmissionsPage(context: WebsiteTemplateRenderContext) {
         title={getCopy(
           context,
           "admissions.process.title",
-          "Admissions should feel simple before they feel formal"
+          "A clear admissions path for your family"
         )}
         body={getCopy(
           context,
           "admissions.process.body",
-          "Highlight timelines, entry points, required documents, and the parent journey from enquiry to confirmed enrollment."
+          "Book a visit, speak with the admissions team, review entry requirements, and submit the documents needed for the right class placement."
         )}
       />
     </SectionFrame>
@@ -1030,12 +655,12 @@ function BlogListPage(context: WebsiteTemplateRenderContext) {
         title={getCopy(
           context,
           "blog-list.intro.title",
-          "Stories that keep the school community close"
+          "Stories and updates from school life"
         )}
         body={getCopy(
           context,
           "blog-list.intro.body",
-          "This scaffold uses a page placeholder today, and the production platform will later hydrate it from tenant-owned news and blog resources."
+          "Read campus news, classroom highlights, student achievements, family notices, and reflections from across the school community."
         )}
       >
         <div
@@ -1113,8 +738,8 @@ function EventListPage(context: WebsiteTemplateRenderContext) {
     <PageShell
       context={context}
       eyebrow="Events"
-      title="Campus moments worth showing up for"
-      body="Promote open days, school fairs, orientation programs, and academic showcases with clear next steps."
+      title="Upcoming events and school activities"
+      body="Find open days, parent meetings, academic showcases, orientation programs, and community moments worth adding to the family calendar."
     >
       <div style={{ display: "grid", gap: 16 }}>
         {getCollectionItems(context, "events").map((event) => (
@@ -1175,8 +800,8 @@ function ResourceListPage(context: WebsiteTemplateRenderContext) {
     <PageShell
       context={context}
       eyebrow="Resources"
-      title="Helpful resources for prospective families"
-      body="Organize forms, guides, and admissions downloads in one place."
+      title="Helpful resources for families"
+      body="Access admissions guidance, school calendars, family handbooks, forms, and documents that help parents stay prepared."
     >
       <div style={{ display: "grid", gap: 16 }}>
         {getCollectionItems(context, "resources").map((resource) => (
@@ -1243,12 +868,12 @@ function ContactPage(context: WebsiteTemplateRenderContext) {
         title={getCopy(
           context,
           "contact.info.title",
-          "Open the conversation with prospective families"
+          "Speak with the school team"
         )}
         body={getCopy(
           context,
           "contact.info.body",
-          "Share phone numbers, office hours, location, social links, and admissions contact details in a calm and confident layout."
+          "Contact the school office for tours, admissions guidance, class placement questions, office hours, and directions to campus."
         )}
       />
     </SectionFrame>
@@ -1293,6 +918,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "home.hero.kicker",
                 label: "Hero kicker",
                 description: "Short trust-building eyebrow above the headline.",
+                aiDescription:
+                  "Write a short school-facing eyebrow for families visiting the school's public website.",
                 contentType: "short-text",
                 sizeGuidance: "2-5 words",
               },
@@ -1300,6 +927,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "home.hero.title",
                 label: "Hero title",
                 description: "Main homepage headline introducing the school.",
+                aiDescription:
+                  "Write a warm homepage headline for a real school speaking to prospective parents.",
                 contentType: "short-text",
                 sizeGuidance: "4-10 words",
               },
@@ -1307,6 +936,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "home.hero.body",
                 label: "Hero body",
                 description: "Supporting hero copy for homepage.",
+                aiDescription:
+                  "Write clear school homepage copy about academics, care, campus life, and admissions confidence.",
                 contentType: "long-text",
                 sizeGuidance: "20-60 words",
               },
@@ -1314,6 +945,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "home.hero.cta",
                 label: "Hero CTA",
                 description: "Primary call-to-action label for the homepage hero.",
+                aiDescription:
+                  "Write a parent-facing admissions or visit call-to-action label.",
                 contentType: "cta",
                 sizeGuidance: "2-5 words",
               },
@@ -1321,6 +954,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "home.hero.highlights",
                 label: "Hero highlights",
                 description: "Short supporting highlight list for the hero area, one item per line.",
+                aiDescription:
+                  "Write three short school strengths families can understand quickly.",
                 contentType: "list",
                 sizeGuidance: "3 short lines",
               },
@@ -1349,7 +984,7 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
               createFeatureCardBlockField({
                 key: "home.features.cards",
                 description:
-                  "Homepage feature cards that explain the value of the school or the website experience.",
+                  "Homepage feature cards that explain the school experience, academics, care, and admissions journey.",
               }),
             ],
           },
@@ -1403,6 +1038,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "about.story.title",
                 label: "About title",
                 description: "Primary heading for the about page.",
+                aiDescription:
+                  "Write an about-page heading for a school describing its mission and community.",
                 contentType: "short-text",
                 sizeGuidance: "4-9 words",
               },
@@ -1410,6 +1047,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "about.story.body",
                 label: "About body",
                 description: "School story and positioning on the about page.",
+                aiDescription:
+                  "Write an about-page paragraph for a school covering mission, learning culture, and family trust.",
                 contentType: "long-text",
                 sizeGuidance: "30-80 words",
               },
@@ -1431,6 +1070,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "admissions.process.title",
                 label: "Admissions title",
                 description: "Primary admissions page heading.",
+                aiDescription:
+                  "Write a clear admissions heading that helps families feel guided and welcome.",
                 contentType: "short-text",
                 sizeGuidance: "4-10 words",
               },
@@ -1438,6 +1079,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "admissions.process.body",
                 label: "Admissions body",
                 description: "Admissions explanation and next steps.",
+                aiDescription:
+                  "Write admissions copy explaining visits, documents, placement, and next steps for parents.",
                 contentType: "long-text",
                 sizeGuidance: "30-90 words",
               },
@@ -1459,6 +1102,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "blog-list.intro.title",
                 label: "Blog intro title",
                 description: "Heading for the blog listing page.",
+                aiDescription:
+                  "Write a school news/blog heading for campus stories and family updates.",
                 contentType: "short-text",
                 sizeGuidance: "4-10 words",
               },
@@ -1466,6 +1111,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "blog-list.intro.body",
                 label: "Blog intro body",
                 description: "Supporting introduction for the blog list page.",
+                aiDescription:
+                  "Write a short intro for school news, classroom highlights, events, and community stories.",
                 contentType: "long-text",
                 sizeGuidance: "20-60 words",
               },
@@ -1517,6 +1164,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "contact.info.title",
                 label: "Contact title",
                 description: "Main contact page heading.",
+                aiDescription:
+                  "Write a contact-page heading inviting families to reach the school.",
                 contentType: "short-text",
                 sizeGuidance: "4-10 words",
               },
@@ -1524,6 +1173,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 key: "contact.info.body",
                 label: "Contact body",
                 description: "Supporting text for the contact page.",
+                aiDescription:
+                  "Write contact copy about tours, admissions questions, school office support, and campus directions.",
                 contentType: "long-text",
                 sizeGuidance: "20-60 words",
               },
@@ -1551,7 +1202,14 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
       density: "comfortable",
       stylePreset: "classic-academic",
     },
-    dataRequirements: ["school-profile", "blog", "contact-info"],
+    dataRequirements: [
+      "school-profile",
+      "announcements",
+      "blog",
+      "events",
+      "resources",
+      "contact-info",
+    ],
   },
   renderers: {
     home: HomePage,

@@ -30,6 +30,16 @@ import { Card, CardContent } from "@school-clerk/ui/card";
 import { Checkbox } from "@school-clerk/ui/checkbox";
 import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
 import { Input } from "@school-clerk/ui/input";
+import {
+	Item,
+	ItemActions,
+	ItemContent,
+	ItemDescription,
+	ItemFooter,
+	ItemGroup,
+	ItemHeader,
+	ItemTitle,
+} from "@school-clerk/ui/item";
 import { Label } from "@school-clerk/ui/label";
 import {
 	Select,
@@ -749,12 +759,12 @@ export function ReceivePaymentSheet() {
 				}
 			}}
 		>
-			<SheetContent className="w-full overflow-y-auto sm:max-w-[880px]">
-				<SheetHeader>
+			<SheetContent className="flex h-[100dvh] w-full flex-col overflow-hidden p-0 sm:max-w-[880px]">
+				<SheetHeader className="shrink-0 border-b px-6 py-5">
 					<SheetTitle>Receive Student Payment</SheetTitle>
 				</SheetHeader>
 
-				<div className="mt-6 space-y-6">
+				<div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
 					<div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
 						<div className="space-y-2">
 							<Label>Select student</Label>
@@ -1049,7 +1059,7 @@ export function ReceivePaymentSheet() {
 										</Badge>
 									</div>
 
-									<div className="overflow-x-auto">
+									<div className="hidden overflow-x-auto md:block">
 										<table className="w-full text-sm">
 											<thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
 												<tr>
@@ -1136,6 +1146,107 @@ export function ReceivePaymentSheet() {
 												)}
 											</tbody>
 										</table>
+									</div>
+									<div className="p-4 md:hidden">
+										{currentTerm.rows.length ? (
+											<ItemGroup className="gap-3">
+												{currentTerm.rows.map((row) => {
+													const current = selection[row.key];
+													const isPaid = row.status === "PAID";
+
+													return (
+														<Item
+															key={row.key}
+															variant={current?.selected ? "muted" : "outline"}
+															className={cn(
+																"items-start rounded-lg",
+																current?.selected &&
+																	"border-primary/30 bg-primary/5",
+															)}
+														>
+															<ItemContent className="min-w-0 gap-3">
+																<ItemHeader>
+																	<ItemTitle className="w-full min-w-0 flex-1">
+																		<span className="truncate">{row.title}</span>
+																	</ItemTitle>
+																	<Checkbox
+																		checked={Boolean(current?.selected)}
+																		disabled={isPaid}
+																		onCheckedChange={(checked) =>
+																			toggleRow(row, Boolean(checked))
+																		}
+																		aria-label={`Select ${row.title}`}
+																	/>
+																</ItemHeader>
+																<ItemDescription>
+																	{row.description || "No description"}
+																</ItemDescription>
+																<div className="flex flex-wrap gap-2">
+																	<Badge variant="outline">{row.status}</Badge>
+																	{row.streamName ? (
+																		<Badge variant="secondary">
+																			{row.streamName}
+																		</Badge>
+																	) : null}
+																</div>
+																<div className="grid gap-2 text-xs sm:grid-cols-3">
+																	<div>
+																		<p className="text-muted-foreground">Payable</p>
+																		<p className="font-medium">
+																			{formatCurrency(row.amount)}
+																		</p>
+																	</div>
+																	<div>
+																		<p className="text-muted-foreground">Paid</p>
+																		<p className="font-medium">
+																			{formatCurrency(row.paidAmount || 0)}
+																		</p>
+																	</div>
+																	<div>
+																		<p className="text-muted-foreground">Pending</p>
+																		<p className="font-medium">
+																			{formatCurrency(row.pendingAmount)}
+																		</p>
+																	</div>
+																</div>
+																<ItemFooter className="items-end gap-3">
+																	<div className="min-w-0 flex-1 space-y-1">
+																		<Label className="text-xs">Pay now</Label>
+																		<Input
+																			type="number"
+																			min="0"
+																			max={row.pendingAmount}
+																			value={current?.amount || ""}
+																			disabled={!current?.selected || isPaid}
+																			onChange={(event) =>
+																				updateRowAmount(row, event.target.value)
+																			}
+																		/>
+																	</div>
+																	<ItemActions>
+																		<Button
+																			type="button"
+																			variant={current?.selected ? "secondary" : "outline"}
+																			size="sm"
+																			disabled={isPaid}
+																			onClick={() =>
+																				toggleRow(row, !current?.selected)
+																			}
+																		>
+																			{current?.selected ? "Selected" : "Select"}
+																		</Button>
+																	</ItemActions>
+																</ItemFooter>
+															</ItemContent>
+														</Item>
+													);
+												})}
+											</ItemGroup>
+										) : (
+											<div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+												No payable items in this term.
+											</div>
+										)}
 									</div>
 								</CardContent>
 							</Card>
@@ -1545,11 +1656,23 @@ export function ReceivePaymentSheet() {
 						) : null}
 					</div>
 
-					<div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-						<p className="text-sm text-muted-foreground">
-							The layout follows the shared shadcn primitives and theme tokens while preserving the existing receive-payment route and receipt flow.
-						</p>
-						<div className="flex gap-3">
+				</div>
+				<div className="shrink-0 border-t bg-background/95 px-6 py-4 shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.45)] backdrop-blur supports-[backdrop-filter]:bg-background/85">
+					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+						<div>
+							<p className="text-sm font-semibold">
+								{formatCurrency(amountReceivedNumber)}
+							</p>
+							<p className="text-xs text-muted-foreground">
+								{totalSelected > 0
+									? `${formatCurrency(totalSelected)} selected payables`
+									: "Select payable rows or add stream rows"}
+								{manualTotal > 0
+									? ` + ${formatCurrency(manualTotal)} manual rows`
+									: ""}
+							</p>
+						</div>
+						<div className="grid grid-cols-2 gap-3 sm:flex">
 							<Button
 								type="button"
 								variant="outline"
@@ -1572,7 +1695,8 @@ export function ReceivePaymentSheet() {
 								onClick={submit}
 							>
 								<CreditCard className="h-4 w-4" />
-								Confirm payment
+								<span className="sm:hidden">Confirm</span>
+								<span className="hidden sm:inline">Confirm payment</span>
 							</Button>
 						</div>
 					</div>

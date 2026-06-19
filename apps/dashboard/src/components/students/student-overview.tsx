@@ -26,7 +26,7 @@ function Content({}) {
   const currentTerm = activeStudentTerm;
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 sm:space-y-6">
       <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
         <Card className="rounded-xl border-border shadow-sm">
           <CardContent className="p-5">
@@ -102,10 +102,10 @@ function Content({}) {
       </div>
 
       {overviewData?.studentTerms && overviewData.studentTerms.length > 0 && (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.5fr_1fr] xl:gap-6">
           <Card className="rounded-xl border-border shadow-sm">
             <CardContent className="p-0">
-              <div className="border-b border-border px-5 py-4">
+              <div className="border-b border-border px-4 py-4 sm:px-5">
                 <h3 className="text-base font-bold text-foreground">
                   Term Enrollment History
                 </h3>
@@ -122,7 +122,7 @@ function Content({}) {
                     <button
                       key={index}
                       className={cn(
-                        "flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-muted/40",
+                        "flex w-full flex-col gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between sm:px-5",
                         isActive && "bg-muted/50"
                       )}
                       onClick={() =>
@@ -130,27 +130,27 @@ function Content({}) {
                       }
                       type="button"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
                         <div
                           className={cn(
-                            "size-2.5 rounded-full",
+                            "size-2.5 shrink-0 rounded-full",
                             term.studentTermId
                               ? "bg-primary"
                               : "bg-muted-foreground/40"
                           )}
                         />
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">
                             {term.term}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="truncate text-xs text-muted-foreground">
                             {term.departmentName || "Class pending assignment"}
                           </p>
                         </div>
                       </div>
                       <span
                         className={cn(
-                          "rounded-full border px-2.5 py-1 text-xs font-medium",
+                          "w-fit rounded-full border px-2.5 py-1 text-xs font-medium sm:shrink-0",
                           term.studentTermId
                             ? "border-primary/20 bg-primary/10 text-primary"
                             : "border-border bg-muted text-muted-foreground"
@@ -166,7 +166,7 @@ function Content({}) {
           </Card>
 
           <Card className="rounded-xl border-border shadow-sm">
-            <CardContent className="flex h-full flex-col gap-4 p-5">
+            <CardContent className="flex h-full flex-col gap-4 p-4 sm:p-5">
               <div>
                 <h3 className="text-base font-bold text-foreground">
                   Current Selection
@@ -181,10 +181,10 @@ function Content({}) {
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   Selected Term
                 </p>
-                <p className="mt-2 text-lg font-semibold text-foreground">
+                <p className="mt-2 break-words text-lg font-semibold text-foreground">
                   {currentTerm?.term || "--"}
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 break-words text-sm text-muted-foreground">
                   {currentTerm?.departmentName || "No class assigned yet"}
                 </p>
               </div>

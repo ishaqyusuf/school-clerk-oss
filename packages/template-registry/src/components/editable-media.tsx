@@ -1,9 +1,16 @@
 "use client";
 
-import { createWebsiteMediaReference, getWebsiteMediaReferenceAssetId } from "../media";
+import {
+  createWebsiteMediaReference,
+  getWebsiteMediaReferenceAssetId,
+} from "../media";
 import { useWebsiteEditor } from "../editor-context";
+import type { WebsiteTemplateMode } from "../types";
 
-function resolvePreviewSource(value: string, mediaAssets: Array<{ id: string; sourceUrl: string }>) {
+function resolvePreviewSource(
+  value: string,
+  mediaAssets: Array<{ id: string; sourceUrl: string }>,
+) {
   const assetId = getWebsiteMediaReferenceAssetId(value);
   if (!assetId) return value;
   return mediaAssets.find((asset) => asset.id === assetId)?.sourceUrl ?? value;
@@ -23,7 +30,7 @@ export function EditableMedia({
   fieldKey?: string;
   fallback: string;
   alt: string;
-  mode: "preview" | "editor" | "production";
+  mode: WebsiteTemplateMode;
   className?: string;
   style?: React.CSSProperties;
   objectListKey?: string;
@@ -45,7 +52,9 @@ export function EditableMedia({
     if (Array.isArray(items)) {
       const item = items[objectListIndex];
       if (typeof item === "object" && item && objectListItemKey in item) {
-        rawValue = String((item as Record<string, unknown>)[objectListItemKey] ?? fallback);
+        rawValue = String(
+          (item as Record<string, unknown>)[objectListItemKey] ?? fallback,
+        );
       }
     }
   } else if (editor && fieldKey) {
@@ -55,7 +64,9 @@ export function EditableMedia({
   const previewSource = resolvePreviewSource(rawValue, mediaAssets);
 
   if (mode !== "editor" || !editor) {
-    return <img alt={alt} src={previewSource} className={className} style={style} />;
+    return (
+      <img alt={alt} src={previewSource} className={className} style={style} />
+    );
   }
 
   return (
@@ -103,7 +114,7 @@ export function EditableMedia({
                     objectListKey,
                     objectListIndex,
                     objectListItemKey,
-                    nextValue
+                    nextValue,
                   );
                   return;
                 }

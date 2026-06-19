@@ -1,6 +1,6 @@
 "use client";
 
-import { createMockWebsiteContentData } from "./content-data";
+import { createWebsiteContentDataFromConfig } from "./content-data";
 import { resolveWebsiteMediaConfig } from "./media";
 import { renderTemplatePage } from "./registry";
 import { WebsiteEditorProvider, useWebsiteEditor } from "./editor-context";
@@ -27,23 +27,20 @@ function EditorPreviewInner({
 
   if (!editor) return null;
 
-  const config =
-    mediaAssets?.length
-      ? resolveWebsiteMediaConfig(editor.config, mediaAssets)
-      : editor.config;
+  const config = mediaAssets?.length
+    ? resolveWebsiteMediaConfig(editor.config, mediaAssets)
+    : editor.config;
 
-  return renderTemplatePage(
-    new Map([[template.manifest.id, template]]),
-    {
-      mode: "editor",
-      tenant,
-      config,
-      pageKey,
-      routeSlug: null,
-      pathname: template.manifest.pages.find((page) => page.key === pageKey)?.route,
-      contentData: createMockWebsiteContentData(tenant),
-    }
-  );
+  return renderTemplatePage(new Map([[template.manifest.id, template]]), {
+    mode: "editor",
+    tenant,
+    config,
+    pageKey,
+    routeSlug: null,
+    pathname: template.manifest.pages.find((page) => page.key === pageKey)
+      ?.route,
+    contentData: createWebsiteContentDataFromConfig(tenant, config),
+  });
 }
 
 export function WebsiteTemplateEditorProvider({
@@ -56,7 +53,10 @@ export function WebsiteTemplateEditorProvider({
   children: React.ReactNode;
 }) {
   return (
-    <WebsiteEditorProvider initialConfig={initialConfig} mediaAssets={mediaAssets}>
+    <WebsiteEditorProvider
+      initialConfig={initialConfig}
+      mediaAssets={mediaAssets}
+    >
       {children}
     </WebsiteEditorProvider>
   );

@@ -589,6 +589,17 @@ export const dashboardNavRegistry: NavModuleDefinition[] = [
       {
         items: [
           {
+            childPaths: ["/parents"],
+            href: "/parents",
+            icon: "dashboard",
+            key: "parent-overview",
+            module: "parent-portal",
+            roles: ["Parent"],
+            section: "main",
+            title: "Overview",
+            workspace: "parent",
+          },
+          {
             href: "/parents/performance",
             icon: "bar-chart",
             key: "parent-performance",

@@ -34,19 +34,19 @@ function Content({}) {
   const term = svc.activeStudentTerm;
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="rounded-xl border-border shadow-sm">
+    <div className="max-w-full space-y-4 overflow-x-hidden animate-in fade-in slide-in-from-bottom-2 duration-500 sm:space-y-6">
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="min-w-0 overflow-hidden rounded-xl border-border shadow-sm">
           <CardContent className="p-5">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="mb-3 flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <GraduationCap className="h-5 w-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Enrollment Status
                 </p>
-                <p className="text-sm font-semibold text-foreground">
+                <p className="break-words text-sm font-semibold text-foreground">
                   Active for selected term
                 </p>
               </div>
@@ -60,43 +60,43 @@ function Content({}) {
           </CardContent>
         </Card>
 
-        <Card className="rounded-xl border-border shadow-sm">
+        <Card className="min-w-0 overflow-hidden rounded-xl border-border shadow-sm">
           <CardContent className="p-5">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+            <div className="mb-3 flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
                 <Layers3 className="h-5 w-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Current Class
                 </p>
-                <p className="text-sm font-semibold text-foreground">
+                <p className="break-words text-sm font-semibold text-foreground">
                   {term?.departmentName || "--"}
                 </p>
               </div>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="break-words text-sm text-muted-foreground">
               {term?.term || "No active term selected"}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="rounded-xl border-border shadow-sm">
+        <Card className="min-w-0 overflow-hidden rounded-xl border-border shadow-sm">
           <CardContent className="p-5">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <div className="mb-3 flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                 <Info className="h-5 w-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Session Link
                 </p>
-                <p className="text-sm font-semibold text-foreground">
+                <p className="break-words text-sm font-semibold text-foreground">
                   {term?.studentSessionId ? "Connected" : "Pending"}
                 </p>
               </div>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="break-words text-sm text-muted-foreground">
               Academic records, billing, and attendance will follow this term
               selection.
             </p>
@@ -104,12 +104,12 @@ function Content({}) {
         </Card>
       </div>
 
-      <Card className="rounded-xl border-border shadow-sm">
+      <Card className="min-w-0 overflow-hidden rounded-xl border-border shadow-sm">
         <CardContent className="p-5">
           <h3 className="text-base font-semibold text-foreground">
             Academic Summary
           </h3>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 break-words text-sm text-muted-foreground">
             This student is enrolled for the selected term. Use the term picker
             in the header to review other enrollment periods, or move to the
             attendance and payments tabs for operational details tied to this

@@ -10,7 +10,10 @@ export function createTestimonialBlockField(input: {
     key: input.key,
     label: input.label ?? "Testimonials",
     description:
-      input.description ?? "Repeatable testimonial cards shown in this section.",
+      input.description ??
+      "Repeatable testimonial cards shown in this section.",
+    aiDescription:
+      "Generate concise, believable school testimonial content that sounds specific, warm, and parent-facing.",
     contentType: "object-list",
     blockPreset: "testimonials",
     sizeGuidance: input.sizeGuidance ?? "2-4 items",
@@ -48,6 +51,8 @@ export function createGalleryBlockField(input: {
     label: input.label ?? "Gallery Cards",
     description:
       input.description ?? "Repeatable image cards used in this section.",
+    aiDescription:
+      "Generate short gallery card copy that highlights real campus moments, learning spaces, and student experience.",
     contentType: "object-list",
     blockPreset: "gallery",
     sizeGuidance: input.sizeGuidance ?? "2-6 items",
@@ -84,7 +89,10 @@ export function createFeatureCardBlockField(input: {
     key: input.key,
     label: input.label ?? "Feature Cards",
     description:
-      input.description ?? "Repeatable feature cards used for homepage positioning.",
+      input.description ??
+      "Repeatable feature cards used for homepage positioning.",
+    aiDescription:
+      "Generate clear public-school feature cards focused on learning quality, care, enrichment, and parent trust.",
     contentType: "object-list",
     blockPreset: "feature-cards",
     sizeGuidance: input.sizeGuidance ?? "3-6 items",
@@ -116,6 +124,8 @@ export function createStatCardBlockField(input: {
     label: input.label ?? "Stats",
     description:
       input.description ?? "Repeatable number + label cards for trust signals.",
+    aiDescription:
+      "Generate compact trust-building school statistics with credible labels and no exaggerated claims.",
     contentType: "object-list",
     blockPreset: "stat-cards",
     sizeGuidance: input.sizeGuidance ?? "3-5 items",
@@ -147,6 +157,8 @@ export function createStaffCardBlockField(input: {
     label: input.label ?? "Staff Cards",
     description:
       input.description ?? "Repeatable staff profile cards for public pages.",
+    aiDescription:
+      "Generate warm, professional staff profile copy that emphasizes role, care, leadership, and school credibility.",
     contentType: "object-list",
     blockPreset: "staff-cards",
     sizeGuidance: input.sizeGuidance ?? "3-6 items",
@@ -179,19 +191,32 @@ export function createAnnouncementCardBlockField(input: {
     key: input.key,
     label: input.label ?? "Announcements",
     description:
-      input.description ?? "Repeatable announcement cards for homepage or news sections.",
+      input.description ??
+      "Repeatable announcement cards for homepage or news sections.",
+    aiDescription:
+      "Generate timely school announcement copy for families: clear title, short summary, date, and practical next step.",
     contentType: "object-list",
     blockPreset: "announcement-cards",
     sizeGuidance: input.sizeGuidance ?? "2-5 items",
     itemFields: [
-      { key: "title", label: "Title", input: "text", placeholder: "Announcement title" },
+      {
+        key: "title",
+        label: "Title",
+        input: "text",
+        placeholder: "Announcement title",
+      },
       {
         key: "description",
         label: "Description",
         input: "textarea",
         placeholder: "Short announcement summary",
       },
-      { key: "date", label: "Date", input: "text", placeholder: "May 12, 2026" },
+      {
+        key: "date",
+        label: "Date",
+        input: "text",
+        placeholder: "May 12, 2026",
+      },
     ],
   };
 }

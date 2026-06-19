@@ -41,7 +41,7 @@ function Content() {
   const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 sm:space-y-6">
       {/* Attendance Stats Grid */}
       <div className="hidden md:grid md:grid-cols-3 gap-4">
         {/* Attendance Rate Card */}
@@ -116,12 +116,55 @@ function Content() {
 
       {/* Detailed Records Table */}
       <Card className="bg-card rounded-xl shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-border flex justify-between items-center">
+        <div className="px-4 py-4 border-b border-border flex justify-between items-center sm:px-5">
           <h3 className="text-base font-semibold text-foreground">
             Recent Activity
           </h3>
         </div>
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-border md:hidden">
+          {records.map((record) => {
+            const className = record.department?.classRoom?.name;
+            const deptName = record.department?.departmentName;
+            const label =
+              className && deptName
+                ? `${className} ${deptName}`
+                : deptName || className || "Class";
+            const date = record.classroomAttendance?.createdAt
+              ? format(
+                  new Date(record.classroomAttendance.createdAt),
+                  "MMM dd, yyyy",
+                )
+              : record.createdAt
+                ? format(new Date(record.createdAt), "MMM dd, yyyy")
+                : "";
+
+            return (
+              <article key={record.id} className="space-y-3 px-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">{date}</p>
+                    <p className="mt-1 truncate text-sm text-muted-foreground">
+                      {label}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex shrink-0 items-center rounded border px-2.5 py-0.5 text-xs font-medium ${
+                      record.isPresent
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
+                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
+                    }`}
+                  >
+                    {record.isPresent ? "Present" : "Absent"}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {record.classroomAttendance?.attendanceTitle || "Session"}
+                </p>
+              </article>
+            );
+          })}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm text-left text-muted-foreground">
             <thead className="text-xs text-foreground uppercase bg-muted/50">
               <tr>

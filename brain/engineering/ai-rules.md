@@ -15,7 +15,9 @@ Operational rules for AI agents contributing to this repository.
 - Keep diffs focused and minimal.
 - Update docs alongside code changes.
 - Prefer the existing `portless`-wrapped `dev` scripts for local app startup; do not introduce new hardcoded default ports unless explicitly required.
-- Current Portless local app names: dashboard -> `school-clerk-dashboard`, web -> `school-clerk-web`, api -> `api`.
+- Current Portless local app names: dashboard -> `school-clerk-dashboard`, web -> `school-clerk-web`, school-site -> `school-clerk-site`, api -> `api`.
+- School-site local dev runs behind Portless at `school-clerk-site.localhost:1355` with its Next app port set to `2400`.
+- The root `dev:websites` / `websites` workflow runs dashboard, `@school-clerk/site`, `@school-clerk/school-site`, and jobs together for website work.
 - Dashboard tenant development hosts resolve as `<tenant>.school-clerk-dashboard.localhost:1355`; keep host parsing and cookie lookup aligned with that format.
 - Internal dashboard navigation should use proxy-relative product routes such as `/finance`, `/students`, `/academic`, etc. Do not hardcode `/dashboard/...` into hrefs or router pushes, because tenant/domain proxying already handles the dashboard mount.
 

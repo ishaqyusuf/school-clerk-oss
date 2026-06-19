@@ -19,11 +19,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { parseRawInput } from "./parser";
 
 const studentImportSchema = z.object({
-  classRoomId: z
-    .string({
-      required_error: "Target classroom is required",
-    })
-    .min(1, "Target classroom is required"),
+  classRoomId: z.string().optional(),
   globalGender: z.enum(["Male", "Female", "unset", ""]).optional(),
   raw: z.string().min(1, "Student data is required"),
 });
@@ -85,9 +81,10 @@ export function StudentImportModal() {
     return parseRawInput(
       raw,
       classRoomName,
-      classRoomId,
+      classRoomId || "",
       globalGender,
       importNameGuide?.names || [],
+      classList?.data || [],
     );
   }, [raw, classRoomId, classList?.data, globalGender, importNameGuide?.names]);
 
@@ -106,7 +103,8 @@ export function StudentImportModal() {
         <Dialog.Header>
           <Dialog.Title>Import Students</Dialog.Title>
           <Dialog.Description>
-            Select a classroom and paste one student name per line.
+            Select a default classroom or paste raw class-name headers before
+            each group of student names.
           </Dialog.Description>
         </Dialog.Header>
         <Tabs.Root value={tab} className="flex min-h-0 flex-1 flex-col">
@@ -123,8 +121,7 @@ export function StudentImportModal() {
                     render={({ field, fieldState }) => (
                       <Field data-invalid={fieldState.invalid}>
                         <Field.Label htmlFor="classroom-select">
-                          Target Classroom{" "}
-                          <span className="text-red-500">*</span>
+                          Default Classroom
                         </Field.Label>
                         <Select
                           value={field.value || ""}
@@ -138,7 +135,7 @@ export function StudentImportModal() {
                               placeholder={
                                 isClassListLoading
                                   ? "Loading classrooms..."
-                                  : "Select a classroom"
+                                  : "Use raw class headers or choose fallback"
                               }
                             />
                           </SelectTrigger>
@@ -202,12 +199,12 @@ export function StudentImportModal() {
                     render={({ field, fieldState }) => (
                       <Field data-invalid={fieldState.invalid}>
                         <Field.Label htmlFor="student-data">
-                          Student Data (One student per line)
+                          Student Data
                         </Field.Label>
                         <p className="text-xs text-muted-foreground">
-                          Use dots or English/Arabic commas to split name parts.
-                          If no dot or comma is used, SchoolClerk uses existing
-                          student names as a guide before splitting by spaces.
+                          Paste class names as headers, then student names
+                          below. Use M/F marker lines for batch gender, or
+                          row-level gender like John Doe, M.
                         </p>
 
                         <InputGroup>
@@ -216,7 +213,7 @@ export function StudentImportModal() {
                             dir="rtl"
                             aria-invalid={fieldState.invalid}
                             className="min-h-[20vh]"
-                            placeholder="Paste student name, optional gender (e.g. John Doe, Male)"
+                            placeholder={`JSS 1 - A\nM | Male\nJohn Doe\n\nF | Female\nMaryam Bello\n\nJSS 2 - B\nYusuf Ahmad, M`}
                           />
                           <InputGroup.Addon align="block-end">
                             <p className="text-xs text-muted-foreground mt-1">
@@ -228,7 +225,9 @@ export function StudentImportModal() {
                               size="sm"
                               variant="default"
                               disabled={
-                                !form.formState.isValid || isClassListLoading
+                                !form.formState.isValid ||
+                                isClassListLoading ||
+                                !parse?.students?.length
                               }
                             >
                               Submit

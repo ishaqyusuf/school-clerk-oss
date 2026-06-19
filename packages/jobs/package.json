@@ -13,6 +13,7 @@
   "dependencies": {
     "@fast-csv/format": "5.0.2",
     "@school-clerk/db": "workspace:*",
+    "@school-clerk/email": "workspace:*",
     "@school-clerk/utils": "workspace:*",
     "@react-email/render": "0.0.10",
     "@trigger.dev/sdk": "^4.0.0",

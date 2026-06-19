@@ -25,6 +25,14 @@ Defines access control rules for each API surface.
 - Billing and Payments: TBD by role
 - Notifications: TBD by role
 
+## Enrollment Links And Parent Portal Permissions
+- Admin and Registrar can create, update, pause/archive, and copy public enrollment links.
+- Admin and Registrar can read, approve, and reject enrollment applications for their tenant.
+- Public users can only read/submit through active enrollment link codes and cannot access dashboard tRPC enrollment management routes.
+- Parent users can read only wards connected through `Guardians.userId`.
+- Parent portal finance, book, uniform, and collection summaries must be read-only in v1.
+- Enrollment approval must re-run server-side tenant, classroom, capacity, document, and application-status checks even if the dashboard UI already shows the application as approvable.
+
 ## Security Rules
 - Role checks happen server-side.
 - Tenant membership required for all tenant routes.
@@ -35,8 +43,10 @@ Defines access control rules for each API surface.
 - Better Auth trusted origins are resolved per request and include the exact incoming origin for tenant subdomains in development.
 - Dashboard login stores tenant-scoped cookie state with school, session, and term identifiers when available.
 - Tenant auth cookie reset must tolerate tenants with no school record, no academic sessions, or no terms yet; missing values should not crash login.
-- Dashboard host parsing treats `tenant.localhost[:port]`, `tenant.school-clerk-dashboard.localhost:1355`, production tenant subdomains, and verified custom domains as equivalent inputs for tenant resolution.
-- Development quick login no longer assumes imported users already have the seed `lorem-ipsum` password. In local/dev only, the standalone `/dev-quick-login` route can create a short-lived Better Auth reset token for the selected tenant user, sign in with the dev password, and restore the previous credential hash after session preparation so production-imported passwords remain usable. The login-screen dev quick-login FAB is intentionally only a form filler: it opens with native `details`/`summary` for mobile LAN reliability and fills email, password, and remember-me fields without submitting or preparing the account. The login form also has a server-action POST fallback so insecure LAN/mobile sessions that do not hydrate React still submit through Better Auth instead of leaking credentials through a native GET request.
+- Dashboard host parsing treats `tenant.localhost[:port]`, `tenant.school-clerk-dashboard.localhost:1355`, `dashboard.{tenant}.school-clerk.com`, production tenant subdomains, and verified custom domains as equivalent inputs for tenant resolution.
+- New school owner signup creates a 24-hour email verification token and sends a Resend verification email. The public `/verify-email` tenant route can mark `User.emailVerified = true` without an existing session because possession of the random token is the authorization check.
+- Public school-site login and parent enrollment reset links must target the shared dashboard auth system at `dashboard.{tenant}.school-clerk.com` in production.
+- Development quick login no longer assumes imported users already have the seed `lorem-ipsum` password. In local/dev only, the standalone `/dev-quick-login` route can create a short-lived Better Auth reset token for the selected tenant user, sign in with the dev password, and restore the previous credential hash after session preparation so production-imported passwords remain usable. The visible dev quick-login FAB is login-page only and intentionally only a form filler: it opens with native `details`/`summary` for mobile LAN reliability and fills email, password, and remember-me fields without submitting or preparing the account. The login form also has a server-action POST fallback so insecure LAN/mobile sessions that do not hydrate React still submit through Better Auth instead of leaking credentials through a native GET request.
 
 ## Current Dashboard Navigation Authorization
 - Dashboard navigation access is currently driven from `apps/dashboard/src/components/sidebar/links.ts`, with the legacy sidebar utility file kept in sync for older consumers.

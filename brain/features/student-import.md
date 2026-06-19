@@ -2,14 +2,14 @@
 
 ## Purpose
 
-Allow school operators to import multiple students from pasted text data, assign the batch to one active-session classroom, verify rows against existing records, surface matches or suspected typo matches, resolve gender, and execute selected import/enrollment actions safely.
+Allow school operators to import multiple students from pasted text data, assign rows to one or more active-session classrooms, verify rows against existing records, surface matches or suspected typo matches, resolve gender, and execute selected import/enrollment actions safely.
 
 ## User Flow
 
 1. **Upload / Start Screen**:
-   - Select **Target Classroom** (department) from the active academic session.
+   - Select an optional **Default Classroom** (department) from the active academic session.
    - Optionally select **Global Gender** as a default fallback.
-   - Paste student records into the textarea, one student per line.
+   - Paste student records into the textarea, one student per line, or use raw class-name section headers for multi-classroom imports.
    - Preview parsed row count and validation warnings.
 2. **Verification & Matching**:
    - The parsed batch is verified against existing records to detect conflicts, duplicates, suspected typo matches, and missing gender.
@@ -19,12 +19,17 @@ Allow school operators to import multiple students from pasted text data, assign
    - Batch defaults are available for ready rows, exact matches, and suspected matches while preserving row-level overrides.
 4. **Execution**:
    - The batch mutation creates new students, keeps existing matches, or updates matched names.
-   - Session and term sheets are created idempotently for the active classroom/session/term.
+   - Session and term sheets are created idempotently for each row's target classroom/session/term.
 
 ## Input Parsing Contract
 
 Each pasted line is parsed as follows:
 
+- A line that exactly matches a current-session classroom display label becomes a class section header. Following student rows use that classroom until the next class section header.
+- Supported classroom label forms include the combined class/department display, department name when unique, class name when unique, and class plus department words normalized for whitespace and dash variants.
+- When a class header is read, the active batch gender resets to unset.
+- A line that exactly matches `M`, `Male`, `F`, `Female`, `M | Male`, or `F | Female` becomes a batch-gender marker for following student rows in the active class section.
+- Batch gender applies only when the student row does not have an explicit row-level gender.
 - If the line contains comma `,`, Arabic comma `،`, or dot `.` delimiters, the line is split on those delimiters, trimmed, and empty parts are ignored.
 - If the final comma/dot-delimited part is a recognized gender alias, that final part becomes the row-level gender and the preceding parts remain the name source.
 - If explicit name delimiters are not present, the parser fetches a tenant-scoped import name guide from existing student `name`, `surname`, and `otherName` values, trims and deduplicates the list, and greedily matches the longest known name part before falling back to whitespace tokens.
@@ -39,17 +44,34 @@ Each pasted line is parsed as follows:
   - Female aliases: `Female`, `F`, `female`, `f`
 - **Gender assignment priority and schema**:
   1. Explicit row-level gender, stored as `parsedGender` internally.
-  2. Selected global gender, only when no row-level gender is specified.
-  3. Missing, to be inferred or resolved later, when neither row nor global gender is provided.
+  2. Active batch-gender marker from the current pasted section, stored as `batchGender` internally.
+  3. Selected global gender, only when no row-level or batch gender is specified.
+  4. Missing, to be inferred or resolved later, when no row, batch, or global gender is provided.
 
 In the parsed output payload, `student.gender` is the effective input gender after row/global fallback, while `student.parsedGender` records only what was explicitly present on the individual line.
+
+### Multi-Classroom Paste Example
+
+```text
+JSS 1 - A
+M | Male
+John Doe
+Yusuf Ahmad
+
+F | Female
+Maryam Bello
+
+JSS 2 - B
+Fatima Lawal, F
+Musa Garba, M
+```
 
 ## UI Validation And Warnings
 
 - Empty lines are ignored.
 - Missing name parts are surfaced with line numbers.
 - Missing surnames are surfaced as warnings.
-- Proceeding to the verification tab requires a valid classroom selection.
+- Proceeding to the verification tab requires at least one parsed student row. Rows without a raw class header use the selected default classroom when available; otherwise they are surfaced as needing classroom attention before execution.
 - The optional global gender and manual row gender resolution use compact grouped `M` / `F` controls mapped to canonical `Male` / `Female` values.
 
 ## Matching Rules
@@ -143,20 +165,21 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 ### Endpoint
 
 - `trpc.students.getImportNameGuide`: compact tenant-scoped existing-name guide for whitespace-only import parsing.
-- `trpc.students.verifyStudentImport`: single-query batch verification with classroom scoping, edit-distance matching, and gender inference.
+- `trpc.students.verifyStudentImport`: single-query batch verification with row-level classroom scoping, edit-distance matching, and gender inference.
 - `trpc.students.executeStudentImport`: batch mutation for row-level import decisions.
 
 ### Execute Input Schema
 
 ```ts
 {
-  classroomDepartmentId: string;
+  classroomDepartmentId?: string | null;
   rows: {
     lineNumber: number;
     name: string;
     surname: string;
     otherName?: string | null;
     gender: "Male" | "Female";
+    classroomDepartmentId?: string | null;
     action: "import_new" | "keep_match" | "update_match_with_name";
     existingStudentId?: string | null;
   }[];
@@ -195,7 +218,7 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 
 ### Term Sheet Creation
 
-- Checks for any non-deleted `StudentTermForm` for the same student, active session, and active term.
+- Checks for any non-deleted `StudentTermForm` for the same student, active session, active term, and row target classroom.
 - If one exists in the same classroom, it is reused without duplicate creation.
 - If one exists in a different classroom, the row fails with the conflicting classroom name.
 - If none exists, the system creates `StudentSessionForm` when needed, then creates `StudentTermForm`, then applies fee histories.

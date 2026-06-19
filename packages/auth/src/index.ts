@@ -18,7 +18,7 @@ async function sendAuthEmail({
 	const apiKey = process.env.RESEND_API_KEY;
 	const from =
 		process.env.RESEND_FROM_EMAIL ??
-		"School Clerk <noreply@school-clerkprodesk.com>";
+		"School Clerk <noreply@school-clerk.com>";
 
 	if (!apiKey) {
 		console.warn(`[auth] resend api key missing; email not sent to ${to}`);

@@ -102,17 +102,17 @@ function FeeItemRow({
 
 	return (
 		<div className="flex flex-col gap-2">
-			<div className="flex justify-between text-sm">
-				<div className="flex items-center gap-2">
-					<span className="text-foreground font-medium">
+			<div className="flex flex-col gap-2 text-sm sm:flex-row sm:justify-between">
+				<div className="flex min-w-0 flex-wrap items-center gap-2">
+					<span className="font-medium text-foreground">
 						{item.title ?? "Fee"}
 					</span>
 					<Badge variant="outline" className={cn("text-[10px]", cfg.badge)}>
 						{item.status ?? "PENDING"}
 					</Badge>
 				</div>
-				<div className="flex items-center gap-2">
-					<span className="text-foreground font-bold">
+				<div className="flex items-center justify-between gap-2 sm:justify-end">
+					<span className="font-bold text-foreground">
 						<NumericFormat
 							readOnly
 							value={item.amount ?? 0}
@@ -253,7 +253,7 @@ function Content() {
 	};
 
 	return (
-		<div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+		<div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 sm:space-y-6">
 			{/* Alert */}
 			{rpData?.alert && (
 				<div
@@ -311,8 +311,14 @@ function Content() {
 						.
 					</p>
 				</div>
-				<div className="flex gap-2 flex-wrap">
-					<Button variant="outline" size="sm" type="button" disabled>
+				<div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+					<Button
+						className="w-full sm:w-auto"
+						variant="outline"
+						size="sm"
+						type="button"
+						disabled
+					>
 						<ScrollText className="w-4 h-4 mr-1" />
 						Statement
 					</Button>
@@ -321,6 +327,7 @@ function Content() {
 						variant={openForm === "bill" ? "default" : "outline"}
 						size="sm"
 						type="button"
+						className="w-full sm:w-auto"
 					>
 						<Plus className="w-4 h-4 mr-1" />
 						Bill
@@ -330,6 +337,7 @@ function Content() {
 						variant="outline"
 						size="sm"
 						type="button"
+						className="w-full sm:w-auto"
 					>
 						<CreditCard className="w-4 h-4 mr-1" />
 						Collect Payment
@@ -339,6 +347,7 @@ function Content() {
 						variant={openForm === "purchase" ? "default" : "outline"}
 						size="sm"
 						type="button"
+						className="w-full sm:w-auto"
 					>
 						<Plus className="w-4 h-4 mr-1" />
 						Purchase
@@ -457,16 +466,16 @@ function Content() {
 				</Card>
 			</div>
 
-			<div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+			<div className="grid grid-cols-1 gap-4 xl:grid-cols-5 xl:gap-6">
 				{hasFees && (
 					<Card className="bg-card rounded-xl shadow-sm overflow-hidden xl:col-span-2">
-						<div className="px-5 py-4 border-b border-border flex justify-between items-center bg-muted/30">
+						<div className="flex items-center justify-between gap-3 border-b border-border bg-muted/30 px-4 py-4 sm:px-5">
 							<h3 className="text-foreground text-base font-bold">
 								Fee Structure
 							</h3>
 							<Badge variant="secondary">Current term</Badge>
 						</div>
-						<div className="p-5 flex flex-col gap-4">
+						<div className="flex flex-col gap-4 p-4 sm:p-5">
 							{rpData?.feeItems?.map((item) => (
 								<FeeItemRow
 									key={item.key}
@@ -511,8 +520,8 @@ function Content() {
 				)}
 
 				<Card className="bg-card rounded-xl shadow-sm overflow-hidden xl:col-span-3">
-					<div className="px-5 py-4 border-b border-border flex justify-between items-center">
-						<div>
+					<div className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+						<div className="min-w-0">
 							<h3 className="text-foreground text-base font-bold">
 								Transaction History
 							</h3>
@@ -952,15 +961,15 @@ function StudentPurchaseForm({
 	}
 
 	return (
-		<div className="border border-border rounded-lg p-4 bg-muted/20">
-			<div className="flex flex-wrap gap-2 mb-3">
+		<div className="rounded-lg border border-border bg-muted/20 p-3 sm:p-4">
+			<div className="mb-3 flex flex-wrap gap-2">
 				{PRESETS.map((p) => (
 					<button
 						key={p}
 						type="button"
 						onClick={() => setTitle(p)}
 						className={cn(
-							"text-xs px-2 py-1 rounded border border-border hover:bg-accent transition-colors",
+							"rounded border border-border px-2 py-1 text-xs transition-colors hover:bg-accent",
 							title === p && "bg-accent",
 						)}
 					>
@@ -968,7 +977,7 @@ function StudentPurchaseForm({
 					</button>
 				))}
 			</div>
-			<div className="grid grid-cols-2 gap-3">
+			<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 				<div className="grid gap-1.5">
 					<Label className="text-sm">Item</Label>
 					<ComboboxDropdown

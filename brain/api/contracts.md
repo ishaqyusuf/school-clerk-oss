@@ -1,34 +1,98 @@
 # API Contracts
 
 ## Purpose
+
 Defines request/response contracts, validation rules, and versioning expectations.
 
 ## How To Use
+
 - Update when payload shape or status behavior changes.
 - Record breaking vs non-breaking changes.
 - Keep examples short and representative.
 
 ## Template
+
 ## Contract Rules
+
 - Every route validates input schema.
 - Responses include consistent error envelope.
 - Tenant context is required for tenant-scoped routes.
 
 ## Endpoint Contract Template
+
 - Route:
 - Request schema:
 - Response schema:
 - Error cases:
 - Notes:
 
+## Enrollment Link Contracts
+
+- Route: `enrollmentLinks.listLinks`
+- Request schema: none
+- Response schema: active tenant enrollment links with classroom counts, document requirement counts, application counts, capacity fields, status, and copyable public code.
+- Error cases: missing tenant context, unauthorized role.
+- Notes: Admin/Registrar only.
+
+- Route: `enrollmentLinks.createOrUpdateLink`
+- Request schema: `{ id?, title, status?, capacityMode, totalCapacity?, instructions?, opensAt?, closesAt?, classrooms[], documentRequirements[] }`
+- Response schema: saved link with public code and nested classroom/document configuration.
+- Error cases: no classrooms, invalid classroom tenant/session, invalid capacity, unauthorized role.
+- Notes: classroom IDs are `ClassRoomDepartment.id` values from the active tenant.
+
+- Route: `enrollmentLinks.getApplications`
+- Request schema: `{ linkId?: string | null, status?: EnrollmentApplicationStatus | null }`
+- Response schema: pending application rows with selected classroom, student details, primary parent, document completion, status, and accepted student/term links.
+- Error cases: missing tenant context, unauthorized role.
+
+- Route: `enrollmentLinks.approveApplication`
+- Request schema: `{ applicationId: string }`
+- Response schema: `{ success: true, studentId, termFormId }`
+- Error cases: application not found, invalid tenant, invalid selected classroom, capacity reached, missing required documents, already approved/rejected.
+- Notes: approval creates or links guardian/parent, creates student/session/term forms, applies fee histories, and records accepted ids.
+
+- Route: `enrollmentLinks.rejectApplication`
+- Request schema: `{ applicationId: string, reason?: string | null }`
+- Response schema: `{ success: true }`
+- Error cases: application not found, already approved, unauthorized role.
+
+- Public route: `school-site /enroll/[code]`
+- Request schema: public code in URL plus submitted student, selected classroom, parent rows, required document metadata/uploads, and notes.
+- Response schema: pending application success state plus parent onboarding/login hint.
+- Error cases: invalid/inactive/expired/full link, invalid classroom option, missing required fields, missing required uploads.
+
+## Parent Portal Contracts
+
+- Route: `parents.overview`
+- Request schema: none
+- Response schema: `{ wards[] }`, where each ward includes student identity, latest enrollment/application status, active classroom/term, outstanding finance summary, collection statuses for books/uniforms, and recent issuances where available.
+- Error cases: missing tenant context, non-parent role, parent user not linked to any guardian.
+- Notes: ward access is authorized through `Guardians.userId`.
+
 ## Search Contracts
+
 - Route: `search.global`
 - Request schema: `{ query: string, limit?: number }` where `query` is trimmed and capped at 100 characters, and `limit` is 1-20.
 - Response schema: `Array<{ id: string, type: "student" | "classroom" | "staff", group: "Students" | "Classrooms" | "Staff", title: string, subtitle: string | null, href: string, rank: number }>`
 - Error cases: missing tenant context returns an empty result set; queries shorter than 2 characters do not run remote record search.
 - Notes: results are tenant-scoped by `schoolProfileId`; classroom results are current-session scoped when session context is available and link to `/academic/classes?viewClassroomId=<departmentId>&classroomTab=students`; student results link to `/students/<studentId>`.
 
+## School Signup And Owner Verification Contracts
+
+- Route/action: `createSaasProfileAction`
+- Request schema: `institutionName`, `institutionType`, `adminName`, `email`, `password`, optional school profile metadata, and `domainName` subdomain slug.
+- Response schema: owner email, institution type label, `loginUrl`, `onboardingUrl`, `onboardingLoginUrl`, `siteUrl`, `workspaceUrl`, school name, and subdomain.
+- Error cases: disabled institution type, reserved subdomain, unavailable subdomain, duplicate owner email, admin user creation failure.
+- Notes: successful production signup provisions `{subdomain}.school-clerk.com` on the school-site Vercel project and `dashboard.{subdomain}.school-clerk.com` on the dashboard Vercel project. Signup also creates a 24-hour `email-verification:{token}` row in `Verification` and sends a Resend verification email.
+
+- Public route: `dashboard tenant /verify-email?token=...`
+- Request schema: verification token in query string.
+- Response schema: public success/failure page.
+- Error cases: missing token, expired token, invalid token, deleted/missing user.
+- Notes: successful verification sets `User.emailVerified = true` and deletes the used `Verification` row.
+
 ## Student Contracts
+
 - Route: `students.overview`
 - Request schema: `{ studentId: string, termSheetId?: string | null }`
 - Response schema: `{ id?: string, student: { id, name, surname, otherName, dob, gender, guardian, studentName }, studentTerms }`, where `guardian` is the first non-deleted linked guardian with `id`, `name`, `phone`, and `phone2`.
@@ -72,10 +136,10 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Notes: used by student import review for classroom selection, existing-student search, and same-session/same-term match badges.
 
 - Route: `students.verifyStudentImport`
-- Request schema: `classroomDepartmentId` (string), `rows` array of `{ lineNumber: number, originalText: string, name: string, surname: string, otherName?: string | null, gender?: string | null }`
-- Response schema: `{ results: Array<{ lineNumber, originalText, name, surname, otherName, inputGender, inferredGender, genderInferenceDetails: { confidence: number, sampleSize: number, source: string } | null, needsGender: boolean, status: 'readyToImport' | 'matchFound' | 'needsAttention', fullMatch: MatchMeta | null, suspectedMatches: MatchMeta[] }> }` where MatchMeta is a student record metadata block containing name, classroom, term/session details, match confidence (0-100), and matching reason.
-- Error cases: classroom department not found or unauthorized.
-- Notes: performs single-query batch validation for pasted student imports. Checks exact matches, flags edit-distance name typos (<= 2), infers missing gender with confidence >= 80% (min 2 samples), and avoids large child records to keep payloads compact.
+- Request schema: optional fallback `classroomDepartmentId`, plus `rows` array of `{ lineNumber: number, originalText: string, name: string, surname: string, otherName?: string | null, gender?: string | null, classroomDepartmentId?: string | null }`
+- Response schema: `{ results: Array<{ lineNumber, originalText, name, surname, otherName, inputGender, inferredGender, genderInferenceDetails: { confidence: number, sampleSize: number, source: string } | null, needsGender: boolean, status: 'readyToImport' | 'matchFound' | 'needsAttention', classRoom: string | null, classroomDepartmentId: string | null, fullMatch: MatchMeta | null, suspectedMatches: MatchMeta[] }> }` where MatchMeta is a student record metadata block containing name, classroom, term/session details, match confidence (0-100), and matching reason.
+- Error cases: any supplied classroom department not found, unauthorized, or outside the active session.
+- Notes: performs single-query batch validation for pasted student imports. Checks exact matches, flags edit-distance name typos (<= 2), infers missing gender with confidence >= 80% (min 2 samples), validates all supplied row-level classroom ids once, and avoids large child records to keep payloads compact. Rows without a row-level or fallback classroom are returned as `needsAttention`.
 
 - Route: `students.bulkDeleteTermSheets`
 - Request schema: `ids[]` where each id is a `StudentTermForm.id`
@@ -89,13 +153,14 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema:
   ```ts
   {
-    classroomDepartmentId: string;
+    classroomDepartmentId?: string | null;
     rows: {
       lineNumber: number;
       name: string;
       surname: string;
       otherName?: string | null;
       gender: "Male" | "Female";
+      classroomDepartmentId?: string | null;
       action: "import_new" | "keep_match" | "update_match_with_name";
       existingStudentId?: string | null;
     }[];
@@ -120,14 +185,15 @@ Defines request/response contracts, validation rules, and versioning expectation
     }[];
   }
   ```
-- Error cases: missing active school/session/term context, classroom not in active school or session, existing student not in tenant, student has current term sheet in conflicting classroom
-- Notes: batch mutation that creates students, keeps/updates matched students, and idempotently creates term sheets. Validates classroom against active school AND session ancestry. Detects cross-classroom current-term conflicts and reports them as row-level failures rather than creating duplicates. Applies fee histories to newly-created term sheets. Per-row failures do not block successful rows.
+- Error cases: missing active school/session/term context, supplied classroom not in active school or session, row without a valid classroom, existing student not in tenant, student has current term sheet in conflicting classroom
+- Notes: batch mutation that creates students, keeps/updates matched students, and idempotently creates term sheets. Validates all supplied row-level classrooms against active school AND session ancestry. Detects cross-classroom current-term conflicts and reports them as row-level failures rather than creating duplicates. Applies fee histories to newly-created term sheets using the row target classroom. Per-row failures do not block successful rows.
 - Dashboard cache invalidation on success:
   - Invalidates: `students.index`, `students.analytics`, `students.studentsRecentRecord`, `classrooms.all`
   - Report-sheet queries (`classroomReportSheet`, `getSubjectAssessmentRecordings`) require parameterized keys (classroom + term) not available in the import component context; these views refresh on navigation.
   - Finance query keys (fee histories, transaction streams, student balances) are parameterized per-student/per-classroom; fee histories applied during import are reflected on navigation.
 
 ## Finance Contracts
+
 - Route: `transactions.createSchoolFee`
 - Request schema: `title`, `amount`, optional `description`, optional `feeId`, optional `streamId`/`streamName`, `classroomDepartmentIds[]`
 - Response schema: mutation success with current-term `FeeHistory` created or updated in place
@@ -229,6 +295,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Notes: bulk read action for bell and notifications page
 
 ## Staff Contracts
+
 - Route: `staff.getStaffList`
 - Request schema: optional `q`, optional `status` in `all | pending | active | failed`
 - Response schema: `{ items[], stats }` where each item includes role, onboarding status, invite timestamps, classroom count, subject count, and resend eligibility
@@ -245,13 +312,13 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `email`, `role`, `assignments[]` where each assignment is `{ classRoomDepartmentId, departmentSubjectIds[] }`
 - Response schema: `{ invited, inviteError, staffId }`
 - Error cases: invalid classroom/subject combinations, missing tenant context, invite delivery failure
-- Notes: creates or updates the staff record, syncs tenant user role, persists teacher-only assignments, creates a staff-scoped onboarding reset token, and automatically sends the shared staff invitation email when required
+- Notes: creates or updates the staff record, syncs tenant user role, persists teacher-only assignments, creates a staff-scoped onboarding reset token, and queues the shared staff invitation email through the Trigger `send-staff-invitation-email` job when required. In development, email CTA links prefer LAN-IP path-style dashboard URLs such as `http://<network-ip>:2200/<tenant>/reset-password` so links opened from another device can reach the tenant workspace.
 
 - Route: `action.resendStaffOnboardingAction`
 - Request schema: `staffId`
-- Response schema: `{ invited: true }`
+- Response schema: `{ invited: true }` after email delivery, or `{ invited: false, inviteError, inviteLink }` in development when local email configuration prevents delivery and a manual onboarding link is generated instead
 - Error cases: missing tenant context, no staff email, onboarding already completed, invite delivery failure
-- Notes: creates a fresh staff-scoped onboarding reset token, sends the shared staff invitation email, resets invite state to pending, and records resend timestamp
+- Notes: creates a fresh staff-scoped onboarding reset token, queues the shared staff invitation email through the Trigger `send-staff-invitation-email` job, resets invite state to pending, and records resend timestamp. In development, email CTA links prefer LAN-IP path-style dashboard URLs such as `http://<network-ip>:2200/<tenant>/reset-password` so links opened from another device can reach the tenant workspace. Production invite queueing failures remain errors; the manual-link fallback is development-only for missing `DEV_EMAIL_RECIPIENT`, missing `RESEND_API_KEY`, or Resend sender-domain verification failures.
 
 - Route: `action.copyStaffOnboardingLinkAction`
 - Request schema: `staffId`
@@ -266,6 +333,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Notes: used after password reset in the onboarding link flow to complete the staff profile and mark onboarding active
 
 ## AI Chat Contracts
+
 - Route: `POST /api/chat`
 - Request schema: `{ conversationId, input }` where `input` is either `{ kind: "text", text }` or `{ kind: "workflow", action }`
 - Response schema: AI SDK UI message stream response, plus response headers `x-school-clerk-conversation-id`, `x-school-clerk-run-id`, `x-school-clerk-provider`, and `x-school-clerk-model`

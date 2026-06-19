@@ -189,7 +189,11 @@ export function NavsList({
                 >
                   {module?.sections?.map((section, si) => (
                     <div
-                      key={section?.name || section?.title || `section-${si}`}
+                      key={[
+                        module?.name || `module-${mi}`,
+                        section?.name || section?.title || "section",
+                        si,
+                      ].join(":")}
                       className={cn(!section?.linksCount && "hidden")}
                     >
                       {!isExpanded && si > 0 ? null : (

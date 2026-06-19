@@ -2,7 +2,7 @@ import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { ArrowRight, CheckCircle2, Globe, Sparkles } from "lucide-react";
 
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
-import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
+import { buildDashboardTenantUrl } from "@/features/signup/tenant-urls";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import {
@@ -16,8 +16,9 @@ import {
 export default async function Page({ params }) {
   await params;
   const cookie = await getAuthCookie();
-  const host = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
-  const schoolUrl = cookie?.domain ? `${cookie.domain}.${host}` : null;
+  const schoolUrl = cookie?.domain
+    ? buildDashboardTenantUrl(cookie.domain)
+    : null;
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(184,134,11,0.14),_transparent_32%),#faf8f3] px-4 py-10">

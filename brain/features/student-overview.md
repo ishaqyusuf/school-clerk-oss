@@ -30,6 +30,7 @@ The shared shell keeps the same overview, academics, attendance, and payments fe
 - The page host adds breadcrumb chrome while the sheet host keeps the compact scrollable sheet container.
 - The shell uses one tab state model per host, so sheet interactions do not leak into the page view and page interactions do not require sheet query params.
 - The overview header's Edit action opens a focused student information sheet using the `studentEditId` query param. It edits names, gender, DOB, and the first linked parent/guardian without exposing enrollment or fee setup fields.
+- The overview sheet uses mobile-first spacing and overflow controls: long names and term labels truncate inside the header, tab navigation scrolls within the sheet, term history rows stack status badges on narrow screens, attendance records render as compact cards on mobile, and finance actions/forms collapse into single-column or full-width controls where needed.
 
 ## Data Behavior
 - Overview data still comes from `students.overview`, which includes basic identity fields plus the first non-deleted guardian for edit prefill.

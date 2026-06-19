@@ -8,6 +8,9 @@ export interface ParsedStudent {
   lineNumber: number;
   originalText: string;
   parsedGender?: "M" | "F";
+  batchGender?: "M" | "F";
+  classroomSource?: "selected" | "header" | "missing";
+  classroomLabel?: string;
 }
 
 export interface ParsedWarning {
@@ -30,6 +33,24 @@ function parseGenderAlias(value: string): "M" | "F" | undefined {
   return undefined;
 }
 
+function parseGenderMarker(value: string): "M" | "F" | undefined {
+  const parts = value
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (!parts.length || parts.length > 2) return undefined;
+
+  const aliases = parts.map(parseGenderAlias);
+  const first = aliases[0];
+
+  if (!first || aliases.some((alias) => alias !== first)) {
+    return undefined;
+  }
+
+  return first;
+}
+
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -43,14 +64,14 @@ function normalizeArabic(str: string): string {
       "",
     );
   const map: Record<string, string> = {
-    "أ": "ا",
-    "إ": "ا",
-    "آ": "ا",
-    "ٱ": "ا",
-    "ى": "ي",
-    "ئ": "ي",
-    "ؤ": "و",
-    "ة": "ه",
+    أ: "ا",
+    إ: "ا",
+    آ: "ا",
+    ٱ: "ا",
+    ى: "ي",
+    ئ: "ي",
+    ؤ: "و",
+    ة: "ه",
   };
   str = str.replace(/[\u0621-\u06D3\u06FA-\u06FF]/g, (ch) => map[ch] || ch);
   return normalizeWhitespace(str);
@@ -58,6 +79,63 @@ function normalizeArabic(str: string): string {
 
 function normalizeNameGuideValue(value: string) {
   return normalizeArabic(value).toLowerCase();
+}
+
+function normalizeClassroomLabel(value: string) {
+  return normalizeNameGuideValue(value)
+    .replace(/[()]/g, " ")
+    .replace(/\s*[-–—]\s*/g, " - ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export interface ImportClassroomOption {
+  id: string;
+  departmentName: string;
+  classRoom?: {
+    name?: string | null;
+  } | null;
+}
+
+function getClassroomDisplayName(classroom: ImportClassroomOption) {
+  const className = classroom.classRoom?.name?.trim();
+  const departmentName = classroom.departmentName?.trim();
+
+  if (className && departmentName && className !== departmentName) {
+    return `${className} - ${departmentName}`;
+  }
+
+  return departmentName || className || "";
+}
+
+function buildClassroomResolver(classrooms: ImportClassroomOption[]) {
+  const labelMap = new Map<string, ImportClassroomOption[]>();
+
+  for (const classroom of classrooms) {
+    const displayName = getClassroomDisplayName(classroom);
+    const labels = [
+      displayName,
+      classroom.departmentName,
+      classroom.classRoom?.name || "",
+      `${classroom.classRoom?.name || ""} ${classroom.departmentName || ""}`,
+    ];
+
+    for (const label of labels) {
+      const normalized = normalizeClassroomLabel(label);
+      if (!normalized) continue;
+
+      const current = labelMap.get(normalized) || [];
+      if (!current.some((item) => item.id === classroom.id)) {
+        current.push(classroom);
+      }
+      labelMap.set(normalized, current);
+    }
+  }
+
+  return (label: string) => {
+    const matches = labelMap.get(normalizeClassroomLabel(label)) || [];
+    return matches.length === 1 ? matches[0] : null;
+  };
 }
 
 function buildNameGuide(nameGuide: string[]) {
@@ -95,7 +173,9 @@ function splitNameWithGuide(source: string, nameGuide: string[]) {
   if (!normalizedSource) return [];
 
   const tokens = normalizedSource.split(" ").filter(Boolean);
-  const normalizedTokens = tokens.map((token) => normalizeNameGuideValue(token));
+  const normalizedTokens = tokens.map((token) =>
+    normalizeNameGuideValue(token),
+  );
   const guide = buildNameGuide(nameGuide);
 
   if (!guide.length) {
@@ -121,7 +201,9 @@ function splitNameWithGuide(source: string, nameGuide: string[]) {
       continue;
     }
 
-    nameParts.push(tokens.slice(cursor, cursor + match.tokens.length).join(" "));
+    nameParts.push(
+      tokens.slice(cursor, cursor + match.tokens.length).join(" "),
+    );
     cursor += match.tokens.length;
   }
 
@@ -134,9 +216,17 @@ export function parseRawInput(
   classRoomId: string,
   globalGender?: "Male" | "Female" | "unset" | "",
   nameGuide: string[] = [],
+  classrooms: ImportClassroomOption[] = [],
 ): { students: ParsedStudent[]; warnings: ParsedWarning[] } {
   const students: ParsedStudent[] = [];
   const warnings: ParsedWarning[] = [];
+  const resolveClassroom = buildClassroomResolver(classrooms);
+  let activeClassRoomName = classRoomName;
+  let activeClassRoomId = classRoomId;
+  let activeClassroomSource: ParsedStudent["classroomSource"] = classRoomId
+    ? "selected"
+    : "missing";
+  let activeBatchGender: "M" | "F" | undefined;
 
   if (!rawText) {
     return { students, warnings };
@@ -147,6 +237,21 @@ export function parseRawInput(
     const lineNumber = index + 1;
     const trimmed = line.trim();
     if (!trimmed) return;
+
+    const matchedClassroom = resolveClassroom(trimmed);
+    if (matchedClassroom) {
+      activeClassRoomName = getClassroomDisplayName(matchedClassroom);
+      activeClassRoomId = matchedClassroom.id;
+      activeClassroomSource = "header";
+      activeBatchGender = undefined;
+      return;
+    }
+
+    const genderMarker = parseGenderMarker(trimmed);
+    if (genderMarker) {
+      activeBatchGender = genderMarker;
+      return;
+    }
 
     const hasPunctuationNameDelimiter = /[,.،]/.test(trimmed);
     const delimitedParts = hasPunctuationNameDelimiter
@@ -180,6 +285,7 @@ export function parseRawInput(
 
     const effectiveGender =
       parsedGender ||
+      activeBatchGender ||
       (globalGender === "Male"
         ? "M"
         : globalGender === "Female"
@@ -198,16 +304,28 @@ export function parseRawInput(
       });
     }
 
+    if (!activeClassRoomId) {
+      warnings.push({
+        lineNumber,
+        text: trimmed,
+        warning:
+          "Classroom missing; add a class name header or choose a default classroom",
+      });
+    }
+
     students.push({
       name,
       surname,
       otherName,
       gender: effectiveGender,
-      classRoom: classRoomName,
-      classroomDepartmentId: classRoomId,
+      classRoom: activeClassRoomName,
+      classroomDepartmentId: activeClassRoomId,
       lineNumber,
       originalText: trimmed,
       parsedGender,
+      batchGender: parsedGender ? undefined : activeBatchGender,
+      classroomSource: activeClassroomSource,
+      classroomLabel: activeClassRoomName,
     });
   });
 

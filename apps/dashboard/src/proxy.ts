@@ -95,6 +95,7 @@ export default async function proxy(req: NextRequest) {
     "/login",
     "/forgot-password",
     "/reset-password",
+    "/verify-email",
     "/dev-quick-login",
   ]);
   const isPublicRoute =
@@ -105,6 +106,7 @@ export default async function proxy(req: NextRequest) {
   const allowAuthenticatedPublicRoute =
     tenantUrlContext.productPath === "/forgot-password" ||
     tenantUrlContext.productPath === "/reset-password" ||
+    tenantUrlContext.productPath === "/verify-email" ||
     (process.env.NODE_ENV !== "production" &&
       tenantUrlContext.productPath === "/dev-quick-login");
 

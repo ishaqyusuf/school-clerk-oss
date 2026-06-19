@@ -42,6 +42,9 @@ interface Props {
     lineNumber: number;
     originalText: string;
     parsedGender?: "M" | "F";
+    batchGender?: "M" | "F";
+    classroomSource?: "selected" | "header" | "missing";
+    classroomLabel?: string;
   }[];
   onCancelImport?: () => void;
   onStartNewImport?: () => void;
@@ -60,6 +63,7 @@ type ExecuteRow = {
   surname: string;
   otherName: string | null;
   gender: "Male" | "Female";
+  classroomDepartmentId: string;
   action: "import_new" | "keep_match" | "update_match_with_name";
   existingStudentId: string | null;
 };
@@ -165,11 +169,13 @@ export function ImportActivity({
         compareArabic(cd.classRoom.name, firstStudent.classRoom),
     );
 
-    setClassroomDeptId(matched?.id || records.classDepartments[0]?.id || "");
+    if (matched?.id) {
+      setClassroomDeptId(matched.id);
+    }
   }, [classroomDeptId, records, students]);
 
   const verifyInput = useMemo(() => {
-    if (!classroomDeptId || !students.length) return null;
+    if (!students.length) return null;
 
     return {
       classroomDepartmentId: classroomDeptId,
@@ -179,6 +185,8 @@ export function ImportActivity({
         name: student.name,
         surname: student.surname,
         originalClassRoom: student.classRoom,
+        classroomDepartmentId:
+          student.classroomDepartmentId || classroomDeptId || null,
         otherName: student.otherName || null,
         gender:
           student.gender === "M"
@@ -428,7 +436,7 @@ export function ImportActivity({
       records?.students || [],
       records?.sessionTermId,
       records?.schoolSessionId,
-      classroomDeptId,
+      getRowClassroomDepartmentId(row, classroomDeptId),
     );
 
     setNameOverrides((current) => {
@@ -480,7 +488,7 @@ export function ImportActivity({
       student,
       records?.sessionTermId,
       records?.schoolSessionId,
-      classroomDeptId,
+      getRowClassroomDepartmentId(row, classroomDeptId),
     );
 
     setNameOverrides((current) => ({
@@ -547,13 +555,6 @@ export function ImportActivity({
   const executeAll = () => {
     setPreSubmitError(null);
 
-    if (!classroomDeptId) {
-      setPreSubmitError(
-        "Select a target classroom before executing the import.",
-      );
-      return;
-    }
-
     const importRows: ExecuteRow[] = [];
     const needsDecisionLines: number[] = [];
     let skippedBeforeExecution = 0;
@@ -564,8 +565,17 @@ export function ImportActivity({
       const decision = rowDecisions[row.lineNumber];
       const action = decision?.action;
       const gender = resolveGender(row, manualGenders[row.lineNumber]);
+      const rowClassroomDepartmentId = getRowClassroomDepartmentId(
+        row,
+        classroomDeptId,
+      );
       const needsExisting =
         action === "keep_match" || action === "update_match_with_name";
+
+      if (!rowClassroomDepartmentId) {
+        needsDecisionLines.push(row.lineNumber);
+        continue;
+      }
 
       if (!gender) {
         needsDecisionLines.push(row.lineNumber);
@@ -593,6 +603,7 @@ export function ImportActivity({
         surname: row.surname,
         otherName: row.otherName ?? null,
         gender,
+        classroomDepartmentId: rowClassroomDepartmentId,
         action,
         existingStudentId: decision?.existingStudentId || null,
       });
@@ -602,7 +613,7 @@ export function ImportActivity({
       setPreSubmitError(
         "Lines " +
           needsDecisionLines.join(", ") +
-          " need gender, an import action, or a selected match before execution.",
+          " need classroom, gender, an import action, or a selected match before execution.",
       );
       return;
     }
@@ -626,6 +637,23 @@ export function ImportActivity({
   const selectedClassroom = records?.classDepartments?.find(
     (classroom) => classroom.id === classroomDeptId,
   );
+  const selectedClassroomIds = new Set(
+    rows
+      .map((row) => getRowClassroomDepartmentId(row, classroomDeptId))
+      .filter(Boolean),
+  );
+  const classroomSummary =
+    selectedClassroomIds.size > 1
+      ? `${selectedClassroomIds.size} classrooms`
+      : selectedClassroom
+        ? `${selectedClassroom.classRoom.name} - ${selectedClassroom.departmentName}`
+        : selectedClassroomIds.size === 1
+          ? rows.find((row) =>
+              selectedClassroomIds.has(
+                getRowClassroomDepartmentId(row, classroomDeptId),
+              ),
+            )?.classRoom || "Selected classroom"
+          : null;
   const skippedBeforeExecution = rows.filter(
     (row) =>
       isRowChecked(checkedRows, row.lineNumber) &&
@@ -666,7 +694,7 @@ export function ImportActivity({
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex min-w-64 flex-col gap-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Target Classroom
+              Fallback Classroom
             </span>
             <Select
               value={classroomDeptId}
@@ -679,7 +707,7 @@ export function ImportActivity({
                   placeholder={
                     isRecentRecordsPending
                       ? "Loading classrooms..."
-                      : "Select classroom"
+                      : "Fallback for rows without a class header"
                   }
                 />
               </Select.Trigger>
@@ -748,11 +776,7 @@ export function ImportActivity({
 
       {isExecutingBatch || batchResult ? (
         <ImportExecutionPanel
-          classroomLabel={
-            selectedClassroom
-              ? `${selectedClassroom.classRoom.name} - ${selectedClassroom.departmentName}`
-              : null
-          }
+          classroomLabel={classroomSummary}
           pastedRowCount={rows.length || students.length}
           selectedRowCount={selectedRowCount}
           executableRowCount={executableRowCount}
@@ -1604,6 +1628,16 @@ function RowCard({
               Gender missing
             </span>
           )}
+          {row.classRoom ? (
+            <Badge variant="outline" className="bg-background">
+              <Arabic>{row.classRoom}</Arabic>
+            </Badge>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-orange-600">
+              <AlertTriangle className="size-3.5" />
+              Classroom missing
+            </span>
+          )}
         </div>
       </div>
 
@@ -2027,6 +2061,13 @@ function isRowChecked(
   lineNumber: number,
 ) {
   return checkedRows[lineNumber] !== false;
+}
+
+function getRowClassroomDepartmentId(
+  row: Pick<VerifyResult, "classroomDepartmentId">,
+  fallbackClassroomDepartmentId: string,
+) {
+  return row.classroomDepartmentId || fallbackClassroomDepartmentId || "";
 }
 
 function findEditedNameMatch(

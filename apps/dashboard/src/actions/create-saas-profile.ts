@@ -8,13 +8,15 @@ import { createNotificationFromType } from "@school-clerk/notifications";
 import { getRecipient, slugify } from "@school-clerk/utils";
 
 import { auth } from "@/auth/server";
-import { buildTenantUrl } from "@/features/signup/tenant-urls";
+import {
+  buildDashboardTenantUrl,
+  buildSchoolSiteUrl,
+} from "@/features/signup/tenant-urls";
 import {
   getInstitutionType,
   isInstitutionTypeEnabled,
 } from "@/features/signup/institution-types";
-import { addDomainToVercel } from "@/utils/domain";
-import { getSignupHostSuffix } from "@/features/signup/tenant-urls";
+import { provisionSchoolVercelDomains } from "@/utils/domain";
 import { actionClient } from "./safe-action";
 import { createSignupSchema } from "./schema";
 
@@ -62,17 +64,19 @@ async function sendSignupSuccessEmail({
   to,
   schoolName,
   onboardingUrl,
+  siteUrl,
   workspaceUrl,
 }: {
   to: string;
   schoolName: string;
   onboardingUrl: string;
+  siteUrl: string;
   workspaceUrl: string;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
   const from =
     process.env.RESEND_FROM_EMAIL ??
-    "School Clerk <noreply@school-clerkprodesk.com>";
+    "School Clerk <noreply@school-clerk.com>";
 
   if (!apiKey) {
     console.warn(`[signup] resend api key missing; email not sent to ${to}`);
@@ -102,6 +106,8 @@ async function sendSignupSuccessEmail({
           </p>
           <p>You can also access your workspace directly here:</p>
           <p><a href="${workspaceUrl}">${workspaceUrl}</a></p>
+          <p>Your public school site is reserved here:</p>
+          <p><a href="${siteUrl}">${siteUrl}</a></p>
           <p>If you were not expecting this message, you can safely ignore it.</p>
         </div>
       `,
@@ -111,6 +117,93 @@ async function sendSignupSuccessEmail({
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Failed to send signup email: ${errorText}`);
+  }
+}
+
+async function createEmailVerificationUrl({
+  dashboardUrl,
+  userId,
+}: {
+  dashboardUrl: string;
+  userId: string;
+}) {
+  const token = crypto.randomUUID();
+
+  await prisma.verification.deleteMany({
+    where: {
+      identifier: {
+        startsWith: "email-verification:",
+      },
+      value: userId,
+      deletedAt: null,
+    },
+  });
+
+  await prisma.verification.create({
+    data: {
+      identifier: `email-verification:${token}`,
+      value: userId,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+    },
+  });
+
+  const verificationUrl = new URL("/verify-email", dashboardUrl);
+  verificationUrl.searchParams.set("token", token);
+
+  return verificationUrl.toString();
+}
+
+async function sendSignupVerificationEmail({
+  to,
+  schoolName,
+  verificationUrl,
+}: {
+  to: string;
+  schoolName: string;
+  verificationUrl: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from =
+    process.env.RESEND_FROM_EMAIL ??
+    "School Clerk <noreply@school-clerk.com>";
+
+  if (!apiKey) {
+    console.warn(
+      `[signup] resend api key missing; verification email not sent to ${to}`,
+    );
+    return;
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [getRecipient(to)],
+      subject: `Verify your ${schoolName} School Clerk account`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
+          <h2 style="margin-bottom: 12px;">Verify your email address</h2>
+          <p>Your School Clerk workspace for <strong>${schoolName}</strong> is ready. Verify this email address to secure the owner account.</p>
+          <p>
+            <a href="${verificationUrl}" style="display:inline-block;padding:12px 20px;background:#111827;color:#ffffff;text-decoration:none;border-radius:10px;">
+              Verify email
+            </a>
+          </p>
+          <p>If the button does not work, copy and paste this link into your browser:</p>
+          <p><a href="${verificationUrl}">${verificationUrl}</a></p>
+          <p>This link expires in 24 hours.</p>
+        </div>
+      `,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to send signup verification email: ${errorText}`);
   }
 }
 
@@ -312,24 +405,48 @@ export const createSaasProfileAction = actionClient
       throw error;
     }
 
-    const signupHostSuffix = getSignupHostSuffix();
-    const dashboardUrl = buildTenantUrl(school.subDomain);
+    if (!createdUserId) {
+      throw new Error("Could not create the admin account.");
+    }
+
+    const dashboardUrl = buildDashboardTenantUrl(school.subDomain);
+    const siteUrl = buildSchoolSiteUrl(school.subDomain);
     const onboardingPath = "/onboarding/welcome";
-    const onboardingUrl = buildTenantUrl(school.subDomain, onboardingPath);
-    const loginUrl = buildTenantUrl(school.subDomain, "/login");
+    const onboardingUrl = buildDashboardTenantUrl(
+      school.subDomain,
+      onboardingPath,
+    );
+    const loginUrl = buildDashboardTenantUrl(school.subDomain, "/login");
     const onboardingLoginUrl = new URL(loginUrl);
     onboardingLoginUrl.searchParams.set("email", email);
     onboardingLoginUrl.searchParams.set("return_to", onboardingPath);
 
     if (
       process.env.NODE_ENV === "production" &&
-      !signupHostSuffix.endsWith("vercel.app")
+      !new URL(siteUrl).host.endsWith("vercel.app")
     ) {
       try {
-        await addDomainToVercel(`${school.subDomain}.${signupHostSuffix}`);
+        await provisionSchoolVercelDomains({
+          dashboardDomain: new URL(dashboardUrl).host,
+          siteDomain: new URL(siteUrl).host,
+        });
       } catch (error) {
-        console.error("[signup] Failed to add domain to Vercel", error);
+        console.error("[signup] Failed to provision Vercel domains", error);
       }
+    }
+
+    try {
+      const verificationUrl = await createEmailVerificationUrl({
+        dashboardUrl,
+        userId: createdUserId,
+      });
+      await sendSignupVerificationEmail({
+        to: email,
+        schoolName: school.schoolName,
+        verificationUrl,
+      });
+    } catch (error) {
+      console.error("[signup] Failed to send signup verification email", error);
     }
 
     try {
@@ -337,6 +454,7 @@ export const createSaasProfileAction = actionClient
         to: email,
         schoolName: school.schoolName,
         onboardingUrl,
+        siteUrl,
         workspaceUrl: dashboardUrl,
       });
     } catch (error) {
@@ -361,6 +479,7 @@ export const createSaasProfileAction = actionClient
       onboardingLoginUrl: onboardingLoginUrl.toString(),
       schoolName: school.schoolName,
       subDomain: school.subDomain,
+      siteUrl,
       workspaceUrl: dashboardUrl,
       devOnboardingUrl:
         process.env.NODE_ENV !== "production" ? onboardingUrl : null,

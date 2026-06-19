@@ -1,12 +1,10 @@
 import { ErrorFallback } from "@/components/error-fallback";
-import { DataTable } from "@/components/tables/enrollments/data-table";
+import { EnrollmentManagementClient } from "@/components/enrollment/enrollment-management-client";
 import { TableSkeleton } from "@/components/tables/skeleton";
-import { loadStudentFilterParams } from "@/hooks/use-student-filter-params";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { buildTenantPageMetadata } from "@/utils/tenant-page-metadata";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
-import type { SearchParams } from "nuqs";
 import { Suspense } from "react";
 
 export async function generateMetadata({ params }) {
@@ -16,19 +14,11 @@ export async function generateMetadata({ params }) {
 		pathname: "/students/enrollment",
 	});
 }
-type Props = {
-	searchParams: Promise<SearchParams>;
-};
-export default async function Page(props: Props) {
-	const searchParams = await props.searchParams;
-	const filter = loadStudentFilterParams(searchParams);
-
+export default async function Page() {
 	await batchPrefetch([
-		trpc.enrollments.index.queryOptions({
-			currentClassDepartmentId: filter.departmentId,
-			currentSessionId: filter.sessionId,
-			currentTermId: filter.sessionTermId,
-		}),
+		trpc.enrollmentLinks.listLinks.queryOptions(),
+		trpc.enrollmentLinks.getApplications.queryOptions({}),
+		trpc.classrooms.getCurrentSessionClassroom.queryOptions(),
 	]);
 
 	return (
@@ -37,7 +27,7 @@ export default async function Page(props: Props) {
 				<PageTitle>Enrollment</PageTitle>
 				<ErrorBoundary errorComponent={ErrorFallback}>
 					<Suspense fallback={<TableSkeleton />}>
-						<DataTable />
+						<EnrollmentManagementClient />
 					</Suspense>
 				</ErrorBoundary>
 			</div>

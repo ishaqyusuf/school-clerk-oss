@@ -73,7 +73,7 @@ export async function renderPublicPage(input: {
   const { tenant, config } = await resolveWebsiteRenderTarget(input);
   const pageKey: WebsiteTemplatePageKey = resolvePageKey(input.pathname);
   const routeSlug = resolveRouteSlug(input.pathname);
-  const contentData = await getPublicWebsiteData(tenant);
+  const contentData = await getPublicWebsiteData(tenant, config);
 
   return renderTemplatePage(templateRegistry, {
     mode: "production",
@@ -96,7 +96,7 @@ export async function resolvePublicPageMetadata(input: {
   const { tenant, config } = await resolveWebsiteRenderTarget(input);
   const pageKey = resolvePageKey(input.pathname);
   const routeSlug = resolveRouteSlug(input.pathname);
-  const contentData = await getPublicWebsiteData(tenant);
+  const contentData = await getPublicWebsiteData(tenant, config);
   const routeItem = getRouteCollectionItem({ routeSlug, contentData });
 
   const pageTitle =
@@ -105,7 +105,9 @@ export async function resolvePublicPageMetadata(input: {
     tenant.schoolName;
 
   const description =
-    (config.seoConfig?.[`pages.${pageKey}.description`] as string | undefined) ??
+    (config.seoConfig?.[`pages.${pageKey}.description`] as
+      | string
+      | undefined) ??
     (config.seoConfig?.siteDescription as string | undefined) ??
     routeItem?.excerpt ??
     `${tenant.schoolName} website`;
@@ -117,7 +119,9 @@ export async function resolvePublicPageMetadata(input: {
     (config.content["home.hero.imageUrl"] as string | undefined);
 
   const canonical =
-    (config.seoConfig?.[`pages.${pageKey}.canonicalUrl`] as string | undefined) ??
+    (config.seoConfig?.[`pages.${pageKey}.canonicalUrl`] as
+      | string
+      | undefined) ??
     (tenant.customDomain
       ? `https://${tenant.customDomain}${input.pathname}`
       : tenant.subdomain
@@ -159,18 +163,17 @@ export async function resolvePublicStructuredData(input: {
   previewToken?: string | null;
   templateId?: string | null;
 }) {
-  const { tenant } = await resolveWebsiteRenderTarget(input);
+  const { tenant, config } = await resolveWebsiteRenderTarget(input);
   const pageKey = resolvePageKey(input.pathname);
   const routeSlug = resolveRouteSlug(input.pathname);
-  const contentData = await getPublicWebsiteData(tenant);
+  const contentData = await getPublicWebsiteData(tenant, config);
   const routeItem = getRouteCollectionItem({ routeSlug, contentData });
 
-  const url =
-    tenant.customDomain
-      ? `https://${tenant.customDomain}${input.pathname}`
-      : tenant.subdomain
-        ? `https://${tenant.subdomain}${input.pathname}`
-        : undefined;
+  const url = tenant.customDomain
+    ? `https://${tenant.customDomain}${input.pathname}`
+    : tenant.subdomain
+      ? `https://${tenant.subdomain}${input.pathname}`
+      : undefined;
 
   const organization = {
     "@context": "https://schema.org",

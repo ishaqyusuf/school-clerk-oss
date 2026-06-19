@@ -157,6 +157,7 @@ function ReportFooter({ studentId }) {
 function ReportHeader({ studentId }) {
   const ctx = useReportPageContext();
   const data = ctx?.reportsById?.[studentId];
+  const classroomName = data?.departmentName ?? ctx.classroomName;
   return (
     <div className="mb-3">
       <div className="space-y-4 flex flex-col">
@@ -207,7 +208,7 @@ function ReportHeader({ studentId }) {
               <span className="text-black/70">الفصل</span>
               <span>:</span>
               <span className="mx-1 border-b border-muted-foreground">
-                {ctx.classroomName}
+                {classroomName}
               </span>
             </div>
             <div className="flex items-end">

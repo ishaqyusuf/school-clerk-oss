@@ -4,6 +4,7 @@ export const editableFieldDefinitionSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   description: z.string().min(1),
+  aiDescription: z.string().optional(),
   contentType: z.enum([
     "short-text",
     "long-text",
@@ -35,7 +36,7 @@ export const editableFieldDefinitionSchema = z.object({
         label: z.string().min(1),
         placeholder: z.string().optional(),
         input: z.enum(["text", "textarea", "image-url", "media-asset"]),
-      })
+      }),
     )
     .optional(),
 });
@@ -80,7 +81,7 @@ export const websiteTemplateManifestSchema = z.object({
       "UNIVERSITY",
       "TRAINING_CENTER",
       "RELIGIOUS_SCHOOL",
-    ])
+    ]),
   ),
   supportedPlans: z.array(z.enum(["BASIC", "PLUS", "PRO", "ENTERPRISE"])),
   description: z.string().min(1),
@@ -90,9 +91,7 @@ export const websiteTemplateManifestSchema = z.object({
   features: z.array(z.string()),
   pages: z.array(templatePageDefinitionSchema),
   themeSchema: z.object({
-    colorSlots: z.array(
-      z.enum(["primary", "secondary", "accent", "surface"])
-    ),
+    colorSlots: z.array(z.enum(["primary", "secondary", "accent", "surface"])),
     headingFontOptions: z.array(z.string()),
     bodyFontOptions: z.array(z.string()),
     radiusOptions: z.array(z.enum(["none", "sm", "md", "lg", "full"])),

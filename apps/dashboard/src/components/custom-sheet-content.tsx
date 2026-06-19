@@ -123,6 +123,7 @@ export function CustomSheetContent({
   children = null,
   Header = null,
   className = "",
+  contentClassName = "",
 }) {
   const sheet = useSheet();
   return (
@@ -133,7 +134,10 @@ export function CustomSheetContent({
       >
         <div
           id={sheet.scrollContentId}
-          className="flex flex-col gap-4 pb-36 sm:pb-16"
+          className={cn(
+            "flex flex-col gap-4 pb-36 sm:pb-16",
+            contentClassName,
+          )}
         >
           {children}
         </div>

@@ -4,6 +4,10 @@ import { Button } from "@school-clerk/ui/button";
 import { UserPlus } from "lucide-react";
 import { OpenStudentImport } from "./open-student-import";
 import { StudentSearchFilter } from "./student-search-filter";
+import {
+	StudentsColumnVisibility,
+	StudentsViewToggle,
+} from "./tables/students/column-visibility";
 
 export function StudentHeader() {
 	const { setParams } = useStudentParams();
@@ -22,6 +26,8 @@ export function StudentHeader() {
 					<StudentSearchFilter />
 				</div>
 				<div className="flex items-center gap-3 shrink-0">
+					<StudentsViewToggle />
+					<StudentsColumnVisibility />
 					<OpenStudentImport />
 					<Button
 						onClick={() => setParams({ createStudent: true })}

@@ -6,12 +6,9 @@ import { nanoid } from "nanoid";
 import { logger } from "@trigger.dev/sdk";
 
 export const resend = new Resend(process.env.RESEND_API_KEY!);
-type FromEmails =
-  | "GND Payment <pay@school-clerkprodesk.com>"
-  | "GND Millwork <noreply@school-clerkprodesk.com>";
 interface SendEmailProps {
   subject: string;
-  from: FromEmails;
+  from: string;
   to: string | string[];
   content: ReactElement;
   successLog?: string;

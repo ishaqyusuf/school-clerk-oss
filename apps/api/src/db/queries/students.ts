@@ -1286,7 +1286,7 @@ function levenshteinDistance(s1: string, s2: string): number {
 }
 
 export const verifyStudentImportSchema = z.object({
-  classroomDepartmentId: z.string().min(1),
+  classroomDepartmentId: z.string().optional().nullable(),
   rows: z.array(
     z.object({
       lineNumber: z.number(),
@@ -1295,6 +1295,7 @@ export const verifyStudentImportSchema = z.object({
       surname: z.string(),
       otherName: z.string().optional().nullable(),
       gender: z.string().optional().nullable(),
+      classroomDepartmentId: z.string().optional().nullable(),
     }),
   ),
 });
@@ -1311,10 +1312,20 @@ export async function verifyStudentImport(
   const sessionTermId = profile.termId;
   const schoolSessionId = profile.sessionId;
 
-  // 1. Validate classroom department belongs to the active school AND session
-  const classRoomDept = await db.classRoomDepartment.findFirst({
+  const requestedClassroomIds = Array.from(
+    new Set(
+      [
+        input.classroomDepartmentId,
+        ...input.rows.map((row) => row.classroomDepartmentId),
+      ].filter((id): id is string => Boolean(id)),
+    ),
+  );
+
+  const classRoomDepts = await db.classRoomDepartment.findMany({
     where: {
-      id: input.classroomDepartmentId,
+      id: {
+        in: requestedClassroomIds,
+      },
       classRoom: {
         schoolProfileId: profile.schoolId,
         schoolSessionId: profile.sessionId,
@@ -1324,10 +1335,13 @@ export async function verifyStudentImport(
       classRoom: true,
     },
   });
+  const classRoomDeptById = new Map(
+    classRoomDepts.map((classroom) => [classroom.id, classroom]),
+  );
 
-  if (!classRoomDept) {
+  if (classRoomDepts.length !== requestedClassroomIds.length) {
     throw new Error(
-      "Selected classroom department not found, unauthorized, or not in active session.",
+      "One or more selected classroom departments were not found, unauthorized, or not in the active session.",
     );
   }
 
@@ -1404,6 +1418,8 @@ export async function verifyStudentImport(
     } | null;
     needsGender: boolean;
     status: "readyToImport" | "matchFound" | "needsAttention";
+    classRoom: string | null;
+    classroomDepartmentId: string | null;
     fullMatch: MatchMeta | null;
     suspectedMatches: MatchMeta[];
   }> = [];
@@ -1429,6 +1445,16 @@ export async function verifyStudentImport(
   }
 
   for (const row of input.rows) {
+    const targetClassroomDepartmentId =
+      row.classroomDepartmentId || input.classroomDepartmentId || null;
+    const targetClassroom = targetClassroomDepartmentId
+      ? classRoomDeptById.get(targetClassroomDepartmentId)
+      : null;
+    const targetClassroomLabel = targetClassroom
+      ? [targetClassroom.classRoom?.name, targetClassroom.departmentName]
+          .filter(Boolean)
+          .join(" - ")
+      : null;
     const inputGender: string | null = (row.gender || null) as string | null;
     let inferredGender: "Male" | "Female" | null = null;
     let genderInferenceDetails: {
@@ -1540,7 +1566,7 @@ export async function verifyStudentImport(
           isCurrentTermMatch: Boolean(activeTermSheet),
           isCurrentClassroomMatch:
             activeTermSheet?.classroomDepartmentId ===
-            input.classroomDepartmentId,
+            targetClassroomDepartmentId,
           confidence,
           reason,
         };
@@ -1559,7 +1585,9 @@ export async function verifyStudentImport(
 
     let status: "readyToImport" | "matchFound" | "needsAttention" =
       "readyToImport";
-    if (fullMatch) {
+    if (!targetClassroomDepartmentId) {
+      status = "needsAttention";
+    } else if (fullMatch) {
       status = "matchFound";
     } else if (needsGender || topSuspected.some((m) => m.confidence >= 70)) {
       status = "needsAttention";
@@ -1576,6 +1604,8 @@ export async function verifyStudentImport(
       genderInferenceDetails,
       needsGender,
       status,
+      classRoom: targetClassroomLabel,
+      classroomDepartmentId: targetClassroomDepartmentId,
       fullMatch,
       suspectedMatches: topSuspected,
     });
@@ -1587,7 +1617,7 @@ export async function verifyStudentImport(
 }
 
 export const executeStudentImportSchema = z.object({
-  classroomDepartmentId: z.string().min(1),
+  classroomDepartmentId: z.string().optional().nullable(),
   rows: z.array(
     z.object({
       lineNumber: z.number(),
@@ -1595,6 +1625,7 @@ export const executeStudentImportSchema = z.object({
       surname: z.string().min(1),
       otherName: z.string().optional().nullable(),
       gender: z.enum(["Male", "Female"]),
+      classroomDepartmentId: z.string().optional().nullable(),
       action: z.enum(["import_new", "keep_match", "update_match_with_name"]),
       existingStudentId: z.string().optional().nullable(),
     }),
@@ -1633,9 +1664,24 @@ export async function executeStudentImport(
     throw new Error("Active school, session, and term are required");
   }
 
-  const classroom = await db.classRoomDepartment.findFirst({
+  const requestedClassroomIds = Array.from(
+    new Set(
+      [
+        input.classroomDepartmentId,
+        ...input.rows.map((row) => row.classroomDepartmentId),
+      ].filter((id): id is string => Boolean(id)),
+    ),
+  );
+
+  if (!requestedClassroomIds.length) {
+    throw new Error("At least one classroom is required");
+  }
+
+  const classrooms = await db.classRoomDepartment.findMany({
     where: {
-      id: input.classroomDepartmentId,
+      id: {
+        in: requestedClassroomIds,
+      },
       schoolProfileId: profile.schoolId,
     },
     include: {
@@ -1644,13 +1690,24 @@ export async function executeStudentImport(
       },
     },
   });
+  const classroomById = new Map(
+    classrooms.map((classroom) => [classroom.id, classroom]),
+  );
 
-  if (!classroom) {
-    throw new Error("Selected classroom does not belong to the active school");
+  if (classrooms.length !== requestedClassroomIds.length) {
+    throw new Error(
+      "One or more selected classrooms do not belong to the active school",
+    );
   }
 
-  if (classroom.classRoom?.schoolSessionId !== profile.sessionId) {
-    throw new Error("Selected classroom does not belong to the active session");
+  if (
+    classrooms.some(
+      (classroom) => classroom.classRoom?.schoolSessionId !== profile.sessionId,
+    )
+  ) {
+    throw new Error(
+      "One or more selected classrooms do not belong to the active session",
+    );
   }
 
   const rows: ImportRowResult[] = [];
@@ -1663,6 +1720,21 @@ export async function executeStudentImport(
 
   for (const row of input.rows) {
     try {
+      const rowClassroomDepartmentId =
+        row.classroomDepartmentId || input.classroomDepartmentId || "";
+      const rowClassroom = classroomById.get(rowClassroomDepartmentId);
+
+      if (!rowClassroom) {
+        rows.push({
+          lineNumber: row.lineNumber,
+          action: row.action,
+          status: "failed",
+          reason: "No valid classroom selected for row",
+        });
+        failedRows++;
+        continue;
+      }
+
       const result = await db.$transaction(async (tx) => {
         switch (row.action) {
           case "import_new": {
@@ -1677,13 +1749,13 @@ export async function executeStudentImport(
                   create: {
                     schoolSessionId: profile.sessionId,
                     schoolProfileId: profile.schoolId,
-                    classroomDepartmentId: input.classroomDepartmentId,
+                    classroomDepartmentId: rowClassroomDepartmentId,
                     termForms: {
                       create: {
                         schoolProfileId: profile.schoolId,
                         sessionTermId: profile.termId,
                         schoolSessionId: profile.sessionId,
-                        classroomDepartmentId: input.classroomDepartmentId,
+                        classroomDepartmentId: rowClassroomDepartmentId,
                       },
                     },
                   },
@@ -1711,7 +1783,7 @@ export async function executeStudentImport(
                 studentTermFormId: termForm.id,
                 schoolSessionId: profile.sessionId,
                 sessionTermId: profile.termId,
-                classroomDepartmentId: input.classroomDepartmentId,
+                classroomDepartmentId: rowClassroomDepartmentId,
               });
             }
 
@@ -1756,7 +1828,7 @@ export async function executeStudentImport(
               tx,
               existingStudentId,
               profile,
-              input.classroomDepartmentId,
+              rowClassroomDepartmentId,
             );
 
             if (termSheetResult.conflictClassroom) {
@@ -1818,7 +1890,7 @@ export async function executeStudentImport(
               tx,
               existingStudentId,
               profile,
-              input.classroomDepartmentId,
+              rowClassroomDepartmentId,
             );
 
             if (termSheetResult.conflictClassroom) {

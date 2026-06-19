@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 export type WebsiteTemplateId = string;
 
-export type WebsiteTemplateMode = "preview" | "editor" | "production";
+export type WebsiteTemplateMode = "preview" | "editor" | "production" | "dummy";
 
 export type WebsitePlan = "BASIC" | "PLUS" | "PRO" | "ENTERPRISE";
 
@@ -45,6 +45,7 @@ export type EditableFieldDefinition = {
   key: string;
   label: string;
   description: string;
+  aiDescription?: string;
   contentType:
     | "short-text"
     | "long-text"
@@ -88,6 +89,24 @@ export type TemplatePageDefinition = {
   sections: TemplateSectionDefinition[];
 };
 
+export type WebsiteRegistrySectionDefinition = {
+  key: string;
+  label: string;
+  featureKey?: string;
+  supportedPages: WebsiteTemplatePageKey[];
+  defaultVisible: boolean;
+  editables: EditableFieldDefinition[];
+  modes?: WebsiteTemplateMode[];
+};
+
+export type WebsiteRegistryFeatureDefinition = {
+  key: string;
+  label: string;
+  description: string;
+  sections: WebsiteRegistrySectionDefinition[];
+  dataRequirements: string[];
+};
+
 export type WebsiteThemeSchema = {
   colorSlots: Array<"primary" | "secondary" | "accent" | "surface">;
   headingFontOptions: string[];
@@ -95,6 +114,62 @@ export type WebsiteThemeSchema = {
   radiusOptions: Array<"none" | "sm" | "md" | "lg" | "full">;
   densityOptions: Array<"compact" | "comfortable" | "airy">;
   stylePresets: string[];
+};
+
+export type WebsiteSiteStylePreset =
+  | "nova"
+  | "vega"
+  | "maia"
+  | "mira"
+  | "lyra"
+  | "classic-academic"
+  | "bright-campus"
+  | "sunlit-family"
+  | "executive-campus";
+
+export type WebsiteSiteBaseColor =
+  | "slate"
+  | "zinc"
+  | "neutral"
+  | "stone"
+  | "taupe";
+
+export type WebsiteSiteIconLibrary = "lucide" | "tabler" | "phosphor";
+
+export type WebsiteSiteRadius = "none" | "sm" | "md" | "lg" | "xl" | "full";
+
+export type WebsiteSiteMenuStyle = "default" | "translucent" | "solid";
+
+export type WebsiteSiteMenuAccent = "subtle" | "bold" | "none";
+
+export type WebsiteSiteThemeConfig = {
+  template: WebsiteTemplateId;
+  style: WebsiteSiteStylePreset;
+  baseColor: WebsiteSiteBaseColor;
+  theme: string;
+  chartColor: string;
+  heading: string;
+  font: string;
+  iconLibrary: WebsiteSiteIconLibrary;
+  radius: WebsiteSiteRadius;
+  menuStyle: WebsiteSiteMenuStyle;
+  menuAccent: WebsiteSiteMenuAccent;
+};
+
+export type WebsitePageSectionConfig = {
+  id: string;
+  sectionKey: string;
+  variant?: string;
+  visible: boolean;
+};
+
+export type WebsitePageConfig = {
+  sections: WebsitePageSectionConfig[];
+};
+
+export type TenantSiteConfig = WebsiteSiteThemeConfig & {
+  enabledFeatures: Record<string, boolean>;
+  pages: Partial<Record<WebsiteTemplatePageKey, WebsitePageConfig>>;
 };
 
 export type WebsiteTemplateManifest = {
@@ -141,6 +216,12 @@ export type WebsiteTemplateConfiguration = {
     radius: "none" | "sm" | "md" | "lg" | "full";
     density: "compact" | "comfortable" | "airy";
     stylePreset: string;
+    baseColor?: WebsiteSiteBaseColor;
+    theme?: string;
+    chartColor?: string;
+    iconLibrary?: WebsiteSiteIconLibrary;
+    menuStyle?: WebsiteSiteMenuStyle;
+    menuAccent?: WebsiteSiteMenuAccent;
   };
   seoConfig?: Record<string, unknown>;
   analyticsConfig?: Record<string, unknown>;
@@ -159,6 +240,7 @@ export type WebsiteCollectionItem = {
 };
 
 export type WebsiteTemplateContentData = {
+  announcements: WebsiteCollectionItem[];
   blogPosts: WebsiteCollectionItem[];
   events: WebsiteCollectionItem[];
   resources: WebsiteCollectionItem[];
@@ -175,7 +257,7 @@ export type WebsiteTemplateRenderContext = {
 };
 
 export type WebsiteTemplatePageRenderer = (
-  context: WebsiteTemplateRenderContext
+  context: WebsiteTemplateRenderContext,
 ) => ReactNode;
 
 export type WebsiteTemplateDefinition = {

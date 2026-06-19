@@ -7,6 +7,8 @@ const localDashboardOrigins = [
   "*.school-clerk-dashboard.localhost:1355",
   "localhost:2200",
   "127.0.0.1:2200",
+  "192.168.18.5",
+  "10.31.248.73",
 ];
 
 /** @type {import("next").NextConfig} */

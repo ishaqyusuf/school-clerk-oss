@@ -143,6 +143,15 @@ export function Client({
     };
 
     try {
+      if (!email.includes("@")) {
+        const formData = new FormData();
+        formData.set("email", email);
+        formData.set("password", password);
+        if (rememberMe) formData.set("rememberMe", "on");
+        await loginWithPasswordAction(formData);
+        return true;
+      }
+
       const resp = await authClient.signIn.email({
         email,
         password,
@@ -364,15 +373,15 @@ export function Client({
               >
                 <FieldGroup>
                   <Field>
-                    <FieldLabel htmlFor="email">Email address</FieldLabel>
+                    <FieldLabel htmlFor="email">Email or phone</FieldLabel>
                     <InputGroup>
                       <InputGroupAddon>
                         <Mail />
                       </InputGroupAddon>
                       <InputGroupInput
                         id="email"
-                        type="email"
-                        placeholder="admin@school.edu"
+                        type="text"
+                        placeholder="admin@school.edu or primary phone"
                         autoComplete="email"
                         required
                         {...emailField}

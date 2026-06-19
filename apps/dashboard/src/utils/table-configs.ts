@@ -19,6 +19,7 @@ export const STICKY_COLUMNS: Record<TableId, StickyColumnConfig[]> = {
 		{ id: "select", width: 50 },
 		{ id: "title", width: 250 },
 	],
+	students: [{ id: "studentName", width: 320 }],
 	financeStreams: [{ id: "name", width: 280 }],
 	financeItems: [{ id: "name", width: 280 }],
 	financeCharges: [{ id: "title", width: 320 }],
@@ -66,6 +67,11 @@ export const SORT_FIELD_MAPS: Record<TableId, Record<string, string>> = {
 		tags: "tags",
 	},
 	vault: {}, // Vault doesn't have sorting
+	students: {
+		studentName: "studentName",
+		department: "department",
+		gender: "gender",
+	},
 	financeStreams: {
 		name: "name",
 		accountType: "accountType",
@@ -119,6 +125,7 @@ export const NON_REORDERABLE_COLUMNS: Record<TableId, Set<string>> = {
 	invoices: new Set(["select", "invoiceNumber", "actions"]),
 	customers: new Set(["name", "actions"]),
 	vault: new Set(["select", "title", "actions"]),
+	students: new Set(["studentName", "actions"]),
 	financeStreams: new Set(["name", "actions"]),
 	financeItems: new Set(["name", "actions"]),
 	financeCharges: new Set(["title", "actions"]),
@@ -135,6 +142,7 @@ export const ROW_HEIGHTS: Record<TableId, number> = {
 	invoices: 57,
 	customers: 45,
 	vault: 45,
+	students: 72,
 	financeStreams: 45,
 	financeItems: 45,
 	financeCharges: 45,
@@ -185,6 +193,13 @@ export const TABLE_CONFIGS: Record<TableId, TableConfig> = {
 		sortFieldMap: SORT_FIELD_MAPS.vault,
 		nonReorderableColumns: NON_REORDERABLE_COLUMNS.vault,
 		rowHeight: ROW_HEIGHTS.vault,
+	},
+	students: {
+		tableId: "students",
+		stickyColumns: STICKY_COLUMNS.students,
+		sortFieldMap: SORT_FIELD_MAPS.students,
+		nonReorderableColumns: NON_REORDERABLE_COLUMNS.students,
+		rowHeight: ROW_HEIGHTS.students,
 	},
 	financeStreams: {
 		tableId: "financeStreams",

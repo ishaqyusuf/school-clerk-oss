@@ -23,6 +23,15 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: TASK-2026-06-19-school-registration-production-onboarding
+- Title: Tighten production school registration, verification, and tenant domain provisioning
+- Completed: 2026-06-19
+- Outcome: Updated self-serve school signup to derive separate public-site and dashboard tenant URLs, provision both exact Vercel project domains in production, send a 24-hour owner email verification link, expose a public tenant `/verify-email` route, and route public-site login/enrollment auth links to `dashboard.{subdomain}.school-clerk.com`.
+- Related changes: `apps/dashboard/src/actions/create-saas-profile.ts`, `apps/dashboard/src/features/signup/tenant-urls.ts`, `apps/dashboard/src/utils/domain.ts`, `apps/dashboard/src/app/[domain]/(auth)/verify-email/page.tsx`, `apps/dashboard/src/proxy.ts`, `apps/dashboard/src/env.ts`, `apps/school-site/src/app/login/page.tsx`, `apps/school-site/src/lib/enrollment/actions.ts`, `brain/features/school-registration-onboarding.md`, `brain/system/architecture.md`, `brain/system/overview.md`, `brain/api/contracts.md`, `brain/api/permissions.md`, `brain/database/schema.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: STUD-IMP-005
 - Title: Student Import Follow-Up Refinements
 - Completed: 2026-06-17
@@ -311,3 +320,13 @@ Record of completed tasks and delivery outcomes.
 - Outcome: Landed the GND-style sidebar rail refresh with wider collapsed/expanded widths, faster hover expansion, sidebar color tokens, active module styling, updated nav spacing/keys, link selection propagation, and matching shell offset. Browser/manual verification was skipped by user instruction.
 - Related changes: `packages/site-nav/src/components/sidebar.tsx`, `packages/site-nav/src/components/sidebar-shell.tsx`, `packages/site-nav/src/components/navs-list.tsx`, `brain/progress.md`
 - Owner: Codex
+
+### School-Facing Scholaris Redesign And Dummy Data Support
+- Priority: High
+- Description: Track plan in `brain/plans/2026-06-19-feature-school-facing-scholaris-redesign-and-dummy-data-support.md`.
+- Related Feature: school website template registry
+- Status: Done
+- Plan Status: Done
+- Plan File: brain/plans/2026-06-19-feature-school-facing-scholaris-redesign-and-dummy-data-support.md
+- Created Date: 2026-06-19
+- Completed Date: 2026-06-19

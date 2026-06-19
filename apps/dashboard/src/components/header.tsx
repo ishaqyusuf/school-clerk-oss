@@ -50,6 +50,9 @@ export function Header() {
             />
             <div id="actionNav" className="hidden lg:flex items-center gap-2" />
             <div className="ml-auto flex items-center gap-2 md:ml-0">
+              <div className="lg:hidden">
+                <OpenSearchButton />
+              </div>
               <NotificationBell />
               <ThemeSwitch />
               <HeaderUserMenu />

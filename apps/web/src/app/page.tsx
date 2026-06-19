@@ -116,7 +116,7 @@ export default async function Home() {
     process.env.DASHBOARD_ROOT_DOMAIN ?? process.env.APP_ROOT_DOMAIN,
   );
   const schoolSiteRootDomain =
-    process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "localhost:3001";
+    process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "school-clerk-site.localhost:1355";
 
   const tenants = isDev
     ? await prisma.schoolProfile.findMany({
@@ -152,7 +152,7 @@ export default async function Home() {
       currentHost,
       currentProtocol,
       targetRootDomain: schoolSiteRootDomain,
-      targetPort: process.env.SCHOOL_SITE_PORT ?? 3001,
+      targetPort: process.env.SCHOOL_SITE_PORT ?? 2400,
       pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
       enablePathStyleHosts: isDev,
       defaultProtocol: isDev ? "http" : "https",

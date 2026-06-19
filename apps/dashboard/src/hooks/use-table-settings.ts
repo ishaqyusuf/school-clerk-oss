@@ -5,6 +5,7 @@ import {
 	TABLE_SETTINGS_COOKIE,
 	type TableId,
 	type TableSettings,
+	type TableViewMode,
 	mergeWithDefaults,
 	normalizeColumnOrder,
 } from "@/utils/table-settings";
@@ -13,21 +14,27 @@ import type {
 	ColumnSizingState,
 	VisibilityState,
 } from "@tanstack/react-table";
+import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface UseTableSettingsProps {
 	tableId: TableId;
 	initialSettings?: Partial<TableSettings>;
 	columnIds?: string[];
+	showColumnDividers?: boolean;
 }
 
 interface UseTableSettingsReturn {
 	columnVisibility: VisibilityState;
-	setColumnVisibility: React.Dispatch<React.SetStateAction<VisibilityState>>;
+	setColumnVisibility: Dispatch<SetStateAction<VisibilityState>>;
 	columnSizing: ColumnSizingState;
-	setColumnSizing: React.Dispatch<React.SetStateAction<ColumnSizingState>>;
+	setColumnSizing: Dispatch<SetStateAction<ColumnSizingState>>;
 	columnOrder: ColumnOrderState;
-	setColumnOrder: React.Dispatch<React.SetStateAction<ColumnOrderState>>;
+	setColumnOrder: Dispatch<SetStateAction<ColumnOrderState>>;
+	showColumnDividers: boolean;
+	setShowColumnDividers: Dispatch<SetStateAction<boolean>>;
+	viewMode: TableViewMode;
+	setViewMode: Dispatch<SetStateAction<TableViewMode>>;
 }
 
 /**
@@ -38,6 +45,7 @@ export function useTableSettings({
 	tableId,
 	initialSettings,
 	columnIds,
+	showColumnDividers: defaultShowColumnDividers,
 }: UseTableSettingsProps): UseTableSettingsReturn {
 	// Merge initial settings with defaults
 	const settings = mergeWithDefaults(initialSettings, tableId);
@@ -53,6 +61,12 @@ export function useTableSettings({
 			? normalizeColumnOrder(settings.order, columnIds)
 			: settings.order,
 	);
+	const [showColumnDividers, setShowColumnDividers] = useState<boolean>(
+		defaultShowColumnDividers ?? settings.showColumnDividers ?? false,
+	);
+	const [viewMode, setViewMode] = useState<TableViewMode>(
+		settings.viewMode ?? "table",
+	);
 
 	// Track initial mount to skip first persist
 	const isInitialMount = useRef(true);
@@ -66,6 +80,8 @@ export function useTableSettings({
 			visibility: VisibilityState,
 			sizing: ColumnSizingState,
 			order: ColumnOrderState,
+			columnDividers: boolean,
+			nextViewMode: TableViewMode,
 		) => {
 			// Clear existing debounce
 			if (debounceRef.current) {
@@ -97,6 +113,8 @@ export function useTableSettings({
 						columns: visibility,
 						sizing: sizing,
 						order: order,
+						showColumnDividers: columnDividers,
+						viewMode: nextViewMode,
 					};
 
 					// Persist to server action (which sets the cookie)
@@ -119,8 +137,21 @@ export function useTableSettings({
 			return;
 		}
 
-		persistSettings(columnVisibility, columnSizing, columnOrder);
-	}, [columnVisibility, columnSizing, columnOrder, persistSettings]);
+		persistSettings(
+			columnVisibility,
+			columnSizing,
+			columnOrder,
+			showColumnDividers,
+			viewMode,
+		);
+	}, [
+		columnVisibility,
+		columnSizing,
+		columnOrder,
+		showColumnDividers,
+		viewMode,
+		persistSettings,
+	]);
 
 	// Cleanup debounce on unmount
 	useEffect(() => {
@@ -138,5 +169,9 @@ export function useTableSettings({
 		setColumnSizing,
 		columnOrder,
 		setColumnOrder,
+		showColumnDividers,
+		setShowColumnDividers,
+		viewMode,
+		setViewMode,
 	};
 }

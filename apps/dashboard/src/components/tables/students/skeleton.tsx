@@ -1,34 +1,29 @@
-import { Skeleton } from "@school-clerk/ui/skeleton";
-import { Table, TableBody, TableCell, TableRow } from "@school-clerk/ui/table";
+"use client";
 
-export function ClassesSkeleton() {
-  return (
-    <Table>
-      {/* <ClassroomTableHeader table={} /> */}
-      <TableBody>
-        {Array.from({ length: 25 }).map((_, index) => (
-          <TableRow key={index.toString()} className="h-[57px]">
-            <TableCell>
-              <Skeleton className="h-4 w-24" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-32" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-20" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-24" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-16" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-8" />
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
+import { TableSkeleton } from "@/components/tables/core";
+import { STICKY_COLUMNS } from "@/utils/table-configs";
+import type { TableSettings } from "@/utils/table-settings";
+
+import { columns } from "./columns";
+
+type Props = {
+	initialSettings?: Partial<TableSettings>;
+	rowCount?: number;
+	isEmpty?: boolean;
+};
+
+export function StudentsSkeleton({ initialSettings, rowCount, isEmpty }: Props) {
+	return (
+		<TableSkeleton
+			columns={columns}
+			rowCount={rowCount}
+			isEmpty={isEmpty}
+			columnVisibility={initialSettings?.columns}
+			columnSizing={initialSettings?.sizing}
+			columnOrder={initialSettings?.order}
+			stickyColumnIds={STICKY_COLUMNS.students.map(({ id }) => id)}
+		/>
+	);
 }
+
+export { StudentsSkeleton as ClassesSkeleton };

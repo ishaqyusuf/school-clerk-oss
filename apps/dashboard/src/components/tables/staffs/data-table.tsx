@@ -158,10 +158,54 @@ export function DataTable({ search, status }: Props) {
 		}),
 	);
 
+	async function showInviteLink(
+		inviteLink: string,
+		copy: {
+			copiedTitle: string;
+			readyTitle: string;
+			readyDescription: string;
+		} = {
+			copiedTitle: "Onboarding link copied.",
+			readyTitle: "Onboarding link ready",
+			readyDescription: "Use the link field above the table to copy it.",
+		},
+	) {
+		try {
+			const copied = await copyTextToClipboard(inviteLink);
+
+			if (copied) {
+				setManualInviteLink(null);
+				toast.success(copy.copiedTitle);
+				return;
+			}
+		} catch {
+			// The manual link field below is the fallback for browsers that block
+			// clipboard writes.
+		}
+
+		setManualInviteLink(inviteLink);
+		toast.display({
+			title: copy.readyTitle,
+			description: copy.readyDescription,
+			duration: 6000,
+		});
+	}
+
 	const resendInvite = useAction(resendStaffOnboardingAction, {
-		onSuccess() {
-			toast.success("Onboarding email resent.");
+		async onSuccess({ data }) {
 			qc.invalidateQueries({ queryKey: trpc.staff.getStaffList.queryKey() });
+
+			if (data && "inviteLink" in data && data.inviteLink) {
+				await showInviteLink(data.inviteLink, {
+					copiedTitle: "Onboarding link copied. Email was not sent.",
+					readyTitle: "Email not sent",
+					readyDescription:
+						"Use the link field above the table while local email delivery is not configured.",
+				});
+				return;
+			}
+
+			toast.success("Onboarding email resent.");
 		},
 		onError({ error }) {
 			toast.error(error.serverError || "Could not resend onboarding email.");
@@ -179,29 +223,7 @@ export function DataTable({ search, status }: Props) {
 				queryKey: trpc.staff.getStaffList.queryKey(),
 			});
 
-			try {
-				const copied = await copyTextToClipboard(data.inviteLink);
-
-				if (copied) {
-					setManualInviteLink(null);
-					toast.success("Onboarding link copied.");
-					return;
-				}
-
-				setManualInviteLink(data.inviteLink);
-				toast.display({
-					title: "Onboarding link ready",
-					description: "Use the link field above the table to copy it.",
-					duration: 6000,
-				});
-			} catch {
-				setManualInviteLink(data.inviteLink);
-				toast.display({
-					title: "Onboarding link ready",
-					description: "Use the link field above the table to copy it.",
-					duration: 6000,
-				});
-			}
+			await showInviteLink(data.inviteLink);
 		},
 		onError({ error }) {
 			toast.error(error.serverError || "Could not create onboarding link.");

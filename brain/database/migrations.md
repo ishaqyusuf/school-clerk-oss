@@ -31,6 +31,15 @@ Change log for database schema migrations and rollout notes.
 - Owner:
 
 ## Migration Entry
+- Date: 2026-06-19
+- ID: 20260619150000_enrollment_links_parent_portal
+- Summary: Added enrollment link, application, parent, and document-upload persistence plus a nullable `Guardians.userId` bridge for authenticated parent portal ward access.
+- Affected entities: `EnrollmentLink`, `EnrollmentLinkClassroom`, `EnrollmentLinkDocumentRequirement`, `EnrollmentApplication`, `EnrollmentApplicationParent`, `EnrollmentApplicationDocument`, `Guardians`, `User`, `SchoolProfile`, `ClassRoomDepartment`
+- Backfill required: No for enrollment records; existing guardians may be linked to parent users opportunistically during application approval or parent onboarding.
+- Rollback plan: Remove parent portal reads and enrollment link routes, drop enrollment tables/enums, then drop `Guardians.userId`.
+- Owner: Codex
+
+## Migration Entry
 - Date: 2026-06-17
 - ID: 20260617120000_find_anything_classroom_search_indexes
 - Summary: Added index-only support for Find Anything classroom search using active tenant/session classroom indexes and trigram indexes for classroom and stream names.

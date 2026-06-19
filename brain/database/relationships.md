@@ -1,14 +1,17 @@
 # Database Relationships
 
 ## Purpose
+
 Describes entity relationships and cardinality constraints.
 
 ## How To Use
+
 - Update when relations or ownership boundaries change.
 - Keep tenant boundary notes explicit.
 - Use concise relationship statements.
 
 ## Relationship Map
+
 - `SaasAccount` 1:N `SchoolProfile`
 - `SaasAccount` 1:N `User`
 - `SaasAccount` 1:N `TenantDomain` (direct denormalized link — enables account-level domain queries without joining through SchoolProfile)
@@ -23,6 +26,12 @@ Describes entity relationships and cardinality constraints.
 - `ClassRoomDepartment` 1:N `DepartmentSubject`, `StudentSessionForm`, `StudentTermForm`, `StudentAttendance`
 - `Students` 1:N `StudentSessionForm`, `StudentTermForm`, `StudentFee`, `StudentAssessmentRecord`, `StudentWalletTransactions`
 - `Students` N:M `Guardians` via `StudentGuardians`
+- `User` 1:N `Guardians` through nullable `Guardians.userId` for authenticated parent portal access
+- `SchoolProfile` 1:N `EnrollmentLink`
+- `EnrollmentLink` 1:N `EnrollmentLinkClassroom`, `EnrollmentLinkDocumentRequirement`, and `EnrollmentApplication`
+- `EnrollmentLinkClassroom` N:1 `ClassRoomDepartment`; allowed classrooms are validated against the link tenant/session before submission or approval
+- `EnrollmentApplication` 1:N `EnrollmentApplicationParent` and `EnrollmentApplicationDocument`
+- `EnrollmentApplication.acceptedStudentId` and `acceptedTermFormId` record the student/term records created or linked after approval
 - `StudentTermForm` 1:N `StudentAttendance`, `StudentFee`, `StudentPayment`, `StudentAssessmentRecord`
 - `Wallet` 1:N `WalletTransactions`; `WalletTransactions` links to `StudentPayment` and `BillPayment`
 - `Wallet` 1:N `FeeHistory` (via `walletId` — accounting stream for student fees)
@@ -37,11 +46,14 @@ Describes entity relationships and cardinality constraints.
 - `BillPayment.amount` represents the issued payable amount, the linked `WalletTransactions.amount` represents the cash-funded portion, and `BillSettlement.owingAmount` now acts as the canonical outstanding owing balance.
 
 ## Integrity Rules
+
 - Most domain entities must be tenant-scoped through `schoolProfileId` or session/school ancestry.
 - Cross-tenant references should be prohibited at service/repository level.
 - Planned website publish invariant: a tenant can own many website configs, but exactly zero or one config may be live at a time through `WebsitePublishedConfig`.
 - Planned website publish transaction: publishing must update config status, published timestamp, and published pointer atomically.
 - Planned website ownership invariant: `WebsitePublishedConfig.websiteConfigId` must always reference a `WebsiteTemplateConfig` owned by the same `schoolProfileId`.
+- Enrollment link invariant: public submissions must resolve the link by `code`, require `ACTIVE` status plus valid open/close dates, and only allow classrooms listed on `EnrollmentLinkClassroom`.
+- Enrollment approval invariant: approval must re-check tenant, active session/term, classroom capacity, document requirements, and current student/guardian state before creating or linking canonical student records.
 - Legacy models (`school`, `guardian`, `session_class`) use separate relation chains and need consolidation rules.
 - TODO: add DB-level indexes/constraints audit for tenant scoping fields.
 
@@ -49,8 +61,8 @@ Describes entity relationships and cardinality constraints.
 
 - A `StudentTermForm` is the canonical "current term sheet" for a student in a given session/term/classroom tuple.
 - `Students` 1:N `StudentTermForm` per session; at most one non-deleted `StudentTermForm` per (student, sessionTerm, schoolSession) should exist.
-- Import execution creates a `StudentTermForm` only when no non-deleted current-term form exists for the student+session+term.
+- Import execution creates a `StudentTermForm` only when no non-deleted current-term form exists for the student+session+term. Multi-classroom import uses the row target `ClassRoomDepartment` for this lookup and for newly created forms.
 - If a current-term form already exists in the same classroom department, it is reused without modification.
 - If a current-term form already exists in a different classroom department, the import reports a row-level failure with the conflicting classroom name — no duplicate is created.
-- Newly created term sheets trigger `applyFeeHistoriesToStudentTermForm` to auto-assign active `FinanceItem` charges for the classroom department.
+- Newly created term sheets trigger `applyFeeHistoriesToStudentTermForm` to auto-assign active `FinanceItem` charges for the row target classroom department.
 - `StudentSessionForm` is created lazily (only if none exists for the student+session) before creating a `StudentTermForm`.

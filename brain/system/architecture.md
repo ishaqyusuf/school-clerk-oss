@@ -73,6 +73,16 @@ Tracks architectural patterns, boundaries, and major design choices.
 - `packages/ui`: shared UI components
 - `packages/template-registry`: website template registry, manifests, preview/editor engine, shared website blocks, hooks, guards, and production/preview render utilities
 
+## Tenant Domain Topology
+
+- New school signup reserves two production hosts from one tenant subdomain:
+  - public website: `{subdomain}.school-clerk.com`
+  - dashboard workspace: `dashboard.{subdomain}.school-clerk.com`
+- `TenantDomain.subdomain` stores only the slug and is the canonical tenant lookup value.
+- `dashboard.{subdomain}.school-clerk.com` is derived at runtime and attached to the dashboard Vercel project; it is not stored as a separate tenant domain row.
+- The dashboard proxy uses shared tenant-url parsing that strips the leading `dashboard.` host segment before resolving the canonical tenant slug.
+- `apps/school-site` remains the public website runtime; login/auth links from the public site redirect to the shared dashboard auth system.
+
 ## Data Flow
 
 1. Tenant user authenticates

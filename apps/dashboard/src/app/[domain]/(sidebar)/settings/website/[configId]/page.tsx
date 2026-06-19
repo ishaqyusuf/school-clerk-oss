@@ -1,6 +1,4 @@
-import {
-  publishWebsiteDraftAction,
-} from "@/actions/website-config";
+import { publishWebsiteDraftAction } from "@/actions/website-config";
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { Badge } from "@school-clerk/ui/badge";
@@ -27,8 +25,10 @@ function getAuditTrail(value: unknown) {
   const entries = (value as { auditTrail?: unknown[] }).auditTrail;
   return Array.isArray(entries)
     ? entries.filter(
-        (entry): entry is { type?: string; at?: string; userId?: string | null } =>
-          typeof entry === "object" && !!entry
+        (
+          entry,
+        ): entry is { type?: string; at?: string; userId?: string | null } =>
+          typeof entry === "object" && !!entry,
       )
     : [];
 }
@@ -72,10 +72,18 @@ export default async function WebsiteConfigEditorPage({
   }
 
   const template = getTemplateById(templateRegistry, configRecord.templateId);
+  const templates = Array.from(templateRegistry.values()).map((candidate) => ({
+    id: candidate.manifest.id,
+    name: candidate.manifest.name,
+    description: candidate.manifest.description,
+    tags: candidate.manifest.tags,
+    features: candidate.manifest.features,
+    pages: candidate.manifest.pages.map((page) => page.label),
+  }));
   const config = normalizeWebsiteTemplateConfigRecord(
     template,
     configRecord.schoolProfileId,
-    configRecord
+    configRecord,
   );
   const availablePageKeys = template.manifest.pages.map((page) => page.key);
   const currentPage = (
@@ -92,19 +100,27 @@ export default async function WebsiteConfigEditorPage({
     customDomain: null,
   };
   const publishedConfig = configs.find(
-    (candidate) => candidate.status === "PUBLISHED" && candidate.id !== config.id
+    (candidate) =>
+      candidate.status === "PUBLISHED" && candidate.id !== config.id,
   );
   const changedContentKeys = Object.keys(config.content).filter((key) => {
     const previousValue =
-      typeof publishedConfig?.contentJson === "object" && publishedConfig.contentJson
+      typeof publishedConfig?.contentJson === "object" &&
+      publishedConfig.contentJson
         ? (publishedConfig.contentJson as Record<string, unknown>)[key]
         : undefined;
-    return JSON.stringify(previousValue ?? null) !== JSON.stringify(config.content[key] ?? null);
+    return (
+      JSON.stringify(previousValue ?? null) !==
+      JSON.stringify(config.content[key] ?? null)
+    );
   });
   const previewHost =
     process.env.NODE_ENV === "production" && process.env.APP_ROOT_DOMAIN
       ? `https://${school.subDomain ?? "school"}.${process.env.APP_ROOT_DOMAIN}`
-      : `http://${school.subDomain ?? "school"}.localhost:3001`;
+      : `http://${school.subDomain ?? "school"}.${
+          process.env.SCHOOL_SITE_ROOT_DOMAIN ??
+          "school-clerk-site.localhost:1355"
+        }`;
   const previewToken = createWebsitePreviewToken({
     configId: config.id,
     schoolProfileId: config.tenantId,
@@ -114,14 +130,18 @@ export default async function WebsiteConfigEditorPage({
   const previewUrl = `${previewHost}${
     currentPage === "home"
       ? "/"
-      : template.manifest.pages.find((page) => page.key === currentPage)?.route ?? "/"
+      : (template.manifest.pages.find((page) => page.key === currentPage)
+          ?.route ?? "/")
   }?preview=${config.id}&token=${previewToken}`;
   const auditTrail = getAuditTrail(config.analyticsConfig);
-  const auditSummary = auditTrail.reduce<Record<string, number>>((acc, entry) => {
-    const key = entry.type ?? "change";
-    acc[key] = (acc[key] ?? 0) + 1;
-    return acc;
-  }, {});
+  const auditSummary = auditTrail.reduce<Record<string, number>>(
+    (acc, entry) => {
+      const key = entry.type ?? "change";
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
 
   return (
     <div className="space-y-6 py-4">
@@ -129,7 +149,9 @@ export default async function WebsiteConfigEditorPage({
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <PageTitle>{config.name}</PageTitle>
-            <Badge variant={config.status === "published" ? "default" : "secondary"}>
+            <Badge
+              variant={config.status === "published" ? "default" : "secondary"}
+            >
               {config.status}
             </Badge>
           </div>
@@ -139,12 +161,17 @@ export default async function WebsiteConfigEditorPage({
           </p>
           <p className="text-xs text-muted-foreground">
             Preview URL:{" "}
-            <a className="underline underline-offset-4" href={previewUrl} target="_blank">
+            <a
+              className="underline underline-offset-4"
+              href={previewUrl}
+              target="_blank"
+            >
               {previewUrl}
             </a>
           </p>
           <p className="text-xs text-muted-foreground">
-            Preview access expires {new Date(previewExpiresAt).toLocaleString()}.
+            Preview access expires {new Date(previewExpiresAt).toLocaleString()}
+            .
           </p>
         </div>
 
@@ -166,6 +193,7 @@ export default async function WebsiteConfigEditorPage({
         tenant={tenant}
         initialPageKey={currentPage}
         mediaAssets={mediaAssets}
+        templates={templates}
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -225,7 +253,9 @@ export default async function WebsiteConfigEditorPage({
                       {(entry.type ?? "change").toUpperCase()}
                     </strong>{" "}
                     on{" "}
-                    {entry.at ? new Date(entry.at).toLocaleString() : "unknown time"}
+                    {entry.at
+                      ? new Date(entry.at).toLocaleString()
+                      : "unknown time"}
                     {entry.userId ? ` by ${entry.userId}` : ""}
                   </div>
                 ))}

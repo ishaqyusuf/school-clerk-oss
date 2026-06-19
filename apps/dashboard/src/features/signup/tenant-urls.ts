@@ -9,6 +9,27 @@ function normalizeHost(value?: string | null) {
   return value?.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "") || "";
 }
 
+function stripDashboardHostPrefix(host: string) {
+  return host.startsWith("dashboard.") ? host.slice("dashboard.".length) : host;
+}
+
+export function getSchoolSiteRootDomain() {
+  const explicitRoot = normalizeHost(
+    process.env.SCHOOL_SITE_ROOT_DOMAIN ?? process.env.APP_ROOT_DOMAIN,
+  );
+
+  if (explicitRoot) {
+    return stripDashboardHostPrefix(explicitRoot);
+  }
+
+  const publicHost = normalizeHost(process.env.NEXT_PUBLIC_APP_URL);
+  if (publicHost) {
+    return stripDashboardHostPrefix(publicHost);
+  }
+
+  return "school-clerk.com";
+}
+
 export function getDashboardRuntimeUrlConfig(): RuntimeUrlConfig {
   const appRootDomain =
     process.env.DASHBOARD_ROOT_DOMAIN ?? process.env.APP_ROOT_DOMAIN;
@@ -41,47 +62,7 @@ export function buildDashboardSignupUrl(options?: {
 }
 
 export function getSignupHostSuffix() {
-  if (process.env.NODE_ENV !== "production") {
-    const config = getDashboardRuntimeUrlConfig();
-    return resolveDashboardAppRootDomain(
-      config.portlessRootDomain ?? config.appRootDomain,
-    );
-  }
-
-  const publicHost = normalizeHost(process.env.NEXT_PUBLIC_APP_URL);
-  const rootDomain = normalizeHost(process.env.APP_ROOT_DOMAIN);
-  const vercelRuntimeHost = normalizeHost(process.env.VERCEL_URL);
-  const vercelProjectHost = normalizeHost(
-    process.env.VERCEL_PROJECT_SLUG
-      ? `${process.env.VERCEL_PROJECT_SLUG}.vercel.app`
-      : null,
-  );
-
-  if (publicHost.includes("vercel.app")) {
-    return publicHost;
-  }
-
-  if (vercelRuntimeHost.includes("vercel.app")) {
-    return vercelRuntimeHost;
-  }
-
-  if (vercelProjectHost.includes("vercel.app")) {
-    return vercelProjectHost;
-  }
-
-  if (rootDomain.includes("vercel.app")) {
-    return rootDomain;
-  }
-
-  if (rootDomain) {
-    return rootDomain;
-  }
-
-  if (publicHost) {
-    return publicHost;
-  }
-
-  return "school-clerk.com";
+  return getSchoolSiteRootDomain();
 }
 
 export function getSignupPreviewSuffix() {
@@ -89,23 +70,36 @@ export function getSignupPreviewSuffix() {
     return getSignupHostSuffix();
   }
 
-  const rootDomain = normalizeHost(process.env.APP_ROOT_DOMAIN);
-  return rootDomain || getSignupHostSuffix();
+  return getSchoolSiteRootDomain();
 }
 
-export function buildTenantUrl(subdomain: string, path = "") {
+function normalizePath(path = "") {
+  return path ? (path.startsWith("/") ? path : `/${path}`) : "";
+}
+
+export function buildSchoolSiteUrl(subdomain: string, path = "") {
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  const rootHost = getSchoolSiteRootDomain();
+  const host = `${subdomain}.${rootHost}`;
+
+  return `${protocol}://${host}${normalizePath(path)}`;
+}
+
+export function buildDashboardTenantUrl(subdomain: string, path = "") {
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+
+  if (process.env.NODE_ENV === "production") {
+    const host = `dashboard.${subdomain}.${getSchoolSiteRootDomain()}`;
+    return `${protocol}://${host}${normalizePath(path)}`;
+  }
+
   const config = getDashboardRuntimeUrlConfig();
   const rootHost = resolveRootHostFromCurrentHost(
-    getSignupHostSuffix(),
+    resolveDashboardAppRootDomain(
+      config.portlessRootDomain ?? config.appRootDomain,
+    ),
     config,
   );
-  const host = `${subdomain}.${rootHost}`;
-  const normalizedPath = path
-    ? path.startsWith("/")
-      ? path
-      : `/${path}`
-    : "";
 
-  return `${protocol}://${host}${normalizedPath}`;
+  return `${protocol}://${subdomain}.${rootHost}${normalizePath(path)}`;
 }

@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { WebsiteMediaAsset, WebsiteTemplateConfiguration } from "./types";
 
 type WebsiteEditorContextValue = {
@@ -11,29 +17,36 @@ type WebsiteEditorContextValue = {
   addObjectListItem: (key: string, item: Record<string, string>) => void;
   setObjectListValue: (
     key: string,
-    value: Array<Record<string, string>>
+    value: Array<Record<string, string>>,
   ) => void;
   setObjectListItemValue: (
     key: string,
     itemIndex: number,
     itemKey: string,
-    value: string
+    value: string,
+  ) => void;
+  setSeoValue: (key: string, value: string) => void;
+  setTemplate: (
+    templateId: string,
+    themeConfig?: WebsiteTemplateConfiguration["themeConfig"],
   ) => void;
   removeObjectListItem: (key: string, itemIndex: number) => void;
   moveSection: (
     pageKey: string,
     sectionKey: string,
-    direction: "up" | "down"
+    direction: "up" | "down",
   ) => void;
   duplicateSection: (pageKey: string, sectionKey: string) => void;
   setSectionVisibility: (key: string, value: boolean) => void;
   setThemeValue: (
     key: keyof WebsiteTemplateConfiguration["themeConfig"],
-    value: string
+    value: string,
   ) => void;
 };
 
-const WebsiteEditorContext = createContext<WebsiteEditorContextValue | null>(null);
+const WebsiteEditorContext = createContext<WebsiteEditorContextValue | null>(
+  null,
+);
 
 export function WebsiteEditorProvider({
   initialConfig,
@@ -76,9 +89,9 @@ export function WebsiteEditorProvider({
                         Object.entries(entry).map(([entryKey, entryValue]) => [
                           entryKey,
                           String(entryValue ?? ""),
-                        ])
+                        ]),
                       )
-                    : {}
+                    : {},
                 ),
                 item,
               ]
@@ -114,9 +127,9 @@ export function WebsiteEditorProvider({
                     Object.entries(item).map(([entryKey, entryValue]) => [
                       entryKey,
                       String(entryValue ?? ""),
-                    ])
+                    ]),
                   )
-                : {}
+                : {},
             );
           } else if (typeof currentValue === "string" && currentValue.trim()) {
             try {
@@ -128,9 +141,9 @@ export function WebsiteEditorProvider({
                         Object.entries(item).map(([entryKey, entryValue]) => [
                           entryKey,
                           String(entryValue ?? ""),
-                        ])
+                        ]),
                       )
-                    : {}
+                    : {},
                 );
               }
             } catch {}
@@ -150,6 +163,22 @@ export function WebsiteEditorProvider({
             },
           };
         });
+      },
+      setSeoValue: (key, value) => {
+        setConfig((current) => ({
+          ...current,
+          seoConfig: {
+            ...(current.seoConfig ?? {}),
+            [key]: value,
+          },
+        }));
+      },
+      setTemplate: (templateId, themeConfig) => {
+        setConfig((current) => ({
+          ...current,
+          templateId,
+          themeConfig: themeConfig ?? current.themeConfig,
+        }));
       },
       removeObjectListItem: (key, itemIndex) => {
         setConfig((current) => {
@@ -199,7 +228,9 @@ export function WebsiteEditorProvider({
           nextOrder.splice(index + 1, 0, duplicateKey);
           const nextContent = { ...current.content };
 
-          for (const [contentKey, contentValue] of Object.entries(current.content)) {
+          for (const [contentKey, contentValue] of Object.entries(
+            current.content,
+          )) {
             if (contentKey.startsWith(`${sectionKey}.`)) {
               nextContent[contentKey.replace(sectionKey, duplicateKey)] =
                 typeof contentValue === "object" && contentValue
@@ -241,7 +272,7 @@ export function WebsiteEditorProvider({
         }));
       },
     }),
-    [config, mediaAssets]
+    [config, mediaAssets],
   );
 
   return (

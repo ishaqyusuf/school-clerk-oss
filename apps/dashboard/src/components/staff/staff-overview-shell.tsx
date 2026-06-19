@@ -413,8 +413,11 @@ export function StaffOverviewShell({
 										</div>
 										<div className="mt-4 flex flex-wrap gap-2">
 											{assignment.subjects.length ? (
-												assignment.subjects.map((subject) => (
-													<Badge key={subject} variant="outline">
+												assignment.subjects.map((subject, subjectIndex) => (
+													<Badge
+														key={`${assignment.classroomLabel}-${subject}-${subjectIndex}`}
+														variant="outline"
+													>
 														{subject}
 													</Badge>
 												))

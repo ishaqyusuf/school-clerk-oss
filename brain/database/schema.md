@@ -32,6 +32,13 @@ Tracks logical and physical schema for SchoolClerk data entities.
 
 Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.school-clerk.com`
 
+### Verification Usage
+- Signup owner email verification reuses the existing `Verification` model.
+- Identifier format: `email-verification:{token}`.
+- Value: `User.id`.
+- Expiry: 24 hours after signup.
+- Successful verification sets `User.emailVerified = true` and deletes the verification row.
+
 ### Planned WebsiteTemplateConfig (design target for `WEB-002`)
 | Field | Type | Notes |
 |-------|------|-------|
@@ -115,6 +122,34 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 ## Other
 - `Guardians`, `Activity`, `Posts`
 - `AssistantConversation`, `AssistantMessage`, `AssistantRun`, `AssistantToolExecution`, `SchoolAssistantConfig`, `AssistantFeedback`
+
+## Admissions And Parent Portal
+- `EnrollmentLink`, `EnrollmentLinkClassroom`, `EnrollmentLinkDocumentRequirement`
+- `EnrollmentApplication`, `EnrollmentApplicationParent`, `EnrollmentApplicationDocument`
+
+### EnrollmentLink (planned implementation — session 2026-06)
+| Field | Type | Notes |
+|-------|------|-------|
+| `schoolProfileId` | String | Tenant ownership boundary |
+| `code` | String unique | Public token used by school-site enrollment URLs |
+| `status` | Enum | `ACTIVE`, `PAUSED`, `ARCHIVED` |
+| `capacityMode` | Enum | `TOTAL` or `PER_CLASSROOM` |
+| `totalCapacity` | Int? | Used when capacity mode is total |
+| `opensAt`, `closesAt` | DateTime? | Optional public availability window |
+
+### EnrollmentApplication (planned implementation — session 2026-06)
+| Field | Type | Notes |
+|-------|------|-------|
+| `enrollmentLinkId` | String | FK → `EnrollmentLink` |
+| `classRoomDepartmentId` | String | Selected allowed classroom department |
+| `studentFirstName`, `studentSurname`, `studentOtherName` | String | Submitted student identity |
+| `studentDob`, `studentGender` | DateTime?, Gender | Submitted student profile details |
+| `status` | Enum | `SUBMITTED`, `UNDER_REVIEW`, `APPROVED`, `REJECTED`, `WITHDRAWN` |
+| `acceptedStudentId`, `acceptedTermFormId` | String? | Populated when staff approval creates/links student records |
+
+### Parent Portal Identity Bridge (planned implementation — session 2026-06)
+- `Guardians.userId` links an authenticated `Parent` user to the guardian profile that owns ward relationships.
+- Parent portal reads should use `Guardians.userId` as the primary authorization join rather than matching by phone number alone.
 
 ### Assistant Data Model (session 2026-04)
 | Model | Purpose |

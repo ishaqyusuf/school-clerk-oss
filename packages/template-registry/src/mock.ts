@@ -19,9 +19,9 @@ export const mockPublishedWebsiteConfig: WebsiteTemplateConfiguration = {
   status: "published",
   content: {
     "home.hero.kicker": "Admissions Open 2026",
-    "home.hero.title": "A brighter school website for modern families.",
+    "home.hero.title": "A warm K-12 school where every learner is known.",
     "home.hero.body":
-      "Showcase programs, admissions, events, and news with a multi-page public experience that still feels true to your campus.",
+      "Greenfield K-12 Academy combines strong academics, attentive pastoral care, and a lively campus community so families can choose school with confidence.",
     "home.hero.cta": "Start Admission Enquiry",
     "home.hero.highlights":
       "Future-ready learning\nWarm pastoral care\nClear admissions journey",
@@ -30,46 +30,46 @@ export const mockPublishedWebsiteConfig: WebsiteTemplateConfiguration = {
     "home.hero.testimonials": [
       {
         quote:
-          "The website finally reflects the confidence we want families to feel about the school.",
+          "Our children are encouraged by name, challenged with care, and supported by teachers who understand how they learn.",
         name: "Mrs. Adebayo",
-        role: "Parent Community Lead",
+        role: "Parent",
       },
       {
         quote:
-          "Admissions conversations now start with clearer expectations and stronger trust.",
-        name: "Admissions Office",
-        role: "Enrollment Team",
+          "Families feel the difference when a school is organized, welcoming, and serious about each student's growth.",
+        name: "School Leadership",
+        role: "Leadership Team",
       },
     ],
     "home.hero.gallery": [
       {
         title: "Welcome to Campus",
-        description: "Use lifestyle imagery to establish warmth from the first scroll.",
+        description: "A calm, friendly campus where new families can picture their children learning and belonging.",
         imageUrl:
           "https://images.unsplash.com/photo-1519452575417-564c1401ecc0?auto=format&fit=crop&w=1200&q=80",
       },
       {
         title: "Modern Learning Spaces",
-        description: "Show classrooms and learning environments that support your positioning.",
+        description: "Classrooms and shared spaces designed for focused lessons, collaboration, and creative work.",
         imageUrl:
           "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=80",
       },
     ],
     "home.features.cards": [
       {
-        title: "Multi-page template support",
+        title: "Strong academic foundations",
         description:
-          "Structure the public site around real school journeys instead of a single landing page.",
+          "Students build confidence in core subjects while developing curiosity, study habits, and independent thinking.",
       },
       {
-        title: "Inline editable field architecture",
+        title: "Teachers who know each child",
         description:
-          "Let school teams update approved content quickly without breaking layout or structure.",
+          "Class teams track progress closely and partner with families when students need support or stretch.",
       },
       {
-        title: "Preview and live mode alignment",
+        title: "A clear admissions journey",
         description:
-          "Keep draft editing close to production behavior so publish outcomes stay predictable.",
+          "Families receive practical guidance from first enquiry through visit, documents, placement, and enrollment.",
       },
     ],
     "home.stats.cards": [
@@ -114,12 +114,12 @@ export const mockPublishedWebsiteConfig: WebsiteTemplateConfiguration = {
         description: "Application instructions and eligibility guidance are now available for prospective families.",
       },
     ],
-    "about.story.title": "Built for confident first impressions",
+    "about.story.title": "A school community shaped by care and purpose",
     "about.story.body":
-      "Greenfield combines warm pastoral care with structured academic growth from early years through graduation.",
+      "Greenfield combines warm pastoral care with structured academic growth from early years through graduation. Students are taught to think clearly, act responsibly, and contribute positively to their community.",
     "admissions.process.title": "Simple admissions, clear next steps",
     "admissions.process.body":
-      "Help prospective parents move from curiosity to application with requirements, timelines, and campus touchpoints.",
+      "Families can schedule a visit, speak with the admissions team, review class placement requirements, and submit the documents needed for a smooth enrollment decision.",
     "blog-list.intro.title": "Stories from around campus",
     "blog-list.intro.body":
       "Share school highlights, academic wins, excursions, and community updates in a format families can revisit.",
@@ -149,7 +149,7 @@ export const mockPublishedWebsiteConfig: WebsiteTemplateConfiguration = {
   seoConfig: {
     "pages.home.title": "Greenfield K-12 Academy",
     "pages.home.description":
-      "A warm, academic school website experience for prospective families.",
+      "A warm, academic school community for prospective families.",
   },
   analyticsConfig: {},
 };

@@ -1,5 +1,8 @@
+"use client";
+
 import { useWebsiteEditor } from "../editor-context";
 import type { CSSProperties, ReactNode } from "react";
+import type { WebsiteTemplateMode } from "../types";
 
 export function SectionFrame({
   mode,
@@ -8,7 +11,7 @@ export function SectionFrame({
   label,
   children,
 }: {
-  mode: "preview" | "editor" | "production";
+  mode: WebsiteTemplateMode;
   sectionKey: string;
   pageKey?: string;
   label: string;
@@ -64,12 +67,14 @@ export function SectionFrame({
               onClick={() =>
                 editor.setSectionVisibility(
                   sectionKey,
-                  !(editor.config.sectionVisibility[sectionKey] ?? true)
+                  !(editor.config.sectionVisibility[sectionKey] ?? true),
                 )
               }
               style={toolbarButtonStyle}
             >
-              {editor.config.sectionVisibility[sectionKey] ?? true ? "Hide" : "Show"}
+              {(editor.config.sectionVisibility[sectionKey] ?? true)
+                ? "Hide"
+                : "Show"}
             </button>
             <button
               type="button"

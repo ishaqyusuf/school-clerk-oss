@@ -24,7 +24,10 @@ export function StudentOverviewSheet({}) {
     >
       <Suspense fallback={<LoadingSkeleton />}>
         <StudentOverviewSheetProvider args={[{ mode: "sheet" }]}>
-          <CustomSheetContent className="flex flex-col gap-6">
+          <CustomSheetContent
+            className="mx-0 flex min-w-0 max-w-full flex-col gap-4 overflow-x-hidden sm:gap-6"
+            contentClassName="min-w-0 max-w-full overflow-x-hidden"
+          >
             {/* <Sheet.Header>
               <Sheet.Title></Sheet.Title>
               <Sheet.Description></Sheet.Description>
@@ -40,12 +43,12 @@ export function StudentOverviewSheet({}) {
 function LoadingSkeleton() {
   return (
     <>
-      <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5">
-        <Skeleton className="h-20 w-20 rounded-full" />
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 sm:gap-4 sm:rounded-2xl sm:p-5">
+        <Skeleton className="h-16 w-16 rounded-full sm:h-20 sm:w-20" />
         <div className="flex flex-1 flex-col gap-2">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-6 w-40 max-w-full sm:w-48" />
+          <Skeleton className="h-4 w-28 sm:w-32" />
+          <Skeleton className="h-4 w-32 sm:w-40" />
         </div>
       </div>
       <div className="flex gap-4 border-b border-border py-3">

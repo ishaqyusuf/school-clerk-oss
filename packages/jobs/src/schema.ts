@@ -4,6 +4,7 @@ import { z } from "zod";
 
 export const taskNames = [
   "create-sales-dispatch",
+  "send-staff-invitation-email",
   "create-sales-history",
   "mark-sales-as-completed",
   "sales-online-payment-action-notification",
@@ -34,9 +35,21 @@ export const taskNames = [
   "reset-sales-control",
 ] as const;
 export type TaskName = (typeof taskNames)[number];
+export const sendStaffInvitationEmailTaskId = "send-staff-invitation-email";
 export const createSalesDispatchSchemaTask = z.object({});
 export type CreateSalesDispatchSchemaTask = z.infer<
   typeof createSalesDispatchSchemaTask
+>;
+export const sendStaffInvitationEmailSchema = z.object({
+  ctaHref: z.string().url(),
+  email: z.string().email(),
+  invitedByName: z.string().optional().nullable(),
+  roleLabel: z.string().min(1),
+  schoolName: z.string().min(1),
+  staffName: z.string().min(1),
+});
+export type SendStaffInvitationEmailPayload = z.infer<
+  typeof sendStaffInvitationEmailSchema
 >;
 export const createSalesHistorySchemaTask = z.object({
   authorName: z.string(),

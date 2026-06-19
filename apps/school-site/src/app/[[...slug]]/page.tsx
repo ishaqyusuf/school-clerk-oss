@@ -112,7 +112,9 @@ function resolvePublicRequestTarget({
     },
     {
       internalPrefix: "/__school-site",
-      appRootDomain: process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "localhost:3001",
+      appRootDomain:
+        process.env.SCHOOL_SITE_ROOT_DOMAIN ??
+        "school-clerk-site.localhost:1355",
       pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
       enablePathStyleHosts: true,
     },

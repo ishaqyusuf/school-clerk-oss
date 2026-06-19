@@ -11,9 +11,12 @@ model Guardians {
 
     schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id])
     schoolProfileId String
+    user            User?         @relation(fields: [userId], references: [id])
+    userId          String?
 
     wards StudentGuardians[]
     notificationContact NotificationContact?
 
     @@unique([name, phone, schoolProfileId])
+    @@index([userId])
 }

@@ -1,3 +1,6 @@
+import { createElement } from "react";
+import { WebsiteRegistryProvider } from "./registry-context";
+import { resolveTenantSiteConfig } from "./site-config";
 import type {
   WebsiteTemplateDefinition,
   WebsiteTemplateId,
@@ -74,5 +77,17 @@ export function renderTemplatePage(
   context: WebsiteTemplateRenderContext
 ) {
   const template = getTemplateById(registry, context.config.templateId);
-  return template.renderers[context.pageKey](context);
+  const siteConfig = resolveTenantSiteConfig(template, context.config);
+
+  return createElement(
+    WebsiteRegistryProvider,
+    {
+      tenant: context.tenant,
+      config: context.config,
+      siteConfig,
+      mode: context.mode,
+      contentData: context.contentData,
+    },
+    template.renderers[context.pageKey](context)
+  );
 }

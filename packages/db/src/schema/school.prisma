@@ -39,6 +39,8 @@ model SchoolProfile {
     notificationContacts  NotificationContact[]
     inventoryItems         Inventory[]
     inventoryIssuances     InventoryIssuance[]
+    enrollmentLinks        EnrollmentLink[]
+    enrollmentApplications EnrollmentApplication[]
     assistantConversations AssistantConversation[]
     assistantMessages      AssistantMessage[]
     assistantRuns          AssistantRun[]

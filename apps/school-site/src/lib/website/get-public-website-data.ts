@@ -1,11 +1,13 @@
 import {
-  createMockWebsiteContentData,
+  createWebsiteContentDataFromConfig,
   type WebsiteTemplateContentData,
+  type WebsiteTemplateConfiguration,
   type WebsiteTenantProfile,
 } from "@school-clerk/template-registry";
 
 export async function getPublicWebsiteData(
-  tenant: WebsiteTenantProfile
+  tenant: WebsiteTenantProfile,
+  config?: WebsiteTemplateConfiguration | null,
 ): Promise<WebsiteTemplateContentData> {
-  return createMockWebsiteContentData(tenant);
+  return createWebsiteContentDataFromConfig(tenant, config);
 }

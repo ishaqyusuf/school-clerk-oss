@@ -36,16 +36,16 @@ export function StudentOverviewSheetHeader({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-border bg-card shadow-sm",
-        mode === "page" ? "p-6 md:p-8" : "p-5",
+        "w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl",
+        mode === "page" ? "p-4 sm:p-6 md:p-8" : "p-4 sm:p-5",
       )}
     >
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-          <div className="relative">
-            <Avatar className="h-20 w-20 border-4 border-background shadow-inner md:h-24 md:w-24">
+      <div className="flex min-w-0 flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+          <div className="relative shrink-0">
+            <Avatar className="h-16 w-16 border-4 border-background shadow-inner sm:h-20 sm:w-20 md:h-24 md:w-24">
               <Avatar.Image src="/placeholder.svg" alt={studentName} />
-              <Avatar.Fallback className="text-lg">
+              <Avatar.Fallback className="text-base sm:text-lg">
                 {getInitials(studentName)}
               </Avatar.Fallback>
             </Avatar>
@@ -56,15 +56,15 @@ export function StudentOverviewSheetHeader({
           </div>
 
           <div className="flex min-w-0 flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-2xl font-bold tracking-tight text-foreground">
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <h2 className="min-w-0 max-w-full text-xl font-bold tracking-tight text-foreground sm:text-2xl">
                 {hasStudentSwitcher ? (
                   <Menu
                     noSize
                     Trigger={
-                      <button className="inline-flex items-center gap-1 hover:text-primary transition-colors">
-                        {studentName}
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      <button className="inline-flex max-w-full min-w-0 items-center gap-1 text-left transition-colors hover:text-primary">
+                        <span className="truncate">{studentName}</span>
+                        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                       </button>
                     }
                   >
@@ -91,7 +91,7 @@ export function StudentOverviewSheetHeader({
                     ))}
                   </Menu>
                 ) : (
-                  studentName
+                  <span className="block truncate">{studentName}</span>
                 )}
               </h2>
               <Badge
@@ -102,10 +102,10 @@ export function StudentOverviewSheetHeader({
               </Badge>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 text-sm text-muted-foreground">
               {overview?.student?.id && (
-                <span className="flex items-center gap-1">
-                  <IdCard className="h-3.5 w-3.5" />
+                <span className="flex min-w-0 items-center gap-1">
+                  <IdCard className="h-3.5 w-3.5 shrink-0" />
                   {overview.student.id.slice(0, 8)}
                 </span>
               )}
@@ -115,12 +115,12 @@ export function StudentOverviewSheetHeader({
                   <Menu
                     noSize
                     Trigger={
-                      <button className="inline-flex items-center gap-1 hover:text-primary transition-colors">
-                        <GraduationCap className="h-3.5 w-3.5" />
+                      <button className="inline-flex min-w-0 max-w-full items-center gap-1 transition-colors hover:text-primary">
+                        <GraduationCap className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate">
                           {current.term} {current.departmentName}
                         </span>
-                        <ChevronDown className="h-3 w-3" />
+                        <ChevronDown className="h-3 w-3 shrink-0" />
                       </button>
                     }
                   >
@@ -162,22 +162,22 @@ export function StudentOverviewSheetHeader({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button variant="default" size="sm" className="gap-2">
+        <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+          <Button variant="default" size="sm" className="min-w-0 justify-center gap-2">
             <Download className="h-4 w-4" />
-            Report Card
+            <span className="truncate">Report Card</span>
           </Button>
           <Button
             variant="secondary"
             size="sm"
-            className="gap-2"
+            className="min-w-0 justify-center gap-2"
             onClick={() => {
               if (!overview?.student?.id) return;
               setParams({ studentEditId: overview.student.id });
             }}
           >
             <Edit className="h-4 w-4" />
-            Edit
+            <span className="truncate">Edit</span>
           </Button>
         </div>
       </div>

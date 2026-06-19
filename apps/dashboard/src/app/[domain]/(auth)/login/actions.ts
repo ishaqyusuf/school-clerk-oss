@@ -3,9 +3,11 @@
 import { headers } from "next/headers";
 
 import { resetCookie } from "@/actions/cookies/auth-cookie";
+import { getTenantDomain } from "@/actions/cookies/auth-cookie";
 import { auth } from "@/auth/server";
 import { getFirstPermittedHref } from "@/components/sidebar/links";
 import { tenantRedirect } from "@/utils/tenant-redirect";
+import { prisma } from "@school-clerk/db";
 
 function getFormValue(formData: FormData, name: string) {
   const value = formData.get(name);
@@ -13,19 +15,20 @@ function getFormValue(formData: FormData, name: string) {
 }
 
 export async function loginWithPasswordAction(formData: FormData) {
-  const email = getFormValue(formData, "email").trim();
+  const identifier = getFormValue(formData, "email").trim();
   const password = getFormValue(formData, "password");
   const rememberMe = formData.get("rememberMe") === "on";
 
-  if (!email || !password) {
+  if (!identifier || !password) {
     await tenantRedirect(
       `/login?error=${encodeURIComponent(
-        "Email and password are required.",
-      )}&email=${encodeURIComponent(email)}`,
+        "Email or phone and password are required.",
+      )}&email=${encodeURIComponent(identifier)}`,
     );
   }
 
   try {
+    const email = await resolveLoginEmail(identifier);
     const resp = await auth.api.signInEmail({
       body: {
         email,
@@ -69,7 +72,43 @@ export async function loginWithPasswordAction(formData: FormData) {
         error instanceof Error
           ? error.message
           : "Unable to sign in right now. Please try again.",
-      )}&email=${encodeURIComponent(email)}`,
+      )}&email=${encodeURIComponent(identifier)}`,
     );
   }
+}
+
+async function resolveLoginEmail(identifier: string) {
+  if (identifier.includes("@")) {
+    return identifier.toLowerCase();
+  }
+
+  const phone = identifier.replace(/[^\d+]/g, "").trim();
+  const { domain } = await getTenantDomain();
+  const tenant = await prisma.tenantDomain.findFirst({
+    where: {
+      subdomain: domain,
+      deletedAt: null,
+    },
+    select: {
+      saasAccountId: true,
+    },
+  });
+
+  const user = await prisma.user.findFirst({
+    where: {
+      deletedAt: null,
+      phoneNo: phone,
+      role: "Parent",
+      ...(tenant?.saasAccountId ? { saasAccountId: tenant.saasAccountId } : {}),
+    },
+    select: {
+      email: true,
+    },
+  });
+
+  if (!user?.email) {
+    throw new Error("No parent account was found for that phone number.");
+  }
+
+  return user.email;
 }

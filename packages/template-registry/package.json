@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "class-variance-authority": "^0.7.1",
     "react": "^19.2.0",
     "zod": "^4.1.11"
   },

@@ -93,6 +93,7 @@ export async function getClassroomReportSheet(
         },
         select: {
           id: true,
+          classroomDepartmentId: true,
           student: {
             select: {
               id: true,

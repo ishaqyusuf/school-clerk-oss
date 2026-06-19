@@ -28,6 +28,7 @@ Operational summary of SchoolClerk domains, modules, and runtime boundaries.
 - Data stores: PostgreSQL via Prisma models in `packages/db/src/schema/*.prisma`, including tenant/user-scoped `Notification` and `NotificationPreference` records
 - External providers: Better Auth, Vercel domains, Resend email, Google Fonts (build-time fetch in Next.js)
 - Tenant/domain proxying owns the dashboard mount, so product pages should navigate with app-relative paths like `/finance/...` instead of hardcoding `/dashboard/...`.
+- Production school signup now provisions both the public site host `{subdomain}.school-clerk.com` and dashboard host `dashboard.{subdomain}.school-clerk.com`, then sends owner email verification through Resend.
 
 ## Architectural Reference
 - Use these references as recurring sources of inspiration for architecture and performance decisions:

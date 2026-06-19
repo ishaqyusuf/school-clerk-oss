@@ -42,6 +42,7 @@ Make classroom assessment recording, classroom result review, student result pri
 - Assessment form should show a grouped-assessment print mode control:
   - Print sub-assessments
   - Print group total only
+- Student result print/PDF headers should show the full classroom display name for each student, including the main classroom and department/arm when both are available.
 - Standalone assessments with no weight should show a warning: they can be recorded but will not print.
 - Grouped assessments whose children have no printable weight should show a warning: the group will not appear on printed results.
 - Assessment list should show badges for:
