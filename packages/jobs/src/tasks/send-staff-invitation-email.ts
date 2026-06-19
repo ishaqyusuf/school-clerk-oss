@@ -2,7 +2,7 @@ import {
   sendStaffInvitationEmailSchema,
   sendStaffInvitationEmailTaskId,
 } from "@jobs/schema";
-import { StaffInvitationEmail } from "@school-clerk/email";
+import { StaffInvitationEmail } from "@school-clerk/email/emails/staff-invitation";
 import { queue, schemaTask } from "@trigger.dev/sdk";
 import React from "react";
 import { sendEmail } from "../utils/resend";

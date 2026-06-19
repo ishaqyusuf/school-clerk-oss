@@ -3,15 +3,14 @@
 import { Form } from "@/components/forms/staff-form";
 import { FormContext } from "@/components/staffs/form-context";
 import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
-import { getInitials } from "@school-clerk/utils";
 import { Avatar, AvatarFallback } from "@school-clerk/ui/avatar";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@school-clerk/ui/card";
 import { cn } from "@school-clerk/ui/cn";
 import { Separator } from "@school-clerk/ui/separator";
 import { Skeleton } from "@school-clerk/ui/skeleton";
+import { getInitials } from "@school-clerk/utils";
+import { useQuery } from "@tanstack/react-query";
 import {
 	AlertTriangle,
 	BookOpen,
@@ -32,6 +31,12 @@ const tabs = [
 	{ id: "assignments", label: "Assignments", icon: GraduationCap },
 	{ id: "edit", label: "Edit profile", icon: PencilLine },
 ] as const;
+const metricSkeletonKeys = [
+	"staff-id",
+	"onboarding",
+	"assignments",
+	"subjects",
+];
 
 type TabId = (typeof tabs)[number]["id"];
 
@@ -114,20 +119,18 @@ export function StaffOverviewShell({
 
 	if (!data?.staff) {
 		return (
-			<Card className="rounded-2xl border-dashed">
-				<CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 p-10 text-center">
-					<div className="rounded-full bg-muted p-3 text-muted-foreground">
-						<UserSquare2 className="h-5 w-5" />
-					</div>
-					<div className="space-y-1">
-						<p className="font-medium text-foreground">Staff profile not found</p>
-						<p className="text-sm text-muted-foreground">
-							This record may have been removed or is not available in the
-							current school session.
-						</p>
-					</div>
-				</CardContent>
-			</Card>
+			<section className="flex min-h-64 flex-col items-center justify-center gap-3 border border-dashed p-10 text-center">
+				<div className="rounded-full bg-muted p-3 text-muted-foreground">
+					<UserSquare2 className="h-5 w-5" />
+				</div>
+				<div className="space-y-1">
+					<p className="font-medium text-foreground">Staff profile not found</p>
+					<p className="text-sm text-muted-foreground">
+						This record may have been removed or is not available in the current
+						school session.
+					</p>
+				</div>
+			</section>
 		);
 	}
 
@@ -161,7 +164,7 @@ export function StaffOverviewShell({
 		>
 			<section
 				className={cn(
-					"overflow-hidden rounded-3xl border border-border bg-card shadow-sm",
+					"border-b bg-background",
 					mode === "page" ? "p-6 md:p-8" : "p-5",
 				)}
 			>
@@ -212,7 +215,9 @@ export function StaffOverviewShell({
 								</div>
 								<div className="inline-flex items-center gap-2">
 									<Phone className="h-4 w-4" />
-									<span>{data.staff.phone || data.staff.phone2 || "No phone"}</span>
+									<span>
+										{data.staff.phone || data.staff.phone2 || "No phone"}
+									</span>
 								</div>
 								<div className="inline-flex items-center gap-2">
 									<MapPin className="h-4 w-4" />
@@ -231,7 +236,7 @@ export function StaffOverviewShell({
 								assignmentRows.length
 									? `${totalSubjects} linked subject${
 											totalSubjects === 1 ? "" : "s"
-									  }`
+										}`
 									: "No active classroom assignments"
 							}
 						/>
@@ -308,11 +313,11 @@ export function StaffOverviewShell({
 					</div>
 
 					<div className="grid gap-6 xl:grid-cols-[1.65fr_1fr]">
-						<Card className="rounded-2xl shadow-sm">
-							<CardHeader>
-								<CardTitle>Profile summary</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-5">
+						<section className="border bg-background">
+							<div className="border-b px-4 py-4 sm:px-5">
+								<h3 className="text-base font-semibold">Profile summary</h3>
+							</div>
+							<div className="space-y-5 p-4 sm:p-5">
 								<InfoRow
 									icon={Mail}
 									label="Primary email"
@@ -333,14 +338,14 @@ export function StaffOverviewShell({
 									label="Address"
 									value={data.staff.address || "No address saved yet"}
 								/>
-							</CardContent>
-						</Card>
+							</div>
+						</section>
 
-						<Card className="rounded-2xl shadow-sm">
-							<CardHeader>
-								<CardTitle>Onboarding tracker</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-4">
+						<section className="border bg-background">
+							<div className="border-b px-4 py-4 sm:px-5">
+								<h3 className="text-base font-semibold">Onboarding tracker</h3>
+							</div>
+							<div className="space-y-4 p-4 sm:p-5">
 								<TimelineRow
 									label="Invite sent"
 									value={formatDate(data.staff.inviteSentAt)}
@@ -355,7 +360,7 @@ export function StaffOverviewShell({
 								/>
 								<div
 									className={cn(
-										"rounded-2xl border p-4 text-sm",
+										"border p-4 text-sm",
 										data.staff.lastInviteError
 											? "border-rose-200 bg-rose-50 text-rose-700"
 											: "border-border bg-muted/40 text-muted-foreground",
@@ -374,24 +379,24 @@ export function StaffOverviewShell({
 										</div>
 									</div>
 								</div>
-							</CardContent>
-						</Card>
+							</div>
+						</section>
 					</div>
 				</div>
 			) : null}
 
 			{resolvedTab === "assignments" ? (
 				<div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-					<Card className="rounded-2xl shadow-sm">
-						<CardHeader>
-							<CardTitle>Classroom coverage</CardTitle>
-						</CardHeader>
-						<CardContent className="space-y-4">
+					<section className="border bg-background">
+						<div className="border-b px-4 py-4 sm:px-5">
+							<h3 className="text-base font-semibold">Classroom coverage</h3>
+						</div>
+						<div className="space-y-4 p-4 sm:p-5">
 							{assignmentRows.length ? (
 								assignmentRows.map((assignment, index) => (
 									<div
 										key={`${assignment.classroomLabel}-${index}`}
-										className="rounded-2xl border border-border bg-background p-4"
+										className="border-l pl-4"
 									>
 										<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 											<div>
@@ -402,7 +407,7 @@ export function StaffOverviewShell({
 													{assignment.subjects.length
 														? `${assignment.subjects.length} assigned subject${
 																assignment.subjects.length === 1 ? "" : "s"
-														  }`
+															}`
 														: "No subjects linked for this classroom yet."}
 												</p>
 											</div>
@@ -430,7 +435,7 @@ export function StaffOverviewShell({
 									</div>
 								))
 							) : (
-								<div className="rounded-2xl border border-dashed p-8 text-center">
+								<div className="border border-dashed p-8 text-center">
 									<p className="font-medium text-foreground">
 										No classroom assignments yet
 									</p>
@@ -440,15 +445,15 @@ export function StaffOverviewShell({
 									</p>
 								</div>
 							)}
-						</CardContent>
-					</Card>
+						</div>
+					</section>
 
-					<Card className="rounded-2xl shadow-sm">
-						<CardHeader>
-							<CardTitle>Coverage notes</CardTitle>
-						</CardHeader>
-						<CardContent className="space-y-4 text-sm text-muted-foreground">
-							<div className="rounded-2xl border border-border bg-muted/30 p-4">
+					<section className="border bg-background">
+						<div className="border-b px-4 py-4 sm:px-5">
+							<h3 className="text-base font-semibold">Coverage notes</h3>
+						</div>
+						<div className="space-y-4 p-4 text-sm text-muted-foreground sm:p-5">
+							<div className="border border-border bg-muted/30 p-4">
 								<p className="font-medium text-foreground">Role access</p>
 								<p className="mt-1">
 									Only teaching staff can hold classroom and subject
@@ -456,7 +461,7 @@ export function StaffOverviewShell({
 									and directory management.
 								</p>
 							</div>
-							<div className="rounded-2xl border border-border bg-background p-4">
+							<div className="border border-border bg-background p-4">
 								<p className="font-medium text-foreground">Current role</p>
 								<p className="mt-1">{data.staff.role}</p>
 							</div>
@@ -468,27 +473,27 @@ export function StaffOverviewShell({
 							>
 								Edit assignments
 							</Button>
-						</CardContent>
-					</Card>
+						</div>
+					</section>
 				</div>
 			) : null}
 
 			{resolvedTab === "edit" ? (
-				<Card className="rounded-2xl shadow-sm">
-					<CardHeader className="gap-2">
-						<CardTitle>Edit staff profile</CardTitle>
+				<section className="border bg-background">
+					<div className="space-y-2 border-b px-4 py-4 sm:px-5">
+						<h3 className="text-base font-semibold">Edit staff profile</h3>
 						<p className="text-sm text-muted-foreground">
 							Update invite details, role access, and classroom assignments
 							using the same form in both the full page and the quick-view
 							sheet.
 						</p>
-					</CardHeader>
-					<CardContent>
+					</div>
+					<div className="p-4 sm:p-5">
 						<FormContext values={data.staff}>
 							<Form staffId={data.staff.id} submitLabel="Save changes" />
 						</FormContext>
-					</CardContent>
-				</Card>
+					</div>
+				</section>
 			) : null}
 		</div>
 	);
@@ -506,7 +511,7 @@ function QuickInfoCard({
 	helper: string;
 }) {
 	return (
-		<div className="rounded-2xl border border-border bg-muted/30 p-4">
+		<div className="border border-border bg-muted/30 p-4">
 			<div className="flex items-start justify-between gap-3">
 				<div>
 					<p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -514,7 +519,7 @@ function QuickInfoCard({
 					</p>
 					<p className="mt-2 text-lg font-semibold text-foreground">{value}</p>
 				</div>
-				<div className="rounded-xl bg-background p-2 text-primary shadow-sm">
+				<div className="bg-background p-2 text-primary">
 					<Icon className="h-4 w-4" />
 				</div>
 			</div>
@@ -537,27 +542,25 @@ function MetricCard({
 	iconClassName?: string;
 }) {
 	return (
-		<Card className="rounded-2xl shadow-sm">
-			<CardContent className="p-5">
-				<div className="mb-3 flex items-center gap-3">
-					<div
-						className={cn(
-							"flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary",
-							iconClassName,
-						)}
-					>
-						<Icon className="h-5 w-5" />
-					</div>
-					<div>
-						<p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-							{label}
-						</p>
-						<p className="text-sm font-bold text-foreground">{value}</p>
-					</div>
+		<div className="border-y bg-background px-4 py-4">
+			<div className="mb-3 flex items-center gap-3">
+				<div
+					className={cn(
+						"flex h-10 w-10 items-center justify-center bg-primary/10 text-primary",
+						iconClassName,
+					)}
+				>
+					<Icon className="h-5 w-5" />
 				</div>
-				<p className="text-sm text-muted-foreground">{helper}</p>
-			</CardContent>
-		</Card>
+				<div>
+					<p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+						{label}
+					</p>
+					<p className="text-sm font-bold text-foreground">{value}</p>
+				</div>
+			</div>
+			<p className="text-sm text-muted-foreground">{helper}</p>
+		</div>
 	);
 }
 
@@ -574,13 +577,15 @@ function InfoRow({
 }) {
 	return (
 		<div className="flex items-start gap-3">
-			<div className="rounded-xl bg-primary/10 p-2 text-primary">
+			<div className="bg-primary/10 p-2 text-primary">
 				<Icon className="h-4 w-4" />
 			</div>
 			<div className="space-y-1">
 				<p className="text-sm font-medium text-foreground">{label}</p>
 				<p className="text-sm text-muted-foreground">{value}</p>
-				{secondary ? <p className="text-xs text-muted-foreground">{secondary}</p> : null}
+				{secondary ? (
+					<p className="text-xs text-muted-foreground">{secondary}</p>
+				) : null}
 			</div>
 		</div>
 	);
@@ -588,14 +593,16 @@ function InfoRow({
 
 function TimelineRow({ label, value }: { label: string; value: string }) {
 	return (
-		<div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-background px-4 py-3">
+		<div className="flex items-center justify-between gap-4 border border-border bg-background px-4 py-3">
 			<span className="text-sm font-medium text-foreground">{label}</span>
 			<span className="text-sm text-muted-foreground">{value}</span>
 		</div>
 	);
 }
 
-function StaffOverviewSkeleton({ mode = "sheet" }: { mode?: "sheet" | "page" }) {
+function StaffOverviewSkeleton({
+	mode = "sheet",
+}: { mode?: "sheet" | "page" }) {
 	return (
 		<div
 			className={cn(
@@ -603,7 +610,7 @@ function StaffOverviewSkeleton({ mode = "sheet" }: { mode?: "sheet" | "page" }) 
 				mode === "page" && "mx-auto w-full max-w-7xl",
 			)}
 		>
-			<div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+			<div className="border-b bg-background p-6">
 				<div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 					<div className="flex items-center gap-4">
 						<Skeleton className="h-24 w-24 rounded-full" />
@@ -625,13 +632,13 @@ function StaffOverviewSkeleton({ mode = "sheet" }: { mode?: "sheet" | "page" }) 
 				<Skeleton className="h-8 w-28" />
 			</div>
 			<div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
-				{Array.from({ length: 4 }).map((_, index) => (
-					<Skeleton key={index} className="h-28 w-full rounded-2xl" />
+				{metricSkeletonKeys.map((key) => (
+					<Skeleton key={key} className="h-28 w-full" />
 				))}
 			</div>
 			<div className="grid gap-6 xl:grid-cols-[1.65fr_1fr]">
-				<Skeleton className="h-80 w-full rounded-2xl" />
-				<Skeleton className="h-80 w-full rounded-2xl" />
+				<Skeleton className="h-80 w-full" />
+				<Skeleton className="h-80 w-full" />
 			</div>
 		</div>
 	);

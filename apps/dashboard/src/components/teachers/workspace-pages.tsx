@@ -1,10 +1,11 @@
 import { getTeacherWorkspaceAction } from "@/actions/get-teacher-workspace";
 import { TeacherAssessmentWorkspace } from "@/components/teachers/teacher-assessment-workspace";
 import { TeacherAttendanceWorkspace } from "@/components/teachers/teacher-attendance-workspace";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@school-clerk/ui/card";
 import { Input } from "@school-clerk/ui/input";
+import { Separator } from "@school-clerk/ui/separator";
 import {
 	Table,
 	TableBody,
@@ -13,25 +14,57 @@ import {
 	TableHeader,
 	TableRow,
 } from "@school-clerk/ui/table";
-import { BookOpen, CalendarCheck2, Clock3, FileText, Users } from "lucide-react";
-import { TenantLink as Link } from "@school-clerk/tenant-url/next";
-import type { ComponentType } from "react";
+import {
+	BookOpen,
+	CalendarCheck2,
+	Clock3,
+	FileText,
+	Users,
+} from "lucide-react";
+import type { ComponentType, ReactNode } from "react";
 
 function TeacherEmptyState({ email }: { email?: string | null }) {
 	return (
-		<Card>
-			<CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-				<div className="text-lg font-semibold">Your teacher workspace is not ready</div>
-				<p className="max-w-xl text-sm text-muted-foreground">
-					Ask an administrator to update your staff record with the same email
-					address you use to sign in
-					{email ? ` (${email})` : ""}, then assign your classrooms and subjects.
-				</p>
-				<Button asChild variant="outline">
-					<Link href="/announcements">Go to announcements</Link>
-				</Button>
-			</CardContent>
-		</Card>
+		<section className="flex min-h-64 flex-col items-center justify-center gap-3 border border-dashed bg-background px-6 py-12 text-center">
+			<div className="text-lg font-semibold">
+				Your teacher workspace is not ready
+			</div>
+			<p className="max-w-xl text-sm text-muted-foreground">
+				Ask an administrator to update your staff record with the same email
+				address you use to sign in
+				{email ? ` (${email})` : ""}, then assign your classrooms and subjects.
+			</p>
+			<Button asChild variant="outline">
+				<Link href="/announcements">Go to announcements</Link>
+			</Button>
+		</section>
+	);
+}
+
+function TeacherSection({
+	title,
+	description,
+	action,
+	children,
+}: {
+	title: string;
+	description?: string;
+	action?: ReactNode;
+	children: ReactNode;
+}) {
+	return (
+		<section className="border bg-background">
+			<div className="flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+				<div>
+					<h2 className="text-base font-semibold">{title}</h2>
+					{description ? (
+						<p className="mt-1 text-sm text-muted-foreground">{description}</p>
+					) : null}
+				</div>
+				{action ? <div className="shrink-0">{action}</div> : null}
+			</div>
+			<div className="p-4 sm:p-5">{children}</div>
+		</section>
 	);
 }
 
@@ -45,19 +78,22 @@ function TeacherStatGrid({
 	}>;
 }) {
 	return (
-		<div className="hidden gap-4 md:grid md:grid-cols-4">
+		<div className="hidden border-y bg-background md:grid md:grid-cols-4">
 			{stats.map((item) => (
-				<Card key={item.label}>
-					<CardHeader className="flex flex-row items-center justify-between pb-2">
-						<CardTitle className="text-sm font-medium text-muted-foreground">
+				<div
+					key={item.label}
+					className="flex items-center justify-between gap-4 border-border px-4 py-4 md:border-r last:border-r-0"
+				>
+					<div>
+						<p className="text-sm font-medium text-muted-foreground">
 							{item.label}
-						</CardTitle>
-						<item.icon className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-3xl font-bold">{item.value}</div>
-					</CardContent>
-				</Card>
+						</p>
+						<div className="mt-1 text-2xl font-semibold tracking-tight">
+							{item.value}
+						</div>
+					</div>
+					<item.icon className="h-4 w-4 text-muted-foreground" />
+				</div>
 			))}
 		</div>
 	);
@@ -93,8 +129,8 @@ function TeacherHeader({
 	email?: string | null;
 }) {
 	return (
-		<Card>
-			<CardContent className="flex flex-col gap-2 py-6 sm:flex-row sm:items-center sm:justify-between">
+		<section className="border-b bg-background pb-5">
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 				<div>
 					<div className="text-2xl font-semibold">{name}</div>
 					<div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -111,8 +147,8 @@ function TeacherHeader({
 						<Link href="/teacher/students">My students</Link>
 					</Button>
 				</div>
-			</CardContent>
-		</Card>
+			</div>
+		</section>
 	);
 }
 
@@ -155,23 +191,24 @@ export async function TeacherDashboardPanel() {
 				]}
 			/>
 			<div className="grid gap-4 lg:grid-cols-2">
-				<Card>
-					<CardHeader>
-						<CardTitle>Assigned classrooms</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-3">
+				<TeacherSection title="Assigned classrooms">
+					<div className="divide-y">
 						{data.classrooms.length ? (
 							data.classrooms.map((classroom) => (
 								<div
 									key={classroom.id}
-									className="rounded-xl border p-4 text-sm text-muted-foreground"
+									className="flex flex-col gap-1 py-3 text-sm text-muted-foreground first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
 								>
-									<div className="font-medium text-foreground">
-										{classroom.displayName}
+									<div>
+										<div className="font-medium text-foreground">
+											{classroom.displayName}
+										</div>
+										<div className="mt-1">
+											{classroom.studentCount} students ·{" "}
+											{classroom.subjectCount} subjects
+										</div>
 									</div>
-									<div className="mt-1">
-										{classroom.studentCount} students · {classroom.subjectCount} subjects
-									</div>
+									<Badge variant="outline">{classroom.className}</Badge>
 								</div>
 							))
 						) : (
@@ -179,14 +216,13 @@ export async function TeacherDashboardPanel() {
 								No classroom assignments yet.
 							</p>
 						)}
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle>Next steps</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-3 text-sm text-muted-foreground">
-						<p>Use the pages in this module to focus only on your classes.</p>
+					</div>
+				</TeacherSection>
+				<TeacherSection
+					title="Next steps"
+					description="Use the pages in this module to focus only on your classes."
+				>
+					<div className="space-y-3 text-sm text-muted-foreground">
 						<div className="flex flex-wrap gap-2">
 							<Button asChild variant="outline">
 								<Link href="/teacher/attendance">Attendance</Link>
@@ -198,8 +234,8 @@ export async function TeacherDashboardPanel() {
 								<Link href="/assessment-recording">Reports</Link>
 							</Button>
 						</div>
-					</CardContent>
-				</Card>
+					</div>
+				</TeacherSection>
 			</div>
 		</div>
 	);
@@ -213,12 +249,9 @@ export async function TeacherClassesPanel() {
 	}
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>My classes</CardTitle>
-			</CardHeader>
-			<CardContent>
-				{data.classrooms.length ? (
+		<TeacherSection title="My classes">
+			{data.classrooms.length ? (
+				<div className="overflow-hidden border">
 					<Table>
 						<TableHeader>
 							<TableRow>
@@ -239,11 +272,11 @@ export async function TeacherClassesPanel() {
 							))}
 						</TableBody>
 					</Table>
-				) : (
-					<TeacherEmptyState email={data.signedInEmail} />
-				)}
-			</CardContent>
-		</Card>
+				</div>
+			) : (
+				<TeacherEmptyState email={data.signedInEmail} />
+			)}
+		</TeacherSection>
 	);
 }
 
@@ -260,19 +293,13 @@ export async function TeacherStudentsPanel({
 
 	return (
 		<div className="flex flex-col gap-6">
-			<Card>
-				<CardHeader className="gap-4">
-					<div>
-						<CardTitle>My students</CardTitle>
-						<p className="mt-1 text-sm text-muted-foreground">
-							Students listed here come from your assigned classrooms for the
-							current term.
-						</p>
-					</div>
-					<SearchForm search={search} />
-				</CardHeader>
-				<CardContent>
-					{data.students.length ? (
+			<TeacherSection
+				title="My students"
+				description="Students listed here come from your assigned classrooms for the current term."
+				action={<SearchForm search={search} />}
+			>
+				{data.students.length ? (
+					<div className="overflow-hidden border">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -284,18 +311,20 @@ export async function TeacherStudentsPanel({
 							<TableBody>
 								{data.students.map((student) => (
 									<TableRow key={student.id}>
-										<TableCell className="font-medium">{student.name}</TableCell>
+										<TableCell className="font-medium">
+											{student.name}
+										</TableCell>
 										<TableCell>{student.gender}</TableCell>
 										<TableCell>{student.classroom}</TableCell>
 									</TableRow>
 								))}
 							</TableBody>
 						</Table>
-					) : (
-						<TeacherEmptyState email={data.signedInEmail} />
-					)}
-				</CardContent>
-			</Card>
+					</div>
+				) : (
+					<TeacherEmptyState email={data.signedInEmail} />
+				)}
+			</TeacherSection>
 		</div>
 	);
 }
@@ -359,11 +388,8 @@ export async function TeacherGradingPanel() {
 	}
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Grading overview</CardTitle>
-			</CardHeader>
-			<CardContent className="space-y-4 text-sm text-muted-foreground">
+		<TeacherSection title="Grading overview">
+			<div className="space-y-4 text-sm text-muted-foreground">
 				<p>
 					Use your assigned subjects and classrooms as the scope for grading in
 					the current term.
@@ -376,17 +402,19 @@ export async function TeacherGradingPanel() {
 						<Link href="/assessment-recording">Open report workflow</Link>
 					</Button>
 				</div>
-				<div className="rounded-xl border p-4">
+				<Separator />
+				<div>
 					<div className="font-medium text-foreground">
-						{data.stats.subjectCount} subjects across {data.stats.classroomCount} classes
+						{data.stats.subjectCount} subjects across{" "}
+						{data.stats.classroomCount} classes
 					</div>
 					<div className="mt-1">
 						Keep grades aligned with the classrooms visible in this teacher
 						workspace so your access stays predictable.
 					</div>
 				</div>
-			</CardContent>
-		</Card>
+			</div>
+		</TeacherSection>
 	);
 }
 
@@ -398,23 +426,21 @@ export async function TeacherReportsPanel() {
 	}
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Reports workspace</CardTitle>
-			</CardHeader>
-			<CardContent className="space-y-4 text-sm text-muted-foreground">
+		<TeacherSection title="Reports workspace">
+			<div className="space-y-4 text-sm text-muted-foreground">
 				<p>
 					Report preparation should stay limited to your assigned classrooms and
 					subjects.
 				</p>
 				<div className="grid gap-3 md:grid-cols-2">
 					{data.classrooms.map((classroom) => (
-						<div key={classroom.id} className="rounded-xl border p-4">
+						<div key={classroom.id} className="border-l pl-4">
 							<div className="font-medium text-foreground">
 								{classroom.displayName}
 							</div>
 							<div className="mt-1">
-								{classroom.studentCount} students · {classroom.subjectCount} subjects
+								{classroom.studentCount} students · {classroom.subjectCount}{" "}
+								subjects
 							</div>
 						</div>
 					))}
@@ -422,8 +448,8 @@ export async function TeacherReportsPanel() {
 				<Button asChild variant="outline">
 					<Link href="/teacher/grading">Review grading scope</Link>
 				</Button>
-			</CardContent>
-		</Card>
+			</div>
+		</TeacherSection>
 	);
 }
 
@@ -460,15 +486,12 @@ export async function TeacherTimetablePanel() {
 					},
 				]}
 			/>
-			<Card>
-				<CardHeader>
-					<CardTitle>Timetable placeholder</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-3 text-sm text-muted-foreground">
+			<TeacherSection title="Timetable placeholder">
+				<div className="space-y-3 text-sm text-muted-foreground">
 					<p>
-						A dedicated timetable builder is not live yet. For now, use this page
-						as a quick summary of the classes and subjects already assigned to
-						you.
+						A dedicated timetable builder is not live yet. For now, use this
+						page as a quick summary of the classes and subjects already assigned
+						to you.
 					</p>
 					{data.subjects.length ? (
 						<div className="flex flex-wrap gap-2">
@@ -481,8 +504,8 @@ export async function TeacherTimetablePanel() {
 					) : (
 						<p>No subject assignments yet.</p>
 					)}
-				</CardContent>
-			</Card>
+				</div>
+			</TeacherSection>
 		</div>
 	);
 }

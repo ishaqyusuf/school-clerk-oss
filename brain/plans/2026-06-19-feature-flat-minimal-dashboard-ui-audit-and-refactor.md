@@ -4,7 +4,7 @@
 Feature
 
 ## Status
-Proposed
+In Progress
 
 ## Created Date
 2026-06-19
@@ -23,6 +23,7 @@ Dashboard pages, sheets, and modals currently feel over-framed because many surf
 - `packages/ui/src/components/sheet.tsx` and `packages/ui/src/components/dialog.tsx` currently default to heavy black overlays, shadows, borders, and generous padding. `apps/dashboard/src/components/custom-sheet-content.tsx` adds a second project-specific sheet wrapper.
 - The Midday reference uses the same simple base `Card`, but representative sheets and modals lean on sparse framing, light overlays, compact headers, scroll areas, separators, and table-first layouts rather than repeated nested cards.
 - Existing dirty worktree changes already touch many dashboard UI files, so this plan should be implemented carefully in small batches to avoid overwriting unrelated work.
+- Implementation batch 1 flattened teacher workspace pages and staff management surfaces by replacing page-level cards with bordered sections, metric bands, table frames, divided mobile lists, and simpler sheet/report wrappers.
 
 ## Proposed Approach
 Define a dashboard UI density and framing standard, then refactor from shared primitives outward. The design direction should treat cards as rare semantic containers for independent summaries or repeated entities, not the default page layout unit. Pages should use flat sections, separators, table shells, compact metric rows, and unframed form groups. Sheets and modals should use one shell only, with clear internal hierarchy from spacing, typography, dividers, and sticky action areas instead of nested card panels.
@@ -43,6 +44,7 @@ flowchart TD
 - Establish a flat dashboard UI standard for cards, sheets, modals, metric groups, table shells, empty states, and form sections.
 - Update or wrap shared primitives only where the change is broad and safe, especially `packages/ui/src/components/sheet.tsx`, `packages/ui/src/components/dialog.tsx`, and `apps/dashboard/src/components/custom-sheet-content.tsx`.
 - Refactor high-impact dashboard pages first: finance overview, receive-payment sheet, student overview/sheet header, teacher report sheet, and teacher workspace pages.
+- Completed batch 1: flatten teacher workspace pages, teacher attendance/assessment/report surfaces, staff management table, staff directory pages, and staff overview shell.
 - Replace nested panels inside sheets and modals with section headers, `Separator`, table/list groups, compact rows, or subtle `bg-muted/20` bands where needed.
 - Audit dashboard onboarding and website settings/editor flows separately because those may intentionally use more editorial framing than dense operational screens.
 - Add or update focused visual checks for representative desktop and mobile viewports after each batch.
@@ -59,7 +61,12 @@ flowchart TD
 - `apps/dashboard/src/components/students/student-attendance-history.tsx`
 - `apps/dashboard/src/components/students/student-transaction-overview.tsx`
 - `apps/dashboard/src/components/teachers/workspace-pages.tsx`
+- `apps/dashboard/src/components/teachers/teacher-attendance-workspace.tsx`
+- `apps/dashboard/src/components/teachers/teacher-assessment-workspace.tsx`
 - `apps/dashboard/src/components/teachers/teacher-report-sheet.tsx`
+- `apps/dashboard/src/components/staff/basic-staff-pages.tsx`
+- `apps/dashboard/src/components/staff/staff-overview-shell.tsx`
+- `apps/dashboard/src/components/tables/staffs/data-table.tsx`
 - `apps/dashboard/src/components/custom-sheet-content.tsx`
 - `apps/dashboard/src/components/modals/custom-modal.tsx`
 - `packages/ui/src/components/card.tsx`
@@ -91,10 +98,10 @@ flowchart TD
 - TODO: Decide whether website settings/editor screens should follow the same flat operational standard or retain a more editor-like framed workspace.
 
 ## Open Questions
-- TODO: Should the first implementation batch target finance, student overview, or shared primitives?
+- First implementation batch targeted teacher workspace and staff management surfaces.
 - TODO: Should auth/onboarding success screens be included in this audit or treated as a separate presentation surface?
 - TODO: Should the project add a small dashboard layout utility for flat sections, or enforce the convention with existing primitives only?
 
 ## Linked Task
 - Task Title: Flat Minimal Dashboard UI Audit And Refactor
-- Task File: brain/tasks/roadmap.md
+- Task File: brain/tasks/in-progress.md

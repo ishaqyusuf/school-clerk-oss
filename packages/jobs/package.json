@@ -15,7 +15,6 @@
     "@school-clerk/db": "workspace:*",
     "@school-clerk/email": "workspace:*",
     "@school-clerk/utils": "workspace:*",
-    "@react-email/render": "0.0.10",
     "@trigger.dev/sdk": "^4.0.0",
     "@sindresorhus/slugify": "^2.2.1",
     "@zip.js/zip.js": "^2.7.62",

@@ -32,6 +32,7 @@
     "dev:site": "bun run dev:prepare && SCHOOL_CLERK_DB_STARTED=1 turbo dev --filter=@school-clerk/site",
     "dev:school-site": "bun run dev:prepare && SCHOOL_CLERK_DB_STARTED=1 turbo dev --filter=@school-clerk/school-site",
     "dev:websites": "bun run dev:prepare && SCHOOL_CLERK_DB_STARTED=1 turbo dev --filter=@school-clerk/dashboard --filter=@school-clerk/site --filter=@school-clerk/school-site --filter=@school-clerk/jobs",
+    "jobs:deploy": "bun run --filter @school-clerk/jobs deploy",
     "websites": "bun run dev:websites",
     "dashboard": "bun run dev:dashboard:full",
     "terminal": "bash ./scripts/open-bun-script-terminal.sh",

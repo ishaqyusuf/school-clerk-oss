@@ -22,7 +22,7 @@
     "@school-clerk/ui": "workspace:*",
     "@school-clerk/utils": "workspace:*",
     "@react-email/components": "0.0.31",
-    "@react-email/render": "0.0.10",
+    "@react-email/render": "1.1.2",
     "@react-email/tailwind": "1.0.4",
     "date-fns": "^4.1.0",
     "react-email": "3.0.4",

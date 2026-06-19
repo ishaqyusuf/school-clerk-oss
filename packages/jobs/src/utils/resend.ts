@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { Resend } from "resend";
-import { render } from "@react-email/render";
+import { render } from "@school-clerk/email/render";
 import { getRecipient } from "@school-clerk/utils/envs";
 import { nanoid } from "nanoid";
 import { logger } from "@trigger.dev/sdk";

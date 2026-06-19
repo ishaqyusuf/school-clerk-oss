@@ -53,8 +53,12 @@ export function Header() {
               <div className="lg:hidden">
                 <OpenSearchButton />
               </div>
-              <NotificationBell />
-              <ThemeSwitch />
+              <div className="hidden md:block">
+                <NotificationBell />
+              </div>
+              <div className="hidden md:block">
+                <ThemeSwitch />
+              </div>
               <HeaderUserMenu />
             </div>
           </div>

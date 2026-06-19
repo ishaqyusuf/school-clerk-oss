@@ -5,7 +5,6 @@ import { useTRPC } from "@/trpc/client";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@school-clerk/ui/card";
 import {
 	Select,
 	SelectContent,
@@ -53,30 +52,28 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 
 	if (!subjects.length) {
 		return (
-			<Card>
-				<CardContent className="py-10 text-sm text-muted-foreground">
-					No subject assignments are available for assessment setup.
-				</CardContent>
-			</Card>
+			<section className="border border-dashed bg-background px-4 py-10 text-sm text-muted-foreground">
+				No subject assignments are available for assessment setup.
+			</section>
 		);
 	}
 
 	return (
 		<div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-			<Card className="hidden xl:block">
-				<CardHeader>
-					<CardTitle>Assigned subjects</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-2">
+			<aside className="hidden border bg-background xl:block">
+				<div className="border-b px-4 py-4">
+					<h2 className="text-base font-semibold">Assigned subjects</h2>
+				</div>
+				<div className="divide-y">
 					{subjects.map((subject) => (
 						<button
 							key={subject.id}
 							type="button"
 							onClick={() => setSelectedSubjectId(subject.id)}
 							className={[
-								"w-full rounded-xl border p-3 text-left transition-colors",
+								"w-full p-4 text-left transition-colors",
 								subject.id === selectedSubjectId
-									? "border-primary bg-primary/5"
+									? "bg-primary/5"
 									: "hover:bg-muted/50",
 							].join(" ")}
 						>
@@ -87,10 +84,16 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 										{subject.displayName}
 									</p>
 									<div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-										<Badge variant="secondary" className="px-1.5 py-0 font-normal">
+										<Badge
+											variant="secondary"
+											className="px-1.5 py-0 font-normal"
+										>
 											{subject.numberOfAssessments} assessments
 										</Badge>
-										<Badge variant="secondary" className="px-1.5 py-0 font-normal">
+										<Badge
+											variant="secondary"
+											className="px-1.5 py-0 font-normal"
+										>
 											{subject.numberOfRecordings} recordings
 										</Badge>
 									</div>
@@ -99,8 +102,8 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 							</div>
 						</button>
 					))}
-				</CardContent>
-			</Card>
+				</div>
+			</aside>
 
 			<div className="space-y-4">
 				<div className="xl:hidden">
@@ -117,7 +120,8 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 									<div className="flex flex-col gap-1 py-1 text-left">
 										<span className="font-medium">{subject.title}</span>
 										<span className="text-xs text-muted-foreground">
-											{subject.displayName} · {subject.numberOfAssessments} assessments · {subject.numberOfRecordings} recordings
+											{subject.displayName} · {subject.numberOfAssessments}{" "}
+											assessments · {subject.numberOfRecordings} recordings
 										</span>
 									</div>
 								</SelectItem>
@@ -125,8 +129,8 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 						</SelectContent>
 					</Select>
 				</div>
-				<Card>
-					<CardContent className="flex flex-col gap-3 py-5 lg:flex-row lg:items-center lg:justify-between">
+				<section className="border-b bg-background pb-4">
+					<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 						<div>
 							<div className="flex flex-wrap items-center gap-2">
 								<h2 className="text-xl font-semibold">
@@ -137,7 +141,8 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 								) : null}
 							</div>
 							<p className="mt-1 text-sm text-muted-foreground">
-								Create and update the assessment sheet for this assigned subject.
+								Create and update the assessment sheet for this assigned
+								subject.
 							</p>
 						</div>
 						{selectedSubject ? (
@@ -150,23 +155,19 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 								</Link>
 							</Button>
 						) : null}
-					</CardContent>
-				</Card>
+					</div>
+				</section>
 
 				{isLoading ? (
-					<Card>
-						<CardContent className="flex h-40 items-center justify-center">
-							<Spinner size={16} />
-						</CardContent>
-					</Card>
+					<section className="flex h-40 items-center justify-center border bg-background">
+						<Spinner size={16} />
+					</section>
 				) : overview?.subject ? (
 					<SubjectAssessments overview={overview} />
 				) : (
-					<Card>
-						<CardContent className="py-10 text-sm text-muted-foreground">
-							Select a subject to manage its assessment sheet.
-						</CardContent>
-					</Card>
+					<section className="border border-dashed bg-background px-4 py-10 text-sm text-muted-foreground">
+						Select a subject to manage its assessment sheet.
+					</section>
 				)}
 			</div>
 		</div>

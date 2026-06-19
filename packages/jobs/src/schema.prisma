@@ -690,6 +690,167 @@ model staff_term_sheet {
     transaction      transaction[]
 }
 
+// ---- enrollment.prisma ----
+enum EnrollmentLinkStatus {
+    ACTIVE
+    PAUSED
+    ARCHIVED
+}
+
+enum EnrollmentCapacityMode {
+    TOTAL
+    PER_CLASSROOM
+}
+
+enum EnrollmentApplicationStatus {
+    SUBMITTED
+    UNDER_REVIEW
+    APPROVED
+    REJECTED
+    WITHDRAWN
+}
+
+enum EnrollmentDocumentReviewStatus {
+    PENDING
+    APPROVED
+    REJECTED
+}
+
+model EnrollmentLink {
+    id              String                 @id @default(uuid())
+    schoolProfile   SchoolProfile          @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+    schoolProfileId String
+    title           String
+    code            String                 @unique
+    status          EnrollmentLinkStatus   @default(ACTIVE)
+    capacityMode    EnrollmentCapacityMode @default(TOTAL)
+    totalCapacity   Int?
+    instructions    String?
+    opensAt         DateTime?              @db.Timestamp(0)
+    closesAt        DateTime?              @db.Timestamp(0)
+    createdByUserId String?
+    createdAt       DateTime?              @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?              @updatedAt
+    deletedAt       DateTime?              @db.Timestamp(0)
+
+    classrooms           EnrollmentLinkClassroom[]
+    documentRequirements EnrollmentLinkDocumentRequirement[]
+    applications         EnrollmentApplication[]
+
+    @@index([schoolProfileId, status])
+    @@index([schoolProfileId, createdAt])
+}
+
+model EnrollmentLinkClassroom {
+    id                    String              @id @default(uuid())
+    enrollmentLink        EnrollmentLink      @relation(fields: [enrollmentLinkId], references: [id], onDelete: Cascade)
+    enrollmentLinkId      String
+    classRoomDepartment   ClassRoomDepartment @relation(fields: [classRoomDepartmentId], references: [id], onDelete: Cascade)
+    classRoomDepartmentId String
+    capacity              Int?
+    createdAt             DateTime?           @default(now()) @db.Timestamp(0)
+    updatedAt             DateTime?           @updatedAt
+    deletedAt             DateTime?           @db.Timestamp(0)
+
+    @@unique([enrollmentLinkId, classRoomDepartmentId, deletedAt])
+    @@index([classRoomDepartmentId])
+}
+
+model EnrollmentLinkDocumentRequirement {
+    id               String         @id @default(uuid())
+    enrollmentLink   EnrollmentLink @relation(fields: [enrollmentLinkId], references: [id], onDelete: Cascade)
+    enrollmentLinkId String
+    label            String
+    description      String?
+    uploadRequired   Boolean        @default(true)
+    sortOrder        Int            @default(0)
+    createdAt        DateTime?      @default(now()) @db.Timestamp(0)
+    updatedAt        DateTime?      @updatedAt
+    deletedAt        DateTime?      @db.Timestamp(0)
+
+    documents EnrollmentApplicationDocument[]
+
+    @@index([enrollmentLinkId, sortOrder])
+}
+
+model EnrollmentApplication {
+    id                    String                      @id @default(uuid())
+    schoolProfile         SchoolProfile               @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+    schoolProfileId       String
+    enrollmentLink        EnrollmentLink              @relation(fields: [enrollmentLinkId], references: [id], onDelete: Cascade)
+    enrollmentLinkId      String
+    classRoomDepartment   ClassRoomDepartment         @relation(fields: [classRoomDepartmentId], references: [id])
+    classRoomDepartmentId String
+    studentFirstName      String
+    studentSurname        String
+    studentOtherName      String?
+    studentDob            DateTime?                   @db.Timestamp(0)
+    studentGender         Gender
+    additionalNotes       String?
+    status                EnrollmentApplicationStatus @default(SUBMITTED)
+    reviewedByUserId      String?
+    reviewedAt            DateTime?                   @db.Timestamp(0)
+    rejectionReason       String?
+    acceptedStudentId     String?
+    acceptedTermFormId    String?
+    createdAt             DateTime?                   @default(now()) @db.Timestamp(0)
+    updatedAt             DateTime?                   @updatedAt
+    deletedAt             DateTime?                   @db.Timestamp(0)
+
+    parents   EnrollmentApplicationParent[]
+    documents EnrollmentApplicationDocument[]
+
+    @@index([schoolProfileId, status, createdAt])
+    @@index([enrollmentLinkId, status])
+    @@index([classRoomDepartmentId, status])
+    @@index([acceptedStudentId])
+}
+
+model EnrollmentApplicationParent {
+    id                      String                @id @default(uuid())
+    enrollmentApplication   EnrollmentApplication @relation(fields: [enrollmentApplicationId], references: [id], onDelete: Cascade)
+    enrollmentApplicationId String
+    name                    String
+    relation                String?
+    email                   String?
+    phone                   String
+    phone2                  String?
+    isPrimary               Boolean               @default(false)
+    linkedGuardianId        String?
+    linkedUserId            String?
+    createdAt               DateTime?             @default(now()) @db.Timestamp(0)
+    updatedAt               DateTime?             @updatedAt
+    deletedAt               DateTime?             @db.Timestamp(0)
+
+    @@index([enrollmentApplicationId, isPrimary])
+    @@index([linkedGuardianId])
+    @@index([linkedUserId])
+    @@index([phone])
+}
+
+model EnrollmentApplicationDocument {
+    id                    String                          @id @default(uuid())
+    enrollmentApplication EnrollmentApplication           @relation(fields: [enrollmentApplicationId], references: [id], onDelete: Cascade)
+    enrollmentApplicationId String
+    requirement           EnrollmentLinkDocumentRequirement? @relation(fields: [requirementId], references: [id])
+    requirementId         String?
+    fileName              String
+    fileUrl               String
+    storageProvider       String?
+    storageKey            String?
+    mimeType              String?
+    sizeBytes             Int?
+    reviewStatus          EnrollmentDocumentReviewStatus @default(PENDING)
+    uploadedAt            DateTime?                      @default(now()) @db.Timestamp(0)
+    createdAt             DateTime?                      @default(now()) @db.Timestamp(0)
+    updatedAt             DateTime?                      @updatedAt
+    deletedAt             DateTime?                      @db.Timestamp(0)
+
+    @@index([enrollmentApplicationId])
+    @@index([requirementId])
+    @@index([reviewStatus])
+}
+
 // ---- inventory.prisma ----
 enum InventoryType {
     SUPPLY
@@ -982,6 +1143,8 @@ model ClassRoomDepartment {
     studentTermForms      StudentTermForm[]
     financeItemApplicabilities FinanceItemClassRoomDepartment[]
     financeCharges             FinanceCharge[]
+    enrollmentLinkClassrooms    EnrollmentLinkClassroom[]
+    enrollmentApplications      EnrollmentApplication[]
 
     @@unique([classRoomsId, departmentName])
 }
@@ -1383,6 +1546,8 @@ model SchoolProfile {
     notificationContacts  NotificationContact[]
     inventoryItems         Inventory[]
     inventoryIssuances     InventoryIssuance[]
+    enrollmentLinks        EnrollmentLink[]
+    enrollmentApplications EnrollmentApplication[]
     assistantConversations AssistantConversation[]
     assistantMessages      AssistantMessage[]
     assistantRuns          AssistantRun[]
@@ -1525,6 +1690,7 @@ model User {
     notifications Notification[]
     notificationPreferences NotificationPreference[]
     notificationContact NotificationContact?
+    guardianProfiles Guardians[]
     assistantConversations AssistantConversation[] @relation("AssistantConversationCreatedBy")
     assistantMessages      AssistantMessage[]      @relation("AssistantMessageCreatedBy")
     assistantRuns          AssistantRun[]          @relation("AssistantRunUser")
@@ -1958,10 +2124,13 @@ model Guardians {
 
     schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id])
     schoolProfileId String
+    user            User?         @relation(fields: [userId], references: [id])
+    userId          String?
 
     wards StudentGuardians[]
     notificationContact NotificationContact?
 
     @@unique([name, phone, schoolProfileId])
+    @@index([userId])
 }
 

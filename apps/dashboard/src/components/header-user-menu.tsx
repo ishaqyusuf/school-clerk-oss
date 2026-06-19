@@ -1,7 +1,9 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
+import { useTRPC } from "@/trpc/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@school-clerk/ui/avatar";
+import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import {
   DropdownMenu,
@@ -11,7 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@school-clerk/ui/dropdown-menu";
-import { ChevronDown, LogOut } from "lucide-react";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
+import { useQuery } from "@tanstack/react-query";
+import { Bell, ChevronDown, LogOut, Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 
 function getInitials(name?: string, email?: string) {
   const value = name || email;
@@ -28,9 +34,19 @@ function getInitials(name?: string, email?: string) {
 
 export function HeaderUserMenu() {
   const auth = useAuth();
+  const trpc = useTRPC();
+  const { setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const { data: unreadCount = 0 } = useQuery(
+    trpc.notifications.unreadCount.queryOptions(),
+  );
   const displayName = auth.name || auth.email || "User";
   const secondaryText = auth.role || auth.email;
   const tertiaryText = auth.role ? auth.email : undefined;
+  const isDark = resolvedTheme === "dark";
+  const nextTheme = isDark ? "light" : "dark";
+
+  useEffect(() => setMounted(true), []);
 
   return (
     <DropdownMenu>
@@ -74,6 +90,36 @@ export function HeaderUserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <div className="md:hidden">
+          <DropdownMenuItem asChild>
+            <Link href="/notifications" className="justify-between">
+              <span className="flex items-center">
+                <Bell className="mr-2 size-4" />
+                Notifications
+              </span>
+              {unreadCount > 0 ? (
+                <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </Badge>
+              ) : null}
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!mounted}
+            onSelect={() => {
+              if (!mounted) return;
+              setTheme(nextTheme);
+            }}
+          >
+            {isDark ? (
+              <Sun className="mr-2 size-4" />
+            ) : (
+              <Moon className="mr-2 size-4" />
+            )}
+            Switch to {nextTheme} theme
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+        </div>
         <DropdownMenuItem
           onSelect={() => {
             window.location.href = "/signout";

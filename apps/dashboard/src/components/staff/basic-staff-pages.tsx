@@ -2,9 +2,9 @@ import {
 	getStaffDepartmentOverviewAction,
 	getStaffDirectoryAction,
 } from "@/actions/get-staff-pages";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@school-clerk/ui/card";
 import { Input } from "@school-clerk/ui/input";
 import {
 	Table,
@@ -15,8 +15,7 @@ import {
 	TableRow,
 } from "@school-clerk/ui/table";
 import { CalendarCheck2, FolderKanban, Users } from "lucide-react";
-import { TenantLink as Link } from "@school-clerk/tenant-url/next";
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 function SearchForm({
 	placeholder,
@@ -50,21 +49,51 @@ function StatGrid({
 	}>;
 }) {
 	return (
-		<div className="hidden gap-4 md:grid md:grid-cols-3">
+		<div className="hidden border-y bg-background md:grid md:grid-cols-3">
 			{items.map((item) => (
-				<Card key={item.label}>
-					<CardHeader className="flex flex-row items-center justify-between pb-2">
-						<CardTitle className="text-sm font-medium text-muted-foreground">
+				<div
+					key={item.label}
+					className="flex items-center justify-between gap-4 border-border px-4 py-4 md:border-r last:border-r-0"
+				>
+					<div>
+						<p className="text-sm font-medium text-muted-foreground">
 							{item.label}
-						</CardTitle>
-						<item.icon className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-3xl font-bold">{item.value}</div>
-					</CardContent>
-				</Card>
+						</p>
+						<div className="mt-1 text-2xl font-semibold tracking-tight">
+							{item.value}
+						</div>
+					</div>
+					<item.icon className="h-4 w-4 text-muted-foreground" />
+				</div>
 			))}
 		</div>
+	);
+}
+
+function StaffSection({
+	title,
+	description,
+	action,
+	children,
+}: {
+	title: string;
+	description?: string;
+	action?: ReactNode;
+	children: ReactNode;
+}) {
+	return (
+		<section className="border bg-background">
+			<div className="flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+				<div>
+					<h2 className="text-base font-semibold">{title}</h2>
+					{description ? (
+						<p className="mt-1 text-sm text-muted-foreground">{description}</p>
+					) : null}
+				</div>
+				{action ? <div className="shrink-0">{action}</div> : null}
+			</div>
+			<div className="p-4 sm:p-5">{children}</div>
+		</section>
 	);
 }
 
@@ -80,17 +109,15 @@ function EmptyState({
 	actionHref?: string;
 }) {
 	return (
-		<Card>
-			<CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-				<div className="text-lg font-semibold">{title}</div>
-				<p className="max-w-xl text-sm text-muted-foreground">{description}</p>
-				{actionLabel && actionHref ? (
-					<Button asChild variant="outline">
-						<Link href={actionHref}>{actionLabel}</Link>
-					</Button>
-				) : null}
-			</CardContent>
-		</Card>
+		<div className="flex flex-col items-center gap-3 border border-dashed px-6 py-12 text-center">
+			<div className="text-lg font-semibold">{title}</div>
+			<p className="max-w-xl text-sm text-muted-foreground">{description}</p>
+			{actionLabel && actionHref ? (
+				<Button asChild variant="outline">
+					<Link href={actionHref}>{actionLabel}</Link>
+				</Button>
+			) : null}
+		</div>
 	);
 }
 
@@ -126,22 +153,18 @@ export async function NonTeachingStaffPanel({
 				]}
 			/>
 
-			<Card>
-				<CardHeader className="gap-4">
-					<div>
-						<CardTitle>Staff directory</CardTitle>
-						<p className="mt-1 text-sm text-muted-foreground">
-							Use this page to review non-teaching roles already onboarded in
-							the active school session.
-						</p>
-					</div>
+			<StaffSection
+				title="Staff directory"
+				description="Use this page to review non-teaching roles already onboarded in the active school session."
+				action={
 					<SearchForm
 						search={search}
 						placeholder="Search by staff name, title, or email"
 					/>
-				</CardHeader>
-				<CardContent>
-					{data.items.length ? (
+				}
+			>
+				{data.items.length ? (
+					<div className="overflow-hidden border">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -170,22 +193,23 @@ export async function NonTeachingStaffPanel({
 											</div>
 										</TableCell>
 										<TableCell className="text-sm text-muted-foreground">
-											{item.classroomCount} classrooms · {item.subjectCount} subjects
+											{item.classroomCount} classrooms · {item.subjectCount}{" "}
+											subjects
 										</TableCell>
 									</TableRow>
 								))}
 							</TableBody>
 						</Table>
-					) : (
-						<EmptyState
-							title="No non-teaching staff found"
-							description="Add staff with Accountant, Registrar, HR, Staff, or Support roles from the staff sheets to see them here."
-							actionLabel="Manage teachers & staff"
-							actionHref="/staff/teachers"
-						/>
-					)}
-				</CardContent>
-			</Card>
+					</div>
+				) : (
+					<EmptyState
+						title="No non-teaching staff found"
+						description="Add staff with Accountant, Registrar, HR, Staff, or Support roles from the staff sheets to see them here."
+						actionLabel="Manage teachers & staff"
+						actionHref="/staff/teachers"
+					/>
+				)}
+			</StaffSection>
 		</div>
 	);
 }
@@ -219,22 +243,18 @@ export async function StaffDepartmentsPanel({
 				]}
 			/>
 
-			<Card>
-				<CardHeader className="gap-4">
-					<div>
-						<CardTitle>Department staffing</CardTitle>
-						<p className="mt-1 text-sm text-muted-foreground">
-							Review which class departments already have staff coverage in the
-							active session.
-						</p>
-					</div>
+			<StaffSection
+				title="Department staffing"
+				description="Review which class departments already have staff coverage in the active session."
+				action={
 					<SearchForm
 						search={search}
 						placeholder="Search by class or department name"
 					/>
-				</CardHeader>
-				<CardContent>
-					{data.items.length ? (
+				}
+			>
+				{data.items.length ? (
+					<div className="overflow-hidden border">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -257,16 +277,16 @@ export async function StaffDepartmentsPanel({
 								))}
 							</TableBody>
 						</Table>
-					) : (
-						<EmptyState
-							title="No class departments found"
-							description="Create classrooms first, then assign staff to the resulting departments."
-							actionLabel="Open classes"
-							actionHref="/academic/classes"
-						/>
-					)}
-				</CardContent>
-			</Card>
+					</div>
+				) : (
+					<EmptyState
+						title="No class departments found"
+						description="Create classrooms first, then assign staff to the resulting departments."
+						actionLabel="Open classes"
+						actionHref="/academic/classes"
+					/>
+				)}
+			</StaffSection>
 		</div>
 	);
 }
@@ -303,23 +323,18 @@ export async function StaffAttendancePanel({
 				]}
 			/>
 
-			<Card>
-				<CardHeader className="gap-4">
-					<div>
-						<CardTitle>Attendance readiness</CardTitle>
-						<p className="mt-1 text-sm text-muted-foreground">
-							Staff attendance capture is still lightweight, so this page shows
-							which staff members already have classroom assignments and recent
-							class attendance activity.
-						</p>
-					</div>
+			<StaffSection
+				title="Attendance readiness"
+				description="Staff attendance capture is still lightweight, so this page shows which staff members already have classroom assignments and recent class attendance activity."
+				action={
 					<SearchForm
 						search={search}
 						placeholder="Search by staff name, title, or email"
 					/>
-				</CardHeader>
-				<CardContent>
-					{data.items.length ? (
+				}
+			>
+				{data.items.length ? (
+					<div className="overflow-hidden border">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -345,13 +360,16 @@ export async function StaffAttendancePanel({
 												<Badge variant="outline">{item.role}</Badge>
 											</TableCell>
 											<TableCell className="text-sm text-muted-foreground">
-												{item.classroomCount} classrooms · {item.subjectCount} subjects
+												{item.classroomCount} classrooms · {item.subjectCount}{" "}
+												subjects
 											</TableCell>
 											<TableCell className="text-sm text-muted-foreground">
 												{item.attendanceSessions} sessions
 											</TableCell>
 											<TableCell>
-												<Badge variant={hasAssignments ? "default" : "secondary"}>
+												<Badge
+													variant={hasAssignments ? "default" : "secondary"}
+												>
 													{hasAssignments ? "Ready" : "Needs assignment"}
 												</Badge>
 											</TableCell>
@@ -360,16 +378,16 @@ export async function StaffAttendancePanel({
 								})}
 							</TableBody>
 						</Table>
-					) : (
-						<EmptyState
-							title="No staff attendance data yet"
-							description="Once staff have classroom assignments or attendance entries, they will appear in this readiness view."
-							actionLabel="Manage teachers & staff"
-							actionHref="/staff/teachers"
-						/>
-					)}
-				</CardContent>
-			</Card>
+					</div>
+				) : (
+					<EmptyState
+						title="No staff attendance data yet"
+						description="Once staff have classroom assignments or attendance entries, they will appear in this readiness view."
+						actionLabel="Manage teachers & staff"
+						actionHref="/staff/teachers"
+					/>
+				)}
+			</StaffSection>
 		</div>
 	);
 }

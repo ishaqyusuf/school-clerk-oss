@@ -3,7 +3,6 @@
 import { useTRPC } from "@/trpc/client";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@school-clerk/ui/card";
 import { Input } from "@school-clerk/ui/input";
 import { Label } from "@school-clerk/ui/label";
 import {
@@ -116,22 +115,21 @@ export function TeacherAttendanceWorkspace({ classrooms, students }: Props) {
 
 	if (!classrooms.length) {
 		return (
-			<Card>
-				<CardContent className="py-10 text-sm text-muted-foreground">
-					No classroom assignments are available for attendance.
-				</CardContent>
-			</Card>
+			<section className="border border-dashed bg-background px-4 py-10 text-sm text-muted-foreground">
+				No classroom assignments are available for attendance.
+			</section>
 		);
 	}
 
 	return (
 		<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,440px)]">
-			<Card>
-				<CardHeader className="gap-4">
+			<section className="border bg-background">
+				<div className="space-y-4 border-b px-4 py-4 sm:px-5">
 					<div>
-						<CardTitle>Take attendance</CardTitle>
+						<h2 className="text-base font-semibold">Take attendance</h2>
 						<p className="mt-1 text-sm text-muted-foreground">
-							Record attendance only for classrooms assigned to your teacher profile.
+							Record attendance only for classrooms assigned to your teacher
+							profile.
 						</p>
 					</div>
 					<div className="flex flex-wrap gap-2">
@@ -153,8 +151,8 @@ export function TeacherAttendanceWorkspace({ classrooms, students }: Props) {
 							</Button>
 						))}
 					</div>
-				</CardHeader>
-				<CardContent className="space-y-5">
+				</div>
+				<div className="space-y-5 p-4 sm:p-5">
 					<div className="grid gap-2">
 						<Label htmlFor="teacher-attendance-title">Session title</Label>
 						<Input
@@ -167,19 +165,30 @@ export function TeacherAttendanceWorkspace({ classrooms, students }: Props) {
 
 					<div className="flex flex-wrap items-center justify-between gap-3">
 						<div className="text-sm text-muted-foreground">
-							{selectedClassroom?.displayName} · {selectedStudents.length} students
+							{selectedClassroom?.displayName} · {selectedStudents.length}{" "}
+							students
 						</div>
 						<div className="flex gap-2">
-							<Button type="button" size="sm" variant="outline" onClick={markAllPresent}>
+							<Button
+								type="button"
+								size="sm"
+								variant="outline"
+								onClick={markAllPresent}
+							>
 								Mark all present
 							</Button>
-							<Button type="button" size="sm" variant="outline" onClick={() => setStatusMap({})}>
+							<Button
+								type="button"
+								size="sm"
+								variant="outline"
+								onClick={() => setStatusMap({})}
+							>
 								Clear
 							</Button>
 						</div>
 					</div>
 
-					<div className="overflow-hidden rounded-xl border">
+					<div className="overflow-hidden border">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -243,7 +252,10 @@ export function TeacherAttendanceWorkspace({ classrooms, students }: Props) {
 								})}
 								{!selectedStudents.length ? (
 									<TableRow>
-										<TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+										<TableCell
+											colSpan={3}
+											className="h-24 text-center text-muted-foreground"
+										>
 											No students found for this classroom.
 										</TableCell>
 									</TableRow>
@@ -260,16 +272,16 @@ export function TeacherAttendanceWorkspace({ classrooms, students }: Props) {
 						<Save className="mr-2 size-4" />
 						Save attendance
 					</Button>
-				</CardContent>
-			</Card>
+				</div>
+			</section>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>Recent sessions</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-3">
+			<section className="border bg-background">
+				<div className="border-b px-4 py-4 sm:px-5">
+					<h2 className="text-base font-semibold">Recent sessions</h2>
+				</div>
+				<div className="divide-y px-4 sm:px-5">
 					{sessions.map((session) => (
-						<div key={session.id} className="rounded-xl border p-4">
+						<div key={session.id} className="py-4">
 							<div className="flex items-start justify-between gap-3">
 								<div>
 									<p className="font-medium">{session.attendanceTitle}</p>
@@ -288,12 +300,12 @@ export function TeacherAttendanceWorkspace({ classrooms, students }: Props) {
 						</div>
 					))}
 					{!sessions.length ? (
-						<p className="text-sm text-muted-foreground">
+						<p className="py-4 text-sm text-muted-foreground">
 							No attendance sessions have been recorded for this classroom yet.
 						</p>
 					) : null}
-				</CardContent>
-			</Card>
+				</div>
+			</section>
 		</div>
 	);
 }
