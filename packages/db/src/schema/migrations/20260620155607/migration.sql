@@ -1,0 +1,8 @@
+-- RenameIndex
+ALTER INDEX "EnrollmentApplicationParent_enrollmentApplicationId_isPrimary_i" RENAME TO "EnrollmentApplicationParent_enrollmentApplicationId_isPrima_idx";
+
+-- RenameIndex
+ALTER INDEX "EnrollmentLinkClassroom_enrollmentLinkId_classRoomDepartmentId_" RENAME TO "EnrollmentLinkClassroom_enrollmentLinkId_classRoomDepartmen_key";
+
+-- RenameIndex
+ALTER INDEX "EnrollmentLinkDocumentRequirement_enrollmentLinkId_sortOrder_id" RENAME TO "EnrollmentLinkDocumentRequirement_enrollmentLinkId_sortOrde_idx";

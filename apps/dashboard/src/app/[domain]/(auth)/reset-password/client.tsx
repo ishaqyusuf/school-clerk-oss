@@ -166,7 +166,7 @@ export function Client() {
 												<User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 												<Input
 													id="name"
-													placeholder="Aisha Bello"
+													placeholder="Enter your full name"
 													{...form.register("name")}
 													className="pl-10"
 													required
@@ -175,20 +175,12 @@ export function Client() {
 										</div>
 
 										<div>
-											<Label htmlFor="title">Title</Label>
-											<Input
-												id="title"
-												placeholder="Mr, Mrs, Dr..."
-												{...form.register("title")}
-											/>
-										</div>
-
-										<div>
 											<Label htmlFor="phone">Phone</Label>
 											<div className="relative">
 												<Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 												<Input
 													id="phone"
+													type="tel"
 													placeholder="+234..."
 													{...form.register("phone")}
 													className="pl-10"
@@ -200,6 +192,7 @@ export function Client() {
 											<Label htmlFor="phone2">Alternative phone</Label>
 											<Input
 												id="phone2"
+												type="tel"
 												placeholder="Optional"
 												{...form.register("phone2")}
 											/>

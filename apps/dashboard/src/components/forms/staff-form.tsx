@@ -13,7 +13,7 @@ import { useFieldArray, useWatch } from "react-hook-form";
 
 import { Button } from "@school-clerk/ui/button";
 import { FormDescription } from "@school-clerk/ui/form";
-import { Plus, Trash2 } from "lucide-react";
+import { CheckCheck, Plus, Trash2, X } from "lucide-react";
 
 import FormInput from "../controls/form-input";
 import FormMultipleSelector from "../controls/form-multiple-selector";
@@ -76,7 +76,7 @@ export function Form({
 	onSuccess,
 }: Props) {
 	const { setParams } = useStaffParams();
-	const { control, handleSubmit, reset } = useStaffFormContext();
+	const { control, handleSubmit, reset, setValue } = useStaffFormContext();
 	const toast = useLoadingToast();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -235,6 +235,14 @@ export function Form({
 								const subjectOptions = (formData?.subjectsByClassroom?.[
 									selectedClassroom
 								] ?? []) as Option[];
+								const selectedSubjectIds =
+									assignmentValues?.[index]?.departmentSubjectIds ?? [];
+								const subjectIds = subjectOptions.map((option) => option.value);
+								const allSubjectsSelected =
+									subjectIds.length > 0 &&
+									subjectIds.every((subjectId) =>
+										selectedSubjectIds.includes(subjectId),
+									);
 
 								return (
 									<div
@@ -268,17 +276,63 @@ export function Form({
 												}
 											/>
 
-											<FormMultipleSelector
-												control={control}
-												name={`assignments.${index}.departmentSubjectIds`}
-												label="Subjects in this classroom"
-												options={subjectOptions}
-												placeholder={
-													selectedClassroom
-														? "Select subjects"
-														: "Choose a classroom first"
-												}
-											/>
+											<div className="space-y-2">
+												<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+													<p className="text-sm font-medium">
+														Subjects in this classroom
+													</p>
+													<div className="flex flex-wrap gap-2">
+														<Button
+															type="button"
+															size="sm"
+															variant="outline"
+															disabled={!subjectIds.length || allSubjectsSelected}
+															onClick={() =>
+																setValue(
+																	`assignments.${index}.departmentSubjectIds`,
+																	subjectIds,
+																	{
+																		shouldDirty: true,
+																		shouldValidate: true,
+																	},
+																)
+															}
+														>
+															<CheckCheck className="mr-2 h-4 w-4" />
+															Select all
+														</Button>
+														<Button
+															type="button"
+															size="sm"
+															variant="ghost"
+															disabled={!selectedSubjectIds.length}
+															onClick={() =>
+																setValue(
+																	`assignments.${index}.departmentSubjectIds`,
+																	[],
+																	{
+																		shouldDirty: true,
+																		shouldValidate: true,
+																	},
+																)
+															}
+														>
+															<X className="mr-2 h-4 w-4" />
+															Deselect all
+														</Button>
+													</div>
+												</div>
+												<FormMultipleSelector
+													control={control}
+													name={`assignments.${index}.departmentSubjectIds`}
+													options={subjectOptions}
+													placeholder={
+														selectedClassroom
+															? "Select subjects"
+															: "Choose a classroom first"
+													}
+												/>
+											</div>
 										</div>
 									</div>
 								);
