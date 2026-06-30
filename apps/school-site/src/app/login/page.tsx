@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { resolvePublicTenant } from "@/lib/tenant/resolve-public-tenant";
 import { resolveHost } from "@/lib/tenant/resolve-host";
@@ -22,7 +22,11 @@ function getDashboardLoginUrl(subdomain: string) {
 export default async function GlobalSchoolSiteLoginRedirect() {
   const headerStore = await headers();
   const host = resolveHost(headerStore.get("host"));
-  const { tenant } = await resolvePublicTenant(host);
+  const publicTenant = await resolvePublicTenant(host);
+
+  if (!publicTenant) notFound();
+
+  const { tenant } = publicTenant;
   const subdomain = tenant.subdomain || "school";
 
   redirect(getDashboardLoginUrl(subdomain));

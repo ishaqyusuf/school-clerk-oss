@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "../../scripts/with-root-env.sh --mode local PORTLESS_PORT=${PORTLESS_PORT:-1355} PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-2400} portless school-clerk-site next dev --turbopack",
+    "dev": "../../scripts/with-root-env.sh --mode local PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 PORTLESS_PORT=${PORTLESS_PORT:-1355} PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-2400} portless school-clerk-site next dev --turbopack",
     "build": "../../scripts/with-root-env.sh --mode production next build --turbopack",
     "start": "../../scripts/with-root-env.sh --mode production next start",
     "lint": "eslint",

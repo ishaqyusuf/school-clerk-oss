@@ -13,14 +13,17 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ slug?: string[] }>;
-  searchParams?: Promise<{ preview?: string; token?: string; template?: string }>;
+  searchParams?: Promise<{
+    preview?: string;
+    token?: string;
+    template?: string;
+  }>;
 }): Promise<Metadata> {
   const resolvedSearchParams: Promise<{
     preview?: string;
     token?: string;
     template?: string;
-  }> =
-    searchParams ?? Promise.resolve({});
+  }> = searchParams ?? Promise.resolve({});
   const [{ slug }, previewQuery] = await Promise.all([
     params,
     resolvedSearchParams,
@@ -45,14 +48,17 @@ export default async function PublicSitePage({
   searchParams,
 }: {
   params: Promise<{ slug?: string[] }>;
-  searchParams?: Promise<{ preview?: string; token?: string; template?: string }>;
+  searchParams?: Promise<{
+    preview?: string;
+    token?: string;
+    template?: string;
+  }>;
 }) {
   const resolvedSearchParams: Promise<{
     preview?: string;
     token?: string;
     template?: string;
-  }> =
-    searchParams ?? Promise.resolve({});
+  }> = searchParams ?? Promise.resolve({});
   const [{ slug }, previewQuery] = await Promise.all([
     params,
     resolvedSearchParams,
@@ -113,8 +119,7 @@ function resolvePublicRequestTarget({
     {
       internalPrefix: "/__school-site",
       appRootDomain:
-        process.env.SCHOOL_SITE_ROOT_DOMAIN ??
-        "school-clerk-site.localhost:1355",
+        process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "school-clerk-site.localhost",
       pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
       enablePathStyleHosts: true,
     },

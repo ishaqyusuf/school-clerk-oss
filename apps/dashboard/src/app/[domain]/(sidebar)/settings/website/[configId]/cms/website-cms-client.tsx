@@ -108,12 +108,14 @@ function CmsItemEditor({
   type,
   item,
   index,
+  readOnly = false,
   onChange,
   onRemove,
 }: {
   type: CmsItemType;
   item: CmsItem;
   index: number;
+  readOnly?: boolean;
   onChange: (key: string, value: string) => void;
   onRemove: () => void;
 }) {
@@ -142,7 +144,13 @@ function CmsItemEditor({
           <p className="truncate text-sm font-medium">{item.title}</p>
           <p className="truncate text-xs text-muted-foreground">/{item.slug}</p>
         </div>
-        <Button type="button" size="icon" variant="ghost" onClick={onRemove}>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          disabled={readOnly}
+          onClick={onRemove}
+        >
           <Trash2 data-icon="inline-start" />
           <span className="sr-only">Remove block</span>
         </Button>
@@ -153,6 +161,7 @@ function CmsItemEditor({
           <Field>
             <FieldLabel>Title</FieldLabel>
             <Input
+              disabled={readOnly}
               value={item.title ?? ""}
               onChange={(event) => onChange("title", event.target.value)}
             />
@@ -160,6 +169,7 @@ function CmsItemEditor({
           <Field>
             <FieldLabel>Slug</FieldLabel>
             <Input
+              disabled={readOnly}
               value={item.slug ?? ""}
               onChange={(event) =>
                 onChange("slug", slugify(event.target.value))
@@ -171,6 +181,7 @@ function CmsItemEditor({
           <Field>
             <FieldLabel>Category</FieldLabel>
             <Input
+              disabled={readOnly}
               value={item.category ?? ""}
               onChange={(event) => onChange("category", event.target.value)}
             />
@@ -180,6 +191,7 @@ function CmsItemEditor({
               {isAnnouncement ? "Date" : "Published date"}
             </FieldLabel>
             <Input
+              disabled={readOnly}
               type="date"
               value={(item.publishedAt || item.date || "").slice(0, 10)}
               onChange={(event) =>
@@ -195,6 +207,7 @@ function CmsItemEditor({
           <Field>
             <FieldLabel>Image URL</FieldLabel>
             <Input
+              disabled={readOnly}
               value={item.imageUrl ?? ""}
               onChange={(event) => onChange("imageUrl", event.target.value)}
             />
@@ -203,6 +216,7 @@ function CmsItemEditor({
         <Field>
           <FieldLabel>{isAnnouncement ? "Description" : "Excerpt"}</FieldLabel>
           <Textarea
+            disabled={readOnly}
             rows={3}
             value={
               isAnnouncement ? (item.description ?? "") : (item.excerpt ?? "")
@@ -222,6 +236,7 @@ function CmsItemEditor({
           <Field>
             <FieldLabel>Body</FieldLabel>
             <Textarea
+              disabled={readOnly}
               rows={7}
               value={item.body ?? ""}
               onChange={(event) => onChange("body", event.target.value)}
@@ -231,6 +246,7 @@ function CmsItemEditor({
         <Field>
           <FieldLabel>CTA label</FieldLabel>
           <Input
+            disabled={readOnly}
             value={item.ctaLabel ?? ""}
             onChange={(event) => onChange("ctaLabel", event.target.value)}
           />
@@ -242,12 +258,14 @@ function CmsItemEditor({
 
 export function WebsiteCmsClient({
   configId,
+  readOnly = false,
   initialAnnouncements,
   initialBlogPosts,
   initialEvents,
   initialResources,
 }: {
   configId: string;
+  readOnly?: boolean;
   initialAnnouncements: CmsItem[];
   initialBlogPosts: CmsItem[];
   initialEvents: CmsItem[];
@@ -335,6 +353,7 @@ export function WebsiteCmsClient({
           <Button
             type="button"
             variant="outline"
+            disabled={readOnly}
             onClick={() =>
               setAnnouncements((current) => [...current, createAnnouncement()])
             }
@@ -350,6 +369,7 @@ export function WebsiteCmsClient({
               type="announcement"
               item={item}
               index={index}
+              readOnly={readOnly}
               onChange={(key, value) => {
                 setAnnouncements((current) =>
                   updateItem(current, index, key, value),
@@ -378,6 +398,7 @@ export function WebsiteCmsClient({
           <Button
             type="button"
             variant="outline"
+            disabled={readOnly}
             onClick={() => setEvents((current) => [...current, createEvent()])}
           >
             <Plus data-icon="inline-start" />
@@ -391,6 +412,7 @@ export function WebsiteCmsClient({
               type="event"
               item={item}
               index={index}
+              readOnly={readOnly}
               onChange={(key, value) => {
                 setEvents((current) => updateItem(current, index, key, value));
               }}
@@ -418,6 +440,7 @@ export function WebsiteCmsClient({
           <Button
             type="button"
             variant="outline"
+            disabled={readOnly}
             onClick={() =>
               setResources((current) => [...current, createResource()])
             }
@@ -433,6 +456,7 @@ export function WebsiteCmsClient({
               type="resource"
               item={item}
               index={index}
+              readOnly={readOnly}
               onChange={(key, value) => {
                 setResources((current) =>
                   updateItem(current, index, key, value),
@@ -462,6 +486,7 @@ export function WebsiteCmsClient({
           <Button
             type="button"
             variant="outline"
+            disabled={readOnly}
             onClick={() =>
               setBlogPosts((current) => [...current, createBlogPost()])
             }
@@ -477,6 +502,7 @@ export function WebsiteCmsClient({
               type="blog"
               item={item}
               index={index}
+              readOnly={readOnly}
               onChange={(key, value) => {
                 setBlogPosts((current) =>
                   updateItem(current, index, key, value),
@@ -493,7 +519,7 @@ export function WebsiteCmsClient({
       </FieldSet>
 
       <div className="sticky bottom-4 flex justify-end">
-        <Button type="submit">
+        <Button type="submit" disabled={readOnly}>
           <Save data-icon="inline-start" />
           Save CMS Blocks
         </Button>

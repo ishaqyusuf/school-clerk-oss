@@ -100,10 +100,12 @@ function resolvePageConfigs(
               id: sectionKey,
               sectionKey: baseSectionKey,
               visible:
-                config.sectionVisibility[sectionKey] ??
-                config.sectionVisibility[baseSectionKey] ??
-                section?.defaultVisible ??
-                true,
+                section?.required
+                  ? true
+                  : config.sectionVisibility[sectionKey] ??
+                    config.sectionVisibility[baseSectionKey] ??
+                    section?.defaultVisible ??
+                    true,
             };
           }),
         },

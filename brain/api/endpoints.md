@@ -35,11 +35,15 @@ Catalog of API routes and responsibilities.
 - `trpc.enrollmentLinks.getApplications`
 - `trpc.enrollmentLinks.approveApplication`
 - `trpc.enrollmentLinks.rejectApplication`
-- `school-site /enroll/[code]` public enrollment form and submission handlers
+- `school-site /enroll/[code]` public enrollment form and submission handlers with selected-class age and document requirement filtering
 
 ### Public School Website
 
 - `school-site /login` public tenant-aware redirect to the resolved tenant's shared dashboard login. Website templates link here for sign-in; auth UI and dashboard routing are not template-owned.
+- `school-site /[[...slug]]` public catch-all renderer for the active published website config. It uses manifest-driven routes, merges eligible `showOnWebsite=true` admission links into template content data, and returns not found for unresolved tenants, missing published configs in production, unsupported paths, and missing detail slugs.
+- `school-site /robots.txt` public metadata route for resolved school websites.
+- `school-site /sitemap.xml` public metadata route generated from template manifest routes plus config-backed blog/event/resource collections.
+- `dashboard /settings/website` tenant admin website builder for draft creation, live preview, saving, publishing, duplicating, archiving, CMS management entry, and media management entry.
 
 ### Parent Portal
 

@@ -6,7 +6,7 @@
 
 ## Problem
 
-Tenant dashboard requests on local portless hosts such as `daarulhadith.school-clerk-dashboard.localhost:1355` could fall into an auth redirect loop instead of reaching the tenant login/dashboard pages.
+Tenant dashboard requests on local portless hosts such as `daarulhadith.school-clerk-dashboard.localhost` could fall into an auth redirect loop instead of reaching the tenant login/dashboard pages.
 
 ## Root Cause
 
@@ -14,8 +14,8 @@ Several dashboard and auth code paths trusted `APP_ROOT_DOMAIN` directly. In loc
 
 ## Fix
 
-Added a shared `resolveDashboardAppRootDomain` helper in `@school-clerk/utils` that normalizes bare localhost development values to `school-clerk-dashboard.localhost:1355`. Updated dashboard middleware, auth cookie handling, auth initialization, signup redirect generation, and API host parsing to use the normalized root domain.
-Follow-up host parsing now also accepts plain localhost tenant hosts such as `tenant.localhost` and `tenant.localhost:2200` in addition to the portless `tenant.school-clerk-dashboard.localhost:1355` format, while preserving production subdomain and custom-domain resolution through the same canonical slug helpers.
+Added a shared `resolveDashboardAppRootDomain` helper in `@school-clerk/utils` that normalizes bare localhost development values to `school-clerk-dashboard.localhost`. Updated dashboard middleware, auth cookie handling, auth initialization, signup redirect generation, and API host parsing to use the normalized root domain.
+Follow-up host parsing now also accepts plain localhost tenant hosts such as `tenant.localhost` and `tenant.localhost:2200` in addition to the portless `tenant.school-clerk-dashboard.localhost` format, while preserving production subdomain and custom-domain resolution through the same canonical slug helpers.
 
 ## Prevention
 

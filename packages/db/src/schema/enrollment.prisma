@@ -30,6 +30,7 @@ model EnrollmentLink {
     title           String
     code            String                 @unique
     status          EnrollmentLinkStatus   @default(ACTIVE)
+    showOnWebsite   Boolean                @default(false)
     capacityMode    EnrollmentCapacityMode @default(TOTAL)
     totalCapacity   Int?
     instructions    String?
@@ -45,6 +46,7 @@ model EnrollmentLink {
     applications         EnrollmentApplication[]
 
     @@index([schoolProfileId, status])
+    @@index([schoolProfileId, status, showOnWebsite])
     @@index([schoolProfileId, createdAt])
 }
 
@@ -55,6 +57,10 @@ model EnrollmentLinkClassroom {
     classRoomDepartment   ClassRoomDepartment @relation(fields: [classRoomDepartmentId], references: [id], onDelete: Cascade)
     classRoomDepartmentId String
     capacity              Int?
+    minimumAgeMonths      Int?
+    maximumAgeMonths      Int?
+    ageCutoffDate         DateTime?           @db.Timestamp(0)
+    requirementNotes      String?
     createdAt             DateTime?           @default(now()) @db.Timestamp(0)
     updatedAt             DateTime?           @updatedAt
     deletedAt             DateTime?           @db.Timestamp(0)
@@ -64,20 +70,24 @@ model EnrollmentLinkClassroom {
 }
 
 model EnrollmentLinkDocumentRequirement {
-    id               String         @id @default(uuid())
-    enrollmentLink   EnrollmentLink @relation(fields: [enrollmentLinkId], references: [id], onDelete: Cascade)
-    enrollmentLinkId String
-    label            String
-    description      String?
-    uploadRequired   Boolean        @default(true)
-    sortOrder        Int            @default(0)
-    createdAt        DateTime?      @default(now()) @db.Timestamp(0)
-    updatedAt        DateTime?      @updatedAt
-    deletedAt        DateTime?      @db.Timestamp(0)
+    id                    String               @id @default(uuid())
+    enrollmentLink        EnrollmentLink       @relation(fields: [enrollmentLinkId], references: [id], onDelete: Cascade)
+    enrollmentLinkId      String
+    classRoomDepartment   ClassRoomDepartment? @relation(fields: [classRoomDepartmentId], references: [id], onDelete: SetNull)
+    classRoomDepartmentId String?
+    label                 String
+    description           String?
+    uploadRequired        Boolean              @default(true)
+    sortOrder             Int                  @default(0)
+    createdAt             DateTime?            @default(now()) @db.Timestamp(0)
+    updatedAt             DateTime?            @updatedAt
+    deletedAt             DateTime?            @db.Timestamp(0)
 
     documents EnrollmentApplicationDocument[]
 
     @@index([enrollmentLinkId, sortOrder])
+    @@index([enrollmentLinkId, classRoomDepartmentId, sortOrder])
+    @@index([classRoomDepartmentId])
 }
 
 model EnrollmentApplication {

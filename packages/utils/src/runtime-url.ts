@@ -56,6 +56,11 @@ function stripPort(host: string) {
   return host.replace(/:\d+$/, "");
 }
 
+function normalizePortlessRootDomain(value?: string | null) {
+  const host = normalizeRuntimeHost(value);
+  return host ? stripPort(host) : "";
+}
+
 function getPort(host: string) {
   if (host.startsWith("[")) {
     return host.match(/]:(\d+)$/)?.[1] ?? "";
@@ -82,7 +87,7 @@ function getHostFromOptions(options: ResolveAppUrlOptions) {
 
 function getRootCandidates(config: RuntimeUrlConfig) {
   const roots = [
-    config.portlessRootDomain,
+    normalizePortlessRootDomain(config.portlessRootDomain),
     config.appRootDomain,
     config.productionRootDomain,
     normalizeRuntimeHost(config.publicUrl),
@@ -132,7 +137,7 @@ export function classifyRuntimeHost(
   if (isIpHost(normalizedHost)) return "lan-ip";
   if (isVercelPreviewHost(normalizedHost)) return "vercel-preview";
 
-  const portlessRoot = normalizeRuntimeHost(config.portlessRootDomain);
+  const portlessRoot = normalizePortlessRootDomain(config.portlessRootDomain);
   if (portlessRoot && hostMatchesRoot(normalizedHost, portlessRoot)) {
     return "portless-local";
   }
@@ -169,7 +174,7 @@ export function resolveRootHostFromCurrentHost(
     return normalizedHost;
   }
 
-  const portlessRoot = normalizeRuntimeHost(config.portlessRootDomain);
+  const portlessRoot = normalizePortlessRootDomain(config.portlessRootDomain);
   if (portlessRoot && hostMatchesRoot(normalizedHost, portlessRoot)) {
     return portlessRoot;
   }
@@ -197,6 +202,9 @@ export function buildRuntimeAppUrl(options: ResolveAppUrlOptions) {
   const protocol =
     kind === "production-domain" || kind === "vercel-preview"
       ? requestProtocol || "https"
+      : kind === "portless-local"
+        ? options.config.defaultProtocol ||
+          (options.config.isProduction ? "https" : "http")
       : requestProtocol ||
         options.config.defaultProtocol ||
         (options.config.isProduction ? "https" : "http");

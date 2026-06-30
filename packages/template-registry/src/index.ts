@@ -15,6 +15,7 @@ export * from "./site-config";
 export * from "./style-tokens";
 export * from "./hooks";
 export * from "./adapters";
+export * from "./validation";
 export * from "./common";
 export * from "./features";
 export * from "./templates/k12-plus-template-1";

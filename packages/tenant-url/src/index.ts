@@ -275,6 +275,10 @@ function withPort(host: string, port?: number | string | null) {
   return `${normalizedHost}:${normalizedPort}`;
 }
 
+function isPortlessLocalRootHost(host: string) {
+  return stripPort(normalizeHost(host)).endsWith(".localhost");
+}
+
 function isPathStyleHost(host: string, config: TenantUrlConfig) {
   if (config.enablePathStyleHosts === false) return false;
 
@@ -526,8 +530,17 @@ export function buildTenantAppUrl({
   defaultProtocol = "http",
 }: BuildTenantAppUrlOptions) {
   const normalizedCurrentHost = normalizeHost(currentHost);
-  const targetRootHost = withPort(targetRootDomain, targetPort);
-  const protocol = normalizeProtocol(currentProtocol) || defaultProtocol;
+  const normalizedTargetRootDomain = normalizeHost(targetRootDomain);
+  const targetUsesPortlessLocalRoot = isPortlessLocalRootHost(
+    normalizedTargetRootDomain,
+  );
+  const targetRootHost = withPort(normalizedTargetRootDomain, targetPort);
+  const targetSubdomainRootHost = targetUsesPortlessLocalRoot
+    ? stripPort(normalizedTargetRootDomain)
+    : targetRootHost;
+  const protocol = targetUsesPortlessLocalRoot
+    ? "http"
+    : normalizeProtocol(currentProtocol) || defaultProtocol;
   const normalizedPath = normalizePath(path);
   const appPath = normalizedPath === "/" ? "" : normalizedPath;
   const currentHostUsesPathStyle =
@@ -544,7 +557,7 @@ export function buildTenantAppUrl({
     return `${protocol}://${pathStyleHost}${joinPath(tenantSlug, appPath)}`;
   }
 
-  return `${protocol}://${tenantSlug}.${targetRootHost}${appPath}`;
+  return `${protocol}://${tenantSlug}.${targetSubdomainRootHost}${appPath}`;
 }
 
 export function createTenantLinkAdapter<LinkComponent>(

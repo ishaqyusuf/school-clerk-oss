@@ -19,6 +19,10 @@ export const enrollmentCapacityModeSchema = z.enum(["TOTAL", "PER_CLASSROOM"]);
 const enrollmentClassroomInputSchema = z.object({
   classRoomDepartmentId: z.string().min(1),
   capacity: z.number().int().positive().optional().nullable(),
+  minimumAgeMonths: z.number().int().nonnegative().optional().nullable(),
+  maximumAgeMonths: z.number().int().nonnegative().optional().nullable(),
+  ageCutoffDate: z.date().optional().nullable(),
+  requirementNotes: z.string().optional().nullable(),
 });
 
 const enrollmentDocumentRequirementInputSchema = z.object({
@@ -27,6 +31,7 @@ const enrollmentDocumentRequirementInputSchema = z.object({
   description: z.string().optional().nullable(),
   uploadRequired: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
+  classRoomDepartmentId: z.string().optional().nullable(),
 });
 
 export const createOrUpdateEnrollmentLinkSchema = z
@@ -34,6 +39,7 @@ export const createOrUpdateEnrollmentLinkSchema = z
     id: z.string().optional().nullable(),
     title: z.string().min(1),
     status: enrollmentLinkStatusSchema.default("ACTIVE"),
+    showOnWebsite: z.boolean().default(false),
     capacityMode: enrollmentCapacityModeSchema.default("TOTAL"),
     totalCapacity: z.number().int().positive().optional().nullable(),
     instructions: z.string().optional().nullable(),
@@ -63,6 +69,36 @@ export const createOrUpdateEnrollmentLinkSchema = z
         path: ["classrooms"],
       });
     }
+
+    value.classrooms.forEach((classroom, index) => {
+      if (
+        classroom.minimumAgeMonths != null &&
+        classroom.maximumAgeMonths != null &&
+        classroom.minimumAgeMonths > classroom.maximumAgeMonths
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Minimum age cannot be greater than maximum age.",
+          path: ["classrooms", index, "minimumAgeMonths"],
+        });
+      }
+    });
+
+    const selectedClassroomIds = new Set(
+      value.classrooms.map((classroom) => classroom.classRoomDepartmentId),
+    );
+    value.documentRequirements.forEach((requirement, index) => {
+      if (
+        requirement.classRoomDepartmentId &&
+        !selectedClassroomIds.has(requirement.classRoomDepartmentId)
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Requirement class target must be part of the link.",
+          path: ["documentRequirements", index, "classRoomDepartmentId"],
+        });
+      }
+    });
   });
 
 export const setEnrollmentLinkStatusSchema = z.object({

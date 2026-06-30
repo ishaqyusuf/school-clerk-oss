@@ -4,12 +4,11 @@ import {
 } from "@school-clerk/db";
 import {
   getTemplateById,
-  mockPublishedWebsiteConfig,
-  mockTenantProfile,
   normalizeWebsiteTemplateConfigRecord,
   resolveWebsiteMediaConfig,
   templateRegistry,
   type WebsiteTemplateConfiguration,
+  type WebsiteInstitutionType,
   type WebsiteTenantProfile,
   verifyWebsitePreviewToken,
 } from "@school-clerk/template-registry";
@@ -18,6 +17,31 @@ type PreviewResolution = {
   tenant: WebsiteTenantProfile;
   config: WebsiteTemplateConfiguration;
 };
+
+const WEBSITE_INSTITUTION_TYPES = new Set<WebsiteInstitutionType>([
+  "PRESCHOOL",
+  "PRIMARY",
+  "SECONDARY",
+  "K12",
+  "COLLEGE",
+  "POLYTECHNIC",
+  "UNIVERSITY",
+  "TRAINING_CENTER",
+  "RELIGIOUS_SCHOOL",
+]);
+
+function normalizeInstitutionType(value?: string | null): WebsiteInstitutionType {
+  const normalized = value?.trim().toUpperCase();
+
+  if (
+    normalized &&
+    WEBSITE_INSTITUTION_TYPES.has(normalized as WebsiteInstitutionType)
+  ) {
+    return normalized as WebsiteInstitutionType;
+  }
+
+  return "K12";
+}
 
 export async function resolvePreviewTenant(input: {
   configId: string;
@@ -37,17 +61,23 @@ export async function resolvePreviewTenant(input: {
     return null;
   }
 
-  const mediaAssets = await listWebsiteMediaAssetsBySchoolProfileId(record.schoolProfileId);
+  const mediaAssets = await listWebsiteMediaAssetsBySchoolProfileId(
+    record.schoolProfileId,
+  );
   const template = getTemplateById(templateRegistry, record.templateId);
 
   const tenant: WebsiteTenantProfile = {
     schoolProfileId: record.schoolProfile.id,
     schoolName: record.schoolProfile.name,
-    institutionType: mockTenantProfile.institutionType,
+    institutionType: normalizeInstitutionType(
+      record.schoolProfile.institutionType,
+    ),
     subdomain: record.schoolProfile.subDomain,
     customDomain:
-      record.schoolProfile.domains.find((domain) => domain.isPrimary)?.customDomain ??
-      record.schoolProfile.domains.find((domain) => domain.customDomain)?.customDomain ??
+      record.schoolProfile.domains.find((domain) => domain.isPrimary)
+        ?.customDomain ??
+      record.schoolProfile.domains.find((domain) => domain.customDomain)
+        ?.customDomain ??
       null,
   };
 
@@ -55,9 +85,9 @@ export async function resolvePreviewTenant(input: {
     normalizeWebsiteTemplateConfigRecord(
       template,
       record.schoolProfileId,
-      record
+      record,
     ),
-    mediaAssets
+    mediaAssets,
   );
 
   return {

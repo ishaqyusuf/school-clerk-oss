@@ -7,6 +7,8 @@ import {
   type WebsiteFieldAiAction,
   type WebsiteTenantProfile,
 } from "@school-clerk/template-registry";
+import { getAuthCookie } from "./cookies/auth-cookie";
+import { assertWebsiteManager } from "@/lib/website/access";
 
 type GenerateWebsiteFieldAiInput = {
   action: WebsiteFieldAiAction;
@@ -32,7 +34,7 @@ function buildPrompt(input: GenerateWebsiteFieldAiInput) {
     `Size guidance: ${input.field.sizeGuidance}`,
     input.field.tone ? `Tone: ${input.field.tone}` : null,
     `Requested action: ${input.action}`,
-    `Current value: ${input.currentValue || "(empty)"}`,
+    `Current value: ${(input.currentValue || "(empty)").slice(0, 2000)}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -41,9 +43,21 @@ function buildPrompt(input: GenerateWebsiteFieldAiInput) {
 export async function generateWebsiteFieldAi(
   input: GenerateWebsiteFieldAiInput,
 ) {
+  const context = await assertWebsiteManager(await getAuthCookie());
+  const tenant: WebsiteTenantProfile = {
+    schoolProfileId: context.schoolId,
+    schoolName: context.schoolName,
+    institutionType: context.institutionType,
+  };
+  const safeInput = {
+    ...input,
+    tenant,
+    currentValue: input.currentValue.slice(0, 2000),
+  };
+
   if (!env.OPENAI_API_KEY) {
     return {
-      text: generateFieldSuggestion(input),
+      text: generateFieldSuggestion(safeInput),
       source: "fallback" as const,
     };
   }
@@ -65,7 +79,7 @@ export async function generateWebsiteFieldAi(
           },
           {
             role: "user",
-            content: buildPrompt(input),
+            content: buildPrompt(safeInput),
           },
         ],
       }),
@@ -82,14 +96,14 @@ export async function generateWebsiteFieldAi(
     const text = (json.output_text ?? "").trim();
 
     return {
-      text: text || generateFieldSuggestion(input),
+      text: text || generateFieldSuggestion(safeInput),
       source: "openai" as const,
     };
   } catch (error) {
     console.error("generateWebsiteFieldAi failed", error);
 
     return {
-      text: generateFieldSuggestion(input),
+      text: generateFieldSuggestion(safeInput),
       source: "fallback" as const,
     };
   }

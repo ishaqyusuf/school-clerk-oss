@@ -37,6 +37,14 @@ Provide a production-safe, multi-tenant website platform where each school can b
   - Tenant-owned repeatable content currently stored in `WebsiteTemplateConfiguration.content`, including `cms.announcements` and `cms.blogPosts`
   - These blocks also support `cms.events` and `cms.resources`
   - These blocks feed announcement headers, homepage announcement sections, homepage blog previews, blog listing pages, blog detail pages, event pages, resource pages, and public metadata fallbacks
+- Public admission link content
+  - `WebsiteTemplateContentData.admissionLinks` is resolved from enrollment links for production school-site rendering.
+  - Only active, in-window, not-full links with `showOnWebsite=true` are exposed to public website sections.
+  - Manual-only links remain accessible through `/enroll/[code]` but are omitted from website-rendered admission lists.
+- Published config rows
+  - Published rows are treated as immutable after `publishedAt` is set.
+  - Publishing a new draft archives the previous live config row and moves the active pointer to the new published row.
+  - Editing a live site requires duplicating the published config into a new draft.
 
 ## APIs
 
@@ -45,6 +53,8 @@ Provide a production-safe, multi-tenant website platform where each school can b
 - Tenant draft configuration create, update, duplicate, archive, and publish operations
 - AI generation action scoped to a single editable field with template, tenant, page, and section context
 - Public website configuration resolver used by `apps/school-site`
+- Public website content resolver merges config-backed CMS collections with production enrollment/admission link data for templates.
+- Public robots and sitemap metadata routes derived from the resolved tenant, template manifest, and config-backed CMS collections
 - TODO: final API transport should align with the platform's tRPC conventions
 
 ## UI/UX Notes
@@ -60,11 +70,15 @@ Provide a production-safe, multi-tenant website platform where each school can b
 - Preview mode should look as close to production as possible while preventing accidental navigation away from the editor.
 - Section toggles should update preview immediately and preserve layout integrity.
 - Draft editing must remain isolated from the currently published live website.
+- Published configs are visible for preview/comparison but cannot be saved directly; users must duplicate them before editing.
+- Required template sections must remain visible even if stale or manipulated saved config data tries to hide them.
 
 ## Permissions
 
 - Tenant admins or equivalent website-management roles can create, edit, duplicate, archive, and publish template configurations.
 - Plan restrictions must gate template availability, premium sections, and advanced configuration options.
+- Website management server actions currently allow `ADMIN`/`Admin` roles only.
+- Template availability is enforced server-side against the resolved school institution type and the configured website plan.
 - Public users can only access the published configuration through `apps/school-site`.
 
 ## Edge Cases
@@ -77,6 +91,8 @@ Provide a production-safe, multi-tenant website platform where each school can b
 - Production data sources such as blog, news, or resources are unavailable during preview and need safe fallback data
 - Draft CMS updates can be overwritten by a stale editor session until immutable revisions or field-level conflict handling exists
 - Domain or subdomain resolution fails and public website rendering must degrade safely
+- In production, unresolved domains or tenants without a published website should return not found rather than render mock content.
+- Detail routes such as blog, event, and resource slugs should return not found when the slug is missing from the matching collection.
 
 ## Metrics
 
@@ -92,7 +108,8 @@ Provide a production-safe, multi-tenant website platform where each school can b
 - Whether template manifests should be fully filesystem-driven, database-assisted, or hybrid
 - Whether template versioning should be explicit at publish time to protect tenants from breaking template updates
 - Whether blog/resources/news public data should be server-rendered directly or cached behind a website-specific content resolver
-- Whether replacing a published website config should set the old config back to `DRAFT` or preserve a distinct historical publish marker
+- Whether a dedicated website revision table should replace the current published-row immutability plus audit snapshot approach
+- Whether website subscription plan should be persisted per school instead of read from deployment configuration
 
 ## Implementation Direction
 
@@ -101,16 +118,22 @@ Provide a production-safe, multi-tenant website platform where each school can b
 - Templates are grouped by institution type and plan, for example `templates/k-12/plus/template-1`.
 - Templates are multi-page and schema-driven.
 - Templates must work in both preview/editor mode and production mode by switching between sample preview data and tenant production data through shared resolvers.
-- `apps/school-site` resolves public content data from the published website configuration first, then falls back to safe mock announcements/blog posts for preview or empty states.
+- `apps/school-site` resolves public content data from the published website configuration first. Mock content is allowed for preview/template/demo modes, while production database-backed rendering uses empty collection states when tenant CMS content is absent.
+- Public admission sections are presentation-only template blocks fed by the school-site resolver; link validity, capacity, date windows, and direct form submission stay owned by the enrollment/admission runtime.
 - School authentication and dashboards are global product surfaces, not template-owned pages. Public template CTAs should link to the shared school-site `/login` redirect, which sends users to the dashboard login for the resolved tenant.
+- Public page routing is manifest-driven through `resolveTemplateRoute`, including dynamic `[slug]` routes for blog, event, and resource detail pages.
+- Public metadata and structured data use the resolved manifest route and collection item instead of hardcoded path heuristics.
+- Saved editor payloads are normalized against template fields, allowed section keys, required-section rules, theme schemas, SEO keys, and safe public media URLs before persistence.
 - Detailed implementation architecture is documented in [brain/engineering/school-website-template-platform-implementation.md](/Users/M1PRO/Documents/code/school-clerk/brain/engineering/school-website-template-platform-implementation.md).
 
 ## Template Catalog Notes
 
 - `k12-plus-template-4` (`Kaleidoscope`) is a colourful K-12 template in `packages/template-registry` with home, about, blog list, and blog detail renderers.
 - `k12-plus-template-1` (`Scholaris`) is a school-facing K-12 template that must read as the tenant school's own public website, not as a template/product demo. Its starter copy should be safe for schools to publish as-is or edit, and its dynamic collections should prefer tenant CMS content before falling back to tenant-aware dummy school content.
+- `Scholaris`, `Northfield`, `Crestview`, and `Kaleidoscope` can render open admission links on home/admissions surfaces through the shared admission section when the tenant has website-visible enrollment links.
 - `Kaleidoscope` uses shared adaptive primitives for editable text/buttons, honours section visibility for configurable sections, includes announcement header/homepage announcement/blog/featured story blocks, includes safe fallback content for preview/dummy mode, and depends on production `announcements` and `blogPosts` content data when available.
 - `Kaleidoscope` deliberately does not define login/auth pages; sign-in links stay routed through the global dashboard login boundary.
+- All four current K-12 templates now declare concrete SVG thumbnail/preview image paths under `apps/school-site/public/templates`.
 
 ## Tenant Site Registry Direction
 

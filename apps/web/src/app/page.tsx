@@ -101,7 +101,7 @@ const tickerItems = [...institutionTypes, ...institutionTypes];
 const isDev = process.env.NODE_ENV !== "production";
 const configuredDashboardHost =
   process.env.NODE_ENV === "production"
-    ? process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_ROOT_DOMAIN
+    ? (process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_ROOT_DOMAIN)
     : resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
 const signUpHref = `${isDev ? "http" : "https"}://${configuredDashboardHost}/sign-up`;
 const bookDemoHref =
@@ -116,7 +116,7 @@ export default async function Home() {
     process.env.DASHBOARD_ROOT_DOMAIN ?? process.env.APP_ROOT_DOMAIN,
   );
   const schoolSiteRootDomain =
-    process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "school-clerk-site.localhost:1355";
+    process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "school-clerk-site.localhost";
 
   const tenants = isDev
     ? await prisma.schoolProfile.findMany({
@@ -300,10 +300,7 @@ export default async function Home() {
       </section>
 
       {/* ─── How it works / Highlights ─── */}
-      <section
-        id="platform"
-        className="border-b border-border bg-muted/30"
-      >
+      <section id="platform" className="border-b border-border bg-muted/30">
         <div className="mx-auto w-full max-w-7xl px-6 py-20 sm:px-10 lg:px-12">
           <div className="mb-14 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -535,7 +532,8 @@ export default async function Home() {
                 Monthly SaaS
               </p>
               <p className="mt-5 text-4xl font-semibold tracking-[-0.06em]">
-                ₦10k<span className="text-xl text-primary-foreground/55">–50k</span>
+                ₦10k
+                <span className="text-xl text-primary-foreground/55">–50k</span>
               </p>
               <p className="mt-3 text-sm leading-6 text-primary-foreground/70">
                 Per institution per month. Includes platform updates, uptime,

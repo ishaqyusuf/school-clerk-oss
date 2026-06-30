@@ -70,7 +70,7 @@
 - Updated the importer to temporarily disable triggers on all local target tables during table-by-table image imports, then restore them before disconnecting.
 - Updated raw upserts to cast values to the target PostgreSQL column type so enum-backed columns import correctly.
 - Updated value normalization to preserve native PostgreSQL arrays while still serializing JSON/JSONB payloads correctly.
-- Added default local tenant domain normalization so imported production data resolves through local dashboard hosts such as `<tenant>.school-clerk-dashboard.localhost:1355`.
+- Added default local tenant domain normalization so imported production data resolves through local dashboard hosts such as `<tenant>.school-clerk-dashboard.localhost`.
 - Wired root commands: `db:update:local`, `db:update:local:dry-run`, `db:update:local:reset`, `db:sync:prod-to-local`, `db:sync:prod-to-local:dry-run`, and `db:sync:prod-to-local:table`.
 
 ### Changed Files

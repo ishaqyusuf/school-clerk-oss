@@ -8,6 +8,7 @@ import type { CSSProperties } from "react";
 import { defineWebsiteTemplate } from "../registry";
 import { Button, SiteShell, Text } from "../common";
 import { createAnnouncementCardBlockField } from "../block-presets";
+import { AdmissionLinksSection } from "../features/admissions/admission-links-section";
 
 function getCopy(
   context: WebsiteTemplateRenderContext,
@@ -84,6 +85,9 @@ function TemplateNav({ context }: { context: WebsiteTemplateRenderContext }) {
         </a>
         <a href="/about" style={navLinkStyle}>
           About
+        </a>
+        <a href="/admissions" style={navLinkStyle}>
+          Admissions
         </a>
         <a href="/blog" style={navLinkStyle}>
           Blog
@@ -723,6 +727,21 @@ function HomePage(context: WebsiteTemplateRenderContext) {
             ))}
           </section>
         ) : null}
+        {isSectionVisible(context, "home.admissions", true) ? (
+          <section
+            style={{
+              margin: "0 auto",
+              maxWidth: 1180,
+              padding: "0 24px 76px",
+            }}
+          >
+            <AdmissionLinksSection
+              context={context}
+              title="Admissions are open."
+              body="Start a school application online, review the class requirements, and send the documents the admissions team needs."
+            />
+          </section>
+        ) : null}
         {HomeAnnouncementSection(context)}
         {HomeBlogSection(context)}
         <TemplateFooter context={context} />
@@ -849,6 +868,90 @@ function AboutPage(context: WebsiteTemplateRenderContext) {
             </article>
           ))}
         </section>
+        <TemplateFooter context={context} />
+      </div>
+    </SiteShell>
+  );
+}
+
+function AdmissionsPage(context: WebsiteTemplateRenderContext) {
+  const theme = context.config.themeConfig;
+
+  return (
+    <SiteShell>
+      <div
+        style={{
+          background: `linear-gradient(180deg, ${theme.secondaryColor}, #ffffff 48%, #f8fafc)`,
+        }}
+      >
+        <AnnouncementHeader context={context} />
+        <TemplateNav context={context} />
+        {isSectionVisible(context, "admissions.hero", true) ? (
+          <section
+            style={{
+              margin: "0 auto",
+              maxWidth: 980,
+              padding: "72px 24px 36px",
+            }}
+          >
+            <Text
+              as="p"
+              field="admissions.hero.kicker"
+              style={{
+                color: theme.primaryColor,
+                fontSize: 14,
+                fontWeight: 800,
+                letterSpacing: 0,
+                margin: "0 0 14px",
+                textTransform: "uppercase",
+              }}
+            >
+              Admissions
+            </Text>
+            <Text
+              as="h1"
+              field="admissions.hero.title"
+              style={{
+                color: "#16213e",
+                fontSize: 48,
+                fontWeight: 900,
+                lineHeight: 1,
+                margin: 0,
+              }}
+            >
+              Start your child&apos;s application.
+            </Text>
+            <Text
+              field="admissions.hero.body"
+              style={{
+                color: "rgba(22, 33, 62, 0.74)",
+                fontSize: 18,
+                lineHeight: 1.8,
+                margin: "24px 0 0",
+                maxWidth: 760,
+              }}
+            >
+              Choose an open admission link, select the right class, and submit
+              the details the school needs for review.
+            </Text>
+          </section>
+        ) : null}
+        {isSectionVisible(context, "admissions.openLinks", true) ? (
+          <section
+            style={{
+              margin: "0 auto",
+              maxWidth: 1180,
+              padding: "0 24px 82px",
+            }}
+          >
+            <AdmissionLinksSection
+              context={context}
+              eyebrow="Open applications"
+              title="Available admission forms"
+              body="Each form shows the class options and requirements before parents submit."
+            />
+          </section>
+        ) : null}
         <TemplateFooter context={context} />
       </div>
     </SiteShell>
@@ -1027,11 +1130,10 @@ function BlogListPage(context: WebsiteTemplateRenderContext) {
 function BlogPostPage(context: WebsiteTemplateRenderContext) {
   const theme = context.config.themeConfig;
   const posts = getBlogPosts(context);
-  const post =
-    posts.find((item) => item.slug === context.routeSlug) ?? posts.at(0);
+  const post = posts.find((item) => item.slug === context.routeSlug) ?? null;
 
   if (!post) {
-    return BlogListPage(context);
+    return null;
   }
 
   return (
@@ -1150,7 +1252,7 @@ const renderers: Record<
 > = {
   home: HomePage,
   about: AboutPage,
-  admissions: NotConfiguredPage,
+  admissions: AdmissionsPage,
   "blog-list": BlogListPage,
   "blog-post": BlogPostPage,
   "event-list": NotConfiguredPage,
@@ -1168,10 +1270,10 @@ export const k12PlusTemplate4 = defineWebsiteTemplate({
     supportedPlans: ["PLUS", "PRO", "ENTERPRISE"],
     description:
       "A bright, neat, colourful K-12 template focused on confident first impressions and shared dashboard sign-in.",
-    thumbnail: "/templates/k12-plus-template-4/thumbnail.png",
-    previewImages: [],
+    thumbnail: "/templates/k12-plus-template-4/thumbnail.svg",
+    previewImages: ["/templates/k12-plus-template-4/thumbnail.svg"],
     tags: ["colorful", "k-12", "neat", "joyful"],
-    features: ["home", "about", "blog", "global-dashboard-login"],
+    features: ["home", "about", "admissions", "blog", "global-dashboard-login"],
     pages: [
       {
         key: "home",
@@ -1251,6 +1353,12 @@ export const k12PlusTemplate4 = defineWebsiteTemplate({
             ],
           },
           {
+            key: "home.admissions",
+            label: "Admission links",
+            defaultVisible: true,
+            editables: [],
+          },
+          {
             key: "home.blog",
             label: "Blog preview",
             defaultVisible: true,
@@ -1319,6 +1427,47 @@ export const k12PlusTemplate4 = defineWebsiteTemplate({
                 sizeGuidance: "2-5 items",
               }),
             ],
+          },
+        ],
+      },
+      {
+        key: "admissions",
+        label: "Admissions",
+        route: "/admissions",
+        sections: [
+          {
+            key: "admissions.hero",
+            label: "Admissions hero",
+            defaultVisible: true,
+            editables: [
+              {
+                key: "admissions.hero.kicker",
+                label: "Admissions kicker",
+                description: "Short eyebrow above the admissions page headline.",
+                contentType: "short-text",
+                sizeGuidance: "2-5 words",
+              },
+              {
+                key: "admissions.hero.title",
+                label: "Admissions title",
+                description: "Main admissions page headline.",
+                contentType: "short-text",
+                sizeGuidance: "5-12 words",
+              },
+              {
+                key: "admissions.hero.body",
+                label: "Admissions body",
+                description: "Short intro for the admissions page.",
+                contentType: "long-text",
+                sizeGuidance: "25-70 words",
+              },
+            ],
+          },
+          {
+            key: "admissions.openLinks",
+            label: "Open admission links",
+            defaultVisible: true,
+            editables: [],
           },
         ],
       },
@@ -1446,6 +1595,7 @@ export const k12PlusTemplate4 = defineWebsiteTemplate({
     dataRequirements: [
       "school-profile",
       "announcements",
+      "admission-links",
       "blog-posts",
       "global-dashboard-login",
     ],

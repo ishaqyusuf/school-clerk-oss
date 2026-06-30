@@ -1,6 +1,8 @@
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import {
+  archiveWebsiteDraftAction,
   createWebsiteDraftAction,
+  duplicateWebsiteDraftAction,
   publishWebsiteDraftAction,
 } from "@/actions/website-config";
 import { WebsiteConfigEditorClient } from "./[configId]/editor-client";
@@ -32,6 +34,11 @@ import {
   templateRegistry,
   type WebsiteTemplatePageKey,
 } from "@school-clerk/template-registry";
+import {
+  filterTemplatesForContext,
+  getWebsiteManagementContext,
+  type WebsiteManagementContext,
+} from "@/lib/website/access";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import {
   ArrowLeft,
@@ -40,7 +47,16 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 
-async function getWebsiteSettingsData(schoolId: string) {
+type WebsiteSettingsSearchParams = {
+  configId?: string;
+  page?: string;
+  template?: string;
+};
+
+async function getWebsiteSettingsData(
+  schoolId: string,
+  context: WebsiteManagementContext,
+) {
   const [configs, mediaAssets, school] = await Promise.all([
     listWebsiteConfigsBySchoolProfileId(schoolId),
     listWebsiteMediaAssetsBySchoolProfileId(schoolId),
@@ -53,7 +69,10 @@ async function getWebsiteSettingsData(schoolId: string) {
       },
     }),
   ]);
-  const templates = Array.from(templateRegistry.values()).map((template) => ({
+  const templates = filterTemplatesForContext(
+    Array.from(templateRegistry.values()),
+    context,
+  ).map((template) => ({
     id: template.manifest.id,
     name: template.manifest.name,
     description: template.manifest.description,
@@ -82,7 +101,7 @@ function getLiveUrl(subdomain?: string | null) {
   }
 
   const schoolSiteRoot =
-    process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "school-clerk-site.localhost:1355";
+    process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "school-clerk-site.localhost";
 
   return `http://${schoolSubdomain}.${schoolSiteRoot}`;
 }
@@ -109,7 +128,7 @@ function pickActiveConfig<T extends { id: string; status: string }>(
 export default async function WebsiteSettingsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ configId?: string; page?: string; template?: string }>;
+  searchParams?: Promise<WebsiteSettingsSearchParams>;
 }) {
   const cookie = await getAuthCookie();
 
@@ -124,11 +143,26 @@ export default async function WebsiteSettingsPage({
     );
   }
 
-  const [{ configs, mediaAssets, school, templates }, query] =
-    await Promise.all([
-      getWebsiteSettingsData(cookie.schoolId),
-      searchParams ?? Promise.resolve({}),
-    ]);
+  const context = await getWebsiteManagementContext(cookie);
+
+  if (!context || !["ADMIN", "Admin"].includes(context.role ?? "")) {
+    return (
+      <div className="py-8">
+        <PageTitle>Website</PageTitle>
+        <p className="mt-2 text-sm text-muted-foreground">
+          You do not have permission to manage this website.
+        </p>
+      </div>
+    );
+  }
+
+  const [data, query] = await Promise.all([
+    getWebsiteSettingsData(cookie.schoolId, context),
+    searchParams
+      ? searchParams
+      : Promise.resolve({} as WebsiteSettingsSearchParams),
+  ]);
+  const { configs, mediaAssets, school, templates } = data;
   const activeConfigRecord = pickActiveConfig(configs, query.configId);
   const selectedStarterTemplate =
     templates.find((template) => template.id === query.template) ??
@@ -203,7 +237,9 @@ export default async function WebsiteSettingsPage({
                       </div>
                       <div className="flex gap-2">
                         <Button asChild size="sm" variant="outline">
-                          <Link href={`/settings/website?template=${template.id}`}>
+                          <Link
+                            href={`/settings/website?template=${template.id}`}
+                          >
                             Preview
                           </Link>
                         </Button>
@@ -212,11 +248,6 @@ export default async function WebsiteSettingsPage({
                             type="hidden"
                             name="templateId"
                             value={template.id}
-                          />
-                          <input
-                            type="hidden"
-                            name="templateName"
-                            value={template.name}
                           />
                           <Button type="submit" size="sm">
                             Create Draft
@@ -254,7 +285,7 @@ export default async function WebsiteSettingsPage({
   const tenant = {
     schoolProfileId: school.id,
     schoolName: school.name,
-    institutionType: "K12" as const,
+    institutionType: context.institutionType,
     subdomain: school.subDomain,
     customDomain: null,
   };
@@ -352,9 +383,22 @@ function BuilderToolbar({
           </form>
         ) : null}
 
+        {activeConfigId && activeStatus === "PUBLISHED" ? (
+          <form action={duplicateWebsiteDraftAction}>
+            <input type="hidden" name="configId" value={activeConfigId} />
+            <Button type="submit" size="sm" variant="outline">
+              Duplicate to Edit
+            </Button>
+          </form>
+        ) : null}
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" aria-label="More website actions">
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="More website actions"
+            >
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
@@ -364,6 +408,16 @@ function BuilderToolbar({
                 <Link href={`/settings/website/${activeConfigId}/cms`}>
                   CMS Blocks
                 </Link>
+              </DropdownMenuItem>
+            ) : null}
+            {activeConfigId && activeStatus !== "PUBLISHED" ? (
+              <DropdownMenuItem asChild>
+                <form action={archiveWebsiteDraftAction}>
+                  <input type="hidden" name="configId" value={activeConfigId} />
+                  <button className="w-full text-left" type="submit">
+                    Archive Draft
+                  </button>
+                </form>
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuItem asChild>

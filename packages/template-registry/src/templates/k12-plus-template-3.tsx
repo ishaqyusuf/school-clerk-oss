@@ -40,6 +40,8 @@ export const k12PlusTemplate3 = defineWebsiteTemplate({
     name: "Crestview",
     description:
       "A crisper, leadership-oriented K-12 template with cooler contrast and a more premium institutional tone.",
+    thumbnail: "/templates/k12-plus-template-3/thumbnail.svg",
+    previewImages: ["/templates/k12-plus-template-3/thumbnail.svg"],
     tags: ["premium", "future-facing", "leadership"],
     features: [
       ...k12PlusTemplate1.manifest.features,
@@ -47,6 +49,10 @@ export const k12PlusTemplate3 = defineWebsiteTemplate({
       "premium-contrast skin",
     ],
     supportedPlans: ["PRO", "ENTERPRISE"],
+    themeSchema: {
+      ...k12PlusTemplate1.manifest.themeSchema,
+      stylePresets: ["executive-campus", "classic-academic", "bright-campus"],
+    },
     defaultThemeConfig: {
       primaryColor: "#0f172a",
       secondaryColor: "#e0f2fe",

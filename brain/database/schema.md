@@ -71,6 +71,8 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 - Website configuration data should be stored in dedicated website tables rather than inflating `SchoolProfile` with large website JSON blobs.
 - `WebsiteTemplateConfig` is the durable draft/published document for a tenant website configuration.
 - `WebsitePublishedConfig` is the fast lookup pointer used by `apps/school-site` to resolve the live public website.
+- `publishedAt` marks a config row as historically published and immutable for content/theme/section/SEO edits.
+- Superseded live config rows should move to `ARCHIVED` when a new draft is published.
 - `templateVersion` should be captured at save/publish time so future manifest migrations can be deterministic.
 - Page content, section visibility, and theme settings are intentionally JSON-backed because template field sets vary by template and page.
 
@@ -133,9 +135,29 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 | `schoolProfileId` | String | Tenant ownership boundary |
 | `code` | String unique | Public token used by school-site enrollment URLs |
 | `status` | Enum | `ACTIVE`, `PAUSED`, `ARCHIVED` |
+| `showOnWebsite` | Boolean | Controls whether active/in-window links are eligible for public website admission sections; manual direct sharing remains available when false |
 | `capacityMode` | Enum | `TOTAL` or `PER_CLASSROOM` |
 | `totalCapacity` | Int? | Used when capacity mode is total |
 | `opensAt`, `closesAt` | DateTime? | Optional public availability window |
+
+### EnrollmentLinkClassroom (updated — session 2026-06-30)
+| Field | Type | Notes |
+|-------|------|-------|
+| `enrollmentLinkId` | String | FK → `EnrollmentLink` |
+| `classRoomDepartmentId` | String | FK → `ClassRoomDepartment`; allowed class option for the link |
+| `capacity` | Int? | Used when capacity mode is per-classroom |
+| `minimumAgeMonths`, `maximumAgeMonths` | Int? | Optional selected-class age rule, stored in months for exact validation |
+| `ageCutoffDate` | DateTime? | Optional date used to calculate applicant age for this class |
+| `requirementNotes` | String? | Class-specific admission instructions shown after parent selects the class |
+
+### EnrollmentLinkDocumentRequirement (updated — session 2026-06-30)
+| Field | Type | Notes |
+|-------|------|-------|
+| `enrollmentLinkId` | String | FK → `EnrollmentLink` |
+| `classRoomDepartmentId` | String? | Optional FK → `ClassRoomDepartment`; null means the document applies to all classes on the link |
+| `label`, `description` | String, String? | Parent-facing document requirement copy |
+| `uploadRequired` | Boolean | Required upload flag enforced during public submission and admin approval |
+| `sortOrder` | Int | Parent/admin display ordering |
 
 ### EnrollmentApplication (planned implementation — session 2026-06)
 | Field | Type | Notes |
@@ -176,4 +198,5 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 - Auditing fields: `createdAt` and `updatedAt` present across most active models.
 - Planned website config uniqueness rule: multiple configs per tenant are allowed, but only one row in `WebsitePublishedConfig` may point to the active live config for that tenant.
 - Planned website config status rule: `PUBLISHED` should only be assigned as part of a publish transaction that also updates `WebsitePublishedConfig`.
+- Planned website config immutability rule: rows with `publishedAt` should not be edited directly; duplicate into a draft for changes.
 - TODO: document which models are production-active vs transitional legacy.

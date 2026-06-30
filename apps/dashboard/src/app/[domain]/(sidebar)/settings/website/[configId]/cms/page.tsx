@@ -12,6 +12,7 @@ import { getWebsiteConfigById } from "@school-clerk/db";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { notFound } from "next/navigation";
 import { WebsiteCmsClient } from "./website-cms-client";
+import { getWebsiteManagementContext } from "@/lib/website/access";
 
 function getObjectList(value: unknown): Array<Record<string, string>> {
   if (Array.isArray(value)) {
@@ -41,6 +42,12 @@ export default async function WebsiteCmsPage({
   const [{ configId }, cookie] = await Promise.all([params, getAuthCookie()]);
 
   if (!cookie?.schoolId) {
+    notFound();
+  }
+
+  const context = await getWebsiteManagementContext(cookie);
+
+  if (!context || !["ADMIN", "Admin"].includes(context.role ?? "")) {
     notFound();
   }
 
@@ -88,6 +95,7 @@ export default async function WebsiteCmsPage({
         <CardContent>
           <WebsiteCmsClient
             configId={configId}
+            readOnly={config.status === "PUBLISHED"}
             initialAnnouncements={getObjectList(content["cms.announcements"])}
             initialBlogPosts={getObjectList(content["cms.blogPosts"])}
             initialEvents={getObjectList(content["cms.events"])}

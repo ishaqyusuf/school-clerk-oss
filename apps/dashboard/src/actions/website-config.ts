@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  archiveWebsiteTemplateDraft,
   createWebsiteTemplateDraft,
   duplicateWebsiteTemplateDraft,
   getWebsiteConfigById,
@@ -11,10 +12,15 @@ import {
 import {
   CURRENT_TEMPLATE_CONFIG_VERSION,
   getTemplateById,
+  normalizeWebsiteTemplateConfigInput,
   templateRegistry,
 } from "@school-clerk/template-registry";
 import { revalidatePath } from "next/cache";
 import { getAuthCookie } from "./cookies/auth-cookie";
+import {
+  assertTemplateAvailableForContext,
+  assertWebsiteManager,
+} from "@/lib/website/access";
 
 function assertSchoolCookie(
   cookie: Awaited<ReturnType<typeof getAuthCookie>>,
@@ -30,18 +36,21 @@ function assertSchoolCookie(
 export async function createWebsiteDraftAction(formData: FormData) {
   const cookie = await getAuthCookie();
   assertSchoolCookie(cookie);
+  const context = await assertWebsiteManager(cookie);
 
   const templateId = String(formData.get("templateId") || "").trim();
-  const templateName = String(formData.get("templateName") || "").trim();
 
-  if (!templateId || !templateName) {
+  if (!templateId) {
     throw new Error("Template selection is required.");
   }
+
+  const template = getTemplateById(templateRegistry, templateId);
+  assertTemplateAvailableForContext(template, context);
 
   await createWebsiteTemplateDraft({
     schoolProfileId: cookie.schoolId,
     templateId,
-    name: `${templateName} Draft`,
+    name: `${template.manifest.name} Draft`,
     templateVersion: CURRENT_TEMPLATE_CONFIG_VERSION,
     createdByUserId: cookie.auth?.userId,
   });
@@ -52,12 +61,25 @@ export async function createWebsiteDraftAction(formData: FormData) {
 export async function publishWebsiteDraftAction(formData: FormData) {
   const cookie = await getAuthCookie();
   assertSchoolCookie(cookie);
+  const context = await assertWebsiteManager(cookie);
 
   const configId = String(formData.get("configId") || "").trim();
 
   if (!configId) {
     throw new Error("Website configuration id is required.");
   }
+
+  const config = await getWebsiteConfigById({
+    id: configId,
+    schoolProfileId: cookie.schoolId,
+  });
+
+  if (!config) {
+    throw new Error("Website configuration not found.");
+  }
+
+  const template = getTemplateById(templateRegistry, config.templateId);
+  assertTemplateAvailableForContext(template, context);
 
   await publishWebsiteTemplateConfig({
     id: configId,
@@ -71,6 +93,7 @@ export async function publishWebsiteDraftAction(formData: FormData) {
 export async function updateWebsiteDraftEditorAction(formData: FormData) {
   const cookie = await getAuthCookie();
   assertSchoolCookie(cookie);
+  const context = await assertWebsiteManager(cookie);
 
   const configId = String(formData.get("configId") || "").trim();
   const templateId = String(formData.get("templateId") || "").trim();
@@ -84,12 +107,14 @@ export async function updateWebsiteDraftEditorAction(formData: FormData) {
     throw new Error("Template selection is required.");
   }
 
-  getTemplateById(templateRegistry, templateId);
+  const template = getTemplateById(templateRegistry, templateId);
+  assertTemplateAvailableForContext(template, context);
 
   const content: Record<string, unknown> = {};
   const sectionVisibility: Record<string, boolean> = {};
   const sectionOrder: Record<string, string[]> = {};
   const seo: Record<string, string> = {};
+  const themeConfig: Record<string, unknown> = {};
   const sectionKeys = formData.getAll("sectionKeys").map(String);
 
   for (const [key, value] of formData.entries()) {
@@ -124,37 +149,47 @@ export async function updateWebsiteDraftEditorAction(formData: FormData) {
       formData.get(`section:${sectionKey}`) === "on";
   }
 
+  for (const key of [
+    "primaryColor",
+    "secondaryColor",
+    "accentColor",
+    "surfaceColor",
+    "headingFont",
+    "bodyFont",
+    "radius",
+    "density",
+    "stylePreset",
+    "baseColor",
+    "theme",
+    "chartColor",
+    "iconLibrary",
+    "menuStyle",
+    "menuAccent",
+  ]) {
+    themeConfig[key] = formData.get(`theme:${key}`);
+  }
+
+  const normalized = normalizeWebsiteTemplateConfigInput(template, {
+    content,
+    sectionVisibility,
+    sectionOrder,
+    seoConfig: seo,
+    themeConfig,
+  });
+
   await updateWebsiteTemplateDraft({
     id: configId,
     schoolProfileId: cookie.schoolId,
     templateId,
     name,
     updatedByUserId: cookie.auth?.userId,
-    contentJson: content as Prisma.InputJsonValue,
+    contentJson: normalized.content as Prisma.InputJsonValue,
     sectionJson: {
-      visibility: sectionVisibility,
-      order: sectionOrder,
+      visibility: normalized.sectionVisibility,
+      order: normalized.sectionOrder,
     } as Prisma.InputJsonValue,
-    seoJson: seo,
-    themeJson: {
-      primaryColor: String(formData.get("theme:primaryColor") || "#0f4c81"),
-      secondaryColor: String(formData.get("theme:secondaryColor") || "#e8f1f7"),
-      accentColor: String(formData.get("theme:accentColor") || "#f59e0b"),
-      surfaceColor: String(formData.get("theme:surfaceColor") || "#ffffff"),
-      headingFont: String(formData.get("theme:headingFont") || "Georgia"),
-      bodyFont: String(formData.get("theme:bodyFont") || "Inter"),
-      radius: String(formData.get("theme:radius") || "lg"),
-      density: String(formData.get("theme:density") || "comfortable"),
-      stylePreset: String(
-        formData.get("theme:stylePreset") || "classic-academic",
-      ),
-      baseColor: String(formData.get("theme:baseColor") || "slate"),
-      theme: String(formData.get("theme:theme") || "#0f4c81"),
-      chartColor: String(formData.get("theme:chartColor") || "#0f4c81"),
-      iconLibrary: String(formData.get("theme:iconLibrary") || "lucide"),
-      menuStyle: String(formData.get("theme:menuStyle") || "default"),
-      menuAccent: String(formData.get("theme:menuAccent") || "subtle"),
-    },
+    seoJson: normalized.seoConfig,
+    themeJson: normalized.themeConfig as Prisma.InputJsonValue,
     templateVersion,
   });
 
@@ -165,6 +200,7 @@ export async function updateWebsiteDraftEditorAction(formData: FormData) {
 export async function updateWebsiteCmsAction(formData: FormData) {
   const cookie = await getAuthCookie();
   assertSchoolCookie(cookie);
+  const context = await assertWebsiteManager(cookie);
 
   const configId = String(formData.get("configId") || "").trim();
 
@@ -180,6 +216,9 @@ export async function updateWebsiteCmsAction(formData: FormData) {
   if (!existing) {
     throw new Error("Website configuration not found.");
   }
+
+  const template = getTemplateById(templateRegistry, existing.templateId);
+  assertTemplateAvailableForContext(template, context);
 
   const content =
     typeof existing.contentJson === "object" && existing.contentJson
@@ -201,10 +240,37 @@ export async function updateWebsiteCmsAction(formData: FormData) {
     }
   }
 
+  const sectionJson =
+    typeof existing.sectionJson === "object" && existing.sectionJson
+      ? (existing.sectionJson as {
+          visibility?: Record<string, boolean>;
+          order?: Record<string, string[]>;
+        })
+      : {};
+  const normalized = normalizeWebsiteTemplateConfigInput(template, {
+    content,
+    sectionVisibility: sectionJson.visibility ?? {},
+    sectionOrder: sectionJson.order ?? {},
+    seoConfig:
+      typeof existing.seoJson === "object" && existing.seoJson
+        ? (existing.seoJson as Record<string, unknown>)
+        : {},
+    themeConfig:
+      typeof existing.themeJson === "object" && existing.themeJson
+        ? (existing.themeJson as Record<string, unknown>)
+        : {},
+  });
+
   await updateWebsiteTemplateDraft({
     id: configId,
     schoolProfileId: cookie.schoolId,
-    contentJson: content as Prisma.InputJsonValue,
+    contentJson: normalized.content as Prisma.InputJsonValue,
+    sectionJson: {
+      visibility: normalized.sectionVisibility,
+      order: normalized.sectionOrder,
+    } as Prisma.InputJsonValue,
+    seoJson: normalized.seoConfig,
+    themeJson: normalized.themeConfig as Prisma.InputJsonValue,
     updatedByUserId: cookie.auth?.userId,
   });
 
@@ -216,6 +282,7 @@ export async function updateWebsiteCmsAction(formData: FormData) {
 export async function duplicateWebsiteDraftAction(formData: FormData) {
   const cookie = await getAuthCookie();
   assertSchoolCookie(cookie);
+  await assertWebsiteManager(cookie);
 
   const configId = String(formData.get("configId") || "").trim();
 
@@ -227,6 +294,26 @@ export async function duplicateWebsiteDraftAction(formData: FormData) {
     id: configId,
     schoolProfileId: cookie.schoolId,
     createdByUserId: cookie.auth?.userId,
+  });
+
+  revalidatePath(`/${cookie.domain}/settings/website`);
+}
+
+export async function archiveWebsiteDraftAction(formData: FormData) {
+  const cookie = await getAuthCookie();
+  assertSchoolCookie(cookie);
+  await assertWebsiteManager(cookie);
+
+  const configId = String(formData.get("configId") || "").trim();
+
+  if (!configId) {
+    throw new Error("Website configuration id is required.");
+  }
+
+  await archiveWebsiteTemplateDraft({
+    id: configId,
+    schoolProfileId: cookie.schoolId,
+    updatedByUserId: cookie.auth?.userId,
   });
 
   revalidatePath(`/${cookie.domain}/settings/website`);

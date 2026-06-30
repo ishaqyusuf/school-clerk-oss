@@ -30,6 +30,82 @@ function nullableTextValue(formData: FormData, key: string) {
   return value || null;
 }
 
+function calculateAgeMonths(dateOfBirth: Date, cutoffDate: Date) {
+  let months =
+    (cutoffDate.getFullYear() - dateOfBirth.getFullYear()) * 12 +
+    (cutoffDate.getMonth() - dateOfBirth.getMonth());
+
+  if (cutoffDate.getDate() < dateOfBirth.getDate()) {
+    months -= 1;
+  }
+
+  return months;
+}
+
+function formatAgeMonths(months: number) {
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+
+  if (years && remainingMonths) {
+    return `${years} year${years === 1 ? "" : "s"} ${remainingMonths} month${
+      remainingMonths === 1 ? "" : "s"
+    }`;
+  }
+
+  if (years) return `${years} year${years === 1 ? "" : "s"}`;
+  return `${months} month${months === 1 ? "" : "s"}`;
+}
+
+function getApplicableDocumentRequirements(
+  requirements: any[],
+  classRoomDepartmentId: string,
+) {
+  return requirements.filter(
+    (requirement) =>
+      !requirement.classRoomDepartmentId ||
+      requirement.classRoomDepartmentId === classRoomDepartmentId,
+  );
+}
+
+function assertClassAgeRequirement(input: {
+  classroom: any;
+  link: any;
+  studentDob: Date;
+}) {
+  if (
+    input.classroom.minimumAgeMonths == null &&
+    input.classroom.maximumAgeMonths == null
+  ) {
+    return;
+  }
+
+  const cutoffDate =
+    input.classroom.ageCutoffDate ?? input.link.opensAt ?? new Date();
+  const ageMonths = calculateAgeMonths(input.studentDob, cutoffDate);
+
+  if (
+    input.classroom.minimumAgeMonths != null &&
+    ageMonths < input.classroom.minimumAgeMonths
+  ) {
+    throw new Error(
+      `Student must be at least ${formatAgeMonths(
+        input.classroom.minimumAgeMonths,
+      )} for this classroom.`,
+    );
+  }
+
+  if (
+    input.classroom.maximumAgeMonths != null &&
+    ageMonths > input.classroom.maximumAgeMonths
+  ) {
+    throw new Error(
+      `Student must not be older than ${formatAgeMonths(
+        input.classroom.maximumAgeMonths,
+      )} for this classroom.`,
+    );
+  }
+}
+
 function getDashboardOrigin(subDomain: string) {
   const appRoot = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
@@ -163,12 +239,12 @@ export async function submitEnrollmentApplication(
   }
 
   const classRoomDepartmentId = textValue(formData, "classRoomDepartmentId");
-  if (
-    !link.classrooms.some(
-      (classroom: any) =>
-        classroom.classRoomDepartmentId === classRoomDepartmentId,
-    )
-  ) {
+  const selectedClassroom = link.classrooms.find(
+    (classroom: any) =>
+      classroom.classRoomDepartmentId === classRoomDepartmentId,
+  );
+
+  if (!selectedClassroom) {
     throw new Error("Select an available classroom.");
   }
 
@@ -198,12 +274,22 @@ export async function submitEnrollmentApplication(
     throw new Error("Primary parent name is required.");
   }
 
+  assertClassAgeRequirement({
+    classroom: selectedClassroom,
+    link,
+    studentDob,
+  });
+
   const documentUploads: {
     file: File;
     requirementId: string;
   }[] = [];
+  const applicableRequirements = getApplicableDocumentRequirements(
+    link.documentRequirements,
+    classRoomDepartmentId,
+  );
 
-  for (const requirement of link.documentRequirements) {
+  for (const requirement of applicableRequirements) {
     const file = formData.get(`document:${requirement.id}`);
     if (
       requirement.uploadRequired &&

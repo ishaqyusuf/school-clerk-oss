@@ -1,4 +1,8 @@
-import { publishWebsiteDraftAction } from "@/actions/website-config";
+import {
+  archiveWebsiteDraftAction,
+  duplicateWebsiteDraftAction,
+  publishWebsiteDraftAction,
+} from "@/actions/website-config";
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { Badge } from "@school-clerk/ui/badge";
@@ -16,6 +20,10 @@ import {
   templateRegistry,
   type WebsiteTemplatePageKey,
 } from "@school-clerk/template-registry";
+import {
+  filterTemplatesForContext,
+  getWebsiteManagementContext,
+} from "@/lib/website/access";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { notFound } from "next/navigation";
 import { WebsiteConfigEditorClient } from "./editor-client";
@@ -50,6 +58,12 @@ export default async function WebsiteConfigEditorPage({
     notFound();
   }
 
+  const context = await getWebsiteManagementContext(cookie);
+
+  if (!context || !["ADMIN", "Admin"].includes(context.role ?? "")) {
+    notFound();
+  }
+
   const [configRecord, mediaAssets, configs, school] = await Promise.all([
     getWebsiteConfigById({
       id: configId,
@@ -72,7 +86,10 @@ export default async function WebsiteConfigEditorPage({
   }
 
   const template = getTemplateById(templateRegistry, configRecord.templateId);
-  const templates = Array.from(templateRegistry.values()).map((candidate) => ({
+  const templates = filterTemplatesForContext(
+    Array.from(templateRegistry.values()),
+    context,
+  ).map((candidate) => ({
     id: candidate.manifest.id,
     name: candidate.manifest.name,
     description: candidate.manifest.description,
@@ -95,7 +112,7 @@ export default async function WebsiteConfigEditorPage({
   const tenant = {
     schoolProfileId: school.id,
     schoolName: school.name,
-    institutionType: "K12" as const,
+    institutionType: context.institutionType,
     subdomain: school.subDomain,
     customDomain: null,
   };
@@ -118,8 +135,7 @@ export default async function WebsiteConfigEditorPage({
     process.env.NODE_ENV === "production" && process.env.APP_ROOT_DOMAIN
       ? `https://${school.subDomain ?? "school"}.${process.env.APP_ROOT_DOMAIN}`
       : `http://${school.subDomain ?? "school"}.${
-          process.env.SCHOOL_SITE_ROOT_DOMAIN ??
-          "school-clerk-site.localhost:1355"
+          process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "school-clerk-site.localhost"
         }`;
   const previewToken = createWebsitePreviewToken({
     configId: config.id,
@@ -183,6 +199,21 @@ export default async function WebsiteConfigEditorPage({
             <form action={publishWebsiteDraftAction}>
               <input type="hidden" name="configId" value={config.id} />
               <Button type="submit">Publish Live</Button>
+            </form>
+          ) : (
+            <form action={duplicateWebsiteDraftAction}>
+              <input type="hidden" name="configId" value={config.id} />
+              <Button type="submit" variant="outline">
+                Duplicate to Edit
+              </Button>
+            </form>
+          )}
+          {config.status !== "published" ? (
+            <form action={archiveWebsiteDraftAction}>
+              <input type="hidden" name="configId" value={config.id} />
+              <Button type="submit" variant="outline">
+                Archive Draft
+              </Button>
             </form>
           ) : null}
         </div>

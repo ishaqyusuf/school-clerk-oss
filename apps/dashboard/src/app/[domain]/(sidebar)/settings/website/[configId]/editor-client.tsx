@@ -498,6 +498,7 @@ function EditorForm({
   const selectedTemplateOption = templates.find(
     (candidate) => candidate.id === config.templateId,
   );
+  const isPublished = config.status === "published";
   const pageSections = currentTemplatePage?.sections ?? [];
   const pageSectionOrder = currentTemplatePage
     ? (config.sectionOrder?.[currentTemplatePage.key] ??
@@ -547,6 +548,7 @@ function EditorForm({
                         variant="ghost"
                         className="size-8"
                         aria-label="Save draft"
+                        disabled={isPublished}
                       >
                         <Save />
                       </Button>
@@ -1104,7 +1106,7 @@ function EditorForm({
                       Manage CMS Blocks
                     </a>
                   </Button>
-                  <Button type="submit" className="w-full">
+                  <Button type="submit" className="w-full" disabled={isPublished}>
                     <Save data-icon="inline-start" />
                     Save Draft
                   </Button>

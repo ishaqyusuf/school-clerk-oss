@@ -58,6 +58,131 @@ function classroomLabel(classroomDepartment: any) {
     .join(" ");
 }
 
+function normalizeHost(value?: string | null) {
+  return value?.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "") || "";
+}
+
+function stripDashboardHostPrefix(host: string) {
+  return host.startsWith("dashboard.") ? host.slice("dashboard.".length) : host;
+}
+
+function getSchoolSiteRootDomain() {
+  const explicitRoot = normalizeHost(
+    process.env.SCHOOL_SITE_ROOT_DOMAIN ?? process.env.APP_ROOT_DOMAIN,
+  );
+
+  if (explicitRoot) {
+    const normalizedRoot = stripDashboardHostPrefix(explicitRoot);
+    return process.env.NODE_ENV === "production" ||
+      normalizedRoot !== "school-clerk-dashboard.localhost"
+      ? normalizedRoot
+      : "school-clerk-site.localhost";
+  }
+
+  const publicHost = normalizeHost(process.env.NEXT_PUBLIC_APP_URL);
+  if (publicHost) return stripDashboardHostPrefix(publicHost);
+
+  return process.env.NODE_ENV === "production"
+    ? "school-clerk.com"
+    : "school-clerk-site.localhost";
+}
+
+function buildPublicEnrollmentUrl(subDomain?: string | null, code?: string | null) {
+  const path = code ? `/enroll/${code}` : "/enroll";
+  if (!subDomain) return path;
+
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  return `${protocol}://${subDomain}.${getSchoolSiteRootDomain()}${path}`;
+}
+
+function calculateAgeMonths(dateOfBirth: Date, cutoffDate: Date) {
+  let months =
+    (cutoffDate.getFullYear() - dateOfBirth.getFullYear()) * 12 +
+    (cutoffDate.getMonth() - dateOfBirth.getMonth());
+
+  if (cutoffDate.getDate() < dateOfBirth.getDate()) {
+    months -= 1;
+  }
+
+  return months;
+}
+
+function formatAgeMonths(months: number) {
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+
+  if (years && remainingMonths) {
+    return `${years} year${years === 1 ? "" : "s"} ${remainingMonths} month${
+      remainingMonths === 1 ? "" : "s"
+    }`;
+  }
+
+  if (years) return `${years} year${years === 1 ? "" : "s"}`;
+  return `${months} month${months === 1 ? "" : "s"}`;
+}
+
+function getApplicableDocumentRequirements(
+  requirements: any[],
+  classRoomDepartmentId: string,
+) {
+  return requirements.filter(
+    (requirement) =>
+      !requirement.classRoomDepartmentId ||
+      requirement.classRoomDepartmentId === classRoomDepartmentId,
+  );
+}
+
+function assertClassAgeRequirement(application: any) {
+  const classroomConfig = application.enrollmentLink.classrooms.find(
+    (row: any) => row.classRoomDepartmentId === application.classRoomDepartmentId,
+  );
+
+  if (
+    !classroomConfig?.minimumAgeMonths &&
+    !classroomConfig?.maximumAgeMonths
+  ) {
+    return;
+  }
+
+  if (!application.studentDob) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Student date of birth is required for this classroom.",
+    });
+  }
+
+  const cutoffDate =
+    classroomConfig.ageCutoffDate ??
+    application.enrollmentLink.opensAt ??
+    application.createdAt ??
+    new Date();
+  const ageMonths = calculateAgeMonths(application.studentDob, cutoffDate);
+
+  if (
+    classroomConfig.minimumAgeMonths != null &&
+    ageMonths < classroomConfig.minimumAgeMonths
+  ) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Student must be at least ${formatAgeMonths(
+        classroomConfig.minimumAgeMonths,
+      )} for this classroom.`,
+    });
+  }
+
+  if (
+    classroomConfig.maximumAgeMonths != null &&
+    ageMonths > classroomConfig.maximumAgeMonths
+  ) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Student must not be older than ${formatAgeMonths(
+        classroomConfig.maximumAgeMonths,
+      )} for this classroom.`,
+    });
+  }
+}
+
 async function assertClassroomsBelongToTenant(
   ctx: TRPCContext,
   schoolProfileId: string,
@@ -91,6 +216,7 @@ export async function listEnrollmentLinks(ctx: TRPCContext) {
   const links = await db.enrollmentLink.findMany({
     where: { schoolProfileId, deletedAt: null },
     include: {
+      schoolProfile: { select: { subDomain: true } },
       classrooms: {
         where: { deletedAt: null },
         include: {
@@ -99,7 +225,10 @@ export async function listEnrollmentLinks(ctx: TRPCContext) {
           },
         },
       },
-      documentRequirements: { where: { deletedAt: null } },
+      documentRequirements: {
+        where: { deletedAt: null },
+        orderBy: [{ sortOrder: "asc" }],
+      },
       applications: {
         where: { deletedAt: null },
         select: { id: true, status: true },
@@ -112,7 +241,9 @@ export async function listEnrollmentLinks(ctx: TRPCContext) {
     id: link.id,
     title: link.title,
     code: link.code,
+    publicUrl: buildPublicEnrollmentUrl(link.schoolProfile?.subDomain, link.code),
     status: link.status,
+    showOnWebsite: link.showOnWebsite,
     capacityMode: link.capacityMode,
     totalCapacity: link.totalCapacity,
     instructions: link.instructions,
@@ -122,6 +253,10 @@ export async function listEnrollmentLinks(ctx: TRPCContext) {
       id: row.classRoomDepartmentId,
       name: classroomLabel(row.classRoomDepartment),
       capacity: row.capacity,
+      minimumAgeMonths: row.minimumAgeMonths,
+      maximumAgeMonths: row.maximumAgeMonths,
+      ageCutoffDate: row.ageCutoffDate,
+      requirementNotes: row.requirementNotes,
     })),
     documentRequirements: link.documentRequirements.map((row: any) => ({
       id: row.id,
@@ -129,6 +264,7 @@ export async function listEnrollmentLinks(ctx: TRPCContext) {
       description: row.description,
       uploadRequired: row.uploadRequired,
       sortOrder: row.sortOrder,
+      classRoomDepartmentId: row.classRoomDepartmentId,
     })),
     counts: {
       applications: link.applications.length,
@@ -149,6 +285,20 @@ export async function createOrUpdateEnrollmentLink(
   const classroomIds = input.classrooms.map((classroom) => classroom.classRoomDepartmentId);
 
   await assertClassroomsBelongToTenant(ctx, schoolProfileId, classroomIds);
+
+  const selectedClassroomIds = new Set(classroomIds);
+  const invalidRequirementTarget = input.documentRequirements.find(
+    (requirement) =>
+      requirement.classRoomDepartmentId &&
+      !selectedClassroomIds.has(requirement.classRoomDepartmentId),
+  );
+
+  if (invalidRequirementTarget) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Requirement class target must be part of the selected classrooms.",
+    });
+  }
 
   if (input.id) {
     const existing = await db.enrollmentLink.findFirst({
@@ -172,6 +322,7 @@ export async function createOrUpdateEnrollmentLink(
           data: {
             title: input.title,
             status: input.status,
+            showOnWebsite: input.showOnWebsite,
             capacityMode: input.capacityMode,
             totalCapacity: input.totalCapacity ?? null,
             instructions: input.instructions ?? null,
@@ -185,6 +336,7 @@ export async function createOrUpdateEnrollmentLink(
             title: input.title,
             code: publicCode(),
             status: input.status,
+            showOnWebsite: input.showOnWebsite,
             capacityMode: input.capacityMode,
             totalCapacity: input.totalCapacity ?? null,
             instructions: input.instructions ?? null,
@@ -205,6 +357,10 @@ export async function createOrUpdateEnrollmentLink(
           enrollmentLinkId: link.id,
           classRoomDepartmentId: classroom.classRoomDepartmentId,
           capacity: classroom.capacity ?? null,
+          minimumAgeMonths: classroom.minimumAgeMonths ?? null,
+          maximumAgeMonths: classroom.maximumAgeMonths ?? null,
+          ageCutoffDate: classroom.ageCutoffDate ?? null,
+          requirementNotes: classroom.requirementNotes ?? null,
         },
       });
     }
@@ -222,6 +378,7 @@ export async function createOrUpdateEnrollmentLink(
           description: requirement.description ?? null,
           uploadRequired: requirement.uploadRequired,
           sortOrder: requirement.sortOrder,
+          classRoomDepartmentId: requirement.classRoomDepartmentId ?? null,
         },
       });
     }
@@ -346,7 +503,11 @@ function assertRequiredDocuments(application: any) {
       .filter((document: any) => document.requirementId)
       .map((document: any) => document.requirementId),
   );
-  const missing = application.enrollmentLink.documentRequirements.filter(
+  const applicableRequirements = getApplicableDocumentRequirements(
+    application.enrollmentLink.documentRequirements,
+    application.classRoomDepartmentId,
+  );
+  const missing = applicableRequirements.filter(
     (requirement: any) =>
       requirement.uploadRequired && !uploadedRequirementIds.has(requirement.id),
   );
@@ -425,6 +586,7 @@ export async function approveEnrollmentApplication(
       });
     }
 
+    assertClassAgeRequirement(application);
     assertRequiredDocuments(application);
     await assertCapacity(txDb, application);
 

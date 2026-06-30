@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
 
-import {
-  setupEnrollmentParentPassword,
-  submitEnrollmentApplication,
-} from "@/lib/enrollment/actions";
+import { setupEnrollmentParentPassword } from "@/lib/enrollment/actions";
+import { EnrollmentFormClient } from "./enrollment-form-client";
 import { prisma } from "@school-clerk/db";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
@@ -15,7 +13,6 @@ import {
   CardTitle,
 } from "@school-clerk/ui/card";
 import { Input } from "@school-clerk/ui/input";
-import { Textarea } from "@school-clerk/ui/textarea";
 
 const ACTIVE_APPLICATION_STATUSES = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"];
 
@@ -141,6 +138,35 @@ export default async function EnrollmentPage({
     link.capacityMode === "TOTAL" &&
     link.totalCapacity &&
     link.totalCount >= link.totalCapacity;
+  const classroomOptions = link.classrooms.map((classroom: any) => {
+    const capacity =
+      link.capacityMode === "PER_CLASSROOM"
+        ? classroom.capacity
+        : link.totalCapacity;
+    const used =
+      link.capacityMode === "PER_CLASSROOM" ? classroom.used : link.totalCount;
+
+    return {
+      id: classroom.id,
+      classRoomDepartmentId: classroom.classRoomDepartmentId,
+      name: classroom.name,
+      capacity: capacity ?? null,
+      used,
+      isFull: capacity ? used >= capacity : false,
+      minimumAgeMonths: classroom.minimumAgeMonths,
+      maximumAgeMonths: classroom.maximumAgeMonths,
+      ageCutoffDate: classroom.ageCutoffDate?.toISOString() ?? null,
+      requirementNotes: classroom.requirementNotes,
+    };
+  });
+  const documentRequirements = link.documentRequirements.map((requirement: any) => ({
+    id: requirement.id,
+    label: requirement.label,
+    description: requirement.description,
+    uploadRequired: requirement.uploadRequired,
+    sortOrder: requirement.sortOrder,
+    classRoomDepartmentId: requirement.classRoomDepartmentId,
+  }));
 
   if (submission) {
     return (
@@ -271,133 +297,11 @@ export default async function EnrollmentPage({
                 This enrollment link is not accepting applications right now.
               </div>
             ) : (
-              <form
-                action={submitEnrollmentApplication.bind(null, code)}
-                className="space-y-5"
-              >
-                <label className="block space-y-1 text-sm">
-                  <span>Classroom</span>
-                  <select
-                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                    name="classRoomDepartmentId"
-                    required
-                  >
-                    <option value="">Select classroom</option>
-                    {link.classrooms.map((classroom: any) => {
-                      const capacity =
-                        link.capacityMode === "PER_CLASSROOM"
-                          ? classroom.capacity
-                          : link.totalCapacity;
-                      const used =
-                        link.capacityMode === "PER_CLASSROOM"
-                          ? classroom.used
-                          : link.totalCount;
-                      const isFull = capacity ? used >= capacity : false;
-
-                      return (
-                        <option
-                          disabled={isFull}
-                          key={classroom.id}
-                          value={classroom.classRoomDepartmentId}
-                        >
-                          {classroom.name}
-                          {isFull ? " (full)" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </label>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block space-y-1 text-sm">
-                    <span>Student first name</span>
-                    <Input name="studentFirstName" required />
-                  </label>
-                  <label className="block space-y-1 text-sm">
-                    <span>Student surname</span>
-                    <Input name="studentSurname" required />
-                  </label>
-                  <label className="block space-y-1 text-sm">
-                    <span>Other name</span>
-                    <Input name="studentOtherName" />
-                  </label>
-                  <label className="block space-y-1 text-sm">
-                    <span>Date of birth</span>
-                    <Input name="studentDob" required type="date" />
-                  </label>
-                  <label className="block space-y-1 text-sm">
-                    <span>Gender</span>
-                    <select
-                      className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                      name="studentGender"
-                      required
-                    >
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                    </select>
-                  </label>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block space-y-1 text-sm sm:col-span-2">
-                    <span>Primary parent name</span>
-                    <Input name="parentName" required />
-                  </label>
-                  <label className="block space-y-1 text-sm">
-                    <span>Relation</span>
-                    <Input name="parentRelation" placeholder="Mother, Father..." />
-                  </label>
-                  <label className="block space-y-1 text-sm">
-                    <span>Email</span>
-                    <Input name="parentEmail" type="email" />
-                  </label>
-                  <label className="block space-y-1 text-sm">
-                    <span>Primary phone</span>
-                    <Input name="parentPhone" required />
-                  </label>
-                  <label className="block space-y-1 text-sm">
-                    <span>Alternative phone</span>
-                    <Input name="parentPhone2" />
-                  </label>
-                </div>
-
-                {link.documentRequirements.length ? (
-                  <div className="space-y-3">
-                    <h2 className="text-sm font-medium">Required documents</h2>
-                    {link.documentRequirements.map((requirement: any) => (
-                      <label
-                        className="block space-y-1 rounded-md border border-slate-200 p-3 text-sm"
-                        key={requirement.id}
-                      >
-                        <span>
-                          {requirement.label}
-                          {requirement.uploadRequired ? " *" : ""}
-                        </span>
-                        {requirement.description ? (
-                          <span className="block text-xs text-slate-500">
-                            {requirement.description}
-                          </span>
-                        ) : null}
-                        <Input
-                          accept=".pdf,image/png,image/jpeg"
-                          name={`document:${requirement.id}`}
-                          required={requirement.uploadRequired}
-                          type="file"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                ) : null}
-
-                <label className="block space-y-1 text-sm">
-                  <span>Other information</span>
-                  <Textarea name="additionalNotes" rows={4} />
-                </label>
-
-                <Button className="w-full" type="submit">
-                  Submit enrollment application
-                </Button>
-              </form>
+              <EnrollmentFormClient
+                code={code}
+                classrooms={classroomOptions}
+                documentRequirements={documentRequirements}
+              />
             )}
           </CardContent>
         </Card>

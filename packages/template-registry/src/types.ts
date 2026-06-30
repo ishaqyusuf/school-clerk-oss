@@ -239,8 +239,20 @@ export type WebsiteCollectionItem = {
   ctaLabel?: string;
 };
 
+export type WebsiteAdmissionLink = {
+  id: string;
+  title: string;
+  href: string;
+  classroomCount: number;
+  classroomLabels: string[];
+  opensAt?: string | null;
+  closesAt?: string | null;
+  instructions?: string | null;
+};
+
 export type WebsiteTemplateContentData = {
   announcements: WebsiteCollectionItem[];
+  admissionLinks: WebsiteAdmissionLink[];
   blogPosts: WebsiteCollectionItem[];
   events: WebsiteCollectionItem[];
   resources: WebsiteCollectionItem[];

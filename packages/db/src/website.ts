@@ -77,6 +77,7 @@ export async function resolveSchoolProfileByHost(host: string) {
       id: true,
       name: true,
       subDomain: true,
+      institutionType: true,
       domains: {
         select: {
           subdomain: true,
@@ -95,6 +96,11 @@ export async function getPublishedWebsiteConfigBySchoolProfileId(
   return prisma.websitePublishedConfig.findFirst({
     where: {
       schoolProfileId,
+      deletedAt: null,
+      websiteConfig: {
+        deletedAt: null,
+        status: "PUBLISHED",
+      },
     },
     select: {
       publishedAt: true,
@@ -125,6 +131,10 @@ export async function listWebsiteConfigsBySchoolProfileId(
   return prisma.websiteTemplateConfig.findMany({
     where: {
       schoolProfileId,
+      deletedAt: null,
+      status: {
+        not: "ARCHIVED",
+      },
     },
     orderBy: [{ updatedAt: "desc" }],
     select: {
@@ -153,6 +163,7 @@ export async function getWebsiteConfigById(input: {
     where: {
       id: input.id,
       schoolProfileId: input.schoolProfileId,
+      deletedAt: null,
     },
     select: {
       id: true,
@@ -176,6 +187,7 @@ export async function getWebsiteConfigPreviewById(id: string) {
   return prisma.websiteTemplateConfig.findFirst({
     where: {
       id,
+      deletedAt: null,
       status: {
         not: "ARCHIVED",
       },
@@ -199,6 +211,7 @@ export async function getWebsiteConfigPreviewById(id: string) {
           id: true,
           name: true,
           subDomain: true,
+          institutionType: true,
           domains: {
             select: {
               subdomain: true,
@@ -219,6 +232,7 @@ export async function listWebsiteMediaAssetsBySchoolProfileId(
   return websiteMediaClient.websiteMediaAsset.findMany({
     where: {
       schoolProfileId,
+      deletedAt: null,
     },
     orderBy: [{ createdAt: "desc" }],
     select: {
@@ -309,20 +323,32 @@ export async function updateWebsiteTemplateDraft(input: {
     where: {
       id: input.id,
       schoolProfileId: input.schoolProfileId,
+      deletedAt: null,
     },
     select: {
       analyticsJson: true,
+      publishedAt: true,
+      status: true,
     },
   });
+
+  if (!existing) {
+    throw new Error("Website template config not found.");
+  }
+
+  if (existing.status === "ARCHIVED") {
+    throw new Error("Archived website configs cannot be edited.");
+  }
+
+  if (existing.status === "PUBLISHED" || existing.publishedAt) {
+    throw new Error(
+      "Published website configs are immutable. Duplicate the live config before editing.",
+    );
+  }
 
   return prisma.websiteTemplateConfig.update({
     where: {
       id: input.id,
-      schoolProfileId: input.schoolProfileId,
-      deletedAt: null,
-      status: {
-        not: "ARCHIVED",
-      },
     },
     data: {
       ...(input.name ? { name: input.name } : {}),
@@ -353,11 +379,28 @@ export async function archiveWebsiteTemplateDraft(input: {
   schoolProfileId: string;
   updatedByUserId?: string;
 }) {
-  return prisma.websiteTemplateConfig.update({
+  const existing = await prisma.websiteTemplateConfig.findFirst({
     where: {
       id: input.id,
       schoolProfileId: input.schoolProfileId,
       deletedAt: null,
+    },
+    select: {
+      status: true,
+    },
+  });
+
+  if (!existing) {
+    throw new Error("Website template config not found.");
+  }
+
+  if (existing.status === "PUBLISHED") {
+    throw new Error("Published website configs cannot be archived directly.");
+  }
+
+  return prisma.websiteTemplateConfig.update({
+    where: {
+      id: input.id,
     },
     data: {
       status: "ARCHIVED",
@@ -375,6 +418,10 @@ export async function duplicateWebsiteTemplateDraft(input: {
     where: {
       id: input.id,
       schoolProfileId: input.schoolProfileId,
+      deletedAt: null,
+      status: {
+        not: "ARCHIVED",
+      },
     },
   });
 
@@ -410,6 +457,10 @@ export async function publishWebsiteTemplateConfig(input: {
       where: {
         id: input.id,
         schoolProfileId: input.schoolProfileId,
+        deletedAt: null,
+        status: {
+          not: "ARCHIVED",
+        },
       },
     });
 
@@ -417,16 +468,25 @@ export async function publishWebsiteTemplateConfig(input: {
       throw new Error("Website template config not found.");
     }
 
+    if (existing.publishedAt && existing.status !== "PUBLISHED") {
+      throw new Error(
+        "Previously published website configs are immutable. Duplicate the live config before publishing changes.",
+      );
+    }
+
+    const publishedAt = new Date();
+
     await tx.websiteTemplateConfig.updateMany({
       where: {
         schoolProfileId: input.schoolProfileId,
         status: "PUBLISHED",
+        deletedAt: null,
         id: {
           not: input.id,
         },
       },
       data: {
-        status: "DRAFT",
+        status: "ARCHIVED",
       },
     });
 
@@ -436,11 +496,19 @@ export async function publishWebsiteTemplateConfig(input: {
       },
       data: {
         status: "PUBLISHED",
-        publishedAt: new Date(),
+        publishedAt,
         analyticsJson: appendAuditEntry(existing.analyticsJson, {
           type: "publish",
-          at: new Date().toISOString(),
+          at: publishedAt.toISOString(),
           userId: input.publishedByUserId ?? null,
+          snapshot: {
+            templateId: existing.templateId,
+            templateVersion: existing.templateVersion,
+            contentJson: existing.contentJson,
+            sectionJson: existing.sectionJson,
+            themeJson: existing.themeJson,
+            seoJson: existing.seoJson,
+          },
         }),
         updatedByUserId: input.publishedByUserId,
       },
@@ -456,7 +524,7 @@ export async function publishWebsiteTemplateConfig(input: {
       },
       update: {
         websiteConfigId: input.id,
-        publishedAt: new Date(),
+        publishedAt,
       },
     });
 

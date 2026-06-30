@@ -94,6 +94,19 @@ export function createMockWebsiteContentData(
         ctaLabel: "Learn More",
       },
     ],
+    admissionLinks: [
+      {
+        id: "admission-link-1",
+        title: `${tenant.schoolName} Admissions`,
+        href: "/enroll/demo-admission",
+        classroomCount: 4,
+        classroomLabels: ["Nursery", "Primary 1", "Primary 2", "JSS 1"],
+        opensAt: "2026-06-01",
+        closesAt: "2026-09-15",
+        instructions:
+          "Choose a class, review the requirements, and submit the admission form online.",
+      },
+    ],
     blogPosts: [
       {
         id: "blog-1",
@@ -151,8 +164,17 @@ export function createMockWebsiteContentData(
 export function createWebsiteContentDataFromConfig(
   tenant: WebsiteTenantProfile,
   config?: WebsiteTemplateConfiguration | null,
+  options: { includeFallback?: boolean } = {},
 ): WebsiteTemplateContentData {
   const fallback = createMockWebsiteContentData(tenant);
+  const empty: WebsiteTemplateContentData = {
+    announcements: [],
+    admissionLinks: [],
+    blogPosts: [],
+    events: [],
+    resources: [],
+  };
+  const fallbackData = options.includeFallback === false ? empty : fallback;
   const content = config?.content ?? {};
   const announcements = toCollectionItems(
     getObjectList(content["cms.announcements"]),
@@ -169,12 +191,13 @@ export function createWebsiteContentDataFromConfig(
   );
 
   return {
-    ...fallback,
+    ...fallbackData,
     announcements: announcements.length
       ? announcements
-      : fallback.announcements,
-    blogPosts: blogPosts.length ? blogPosts : fallback.blogPosts,
-    events: events.length ? events : fallback.events,
-    resources: resources.length ? resources : fallback.resources,
+      : fallbackData.announcements,
+    admissionLinks: fallbackData.admissionLinks,
+    blogPosts: blogPosts.length ? blogPosts : fallbackData.blogPosts,
+    events: events.length ? events : fallbackData.events,
+    resources: resources.length ? resources : fallbackData.resources,
   };
 }

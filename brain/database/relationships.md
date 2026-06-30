@@ -16,7 +16,7 @@ Describes entity relationships and cardinality constraints.
 - `SaasAccount` 1:N `User`
 - `SaasAccount` 1:N `TenantDomain` (direct denormalized link — enables account-level domain queries without joining through SchoolProfile)
 - `SchoolProfile` 1:N `TenantDomain`
-- `SchoolProfile` 1:N `WebsiteTemplateConfig` (planned public website draft/archive history)
+- `SchoolProfile` 1:N `WebsiteTemplateConfig` (planned public website draft/archive/published-row history)
 - `SchoolProfile` 1:1 `WebsitePublishedConfig` (planned pointer to active live website)
 - `TenantDomain` stores `subdomain` (slug) + optional `customDomain` (full domain)
 - `WebsitePublishedConfig` 1:1 `WebsiteTemplateConfig` (planned active published configuration)
@@ -30,6 +30,8 @@ Describes entity relationships and cardinality constraints.
 - `SchoolProfile` 1:N `EnrollmentLink`
 - `EnrollmentLink` 1:N `EnrollmentLinkClassroom`, `EnrollmentLinkDocumentRequirement`, and `EnrollmentApplication`
 - `EnrollmentLinkClassroom` N:1 `ClassRoomDepartment`; allowed classrooms are validated against the link tenant/session before submission or approval
+- `EnrollmentLinkClassroom` owns per-link selected-class admission rules such as age range, age cutoff date, capacity, and requirement notes.
+- `EnrollmentLinkDocumentRequirement` optionally N:1 `ClassRoomDepartment`; null class target means the document requirement applies to every classroom on that link.
 - `EnrollmentApplication` 1:N `EnrollmentApplicationParent` and `EnrollmentApplicationDocument`
 - `EnrollmentApplication.acceptedStudentId` and `acceptedTermFormId` record the student/term records created or linked after approval
 - `StudentTermForm` 1:N `StudentAttendance`, `StudentFee`, `StudentPayment`, `StudentAssessmentRecord`
@@ -50,10 +52,13 @@ Describes entity relationships and cardinality constraints.
 - Most domain entities must be tenant-scoped through `schoolProfileId` or session/school ancestry.
 - Cross-tenant references should be prohibited at service/repository level.
 - Planned website publish invariant: a tenant can own many website configs, but exactly zero or one config may be live at a time through `WebsitePublishedConfig`.
-- Planned website publish transaction: publishing must update config status, published timestamp, and published pointer atomically.
+- Planned website publish transaction: publishing must update config status, published timestamp, and published pointer atomically. Superseded live rows are archived rather than reverted to editable drafts.
+- Planned website immutability invariant: once `WebsiteTemplateConfig.publishedAt` is set, content/theme/section/SEO edits are blocked; admins must duplicate the config into a new draft before changing it.
 - Planned website ownership invariant: `WebsitePublishedConfig.websiteConfigId` must always reference a `WebsiteTemplateConfig` owned by the same `schoolProfileId`.
 - Enrollment link invariant: public submissions must resolve the link by `code`, require `ACTIVE` status plus valid open/close dates, and only allow classrooms listed on `EnrollmentLinkClassroom`.
-- Enrollment approval invariant: approval must re-check tenant, active session/term, classroom capacity, document requirements, and current student/guardian state before creating or linking canonical student records.
+- Enrollment document invariant: public submission and approval must require only global document requirements plus requirements targeted to the selected `classRoomDepartmentId`.
+- Enrollment age invariant: when `EnrollmentLinkClassroom` has age limits, public submission and approval must calculate age from `studentDob` against `ageCutoffDate`, then link opening date, then current date.
+- Enrollment approval invariant: approval must re-check tenant, active session/term, classroom capacity, age rules, document requirements, and current student/guardian state before creating or linking canonical student records.
 - Legacy models (`school`, `guardian`, `session_class`) use separate relation chains and need consolidation rules.
 - TODO: add DB-level indexes/constraints audit for tenant scoping fields.
 

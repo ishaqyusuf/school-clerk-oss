@@ -9,7 +9,7 @@ import {
 } from ".";
 
 const config: TenantUrlConfig = {
-  appRootDomain: "school-clerk-dashboard.localhost:1355",
+  appRootDomain: "school-clerk-dashboard.localhost",
   pathStyleHosts: ["localhost", "127.0.0.1"],
   reservedPaths: ["sign-up"],
 };
@@ -23,7 +23,7 @@ describe("resolveTenantUrlContext", () => {
   test("resolves portless subdomain style", () => {
     const ctx = resolveTenantUrlContext(
       {
-        host: "daarulhadith.school-clerk-dashboard.localhost:1355",
+        host: "daarulhadith.school-clerk-dashboard.localhost",
         pathname: "/finance",
         protocol: "http",
       },
@@ -71,7 +71,7 @@ describe("resolveTenantUrlContext", () => {
   test("resolves subdomain style when path style is disabled", () => {
     const ctx = resolveTenantUrlContext(
       {
-        host: "daarulhadith.school-clerk-dashboard.localhost:1355",
+        host: "daarulhadith.school-clerk-dashboard.localhost",
         pathname: "/finance",
       },
       {
@@ -144,7 +144,7 @@ describe("buildTenantHref", () => {
   test("keeps product links root-relative for subdomain style", () => {
     const ctx = resolveTenantUrlContext(
       {
-        host: "daarulhadith.school-clerk-dashboard.localhost:1355",
+        host: "daarulhadith.school-clerk-dashboard.localhost",
         pathname: "/dashboard",
       },
       config,
@@ -193,11 +193,7 @@ describe("buildTenantHref", () => {
     );
 
     expect(
-      buildTenantHref(
-        ctx,
-        "/app/daarulhadith/finance",
-        prefixedAppConfig,
-      ),
+      buildTenantHref(ctx, "/app/daarulhadith/finance", prefixedAppConfig),
     ).toBe("/daarulhadith/finance");
   });
 
@@ -242,7 +238,7 @@ describe("buildTenantAppUrl", () => {
         tenantSlug: "daarulhadith",
         path: "/login",
         currentHost: "localhost:3000",
-        targetRootDomain: "school-clerk-dashboard.localhost:1355",
+        targetRootDomain: "school-clerk-dashboard.localhost",
         targetPort: 2200,
       }),
     ).toBe("http://localhost:2200/daarulhadith/login");
@@ -254,7 +250,7 @@ describe("buildTenantAppUrl", () => {
         tenantSlug: "daarulhadith",
         path: "/login",
         currentHost: "10.152.136.73:3000",
-        targetRootDomain: "school-clerk-dashboard.localhost:1355",
+        targetRootDomain: "school-clerk-dashboard.localhost",
         targetPort: 2200,
       }),
     ).toBe("http://10.152.136.73:2200/daarulhadith/login");
@@ -265,12 +261,12 @@ describe("buildTenantAppUrl", () => {
       buildTenantAppUrl({
         tenantSlug: "daarulhadith",
         path: "/login",
-        currentHost: "school-clerk-web.localhost:1355",
-        targetRootDomain: "school-clerk-dashboard.localhost:1355",
+        currentHost: "school-clerk-web.localhost",
+        currentProtocol: "https",
+        targetRootDomain: "school-clerk-dashboard.localhost",
+        targetPort: 2200,
       }),
-    ).toBe(
-      "http://daarulhadith.school-clerk-dashboard.localhost:1355/login",
-    );
+    ).toBe("http://daarulhadith.school-clerk-dashboard.localhost/login");
   });
 
   test("builds subdomain target URLs when path-style is disabled", () => {
@@ -279,13 +275,11 @@ describe("buildTenantAppUrl", () => {
         tenantSlug: "daarulhadith",
         path: "/login",
         currentHost: "localhost:3000",
-        targetRootDomain: "school-clerk-dashboard.localhost:1355",
+        targetRootDomain: "school-clerk-dashboard.localhost",
         targetPort: 2200,
         enablePathStyleHosts: false,
       }),
-    ).toBe(
-      "http://daarulhadith.school-clerk-dashboard.localhost:1355/login",
-    );
+    ).toBe("http://daarulhadith.school-clerk-dashboard.localhost/login");
   });
 
   test("builds clean root URLs for public-site shortcuts", () => {
@@ -303,7 +297,7 @@ describe("buildTenantAppUrl", () => {
       buildTenantAppUrl({
         tenantSlug: "daarulhadith",
         path: "/",
-        currentHost: "school-clerk-web.localhost:1355",
+        currentHost: "school-clerk-web.localhost",
         targetRootDomain: "localhost:3001",
       }),
     ).toBe("http://daarulhadith.localhost:3001");

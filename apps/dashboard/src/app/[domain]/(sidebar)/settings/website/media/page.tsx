@@ -15,6 +15,7 @@ import {
 import { Input } from "@school-clerk/ui/input";
 import { Label } from "@school-clerk/ui/label";
 import { listWebsiteMediaAssetsBySchoolProfileId } from "@school-clerk/db";
+import { getWebsiteManagementContext } from "@/lib/website/access";
 
 export default async function WebsiteMediaPage() {
   const cookie = await getAuthCookie();
@@ -25,6 +26,19 @@ export default async function WebsiteMediaPage() {
         <PageTitle>Website Media</PageTitle>
         <p className="mt-2 text-sm text-muted-foreground">
           Tenant context not found. Refresh the page and try again.
+        </p>
+      </div>
+    );
+  }
+
+  const context = await getWebsiteManagementContext(cookie);
+
+  if (!context || !["ADMIN", "Admin"].includes(context.role ?? "")) {
+    return (
+      <div className="py-8">
+        <PageTitle>Website Media</PageTitle>
+        <p className="mt-2 text-sm text-muted-foreground">
+          You do not have permission to manage website media.
         </p>
       </div>
     );
@@ -57,7 +71,12 @@ export default async function WebsiteMediaPage() {
             >
               <div className="grid gap-2">
                 <Label htmlFor="file">Image File</Label>
-                <Input id="file" name="file" type="file" accept="image/*" />
+                <Input
+                  id="file"
+                  name="file"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="upload-name">Name</Label>
@@ -87,27 +106,27 @@ export default async function WebsiteMediaPage() {
               </div>
 
               <form action={createWebsiteMediaAssetAction} className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Name</Label>
-                <Input id="name" name="name" placeholder="Campus Hero" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="sourceUrl">Source URL</Label>
-                <Input
-                  id="sourceUrl"
-                  name="sourceUrl"
-                  placeholder="https://..."
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="altText">Alt Text</Label>
-                <Input
-                  id="altText"
-                  name="altText"
-                  placeholder="Students in the school courtyard"
-                />
-              </div>
-              <Button type="submit">Add Asset</Button>
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input id="name" name="name" placeholder="Campus Hero" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="sourceUrl">Source URL</Label>
+                  <Input
+                    id="sourceUrl"
+                    name="sourceUrl"
+                    placeholder="https://..."
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="altText">Alt Text</Label>
+                  <Input
+                    id="altText"
+                    name="altText"
+                    placeholder="Students in the school courtyard"
+                  />
+                </div>
+                <Button type="submit">Add Asset</Button>
               </form>
             </div>
           </CardContent>

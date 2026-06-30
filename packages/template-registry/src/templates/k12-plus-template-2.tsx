@@ -40,6 +40,8 @@ export const k12PlusTemplate2 = defineWebsiteTemplate({
     name: "Northfield",
     description:
       "A warmer, family-facing K-12 starter with softer tones, storytelling energy, and the same editor-compatible page system.",
+    thumbnail: "/templates/k12-plus-template-2/thumbnail.svg",
+    previewImages: ["/templates/k12-plus-template-2/thumbnail.svg"],
     tags: ["family-first", "warm", "storytelling"],
     features: [
       ...k12PlusTemplate1.manifest.features,
@@ -48,6 +50,10 @@ export const k12PlusTemplate2 = defineWebsiteTemplate({
       "family-facing visual skin",
     ],
     supportedPlans: ["PLUS", "PRO", "ENTERPRISE"],
+    themeSchema: {
+      ...k12PlusTemplate1.manifest.themeSchema,
+      stylePresets: ["sunlit-family", "classic-academic", "bright-campus"],
+    },
     defaultThemeConfig: {
       primaryColor: "#9a3412",
       secondaryColor: "#fff7ed",

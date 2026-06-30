@@ -31,7 +31,8 @@ Defines access control rules for each API surface.
 - Public users can only read/submit through active enrollment link codes and cannot access dashboard tRPC enrollment management routes.
 - Parent users can read only wards connected through `Guardians.userId`.
 - Parent portal finance, book, uniform, and collection summaries must be read-only in v1.
-- Enrollment approval must re-run server-side tenant, classroom, capacity, document, and application-status checks even if the dashboard UI already shows the application as approvable.
+- Enrollment approval must re-run server-side tenant, classroom, capacity, selected-class age, applicable document, and application-status checks even if the dashboard UI already shows the application as approvable.
+- Public admission submissions must enforce selected-class age rules and only require global documents plus documents targeted to the selected classroom.
 
 ## Security Rules
 - Role checks happen server-side.
@@ -43,7 +44,7 @@ Defines access control rules for each API surface.
 - Better Auth trusted origins are resolved per request and include the exact incoming origin for tenant subdomains in development.
 - Dashboard login stores tenant-scoped cookie state with school, session, and term identifiers when available.
 - Tenant auth cookie reset must tolerate tenants with no school record, no academic sessions, or no terms yet; missing values should not crash login.
-- Dashboard host parsing treats `tenant.localhost[:port]`, `tenant.school-clerk-dashboard.localhost:1355`, `dashboard.{tenant}.school-clerk.com`, production tenant subdomains, and verified custom domains as equivalent inputs for tenant resolution.
+- Dashboard host parsing treats `tenant.localhost[:port]`, `tenant.school-clerk-dashboard.localhost`, `dashboard.{tenant}.school-clerk.com`, production tenant subdomains, and verified custom domains as equivalent inputs for tenant resolution.
 - New school owner signup creates a 24-hour email verification token and sends a Resend verification email. The public `/verify-email` tenant route can mark `User.emailVerified = true` without an existing session because possession of the random token is the authorization check.
 - Public school-site login and parent enrollment reset links must target the shared dashboard auth system at `dashboard.{tenant}.school-clerk.com` in production.
 - Dashboard signout uses tenant-aware URLs in development so path-style LAN sessions such as `10.x.x.x:2200/<tenant>/...` sign out through `/<tenant>/signout` and return to `/<tenant>/login`.
@@ -108,3 +109,10 @@ Defines access control rules for each API surface.
 ## Results and Reports Permissions
 - Blank manual classroom report sheet print (`Print Empty Sheet`) is restricted to `ADMIN` SaaS owners and `Admin` staff admins.
 - Filled result sheet printing/exporting remains available to all authorized academic/report users.
+
+## Website Management Permissions
+- Dashboard website management server actions require tenant cookie context plus `ADMIN` or `Admin` user role.
+- Create, save, CMS save, publish, duplicate, archive, media import, media upload, and field-AI generation all re-check permissions server-side.
+- Template create/save/publish paths also verify the template is available for the resolved school institution type and configured website plan.
+- Published website configs are immutable. Admins must duplicate the live config before editing content, theme, sections, SEO, or CMS blocks.
+- Public `apps/school-site` visitors can only render the active `WebsitePublishedConfig` pointer. Preview rendering requires a signed preview token, and public `?template=` demo rendering is disabled in production unless explicitly enabled by environment.

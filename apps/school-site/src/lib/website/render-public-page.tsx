@@ -3,16 +3,32 @@ import {
   mockPublishedWebsiteConfig,
   mockTenantProfile,
   renderTemplatePage,
-  resolvePageKey,
-  resolveRouteSlug,
+  resolveTemplateRoute,
   templateRegistry,
   type WebsiteCollectionItem,
   type WebsiteTemplateConfiguration,
   type WebsiteTemplatePageKey,
+  type WebsiteTemplateDefinition,
+  type WebsiteTenantProfile,
 } from "@school-clerk/template-registry";
+import { notFound } from "next/navigation";
 import { resolvePublicTenant } from "../tenant/resolve-public-tenant";
 import { getPublicWebsiteData } from "./get-public-website-data";
 import { resolvePreviewTenant } from "./preview";
+
+type WebsiteRenderTarget = {
+  tenant: WebsiteTenantProfile;
+  config: WebsiteTemplateConfiguration;
+  template: WebsiteTemplateDefinition;
+  source: "database" | "mock" | "preview";
+};
+
+function canUseTemplateQuery() {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.WEBSITE_ALLOW_PUBLIC_TEMPLATE_QUERY === "1"
+  );
+}
 
 async function resolveWebsiteRenderTarget(input: {
   host: string;
@@ -20,8 +36,8 @@ async function resolveWebsiteRenderTarget(input: {
   previewConfigId?: string | null;
   previewToken?: string | null;
   templateId?: string | null;
-}) {
-  if (input.templateId) {
+}): Promise<WebsiteRenderTarget | null> {
+  if (input.templateId && canUseTemplateQuery()) {
     const template = getTemplateById(templateRegistry, input.templateId);
     const config: WebsiteTemplateConfiguration = {
       ...mockPublishedWebsiteConfig,
@@ -32,6 +48,8 @@ async function resolveWebsiteRenderTarget(input: {
     return {
       tenant: mockTenantProfile,
       config,
+      template,
+      source: "mock",
     };
   }
 
@@ -42,25 +60,87 @@ async function resolveWebsiteRenderTarget(input: {
     });
 
     if (preview) {
-      return preview;
+      const template = getTemplateById(templateRegistry, preview.config.templateId);
+
+      return {
+        ...preview,
+        template,
+        source: "preview",
+      };
     }
   }
 
-  return resolvePublicTenant(input.host);
+  const publicTenant = await resolvePublicTenant(input.host);
+
+  if (!publicTenant) return null;
+
+  return {
+    ...publicTenant,
+    template: getTemplateById(templateRegistry, publicTenant.config.templateId),
+    source: publicTenant.source,
+  };
 }
 
 function getRouteCollectionItem(input: {
+  pageKey: WebsiteTemplatePageKey;
   routeSlug: string | null;
   contentData: Awaited<ReturnType<typeof getPublicWebsiteData>>;
 }): WebsiteCollectionItem | null {
   if (!input.routeSlug) return null;
 
+  if (input.pageKey === "blog-post") {
+    return (
+      input.contentData.blogPosts.find((item) => item.slug === input.routeSlug) ??
+      null
+    );
+  }
+
+  if (input.pageKey === "event-post") {
+    return (
+      input.contentData.events.find((item) => item.slug === input.routeSlug) ??
+      null
+    );
+  }
+
+  if (input.pageKey === "resource-post") {
+    return (
+      input.contentData.resources.find((item) => item.slug === input.routeSlug) ??
+      null
+    );
+  }
+
+  return null;
+}
+
+function isDetailPage(pageKey: WebsiteTemplatePageKey) {
   return (
-    input.contentData.blogPosts.find((item) => item.slug === input.routeSlug) ??
-    input.contentData.events.find((item) => item.slug === input.routeSlug) ??
-    input.contentData.resources.find((item) => item.slug === input.routeSlug) ??
-    null
+    pageKey === "blog-post" ||
+    pageKey === "event-post" ||
+    pageKey === "resource-post"
   );
+}
+
+function getPublicBaseUrl(input: {
+  tenant: WebsiteRenderTarget["tenant"];
+  protocol?: "http" | "https";
+}) {
+  if (input.tenant.customDomain) {
+    return `https://${input.tenant.customDomain}`;
+  }
+
+  if (!input.tenant.subdomain) return undefined;
+
+  const rootDomain =
+    process.env.SCHOOL_SITE_ROOT_DOMAIN ??
+    process.env.APP_ROOT_DOMAIN ??
+    "school-clerk.com";
+  const cleanRoot = rootDomain
+    .replace(/^https?:\/\//, "")
+    .replace(/^dashboard\./, "");
+  const protocol =
+    input.protocol ?? (process.env.NODE_ENV === "production" ? "https" : "http");
+
+  return `${protocol}://${input.tenant.subdomain}.${cleanRoot}`;
 }
 
 export async function renderPublicPage(input: {
@@ -70,18 +150,33 @@ export async function renderPublicPage(input: {
   previewToken?: string | null;
   templateId?: string | null;
 }) {
-  const { tenant, config } = await resolveWebsiteRenderTarget(input);
-  const pageKey: WebsiteTemplatePageKey = resolvePageKey(input.pathname);
-  const routeSlug = resolveRouteSlug(input.pathname);
-  const contentData = await getPublicWebsiteData(tenant, config);
+  const target = await resolveWebsiteRenderTarget(input);
+
+  if (!target) notFound();
+
+  const { tenant, config, template } = target;
+  const route = resolveTemplateRoute(template, input.pathname);
+
+  if (!route) notFound();
+
+  const contentData = await getPublicWebsiteData(tenant, config, {
+    includeFallback: target.source !== "database",
+  });
+  const routeItem = getRouteCollectionItem({
+    pageKey: route.pageKey,
+    routeSlug: route.routeSlug,
+    contentData,
+  });
+
+  if (isDetailPage(route.pageKey) && !routeItem) notFound();
 
   return renderTemplatePage(templateRegistry, {
     mode: "production",
     tenant,
     config,
-    pageKey,
+    pageKey: route.pageKey,
     pathname: input.pathname,
-    routeSlug,
+    routeSlug: route.routeSlug,
     contentData,
   });
 }
@@ -93,11 +188,51 @@ export async function resolvePublicPageMetadata(input: {
   previewToken?: string | null;
   templateId?: string | null;
 }) {
-  const { tenant, config } = await resolveWebsiteRenderTarget(input);
-  const pageKey = resolvePageKey(input.pathname);
-  const routeSlug = resolveRouteSlug(input.pathname);
-  const contentData = await getPublicWebsiteData(tenant, config);
-  const routeItem = getRouteCollectionItem({ routeSlug, contentData });
+  const target = await resolveWebsiteRenderTarget(input);
+
+  if (!target) {
+    return {
+      title: "Website not found",
+      description: "This school website is not available.",
+    };
+  }
+
+  const { tenant, config, template } = target;
+  const route = resolveTemplateRoute(template, input.pathname);
+
+  if (!route) {
+    return {
+      title: "Website not found",
+      description: "This school website page is not available.",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const pageKey = route?.pageKey ?? "home";
+  const contentData = await getPublicWebsiteData(tenant, config, {
+    includeFallback: target.source !== "database",
+  });
+  const routeItem = getRouteCollectionItem({
+    pageKey,
+    routeSlug: route.routeSlug,
+    contentData,
+  });
+
+  if (isDetailPage(pageKey) && !routeItem) {
+    return {
+      title: "Website not found",
+      description: "This school website page is not available.",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const publicBaseUrl = getPublicBaseUrl({ tenant });
 
   const pageTitle =
     (config.seoConfig?.[`pages.${pageKey}.title`] as string | undefined) ??
@@ -122,21 +257,13 @@ export async function resolvePublicPageMetadata(input: {
     (config.seoConfig?.[`pages.${pageKey}.canonicalUrl`] as
       | string
       | undefined) ??
-    (tenant.customDomain
-      ? `https://${tenant.customDomain}${input.pathname}`
-      : tenant.subdomain
-        ? `https://${tenant.subdomain}${input.pathname}`
-        : undefined);
+    (publicBaseUrl ? `${publicBaseUrl}${input.pathname}` : undefined);
 
   return {
     title: pageTitle,
     description,
     keywords: [tenant.schoolName, "school website", "admissions", pageKey],
-    metadataBase: tenant.customDomain
-      ? new URL(`https://${tenant.customDomain}`)
-      : tenant.subdomain
-        ? new URL(`https://${tenant.subdomain}`)
-        : undefined,
+    metadataBase: publicBaseUrl ? new URL(publicBaseUrl) : undefined,
     openGraph: {
       title: pageTitle,
       description,
@@ -163,17 +290,29 @@ export async function resolvePublicStructuredData(input: {
   previewToken?: string | null;
   templateId?: string | null;
 }) {
-  const { tenant, config } = await resolveWebsiteRenderTarget(input);
-  const pageKey = resolvePageKey(input.pathname);
-  const routeSlug = resolveRouteSlug(input.pathname);
-  const contentData = await getPublicWebsiteData(tenant, config);
-  const routeItem = getRouteCollectionItem({ routeSlug, contentData });
+  const target = await resolveWebsiteRenderTarget(input);
 
-  const url = tenant.customDomain
-    ? `https://${tenant.customDomain}${input.pathname}`
-    : tenant.subdomain
-      ? `https://${tenant.subdomain}${input.pathname}`
-      : undefined;
+  if (!target) return [];
+
+  const { tenant, config, template } = target;
+  const route = resolveTemplateRoute(template, input.pathname);
+  if (!route) return [];
+
+  const pageKey = route.pageKey;
+  const contentData = await getPublicWebsiteData(tenant, config, {
+    includeFallback: target.source !== "database",
+  });
+  const routeItem = getRouteCollectionItem({
+    pageKey,
+    routeSlug: route.routeSlug,
+    contentData,
+  });
+
+  if (isDetailPage(pageKey) && !routeItem) return [];
+
+  const publicBaseUrl = getPublicBaseUrl({ tenant });
+
+  const url = publicBaseUrl ? `${publicBaseUrl}${input.pathname}` : undefined;
 
   const organization = {
     "@context": "https://schema.org",

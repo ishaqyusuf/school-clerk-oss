@@ -14,7 +14,7 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
-    "dev": "portless email email dev",
+    "dev": "PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 portless email email dev",
     "build": "email build",
     "start": "email start"
   },

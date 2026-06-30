@@ -24,19 +24,28 @@ export function stripSpecialCharacters(inputString: string) {
     .toLowerCase(); // Convert to lowercase for consistency
 }
 export const devMode = process.env.NODE_ENV != "production";
-export const DASHBOARD_DEV_ROOT_DOMAIN = "school-clerk-dashboard.localhost:1355";
+export const DASHBOARD_DEV_ROOT_DOMAIN = "school-clerk-dashboard.localhost";
 
 function isBareLocalhostDomain(domain?: string | null) {
   if (!domain) return true;
   return /^localhost(?::\d+)?$/i.test(domain.trim());
 }
 
-export function resolveDashboardAppRootDomain(configuredDomain?: string | null) {
+function stripPortFromLocalhostDomain(domain: string) {
+  const normalizedDomain = domain.trim().toLowerCase();
+  const withoutPort = normalizedDomain.replace(/:\d+$/, "");
+
+  return withoutPort.endsWith(".localhost") ? withoutPort : normalizedDomain;
+}
+
+export function resolveDashboardAppRootDomain(
+  configuredDomain?: string | null,
+) {
   if (isBareLocalhostDomain(configuredDomain)) {
     return DASHBOARD_DEV_ROOT_DOMAIN;
   }
 
-  return configuredDomain!.trim().toLowerCase();
+  return stripPortFromLocalhostDomain(configuredDomain!);
 }
 
 export function shuffle(array: any) {
@@ -279,7 +288,7 @@ export function withdraw(amount, balance) {}
 export function selectOptions<T>(
   data: T[],
   labelKey: keyof T,
-  valueKey: keyof T
+  valueKey: keyof T,
 ) {
   return data?.map((d) => ({
     data: d,
@@ -297,7 +306,7 @@ export function uniqueList<T>(
   const kValue = (b: T) =>
     uniqueBy.length === 0 ? b : uniqueBy.map((k) => b[k]).join("::");
   return list.filter(
-    (a, i) => i === list.findIndex((b) => kValue(b) == kValue(a))
+    (a, i) => i === list.findIndex((b) => kValue(b) == kValue(a)),
   );
 }
 export async function timeout(ms = 1000) {

@@ -34,3 +34,14 @@ Prompting guidelines to keep AI outputs consistent, safe, and architecture-align
 - Use GND as the reference for the standard notification package system.
 - Use Plot Keys as the reference for local URL handling, portless/proxy support, and generated links.
 - Add `app/[...slug]/page.tsx` as a catch-all route that redirects to `/` unless this repository has an explicit documented reason to diverge.
+
+<!-- personal-coding-rules:start -->
+## Global Personal Coding Rules
+
+Agents must treat these global coding rule references as non-negotiable:
+
+- `/Users/M1PRO/.me/coding-standards/global.md`
+- `/Users/M1PRO/.me/coding-standards/nextjs.md`
+
+Project-specific exceptions require an ADR in `brain/decisions/` before agents may diverge.
+<!-- personal-coding-rules:end -->

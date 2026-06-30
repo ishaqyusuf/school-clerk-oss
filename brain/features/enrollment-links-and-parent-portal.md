@@ -12,18 +12,18 @@ Allow school admins to generate public enrollment links for specific classrooms,
 
 ## Flow
 1. Admin creates an enrollment link from `/students/enrollment`.
-2. Admin selects available classroom departments, capacity mode, maximum enrollment, required documents, and instructions.
+2. Admin selects available classroom departments, website visibility, capacity mode, maximum enrollment, class-specific age rules/notes, required documents, and instructions.
 3. Parent opens the generated public school-site link.
-4. Parent selects a classroom, enters student details, enters parent/guardian details, marks the primary parent, and uploads required documents.
+4. Parent selects a classroom, sees that class's age/document requirements, enters student details, enters parent/guardian details, marks the primary parent, and uploads the applicable required documents.
 5. Submission creates a pending enrollment application.
 6. Success UI tells existing onboarded parents they can log in, or shows `Setup parent password` for new/unonboarded parents.
 7. Staff review the application and approve or reject it.
 8. Approval creates or links the parent, guardian, student, session form, term form, fee charges, and parent portal access.
 
 ## Data Model
-- `EnrollmentLink`: tenant-owned public enrollment campaign/link.
-- `EnrollmentLinkClassroom`: classrooms available through the link, with optional per-classroom capacity.
-- `EnrollmentLinkDocumentRequirement`: required document labels and upload rules.
+- `EnrollmentLink`: tenant-owned public enrollment campaign/link with `showOnWebsite` for public website display versus manual-only sharing.
+- `EnrollmentLinkClassroom`: classrooms available through the link, with optional per-classroom capacity, age range, cutoff date, and requirement notes.
+- `EnrollmentLinkDocumentRequirement`: required document labels and upload rules that may apply globally or to one selected classroom.
 - `EnrollmentApplication`: submitted student enrollment request and review status.
 - `EnrollmentApplicationParent`: parent/guardian details, primary flag, and linked user/guardian.
 - `EnrollmentApplicationDocument`: uploaded document metadata and review status.
@@ -39,11 +39,14 @@ Allow school admins to generate public enrollment links for specific classrooms,
 - `trpc.enrollmentLinks.*` owns authenticated Admin/Registrar link management and application review.
 - `trpc.parents.overview` owns authenticated Parent ward/status reads through linked guardians.
 - `apps/school-site/src/app/enroll/[code]/page.tsx` owns the public parent submission and success flow.
+- `apps/school-site/src/lib/website/get-public-website-data.ts` resolves active, open, not-full `showOnWebsite=true` enrollment links for public school website templates.
 - `apps/dashboard/src/app/[domain]/(sidebar)/students/enrollment/page.tsx` now hosts the enrollment link/application management surface.
 - `apps/dashboard/src/app/[domain]/(sidebar)/parents/page.tsx` now hosts the first parent portal overview.
+- `packages/template-registry` exposes admission-link content data and reusable admission CTA/list rendering for school website home/admissions pages.
 
 ## UI/UX Notes
 - Public link opens on the school-site surface, not behind dashboard auth.
+- `showOnWebsite=true` links can appear on published school website admission sections; `showOnWebsite=false` links remain manual/direct-share only.
 - Parent form should feel school-branded and mobile-first.
 - Capacity should be shown clearly when a classroom is full.
 - Success state should explain whether the parent can log in now or needs to set a password.
@@ -53,12 +56,13 @@ Allow school admins to generate public enrollment links for specific classrooms,
 - Admin and Registrar can manage links and applications.
 - Public users can only submit through valid active enrollment tokens.
 - Parent users can only view wards connected through their linked guardian record.
-- Approval must revalidate tenant, classroom, active session/term, capacity, and document requirements.
+- Approval must revalidate tenant, classroom, active session/term, capacity, age rules, and selected-class document requirements.
 
 ## Edge Cases
 - Link is inactive, expired, or full.
 - Classroom reaches capacity after the parent loads the form.
-- Required document upload fails or has unsupported type.
+- Required document upload fails, has unsupported type, or only applies to a different selected class.
+- Student date of birth does not satisfy the selected class age requirement.
 - Parent already exists and is onboarded.
 - Parent exists but has no password yet.
 - Duplicate student names or duplicate parent phones.

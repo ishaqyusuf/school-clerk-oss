@@ -30,15 +30,15 @@ Defines request/response contracts, validation rules, and versioning expectation
 
 - Route: `enrollmentLinks.listLinks`
 - Request schema: none
-- Response schema: active tenant enrollment links with classroom counts, document requirement counts, application counts, capacity fields, status, and copyable public code.
+- Response schema: active tenant enrollment links with classroom counts, class age/notes fields, document requirement counts, website visibility, application counts, capacity fields, status, copyable public code, and tenant-correct public URL.
 - Error cases: missing tenant context, unauthorized role.
 - Notes: Admin/Registrar only.
 
 - Route: `enrollmentLinks.createOrUpdateLink`
-- Request schema: `{ id?, title, status?, capacityMode, totalCapacity?, instructions?, opensAt?, closesAt?, classrooms[], documentRequirements[] }`
+- Request schema: `{ id?, title, status?, showOnWebsite?, capacityMode, totalCapacity?, instructions?, opensAt?, closesAt?, classrooms[], documentRequirements[] }`, where `classrooms[]` may include `minimumAgeMonths`, `maximumAgeMonths`, `ageCutoffDate`, and `requirementNotes`, and `documentRequirements[]` may include optional `classRoomDepartmentId`.
 - Response schema: saved link with public code and nested classroom/document configuration.
 - Error cases: no classrooms, invalid classroom tenant/session, invalid capacity, unauthorized role.
-- Notes: classroom IDs are `ClassRoomDepartment.id` values from the active tenant.
+- Notes: classroom IDs are `ClassRoomDepartment.id` values from the active tenant. Requirement class targets must be one of the link's selected classroom IDs.
 
 - Route: `enrollmentLinks.getApplications`
 - Request schema: `{ linkId?: string | null, status?: EnrollmentApplicationStatus | null }`
@@ -48,7 +48,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Route: `enrollmentLinks.approveApplication`
 - Request schema: `{ applicationId: string }`
 - Response schema: `{ success: true, studentId, termFormId }`
-- Error cases: application not found, invalid tenant, invalid selected classroom, capacity reached, missing required documents, already approved/rejected.
+- Error cases: application not found, invalid tenant, invalid selected classroom, capacity reached, age requirement failed, missing applicable required documents, already approved/rejected.
 - Notes: approval creates or links guardian/parent, creates student/session/term forms, applies fee histories, and records accepted ids.
 
 - Route: `enrollmentLinks.rejectApplication`
@@ -57,9 +57,15 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: application not found, already approved, unauthorized role.
 
 - Public route: `school-site /enroll/[code]`
-- Request schema: public code in URL plus submitted student, selected classroom, parent rows, required document metadata/uploads, and notes.
+- Request schema: public code in URL plus submitted student, selected classroom, parent rows, applicable class/global document metadata/uploads, and notes.
 - Response schema: pending application success state plus parent onboarding/login hint.
-- Error cases: invalid/inactive/expired/full link, invalid classroom option, missing required fields, missing required uploads.
+- Error cases: invalid/inactive/expired/full link, invalid classroom option, failed class age requirement, missing required fields, missing applicable required uploads.
+
+- Public website data resolver: `getPublicWebsiteData`
+- Request schema: resolved public tenant profile plus optional published/template website configuration.
+- Response schema: `WebsiteTemplateContentData` with config-backed collections and `admissionLinks[]`, where each admission link includes title, relative `/enroll/[code]` href, open classroom count/labels, date window, and instructions.
+- Error cases: unresolved tenant or missing published config are handled by the calling public website route; manual-only, paused, archived, expired, not-yet-open, full, or deleted links are omitted.
+- Notes: direct `/enroll/[code]` access is still governed by the enrollment form runtime; website admission sections are only discovery surfaces for eligible `showOnWebsite=true` links.
 
 ## Parent Portal Contracts
 

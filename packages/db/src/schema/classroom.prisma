@@ -35,6 +35,7 @@ model ClassRoomDepartment {
     financeItemApplicabilities FinanceItemClassRoomDepartment[]
     financeCharges             FinanceCharge[]
     enrollmentLinkClassrooms    EnrollmentLinkClassroom[]
+    enrollmentDocumentRequirements EnrollmentLinkDocumentRequirement[]
     enrollmentApplications      EnrollmentApplication[]
 
     @@unique([classRoomsId, departmentName])

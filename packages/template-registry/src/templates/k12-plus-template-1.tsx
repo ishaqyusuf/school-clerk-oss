@@ -1,6 +1,7 @@
 import { EditableMedia } from "../components/editable-media";
 import { EditableText } from "../components/editable-text";
 import { SectionFrame } from "../components/section-frame";
+import { AdmissionLinksSection } from "../features/admissions/admission-links-section";
 import {
   PageShell,
   RepeatableAddButton,
@@ -20,6 +21,13 @@ import type {
   WebsiteTemplateRenderContext,
 } from "../types";
 import { defineWebsiteTemplate } from "../registry";
+import type { CSSProperties } from "react";
+
+type WebsiteCollectionKey =
+  | "announcements"
+  | "blogPosts"
+  | "events"
+  | "resources";
 
 function getCopy(context: WebsiteTemplateRenderContext, key: string, fallback: string) {
   const value = context.config.content[key];
@@ -104,8 +112,8 @@ function getScopedContentKey(sectionEntryKey: string, suffix: string) {
 
 function getCollectionItems(
   context: WebsiteTemplateRenderContext,
-  collection: keyof NonNullable<WebsiteTemplateRenderContext["contentData"]>
-) {
+  collection: WebsiteCollectionKey
+): WebsiteCollectionItem[] {
   return context.contentData?.[collection] ?? [];
 }
 
@@ -113,7 +121,7 @@ function getCollectionItem(
   items: WebsiteCollectionItem[],
   slug: string | null | undefined
 ) {
-  return items.find((item) => item.slug === slug) ?? items[0];
+  return items.find((item) => item.slug === slug) ?? null;
 }
 
 function collectionToAnnouncementCards(items: WebsiteCollectionItem[]) {
@@ -133,6 +141,7 @@ function HomePage(context: WebsiteTemplateRenderContext) {
     "home.features",
     "home.stats",
     "home.staff",
+    "home.admissions",
     "home.announcements",
   ]);
 
@@ -504,6 +513,23 @@ function HomePage(context: WebsiteTemplateRenderContext) {
           }
 
           if (
+            baseSectionKey === "home.admissions" &&
+            isSectionVisible(context, sectionEntryKey, true)
+          ) {
+            return (
+              <SectionFrame
+                key={sectionEntryKey}
+                mode={context.mode}
+                sectionKey={sectionEntryKey}
+                pageKey="home"
+                label="Admission Links"
+              >
+                <AdmissionLinksSection context={context} />
+              </SectionFrame>
+            );
+          }
+
+          if (
             baseSectionKey === "home.announcements" &&
             isSectionVisible(context, sectionEntryKey, true)
           ) {
@@ -638,7 +664,23 @@ function AdmissionsPage(context: WebsiteTemplateRenderContext) {
           "admissions.process.body",
           "Book a visit, speak with the admissions team, review entry requirements, and submit the documents needed for the right class placement."
         )}
-      />
+      >
+        {isSectionVisible(context, "admissions.openLinks", true) ? (
+          <SectionFrame
+            mode={context.mode}
+            sectionKey="admissions.openLinks"
+            pageKey="admissions"
+            label="Open Admission Links"
+          >
+            <AdmissionLinksSection
+              context={context}
+              eyebrow="Open applications"
+              title="Choose the right admission path"
+              body="Start with the class your child is applying for, then complete the school admission form and uploads online."
+            />
+          </SectionFrame>
+        ) : null}
+      </PageShell>
     </SectionFrame>
   );
 }
@@ -898,8 +940,8 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
     institutionTypes: ["K12", "PRIMARY", "SECONDARY"],
     supportedPlans: ["PLUS", "PRO", "ENTERPRISE"],
     description: "Academic-forward starter template for multi-page public school sites.",
-    thumbnail: "/templates/k12-plus-template-1/thumbnail.png",
-    previewImages: [],
+    thumbnail: "/templates/k12-plus-template-1/thumbnail.svg",
+    previewImages: ["/templates/k12-plus-template-1/thumbnail.svg"],
     tags: ["academic", "premium", "modern"],
     features: ["multi-page", "admissions", "blog", "contact"],
     pages: [
@@ -1012,6 +1054,12 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
             ],
           },
           {
+            key: "home.admissions",
+            label: "Admission links",
+            defaultVisible: true,
+            editables: [],
+          },
+          {
             key: "home.announcements",
             label: "Announcements",
             defaultVisible: true,
@@ -1085,6 +1133,12 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
                 sizeGuidance: "30-90 words",
               },
             ],
+          },
+          {
+            key: "admissions.openLinks",
+            label: "Open admission links",
+            defaultVisible: true,
+            editables: [],
           },
         ],
       },
@@ -1206,6 +1260,7 @@ export const k12PlusTemplate1: WebsiteTemplateDefinition = defineWebsiteTemplate
       "school-profile",
       "announcements",
       "blog",
+      "admission-links",
       "events",
       "resources",
       "contact-info",

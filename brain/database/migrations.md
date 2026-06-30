@@ -18,7 +18,7 @@ Change log for database schema migrations and rollout notes.
 - Use `bun run db:update:local:dry-run` to inspect production-to-local import changes before writing to the local Docker database.
 - Use `bun run db:update:local` to sync production data into the local database. The command reads production source URLs from explicit source env vars first, then `packages/db/.env.production`, then repo root `.env.production`; it reads the local target from local env files and falls back to `postgresql://postgres:postgres@127.0.0.1:55432/school_clerk`.
 - The production-to-local sync refuses to write unless the target database host is local, writes cursor state under `.local-db-sync/`, temporarily disables triggers on all local target tables while importing table-by-table data, casts raw upsert parameters to the target PostgreSQL column types, preserves native PostgreSQL arrays while JSON-stringifying JSON values, re-enables triggers before disconnecting, and normalizes imported tenant domains for local dashboard routing by default.
-- Local domain normalization keeps `SchoolProfile.subDomain`, `TenantDomain.subdomain`, and legacy `school.sub_domain` as slug-only values compatible with `<tenant>.school-clerk-dashboard.localhost:1355`; imported production custom domains are cleared unless `--keep-custom-domains` is passed.
+- Local domain normalization keeps `SchoolProfile.subDomain`, `TenantDomain.subdomain`, and legacy `school.sub_domain` as slug-only values compatible with `<tenant>.school-clerk-dashboard.localhost`; imported production custom domains are cleared unless `--keep-custom-domains` is passed.
 
 ## Template
 ## Migration Entry
@@ -29,6 +29,15 @@ Change log for database schema migrations and rollout notes.
 - Backfill required: Yes/No
 - Rollback plan:
 - Owner:
+
+## Migration Entry
+- Date: 2026-06-30
+- ID: 20260630120000_admission_link_visibility_requirements
+- Summary: Added admission/enrollment link website visibility, selected-class age/notes fields, and class-targeted document requirements.
+- Affected entities: `EnrollmentLink`, `EnrollmentLinkClassroom`, `EnrollmentLinkDocumentRequirement`, `ClassRoomDepartment`
+- Backfill required: No; existing links default to manual-only website visibility and existing document requirements remain global because `classRoomDepartmentId` is null.
+- Rollback plan: Remove website visibility UI/API usage, drop class-targeted requirement validation, then drop the new columns/indexes/foreign key.
+- Owner: Codex
 
 ## Migration Entry
 - Date: 2026-06-19

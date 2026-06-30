@@ -11,6 +11,7 @@ import {
   resolveWebsiteMediaConfig,
   templateRegistry,
   type WebsiteTemplateConfiguration,
+  type WebsiteInstitutionType,
   type WebsiteTenantProfile,
 } from "@school-clerk/template-registry";
 
@@ -20,12 +21,36 @@ type PublicTenantResolution = {
   source: "database" | "mock";
 };
 
+const WEBSITE_INSTITUTION_TYPES = new Set<WebsiteInstitutionType>([
+  "PRESCHOOL",
+  "PRIMARY",
+  "SECONDARY",
+  "K12",
+  "COLLEGE",
+  "POLYTECHNIC",
+  "UNIVERSITY",
+  "TRAINING_CENTER",
+  "RELIGIOUS_SCHOOL",
+]);
+
+function normalizeInstitutionType(value?: string | null): WebsiteInstitutionType {
+  const normalized = value?.trim().toUpperCase();
+
+  if (normalized && WEBSITE_INSTITUTION_TYPES.has(normalized as WebsiteInstitutionType)) {
+    return normalized as WebsiteInstitutionType;
+  }
+
+  return "K12";
+}
+
 export async function resolvePublicTenant(
   host: string
-): Promise<PublicTenantResolution> {
+): Promise<PublicTenantResolution | null> {
   const school = await resolveSchoolProfileByHost(host);
 
   if (!school) {
+    if (process.env.NODE_ENV === "production") return null;
+
     return {
       tenant: {
         ...mockTenantProfile,
@@ -43,11 +68,13 @@ export async function resolvePublicTenant(
   ]);
 
   if (!published?.websiteConfig) {
+    if (process.env.NODE_ENV === "production") return null;
+
     return {
       tenant: {
         schoolProfileId: school.id,
         schoolName: school.name,
-        institutionType: mockTenantProfile.institutionType,
+        institutionType: normalizeInstitutionType(school.institutionType),
         subdomain: school.subDomain,
         customDomain:
           school.domains.find((domain) => domain.isPrimary)?.customDomain ??
@@ -71,7 +98,7 @@ export async function resolvePublicTenant(
     tenant: {
       schoolProfileId: school.id,
       schoolName: school.name,
-      institutionType: mockTenantProfile.institutionType,
+      institutionType: normalizeInstitutionType(school.institutionType),
       subdomain: school.subDomain,
       customDomain:
         school.domains.find((domain) => domain.isPrimary)?.customDomain ??

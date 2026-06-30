@@ -67,3 +67,14 @@ Defines implementation standards for consistency, maintainability, and reliabili
 ## tRPC And Actions
 - Keep API reads and writes on the established tRPC/router path unless there is a clear reason to use a server action.
 - When server actions are still used from the dashboard, keep them tenant-aware and aligned with the same validation rules as the router layer.
+
+<!-- personal-coding-rules:start -->
+## Global Personal Coding Rules
+
+Agents must treat these global coding rule references as non-negotiable:
+
+- `/Users/M1PRO/.me/coding-standards/global.md`
+- `/Users/M1PRO/.me/coding-standards/nextjs.md`
+
+Project-specific exceptions require an ADR in `brain/decisions/` before agents may diverge.
+<!-- personal-coding-rules:end -->

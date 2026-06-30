@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Northfield website template preview</title>
+  <desc id="desc">Warm family-facing school website layout with orange tones and story cards.</desc>
+  <rect width="1280" height="720" fill="#fff7ed"/>
+  <rect x="72" y="56" width="1136" height="608" rx="42" fill="#fffaf5"/>
+  <rect x="112" y="96" width="1056" height="58" rx="29" fill="#ffffff"/>
+  <circle cx="152" cy="125" r="20" fill="#9a3412"/>
+  <rect x="188" y="112" width="160" height="24" rx="12" fill="#9a3412"/>
+  <rect x="810" y="112" width="86" height="22" rx="11" fill="#fed7aa"/>
+  <rect x="920" y="112" width="92" height="22" rx="11" fill="#fed7aa"/>
+  <rect x="1036" y="104" width="112" height="40" rx="20" fill="#7c3aed"/>
+  <rect x="128" y="220" width="300" height="34" rx="17" fill="#7c3aed" opacity=".88"/>
+  <rect x="128" y="282" width="486" height="46" rx="23" fill="#9a3412"/>
+  <rect x="128" y="344" width="386" height="46" rx="23" fill="#9a3412"/>
+  <rect x="128" y="422" width="430" height="20" rx="10" fill="#fdba74"/>
+  <rect x="128" y="456" width="330" height="20" rx="10" fill="#fed7aa"/>
+  <rect x="654" y="202" width="430" height="292" rx="52" fill="#ffedd5"/>
+  <circle cx="790" cy="326" r="86" fill="#ffffff"/>
+  <rect x="870" y="270" width="144" height="156" rx="36" fill="#9a3412" opacity=".84"/>
+  <rect x="128" y="574" width="290" height="62" rx="24" fill="#ffedd5"/>
+  <rect x="450" y="574" width="290" height="62" rx="24" fill="#f5f3ff"/>
+  <rect x="772" y="574" width="290" height="62" rx="24" fill="#fff1f2"/>
+</svg>

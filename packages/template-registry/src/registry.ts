@@ -9,6 +9,11 @@ import type {
 } from "./types";
 import { websiteTemplateManifestSchema } from "./schema";
 
+type ResolvedTemplateRoute = {
+  pageKey: WebsiteTemplatePageKey;
+  routeSlug: string | null;
+};
+
 export function defineWebsiteTemplate(
   template: WebsiteTemplateDefinition
 ): WebsiteTemplateDefinition {
@@ -70,6 +75,59 @@ export function resolvePageKey(
 export function resolveRouteSlug(pathname: string) {
   const segments = pathname.split("/").filter(Boolean);
   return segments.length > 1 ? segments[segments.length - 1] ?? null : null;
+}
+
+function normalizePathname(pathname: string) {
+  const normalized = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  return normalized.length > 1 ? normalized.replace(/\/+$/, "") : normalized;
+}
+
+function matchTemplateRoute(route: string, pathname: string) {
+  const normalizedRoute = normalizePathname(route);
+  const normalizedPathname = normalizePathname(pathname);
+
+  if (normalizedRoute === normalizedPathname) return null;
+
+  const routeSegments = normalizedRoute.split("/").filter(Boolean);
+  const pathSegments = normalizedPathname.split("/").filter(Boolean);
+
+  if (routeSegments.length !== pathSegments.length) return undefined;
+
+  let routeSlug: string | null = null;
+
+  for (let index = 0; index < routeSegments.length; index += 1) {
+    const routeSegment = routeSegments[index];
+    const pathSegment = pathSegments[index];
+
+    if (!routeSegment || !pathSegment) return undefined;
+
+    if (routeSegment.startsWith("[") && routeSegment.endsWith("]")) {
+      routeSlug = decodeURIComponent(pathSegment);
+      continue;
+    }
+
+    if (routeSegment !== pathSegment) return undefined;
+  }
+
+  return routeSlug;
+}
+
+export function resolveTemplateRoute(
+  template: WebsiteTemplateDefinition,
+  pathname: string
+): ResolvedTemplateRoute | null {
+  for (const page of template.manifest.pages) {
+    const routeSlug = matchTemplateRoute(page.route, pathname);
+
+    if (routeSlug !== undefined) {
+      return {
+        pageKey: page.key,
+        routeSlug,
+      };
+    }
+  }
+
+  return null;
 }
 
 export function renderTemplatePage(

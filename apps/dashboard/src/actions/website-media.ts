@@ -5,6 +5,15 @@ import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { getAuthCookie } from "./cookies/auth-cookie";
 import { env } from "@/env";
+import { assertWebsiteManager } from "@/lib/website/access";
+
+const MAX_WEBSITE_IMAGE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_WEBSITE_IMAGE_TYPES = new Map([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+  ["image/gif", "gif"],
+]);
 
 function assertSchoolCookie(
   cookie: Awaited<ReturnType<typeof getAuthCookie>>
@@ -22,9 +31,22 @@ function slugify(value: string) {
     .slice(0, 60);
 }
 
+function assertSafePublicUrl(value: string) {
+  try {
+    const url = new URL(value);
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("Media URL must use http or https.");
+    }
+  } catch {
+    throw new Error("Media source URL must be a valid public URL.");
+  }
+}
+
 export async function createWebsiteMediaAssetAction(formData: FormData) {
   const cookie = await getAuthCookie();
   assertSchoolCookie(cookie);
+  await assertWebsiteManager(cookie);
 
   const name = String(formData.get("name") || "").trim();
   const sourceUrl = String(formData.get("sourceUrl") || "").trim();
@@ -33,6 +55,8 @@ export async function createWebsiteMediaAssetAction(formData: FormData) {
   if (!name || !sourceUrl) {
     throw new Error("Media name and source URL are required.");
   }
+
+  assertSafePublicUrl(sourceUrl);
 
   await createWebsiteMediaAsset({
     schoolProfileId: cookie.schoolId,
@@ -49,6 +73,7 @@ export async function createWebsiteMediaAssetAction(formData: FormData) {
 export async function uploadWebsiteMediaAssetAction(formData: FormData) {
   const cookie = await getAuthCookie();
   assertSchoolCookie(cookie);
+  await assertWebsiteManager(cookie);
 
   if (!env.BLOB_READ_WRITE_TOKEN) {
     throw new Error(
@@ -64,15 +89,18 @@ export async function uploadWebsiteMediaAssetAction(formData: FormData) {
     throw new Error("Select an image file to upload.");
   }
 
-  if (!file.type.startsWith("image/")) {
-    throw new Error("Only image uploads are supported for website media.");
+  const extension = ALLOWED_WEBSITE_IMAGE_TYPES.get(file.type);
+
+  if (!extension) {
+    throw new Error("Only JPG, PNG, WebP, and GIF uploads are supported.");
+  }
+
+  if (file.size > MAX_WEBSITE_IMAGE_SIZE) {
+    throw new Error("Website media uploads must be 10MB or smaller.");
   }
 
   const fileBaseName =
     slugify(customName || file.name.replace(/\.[^/.]+$/, "")) || "website-image";
-  const extension = file.name.includes(".")
-    ? file.name.split(".").pop()?.toLowerCase() ?? "jpg"
-    : "jpg";
 
   const blob = await put(
     `website-media/${cookie.schoolId}/${fileBaseName}.${extension}`,
