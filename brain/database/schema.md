@@ -128,6 +128,7 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 ## Admissions And Parent Portal
 - `EnrollmentLink`, `EnrollmentLinkClassroom`, `EnrollmentLinkDocumentRequirement`
 - `EnrollmentApplication`, `EnrollmentApplicationParent`, `EnrollmentApplicationDocument`
+- `SchoolDocumentTemplatePreference`, `CustomDocumentTemplateRequest`
 
 ### EnrollmentLink (planned implementation — session 2026-06)
 | Field | Type | Notes |
@@ -156,10 +157,11 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 | `enrollmentLinkId` | String | FK → `EnrollmentLink` |
 | `classRoomDepartmentId` | String? | Optional FK → `ClassRoomDepartment`; null means the document applies to all classes on the link |
 | `label`, `description` | String, String? | Parent-facing document requirement copy |
+| `documentType` | String | Stable requirement kind such as `GENERAL`, `PASSPORT_PHOTO`, `BIRTH_CERTIFICATE`, `PREVIOUS_SCHOOL_REPORT`, or `OTHER`; defaults to `GENERAL` |
 | `uploadRequired` | Boolean | Required upload flag enforced during public submission and admin approval |
 | `sortOrder` | Int | Parent/admin display ordering |
 
-### EnrollmentApplication (planned implementation — session 2026-06)
+### EnrollmentApplication (updated — session 2026-06-30)
 | Field | Type | Notes |
 |-------|------|-------|
 | `enrollmentLinkId` | String | FK → `EnrollmentLink` |
@@ -168,6 +170,49 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 | `studentDob`, `studentGender` | DateTime?, Gender | Submitted student profile details |
 | `status` | Enum | `SUBMITTED`, `UNDER_REVIEW`, `APPROVED`, `REJECTED`, `WITHDRAWN` |
 | `acceptedStudentId`, `acceptedTermFormId` | String? | Populated when staff approval creates/links student records |
+| `admissionPaymentRequired` | Boolean | Whether the approval email should present an admission payment handoff |
+| `admissionPaymentLabel` | String? | Admin-facing/parent-facing payment label, for example admission fee |
+| `admissionPaymentAmount`, `admissionPaymentCurrency` | Decimal?, String? | Payment amount and ISO-style currency code stored with the approval decision |
+| `admissionPaymentInstructions`, `admissionPaymentLink` | String?, String? | Parent-facing payment instructions and optional external payment URL |
+| `admissionPaymentDueAt` | DateTime? | Optional payment due date set during approval |
+| `admissionApprovalEmailSentAt` | DateTime? | Timestamp recorded after the successful-admission email is sent |
+| `admissionLetterTemplateId`, `admissionLetterTemplateVersion` | String?, Int? | Admission-letter PDF template selected during approval and used by the parent-facing letter URL |
+
+### EnrollmentApplicationDocument (updated — session 2026-06-30)
+| Field | Type | Notes |
+|-------|------|-------|
+| `enrollmentApplicationId` | String | FK → `EnrollmentApplication` |
+| `requirementId` | String? | Optional FK → `EnrollmentLinkDocumentRequirement` |
+| `documentType` | String | Copied stable document kind from the requirement at upload time so passport/photo files remain identifiable during review and later PDF generation |
+| `fileName`, `fileUrl` | String, String | Original file name and stored blob URL |
+| `storageProvider`, `storageKey` | String?, String? | Upload provider metadata for future signed/proxy access |
+| `mimeType`, `sizeBytes` | String?, Int? | Upload validation and audit metadata |
+| `reviewStatus` | Enum | `PENDING`, `APPROVED`, or `REJECTED` |
+
+### SchoolDocumentTemplatePreference (updated — session 2026-06-30)
+| Field | Type | Notes |
+|-------|------|-------|
+| `schoolProfileId` | String | Tenant ownership boundary |
+| `documentType` | String | Document family, currently `RESULT_SHEET`, `ADMISSION_LETTER`, or `ADMISSION_FORM` |
+| `templateId` | String | Stable template ID from the shared registry or a ready custom template request |
+| `templateVersion` | Int | Version used to render the selected template |
+| `source` | String | `code`, `json`, or `custom` |
+| `deletedAt` | DateTime? | Soft-delete marker; active preferences are unique per school/document type through a partial unique index |
+
+### CustomDocumentTemplateRequest (updated — session 2026-07-01)
+| Field | Type | Notes |
+|-------|------|-------|
+| `schoolProfileId` | String | Tenant ownership boundary |
+| `documentType` | String | Requested document family such as admission letter, admission form, or result sheet |
+| `title`, `notes` | String, String? | School-facing request label and build instructions |
+| `status` | Enum | `SUBMITTED`, `QUOTED`, `PAID`, `IN_BUILD`, `READY`, or `REJECTED` |
+| `sourceFileName`, `sourceFileUrl` | String?, String? | Uploaded existing PDF/scan metadata for the custom build |
+| `storageProvider`, `storageKey`, `mimeType`, `sizeBytes` | String?, String?, String?, Int? | Upload provider and validation metadata |
+| `quotedAmount`, `quotedCurrency` | Decimal?, String? | Optional paid custom-build quote metadata |
+| `quotePaymentInstructions`, `quotePaymentLink`, `quotePaymentDueAt` | String?, String?, DateTime? | Dashboard-visible payment handoff details for quoted custom template builds |
+| `builtTemplateId`, `builtTemplateVersion` | String?, Int? | Stable finished-template identity after the build is ready |
+| `builtTemplateJson` | Json? | Validated constrained JSON template used for custom preview/PDF rendering |
+| `operatorNotes`, `requestedByUserId` | String?, String? | Internal build notes and requester audit metadata |
 
 ### Parent Portal Identity Bridge (planned implementation — session 2026-06)
 - `Guardians.userId` links an authenticated `Parent` user to the guardian profile that owns ward relationships.

@@ -3,6 +3,7 @@
   "include": ["."],
   "exclude": ["node_modules"],
   "compilerOptions": {
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "types": ["bun-types"]
   }
 }

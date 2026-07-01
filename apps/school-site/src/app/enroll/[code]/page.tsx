@@ -25,6 +25,32 @@ function classroomName(classroomDepartment: any) {
     .join(" ");
 }
 
+function inferDocumentTypeFromLabel(label?: string | null) {
+  const normalized = label?.toLowerCase() ?? "";
+
+  if (normalized.includes("passport") || normalized.includes("photo")) {
+    return "PASSPORT_PHOTO";
+  }
+
+  if (normalized.includes("birth") && normalized.includes("certificate")) {
+    return "BIRTH_CERTIFICATE";
+  }
+
+  if (
+    normalized.includes("previous") ||
+    normalized.includes("report") ||
+    normalized.includes("transcript")
+  ) {
+    return "PREVIOUS_SCHOOL_REPORT";
+  }
+
+  return "GENERAL";
+}
+
+function normalizeDocumentType(value?: string | null, label?: string | null) {
+  return value && value !== "GENERAL" ? value : inferDocumentTypeFromLabel(label);
+}
+
 async function getEnrollmentLink(code: string) {
   const db = prisma as any;
   const link = await db.enrollmentLink.findFirst({
@@ -74,11 +100,18 @@ async function getEnrollmentLink(code: string) {
   };
 }
 
-async function getSubmissionState(applicationId?: string | null) {
+async function getSubmissionState(code: string, applicationId?: string | null) {
   if (!applicationId) return null;
 
   const application = await (prisma as any).enrollmentApplication.findFirst({
-    where: { id: applicationId, deletedAt: null },
+    where: {
+      id: applicationId,
+      deletedAt: null,
+      enrollmentLink: {
+        code,
+        deletedAt: null,
+      },
+    },
     include: {
       schoolProfile: true,
       parents: { where: { deletedAt: null } },
@@ -126,7 +159,7 @@ export default async function EnrollmentPage({
   const [{ code }, query] = await Promise.all([params, searchParams]);
   const [link, submission] = await Promise.all([
     getEnrollmentLink(code),
-    getSubmissionState(query.submitted),
+    getSubmissionState(code, query.submitted),
   ]);
 
   if (!link) notFound();
@@ -163,6 +196,10 @@ export default async function EnrollmentPage({
     id: requirement.id,
     label: requirement.label,
     description: requirement.description,
+    documentType: normalizeDocumentType(
+      requirement.documentType,
+      requirement.label,
+    ),
     uploadRequired: requirement.uploadRequired,
     sortOrder: requirement.sortOrder,
     classRoomDepartmentId: requirement.classRoomDepartmentId,

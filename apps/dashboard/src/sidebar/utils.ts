@@ -349,6 +349,9 @@ export const linkModules = [
       _link("Roles & Permissions", "roles", "/settings/roles").access(
         _role.is("Admin"),
       ).data,
+      _link("Document Templates", "file-text", "/settings/document-templates").access(
+        _role.is("Admin"),
+      ).data,
     ]),
   ]),
 ];

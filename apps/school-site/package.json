@@ -12,6 +12,8 @@
   "dependencies": {
     "@school-clerk/auth": "workspace:*",
     "@school-clerk/db": "workspace:*",
+    "@school-clerk/email": "workspace:*",
+    "@school-clerk/pdf": "workspace:*",
     "@school-clerk/template-registry": "workspace:*",
     "@school-clerk/tenant-url": "workspace:*",
     "@school-clerk/tsconfig": "workspace:*",
@@ -20,7 +22,8 @@
     "@vercel/blob": "^2.3.3",
     "next": "^16.0.1",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "zod": "3.25.64"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

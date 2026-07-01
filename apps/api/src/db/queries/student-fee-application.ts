@@ -1,5 +1,9 @@
-import { TRPCContext } from "../../trpc/core";
-import { toMoney, toNumber } from "@school-clerk/utils";
+type AppliedFinanceCharge = {
+  amount: number | string;
+  id: string;
+  streamId: string;
+  title: string;
+};
 
 export async function applyFeeHistoriesToStudentTermForm(
   tx: any,
@@ -11,7 +15,12 @@ export async function applyFeeHistoriesToStudentTermForm(
     sessionTermId: string;
     classroomDepartmentId: string;
   }
-) {
+): Promise<{
+  applied: number;
+  skipped: number;
+  total: number;
+  charges: AppliedFinanceCharge[];
+}> {
   const items = await tx.financeItem.findMany({
     where: {
       schoolProfileId: input.schoolProfileId,
@@ -23,7 +32,7 @@ export async function applyFeeHistoriesToStudentTermForm(
     include: { stream: true },
   });
 
-  const createdCharges = [];
+  const createdCharges: AppliedFinanceCharge[] = [];
   for (const item of items) {
     const charge = await tx.financeCharge.create({
       data: {

@@ -139,7 +139,7 @@ function FinancePaymentForm({
 
 	const [studentQuery, setStudentQuery] = useState("");
 	const { data: students = [] } = useQuery(
-		trpc.finance.searchFinanceStudents.queryOptions(
+		trpc.finance.searchStudentsForPayment.queryOptions(
 			{ q: studentQuery },
 			{ enabled: showStudentFilter },
 		),
@@ -157,7 +157,7 @@ function FinancePaymentForm({
 
 		if (studentId && studentId !== "none") {
 			return charges.filter(
-				(c) => c.studentId === studentId && c.outstanding > 0,
+				(c) => c.student?.id === studentId && c.outstanding > 0,
 			);
 		}
 		return charges.filter((c) => c.outstanding > 0);

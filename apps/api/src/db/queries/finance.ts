@@ -929,7 +929,7 @@ export async function listFinanceCharges(
 			...(effectiveTermId ? { sessionTermId: effectiveTermId } : {}),
 			...(effectiveSessionId ? { schoolSessionId: effectiveSessionId } : {}),
 			...(input?.status || statusFromCollectionFilter
-				? { status: (input.status ?? statusFromCollectionFilter) as never }
+				? { status: (input?.status ?? statusFromCollectionFilter) as never }
 				: { status: { not: "CANCELLED" } }),
 			...(collectionStatus ? { collectionStatus: collectionStatus as never } : {}),
 			...(input?.payerType ? { payerType: input.payerType as any } : {}),
@@ -1087,7 +1087,8 @@ export async function recordFinancePayment(
 
 			// Try to deduct inventory if it's an inventory-related charge
 			if (charge.title) {
-				const inventoryItem = await tx.inventory.findFirst({
+				const inventory = tx.inventory as any;
+				const inventoryItem = await inventory.findFirst({
 					where: {
 						schoolProfileId,
 						title: { equals: charge.title, mode: "insensitive" },
@@ -1095,7 +1096,7 @@ export async function recordFinancePayment(
 				});
 
 				if (inventoryItem) {
-					await tx.inventory.update({
+					await inventory.update({
 						where: { id: inventoryItem.id },
 						data: { quantity: { decrement: 1 } },
 					});

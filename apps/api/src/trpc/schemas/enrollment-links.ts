@@ -16,6 +16,21 @@ export const enrollmentLinkStatusSchema = z.enum([
 
 export const enrollmentCapacityModeSchema = z.enum(["TOTAL", "PER_CLASSROOM"]);
 
+export const enrollmentDocumentTypeSchema = z.enum([
+  "GENERAL",
+  "PASSPORT_PHOTO",
+  "BIRTH_CERTIFICATE",
+  "PREVIOUS_SCHOOL_REPORT",
+  "OTHER",
+]);
+
+export const admissionLetterTemplateIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(120)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
+
 const enrollmentClassroomInputSchema = z.object({
   classRoomDepartmentId: z.string().min(1),
   capacity: z.number().int().positive().optional().nullable(),
@@ -29,6 +44,7 @@ const enrollmentDocumentRequirementInputSchema = z.object({
   id: z.string().optional().nullable(),
   label: z.string().min(1),
   description: z.string().optional().nullable(),
+  documentType: enrollmentDocumentTypeSchema.default("GENERAL"),
   uploadRequired: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
   classRoomDepartmentId: z.string().optional().nullable(),
@@ -111,9 +127,50 @@ export const getEnrollmentApplicationsSchema = z.object({
   status: enrollmentApplicationStatusSchema.optional().nullable(),
 });
 
-export const approveEnrollmentApplicationSchema = z.object({
-  applicationId: z.string(),
-});
+export const approveEnrollmentApplicationSchema = z
+  .object({
+    admissionLetterTemplateId: admissionLetterTemplateIdSchema
+      .default("admission-classic-v1")
+      .optional()
+      .nullable(),
+    applicationId: z.string(),
+    paymentRequired: z.boolean().default(false),
+    paymentLabel: z.string().optional().nullable(),
+    paymentAmount: z.coerce.number().nonnegative().optional().nullable(),
+    paymentCurrency: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z]{3}$/)
+      .transform((value) => value.toUpperCase())
+      .default("NGN"),
+    paymentInstructions: z.string().optional().nullable(),
+    paymentLink: z.string().url().optional().nullable().or(z.literal("")),
+    paymentDueAt: z.date().optional().nullable(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.paymentRequired) return;
+
+    const hasPaymentAmount = (value.paymentAmount ?? 0) > 0;
+    const hasPaymentHandoff =
+      Boolean(value.paymentInstructions?.trim()) || Boolean(value.paymentLink);
+
+    if (!hasPaymentAmount) {
+      ctx.addIssue({
+        code: "custom",
+        message: "A positive payment amount is required before approving with payment.",
+        path: ["paymentAmount"],
+      });
+    }
+
+    if (!hasPaymentHandoff) {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Payment instructions or a payment link is required before approving with payment.",
+        path: ["paymentInstructions"],
+      });
+    }
+  });
 
 export const rejectEnrollmentApplicationSchema = z.object({
   applicationId: z.string(),
@@ -125,4 +182,7 @@ export type CreateOrUpdateEnrollmentLinkInput = z.infer<
 >;
 export type GetEnrollmentApplicationsInput = z.infer<
   typeof getEnrollmentApplicationsSchema
+>;
+export type ApproveEnrollmentApplicationInput = z.infer<
+  typeof approveEnrollmentApplicationSchema
 >;

@@ -3,13 +3,18 @@ import type { TRPCContext } from "@api/trpc/init";
 import type { GetStudentsSchema } from "@api/trpc/schemas/schemas";
 import type { PageFilterData } from "@api/type";
 import { composeQuery, txContext } from "@api/utils";
-import type { Prisma } from "@school-clerk/db";
+import { Prisma } from "@school-clerk/db";
 import { studentDisplayName } from "./enrollment-query";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
 import { z } from "zod";
 
 import { subDays } from "date-fns";
+
+function toMoney(value: number | string | Prisma.Decimal) {
+  return new Prisma.Decimal(value);
+}
+
 const emptySearchQuery = (q: GetStudentsSchema) =>
   (
     [
@@ -502,20 +507,32 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
       },
     });
 
-    feeHistoryApplication = await applyFeeHistoriesToStudentTermForm(tx, {
-      schoolProfileId: profile.schoolId,
-      studentId: student.id,
-      studentTermFormId: initialTermForm.id,
-      schoolSessionId: initialTermForm.schoolSessionId || profile.sessionId,
-      sessionTermId: initialTermForm.sessionTermId || profile.termId,
-      classroomDepartmentId:
-        initialTermForm.classroomDepartmentId ??
-        initialSessionForm.classroomDepartmentId ??
-        data.classRoomId,
-    });
+    const classroomDepartmentId =
+      initialTermForm.classroomDepartmentId ??
+      initialSessionForm.classroomDepartmentId ??
+      data.classRoomId;
+
+    if (classroomDepartmentId) {
+      feeHistoryApplication = await applyFeeHistoriesToStudentTermForm(tx, {
+        schoolProfileId: profile.schoolId,
+        studentId: student.id,
+        studentTermFormId: initialTermForm.id,
+        schoolSessionId: initialTermForm.schoolSessionId || profile.sessionId,
+        sessionTermId: initialTermForm.sessionTermId || profile.termId,
+        classroomDepartmentId,
+      });
+    }
   }
 
   if (data.initialPayment && feeHistoryApplication?.charges?.length) {
+    const firstCharge = feeHistoryApplication.charges[0];
+    if (!firstCharge) {
+      return {
+        ...student,
+        feeHistoryApplication,
+      };
+    }
+
     let remainingAmount = toMoney(data.initialPayment.amount);
 
     // Create a payment record
@@ -528,7 +545,7 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
         paymentDate: data.initialPayment.paymentDate ?? new Date(),
         method: data.initialPayment.method,
         reference: data.initialPayment.reference,
-        streamId: feeHistoryApplication.charges[0]?.streamId, // Associate with the first stream for the main payment wrapper
+        streamId: firstCharge.streamId, // Associate with the first stream for the main payment wrapper
         receivedById: ctx.currentUser?.id,
       },
     });

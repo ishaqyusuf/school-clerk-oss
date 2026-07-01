@@ -1,0 +1,56 @@
+model SchoolDocumentTemplatePreference {
+    id              String        @id @default(uuid())
+    schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+    schoolProfileId String
+    documentType    String
+    templateId      String
+    templateVersion Int           @default(1)
+    source          String        @default("code")
+    createdAt       DateTime?     @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?     @updatedAt
+    deletedAt       DateTime?     @db.Timestamp(0)
+
+    @@index([schoolProfileId, documentType], map: "SchoolDocumentTemplatePreference_schoolProfileId_documentType_i")
+    @@index([templateId])
+}
+
+enum CustomDocumentTemplateRequestStatus {
+    SUBMITTED
+    QUOTED
+    PAID
+    IN_BUILD
+    READY
+    REJECTED
+}
+
+model CustomDocumentTemplateRequest {
+    id                       String                              @id @default(uuid())
+    schoolProfile            SchoolProfile                       @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+    schoolProfileId          String
+    documentType             String
+    title                    String
+    notes                    String?
+    status                   CustomDocumentTemplateRequestStatus @default(SUBMITTED)
+    sourceFileName           String?
+    sourceFileUrl            String?
+    storageProvider          String?
+    storageKey               String?
+    mimeType                 String?
+    sizeBytes                Int?
+    quotedAmount             Decimal?                            @db.Decimal(14, 2)
+    quotedCurrency           String?                             @default("NGN")
+    quotePaymentInstructions String?
+    quotePaymentLink         String?
+    quotePaymentDueAt        DateTime?                           @db.Timestamp(0)
+    builtTemplateId          String?
+    builtTemplateVersion     Int?
+    builtTemplateJson        Json?
+    operatorNotes            String?
+    requestedByUserId        String?
+    createdAt                DateTime?                           @default(now()) @db.Timestamp(0)
+    updatedAt                DateTime?                           @updatedAt
+    deletedAt                DateTime?                           @db.Timestamp(0)
+
+    @@index([schoolProfileId, documentType, status], map: "CustomDocumentTemplateRequest_schoolProfileId_documentType_stat")
+    @@index([builtTemplateId])
+}

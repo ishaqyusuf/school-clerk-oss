@@ -680,6 +680,16 @@ export const dashboardNavRegistry: NavModuleDefinition[] = [
             workspace: "admin",
           },
           {
+            href: "/settings/document-templates",
+            icon: "file-text",
+            key: "settings-document-templates",
+            module: "settings",
+            roles: ["Admin"],
+            section: "main",
+            title: "Document Templates",
+            workspace: "admin",
+          },
+          {
             href: "/settings/website",
             icon: "globe",
             key: "settings-website",

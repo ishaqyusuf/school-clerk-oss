@@ -25,10 +25,17 @@ type DocumentRequirement = {
   id: string;
   label: string;
   description: string | null;
+  documentType: string;
   uploadRequired: boolean;
   sortOrder: number;
   classRoomDepartmentId: string | null;
 };
+
+function documentAcceptValue(requirement: DocumentRequirement) {
+  return requirement.documentType === "PASSPORT_PHOTO"
+    ? "image/png,image/jpeg"
+    : ".pdf,image/png,image/jpeg";
+}
 
 function formatAgeMonths(months: number) {
   const years = Math.floor(months / 12);
@@ -171,7 +178,7 @@ export function EnrollmentFormClient({
         </label>
         <label className="block space-y-1 text-sm">
           <span>Email</span>
-          <Input name="parentEmail" type="email" />
+          <Input name="parentEmail" required type="email" />
         </label>
         <label className="block space-y-1 text-sm">
           <span>Primary phone</span>
@@ -202,7 +209,7 @@ export function EnrollmentFormClient({
                   </span>
                 ) : null}
                 <Input
-                  accept=".pdf,image/png,image/jpeg"
+                  accept={documentAcceptValue(requirement)}
                   name={`document:${requirement.id}`}
                   required={requirement.uploadRequired}
                   type="file"

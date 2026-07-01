@@ -135,7 +135,8 @@ function normalizeSectionOrder(
     template.manifest.pages.map((page) => {
       const knownSections = new Set(page.sections.map((section) => section.key));
       const defaultOrder = page.sections.map((section) => section.key);
-      const rawOrder = Array.isArray(input[page.key]) ? input[page.key] : defaultOrder;
+      const pageOrder = input[page.key];
+      const rawOrder = Array.isArray(pageOrder) ? pageOrder : defaultOrder;
       const seen = new Set<string>();
       const order = rawOrder.flatMap((sectionEntryKey) => {
         const value = String(sectionEntryKey);

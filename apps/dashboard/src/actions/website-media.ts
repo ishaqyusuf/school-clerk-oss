@@ -1,6 +1,7 @@
 "use server";
 
 import { createWebsiteMediaAsset } from "@school-clerk/db";
+import { createBlobUploadError } from "@school-clerk/utils";
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { getAuthCookie } from "./cookies/auth-cookie";
@@ -109,8 +110,10 @@ export async function uploadWebsiteMediaAssetAction(formData: FormData) {
       access: "public",
       addRandomSuffix: true,
       token: env.BLOB_READ_WRITE_TOKEN,
-    }
-  );
+    },
+  ).catch((error) => {
+    throw createBlobUploadError("Website media storage", error);
+  });
 
   await createWebsiteMediaAsset({
     schoolProfileId: cookie.schoolId,

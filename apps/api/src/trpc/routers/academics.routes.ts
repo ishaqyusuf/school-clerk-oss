@@ -1148,14 +1148,16 @@ export const academicsRouter = createTRPCRouter({
                 select: { id: true },
               });
 
-          await applyFeeHistoriesToStudentTermForm(tx, {
-            schoolProfileId: ctx.profile.schoolId,
-            studentId: form.studentId,
-            studentTermFormId: termForm.id,
-            schoolSessionId: toTerm.sessionId,
-            sessionTermId: input.toTermId,
-            classroomDepartmentId: targetClassroomDepartmentId,
-          });
+          if (targetClassroomDepartmentId) {
+            await applyFeeHistoriesToStudentTermForm(tx, {
+              schoolProfileId: ctx.profile.schoolId,
+              studentId: form.studentId,
+              studentTermFormId: termForm.id,
+              schoolSessionId: toTerm.sessionId,
+              sessionTermId: input.toTermId,
+              classroomDepartmentId: targetClassroomDepartmentId,
+            });
+          }
         }
         return { promoted: sourceTermForms.length, mode: input.mode };
       });

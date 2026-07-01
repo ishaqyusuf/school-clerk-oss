@@ -276,7 +276,7 @@ export const assessmentRouter = createTRPCRouter({
           departmentLevel: number | null;
           classRoom: {
             id: string;
-            name: string;
+            name: string | null;
             classLevel: number | null;
           } | null;
           displayName: string;

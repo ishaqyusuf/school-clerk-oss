@@ -14,6 +14,7 @@ import {
   setEnrollmentLinkStatusSchema,
 } from "../schemas/enrollment-links";
 import { authenticatedProcedure, createTRPCRouter } from "../init";
+import { TRPCError } from "@trpc/server";
 
 export const enrollmentLinksRouter = createTRPCRouter({
   listLinks: authenticatedProcedure.query(({ ctx }) => {
@@ -27,7 +28,16 @@ export const enrollmentLinksRouter = createTRPCRouter({
   setLinkStatus: authenticatedProcedure
     .input(setEnrollmentLinkStatusSchema)
     .mutation(({ ctx, input }) => {
-      return setEnrollmentLinkStatus(ctx, input);
+      if (!input.id || !input.status) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Enrollment link id and status are required.",
+        });
+      }
+      return setEnrollmentLinkStatus(ctx, {
+        id: input.id,
+        status: input.status,
+      });
     }),
   getApplications: authenticatedProcedure
     .input(getEnrollmentApplicationsSchema)
@@ -42,6 +52,15 @@ export const enrollmentLinksRouter = createTRPCRouter({
   rejectApplication: authenticatedProcedure
     .input(rejectEnrollmentApplicationSchema)
     .mutation(({ ctx, input }) => {
-      return rejectEnrollmentApplication(ctx, input);
+      if (!input.applicationId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Application id is required.",
+        });
+      }
+      return rejectEnrollmentApplication(ctx, {
+        applicationId: input.applicationId,
+        reason: input.reason,
+      });
     }),
 });

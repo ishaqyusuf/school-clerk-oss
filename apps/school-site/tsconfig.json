@@ -7,6 +7,15 @@
     "paths": {
       "@/*": ["./src/*"],
       "@school-clerk/db": ["../../packages/db/src/index.ts"],
+      "@school-clerk/email": ["../../packages/email/index.ts"],
+      "@school-clerk/email/render": ["../../packages/email/render.ts"],
+      "@school-clerk/pdf": ["../../packages/pdf/src/index.ts"],
+      "@school-clerk/pdf/document-templates": [
+        "../../packages/pdf/src/documents/index.ts"
+      ],
+      "@school-clerk/pdf/json-template": [
+        "../../packages/pdf/src/json-template/index.tsx"
+      ],
       "@school-clerk/template-registry": [
         "../../packages/template-registry/src/index.ts"
       ]

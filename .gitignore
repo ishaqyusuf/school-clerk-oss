@@ -73,3 +73,4 @@ sales-form-data.json
 snippets
 .gstack/
 .local-db-sync/
+.env*

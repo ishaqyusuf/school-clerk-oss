@@ -3,7 +3,11 @@ import { configs } from "@/configs";
 import { buildStudentReportsById } from "@/features/student-report/report-model";
 import { getClassroomReportSheet } from "@api/db/queries/report-sheet";
 import { renderToStream } from "@school-clerk/pdf";
-import { renderResultTemplate } from "@school-clerk/pdf/result-template";
+import { renderSchoolDocumentTemplate } from "@school-clerk/pdf/document-templates";
+import {
+  jsonDocumentTemplateSchema,
+  renderJsonDocumentTemplateToPdf,
+} from "@school-clerk/pdf/json-template";
 import { prisma } from "@school-clerk/db";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -138,11 +142,24 @@ export async function GET(req: NextRequest) {
   const safeTitle = `student-report-${termLabel || "term"}`
     .replace(/[^a-z0-9-_]+/gi, "-")
     .toLowerCase();
-
-  const strm = renderResultTemplate({
-    schoolSystem: configs.resultTemplates.schoolSystem,
-    preferredTemplateId:
-      parsed.data.templateId ?? configs.resultTemplates.preferredTemplateId,
+  const resultTemplatePreference = await (
+    prisma as any
+  ).schoolDocumentTemplatePreference.findFirst({
+    where: {
+      deletedAt: null,
+      documentType: "RESULT_SHEET",
+      schoolProfileId: auth.schoolId,
+    },
+    select: {
+      source: true,
+      templateId: true,
+    },
+  });
+  const preferredTemplateId =
+    parsed.data.templateId ??
+    resultTemplatePreference?.templateId ??
+    configs.resultTemplates.preferredTemplateId;
+  const resultPayload = {
     schoolName: configs.schoolName,
     schoolAddress: configs.schoolAddress,
     termLabel,
@@ -160,7 +177,44 @@ export async function GET(req: NextRequest) {
       commentEnglish: report.comment?.english,
       tables: report.tables,
     })),
-  });
+  };
+  const customTemplateRequest =
+    preferredTemplateId &&
+    (parsed.data.templateId || resultTemplatePreference?.source === "custom")
+      ? await (prisma as any).customDocumentTemplateRequest.findFirst({
+          where: {
+            builtTemplateId: preferredTemplateId,
+            deletedAt: null,
+            documentType: "RESULT_SHEET",
+            schoolProfileId: auth.schoolId,
+            status: "READY",
+          },
+          select: {
+            builtTemplateJson: true,
+          },
+        })
+      : null;
+  const customTemplateResult = customTemplateRequest?.builtTemplateJson
+    ? jsonDocumentTemplateSchema.safeParse(customTemplateRequest.builtTemplateJson)
+    : null;
+
+  if (customTemplateResult && !customTemplateResult.success) {
+    return NextResponse.json(
+      { error: "Selected custom result template JSON is invalid." },
+      { status: 500 },
+    );
+  }
+
+  const customTemplate = customTemplateResult?.data ?? null;
+  const strm =
+    customTemplate?.documentType === "RESULT_SHEET"
+      ? renderJsonDocumentTemplateToPdf(customTemplate, resultPayload)
+      : renderSchoolDocumentTemplate({
+          documentType: "RESULT_SHEET",
+          preferredTemplateId,
+          schoolSystem: configs.resultTemplates.schoolSystem,
+          payload: resultPayload,
+        });
 
   try {
     const stream = await renderToStream(strm);

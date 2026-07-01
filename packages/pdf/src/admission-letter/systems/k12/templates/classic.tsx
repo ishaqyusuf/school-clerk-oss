@@ -1,0 +1,183 @@
+import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import type { AdmissionLetterTemplatePayload } from "../../../types";
+
+const styles = StyleSheet.create({
+  page: {
+    padding: 42,
+    backgroundColor: "#FFFEFA",
+    color: "#1F2937",
+    fontFamily: "Helvetica",
+    fontSize: 11,
+    lineHeight: 1.45,
+  },
+  border: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: "#1F2937",
+    padding: 26,
+  },
+  header: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#D1D5DB",
+    paddingBottom: 14,
+    marginBottom: 20,
+  },
+  schoolName: {
+    fontSize: 22,
+    textAlign: "center",
+    fontWeight: 700,
+    color: "#111827",
+  },
+  schoolAddress: {
+    marginTop: 5,
+    textAlign: "center",
+    color: "#6B7280",
+    fontSize: 9,
+  },
+  title: {
+    marginTop: 18,
+    textAlign: "center",
+    fontSize: 15,
+    fontWeight: 700,
+    textTransform: "uppercase",
+  },
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 18,
+    marginBottom: 18,
+  },
+  meta: {
+    flex: 1,
+    gap: 4,
+  },
+  passport: {
+    width: 88,
+    height: 102,
+    borderWidth: 1,
+    borderColor: "#9CA3AF",
+    objectFit: "cover",
+  },
+  passportFallback: {
+    width: 88,
+    height: 102,
+    borderWidth: 1,
+    borderColor: "#9CA3AF",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#9CA3AF",
+    fontSize: 8,
+    textAlign: "center",
+  },
+  paragraph: {
+    marginBottom: 11,
+  },
+  bold: {
+    fontWeight: 700,
+  },
+  paymentBox: {
+    marginTop: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    padding: 12,
+    backgroundColor: "#F9FAFB",
+    gap: 4,
+  },
+  signature: {
+    marginTop: 42,
+    width: 180,
+    borderTopWidth: 1,
+    borderTopColor: "#111827",
+    paddingTop: 6,
+    textAlign: "center",
+  },
+  footer: {
+    marginTop: "auto",
+    color: "#6B7280",
+    fontSize: 8,
+    textAlign: "center",
+  },
+});
+
+const value = (input?: string | null) => input || "Not specified";
+
+export function ClassicAdmissionLetterTemplate({
+  applicationReference,
+  approvedAt,
+  classroomName,
+  parentName,
+  passportPhotoUrl,
+  payment,
+  schoolAddress,
+  schoolName,
+  sessionLabel,
+  studentName,
+}: AdmissionLetterTemplatePayload) {
+  return (
+    <Document title={`${studentName} Admission Letter`}>
+      <Page size="A4" style={styles.page}>
+        <View style={styles.border}>
+          <View style={styles.header}>
+            <Text style={styles.schoolName}>{schoolName}</Text>
+            {schoolAddress ? <Text style={styles.schoolAddress}>{schoolAddress}</Text> : null}
+            <Text style={styles.title}>Admission Letter</Text>
+          </View>
+
+          <View style={styles.topRow}>
+            <View style={styles.meta}>
+              <Text>Reference: {value(applicationReference)}</Text>
+              <Text>Date approved: {value(approvedAt)}</Text>
+              <Text>Academic session: {value(sessionLabel)}</Text>
+              <Text>Class admitted into: {value(classroomName)}</Text>
+              <Text>Parent/guardian: {value(parentName)}</Text>
+            </View>
+            {passportPhotoUrl ? (
+              <Image src={passportPhotoUrl} style={styles.passport} />
+            ) : (
+              <View style={styles.passportFallback}>
+                <Text>Student passport</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.paragraph}>Dear {value(parentName)},</Text>
+          <Text style={styles.paragraph}>
+            We are pleased to inform you that{" "}
+            <Text style={styles.bold}>{studentName}</Text> has been offered admission
+            into <Text style={styles.bold}>{value(classroomName)}</Text>
+            {sessionLabel ? ` for the ${sessionLabel}.` : "."}
+          </Text>
+          <Text style={styles.paragraph}>
+            This offer is subject to completion of all school admission requirements
+            and any payment instructions stated below.
+          </Text>
+
+          <View style={styles.paymentBox}>
+            <Text style={styles.bold}>Admission payment</Text>
+            {payment?.required ? (
+              <>
+                <Text>Payment: {value(payment.label)}</Text>
+                <Text>Amount: {value(payment.amount)}</Text>
+                <Text>Due date: {value(payment.dueAt)}</Text>
+                {payment.instructions ? <Text>Instructions: {payment.instructions}</Text> : null}
+              </>
+            ) : (
+              <Text>No admission payment is required before the next step.</Text>
+            )}
+          </View>
+
+          <Text style={styles.paragraph}>
+            Please keep this letter for your records and present it when requested by
+            the school admission office.
+          </Text>
+
+          <Text style={styles.signature}>Admission Officer</Text>
+          <Text style={styles.footer}>
+            Generated by School Clerk. Application reference {value(applicationReference)}.
+          </Text>
+        </View>
+      </Page>
+    </Document>
+  );
+}

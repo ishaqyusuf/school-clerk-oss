@@ -41,6 +41,8 @@ model SchoolProfile {
     inventoryIssuances     InventoryIssuance[]
     enrollmentLinks        EnrollmentLink[]
     enrollmentApplications EnrollmentApplication[]
+    documentTemplatePreferences SchoolDocumentTemplatePreference[]
+    customDocumentTemplateRequests CustomDocumentTemplateRequest[]
     assistantConversations AssistantConversation[]
     assistantMessages      AssistantMessage[]
     assistantRuns          AssistantRun[]

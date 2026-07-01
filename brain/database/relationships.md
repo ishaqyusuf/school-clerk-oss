@@ -28,12 +28,20 @@ Describes entity relationships and cardinality constraints.
 - `Students` N:M `Guardians` via `StudentGuardians`
 - `User` 1:N `Guardians` through nullable `Guardians.userId` for authenticated parent portal access
 - `SchoolProfile` 1:N `EnrollmentLink`
+- `SchoolProfile` 1:N `SchoolDocumentTemplatePreference`
+- `SchoolProfile` 1:N `CustomDocumentTemplateRequest`
 - `EnrollmentLink` 1:N `EnrollmentLinkClassroom`, `EnrollmentLinkDocumentRequirement`, and `EnrollmentApplication`
 - `EnrollmentLinkClassroom` N:1 `ClassRoomDepartment`; allowed classrooms are validated against the link tenant/session before submission or approval
 - `EnrollmentLinkClassroom` owns per-link selected-class admission rules such as age range, age cutoff date, capacity, and requirement notes.
 - `EnrollmentLinkDocumentRequirement` optionally N:1 `ClassRoomDepartment`; null class target means the document requirement applies to every classroom on that link.
+- `EnrollmentLinkDocumentRequirement.documentType` classifies required uploads such as passport photos, birth certificates, previous reports, general documents, or other custom documents.
 - `EnrollmentApplication` 1:N `EnrollmentApplicationParent` and `EnrollmentApplicationDocument`
+- `EnrollmentApplication` stores approval payment handoff metadata and `admissionApprovalEmailSentAt` on the application decision record so parent-facing approval emails can be audited without creating a separate payment session yet.
+- `EnrollmentApplication.admissionLetterTemplateId` and `admissionLetterTemplateVersion` record the PDF template selected during approval; the public admission-letter route rebuilds the PDF from application payload data and can resolve built-in registry templates or ready custom JSON templates.
+- `EnrollmentApplicationDocument.documentType` copies the requirement kind at upload time so review, approval, and later admission-letter generation can locate passport/photo files without parsing labels.
 - `EnrollmentApplication.acceptedStudentId` and `acceptedTermFormId` record the student/term records created or linked after approval
+- `SchoolDocumentTemplatePreference` stores one active tenant default per document type through a partial unique index on `(schoolProfileId, documentType)` where `deletedAt IS NULL`.
+- `CustomDocumentTemplateRequest` stores uploaded source files, quote payment handoff metadata, and custom-build quote/status metadata; when `status=READY`, `builtTemplateId` plus validated `builtTemplateJson` can be exposed in school template selectors and rendered by JSON PDF routes.
 - `StudentTermForm` 1:N `StudentAttendance`, `StudentFee`, `StudentPayment`, `StudentAssessmentRecord`
 - `Wallet` 1:N `WalletTransactions`; `WalletTransactions` links to `StudentPayment` and `BillPayment`
 - `Wallet` 1:N `FeeHistory` (via `walletId` — accounting stream for student fees)
@@ -59,6 +67,9 @@ Describes entity relationships and cardinality constraints.
 - Enrollment document invariant: public submission and approval must require only global document requirements plus requirements targeted to the selected `classRoomDepartmentId`.
 - Enrollment age invariant: when `EnrollmentLinkClassroom` has age limits, public submission and approval must calculate age from `studentDob` against `ageCutoffDate`, then link opening date, then current date.
 - Enrollment approval invariant: approval must re-check tenant, active session/term, classroom capacity, age rules, document requirements, and current student/guardian state before creating or linking canonical student records.
+- Document template preference invariant: a saved tenant preference must resolve to either a built-in shared registry template or a ready custom template request owned by the same `schoolProfileId`.
+- Custom template quote invariant: if a request is moved to `QUOTED` with a positive `quotedAmount`, the operator must provide either payment instructions or an external payment link.
+- Custom template invariant: a request should only be marked `READY` when its `builtTemplateJson.documentType` matches the request `documentType` and its `builtTemplateJson.templateId` matches `builtTemplateId`.
 - Legacy models (`school`, `guardian`, `session_class`) use separate relation chains and need consolidation rules.
 - TODO: add DB-level indexes/constraints audit for tenant scoping fields.
 

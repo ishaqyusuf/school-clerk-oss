@@ -6,6 +6,8 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
+const MotionDiv = motion.div as any;
+
 interface BottomBarProps {
     selectedCount: number;
     onDeselect: () => void;
@@ -26,7 +28,7 @@ export function BottomBar({
     if (!mounted) return null;
 
     return createPortal(
-        <motion.div
+        <MotionDiv
             className="pointer-events-none fixed bottom-6 left-0 right-0 z-50 flex h-12 justify-center"
             initial={{ y: 100 }}
             animate={{ y: 0 }}
@@ -34,7 +36,7 @@ export function BottomBar({
             transition={{ duration: 0.2, ease: "easeOut" }}
         >
             <div className="pointer-events-auto relative h-12 min-w-[400px]">
-                <motion.div
+                <MotionDiv
                     className="absolute inset-0 bg-[rgba(247,247,247,0.85)] backdrop-blur-lg backdrop-filter dark:bg-[rgba(19,19,19,0.7)]"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -57,7 +59,7 @@ export function BottomBar({
                     </div>
                 </div>
             </div>
-        </motion.div>,
+        </MotionDiv>,
         document.body,
     );
 }

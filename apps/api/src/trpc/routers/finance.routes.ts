@@ -669,7 +669,17 @@ export const financeRouter = createTRPCRouter({
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
-			return reverseFinancePayment(ctx, input);
+			if (!input.paymentId) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Payment id is required.",
+				});
+			}
+
+			return reverseFinancePayment(ctx, {
+				note: input.note,
+				paymentId: input.paymentId,
+			});
 		}),
 	generateBillsFromBillables: authenticatedProcedure
 		.input(optionalCompatInput)

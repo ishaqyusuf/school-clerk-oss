@@ -1,13 +1,31 @@
 import type { TRPCContext } from "@api/trpc/init";
 import type {
+  ApproveEnrollmentApplicationInput,
   CreateOrUpdateEnrollmentLinkInput,
   GetEnrollmentApplicationsInput,
 } from "@api/trpc/schemas/enrollment-links";
+import { AdmissionApprovalEmail } from "@school-clerk/email";
+import { render } from "@school-clerk/email/render";
+import { getRecipient } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 
 const ACTIVE_APPLICATION_STATUSES = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"];
 const ADMIN_ROLES = new Set(["Admin", "ADMIN", "Registrar"]);
+const ENROLLMENT_DOCUMENT_TYPES = new Set([
+  "GENERAL",
+  "PASSPORT_PHOTO",
+  "BIRTH_CERTIFICATE",
+  "PREVIOUS_SCHOOL_REPORT",
+  "OTHER",
+]);
+const DEFAULT_ADMISSION_LETTER_TEMPLATE_ID = "admission-classic-v1";
+const ADMISSION_LETTER_TEMPLATE_VERSION = 1;
+const BUILT_IN_ADMISSION_LETTER_TEMPLATE_IDS = new Set([
+  "admission-classic-v1",
+  "admission-json-simple-v1",
+  "admission-modern-v1",
+]);
 
 function requireSchoolId(ctx: TRPCContext) {
   if (!ctx.profile.schoolId) {
@@ -58,6 +76,178 @@ function classroomLabel(classroomDepartment: any) {
     .join(" ");
 }
 
+function inferDocumentTypeFromLabel(label?: string | null) {
+  const normalized = label?.toLowerCase() ?? "";
+
+  if (normalized.includes("passport") || normalized.includes("photo")) {
+    return "PASSPORT_PHOTO";
+  }
+
+  if (normalized.includes("birth") && normalized.includes("certificate")) {
+    return "BIRTH_CERTIFICATE";
+  }
+
+  if (
+    normalized.includes("previous") ||
+    normalized.includes("report") ||
+    normalized.includes("transcript")
+  ) {
+    return "PREVIOUS_SCHOOL_REPORT";
+  }
+
+  return "GENERAL";
+}
+
+function normalizeDocumentType(value?: string | null, label?: string | null) {
+  if (value && value !== "GENERAL" && ENROLLMENT_DOCUMENT_TYPES.has(value)) {
+    return value;
+  }
+
+  return inferDocumentTypeFromLabel(label);
+}
+
+function normalizePaymentLink(value?: string | null) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed || null;
+}
+
+async function resolveAdmissionLetterTemplateForSchool(
+  db: any,
+  schoolProfileId: string,
+  templateId: string,
+) {
+  if (BUILT_IN_ADMISSION_LETTER_TEMPLATE_IDS.has(templateId)) {
+    return {
+      templateId,
+      templateVersion: ADMISSION_LETTER_TEMPLATE_VERSION,
+    };
+  }
+
+  const customTemplate = await db.customDocumentTemplateRequest.findFirst({
+    where: {
+      builtTemplateId: templateId,
+      deletedAt: null,
+      documentType: "ADMISSION_LETTER",
+      schoolProfileId,
+      status: "READY",
+    },
+    select: {
+      builtTemplateJson: true,
+      builtTemplateVersion: true,
+    },
+  });
+
+  if (
+    !customTemplate?.builtTemplateJson ||
+    customTemplate.builtTemplateJson.documentType !== "ADMISSION_LETTER" ||
+    customTemplate.builtTemplateJson.templateId !== templateId
+  ) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Select a ready admission letter template before approving.",
+    });
+  }
+
+  return {
+    templateId,
+    templateVersion:
+      customTemplate.builtTemplateVersion ??
+      customTemplate.builtTemplateJson.templateVersion ??
+      ADMISSION_LETTER_TEMPLATE_VERSION,
+  };
+}
+
+function formatPaymentAmount(
+  amount?: number | string | null,
+  currency = "NGN",
+) {
+  if (amount == null || Number(amount) <= 0) return null;
+
+  return new Intl.NumberFormat("en-NG", {
+    currency,
+    style: "currency",
+  }).format(Number(amount));
+}
+
+function formatDate(value?: Date | string | null) {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat("en-NG", {
+    dateStyle: "medium",
+  }).format(date);
+}
+
+function getAdmissionEmailFrom() {
+  return (
+    process.env.RESEND_FROM_EMAIL ??
+    "School Clerk Admissions <admissions@school-clerk.com>"
+  );
+}
+
+async function sendAdmissionApprovalEmail(input: {
+  admissionLetterUrl?: string | null;
+  classroomName: string;
+  parentEmail: string;
+  parentName: string;
+  paymentAmount?: string | null;
+  paymentDueAt?: string | null;
+  paymentInstructions?: string | null;
+  paymentLabel?: string | null;
+  paymentLink?: string | null;
+  paymentRequired: boolean;
+  schoolName: string;
+  studentName: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    console.warn(
+      `[enrollment] RESEND_API_KEY missing; approval email not sent to ${input.parentEmail}`,
+    );
+    return false;
+  }
+
+  const html = await render(
+    AdmissionApprovalEmail({
+      admissionLetterUrl: input.admissionLetterUrl,
+      classroomName: input.classroomName,
+      parentName: input.parentName,
+      paymentAmount: input.paymentAmount,
+      paymentDueAt: input.paymentDueAt,
+      paymentInstructions: input.paymentInstructions,
+      paymentLabel: input.paymentLabel,
+      paymentLink: input.paymentLink,
+      paymentRequired: input.paymentRequired,
+      schoolName: input.schoolName,
+      studentName: input.studentName,
+    }),
+  );
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: getAdmissionEmailFrom(),
+      to: [getRecipient(input.parentEmail)],
+      subject: `${input.schoolName}: admission approved`,
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[enrollment] approval email failed: ${errorText}`);
+    return false;
+  }
+
+  return true;
+}
+
 function normalizeHost(value?: string | null) {
   return value?.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "") || "";
 }
@@ -93,6 +283,25 @@ function buildPublicEnrollmentUrl(subDomain?: string | null, code?: string | nul
 
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
   return `${protocol}://${subDomain}.${getSchoolSiteRootDomain()}${path}`;
+}
+
+function buildPublicAdmissionLetterUrl(input: {
+  applicationId?: string | null;
+  code?: string | null;
+  subDomain?: string | null;
+  templateId?: string | null;
+}) {
+  if (!input.subDomain || !input.code || !input.applicationId) return null;
+
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  const params = new URLSearchParams({
+    applicationId: input.applicationId,
+    code: input.code,
+  });
+
+  if (input.templateId) params.set("templateId", input.templateId);
+
+  return `${protocol}://${input.subDomain}.${getSchoolSiteRootDomain()}/api/pdf/admission-letter?${params.toString()}`;
 }
 
 function calculateAgeMonths(dateOfBirth: Date, cutoffDate: Date) {
@@ -262,6 +471,7 @@ export async function listEnrollmentLinks(ctx: TRPCContext) {
       id: row.id,
       label: row.label,
       description: row.description,
+      documentType: normalizeDocumentType(row.documentType, row.label),
       uploadRequired: row.uploadRequired,
       sortOrder: row.sortOrder,
       classRoomDepartmentId: row.classRoomDepartmentId,
@@ -376,6 +586,10 @@ export async function createOrUpdateEnrollmentLink(
           enrollmentLinkId: link.id,
           label: requirement.label,
           description: requirement.description ?? null,
+          documentType: normalizeDocumentType(
+            requirement.documentType,
+            requirement.label,
+          ),
           uploadRequired: requirement.uploadRequired,
           sortOrder: requirement.sortOrder,
           classRoomDepartmentId: requirement.classRoomDepartmentId ?? null,
@@ -426,10 +640,24 @@ export async function getEnrollmentApplications(
       ...(input.status ? { status: input.status } : {}),
     },
     include: {
-      enrollmentLink: true,
+      enrollmentLink: {
+        include: {
+          schoolProfile: { select: { subDomain: true } },
+        },
+      },
       classRoomDepartment: { include: { classRoom: true } },
       parents: { where: { deletedAt: null } },
-      documents: { where: { deletedAt: null } },
+      documents: {
+        where: { deletedAt: null },
+        include: {
+          requirement: {
+            select: {
+              documentType: true,
+              label: true,
+            },
+          },
+        },
+      },
     },
     orderBy: [{ createdAt: "desc" }],
   });
@@ -441,7 +669,18 @@ export async function getEnrollmentApplications(
     return {
       id: row.id,
       linkId: row.enrollmentLinkId,
+      linkCode: row.enrollmentLink?.code,
       linkTitle: row.enrollmentLink?.title ?? "Enrollment link",
+      admissionLetterUrl:
+        row.status === "APPROVED"
+          ? buildPublicAdmissionLetterUrl({
+              applicationId: row.id,
+              code: row.enrollmentLink?.code,
+              subDomain: row.enrollmentLink?.schoolProfile?.subDomain,
+              templateId:
+                row.admissionLetterTemplateId ?? DEFAULT_ADMISSION_LETTER_TEMPLATE_ID,
+            })
+          : null,
       status: row.status,
       studentName: [row.studentFirstName, row.studentSurname, row.studentOtherName]
         .filter(Boolean)
@@ -451,6 +690,29 @@ export async function getEnrollmentApplications(
       classroomName: classroomLabel(row.classRoomDepartment),
       primaryParent,
       documentCount: row.documents.length,
+      admissionPaymentRequired: row.admissionPaymentRequired,
+      admissionPaymentLabel: row.admissionPaymentLabel,
+      admissionPaymentAmount: row.admissionPaymentAmount,
+      admissionPaymentCurrency: row.admissionPaymentCurrency,
+      admissionPaymentInstructions: row.admissionPaymentInstructions,
+      admissionPaymentLink: row.admissionPaymentLink,
+      admissionPaymentDueAt: row.admissionPaymentDueAt,
+      admissionApprovalEmailSentAt: row.admissionApprovalEmailSentAt,
+      admissionLetterTemplateId: row.admissionLetterTemplateId,
+      admissionLetterTemplateVersion: row.admissionLetterTemplateVersion,
+      documents: row.documents.map((document: any) => ({
+        id: document.id,
+        label: document.requirement?.label ?? document.fileName,
+        documentType: normalizeDocumentType(
+          document.documentType,
+          document.requirement?.label,
+        ),
+        fileName: document.fileName,
+        fileUrl: document.fileUrl,
+        mimeType: document.mimeType,
+        sizeBytes: document.sizeBytes,
+        reviewStatus: document.reviewStatus,
+      })),
       acceptedStudentId: row.acceptedStudentId,
       acceptedTermFormId: row.acceptedTermFormId,
       createdAt: row.createdAt,
@@ -524,9 +786,33 @@ function assertRequiredDocuments(application: any) {
 
 export async function approveEnrollmentApplication(
   ctx: TRPCContext,
-  input: { applicationId: string },
+  input: ApproveEnrollmentApplicationInput,
 ) {
   const { schoolProfileId, userId } = requireEnrollmentAdmin(ctx);
+  const paymentRequired = input.paymentRequired ?? false;
+  const paymentAmount =
+    paymentRequired && input.paymentAmount != null && input.paymentAmount > 0
+      ? input.paymentAmount
+      : null;
+  const paymentCurrency = input.paymentCurrency ?? "NGN";
+  const paymentInstructions = paymentRequired
+    ? input.paymentInstructions?.trim() || null
+    : null;
+  const paymentLink = paymentRequired ? normalizePaymentLink(input.paymentLink) : null;
+  const paymentLabel = paymentRequired
+    ? input.paymentLabel?.trim() || "Admission payment"
+    : null;
+  const paymentDueAt = paymentRequired ? input.paymentDueAt ?? null : null;
+  const requestedAdmissionLetterTemplateId =
+    input.admissionLetterTemplateId ?? DEFAULT_ADMISSION_LETTER_TEMPLATE_ID;
+
+  if (paymentRequired && (!paymentAmount || (!paymentInstructions && !paymentLink))) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "Admission payment approval requires a positive amount and payment instructions or link.",
+    });
+  }
 
   if (!ctx.profile.sessionId || !ctx.profile.termId) {
     throw new TRPCError({
@@ -535,7 +821,7 @@ export async function approveEnrollmentApplication(
     });
   }
 
-  return ctx.db.$transaction(async (tx) => {
+  const approval = await ctx.db.$transaction(async (tx) => {
     const txDb = tx as any;
     const application = await txDb.enrollmentApplication.findFirst({
       where: {
@@ -544,6 +830,7 @@ export async function approveEnrollmentApplication(
         deletedAt: null,
       },
       include: {
+        schoolProfile: true,
         parents: { where: { deletedAt: null } },
         documents: { where: { deletedAt: null } },
         classRoomDepartment: { include: { classRoom: true } },
@@ -565,6 +852,7 @@ export async function approveEnrollmentApplication(
         success: true,
         studentId: application.acceptedStudentId,
         termFormId: application.acceptedTermFormId,
+        email: null,
       };
     }
 
@@ -593,6 +881,14 @@ export async function approveEnrollmentApplication(
     const primaryParent =
       application.parents.find((parent: any) => parent.isPrimary) ??
       application.parents[0];
+
+    if (!primaryParent?.email) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          "Primary parent email is required before sending the admission approval email.",
+      });
+    }
 
     const linkedUser = primaryParent
       ? await txDb.user.findFirst({
@@ -632,6 +928,12 @@ export async function approveEnrollmentApplication(
           },
         })
       : null;
+    const admissionLetterTemplate =
+      await resolveAdmissionLetterTemplateForSchool(
+        txDb,
+        schoolProfileId,
+        requestedAdmissionLetterTemplateId,
+      );
 
     const student = await txDb.students.create({
       data: {
@@ -677,7 +979,7 @@ export async function approveEnrollmentApplication(
       select: { id: true },
     });
 
-    await applyFeeHistoriesToStudentTermForm(tx as any, {
+    const feeApplication = await applyFeeHistoriesToStudentTermForm(tx as any, {
       schoolProfileId,
       studentId: student.id,
       studentTermFormId: termForm.id,
@@ -702,13 +1004,75 @@ export async function approveEnrollmentApplication(
         status: "APPROVED",
         reviewedAt: new Date(),
         reviewedByUserId: userId,
+        admissionPaymentRequired: paymentRequired,
+        admissionPaymentLabel: paymentLabel,
+        admissionPaymentAmount: paymentAmount,
+        admissionPaymentCurrency: paymentRequired ? paymentCurrency : null,
+        admissionPaymentInstructions: paymentInstructions,
+        admissionPaymentLink: paymentLink,
+        admissionPaymentDueAt: paymentDueAt,
+        admissionLetterTemplateId: admissionLetterTemplate.templateId,
+        admissionLetterTemplateVersion: admissionLetterTemplate.templateVersion,
         acceptedStudentId: student.id,
         acceptedTermFormId: termForm.id,
       },
     });
 
-    return { success: true, studentId: student.id, termFormId: termForm.id };
+    return {
+      success: true,
+      studentId: student.id,
+      termFormId: termForm.id,
+      appliedChargeCount: feeApplication.applied,
+      email: {
+        admissionLetterUrl: buildPublicAdmissionLetterUrl({
+          applicationId: application.id,
+          code: application.enrollmentLink.code,
+          subDomain: application.schoolProfile.subDomain,
+          templateId: admissionLetterTemplate.templateId,
+        }),
+        applicationId: application.id,
+        classroomName: classroomLabel(application.classRoomDepartment),
+        parentEmail: primaryParent.email,
+        parentName: primaryParent.name,
+        paymentAmount: formatPaymentAmount(paymentAmount, paymentCurrency),
+        paymentDueAt: formatDate(paymentDueAt),
+        paymentInstructions,
+        paymentLabel,
+        paymentLink,
+        paymentRequired,
+        schoolName: application.schoolProfile.name,
+        studentName: [
+          application.studentFirstName,
+          application.studentSurname,
+          application.studentOtherName,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      },
+    };
   });
+
+  if (approval.email) {
+    try {
+      const sent = await sendAdmissionApprovalEmail(approval.email);
+
+      if (sent) {
+        await (ctx.db as any).enrollmentApplication.update({
+          where: { id: approval.email.applicationId },
+          data: { admissionApprovalEmailSentAt: new Date() },
+        });
+      }
+    } catch (error) {
+      console.error("[enrollment] approval email failed", error);
+    }
+  }
+
+  return {
+    success: true,
+    studentId: approval.studentId,
+    termFormId: approval.termFormId,
+    appliedChargeCount: approval.appliedChargeCount ?? 0,
+  };
 }
 
 export async function rejectEnrollmentApplication(

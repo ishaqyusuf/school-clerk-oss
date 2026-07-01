@@ -87,6 +87,7 @@ export type Access = {
 export type LinkItem = {
   name;
   title;
+  icon?: IconKeys;
   href?;
   paths?: string[];
   level?;
@@ -94,6 +95,7 @@ export type LinkItem = {
   globalIndex?;
   index?;
   access?;
+  subLinks?: LinkItem[];
   status?: "live" | "beta" | "upcoming" | "hidden";
   // links?: {
   //     name;

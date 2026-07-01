@@ -35,7 +35,8 @@ Catalog of API routes and responsibilities.
 - `trpc.enrollmentLinks.getApplications`
 - `trpc.enrollmentLinks.approveApplication`
 - `trpc.enrollmentLinks.rejectApplication`
-- `school-site /enroll/[code]` public enrollment form and submission handlers with selected-class age and document requirement filtering
+- `school-site /enroll/[code]` public enrollment form and submission handlers with selected-class age rules, typed document requirement filtering, upload validation, parent email confirmation, and parent password setup
+- `dashboard /settings/document-templates` server-action surface for result template preferences, custom template uploads, quote/build status tracking, and validated ready custom JSON templates
 
 ### Public School Website
 
@@ -121,7 +122,8 @@ Catalog of API routes and responsibilities.
 ### PDF Output
 
 - `GET /api/pdf/student-payment-receipt`
-- `GET /api/pdf/result`
+- `GET /api/pdf/result` dashboard result PDF route with tenant template preference resolution and ready custom JSON result-template rendering
+- `school-site GET /api/pdf/admission-letter` public approved-application PDF route with stored approval template fallback and ready custom JSON admission-letter rendering
 
 ### AI Chat
 

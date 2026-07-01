@@ -9,6 +9,9 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./admission-letter-template": "./src/admission-letter/index.tsx",
+    "./document-templates": "./src/documents/index.ts",
+    "./json-template": "./src/json-template/index.tsx",
     "./payment-receipt-template": "./src/payment-receipt/index.tsx",
     "./result-template": "./src/result/index.tsx",
     "./utils/*": "./src/utils/*.ts"

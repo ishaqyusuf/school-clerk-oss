@@ -1,23 +1,42 @@
 "use server";
 
+import { createElement } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { put } from "@vercel/blob";
 
 import { initAuth } from "@school-clerk/auth";
 import { prisma } from "@school-clerk/db";
-import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
+import { AdmissionSubmissionEmail } from "@school-clerk/email";
+import { render } from "@school-clerk/email/render";
+import {
+  createBlobUploadError,
+  getRecipient,
+  resolveDashboardAppRootDomain,
+} from "@school-clerk/utils";
 
 const ACTIVE_APPLICATION_STATUSES = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"];
 const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024;
-const SUPPORTED_DOCUMENT_TYPES = new Set([
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
+const DOCUMENT_FILE_EXTENSIONS = new Map([
+  ["application/pdf", "pdf"],
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+]);
+const PASSPORT_PHOTO_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
+const ENROLLMENT_DOCUMENT_TYPES = new Set([
+  "GENERAL",
+  "PASSPORT_PHOTO",
+  "BIRTH_CERTIFICATE",
+  "PREVIOUS_SCHOOL_REPORT",
+  "OTHER",
 ]);
 
 function normalizePhone(value?: FormDataEntryValue | string | null) {
   return typeof value === "string" ? value.replace(/[^\d+]/g, "").trim() : "";
+}
+
+function normalizeEmail(value?: FormDataEntryValue | string | null) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
 function textValue(formData: FormData, key: string) {
@@ -28,6 +47,23 @@ function textValue(formData: FormData, key: string) {
 function nullableTextValue(formData: FormData, key: string) {
   const value = textValue(formData, key);
   return value || null;
+}
+
+function assertValidEmail(
+  value: string,
+  message = "A valid primary parent email address is required.",
+) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    throw new Error(message);
+  }
+}
+
+function assertValidPhone(value: string, label: string) {
+  const digitCount = value.replace(/\D/g, "").length;
+
+  if (digitCount < 7) {
+    throw new Error(`${label} must include at least 7 digits.`);
+  }
 }
 
 function calculateAgeMonths(dateOfBirth: Date, cutoffDate: Date) {
@@ -65,6 +101,45 @@ function getApplicableDocumentRequirements(
       !requirement.classRoomDepartmentId ||
       requirement.classRoomDepartmentId === classRoomDepartmentId,
   );
+}
+
+function classroomLabel(classroomDepartment: any) {
+  return [
+    classroomDepartment?.classRoom?.name,
+    classroomDepartment?.departmentName,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function inferDocumentTypeFromLabel(label?: string | null) {
+  const normalized = label?.toLowerCase() ?? "";
+
+  if (normalized.includes("passport") || normalized.includes("photo")) {
+    return "PASSPORT_PHOTO";
+  }
+
+  if (normalized.includes("birth") && normalized.includes("certificate")) {
+    return "BIRTH_CERTIFICATE";
+  }
+
+  if (
+    normalized.includes("previous") ||
+    normalized.includes("report") ||
+    normalized.includes("transcript")
+  ) {
+    return "PREVIOUS_SCHOOL_REPORT";
+  }
+
+  return "GENERAL";
+}
+
+function normalizeDocumentType(value?: string | null, label?: string | null) {
+  if (value && value !== "GENERAL" && ENROLLMENT_DOCUMENT_TYPES.has(value)) {
+    return value;
+  }
+
+  return inferDocumentTypeFromLabel(label);
 }
 
 function assertClassAgeRequirement(input: {
@@ -121,6 +196,83 @@ function getDashboardOrigin(subDomain: string) {
   return `${protocol}://${subDomain}.${appRoot}`;
 }
 
+function getSubmissionUrl(input: {
+  applicationId: string;
+  code: string;
+  requestHeaders: Headers;
+}) {
+  const host =
+    input.requestHeaders.get("x-forwarded-host") ??
+    input.requestHeaders.get("host");
+
+  if (!host) return null;
+
+  const protocol =
+    input.requestHeaders.get("x-forwarded-proto") ??
+    (process.env.NODE_ENV === "production" ? "https" : "http");
+  const url = new URL(`/enroll/${input.code}`, `${protocol}://${host}`);
+  url.searchParams.set("submitted", input.applicationId);
+
+  return url.toString();
+}
+
+function getAdmissionEmailFrom() {
+  return (
+    process.env.RESEND_FROM_EMAIL ??
+    "School Clerk Admissions <admissions@school-clerk.com>"
+  );
+}
+
+async function sendAdmissionSubmissionEmail(input: {
+  applicationReference: string;
+  classroomName: string;
+  ctaHref?: string | null;
+  documentCount: number;
+  parentEmail: string;
+  parentName: string;
+  schoolName: string;
+  studentName: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    console.warn(
+      `[enrollment] RESEND_API_KEY missing; submission email not sent to ${input.parentEmail}`,
+    );
+    return;
+  }
+
+  const html = await render(
+    createElement(AdmissionSubmissionEmail, {
+      applicationReference: input.applicationReference,
+      classroomName: input.classroomName,
+      ctaHref: input.ctaHref,
+      documentCount: input.documentCount,
+      parentName: input.parentName,
+      schoolName: input.schoolName,
+      studentName: input.studentName,
+    }),
+  );
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: getAdmissionEmailFrom(),
+      to: [getRecipient(input.parentEmail)],
+      subject: `${input.schoolName}: admission application received`,
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[enrollment] submission email failed: ${errorText}`);
+  }
+}
+
 function getAuthForSchoolSite() {
   const appRoot = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
   const baseUrl =
@@ -135,9 +287,16 @@ function getAuthForSchoolSite() {
   });
 }
 
-async function findApplication(id: string) {
+async function findApplication(id: string, code: string) {
   return (prisma as any).enrollmentApplication.findFirst({
-    where: { id, deletedAt: null },
+    where: {
+      id,
+      deletedAt: null,
+      enrollmentLink: {
+        code,
+        deletedAt: null,
+      },
+    },
     include: {
       schoolProfile: true,
       parents: { where: { deletedAt: null } },
@@ -182,21 +341,38 @@ async function assertCapacity(link: any, classRoomDepartmentId: string) {
 async function uploadDocument(input: {
   applicationId: string;
   code: string;
+  documentType: string;
   file: File;
   requirementId: string;
 }) {
-  if (!SUPPORTED_DOCUMENT_TYPES.has(input.file.type)) {
+  const extension = DOCUMENT_FILE_EXTENSIONS.get(input.file.type);
+
+  if (!extension) {
     throw new Error(`${input.file.name} must be a PDF, JPG, or PNG file.`);
+  }
+
+  if (
+    input.documentType === "PASSPORT_PHOTO" &&
+    !PASSPORT_PHOTO_MIME_TYPES.has(input.file.type)
+  ) {
+    throw new Error(`${input.file.name} must be a JPG or PNG passport photo.`);
   }
 
   if (input.file.size > MAX_DOCUMENT_SIZE_BYTES) {
     throw new Error(`${input.file.name} must be 10MB or smaller.`);
   }
 
-  const safeName = input.file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
-  const key = `enrollment/${input.code}/${input.applicationId}/${input.requirementId}-${safeName}`;
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    throw new Error("Admission document storage is not configured.");
+  }
+
+  const key = `enrollment/${input.code}/${input.applicationId}/${input.requirementId}-${crypto.randomUUID()}.${extension}`;
   const blob = await put(key, input.file, {
     access: "public",
+    addRandomSuffix: true,
+    token: process.env.BLOB_READ_WRITE_TOKEN,
+  }).catch((error) => {
+    throw createBlobUploadError("Admission document storage", error);
   });
 
   return {
@@ -206,6 +382,7 @@ async function uploadDocument(input: {
     storageKey: blob.pathname,
     mimeType: input.file.type,
     sizeBytes: input.file.size,
+    documentType: input.documentType,
   };
 }
 
@@ -218,7 +395,12 @@ export async function submitEnrollmentApplication(
     where: { code, status: "ACTIVE", deletedAt: null },
     include: {
       schoolProfile: true,
-      classrooms: { where: { deletedAt: null } },
+      classrooms: {
+        where: { deletedAt: null },
+        include: {
+          classRoomDepartment: { include: { classRoom: true } },
+        },
+      },
       documentRequirements: {
         where: { deletedAt: null },
         orderBy: [{ sortOrder: "asc" }],
@@ -254,12 +436,21 @@ export async function submitEnrollmentApplication(
   if (!parentPhone) {
     throw new Error("Primary parent phone number is required.");
   }
+  assertValidPhone(parentPhone, "Primary parent phone number");
+
+  const parentPhone2 = normalizePhone(formData.get("parentPhone2"));
+  if (parentPhone2) {
+    assertValidPhone(parentPhone2, "Alternative parent phone number");
+  }
+
   const studentFirstName = textValue(formData, "studentFirstName");
   const studentSurname = textValue(formData, "studentSurname");
   const studentDobText = textValue(formData, "studentDob");
   const studentDob = studentDobText ? new Date(studentDobText) : null;
   const studentGender = textValue(formData, "studentGender");
+  const studentOtherName = nullableTextValue(formData, "studentOtherName");
   const parentName = textValue(formData, "parentName");
+  const parentEmail = normalizeEmail(formData.get("parentEmail"));
 
   if (!studentFirstName || !studentSurname) {
     throw new Error("Student first name and surname are required.");
@@ -267,12 +458,16 @@ export async function submitEnrollmentApplication(
   if (!studentDob || Number.isNaN(studentDob.getTime())) {
     throw new Error("A valid student date of birth is required.");
   }
+  if (studentDob > new Date()) {
+    throw new Error("Student date of birth cannot be in the future.");
+  }
   if (studentGender !== "Male" && studentGender !== "Female") {
     throw new Error("Select a valid student gender.");
   }
   if (!parentName) {
     throw new Error("Primary parent name is required.");
   }
+  assertValidEmail(parentEmail);
 
   assertClassAgeRequirement({
     classroom: selectedClassroom,
@@ -281,6 +476,7 @@ export async function submitEnrollmentApplication(
   });
 
   const documentUploads: {
+    documentType: string;
     file: File;
     requirementId: string;
   }[] = [];
@@ -288,6 +484,20 @@ export async function submitEnrollmentApplication(
     link.documentRequirements,
     classRoomDepartmentId,
   );
+  const applicableRequirementIds = new Set(
+    applicableRequirements.map((requirement: any) => requirement.id),
+  );
+
+  for (const [key, value] of formData.entries()) {
+    if (
+      key.startsWith("document:") &&
+      value instanceof File &&
+      value.size > 0 &&
+      !applicableRequirementIds.has(key.slice("document:".length))
+    ) {
+      throw new Error("Only upload documents for the selected classroom.");
+    }
+  }
 
   for (const requirement of applicableRequirements) {
     const file = formData.get(`document:${requirement.id}`);
@@ -302,6 +512,10 @@ export async function submitEnrollmentApplication(
       documentUploads.push({
         file,
         requirementId: requirement.id,
+        documentType: normalizeDocumentType(
+          requirement.documentType,
+          requirement.label,
+        ),
       });
     }
   }
@@ -310,6 +524,7 @@ export async function submitEnrollmentApplication(
   const uploadedDocuments: {
     fileName: string;
     fileUrl: string;
+    documentType: string;
     mimeType: string;
     requirementId: string;
     sizeBytes: number;
@@ -323,6 +538,7 @@ export async function submitEnrollmentApplication(
       ...(await uploadDocument({
         applicationId,
         code,
+        documentType: upload.documentType,
         file: upload.file,
         requirementId: upload.requirementId,
       })),
@@ -337,7 +553,7 @@ export async function submitEnrollmentApplication(
       classRoomDepartmentId,
       studentFirstName,
       studentSurname,
-      studentOtherName: nullableTextValue(formData, "studentOtherName"),
+      studentOtherName,
       studentDob,
       studentGender,
       additionalNotes: nullableTextValue(formData, "additionalNotes"),
@@ -345,9 +561,9 @@ export async function submitEnrollmentApplication(
         create: {
           name: parentName,
           relation: nullableTextValue(formData, "parentRelation"),
-          email: nullableTextValue(formData, "parentEmail")?.toLowerCase(),
+          email: parentEmail,
           phone: parentPhone,
-          phone2: normalizePhone(formData.get("parentPhone2")) || null,
+          phone2: parentPhone2 || null,
           isPrimary: true,
         },
       },
@@ -358,6 +574,31 @@ export async function submitEnrollmentApplication(
     select: { id: true },
   });
 
+  const requestHeaders = new Headers(await headers());
+  const studentName = [studentFirstName, studentSurname, studentOtherName]
+    .filter(Boolean)
+    .join(" ");
+
+  try {
+    await sendAdmissionSubmissionEmail({
+      applicationReference: application.id.slice(0, 8).toUpperCase(),
+      classroomName:
+        classroomLabel(selectedClassroom.classRoomDepartment) || "selected class",
+      ctaHref: getSubmissionUrl({
+        applicationId: application.id,
+        code,
+        requestHeaders,
+      }),
+      documentCount: uploadedDocuments.length,
+      parentEmail,
+      parentName,
+      schoolName: link.schoolProfile.name,
+      studentName,
+    });
+  } catch (error) {
+    console.error("[enrollment] submission email failed", error);
+  }
+
   redirect(`/enroll/${code}?submitted=${application.id}`);
 }
 
@@ -366,13 +607,11 @@ export async function setupEnrollmentParentPassword(
   formData: FormData,
 ) {
   const applicationId = textValue(formData, "applicationId");
-  const email = textValue(formData, "email").toLowerCase();
+  const email = normalizeEmail(formData.get("email"));
   const password = textValue(formData, "password");
-  const application = await findApplication(applicationId);
+  const application = await findApplication(applicationId, code);
 
-  if (!email || !email.includes("@")) {
-    throw new Error("A valid email address is required.");
-  }
+  assertValidEmail(email, "A valid email address is required.");
   if (password.length < 8) {
     throw new Error("Password must be at least 8 characters.");
   }

@@ -26,6 +26,7 @@ const createClassroomSchema = z.object({
     )
     .optional(),
   subjects: z.array(z.string()).optional(),
+  defaultFees: z.array(z.any()).optional(),
 });
 
 function normalizeSubjectTitles(subjects?: string[] | null) {
@@ -51,7 +52,10 @@ async function syncClassroomSubjects({
   departmentIds,
   subjectTitles,
 }: {
-  tx: Prisma.TransactionClient;
+  tx: {
+    departmentSubject: any;
+    subject: any;
+  };
   schoolId: string;
   sessionTermId?: string | null;
   departmentIds: string[];

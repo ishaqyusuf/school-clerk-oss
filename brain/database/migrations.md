@@ -31,6 +31,60 @@ Change log for database schema migrations and rollout notes.
 - Owner:
 
 ## Migration Entry
+- Date: 2026-07-01
+- ID: 20260701110000_custom_template_quote_payment_handoff
+- Summary: Added quote payment handoff fields for custom document template requests: instructions, optional external payment link, and due date.
+- Affected entities: `CustomDocumentTemplateRequest`
+- Backfill required: No; existing requests keep null handoff fields and can be updated by platform template operators.
+- Rollback plan: Remove dashboard quote payment fields/validation, then drop the three quote payment columns.
+- Owner: Codex
+
+## Migration Entry
+- Date: 2026-06-30
+- ID: 20260630163000_custom_document_template_requests
+- Summary: Added upload-backed custom document template request tracking with quote/build status, source-file metadata, and validated built-template JSON storage.
+- Affected entities: `CustomDocumentTemplateRequest`, `SchoolProfile`
+- Backfill required: No; new requests are created from the dashboard document-template settings page.
+- Rollback plan: Remove custom template request UI/PDF selection usage, then drop the table and `CustomDocumentTemplateRequestStatus` enum.
+- Owner: Codex
+
+## Migration Entry
+- Date: 2026-06-30
+- ID: 20260630160000_school_document_template_preferences
+- Summary: Added tenant-scoped document template preferences for school defaults such as result-sheet template selection.
+- Affected entities: `SchoolDocumentTemplatePreference`, `SchoolProfile`
+- Backfill required: No; schools fall back to built-in defaults until a preference is saved.
+- Rollback plan: Remove tenant preference reads/writes from settings and PDF routes, then drop the table and indexes.
+- Owner: Codex
+
+## Migration Entry
+- Date: 2026-06-30
+- ID: 20260630153000_enrollment_admission_letter_template_selection
+- Summary: Added admission-letter template selection metadata to approved enrollment applications.
+- Affected entities: `EnrollmentApplication`
+- Backfill required: No; existing approved applications can fall back to `admission-classic-v1`.
+- Rollback plan: Remove admission-letter template selection from approval/dashboard/PDF links, then drop the new columns and index.
+- Owner: Codex
+
+## Migration Entry
+- Date: 2026-06-30
+- ID: 20260630143000_enrollment_approval_payment_metadata
+- Summary: Added admission approval payment metadata and approval-email delivery tracking to enrollment applications.
+- Affected entities: `EnrollmentApplication`
+- Backfill required: No; existing applications default to no required admission payment and null email sent timestamp.
+- Rollback plan: Remove approval payment/email usage in API and dashboard, then drop the new payment metadata columns and index.
+- Owner: Codex
+
+## Migration Entry
+- Date: 2026-06-30
+- ID: 20260630133000_enrollment_document_types
+- Summary: Added stable document type fields for enrollment/admission requirements and submitted application documents.
+- Affected entities: `EnrollmentLinkDocumentRequirement`, `EnrollmentApplicationDocument`
+- Backfill required: No; existing rows default to `GENERAL`, while application code infers passport/photo, birth certificate, and previous report types from labels where possible.
+- Rollback plan: Remove document type UI/API usage, then drop the new columns and indexes.
+- Owner: Codex
+
+## Migration Entry
 - Date: 2026-06-30
 - ID: 20260630120000_admission_link_visibility_requirements
 - Summary: Added admission/enrollment link website visibility, selected-class age/notes fields, and class-targeted document requirements.

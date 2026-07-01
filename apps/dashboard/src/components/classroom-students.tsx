@@ -19,7 +19,7 @@ function Content({ departmentId }) {
       <DataTable
         className="md:grid-cols-2 lg:grid-cols-2"
         grid
-        onCreate={(e) => {
+        onCreate={() => {
           setParams({
             secondaryTab: "student-form",
           });

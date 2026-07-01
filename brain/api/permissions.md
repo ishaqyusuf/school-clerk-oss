@@ -33,6 +33,8 @@ Defines access control rules for each API surface.
 - Parent portal finance, book, uniform, and collection summaries must be read-only in v1.
 - Enrollment approval must re-run server-side tenant, classroom, capacity, selected-class age, applicable document, and application-status checks even if the dashboard UI already shows the application as approvable.
 - Public admission submissions must enforce selected-class age rules and only require global documents plus documents targeted to the selected classroom.
+- Admission/result document template selection must resolve either to a built-in registry template or to a ready custom template request owned by the same tenant.
+- Custom template request submission is school-admin facing, but quote/build/status/ready mutations require an env-configured platform template operator role through `SCHOOL_CLERK_TEMPLATE_OPERATOR_ROLES`.
 
 ## Security Rules
 - Role checks happen server-side.

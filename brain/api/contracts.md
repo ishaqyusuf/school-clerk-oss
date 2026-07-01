@@ -35,21 +35,21 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Notes: Admin/Registrar only.
 
 - Route: `enrollmentLinks.createOrUpdateLink`
-- Request schema: `{ id?, title, status?, showOnWebsite?, capacityMode, totalCapacity?, instructions?, opensAt?, closesAt?, classrooms[], documentRequirements[] }`, where `classrooms[]` may include `minimumAgeMonths`, `maximumAgeMonths`, `ageCutoffDate`, and `requirementNotes`, and `documentRequirements[]` may include optional `classRoomDepartmentId`.
+- Request schema: `{ id?, title, status?, showOnWebsite?, capacityMode, totalCapacity?, instructions?, opensAt?, closesAt?, classrooms[], documentRequirements[] }`, where `classrooms[]` may include `minimumAgeMonths`, `maximumAgeMonths`, `ageCutoffDate`, and `requirementNotes`, and `documentRequirements[]` may include optional `classRoomDepartmentId` plus `documentType`.
 - Response schema: saved link with public code and nested classroom/document configuration.
 - Error cases: no classrooms, invalid classroom tenant/session, invalid capacity, unauthorized role.
-- Notes: classroom IDs are `ClassRoomDepartment.id` values from the active tenant. Requirement class targets must be one of the link's selected classroom IDs.
+- Notes: classroom IDs are `ClassRoomDepartment.id` values from the active tenant. Requirement class targets must be one of the link's selected classroom IDs. Supported document types are `GENERAL`, `PASSPORT_PHOTO`, `BIRTH_CERTIFICATE`, `PREVIOUS_SCHOOL_REPORT`, and `OTHER`.
 
 - Route: `enrollmentLinks.getApplications`
 - Request schema: `{ linkId?: string | null, status?: EnrollmentApplicationStatus | null }`
-- Response schema: pending application rows with selected classroom, student details, primary parent, document completion, status, and accepted student/term links.
+- Response schema: pending application rows with selected classroom, student details, primary parent, typed submitted document metadata, document completion, status, accepted student/term links, admission payment metadata, admission-letter template metadata/URL, and approval-email sent timestamp.
 - Error cases: missing tenant context, unauthorized role.
 
 - Route: `enrollmentLinks.approveApplication`
-- Request schema: `{ applicationId: string }`
-- Response schema: `{ success: true, studentId, termFormId }`
-- Error cases: application not found, invalid tenant, invalid selected classroom, capacity reached, age requirement failed, missing applicable required documents, already approved/rejected.
-- Notes: approval creates or links guardian/parent, creates student/session/term forms, applies fee histories, and records accepted ids.
+- Request schema: `{ applicationId: string, admissionLetterTemplateId?: string | null, paymentRequired?: boolean, paymentLabel?: string | null, paymentAmount?: string | number | null, paymentCurrency?: string, paymentInstructions?: string | null, paymentLink?: string | null, paymentDueAt?: string | Date | null }`
+- Response schema: `{ success: true, studentId, termFormId, appliedChargeCount }`
+- Error cases: application not found, invalid tenant, invalid selected classroom, capacity reached, age requirement failed, missing applicable required documents, already approved/rejected, unknown or not-ready admission-letter template.
+- Notes: approval creates or links guardian/parent, creates student/session/term forms, applies fee histories, stores payment handoff metadata and selected admission-letter template metadata, records accepted ids, sends the successful-admission email with the selected admission-letter PDF link, and records `admissionApprovalEmailSentAt` after email delivery. Built-in template IDs and ready custom admission-letter template IDs owned by the school are allowed. When `paymentRequired=true`, approval requires a positive amount plus either payment instructions or a payment link.
 
 - Route: `enrollmentLinks.rejectApplication`
 - Request schema: `{ applicationId: string, reason?: string | null }`
@@ -57,9 +57,24 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: application not found, already approved, unauthorized role.
 
 - Public route: `school-site /enroll/[code]`
-- Request schema: public code in URL plus submitted student, selected classroom, parent rows, applicable class/global document metadata/uploads, and notes.
+- Request schema: public code in URL plus submitted student, selected classroom, primary parent name/email/phone, applicable class/global typed document metadata/uploads, and notes.
 - Response schema: pending application success state plus parent onboarding/login hint.
-- Error cases: invalid/inactive/expired/full link, invalid classroom option, failed class age requirement, missing required fields, missing applicable required uploads.
+- Error cases: invalid/inactive/expired/full link, invalid classroom option, failed class age requirement, missing required fields, invalid parent email/phone, future DOB, missing applicable required uploads, upload for non-applicable class requirement, unsupported file type, non-image passport photo, upload too large, missing or invalid Vercel Blob store token.
+- Notes: successful public submissions send a parent confirmation email through Resend when email is configured. Admission uploads are stored with unguessable Vercel Blob keys and are exposed only through authenticated admin/registrar review payloads in the current implementation.
+
+- Public route: `school-site /api/pdf/admission-letter`
+- Request schema: `{ code: string, applicationId: string, templateId?: string, download?: "true" }`
+- Response schema: PDF stream for an approved admission application.
+- Error cases: invalid query, application not found, application not approved, enrollment link code mismatch, invalid custom template JSON, PDF render failure.
+- Notes: the route renders from approved `EnrollmentApplication` payload data and requires both the link code and application ID from the approval email. It falls back to the approved application's stored `admissionLetterTemplateId` when no query override is provided, supports built-in registry templates and ready custom JSON admission-letter templates, and includes the passport photo when a submitted document has `documentType=PASSPORT_PHOTO`.
+
+## Document Template Contracts
+
+- Route/action: `dashboard /settings/document-templates`
+- Request schema: result-template save uses `{ templateId: string }`; custom-template request create uses `{ documentType, title, notes?, file }`; custom-template status update uses `{ requestId, status, quotedAmount?, quotedCurrency?, quotePaymentInstructions?, quotePaymentLink?, quotePaymentDueAt?, builtTemplateId?, builtTemplateVersion?, builtTemplateJson?, operatorNotes? }`.
+- Response schema: server actions revalidate the settings page after successful writes.
+- Error cases: missing tenant context, missing or invalid Blob token/store for uploads, unsupported file type, oversized file, invalid status, invalid quote amount, invalid payment link, quoted paid build missing payment instructions/link, selected template not owned/ready, ready custom template missing valid JSON, JSON template ID/type mismatch.
+- Notes: result-template preferences can point at shared registry templates or ready custom result templates. Ready custom admission-letter templates are exposed in the enrollment approval/open/download selectors and rendered by the public admission-letter PDF route. Custom-template quotes use dashboard-visible payment instructions plus optional external links rather than native gateway checkout.
 
 - Public website data resolver: `getPublicWebsiteData`
 - Request schema: resolved public tenant profile plus optional published/template website configuration.
