@@ -4,7 +4,7 @@ export {
   Gender,
   Prisma,
   PrismaClient,
-} from "@prisma/client";
+} from "./generated/client";
 export * from "./prisma";
 export * from "./notification-contacts";
 export * from "./website";

@@ -11,7 +11,8 @@ Tracks logical and physical schema for SchoolClerk data entities.
 ## Source Of Truth
 - Prisma schema location: `packages/db/src/schema/*.prisma`
 - Primary datasource: PostgreSQL (`provider = "postgresql"`)
-- ORM client: Prisma Client (`prisma-client-js`)
+- ORM client: Prisma Client 7 (`prisma-client-js`) generated to `packages/db/src/generated/client`
+- Runtime adapter: `@prisma/adapter-pg`; `packages/db/src/prisma.ts` resolves `POSTGRES_URL` first, falls back to `DATABASE_URL`, and normalizes PostgreSQL SSL connection parameters for Supabase-compatible deployments.
 
 ## Active Model Groups
 ## Tenant and Identity

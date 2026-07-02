@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "./generated/client";
 import { prisma } from "./prisma";
 
 export type WebsiteConfigRecord = Prisma.WebsiteTemplateConfigGetPayload<{

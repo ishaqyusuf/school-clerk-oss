@@ -125,7 +125,10 @@ function resolvePublicRequestTarget({
     },
   );
 
-  if (context.style === "path" && context.tenantSlug) {
+  if (
+    (context.style === "path" || context.style === "subdomain") &&
+    context.tenantSlug
+  ) {
     return {
       host: context.tenantSlug,
       pathname: context.productPath,

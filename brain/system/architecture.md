@@ -140,3 +140,4 @@ Tracks architectural patterns, boundaries, and major design choices.
 
 - [ADR-0001: Baseline System Stack and Layered Architecture](/Users/M1PRO/Documents/code/school-clerk/brain/decisions/ADR-0001-baseline-system-stack-and-layered-architecture.md)
 - [ADR-0002: Multi-Institution Configurable Module Architecture](/Users/M1PRO/Documents/code/school-clerk/brain/decisions/ADR-0002-multi-institution-configurable-module-architecture.md)
+- [ADR-0005: Prisma 7 Default Runtime and Generated Client](/Users/M1PRO/Documents/code/school-clerk/brain/decisions/ADR-0005-prisma-7-default-runtime-and-generated-client.md)

@@ -13,6 +13,8 @@ Change log for database schema migrations and rollout notes.
 - Local environment variables for DB work should come from the repo root `.env.local`.
 - Use `bun run db:migrate` for local Prisma development migrations. This resolves to local env loading and `prisma migrate dev`.
 - Use `bun run db:push` only for the server/production database. This resolves through `packages/db/.env.production`.
+- Prisma 7 is the default ORM runtime. The schema datasource URL is supplied through `packages/db/prisma.config.ts`, and the generated client lives under `packages/db/src/generated/client`.
+- `packages/db/src/generated/` is ignored source output. Run `bun run db:generate` before local typechecks that import `@school-clerk/db`; dashboard and school-site build scripts generate the client before `next build` for app-direct Vercel builds.
 - Use `bun run db:studio` for Prisma Studio against the local database unless you intentionally override the env.
 - If the Docker DB is not running yet, start it with `docker compose up -d postgres` from the repo root.
 - Use `bun run db:update:local:dry-run` to inspect production-to-local import changes before writing to the local Docker database.
@@ -29,6 +31,15 @@ Change log for database schema migrations and rollout notes.
 - Backfill required: Yes/No
 - Rollback plan:
 - Owner:
+
+## Migration Entry
+- Date: 2026-07-01
+- ID: ORM-2026-07-01-prisma-7-default
+- Summary: Switched `packages/db` to Prisma 7 by generating the client into `packages/db/src/generated/client`, using `@prisma/adapter-pg` for runtime PostgreSQL access, and moving datasource URL resolution into Prisma config with SSL parameter normalization.
+- Affected entities: ORM/runtime configuration only; no database tables or columns changed.
+- Backfill required: No.
+- Rollback plan: Revert package versions, restore datasource URL handling in schema/client construction, regenerate the old client, and rerun typechecks/builds before deployment.
+- Owner: Codex
 
 ## Migration Entry
 - Date: 2026-07-01

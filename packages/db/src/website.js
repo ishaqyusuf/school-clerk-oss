@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "./generated/client";
 import { prisma } from "./prisma";
 const websiteMediaClient = prisma;
 function appendAuditEntry(analyticsJson, entry) {

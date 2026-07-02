@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "../../scripts/with-root-env.sh --mode local PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 PORTLESS_PORT=${PORTLESS_PORT:-1355} PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-2200} portless school-clerk-dashboard next dev --turbopack",
-    "build": "../../scripts/with-root-env.sh --mode production sh -c 'NODE_ENV=production next build --turbopack'",
+    "build": "../../scripts/with-root-env.sh --mode production sh -c 'SCHOOL_CLERK_ENV_MODE=production bun --cwd ../../packages/db prisma-generate && NODE_ENV=production next build --turbopack'",
     "clean": "git clean -xdf .next .turbo node_modules",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",

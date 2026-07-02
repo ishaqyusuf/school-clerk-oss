@@ -19,6 +19,33 @@ Prioritized list of tasks not yet started.
 - Owner:
 
 ## Task Item
+- ID: ADM-FU-001
+- Title: Validate admission-letter passport rendering with production Blob URL
+- Type: chore
+- Priority: P2
+- Scope: Run or add a retained-tenant validation where the submitted passport photo is a real production Vercel Blob URL and confirm the generated admission-letter PDF renders it correctly.
+- Dependencies: ADM-005
+- Owner: TBD
+
+## Task Item
+- ID: DOC-FU-001
+- Title: Configure schoolify preview Blob environment
+- Type: chore
+- Priority: P2
+- Scope: Add branch-specific Preview `BLOB_READ_WRITE_TOKEN` configuration for the `schoolify` Vercel project if preview branch uploads need live custom-template/admission file support.
+- Dependencies: DOC-004
+- Owner: TBD
+
+## Task Item
+- ID: DOC-FU-002
+- Title: Decide native checkout provider for paid custom template builds
+- Type: feature
+- Priority: P3
+- Scope: Decide whether paid custom-template requests should remain manual/external-link handoff or integrate the platform billing/checkout provider, then plan schema and workflow changes if native checkout is selected.
+- Dependencies: DOC-004
+- Owner: TBD
+
+## Task Item
 - ID: CORE-001
 - Title: Design and implement institution type configuration
 - Type: feature

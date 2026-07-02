@@ -1,7 +1,7 @@
 # Admission Portal And Document Template System
 
 ## Status
-In Progress
+Done
 
 ## Last Updated
 2026-07-01
@@ -15,8 +15,9 @@ User requested a readiness confirmation and full task dump for the admission flo
 - Existing website foundation: public school-site runtime, website template registry with tenant-published website configs, and template admission sections fed by website-visible enrollment links.
 - Implemented document foundation: `packages/pdf` now has a shared document template registry, code-backed result templates (`k12-scholar`, `k12-heritage`), code-backed admission-letter templates (`admission-classic-v1`, `admission-modern-v1`), a JSON-backed admission-letter template (`admission-json-simple-v1`), dashboard JSON preview rendering, PDF JSON rendering, a tenant result-template preference model, and public/dashboard PDF routes that resolve selected templates.
 - Implemented custom-template foundation: schools can upload an existing admission/result/form PDF or image, track request status (`SUBMITTED`, `QUOTED`, `PAID`, `IN_BUILD`, `READY`, `REJECTED`), receive quote payment handoff instructions/link/due date, attach validated built-template JSON, and select ready custom JSON result templates. Ready custom admission-letter templates also appear in the approval/open/download selectors.
-- Local verification completed: Prisma client generation succeeded, local migrations were applied/confirmed on the local Postgres container, root/package typechecks passed, school-site build passed, dashboard build passed outside the sandbox after the PDF font resolver fix, PDF/email render smokes passed, seeded admission-letter/public-link/admin-approval smokes passed, real Resend API delivery smoke passed, live Vercel Blob upload/delete smoke passed after provisioning `school-clerk-admissions`, and DB-backed parent submission server-action smoke passed with real Blob upload plus persisted application/document/parent rows.
-- Remaining validation before production readiness: complete browser/manual flow checks in dashboard and school-site. Blob deployment state: the public Blob store `school-clerk-admissions` is linked to `ishaqyusufs-projects/schoolclerk-dashboard`; the same `BLOB_READ_WRITE_TOKEN` is configured on `ishaqyusufs-projects/schoolify` for Production and Development. The Vercel CLI refused a project-wide Preview env for `schoolify`, so preview branches other than production are not covered until branch-specific preview env is added. Native checkout-provider integration remains a later product decision; v1 custom-template payment uses manual or external-link handoff. Prisma 7 should be treated as the target default, but the current repo schema/package wiring remains Prisma 6-based and needs a separate Prisma 7 migration plan.
+- Local verification completed: Prisma client generation succeeded, local migrations were applied/confirmed on the local Postgres container, root/package typechecks passed, school-site build passed, dashboard build passed outside the sandbox after the PDF font resolver fix, PDF/email render smokes passed, seeded admission-letter/public-link/admin-approval smokes passed, real Resend API delivery smoke passed, live Vercel Blob upload/delete smoke passed after provisioning `school-clerk-admissions`, DB-backed parent submission server-action smoke passed with real Blob upload plus persisted application/document/parent rows, and `tests/admission-document-flow.smoke.ts` now covers visible/manual links, class age/document validation, tampered upload rejection, approval payment metadata, custom admission/result JSON templates, admission-letter PDFs, result PDF JSON rendering, published website config seeding, and idempotent smoke cleanup including notification contacts.
+- Browser validation completed: `tests/admission-dashboard-browser.smoke.spec.ts` signs into the tenant dashboard, verifies admission link visibility/manual badges, fetches dashboard admission-letter open/download PDF links, validates the published public home and admissions admission sections expose only `showOnWebsite=true` links, validates direct/manual enrollment pages, submits the manual public admission form in-browser, approves the submitted application with payment details from the dashboard, and verifies the document-template settings/custom-template/JSON preview surface. A school-site dev resolver fix now uses the parsed tenant slug for local subdomain hosts such as `smoke.school-clerk-site.localhost`.
+- Production follow-ups moved to backlog: branch-specific `schoolify` Preview Blob env, production Blob URL passport-image validation, and a native checkout-provider decision for paid custom-template builds. These are tracked as `ADM-FU-001`, `DOC-FU-001`, and `DOC-FU-002`; v1 custom-template payment uses manual or external-link handoff. Prisma 7 is now the default for `packages/db`; generation outputs to `packages/db/src/generated/client`, runtime access uses `@prisma/adapter-pg`, and Prisma config normalizes PostgreSQL SSL parameters for CLI/build compatibility.
 
 ## Task Breakdown
 
@@ -24,7 +25,7 @@ User requested a readiness confirmation and full task dump for the admission flo
 
 - Priority: P0
 - Goal: Complete the admission link setup layer before wiring public website rendering.
-- Current status: Implemented in the Phase 1 code path on 2026-06-30; local Prisma generation/migration, root typecheck, and seeded public resolver smoke validation passed. Browser/manual validation is still pending.
+- Current status: Implemented in the Phase 1 code path on 2026-06-30; local Prisma generation/migration, root typecheck, seeded public resolver smoke validation, end-to-end admission smoke validation, public direct/manual enrollment page browser validation, and authenticated dashboard setup/browser validation pass.
 - Scope:
   - Add `showOnWebsite` to admission/enrollment links.
   - Preserve direct/manual sharing for active links even when `showOnWebsite=false`.
@@ -41,7 +42,7 @@ User requested a readiness confirmation and full task dump for the admission flo
 
 - Priority: P0
 - Goal: Surface public admission links on school websites only when enabled.
-- Current status: Implemented in the Phase 2 code path on 2026-06-30; local Prisma generation/migration, root typecheck, school-site build, and seeded public resolver smoke validation passed. Browser/manual validation is still pending.
+- Current status: Implemented in the Phase 2 code path on 2026-06-30; local Prisma generation/migration, root typecheck, school-site build, seeded public resolver smoke validation, direct/manual enrollment route browser validation, and published home/admissions admission-section browser validation pass.
 - Scope:
   - Add admission-link data into the school-site public data resolver.
   - Add reusable admission CTA/list section to website templates.
@@ -56,7 +57,7 @@ User requested a readiness confirmation and full task dump for the admission flo
 
 - Priority: P0
 - Goal: Make parent submission production-ready.
-- Current status: Implemented in the Phase 3 code path on 2026-06-30; local Prisma generation/migration, root/package typechecks, email-template render smoke validation, real Resend API delivery smoke validation, live Vercel Blob upload/delete smoke validation, and DB-backed parent submission server-action smoke validation passed.
+- Current status: Implemented in the Phase 3 code path on 2026-06-30; local Prisma generation/migration, root/package typechecks, email-template render smoke validation, real Resend API delivery smoke validation, live Vercel Blob upload/delete smoke validation, DB-backed parent submission server-action smoke validation, end-to-end admission smoke validation, and browser form submission validation passed.
 - Scope:
   - Add structured passport-photo handling or requirement type mapping.
   - Expand applicant/guardian validation where needed.
@@ -71,7 +72,7 @@ User requested a readiness confirmation and full task dump for the admission flo
 
 - Priority: P0
 - Goal: Turn review into an admission decision and payment handoff workflow.
-- Current status: Implemented in the Phase 4 code path on 2026-06-30; local Prisma generation/migration, root/package typechecks, seeded approval transaction smoke validation, and real Resend API delivery smoke validation passed. Browser/manual validation is still pending.
+- Current status: Implemented in the Phase 4 code path on 2026-06-30; local Prisma generation/migration, root/package typechecks, seeded approval transaction smoke validation, real Resend API delivery smoke validation, end-to-end approval/payment smoke validation, and authenticated dashboard approval/payment browser validation passed.
 - Scope:
   - Replace bare approve with a review/approval workspace payment handoff form.
   - Let admin choose admission payment amount, label, currency, due date, instructions, and optional external payment URL before approval.
@@ -86,7 +87,7 @@ User requested a readiness confirmation and full task dump for the admission flo
 
 - Priority: P1
 - Goal: Generate admission letters after approval.
-- Current status: Implemented in the Phase 5 code path on 2026-06-30; local Prisma generation/migration, root/package typechecks, PDF render smoke validation, admission-letter route smoke validation, and school-site build passed. Browser/manual link validation and remote passport image validation are still pending.
+- Current status: Implemented in the Phase 5 code path on 2026-06-30; local Prisma generation/migration, root/package typechecks, PDF render smoke validation, admission-letter route smoke validation, school-site build, public admission-letter PDF route validation against a retained smoke tenant, and authenticated dashboard open/download PDF browser validation passed. Remote passport image validation against a production Blob URL remains a follow-up; local smoke validates passport rendering with a data URL.
 - Scope:
   - Define admission-letter payload.
   - Add PDF template registry entries for admission letters.
@@ -102,7 +103,7 @@ User requested a readiness confirmation and full task dump for the admission flo
 
 - Priority: P1
 - Goal: Generalize the GND-style template pattern for school documents.
-- Current status: Implemented in the document-template code path on 2026-06-30; local Prisma generation/migration, root/package typechecks, and PDF render smoke validation passed. Browser/manual PDF validation is still pending.
+- Current status: Implemented in the document-template code path on 2026-06-30; local Prisma generation/migration, root/package typechecks, PDF render smoke validation, end-to-end admission/result document smoke validation, and authenticated dashboard admission-letter PDF browser validation passed.
 - Scope:
   - Add typed registry for document templates with `templateId`, `templateVersion`, label, type, payload schema, preview metadata, and renderer.
   - Support admission letters, admission forms, result sheets, and future documents.
@@ -116,7 +117,7 @@ User requested a readiness confirmation and full task dump for the admission flo
 
 - Priority: P1
 - Goal: Make result templates selectable instead of hardcoded.
-- Current status: Implemented in the dashboard settings and result PDF code path on 2026-06-30; local Prisma generation/migration and typechecks passed. Browser/manual result PDF validation is still pending.
+- Current status: Implemented in the dashboard settings and result PDF code path on 2026-06-30; local Prisma generation/migration, typechecks, JSON/custom result PDF smoke rendering, and authenticated dashboard settings browser validation passed.
 - Scope:
   - Persist a school default result template.
   - Add dashboard selection UI.
@@ -130,7 +131,7 @@ User requested a readiness confirmation and full task dump for the admission flo
 
 - Priority: P2
 - Goal: Add a faster configurable path for simpler school documents.
-- Current status: Implemented with constrained JSON schema, dashboard preview, PDF renderer, and a built-in JSON admission letter on 2026-06-30; `@school-clerk/pdf` typecheck and PDF render smoke validation passed. Visual/browser validation is still pending.
+- Current status: Implemented with constrained JSON schema, dashboard preview, PDF renderer, and a built-in JSON admission letter on 2026-06-30; `@school-clerk/pdf` typecheck, PDF render smoke validation, custom admission/result JSON smoke rendering, and dashboard JSON preview browser validation passed.
 - Scope:
   - Define a constrained JSON layout DSL for pages, text, images, tables, signatures, QR/payment fields, conditions, bindings, and styles.
   - Validate JSON templates with Zod.
@@ -144,7 +145,7 @@ User requested a readiness confirmation and full task dump for the admission flo
 
 - Priority: P2
 - Goal: Let schools request paid custom template builds from existing PDFs/scans.
-- Current status: Implemented in the dashboard settings, DB model, result template preference, admission approval selector, and PDF route integration; local Prisma generation/migration passed for the 2026-06-30 migrations and the 2026-07-01 quote-payment migration, dashboard build passes, live Blob upload/delete smoke validation passes, and Blob upload failures now surface operator-readable configuration errors. School users can submit/view requests and see quote payment handoff details, while quote/build/ready mutations require an env-configured platform template operator role.
+- Current status: Implemented in the dashboard settings, DB model, result template preference, admission approval selector, and PDF route integration; local Prisma generation/migration passed for the 2026-06-30 migrations and the 2026-07-01 quote-payment migration, dashboard build passes, live Blob upload/delete smoke validation passes, end-to-end custom admission/result JSON template smoke validation passes, and Blob upload failures now surface operator-readable configuration errors. School users can submit/view requests and see quote payment handoff details, while quote/build/ready mutations require an env-configured platform template operator role.
 - Scope:
   - Add request form for admission letters/forms and result sheets.
   - Allow PDF/image upload and notes.

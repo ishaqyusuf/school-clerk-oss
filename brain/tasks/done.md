@@ -23,6 +23,15 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: ADM-DOC-2026-07-01
+- Title: Admission portal and document template phase delivery
+- Completed: 2026-07-01
+- Outcome: Completed ADM-001 through ADM-005 and DOC-001 through DOC-004. The system now supports website-visible/manual admission links, class-specific age/document requirements, parent admission submission, submission/approval emails, approval payment handoff, admission-letter PDF template selection/open/download, result template preferences, constrained JSON document templates, and custom admission/result template requests with quote/payment/build/ready tracking. Verification covers server-side admission/document smokes, real Resend delivery, live Blob upload/delete, public school-site home/admissions enrollment discovery, direct/manual enrollment routes, browser form submission, dashboard approval/payment, dashboard admission-letter PDF open/download, dashboard document-template settings, and Prisma 7 runtime/typecheck coverage.
+- Related changes: `apps/api/src/db/queries/enrollment-links.ts`, `apps/api/src/trpc/schemas/enrollment-links.ts`, `apps/dashboard/src/components/enrollment/enrollment-management-client.tsx`, `apps/dashboard/src/app/[domain]/(sidebar)/settings/document-templates/page.tsx`, `apps/school-site/src/app/enroll/[code]/*`, `apps/school-site/src/app/api/pdf/admission-letter/route.ts`, `apps/school-site/src/app/[[...slug]]/page.tsx`, `packages/db/src/schema/schema.prisma`, `packages/db/prisma.config.ts`, `packages/db/src/prisma.ts`, `packages/pdf/src/documents/*`, `packages/pdf/src/json-template/*`, `tests/admission-document-flow.smoke.ts`, `tests/admission-dashboard-browser.smoke.spec.ts`, `brain/tasks/admission-portal-and-document-template-system.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: TASK-2026-06-19-school-registration-production-onboarding
 - Title: Tighten production school registration, verification, and tenant domain provisioning
 - Completed: 2026-06-19

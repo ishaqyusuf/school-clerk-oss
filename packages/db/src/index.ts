@@ -10,7 +10,7 @@ export {
   type AssistantRun,
   type AssistantToolExecution,
   type SchoolAssistantConfig,
-} from "@prisma/client";
+} from "./generated/client";
 export * from "./prisma";
 export * from "./notification-contacts";
 export * from "./website";

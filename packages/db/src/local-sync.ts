@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "./generated/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 export type SyncMode = "incremental" | "insert-only" | "static-refresh" | "skip";
 
@@ -85,6 +86,21 @@ export type SyncProgressEvent =
   | { type: "table:done"; report: SyncReport }
   | { type: "domain-normalization:start" }
   | { type: "domain-normalization:done"; report: LocalDomainNormalizationReport };
+
+function normalizePgConnectionString(connectionString: string) {
+  const url = new URL(connectionString);
+  const sslMode = url.searchParams.get("sslmode");
+
+  if (
+    sslMode &&
+    ["prefer", "require", "verify-ca"].includes(sslMode) &&
+    !url.searchParams.has("uselibpqcompat")
+  ) {
+    url.searchParams.set("uselibpqcompat", "true");
+  }
+
+  return url.toString();
+}
 
 type KeyColumnRow = {
   column_name: string;
@@ -711,10 +727,18 @@ async function getBestKeyColumns(db: PrismaClient, table: string): Promise<strin
 export async function syncDatabases(options: SyncOptions): Promise<SyncReport[]> {
   assertSafeConnections(options.sourceUrl, options.targetUrl);
 
-  const source = new PrismaClient({ datasources: { db: { url: options.sourceUrl } } });
+  const source = new PrismaClient({
+    adapter: new PrismaPg({
+      connectionString: normalizePgConnectionString(options.sourceUrl),
+    }),
+  });
   const target = options.dryRun
     ? undefined
-    : new PrismaClient({ datasources: { db: { url: options.targetUrl } } });
+    : new PrismaClient({
+        adapter: new PrismaPg({
+          connectionString: normalizePgConnectionString(options.targetUrl),
+        }),
+      });
   const reports: SyncReport[] = [];
   const state = await readState(options.stateFile);
   let disabledTargetForeignKeyChecks = false;

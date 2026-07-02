@@ -9,6 +9,7 @@ node_modules
 .contentlayer
 # testing
 coverage
+test-results/
 # **/*.bin
 # next.js
 .next/
@@ -44,6 +45,8 @@ yarn-error.log*
 
 # turbo
 .turbo
+packages/db/src/generated/
+.tmp/
 
 # react-email
 .react-email
