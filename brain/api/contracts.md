@@ -106,6 +106,20 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: unauthenticated requests are rejected; missing tenant/session context returns empty scoped options for Teacher users; non-Teacher users receive unrestricted report terms and classrooms for the selected/default term.
 - Notes: Teacher users are scoped to non-deleted `StaffTermProfile` terms and `StaffClassroomDepartmentTermProfiles` classrooms. The assessment recording page uses URL/cookie/date-derived defaults to auto-correct invalid teacher deep links; if the date-derived term has no teacher classrooms, the API falls back to the first assigned term with classrooms. If no date-current term can be inferred, the client asks the user to choose a current term and persists it through `switchSessionTerm`.
 
+## Staff Management Contracts
+
+- Route/action: `action.saveStaffAction`
+- Request schema: `{ staffId?, email, role, assignments[] }`, where each assignment is `{ classRoomDepartmentId, subjectAccessMode, departmentSubjectIds[] }`.
+- Response schema: `{ invited, inviteError, staffId }`.
+- Error cases: missing tenant/session/term context, staff not found, invalid classroom, invalid selected subject, selected subject outside selected classroom, onboarding email failure surfaced as `inviteError`.
+- Notes: `subjectAccessMode` is `SELECTED` or `ALL`. `SELECTED` requires one or more `departmentSubjectIds`; `ALL` accepts an empty subject list and grants every current and future active-term subject for the classroom. Classroom/subject assignment remains teacher-only; non-teaching roles persist empty assignment sets.
+
+- Route: `staff.getFormData`
+- Request schema: `{ staffId?: string }`
+- Response schema: staff invite/edit options with `subjectsByClassroom` and staff `assignments[]` including `subjectAccessMode`.
+- Error cases: missing active school/session/term context returns empty options.
+- Notes: `ALL` assignments round-trip with empty `departmentSubjectIds` because effective subject access is resolved dynamically from the assigned classroom.
+
 ## School Signup And Owner Verification Contracts
 
 - Route/action: `createSaasProfileAction`

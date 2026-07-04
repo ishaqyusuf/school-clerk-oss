@@ -65,8 +65,10 @@ Defines access control rules for each API surface.
 ## Teacher/Classroom Authorization Status
 - The data model has teacher-to-classroom and teacher-to-subject assignment tables via `StaffClassroomDepartmentTermProfiles` and `StaffSubject`.
 - The dashboard now lets admins assign allowed classrooms and allowed subjects per staff member from the staff invite/edit sheets.
-- Assigned classroom permissions are stored against the active `StaffTermProfile`, and subject permissions are stored against active-term `DepartmentSubject` records.
-- Teacher workspace summaries now consume those assignments to scope visible classes, students, subjects, and attendance history for the signed-in teacher.
+- Assigned classroom permissions are stored against the active `StaffTermProfile`, and each classroom assignment has `subjectAccessMode = SELECTED | ALL`.
+- `SELECTED` subject permissions are stored against active-term `DepartmentSubject` records through `StaffSubject`.
+- `ALL` classroom assignments authorize every current and future active-term subject in the assigned classroom without requiring new `StaffSubject` rows.
+- Teacher workspace summaries now consume explicit subject assignments plus `ALL` classroom assignments to scope visible classes, students, subjects, and attendance history for the signed-in teacher.
 - Full server-side authorization for downstream assessment/report mutation surfaces still needs to be layered on as those teacher workflows mature.
 
 ## Staff Role and Onboarding Rules

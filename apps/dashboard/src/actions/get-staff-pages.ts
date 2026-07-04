@@ -127,6 +127,20 @@ export async function getStaffDirectoryAction({
 						},
 						select: {
 							id: true,
+							subjectAccessMode: true,
+							classRoomDepartment: {
+								select: {
+									subjects: {
+										where: {
+											deletedAt: null,
+											sessionTermId: ctx.termId,
+										},
+										select: {
+											id: true,
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -139,7 +153,7 @@ export async function getStaffDirectoryAction({
 					},
 				},
 				select: {
-					id: true,
+					departmentSubjectId: true,
 				},
 			},
 			classRoomAttendanceList: {
@@ -197,6 +211,21 @@ export async function getStaffDirectoryAction({
 		const attendanceDates = staff.classRoomAttendanceList
 			.map((attendance) => attendance.createdAt ?? null)
 			.filter(Boolean) as Date[];
+		const explicitSubjectIds = staff.subjects
+			.map((subject) => subject.departmentSubjectId)
+			.filter(Boolean);
+		const classroomWideSubjectIds =
+			staff.termProfiles[0]?.classroomsProfiles.flatMap((assignment) =>
+				assignment.subjectAccessMode === "ALL"
+					? (assignment.classRoomDepartment?.subjects ?? []).map(
+							(subject) => subject.id,
+						)
+					: [],
+			) ?? [];
+		const subjectCount = new Set([
+			...explicitSubjectIds,
+			...classroomWideSubjectIds,
+		]).size;
 
 		return {
 			id: staff.id,
@@ -207,7 +236,7 @@ export async function getStaffDirectoryAction({
 			role,
 			classroomCount:
 				staff.termProfiles[0]?.classroomsProfiles.filter(Boolean).length ?? 0,
-			subjectCount: staff.subjects.length,
+			subjectCount,
 			attendanceSessions: staff.classRoomAttendanceList.length,
 			lastAttendanceAt: attendanceDates[0] ?? null,
 		};

@@ -48,6 +48,7 @@ export async function getTeacherWorkspaceAction({
 							deletedAt: null,
 						},
 						select: {
+							subjectAccessMode: true,
 							classRoomDepartment: {
 								select: {
 									id: true,
@@ -69,6 +70,50 @@ export async function getTeacherWorkspaceAction({
 												where: {
 													deletedAt: null,
 													sessionTermId: termId,
+												},
+											},
+										},
+									},
+									subjects: {
+										where: {
+											deletedAt: null,
+											sessionTermId: termId,
+										},
+										select: {
+											id: true,
+											subject: {
+												select: {
+													title: true,
+												},
+											},
+											classRoomDepartment: {
+												select: {
+													id: true,
+													departmentName: true,
+													classRoom: {
+														select: {
+															name: true,
+														},
+													},
+												},
+											},
+											_count: {
+												select: {
+													assessments: {
+														where: { deletedAt: null },
+													},
+												},
+											},
+											assessments: {
+												where: { deletedAt: null },
+												select: {
+													_count: {
+														select: {
+															assessmentResults: {
+																where: { deletedAt: null },
+															},
+														},
+													},
 												},
 											},
 										},
@@ -249,29 +294,74 @@ export async function getTeacherWorkspaceAction({
 			})
 		: [];
 
-	const assignedSubjects = staffProfile.subjects
-		.map((item) => item.departmentSubject)
-		.filter(Boolean)
-		.map((subject) => {
-			let numberOfRecordings = 0;
-			subject.assessments.forEach((assessment) => {
-				numberOfRecordings += assessment._count.assessmentResults;
-			});
+	const assignedSubjectMap = new Map<
+		string,
+		{
+			id: string;
+			title: string;
+			classRoomDepartmentId: string;
+			className: string;
+			departmentName: string;
+			displayName: string;
+			numberOfAssessments: number;
+			numberOfRecordings: number;
+		}
+	>();
 
-			return {
-				id: subject.id,
-				title: subject.subject.title,
-				classRoomDepartmentId: subject.classRoomDepartment?.id ?? "",
-				className: subject.classRoomDepartment?.classRoom?.name ?? "—",
-				departmentName: subject.classRoomDepartment?.departmentName ?? "—",
-				displayName: classroomDisplayName({
-					className: subject.classRoomDepartment?.classRoom?.name,
-					departmentName: subject.classRoomDepartment?.departmentName,
-				}),
-				numberOfAssessments: subject._count.assessments,
-				numberOfRecordings,
+	const mapAssignedSubject = (subject: {
+		id: string;
+		subject: { title: string };
+		classRoomDepartment: {
+			id: string;
+			departmentName: string | null;
+			classRoom: { name: string | null } | null;
+		} | null;
+		_count: { assessments: number };
+		assessments: Array<{
+			_count: {
+				assessmentResults: number;
 			};
+		}>;
+	}) => {
+		let numberOfRecordings = 0;
+		subject.assessments.forEach((assessment) => {
+			numberOfRecordings += assessment._count.assessmentResults;
 		});
+
+		return {
+			id: subject.id,
+			title: subject.subject.title,
+			classRoomDepartmentId: subject.classRoomDepartment?.id ?? "",
+			className: subject.classRoomDepartment?.classRoom?.name ?? "—",
+			departmentName: subject.classRoomDepartment?.departmentName ?? "—",
+			displayName: classroomDisplayName({
+				className: subject.classRoomDepartment?.classRoom?.name,
+				departmentName: subject.classRoomDepartment?.departmentName,
+			}),
+			numberOfAssessments: subject._count.assessments,
+			numberOfRecordings,
+		};
+	};
+
+	for (const item of staffProfile.subjects) {
+		const subject = item.departmentSubject;
+		if (!subject) continue;
+
+		assignedSubjectMap.set(subject.id, mapAssignedSubject(subject));
+	}
+
+	for (const assignment of staffProfile.termProfiles[0]?.classroomsProfiles ??
+		[]) {
+		if (assignment.subjectAccessMode !== "ALL") continue;
+
+		for (const subject of assignment.classRoomDepartment?.subjects ?? []) {
+			assignedSubjectMap.set(subject.id, mapAssignedSubject(subject));
+		}
+	}
+
+	const assignedSubjects = Array.from(assignedSubjectMap.values()).sort((a, b) =>
+		`${a.displayName} ${a.title}`.localeCompare(`${b.displayName} ${b.title}`),
+	);
 
 	return {
 		teacher: {

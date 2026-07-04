@@ -23,6 +23,10 @@ import { useStaffFormContext } from "../staffs/form-context";
 import { SubmitButton } from "../submit-button";
 
 const ASSIGNMENT_ROLES = new Set(["Teacher"]);
+const SUBJECT_ACCESS_MODE_OPTIONS = [
+	{ label: "Selected subjects", value: "SELECTED" },
+	{ label: "All subjects in this classroom", value: "ALL" },
+] as const;
 
 type Props = {
 	staffId?: string | null;
@@ -216,6 +220,7 @@ export function Form({
 							onClick={() =>
 								assignmentsFieldArray.append({
 									classRoomDepartmentId: "",
+									subjectAccessMode: "SELECTED",
 									departmentSubjectIds: [],
 								})
 							}
@@ -237,6 +242,9 @@ export function Form({
 								] ?? []) as Option[];
 								const selectedSubjectIds =
 									assignmentValues?.[index]?.departmentSubjectIds ?? [];
+								const subjectAccessMode =
+									assignmentValues?.[index]?.subjectAccessMode ?? "SELECTED";
+								const grantsAllSubjects = subjectAccessMode === "ALL";
 								const subjectIds = subjectOptions.map((option) => option.value);
 								const allSubjectsSelected =
 									subjectIds.length > 0 &&
@@ -273,20 +281,40 @@ export function Form({
 													isLoading
 														? "Loading classrooms..."
 														: "Select classroom"
-												}
+													}
+											/>
+
+											<FormSelect
+												name={`assignments.${index}.subjectAccessMode`}
+												label="Subject access"
+												control={control}
+												options={SUBJECT_ACCESS_MODE_OPTIONS}
+												placeholder="Select subject access"
 											/>
 
 											<div className="space-y-2">
 												<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-													<p className="text-sm font-medium">
-														Subjects in this classroom
-													</p>
+													<div>
+														<p className="text-sm font-medium">
+															Subjects in this classroom
+														</p>
+														{grantsAllSubjects ? (
+															<p className="mt-1 text-xs text-muted-foreground">
+																This staff member can access every current
+																and future subject in this classroom.
+															</p>
+														) : null}
+													</div>
 													<div className="flex flex-wrap gap-2">
 														<Button
 															type="button"
 															size="sm"
 															variant="outline"
-															disabled={!subjectIds.length || allSubjectsSelected}
+															disabled={
+																grantsAllSubjects ||
+																!subjectIds.length ||
+																allSubjectsSelected
+															}
 															onClick={() =>
 																setValue(
 																	`assignments.${index}.departmentSubjectIds`,
@@ -305,7 +333,9 @@ export function Form({
 															type="button"
 															size="sm"
 															variant="ghost"
-															disabled={!selectedSubjectIds.length}
+															disabled={
+																grantsAllSubjects || !selectedSubjectIds.length
+															}
 															onClick={() =>
 																setValue(
 																	`assignments.${index}.departmentSubjectIds`,
@@ -326,12 +356,21 @@ export function Form({
 													control={control}
 													name={`assignments.${index}.departmentSubjectIds`}
 													options={subjectOptions}
+													disabled={grantsAllSubjects}
 													placeholder={
-														selectedClassroom
-															? "Select subjects"
-															: "Choose a classroom first"
+														grantsAllSubjects
+															? "All current and future subjects are included"
+															: selectedClassroom
+																? "Select subjects"
+																: "Choose a classroom first"
 													}
 												/>
+												{grantsAllSubjects ? null : (
+													<FormDescription>
+														Use `All subjects in this classroom` when future
+														subjects should be included automatically.
+													</FormDescription>
+												)}
 											</div>
 										</div>
 									</div>

@@ -2088,6 +2088,8 @@ model StaffClassroomDepartmentTermProfiles {
     classRoomDepartment   ClassRoomDepartment? @relation(fields: [classRoomDepartmentId], references: [id])
     classRoomDepartmentId String?
 
+    subjectAccessMode StaffClassroomSubjectAccessMode @default(SELECTED)
+
     createdAt DateTime? @default(now()) @db.Timestamp(0)
     updatedAt DateTime? @updatedAt
     deletedAt DateTime? @db.Timestamp(0)
@@ -2108,6 +2110,11 @@ model StaffSubject {
     createdAt DateTime? @default(now()) @db.Timestamp(0)
     updatedAt DateTime? @updatedAt
     deletedAt DateTime? @db.Timestamp(0)
+}
+
+enum StaffClassroomSubjectAccessMode {
+    SELECTED
+    ALL
 }
 
 // ---- guardian.prisma ----
@@ -2133,4 +2140,3 @@ model Guardians {
     @@unique([name, phone, schoolProfileId])
     @@index([userId])
 }
-

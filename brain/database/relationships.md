@@ -24,6 +24,9 @@ Describes entity relationships and cardinality constraints.
 - `SchoolSession` 1:N `SessionTerm`, `ClassRoom`, `StudentSessionForm`, `StudentTermForm`
 - `ClassRoom` 1:N `ClassRoomDepartment`
 - `ClassRoomDepartment` 1:N `DepartmentSubject`, `StudentSessionForm`, `StudentTermForm`, `StudentAttendance`
+- `StaffProfile` 1:N `StaffTermProfile`; `StaffTermProfile` 1:N `StaffClassroomDepartmentTermProfiles`; `StaffProfile` 1:N `StaffSubject`
+- `StaffClassroomDepartmentTermProfiles` links a staff term profile to one classroom department and stores `subjectAccessMode = SELECTED | ALL`.
+- `StaffSubject` links staff profiles to explicit `DepartmentSubject` rows when classroom access mode is `SELECTED`; `ALL` classroom assignments resolve subject access dynamically through the assigned classroom department.
 - `Students` 1:N `StudentSessionForm`, `StudentTermForm`, `StudentFee`, `StudentAssessmentRecord`, `StudentWalletTransactions`
 - `Students` N:M `Guardians` via `StudentGuardians`
 - `User` 1:N `Guardians` through nullable `Guardians.userId` for authenticated parent portal access
@@ -59,6 +62,8 @@ Describes entity relationships and cardinality constraints.
 
 - Most domain entities must be tenant-scoped through `schoolProfileId` or session/school ancestry.
 - Cross-tenant references should be prohibited at service/repository level.
+- Staff classroom assignments must remain scoped by staff profile, school session, session term, and classroom tenant ancestry.
+- Teacher subject authorization must accept either an explicit non-deleted `StaffSubject` row or a non-deleted `ALL` classroom assignment for the subject's classroom and term.
 - Planned website publish invariant: a tenant can own many website configs, but exactly zero or one config may be live at a time through `WebsitePublishedConfig`.
 - Planned website publish transaction: publishing must update config status, published timestamp, and published pointer atomically. Superseded live rows are archived rather than reverted to editable drafts.
 - Planned website immutability invariant: once `WebsiteTemplateConfig.publishedAt` is set, content/theme/section/SEO edits are blocked; admins must duplicate the config into a new draft before changing it.

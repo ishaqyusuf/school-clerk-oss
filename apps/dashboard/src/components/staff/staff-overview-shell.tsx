@@ -138,16 +138,20 @@ export function StaffOverviewShell({
 		const classroom = data.classrooms.find(
 			(item) => item.value === assignment.classRoomDepartmentId,
 		);
+		const classroomSubjects =
+			data.subjectsByClassroom[assignment.classRoomDepartmentId] ?? [];
 		const subjectMap = new Map(
-			(data.subjectsByClassroom[assignment.classRoomDepartmentId] ?? []).map(
-				(subject) => [subject.value, subject.label],
-			),
+			classroomSubjects.map((subject) => [subject.value, subject.label]),
 		);
+		const grantsAllSubjects = assignment.subjectAccessMode === "ALL";
 		return {
 			classroomLabel: classroom?.label || "Classroom assignment",
-			subjects: assignment.departmentSubjectIds
-				.map((subjectId) => subjectMap.get(subjectId))
-				.filter(Boolean) as string[],
+			grantsAllSubjects,
+			subjects: grantsAllSubjects
+				? classroomSubjects.map((subject) => subject.label)
+				: (assignment.departmentSubjectIds
+						.map((subjectId) => subjectMap.get(subjectId))
+						.filter(Boolean) as string[]),
 		};
 	});
 	const totalSubjects = assignmentRows.reduce(
@@ -404,16 +408,23 @@ export function StaffOverviewShell({
 													{assignment.classroomLabel}
 												</p>
 												<p className="mt-1 text-sm text-muted-foreground">
-													{assignment.subjects.length
+													{assignment.grantsAllSubjects
+														? `${assignment.subjects.length} current subject${
+																assignment.subjects.length === 1 ? "" : "s"
+															}; future subjects included`
+														: assignment.subjects.length
 														? `${assignment.subjects.length} assigned subject${
 																assignment.subjects.length === 1 ? "" : "s"
 															}`
 														: "No subjects linked for this classroom yet."}
 												</p>
 											</div>
-											<Badge variant="secondary">
-												{assignment.subjects.length} subject
-												{assignment.subjects.length === 1 ? "" : "s"}
+											<Badge variant={assignment.grantsAllSubjects ? "outline" : "secondary"}>
+												{assignment.grantsAllSubjects
+													? "All subjects"
+													: `${assignment.subjects.length} subject${
+															assignment.subjects.length === 1 ? "" : "s"
+														}`}
 											</Badge>
 										</div>
 										<div className="mt-4 flex flex-wrap gap-2">

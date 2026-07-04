@@ -33,6 +33,15 @@ Change log for database schema migrations and rollout notes.
 - Owner:
 
 ## Migration Entry
+- Date: 2026-07-04
+- ID: 20260704120000_staff_classroom_subject_access_mode
+- Summary: Added classroom-wide subject access mode for staff classroom assignments using `StaffClassroomSubjectAccessMode` and `StaffClassroomDepartmentTermProfiles.subjectAccessMode`.
+- Affected entities: `StaffClassroomDepartmentTermProfiles`, `StaffClassroomSubjectAccessMode`
+- Backfill required: No; existing rows default to `SELECTED`, preserving explicit subject assignment behavior.
+- Rollback plan: Remove UI/API use of `subjectAccessMode`, revert teacher authorization expansion to explicit `StaffSubject` rows only, then drop the column and enum.
+- Owner: Codex
+
+## Migration Entry
 - Date: 2026-07-01
 - ID: ORM-2026-07-01-prisma-7-default
 - Summary: Switched `packages/db` to Prisma 7 by generating the client into `packages/db/src/generated/client`, using `@prisma/adapter-pg` for runtime PostgreSQL access, and moving datasource URL resolution into Prisma config with SSL parameter normalization.

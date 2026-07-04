@@ -35,6 +35,14 @@ export type StaffRole = (typeof STAFF_ROLES)[number];
 
 export const STAFF_ASSIGNMENT_ROLES = ["Teacher"] as const;
 
+export const STAFF_CLASSROOM_SUBJECT_ACCESS_MODES = [
+	"SELECTED",
+	"ALL",
+] as const;
+
+export type StaffClassroomSubjectAccessMode =
+	(typeof STAFF_CLASSROOM_SUBJECT_ACCESS_MODES)[number];
+
 export const STAFF_INVITE_STATUSES = [
 	"NOT_SENT",
 	"PENDING",

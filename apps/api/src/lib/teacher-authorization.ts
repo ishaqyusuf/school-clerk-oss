@@ -90,14 +90,39 @@ export async function assertTeacherCanAccessDepartmentSubject(
   const staffProfile = await getTeacherStaffProfile(ctx);
   if (!staffProfile) return;
 
-  const assignment = await ctx.db.staffSubject.findFirst({
+  const departmentSubject = await ctx.db.departmentSubject.findFirst({
+    where: {
+      id: departmentSubjectId,
+      deletedAt: null,
+      ...(sessionTermId ? { sessionTermId } : {}),
+      classRoomDepartment: {
+        deletedAt: null,
+        schoolProfileId: ctx.profile.schoolId,
+      },
+    },
+    select: {
+      classRoomDepartmentId: true,
+      sessionTermId: true,
+    },
+  });
+
+  if (!departmentSubject?.classRoomDepartmentId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "This subject is not assigned to your teacher profile.",
+    });
+  }
+
+  const effectiveTermId = sessionTermId ?? departmentSubject.sessionTermId;
+
+  const explicitSubjectAssignment = await ctx.db.staffSubject.findFirst({
     where: {
       deletedAt: null,
       staffProfilesId: staffProfile.id,
       departmentSubjectId,
       departmentSubject: {
         deletedAt: null,
-        ...(sessionTermId ? { sessionTermId } : {}),
+        ...(effectiveTermId ? { sessionTermId: effectiveTermId } : {}),
       },
     },
     select: {
@@ -105,7 +130,26 @@ export async function assertTeacherCanAccessDepartmentSubject(
     },
   });
 
-  if (!assignment) {
+  if (explicitSubjectAssignment) return;
+
+  const classroomWideAssignment =
+    await ctx.db.staffClassroomDepartmentTermProfiles.findFirst({
+      where: {
+        deletedAt: null,
+        classRoomDepartmentId: departmentSubject.classRoomDepartmentId,
+        subjectAccessMode: "ALL",
+        staffTermProfile: {
+          deletedAt: null,
+          staffProfileId: staffProfile.id,
+          ...(effectiveTermId ? { sessionTermId: effectiveTermId } : {}),
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+  if (!classroomWideAssignment) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "This subject is not assigned to your teacher profile.",

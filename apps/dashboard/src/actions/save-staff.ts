@@ -24,6 +24,7 @@ import { ensureNotificationContact, prisma } from "@school-clerk/db";
 import { createNotificationFromType } from "@school-clerk/notifications";
 import {
   STAFF_ASSIGNMENT_ROLES,
+  type StaffClassroomSubjectAccessMode,
   type StaffInviteStatus,
 } from "@school-clerk/utils/constants";
 
@@ -59,30 +60,48 @@ function buildPendingStaffName(email: string) {
 function dedupeAssignments(
   assignments: Array<{
     classRoomDepartmentId?: string;
+    subjectAccessMode?: StaffClassroomSubjectAccessMode;
     departmentSubjectIds?: string[];
   }>,
 ) {
-  const map = new Map<string, Set<string>>();
+  const map = new Map<
+    string,
+    {
+      subjectAccessMode: StaffClassroomSubjectAccessMode;
+      subjectIds: Set<string>;
+    }
+  >();
 
   for (const assignment of assignments) {
     const classroomId = assignment.classRoomDepartmentId?.trim();
     if (!classroomId) continue;
 
-    const subjects = map.get(classroomId) ?? new Set<string>();
+    const subjectAccessMode = assignment.subjectAccessMode ?? "SELECTED";
+    const current = map.get(classroomId) ?? {
+      subjectAccessMode,
+      subjectIds: new Set<string>(),
+    };
+    current.subjectAccessMode =
+      current.subjectAccessMode === "ALL" || subjectAccessMode === "ALL"
+        ? "ALL"
+        : "SELECTED";
+
     for (const subjectId of assignment.departmentSubjectIds ?? []) {
       if (subjectId?.trim()) {
-        subjects.add(subjectId);
+        current.subjectIds.add(subjectId);
       }
     }
-    map.set(classroomId, subjects);
+    map.set(classroomId, current);
   }
 
-  return Array.from(map.entries()).map(
-    ([classRoomDepartmentId, departmentSubjectIds]) => ({
+  return Array.from(map.entries()).map(([classRoomDepartmentId, assignment]) => ({
       classRoomDepartmentId,
-      departmentSubjectIds: Array.from(departmentSubjectIds),
-    }),
-  );
+      subjectAccessMode: assignment.subjectAccessMode,
+      departmentSubjectIds:
+        assignment.subjectAccessMode === "ALL"
+          ? []
+          : Array.from(assignment.subjectIds),
+    }));
 }
 
 function getHostPort(host: string) {
@@ -496,7 +515,7 @@ export const saveStaffAction = actionClient
       const requestedClassroomIds = assignments.map(
         (item) => item.classRoomDepartmentId,
       );
-      const requestedSubjectIds = assignments.flatMap(
+      const selectedSubjectIds = assignments.flatMap(
         (item) => item.departmentSubjectIds,
       );
 
@@ -519,11 +538,11 @@ export const saveStaffAction = actionClient
               },
             })
           : Promise.resolve([]),
-        requestedSubjectIds.length
+        selectedSubjectIds.length
           ? tx.departmentSubject.findMany({
               where: {
                 id: {
-                  in: requestedSubjectIds,
+                  in: selectedSubjectIds,
                 },
                 deletedAt: null,
                 sessionTermId: profile.termId,
@@ -544,7 +563,7 @@ export const saveStaffAction = actionClient
         throw new Error("One or more selected classrooms are no longer valid.");
       }
 
-      if (validSubjects.length !== requestedSubjectIds.length) {
+      if (validSubjects.length !== selectedSubjectIds.length) {
         throw new Error("One or more selected subjects are no longer valid.");
       }
 
@@ -557,10 +576,7 @@ export const saveStaffAction = actionClient
 
       for (const assignment of assignments) {
         for (const subjectId of assignment.departmentSubjectIds) {
-          if (
-            subjectToClassroom.get(subjectId) !==
-            assignment.classRoomDepartmentId
-          ) {
+          if (subjectToClassroom.get(subjectId) !== assignment.classRoomDepartmentId) {
             throw new Error(
               "Subjects must belong to the selected classroom assignment.",
             );
@@ -636,9 +652,10 @@ export const saveStaffAction = actionClient
 
       if (assignments.length) {
         await tx.staffClassroomDepartmentTermProfiles.createMany({
-          data: assignments.map(({ classRoomDepartmentId }) => ({
+          data: assignments.map(({ classRoomDepartmentId, subjectAccessMode }) => ({
             staffTermProfileId: termProfile.id,
             classRoomDepartmentId,
+            subjectAccessMode,
           })),
         });
       }
@@ -656,9 +673,9 @@ export const saveStaffAction = actionClient
         },
       });
 
-      if (requestedSubjectIds.length) {
+      if (selectedSubjectIds.length) {
         await tx.staffSubject.createMany({
-          data: requestedSubjectIds.map((departmentSubjectId) => ({
+          data: selectedSubjectIds.map((departmentSubjectId) => ({
             staffProfilesId: staffProfile.id,
             departmentSubjectId,
           })),

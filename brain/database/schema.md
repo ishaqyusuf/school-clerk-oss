@@ -98,9 +98,12 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 | `lastInviteError` | String? | Last delivery failure message for admin follow-up |
 | `onboardedAt` | DateTime? | Timestamp set after staff completes password + profile onboarding |
 
-### Staff Assignment Shape (updated — session 2026-04)
+### Staff Assignment Shape (updated — session 2026-07)
 - Admin-side staff creation is now invite-first: email + role + teaching assignments.
-- Teaching assignments are modeled as repeated classroom entries, each with multiple term-scoped `DepartmentSubject` selections.
+- Teaching assignments are modeled as repeated classroom entries, each with `subjectAccessMode`.
+- `StaffClassroomDepartmentTermProfiles.subjectAccessMode` uses `StaffClassroomSubjectAccessMode` with values `SELECTED` and `ALL`, defaulting to `SELECTED`.
+- `SELECTED` assignments use `StaffSubject` rows for explicit active-term `DepartmentSubject` access.
+- `ALL` assignments grant access to all current and future active-term subjects in the assigned classroom without creating explicit `StaffSubject` rows.
 - Only teacher-role staff should receive classroom and subject assignment payloads; non-teaching roles persist with empty assignment sets.
 
 ## Attendance and Assessment

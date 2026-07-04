@@ -1,7 +1,13 @@
-import { STAFF_ROLES } from "@school-clerk/utils/constants";
+import {
+  STAFF_CLASSROOM_SUBJECT_ACCESS_MODES,
+  STAFF_ROLES,
+} from "@school-clerk/utils/constants";
 import { z } from "zod";
 
 export const staffRoleSchema = z.enum(STAFF_ROLES);
+export const staffClassroomSubjectAccessModeSchema = z.enum(
+  STAFF_CLASSROOM_SUBJECT_ACCESS_MODES,
+);
 
 export const createAcadSessionSchema = z.object({
   title: z.string().min(1),
@@ -89,6 +95,9 @@ export const createStaffSchema = z
       .array(
         z.object({
           classRoomDepartmentId: z.string().min(1),
+          subjectAccessMode: staffClassroomSubjectAccessModeSchema.default(
+            "SELECTED",
+          ),
           departmentSubjectIds: z.array(z.string()).default([]),
         }),
       )
@@ -112,7 +121,11 @@ export const createStaffSchema = z
     }
 
     value.assignments.forEach((assignment, index) => {
-      if (value.role === "Teacher" && !assignment.departmentSubjectIds.length) {
+      if (
+        value.role === "Teacher" &&
+        assignment.subjectAccessMode !== "ALL" &&
+        !assignment.departmentSubjectIds.length
+      ) {
         ctx.addIssue({
           code: "custom",
           message: "Select at least one subject for each classroom.",

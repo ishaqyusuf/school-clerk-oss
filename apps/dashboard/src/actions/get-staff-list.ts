@@ -11,6 +11,7 @@ export type ListItem = {
 	lastInviteError: string | null;
 	classroomCount: number;
 	subjectCount: number;
+	hasClassroomWideSubjectAccess: boolean;
 	classroomLabels: string[];
 	subjectLabels: string[];
 	canResend: boolean;
