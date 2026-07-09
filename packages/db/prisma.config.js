@@ -10,6 +10,10 @@ function normalizePgConnectionString(connectionString) {
     return url.toString();
 }
 function resolveDatasourceUrl() {
+    if (process.env.SCHOOL_CLERK_PRISMA_USE_DIRECT_URL === "1" &&
+        process.env.DIRECT_URL) {
+        return normalizePgConnectionString(process.env.DIRECT_URL);
+    }
     const configuredUrl = process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
     if (!configuredUrl) {
         return "";

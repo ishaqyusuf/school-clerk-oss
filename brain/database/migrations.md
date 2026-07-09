@@ -20,7 +20,8 @@ Change log for database schema migrations and rollout notes.
 - Unqualified DB commands (`db:migrate`, `db:pull`, `db:studio`, `db:generate`, and `db:shell`) use the selected/default dev DB mode.
 - Use the `:dev` DB command variants (`db:migrate:dev`, `db:pull:dev`, `db:studio:dev`, `db:generate:dev`, `db:push:dev`, and `db:shell:dev`) to force the remote development DB.
 - Use the `:local` DB command variants (`db:migrate:local`, `db:pull:local`, `db:studio:local`, `db:generate:local`, `db:push:local`, and `db:shell:local`) to force the Docker/local DB.
-- Use `bun run db:push:prod` or `bun run db:push` only for the server/production database; these resolve through production env loading.
+- Root DB aliases call package scripts through `bun run --cwd packages/db ...`; keep this form so interactive Prisma prompts behave the same from the repo root as they do inside `packages/db`.
+- Use `bun run db:push:prod` or `bun run db:push` only for the server/production database; these resolve through production env loading and set `SCHOOL_CLERK_PRISMA_USE_DIRECT_URL=1` so Prisma maintenance uses `DIRECT_URL` instead of the transaction pooler.
 - The `packages/jobs` dev script now uses the same dev-infra resolver as the DB package, while `jobs:deploy` uses production env loading.
 - Prisma 7 is the default ORM runtime. The schema datasource URL is supplied through `packages/db/prisma.config.ts`, and the generated client lives under `packages/db/src/generated/client`.
 - `packages/db/src/generated/` is ignored source output. Run `bun run db:generate` before local typechecks that import `@school-clerk/db`; dashboard and school-site build scripts generate the client before `next build` for app-direct Vercel builds.

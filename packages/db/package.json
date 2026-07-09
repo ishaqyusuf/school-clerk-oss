@@ -28,7 +28,7 @@
     "push": "bun run push:prod",
     "push:dev": "SCHOOL_CLERK_DB_MODE=remote-dev ./with-env.sh bunx prisma db push",
     "push:local": "SCHOOL_CLERK_DB_MODE=local ./with-env.sh bunx prisma db push",
-    "push:prod": "../../scripts/with-root-env.sh --mode production bunx prisma db push",
+    "push:prod": "../../scripts/with-root-env.sh --mode production SCHOOL_CLERK_PRISMA_USE_DIRECT_URL=1 bunx prisma db push",
     "pull": "./with-env.sh bunx prisma db pull",
     "pull:dev": "SCHOOL_CLERK_DB_MODE=remote-dev ./with-env.sh bunx prisma db pull",
     "pull:local": "SCHOOL_CLERK_DB_MODE=local ./with-env.sh bunx prisma db pull",
