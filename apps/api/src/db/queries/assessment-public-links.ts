@@ -973,6 +973,16 @@ export async function getPublicAssessmentLink(
                 where: {
                   deletedAt: null,
                   studentTermForm: {
+                    classroomDepartmentId: link.classRoomDepartmentId,
+                    deletedAt: null,
+                    ...(link.selectedStudentTermFormIds.length
+                      ? {
+                          id: {
+                            in: link.selectedStudentTermFormIds,
+                          },
+                        }
+                      : {}),
+                    schoolProfileId: link.schoolProfileId,
                     sessionTermId: link.sessionTermId,
                   },
                 },
@@ -1099,6 +1109,7 @@ export async function updatePublicAssessmentScore(
       },
       select: {
         id: true,
+        obtainable: true,
       },
     }),
     ctx.db.studentTermForm.findFirst({
@@ -1120,6 +1131,13 @@ export async function updatePublicAssessmentScore(
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "This score is outside the public link scope.",
+    });
+  }
+
+  if (input.obtained != null && input.obtained > assessment.obtainable) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Score cannot be greater than the assessment maximum.",
     });
   }
 
