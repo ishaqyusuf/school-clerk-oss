@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQueryState } from "nuqs";
 import { FormProvider, useForm } from "react-hook-form";
@@ -8,9 +8,9 @@ import { FormProvider, useForm } from "react-hook-form";
 import { resetCookie } from "@/actions/cookies/auth-cookie";
 import { restoreDevQuickLoginCredential } from "@/actions/dev-quick-login";
 import { authClient } from "@/auth/client";
-import { DevTenantQuickLoginFab } from "@/components/dev-tenant-quick-login-fab";
 import { getFirstPermittedHref } from "@/components/sidebar/links";
 import { SubmitButton } from "@/components/submit-button";
+import { Button } from "@school-clerk/ui/button";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { loginWithPasswordAction } from "./actions";
 import {
@@ -20,6 +20,14 @@ import {
 import { Alert, AlertDescription } from "@school-clerk/ui/alert";
 import { Badge } from "@school-clerk/ui/badge";
 import { Checkbox } from "@school-clerk/ui/checkbox";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@school-clerk/ui/command";
 import {
   Field,
   FieldContent,
@@ -33,11 +41,13 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@school-clerk/ui/input-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@school-clerk/ui/popover";
 import { Separator } from "@school-clerk/ui/separator";
 import {
   ArrowRight,
   BadgeCheck,
   Building2,
+  ChevronsUpDown,
   Eye,
   EyeOff,
   Lock,
@@ -97,7 +107,10 @@ export function Client({
   const passwordField = form.register("password", {
     onChange: () => markFieldFilled(),
   });
+  const emailValue = form.watch("email");
   const rememberMe = form.watch("rememberMe");
+  const showDevEmailPicker =
+    process.env.NODE_ENV !== "production" && quickLoginUsers.length > 0;
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(initialError);
@@ -119,6 +132,21 @@ export function Client({
       shouldDirty: true,
       shouldTouch: true,
     });
+    markFieldFilled();
+  };
+
+  const selectQuickLoginUser = (user: QuickLoginUser) => {
+    form.setValue("email", user.email, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    form.setValue("password", quickLoginPassword, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setNativeInputValue("password", quickLoginPassword);
     markFieldFilled();
   };
 
@@ -372,23 +400,34 @@ export function Client({
                 onSubmit={form.handleSubmit(submitCredentials)}
               >
                 <FieldGroup>
-                  <Field>
-                    <FieldLabel htmlFor="email">Email or phone</FieldLabel>
-                    <InputGroup>
-                      <InputGroupAddon>
-                        <Mail />
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        id="email"
-                        type="text"
-                        placeholder="admin@school.edu or primary phone"
-                        autoComplete="email"
-                        required
-                        {...emailField}
-                        defaultValue={initialEmail}
+                  {showDevEmailPicker ? (
+                    <>
+                      <input type="hidden" {...emailField} />
+                      <DevEmailCombobox
+                        onSelect={selectQuickLoginUser}
+                        users={quickLoginUsers}
+                        value={emailValue}
                       />
-                    </InputGroup>
-                  </Field>
+                    </>
+                  ) : (
+                    <Field>
+                      <FieldLabel htmlFor="email">Email or phone</FieldLabel>
+                      <InputGroup>
+                        <InputGroupAddon>
+                          <Mail />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          id="email"
+                          type="text"
+                          placeholder="admin@school.edu or primary phone"
+                          autoComplete="email"
+                          required
+                          {...emailField}
+                          defaultValue={initialEmail}
+                        />
+                      </InputGroup>
+                    </Field>
+                  )}
 
                   <Field>
                     <div className="flex items-center justify-between gap-4">
@@ -460,10 +499,6 @@ export function Client({
                   </SubmitButton>
                 </FieldGroup>
               </form>
-              <LoginQuickLoginFab
-                displayDomain={schoolName}
-                users={quickLoginUsers}
-              />
             </FormProvider>
 
             <Separator className="my-6" />
@@ -485,26 +520,99 @@ export function Client({
   );
 }
 
-function LoginQuickLoginFab({
-  displayDomain,
+function DevEmailCombobox({
+  onSelect,
   users,
+  value,
 }: {
-  displayDomain: string;
+  onSelect: (user: QuickLoginUser) => void;
   users: QuickLoginUser[];
+  value: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selectedUser = users.find((user) => user.email === value) ?? null;
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredUsers = useMemo(() => {
+    if (!normalizedQuery) {
+      return users.slice(0, 30);
+    }
+
+    return users
+      .filter((user) =>
+        [user.name ?? "", user.email, user.role ?? "User"]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery),
+      )
+      .slice(0, 30);
+  }, [normalizedQuery, users]);
+
+  function selectUser(user: QuickLoginUser) {
+    onSelect(user);
+    setQuery("");
+    setOpen(false);
+  }
+
   return (
-    <DevTenantQuickLoginFab
-      domain={displayDomain}
-      hideOnLogin={false}
-      users={users.map((user) => ({
-        ...user,
-        quickLoginHref: `?email=${encodeURIComponent(
-          user.email,
-        )}&password=${encodeURIComponent(
-          quickLoginPassword,
-        )}&rememberMe=1`,
-      }))}
-    />
+    <Field>
+      <FieldLabel htmlFor="email">Email</FieldLabel>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            aria-expanded={open}
+            id="email"
+            className="h-10 w-full justify-between px-3 text-left font-normal"
+            type="button"
+            variant="outline"
+          >
+            <span className="min-w-0 truncate">
+              {selectedUser?.email ?? "Search email"}
+            </span>
+            <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="w-96 max-w-[calc(100vw-2rem)] p-1"
+        >
+          <Command shouldFilter={false}>
+            <CommandInput
+              onValueChange={setQuery}
+              placeholder="Search email"
+              value={query}
+            />
+            <CommandList>
+              {filteredUsers.length > 0 ? (
+                <CommandGroup>
+                  {filteredUsers.map((user) => (
+                    <CommandItem
+                      key={user.email}
+                      onSelect={() => selectUser(user)}
+                      value={user.email}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {user.name || user.email} - {user.role || "User"}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {user.email}
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="shrink-0 capitalize">
+                        {user.role || "User"}
+                      </Badge>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ) : (
+                <CommandEmpty>No emails found.</CommandEmpty>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </Field>
   );
 }
 

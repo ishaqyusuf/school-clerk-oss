@@ -1,13 +1,22 @@
 {
   "$schema": "https://turborepo.org/schema.json",
-  "globalDependencies": ["**/.env"],
+  "globalDependencies": ["**/.env", "**/.env.local", "**/.env.production"],
   "ui": "tui",
   "tasks": {
     "topo": {
       "dependsOn": ["^topo"]
     },
     "build": {
-      "env": ["POSTGRES_URL", "DIRECT_URL", "BETTER_AUTH_SECRET"],
+      "env": [
+        "POSTGRES_URL",
+        "DATABASE_URL",
+        "DIRECT_URL",
+        "REMOTE_DEV_POSTGRES_URL",
+        "REMOTE_DEV_DATABASE_URL",
+        "LOCAL_POSTGRES_URL",
+        "SCHOOL_CLERK_DB_MODE",
+        "BETTER_AUTH_SECRET"
+      ],
       "dependsOn": ["^build"],
       "outputs": [
         ".next/**",

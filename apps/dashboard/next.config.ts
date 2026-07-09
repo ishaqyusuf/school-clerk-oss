@@ -3,8 +3,8 @@ import { withSentryConfig } from "@sentry/nextjs";
 const localDashboardOrigins = [
   "school-clerk-dashboard.localhost",
   "*.school-clerk-dashboard.localhost",
-  "school-clerk-dashboard.localhost",
-  "*.school-clerk-dashboard.localhost",
+  "school-clerk.localhost",
+  "*.school-clerk.localhost",
   "localhost:2200",
   "127.0.0.1:2200",
   "192.168.18.5",

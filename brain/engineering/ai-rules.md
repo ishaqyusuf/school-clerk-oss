@@ -15,6 +15,9 @@ Operational rules for AI agents contributing to this repository.
 - Keep diffs focused and minimal.
 - Update docs alongside code changes.
 - Prefer the existing `portless`-wrapped `dev` scripts for local app startup; do not introduce new hardcoded default ports unless explicitly required.
+- Development database mode follows the GND-style resolver in `scripts/with-dev-infra.ts`: default `bun run dev` uses `remote-dev`, `bun run dev:remote-db` is explicit remote development, and `bun run dev:local` forces Docker Postgres.
+- Local Postgres startup is owned by `scripts/start-dev-services.sh`; it starts Docker only when the selected DB mode or URL is local and skips local services for remote development DBs.
+- Keep `packages/db` and `packages/jobs` scripts on the shared dev-infra resolver for development, and keep production commands on `with-root-env --mode production`.
 - Current Portless local app names: dashboard -> `school-clerk-dashboard`, web -> `school-clerk-web`, school-site -> `school-clerk-site`, api -> `api`.
 - School-site local dev runs behind Portless at `school-clerk-site.localhost` with its Next app port set to `2400`.
 - The root `dev:websites` / `websites` workflow runs dashboard, `@school-clerk/site`, `@school-clerk/school-site`, and jobs together for website work.

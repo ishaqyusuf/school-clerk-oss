@@ -3,9 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "../../scripts/with-root-env.sh --mode local bunx trigger dev",
-    "deploy": "../../scripts/with-root-env.sh --mode production sh -c 'bun run prisma.ts && bunx trigger deploy'",
-    "typecheck": "tsc --noEmit"
+    "dev": "bun run with-env bunx trigger dev",
+    "deploy": "bun run with-env:prod sh -c 'bun run prisma.ts && bunx trigger deploy'",
+    "typecheck": "tsc --noEmit",
+    "with-env": "bun ../../scripts/with-dev-infra.ts --",
+    "with-env:prod": "../../scripts/with-root-env.sh --mode production"
   },
   "exports": {
     "./schema": "./src/schema.ts"

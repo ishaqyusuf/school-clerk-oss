@@ -1,9 +1,11 @@
 # Notifications System
 
 ## Overview
+
 SchoolClerk now has a tenant-scoped notification system for in-app alerts and email delivery. The first full rollout covers finance events for student payments, service payments, and payroll payments, including both payment received/recorded and payment cancelled flows.
 
 ## Architecture
+
 - `packages/notifications` owns the typed notification registry, payload validation, channel registration, and email template attachment for each notification type.
 - `packages/email` owns reusable React Email templates and shared email components. Follow the `midday` package structure reference at `/Users/M1PRO/Documents/code/_kitchen_sink/midday/packages/email` when adding or refactoring email templates.
 - `apps/api/src/lib/notifications.ts` resolves the current tenant user, targets recipients by role group, creates persistent notifications, applies stored preferences, and sends email through Resend when configured.
@@ -11,6 +13,7 @@ SchoolClerk now has a tenant-scoped notification system for in-app alerts and em
 - `apps/dashboard` renders notifications in the header bell and a full `/notifications` page.
 
 ## Data Model
+
 - `Notification`
   - tenant scoped by `schoolProfileId`
   - user scoped by `userId`
@@ -20,6 +23,7 @@ SchoolClerk now has a tenant-scoped notification system for in-app alerts and em
   - stores `inApp` and `email` toggles
 
 ## Initial Finance Types
+
 - `student_payment_received`
 - `student_payment_cancelled`
 - `service_payment_recorded`
@@ -27,13 +31,22 @@ SchoolClerk now has a tenant-scoped notification system for in-app alerts and em
 - `payroll_payment_recorded`
 - `payroll_payment_cancelled`
 
+## Assessment Public Link Types
+
+- `assessment_public_link_requested`: sent to tenant admins when staff request a public assessment-recording link.
+- `assessment_public_link_approved`: sent to the requesting staff user when an admin approves the request and generates the public URL.
+- `assessment_public_link_rejected`: sent to the requesting staff user when an admin rejects the request, including the optional rejection note.
+
 ## Delivery Rules
+
 - Every registered notification type must also register an email template definition, even if email sending is environment-gated by missing provider credentials.
 - In-app rows are created by default unless a matching preference disables the `inApp` channel.
 - Email is sent by default unless a matching preference disables the `email` channel.
 - Finance notification links must stay app-relative, for example `/finance/payments`, `/finance/transactions`, and `/staff/payroll`, because the dashboard mount is proxy-handled.
+- Assessment public-link notifications should link back to `/assessment-recording` for admin/requester review. Approved-request email copy may include the generated public URL because the requester needs to share it with the helper.
 
 ## UI Surface
+
 - Header bell shows unread count and the latest notifications.
 - `/notifications` shows the full tenant-user feed with unread filtering and read actions.
 - Finance pages continue to own the source action; notifications deep-link back into those pages instead of duplicating UI state elsewhere.

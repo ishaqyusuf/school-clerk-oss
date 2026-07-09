@@ -59,6 +59,15 @@ Catalog of API routes and responsibilities.
 
 - `GET /results`
 - `POST /results`
+- `trpc.assessments.listPublicAssessmentLinks`
+- `trpc.assessments.createPublicAssessmentLink`
+- `trpc.assessments.requestPublicAssessmentLink`
+- `trpc.assessments.approvePublicAssessmentLink`
+- `trpc.assessments.rejectPublicAssessmentLink`
+- `trpc.assessments.revokePublicAssessmentLink`
+- `trpc.assessments.getPublicAssessmentLink` (public token route)
+- `trpc.assessments.updatePublicAssessmentScore` (public token route)
+- `dashboard /assessment-recording/public/[token]` public result-entry page for approved, unexpired assessment links
 
 ### External Examinations
 
@@ -148,7 +157,7 @@ Catalog of API routes and responsibilities.
 - `trpc.staff.*`: staff list/form data and staff-management APIs
 - `trpc.notifications.*`: notification list/read/count actions
 - `trpc.search.global`: tenant-scoped command palette search across local navigation plus remote student, classroom, and staff records
-- `trpc.subjects.*`, `trpc.enrollments.*`, `trpc.assessments.*`, `trpc.filters.*`, `trpc.auth.*`: domain-specific supporting routers
+- `trpc.subjects.*`, `trpc.enrollments.*`, `trpc.assessments.*`, `trpc.filters.*`, `trpc.auth.*`: domain-specific supporting routers. `trpc.assessments.*` owns authenticated assessment setup/recording plus public assessment-recording link lifecycle and token-scoped score entry.
 - `trpc.enrollmentLinks.*`: authenticated Admin/Registrar management for public enrollment links and pending applications
 - `trpc.parents.*`: authenticated Parent overview data scoped through linked guardian records
 - `app/api/chat/*`: dashboard AI chat execution, single-chat bootstrap, settings, analytics, and feedback surfaces

@@ -1,119 +1,121 @@
 model SchoolProfile {
-    id                      String                @id @default(uuid())
-    name                    String
-    slug                    String
-    subDomain               String                @unique
-    institutionType         String?
-    studentCountEstimate    Int?
-    country                 String?
-    educationSystem         String?
-    curriculumType          String?
-    languageOfInstruction   String?
-    onboardingCompletedAt   DateTime?             @db.Timestamp(0)
-    createdAt               DateTime?             @default(now()) @db.Timestamp(0)
-    accountId               String
-    updatedAt               DateTime?             @updatedAt
-    deletedAt               DateTime?             @db.Timestamp(0)
-    sessions                SchoolSession[]
-    terms                   SessionTerm[]
-    classRooms              ClassRoom[]
-    classRoomDepartments    ClassRoomDepartment[]
-    classRoomAttendanceList ClassRoomAttendance[]
-    students                Students[]
-    sessionForms            StudentSessionForm[]
-    termForms               StudentTermForm[]
-    studentAttendanceList   StudentAttendance[]
-    staffProfiles           StaffProfile[]
+  id                      String                @id @default(uuid())
+  name                    String
+  slug                    String
+  subDomain               String                @unique
+  institutionType         String?
+  studentCountEstimate    Int?
+  country                 String?
+  educationSystem         String?
+  curriculumType          String?
+  languageOfInstruction   String?
+  onboardingCompletedAt   DateTime?             @db.Timestamp(0)
+  createdAt               DateTime?             @default(now()) @db.Timestamp(0)
+  accountId               String
+  updatedAt               DateTime?             @updatedAt
+  deletedAt               DateTime?             @db.Timestamp(0)
+  sessions                SchoolSession[]
+  terms                   SessionTerm[]
+  classRooms              ClassRoom[]
+  classRoomDepartments    ClassRoomDepartment[]
+  classRoomAttendanceList ClassRoomAttendance[]
+  students                Students[]
+  sessionForms            StudentSessionForm[]
+  termForms               StudentTermForm[]
+  studentAttendanceList   StudentAttendance[]
+  staffProfiles           StaffProfile[]
 
-    subjects               Subject[]
-    account                SaasAccount      @relation(fields: [accountId], references: [id])
-    guardians              Guardians[]
-    domains                TenantDomain[]
-    websiteMediaAssets     WebsiteMediaAsset[]
-    websiteConfigs         WebsiteTemplateConfig[]
-    websitePublishedConfig WebsitePublishedConfig?
-    activities             Activity[]
-    reportPrintLogs        ReportPrintLog[]
-    notifications          Notification[]
-    notificationPreferences NotificationPreference[]
-    notificationContacts  NotificationContact[]
-    inventoryItems         Inventory[]
-    inventoryIssuances     InventoryIssuance[]
-    enrollmentLinks        EnrollmentLink[]
-    enrollmentApplications EnrollmentApplication[]
-    documentTemplatePreferences SchoolDocumentTemplatePreference[]
-    customDocumentTemplateRequests CustomDocumentTemplateRequest[]
-    assistantConversations AssistantConversation[]
-    assistantMessages      AssistantMessage[]
-    assistantRuns          AssistantRun[]
-    assistantToolExecutions AssistantToolExecution[]
-    assistantConfig        SchoolAssistantConfig?
-    assistantFeedback      AssistantFeedback[]
-    financeStreams         FinanceStream[]
-    financeItems           FinanceItem[]
-    financeCharges         FinanceCharge[]
-    financePayments        FinancePayment[]
-    financeTransfers       FinanceTransfer[]
-    financeLedgerEntries   FinanceLedgerEntry[]
+  subjects                       Subject[]
+  account                        SaasAccount                        @relation(fields: [accountId], references: [id])
+  guardians                      Guardians[]
+  domains                        TenantDomain[]
+  websiteMediaAssets             WebsiteMediaAsset[]
+  websiteConfigs                 WebsiteTemplateConfig[]
+  websitePublishedConfig         WebsitePublishedConfig?
+  activities                     Activity[]
+  reportPrintLogs                ReportPrintLog[]
+  assessmentPublicLinks          AssessmentPublicLink[]
+  notifications                  Notification[]
+  notificationPreferences        NotificationPreference[]
+  notificationContacts           NotificationContact[]
+  inventoryItems                 Inventory[]
+  inventoryIssuances             InventoryIssuance[]
+  enrollmentLinks                EnrollmentLink[]
+  enrollmentApplications         EnrollmentApplication[]
+  documentTemplatePreferences    SchoolDocumentTemplatePreference[]
+  customDocumentTemplateRequests CustomDocumentTemplateRequest[]
+  assistantConversations         AssistantConversation[]
+  assistantMessages              AssistantMessage[]
+  assistantRuns                  AssistantRun[]
+  assistantToolExecutions        AssistantToolExecution[]
+  assistantConfig                SchoolAssistantConfig?
+  assistantFeedback              AssistantFeedback[]
+  financeStreams                 FinanceStream[]
+  financeItems                   FinanceItem[]
+  financeCharges                 FinanceCharge[]
+  financePayments                FinancePayment[]
+  financeTransfers               FinanceTransfer[]
+  financeLedgerEntries           FinanceLedgerEntry[]
 
-    @@unique([name, subDomain, slug, deletedAt])
+  @@unique([name, subDomain, slug, deletedAt])
 }
 
 model TenantDomain {
-    id           String    @id @default(uuid())
-    subdomain    String?   @unique
-    customDomain String?   @unique
-    isPrimary    Boolean   @default(true)
-    isVerified   Boolean   @default(false)
+  id           String  @id @default(uuid())
+  subdomain    String? @unique
+  customDomain String? @unique
+  isPrimary    Boolean @default(true)
+  isVerified   Boolean @default(false)
 
-    createdAt DateTime? @default(now()) @db.Timestamp(0)
-    updatedAt DateTime? @updatedAt
-    deletedAt DateTime? @db.Timestamp(0)
+  createdAt DateTime? @default(now()) @db.Timestamp(0)
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime? @db.Timestamp(0)
 
-    schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
-    schoolProfileId String?
-    saasAccount     SaasAccount?   @relation(fields: [saasAccountId], references: [id])
-    saasAccountId   String?
+  schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
+  schoolProfileId String?
+  saasAccount     SaasAccount?   @relation(fields: [saasAccountId], references: [id])
+  saasAccountId   String?
 }
 
 model SchoolSession {
-    id    String @id @default(uuid())
-    title String
+  id    String @id @default(uuid())
+  title String
 
-    createdAt DateTime?     @default(now()) @db.Timestamp(0)
-    updatedAt DateTime?     @updatedAt
-    deletedAt DateTime?     @db.Timestamp(0)
-    schoolId  String
-    school    SchoolProfile @relation(fields: [schoolId], references: [id])
+  createdAt DateTime?     @default(now()) @db.Timestamp(0)
+  updatedAt DateTime?     @updatedAt
+  deletedAt DateTime?     @db.Timestamp(0)
+  schoolId  String
+  school    SchoolProfile @relation(fields: [schoolId], references: [id])
 
-    startDate DateTime? @db.Timestamp(0)
-    endDate   DateTime? @db.Timestamp(0)
+  startDate DateTime? @db.Timestamp(0)
+  endDate   DateTime? @db.Timestamp(0)
 
-    terms             SessionTerm[]
-    classRooms        ClassRoom[]
-    sessionForms      StudentSessionForm[]
-    termForms         StudentTermForm[]
-    staffTermProfiles StaffTermProfile[]
-    financeItems      FinanceItem[]
-    financeCharges    FinanceCharge[]
+  terms             SessionTerm[]
+  classRooms        ClassRoom[]
+  sessionForms      StudentSessionForm[]
+  termForms         StudentTermForm[]
+  staffTermProfiles StaffTermProfile[]
+  financeItems      FinanceItem[]
+  financeCharges    FinanceCharge[]
 }
 
 model SessionTerm {
-    id                 String              @id @default(uuid())
-    sessionId          String
-    schoolId           String
-    title              String
-    startDate          DateTime?           @db.Timestamp(0)
-    endDate            DateTime?           @db.Timestamp(0)
-    createdAt          DateTime?           @default(now()) @db.Timestamp(0)
-    updatedAt          DateTime?           @updatedAt
-    deletedAt          DateTime?           @db.Timestamp(0)
-    school             SchoolProfile?      @relation(fields: [schoolId], references: [id])
-    session            SchoolSession?      @relation(fields: [sessionId], references: [id])
-    termForms          StudentTermForm[]
-    departmentSubjects DepartmentSubject[]
-    staffTermProfiles  StaffTermProfile[]
-    reportPrintLogs    ReportPrintLog[]
-    financeItems       FinanceItem[]
-    financeCharges     FinanceCharge[]
+  id                    String                 @id @default(uuid())
+  sessionId             String
+  schoolId              String
+  title                 String
+  startDate             DateTime?              @db.Timestamp(0)
+  endDate               DateTime?              @db.Timestamp(0)
+  createdAt             DateTime?              @default(now()) @db.Timestamp(0)
+  updatedAt             DateTime?              @updatedAt
+  deletedAt             DateTime?              @db.Timestamp(0)
+  school                SchoolProfile?         @relation(fields: [schoolId], references: [id])
+  session               SchoolSession?         @relation(fields: [sessionId], references: [id])
+  termForms             StudentTermForm[]
+  departmentSubjects    DepartmentSubject[]
+  staffTermProfiles     StaffTermProfile[]
+  reportPrintLogs       ReportPrintLog[]
+  assessmentPublicLinks AssessmentPublicLink[]
+  financeItems          FinanceItem[]
+  financeCharges        FinanceCharge[]
 }

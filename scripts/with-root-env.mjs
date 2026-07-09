@@ -84,7 +84,43 @@ function envFileForMode(mode) {
   throw new Error(`Unknown env mode "${mode}". Use "local" or "production".`);
 }
 
+function loadModeEnv(mode, cwd) {
+  const modeFile = envFileForMode(mode);
+  const files = [resolve(workspaceRoot, modeFile)];
+
+  if (resolve(cwd) !== workspaceRoot) {
+    files.push(resolve(cwd, modeFile));
+  }
+
+  const parsed = files.reduce(
+    (env, file) => ({
+      ...env,
+      ...parseEnvFile(file),
+    }),
+    {},
+  );
+
+  if (Object.keys(parsed).length > 0) {
+    return parsed;
+  }
+
+  const fallbackFiles = [resolve(workspaceRoot, ".env")];
+
+  if (resolve(cwd) !== workspaceRoot) {
+    fallbackFiles.push(resolve(cwd, ".env"));
+  }
+
+  return fallbackFiles.reduce(
+    (env, file) => ({
+      ...env,
+      ...parseEnvFile(file),
+    }),
+    {},
+  );
+}
+
 const { command, mode } = parseArgs(process.argv.slice(2));
+const invocationCwd = process.cwd();
 
 if (command.length === 0) {
   console.error(
@@ -115,14 +151,10 @@ function splitInlineEnv(command) {
 let fileEnv = {};
 
 try {
-  fileEnv = parseEnvFile(resolve(workspaceRoot, envFileForMode(mode)));
+  fileEnv = loadModeEnv(mode, invocationCwd);
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
-}
-
-if (Object.keys(fileEnv).length === 0) {
-  fileEnv = parseEnvFile(resolve(workspaceRoot, ".env"));
 }
 
 const { inlineEnv, command: childCommand } = splitInlineEnv(command);

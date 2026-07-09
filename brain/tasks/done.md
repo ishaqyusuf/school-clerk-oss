@@ -23,6 +23,24 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: TASK-2026-07-09-dev-infra-db-modes
+- Title: Replicate GND-style local, remote-dev, and production DB infra for SchoolClerk
+- Completed: 2026-07-09
+- Outcome: Added a development infra resolver for `remote-dev` and `local` DB modes, restored Docker Postgres compose support, added local-service startup that skips Docker for remote DBs, wired root dev workflows plus DB and jobs package scripts through the shared resolver, and kept jobs deploy on production env loading.
+- Related changes: `scripts/with-dev-infra.ts`, `scripts/start-dev-services.sh`, `docker-compose.yml`, `package.json`, `packages/db/package.json`, `packages/jobs/package.json`, `packages/jobs/trigger.config.ts`, `.env.example`, `packages/jobs/.env.example`, `brain/database/migrations.md`
+- Owner: Codex
+
+## Completed Task
+
+- ID: TASK-2026-07-09-assessment-public-links
+- Title: Public assessment-recording links and classroom-wide subject assignment hardening
+- Completed: 2026-07-09
+- Outcome: Added public assessment-recording links that capture the current classroom/term/subject filters, support admin direct generation with expiry, staff request/approval/rejection flow with notifications, hashed signed public tokens, token-scoped score entry, link revocation, and public recording UI. Verified the existing classroom-wide `ALL` subject assignment model remains the source of truth for current and future classroom subjects and tightened the staff-form option typing.
+- Related changes: `apps/api/src/db/queries/assessment-public-links.ts`, `apps/api/src/trpc/routers/assessment.routes.ts`, `apps/dashboard/src/components/assessment-public-links-panel.tsx`, `apps/dashboard/src/components/assessment-recording-results-table.tsx`, `packages/db/src/schema/assessment.prisma`, `packages/notifications/src/types/assessment-public-link.ts`, `brain/features/assessment-results-and-sub-assessments.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: ADM-DOC-2026-07-01
 - Title: Admission portal and document template phase delivery
 - Completed: 2026-07-01
@@ -331,6 +349,7 @@ Record of completed tasks and delivery outcomes.
 - Owner: Codex
 
 ### School-Facing Scholaris Redesign And Dummy Data Support
+
 - Priority: High
 - Description: Track plan in `brain/plans/2026-06-19-feature-school-facing-scholaris-redesign-and-dummy-data-support.md`.
 - Related Feature: school website template registry

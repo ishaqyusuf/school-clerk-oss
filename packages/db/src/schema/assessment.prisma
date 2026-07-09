@@ -1,52 +1,101 @@
 model ClassroomSubjectAssessment {
-    id                   Int    @unique @default(autoincrement())
-    title                String
-    obtainable           Float  @default(0)
-    percentageObtainable Float? @default(0)
-    index                Float?
-    isGroup              Boolean @default(false)
-    parentAssessmentId   Int?
+  id                   Int     @unique @default(autoincrement())
+  title                String
+  obtainable           Float   @default(0)
+  percentageObtainable Float?  @default(0)
+  index                Float?
+  isGroup              Boolean @default(false)
+  parentAssessmentId   Int?
 
-    createdAt DateTime? @default(now()) @db.Timestamp(0)
-    updatedAt DateTime? @updatedAt
-    deletedAt DateTime? @db.Timestamp(0)
+  createdAt DateTime? @default(now()) @db.Timestamp(0)
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime? @db.Timestamp(0)
 
-    assessmentResults   StudentAssessmentRecord[]
-    departmentSubjectId String?
-    departmentSubject   DepartmentSubject?        @relation(fields: [departmentSubjectId], references: [id])
-    parentAssessment    ClassroomSubjectAssessment? @relation("AssessmentHierarchy", fields: [parentAssessmentId], references: [id])
-    childAssessments    ClassroomSubjectAssessment[] @relation("AssessmentHierarchy")
+  assessmentResults   StudentAssessmentRecord[]
+  departmentSubjectId String?
+  departmentSubject   DepartmentSubject?           @relation(fields: [departmentSubjectId], references: [id])
+  parentAssessment    ClassroomSubjectAssessment?  @relation("AssessmentHierarchy", fields: [parentAssessmentId], references: [id])
+  childAssessments    ClassroomSubjectAssessment[] @relation("AssessmentHierarchy")
 }
 
 model StudentAssessmentRecord {
-    id                       Int     @unique @default(autoincrement())
-    obtained                 Float?
-    percentageScore          Float?
-    studentId                String?
-    classSubjectAssessmentId Int?
-    remarkOnAssementId       Int?
-    studentTermFormId        String?
+  id                       Int     @unique @default(autoincrement())
+  obtained                 Float?
+  percentageScore          Float?
+  studentId                String?
+  classSubjectAssessmentId Int?
+  remarkOnAssementId       Int?
+  studentTermFormId        String?
 
-    createdAt DateTime? @default(now()) @db.Timestamp(0)
-    updatedAt DateTime? @updatedAt
-    deletedAt DateTime? @db.Timestamp(0)
+  createdAt DateTime? @default(now()) @db.Timestamp(0)
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime? @db.Timestamp(0)
 
-    student                Students?                   @relation(fields: [studentId], references: [id])
-    classSubjectAssessment ClassroomSubjectAssessment? @relation(fields: [classSubjectAssessmentId], references: [id])
-    studentTermForm        StudentTermForm?            @relation(fields: [studentTermFormId], references: [id])
+  student                Students?                   @relation(fields: [studentId], references: [id])
+  classSubjectAssessment ClassroomSubjectAssessment? @relation(fields: [classSubjectAssessmentId], references: [id])
+  studentTermForm        StudentTermForm?            @relation(fields: [studentTermFormId], references: [id])
 
-    @@unique([studentId, studentTermFormId, classSubjectAssessmentId])
+  @@unique([studentId, studentTermFormId, classSubjectAssessmentId])
 }
 
 model ReportPrintLog {
-    id              String   @id @default(uuid())
-    schoolProfileId String?
-    termId          String?
-    termFormIds     String[]
-    departmentIds   String[]
-    printedAt       DateTime @default(now()) @db.Timestamp(0)
-    createdAt       DateTime @default(now()) @db.Timestamp(0)
+  id              String   @id @default(uuid())
+  schoolProfileId String?
+  termId          String?
+  termFormIds     String[]
+  departmentIds   String[]
+  printedAt       DateTime @default(now()) @db.Timestamp(0)
+  createdAt       DateTime @default(now()) @db.Timestamp(0)
 
-    schoolProfile SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
-    sessionTerm   SessionTerm?   @relation(fields: [termId], references: [id])
+  schoolProfile SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
+  sessionTerm   SessionTerm?   @relation(fields: [termId], references: [id])
+}
+
+model AssessmentPublicLink {
+  id                           String                     @id @default(uuid())
+  status                       AssessmentPublicLinkStatus @default(PENDING)
+  tokenHash                    String?                    @unique
+  requestedDurationHours       Int                        @default(24)
+  selectedDepartmentSubjectIds String[]                   @default([])
+  selectedStudentTermFormIds   String[]                   @default([])
+  reason                       String?
+  rejectionNote                String?
+  requesterUserId              String?
+  requesterName                String?
+  requesterEmail               String?
+  createdByUserId              String?
+  createdByName                String?
+  approvedByUserId             String?
+  approvedByName               String?
+  rejectedByUserId             String?
+  rejectedByName               String?
+  revokedByUserId              String?
+  revokedByName                String?
+  approvedAt                   DateTime?                  @db.Timestamp(0)
+  rejectedAt                   DateTime?                  @db.Timestamp(0)
+  revokedAt                    DateTime?                  @db.Timestamp(0)
+  expiresAt                    DateTime?                  @db.Timestamp(0)
+  lastUsedAt                   DateTime?                  @db.Timestamp(0)
+  createdAt                    DateTime?                  @default(now()) @db.Timestamp(0)
+  updatedAt                    DateTime?                  @updatedAt
+  deletedAt                    DateTime?                  @db.Timestamp(0)
+
+  schoolProfileId       String
+  schoolProfile         SchoolProfile       @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+  sessionTermId         String
+  sessionTerm           SessionTerm         @relation(fields: [sessionTermId], references: [id], onDelete: Cascade)
+  classRoomDepartmentId String
+  classRoomDepartment   ClassRoomDepartment @relation(fields: [classRoomDepartmentId], references: [id], onDelete: Cascade)
+
+  @@index([schoolProfileId, status])
+  @@index([schoolProfileId, sessionTermId, classRoomDepartmentId])
+  @@index([requesterUserId])
+}
+
+enum AssessmentPublicLinkStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  REVOKED
 }

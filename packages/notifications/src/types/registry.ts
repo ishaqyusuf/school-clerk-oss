@@ -1,4 +1,9 @@
 import { defineNotificationTypes } from "../notification-types";
+import {
+  assessmentPublicLinkApproved,
+  assessmentPublicLinkRejected,
+  assessmentPublicLinkRequested,
+} from "./assessment-public-link";
 import { payrollPaymentCancelled } from "./payroll-payment-cancelled";
 import { payrollPaymentRecorded } from "./payroll-payment-recorded";
 import { servicePaymentCancelled } from "./service-payment-cancelled";
@@ -9,17 +14,21 @@ import { studentPaymentCancelled } from "./student-payment-cancelled";
 import { studentPaymentReceived } from "./student-payment-received";
 
 export const schoolClerkNotificationTypes = defineNotificationTypes({
-	payroll_payment_cancelled: payrollPaymentCancelled,
-	payroll_payment_recorded: payrollPaymentRecorded,
-	service_payment_cancelled: servicePaymentCancelled,
-	service_payment_recorded: servicePaymentRecorded,
-	signup_success: signupSuccess,
-	staff_invitation: staffInvitation,
-	student_payment_cancelled: studentPaymentCancelled,
-	student_payment_received: studentPaymentReceived,
+  assessment_public_link_approved: assessmentPublicLinkApproved,
+  assessment_public_link_rejected: assessmentPublicLinkRejected,
+  assessment_public_link_requested: assessmentPublicLinkRequested,
+  payroll_payment_cancelled: payrollPaymentCancelled,
+  payroll_payment_recorded: payrollPaymentRecorded,
+  service_payment_cancelled: servicePaymentCancelled,
+  service_payment_recorded: servicePaymentRecorded,
+  signup_success: signupSuccess,
+  staff_invitation: staffInvitation,
+  student_payment_cancelled: studentPaymentCancelled,
+  student_payment_received: studentPaymentReceived,
 });
 
 export * from "./shared";
+export * from "./assessment-public-link";
 export * from "./payroll-payment-cancelled";
 export * from "./payroll-payment-recorded";
 export * from "./service-payment-cancelled";

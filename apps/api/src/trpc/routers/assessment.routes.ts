@@ -23,6 +23,24 @@ import {
   updateAssessmentScore,
   updateAssessmentScoreSchema,
 } from "@api/db/queries/assessments";
+import {
+  approveAssessmentPublicLink,
+  approveAssessmentPublicLinkSchema,
+  createAssessmentPublicLink,
+  createAssessmentPublicLinkSchema,
+  getPublicAssessmentLink,
+  getPublicAssessmentLinkSchema,
+  listAssessmentPublicLinks,
+  listAssessmentPublicLinksSchema,
+  rejectAssessmentPublicLink,
+  rejectAssessmentPublicLinkSchema,
+  requestAssessmentPublicLink,
+  requestAssessmentPublicLinkSchema,
+  revokeAssessmentPublicLink,
+  revokeAssessmentPublicLinkSchema,
+  updatePublicAssessmentScore,
+  updatePublicAssessmentScoreSchema,
+} from "@api/db/queries/assessment-public-links";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { z } from "zod";
 
@@ -98,6 +116,46 @@ async function getReportTerms(ctx: Parameters<typeof getClassrooms>[0]) {
 }
 
 export const assessmentRouter = createTRPCRouter({
+  listPublicAssessmentLinks: authenticatedProcedure
+    .input(listAssessmentPublicLinksSchema)
+    .query(async ({ ctx, input }) => {
+      return listAssessmentPublicLinks(ctx, input);
+    }),
+  createPublicAssessmentLink: authenticatedProcedure
+    .input(createAssessmentPublicLinkSchema)
+    .mutation(async ({ ctx, input }) => {
+      return createAssessmentPublicLink(ctx, input);
+    }),
+  requestPublicAssessmentLink: authenticatedProcedure
+    .input(requestAssessmentPublicLinkSchema)
+    .mutation(async ({ ctx, input }) => {
+      return requestAssessmentPublicLink(ctx, input);
+    }),
+  approvePublicAssessmentLink: authenticatedProcedure
+    .input(approveAssessmentPublicLinkSchema)
+    .mutation(async ({ ctx, input }) => {
+      return approveAssessmentPublicLink(ctx, input);
+    }),
+  rejectPublicAssessmentLink: authenticatedProcedure
+    .input(rejectAssessmentPublicLinkSchema)
+    .mutation(async ({ ctx, input }) => {
+      return rejectAssessmentPublicLink(ctx, input);
+    }),
+  revokePublicAssessmentLink: authenticatedProcedure
+    .input(revokeAssessmentPublicLinkSchema)
+    .mutation(async ({ ctx, input }) => {
+      return revokeAssessmentPublicLink(ctx, input);
+    }),
+  getPublicAssessmentLink: publicProcedure
+    .input(getPublicAssessmentLinkSchema)
+    .query(async ({ ctx, input }) => {
+      return getPublicAssessmentLink(ctx, input);
+    }),
+  updatePublicAssessmentScore: publicProcedure
+    .input(updatePublicAssessmentScoreSchema)
+    .mutation(async ({ ctx, input }) => {
+      return updatePublicAssessmentScore(ctx, input);
+    }),
   getRecordingContextOptions: authenticatedProcedure
     .input(recordingContextOptionsSchema)
     .query(async ({ ctx, input }) => {
@@ -289,7 +347,9 @@ export const assessmentRouter = createTRPCRouter({
         if (!termId || !department) continue;
 
         const termClassrooms = classroomsByTerm.get(termId) ?? [];
-        if (termClassrooms.some((classroom) => classroom.id === department.id)) {
+        if (
+          termClassrooms.some((classroom) => classroom.id === department.id)
+        ) {
           continue;
         }
 
@@ -318,7 +378,7 @@ export const assessmentRouter = createTRPCRouter({
         (currentDatedTermId
           ? (classroomsByTerm.get(currentDatedTermId)?.length ?? 0) > 0
             ? currentDatedTermId
-            : firstAssignedTermId ?? currentDatedTermId
+            : (firstAssignedTermId ?? currentDatedTermId)
           : null);
 
       const classrooms = defaultTermId

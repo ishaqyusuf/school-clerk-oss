@@ -106,6 +106,36 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: unauthenticated requests are rejected; missing tenant/session context returns empty scoped options for Teacher users; non-Teacher users receive unrestricted report terms and classrooms for the selected/default term.
 - Notes: Teacher users are scoped to non-deleted `StaffTermProfile` terms and `StaffClassroomDepartmentTermProfiles` classrooms. The assessment recording page uses URL/cookie/date-derived defaults to auto-correct invalid teacher deep links; if the date-derived term has no teacher classrooms, the API falls back to the first assigned term with classrooms. If no date-current term can be inferred, the client asks the user to choose a current term and persists it through `switchSessionTerm`.
 
+- Route: `assessments.listPublicAssessmentLinks`
+- Request schema: `{ classRoomDepartmentId: string, sessionTermId: string, status?: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "REVOKED" }`
+- Response schema: public-link audit rows for the selected classroom/term, including status, requester/admin names, expiry, captured subject/student counts, and a fresh URL only when the server can safely return one.
+- Error cases: missing tenant context, unauthorized classroom access, invalid classroom/term pair.
+- Notes: Admin users see the classroom/term link history. Teacher users are scoped through classroom assignment checks.
+
+- Route: `assessments.createPublicAssessmentLink`
+- Request schema: `{ classRoomDepartmentId: string, sessionTermId: string, durationHours: 24 | 48 | 168 | number, selectedDepartmentSubjectIds?: string[], selectedStudentTermFormIds?: string[] }`
+- Response schema: approved link row plus one-time public URL.
+- Error cases: non-admin role, invalid classroom/term, subject filter outside the classroom/term, invalid student filter, unsupported duration.
+- Notes: This is the admin direct-generate path. The token is signed and only its hash is stored.
+
+- Route: `assessments.requestPublicAssessmentLink`
+- Request schema: `{ classRoomDepartmentId: string, sessionTermId: string, durationHours: number, selectedDepartmentSubjectIds?: string[], selectedStudentTermFormIds?: string[], reason: string }`
+- Response schema: pending link request.
+- Error cases: missing or too-short reason, unauthorized classroom/subject scope, invalid filters.
+- Notes: Staff requests notify admins; no public URL is issued until approval.
+
+- Routes: `assessments.approvePublicAssessmentLink`, `assessments.rejectPublicAssessmentLink`, `assessments.revokePublicAssessmentLink`
+- Request schema: approve `{ id: string, durationHours?: number }`; reject `{ id: string, rejectionReason?: string }`; revoke `{ id: string }`
+- Response schema: updated link row, with approve returning a one-time public URL.
+- Error cases: non-admin role, link outside tenant, invalid status transition, expired or revoked link.
+- Notes: Approval and rejection notify the requester. Revocation immediately blocks public token use.
+
+- Public routes: `assessments.getPublicAssessmentLink`, `assessments.updatePublicAssessmentScore`
+- Request schema: get `{ token: string }`; update `{ token: string, assessmentId: string, studentTermFormId: string, departmentSubjectId: string, obtained: number | null }`
+- Response schema: get returns the token-scoped classroom report sheet payload; update returns the saved score record.
+- Error cases: malformed token, hash mismatch, pending/rejected/revoked/expired link, score target outside captured subject/student scope, grouped parent assessment, score above obtainable, invalid classroom/term ancestry.
+- Notes: Public token routes are intentionally unauthenticated but never broaden beyond the stored classroom, term, subject, and student scope.
+
 ## Staff Management Contracts
 
 - Route/action: `action.saveStaffAction`

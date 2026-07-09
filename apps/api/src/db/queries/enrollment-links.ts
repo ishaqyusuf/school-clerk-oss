@@ -264,7 +264,7 @@ function getSchoolSiteRootDomain() {
   if (explicitRoot) {
     const normalizedRoot = stripDashboardHostPrefix(explicitRoot);
     return process.env.NODE_ENV === "production" ||
-      normalizedRoot !== "school-clerk-dashboard.localhost"
+      normalizedRoot !== "school-clerk.localhost"
       ? normalizedRoot
       : "school-clerk-site.localhost";
   }

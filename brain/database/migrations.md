@@ -1,29 +1,38 @@
 # Migrations
 
 ## Purpose
+
 Change log for database schema migrations and rollout notes.
 
 ## How To Use
+
 - Add one entry per migration.
 - Include backward-compatibility and rollback notes.
 - Link PR or commit reference.
 
 ## Operational Runbook
+
+- Dev database selection follows the GND-style three-layer model: `remote-dev` for shared development databases, `local` for the Docker Postgres database, and `production` for production-only scripts and deploys.
+- `scripts/with-dev-infra.ts` is the development DB-mode resolver. It loads root plus package `.env`/`.env.local` files, defaults to `SCHOOL_CLERK_DB_MODE=remote-dev`, and exports `POSTGRES_URL`, `DATABASE_URL`, and `DIRECT_URL` consistently for apps, Prisma, and jobs.
 - Local database runs in Docker and is currently mapped to `localhost:55432`.
-- Local environment variables for DB work should come from the repo root `.env.local`.
-- Use `bun run db:migrate` for local Prisma development migrations. This resolves to local env loading and `prisma migrate dev`.
-- Use `bun run db:push` only for the server/production database. This resolves through `packages/db/.env.production`.
+- Use `bun run dev` for the default remote-dev workflow, `bun run dev:remote-db` to be explicit, and `bun run dev:local` to force the local Docker database.
+- Use `bun run dev:services` to start only the local services implied by the selected env; it skips Postgres when the DB mode or URL points at remote dev. Use `bun run dev:services:local`, `bun run db:start`, or `bun run db:docker:up` to force local Postgres startup.
+- Use `bun run db:migrate` for Prisma development migrations against the selected dev DB mode. Use `SCHOOL_CLERK_DB_MODE=local bun run db:migrate` when the migration target must be the Docker DB.
+- Use `bun run db:push:dev` only for the selected dev database. Use `bun run db:push:prod` or `bun run db:push` only for the server/production database; these resolve through production env loading.
+- The `packages/jobs` dev script now uses the same dev-infra resolver as the DB package, while `jobs:deploy` uses production env loading.
 - Prisma 7 is the default ORM runtime. The schema datasource URL is supplied through `packages/db/prisma.config.ts`, and the generated client lives under `packages/db/src/generated/client`.
 - `packages/db/src/generated/` is ignored source output. Run `bun run db:generate` before local typechecks that import `@school-clerk/db`; dashboard and school-site build scripts generate the client before `next build` for app-direct Vercel builds.
-- Use `bun run db:studio` for Prisma Studio against the local database unless you intentionally override the env.
-- If the Docker DB is not running yet, start it with `docker compose up -d postgres` from the repo root.
+- Use `bun run db:studio` for Prisma Studio against the selected development database.
+- If the Docker DB is not running yet, start it with `bun run db:start` or `docker compose up -d postgres` from the repo root.
 - Use `bun run db:update:local:dry-run` to inspect production-to-local import changes before writing to the local Docker database.
 - Use `bun run db:update:local` to sync production data into the local database. The command reads production source URLs from explicit source env vars first, then `packages/db/.env.production`, then repo root `.env.production`; it reads the local target from local env files and falls back to `postgresql://postgres:postgres@127.0.0.1:55432/school_clerk`.
 - The production-to-local sync refuses to write unless the target database host is local, writes cursor state under `.local-db-sync/`, temporarily disables triggers on all local target tables while importing table-by-table data, casts raw upsert parameters to the target PostgreSQL column types, preserves native PostgreSQL arrays while JSON-stringifying JSON values, re-enables triggers before disconnecting, and normalizes imported tenant domains for local dashboard routing by default.
 - Local domain normalization keeps `SchoolProfile.subDomain`, `TenantDomain.subdomain`, and legacy `school.sub_domain` as slug-only values compatible with `<tenant>.school-clerk-dashboard.localhost`; imported production custom domains are cleared unless `--keep-custom-domains` is passed.
 
 ## Template
+
 ## Migration Entry
+
 - Date:
 - ID:
 - Summary:
@@ -33,6 +42,17 @@ Change log for database schema migrations and rollout notes.
 - Owner:
 
 ## Migration Entry
+
+- Date: 2026-07-09
+- ID: 20260709120000_assessment_public_links
+- Summary: Added tenant-scoped public assessment-recording links with approval lifecycle, hashed signed tokens, expiry metadata, captured subject/student filters, and assessment public-link activity events.
+- Affected entities: `AssessmentPublicLink`, `AssessmentPublicLinkStatus`, `ActivityType`, `SchoolProfile`, `SessionTerm`, `ClassRoomDepartment`
+- Backfill required: No; existing assessment recording continues to use authenticated routes and no links exist until created or requested.
+- Rollback plan: Remove dashboard/API use of public assessment links and notification types, revoke any issued links operationally, then drop the table, enum, indexes, and activity enum values where supported.
+- Owner: Codex
+
+## Migration Entry
+
 - Date: 2026-07-04
 - ID: 20260704120000_staff_classroom_subject_access_mode
 - Summary: Added classroom-wide subject access mode for staff classroom assignments using `StaffClassroomSubjectAccessMode` and `StaffClassroomDepartmentTermProfiles.subjectAccessMode`.
@@ -42,6 +62,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-07-01
 - ID: ORM-2026-07-01-prisma-7-default
 - Summary: Switched `packages/db` to Prisma 7 by generating the client into `packages/db/src/generated/client`, using `@prisma/adapter-pg` for runtime PostgreSQL access, and moving datasource URL resolution into Prisma config with SSL parameter normalization.
@@ -51,6 +72,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-07-01
 - ID: 20260701110000_custom_template_quote_payment_handoff
 - Summary: Added quote payment handoff fields for custom document template requests: instructions, optional external payment link, and due date.
@@ -60,6 +82,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-06-30
 - ID: 20260630163000_custom_document_template_requests
 - Summary: Added upload-backed custom document template request tracking with quote/build status, source-file metadata, and validated built-template JSON storage.
@@ -69,6 +92,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-06-30
 - ID: 20260630160000_school_document_template_preferences
 - Summary: Added tenant-scoped document template preferences for school defaults such as result-sheet template selection.
@@ -78,6 +102,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-06-30
 - ID: 20260630153000_enrollment_admission_letter_template_selection
 - Summary: Added admission-letter template selection metadata to approved enrollment applications.
@@ -87,6 +112,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-06-30
 - ID: 20260630143000_enrollment_approval_payment_metadata
 - Summary: Added admission approval payment metadata and approval-email delivery tracking to enrollment applications.
@@ -96,6 +122,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-06-30
 - ID: 20260630133000_enrollment_document_types
 - Summary: Added stable document type fields for enrollment/admission requirements and submitted application documents.
@@ -105,6 +132,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-06-30
 - ID: 20260630120000_admission_link_visibility_requirements
 - Summary: Added admission/enrollment link website visibility, selected-class age/notes fields, and class-targeted document requirements.
@@ -114,6 +142,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-06-19
 - ID: 20260619150000_enrollment_links_parent_portal
 - Summary: Added enrollment link, application, parent, and document-upload persistence plus a nullable `Guardians.userId` bridge for authenticated parent portal ward access.
@@ -123,6 +152,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-06-17
 - ID: 20260617120000_find_anything_classroom_search_indexes
 - Summary: Added index-only support for Find Anything classroom search using active tenant/session classroom indexes and trigram indexes for classroom and stream names.
@@ -132,6 +162,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-06-03
 - ID: 20260603152000_reset_legacy_finance
 - Summary: Removed legacy, non-operational finance/accounting storage so the standardized school finance ledger can be rebuilt cleanly.
@@ -141,6 +172,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-04-06
 - ID: STAFF-2026-04-06-invite-status-fields
 - Summary: Added staff onboarding lifecycle fields to support pending invites, resend tracking, and onboarding completion timestamps.
@@ -150,6 +182,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-04-08
 - ID: WEB-2026-04-08-website-template-config-models
 - Summary: Added Prisma schema definitions for tenant website draft/published configuration storage and repository helpers for published-config lookup plus draft/publish operations.
@@ -159,6 +192,7 @@ Change log for database schema migrations and rollout notes.
 - Owner: Codex
 
 ## Migration Entry
+
 - Date: 2026-04-08
 - ID: WEB-2026-04-08-website-media-blob-fields
 - Summary: Extended tenant website media assets with storage metadata for Vercel Blob uploads and introduced runtime asset-reference resolution for template content.

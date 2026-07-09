@@ -33,6 +33,9 @@ Describes entity relationships and cardinality constraints.
 - `SchoolProfile` 1:N `EnrollmentLink`
 - `SchoolProfile` 1:N `SchoolDocumentTemplatePreference`
 - `SchoolProfile` 1:N `CustomDocumentTemplateRequest`
+- `SchoolProfile` 1:N `AssessmentPublicLink`
+- `SessionTerm` 1:N `AssessmentPublicLink`
+- `ClassRoomDepartment` 1:N `AssessmentPublicLink`
 - `EnrollmentLink` 1:N `EnrollmentLinkClassroom`, `EnrollmentLinkDocumentRequirement`, and `EnrollmentApplication`
 - `EnrollmentLinkClassroom` N:1 `ClassRoomDepartment`; allowed classrooms are validated against the link tenant/session before submission or approval
 - `EnrollmentLinkClassroom` owns per-link selected-class admission rules such as age range, age cutoff date, capacity, and requirement notes.
@@ -75,6 +78,9 @@ Describes entity relationships and cardinality constraints.
 - Document template preference invariant: a saved tenant preference must resolve to either a built-in shared registry template or a ready custom template request owned by the same `schoolProfileId`.
 - Custom template quote invariant: if a request is moved to `QUOTED` with a positive `quotedAmount`, the operator must provide either payment instructions or an external payment link.
 - Custom template invariant: a request should only be marked `READY` when its `builtTemplateJson.documentType` matches the request `documentType` and its `builtTemplateJson.templateId` matches `builtTemplateId`.
+- Assessment public link invariant: authenticated creation/request/approval must validate the link tenant, term, classroom, and captured subject filter before a token is issued.
+- Assessment public token invariant: public result-entry routes resolve only by signed token plus stored hash, require `APPROVED` status, enforce `expiresAt`, and must not broaden beyond the stored classroom, term, subject IDs, or optional student-term-form IDs.
+- Assessment public score invariant: public score writes may only target scoreable assessments within the link's captured department subject scope and classroom term sheets.
 - Legacy models (`school`, `guardian`, `session_class`) use separate relation chains and need consolidation rules.
 - TODO: add DB-level indexes/constraints audit for tenant scoping fields.
 

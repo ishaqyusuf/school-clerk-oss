@@ -19,13 +19,15 @@
     "db:generate": "./with-env.sh bunx --bun prisma generate",
     "db-migrate": "./with-env.sh bunx --bun prisma migrate dev",
     "prisma-generate": "./with-env.sh bunx --bun prisma generate",
-    "push": "../../scripts/with-root-env.sh --mode production bunx prisma db push",
+    "push": "bun run push:prod",
+    "push:dev": "./with-env.sh bunx prisma db push",
+    "push:prod": "../../scripts/with-root-env.sh --mode production bunx prisma db push",
     "pull": "./with-env.sh bunx prisma db pull",
     "sync:prod-to-local": "bun scripts/sync-prod-to-local.ts",
     "sync:prod-to-local:dry-run": "bun scripts/sync-prod-to-local.ts --dry-run",
     "sync:prod-to-local:table": "bun scripts/sync-prod-to-local.ts --table",
     "studio": "./with-env.sh bunx prisma studio --port 5556",
-    "with-env": "../../scripts/with-root-env.sh --mode local"
+    "with-env": "bun ../../scripts/with-dev-infra.ts --"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

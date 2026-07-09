@@ -31,10 +31,10 @@ function getAuthBaseUrl() {
   const host =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.VERCEL_URL ||
-    "school-clerk-dashboard.localhost";
+    "school-clerk.localhost";
   const origin = getOriginFromHost(host, protocol);
 
-  return `${origin ?? `http://school-clerk-dashboard.localhost`}${authPath}`;
+  return `${origin ?? `http://school-clerk.localhost`}${authPath}`;
 }
 
 export const authClient = createAuthClient({
