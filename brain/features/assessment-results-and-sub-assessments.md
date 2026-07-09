@@ -56,6 +56,8 @@ Make classroom assessment recording, classroom result review, student result pri
   - Print sub-assessments
   - Print group total only
 - Student result print/PDF headers should show the full classroom display name for each student, including the main classroom and department/arm when both are available.
+- Student report unavailable states should offer a CTA into the existing classroom overview sheet, opening the Subjects tab so staff can review classroom setup and assessments without leaving the report page.
+- Classroom result tables should include a Classroom Overview CTA that opens the existing classroom overview side sheet on the Students tab while preserving the current report filters.
 - Standalone assessments with no weight should show a warning: they can be recorded but will not print.
 - Grouped assessments whose children have no printable weight should show a warning: the group will not appear on printed results.
 - Assessment list should show badges for:

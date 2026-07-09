@@ -3,6 +3,7 @@
 import { updateStudentReportCookieByName } from "@/actions/cookies/student-report";
 import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
 import { SubjectAssessments } from "@/components/subject-assessments";
+import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useReportPageContext } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
 import { useAuth } from "@/hooks/use-auth";
@@ -42,6 +43,7 @@ import {
 	BookOpenText,
 	FileSpreadsheet,
 	Languages,
+	PanelRightOpen,
 	Printer,
 	Search,
 	Users,
@@ -89,6 +91,7 @@ export function ClassroomResultTable({
 	const ctx = useReportPageContext();
 	const reportData = ctx.reportData;
 	const { filters, setFilters } = useStudentReportFilterParams();
+	const { setParams: setClassroomParams } = useClassroomParams();
 	const auth = useAuth();
 	const role = auth.role;
 	const isAdmin = role === "ADMIN" || role === "Admin";
@@ -203,6 +206,15 @@ export function ClassroomResultTable({
 			},
 		),
 	);
+
+	const openClassroomOverview = useCallback(() => {
+		if (!filters.departmentId) return;
+
+		setClassroomParams({
+			viewClassroomId: filters.departmentId,
+			classroomTab: "students",
+		});
+	}, [filters.departmentId, setClassroomParams]);
 
 	const exportToExcel = useCallback(() => {
 		if (!reportRows.length) return;
@@ -632,6 +644,15 @@ export function ClassroomResultTable({
 									/>
 								</div>
 								<div className="flex flex-wrap gap-2">
+									<Button
+										variant="outline"
+										size="sm"
+										className="flex-1 gap-2"
+										onClick={openClassroomOverview}
+									>
+										<PanelRightOpen className="size-4" />
+										Classroom Overview
+									</Button>
 									{isAdmin && (
 										<Button
 											variant="outline"

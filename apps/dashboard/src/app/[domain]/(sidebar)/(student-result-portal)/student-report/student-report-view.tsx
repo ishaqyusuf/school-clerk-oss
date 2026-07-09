@@ -8,9 +8,11 @@ import {
   ReportPageProvider,
   useReportPageContext,
 } from "@/hooks/use-report-page";
+import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
+import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
-import { FolderX } from "lucide-react";
+import { FolderX, PanelRightOpen } from "lucide-react";
 import { useEffect, useMemo } from "react";
 
 function PageTitleSync() {
@@ -99,6 +101,17 @@ function ReportContent({
 }
 
 function ReportUnavailable({ compact = false }: { compact?: boolean }) {
+  const { filters } = useStudentReportFilterParams();
+  const { setParams } = useClassroomParams();
+  const openClassroomOverview = () => {
+    if (!filters.departmentId) return;
+
+    setParams({
+      viewClassroomId: filters.departmentId,
+      classroomTab: "subjects",
+    });
+  };
+
   return (
     <div
       className={cn(
@@ -119,6 +132,16 @@ function ReportUnavailable({ compact = false }: { compact?: boolean }) {
           not yet been entered.
         </p>
       </div>
+      <Button
+        type="button"
+        variant="outline"
+        className="gap-2"
+        disabled={!filters.departmentId}
+        onClick={openClassroomOverview}
+      >
+        <PanelRightOpen className="size-4" />
+        Open classroom overview
+      </Button>
     </div>
   );
 }

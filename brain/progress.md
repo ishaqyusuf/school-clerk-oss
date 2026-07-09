@@ -1,5 +1,24 @@
 # Progress
 
+## Student Report Classroom Overview CTAs (2026-07-09)
+
+### Completed
+
+- Added an "Open classroom overview" CTA to the student report unavailable state.
+- Wired unavailable reports to open the existing classroom overview side sheet on the Subjects tab.
+- Added a "Classroom Overview" CTA to the visible classroom result table controls, opening the same side sheet on the Students tab.
+
+### Changed Files
+
+- `apps/dashboard/src/app/[domain]/(sidebar)/(student-result-portal)/student-report/student-report-view.tsx`
+- `apps/dashboard/src/components/classroom-result-table.tsx`
+- `brain/features/assessment-results-and-sub-assessments.md`
+- `brain/progress.md`
+
+### Verification
+
+- `bun --filter @school-clerk/dashboard typecheck`
+
 ## Mobile Analytics Section Visibility (2026-06-17)
 
 ### Completed
