@@ -77,3 +77,5 @@ snippets
 .gstack/
 .local-db-sync/
 .env*
+!.env.example
+!**/.env.example
