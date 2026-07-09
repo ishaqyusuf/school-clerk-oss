@@ -17,8 +17,10 @@ Change log for database schema migrations and rollout notes.
 - Local database runs in Docker and is currently mapped to `localhost:55432`.
 - Use `bun run dev` for the default remote-dev workflow, `bun run dev:remote-db` to be explicit, and `bun run dev:local` to force the local Docker database.
 - Use `bun run dev:services` to start only the local services implied by the selected env; it skips Postgres when the DB mode or URL points at remote dev. Use `bun run dev:services:local`, `bun run db:start`, or `bun run db:docker:up` to force local Postgres startup.
-- Use `bun run db:migrate` for Prisma development migrations against the selected dev DB mode. Use `SCHOOL_CLERK_DB_MODE=local bun run db:migrate` when the migration target must be the Docker DB.
-- Use `bun run db:push:dev` only for the selected dev database. Use `bun run db:push:prod` or `bun run db:push` only for the server/production database; these resolve through production env loading.
+- Unqualified DB commands (`db:migrate`, `db:pull`, `db:studio`, `db:generate`, and `db:shell`) use the selected/default dev DB mode.
+- Use the `:dev` DB command variants (`db:migrate:dev`, `db:pull:dev`, `db:studio:dev`, `db:generate:dev`, `db:push:dev`, and `db:shell:dev`) to force the remote development DB.
+- Use the `:local` DB command variants (`db:migrate:local`, `db:pull:local`, `db:studio:local`, `db:generate:local`, `db:push:local`, and `db:shell:local`) to force the Docker/local DB.
+- Use `bun run db:push:prod` or `bun run db:push` only for the server/production database; these resolve through production env loading.
 - The `packages/jobs` dev script now uses the same dev-infra resolver as the DB package, while `jobs:deploy` uses production env loading.
 - Prisma 7 is the default ORM runtime. The schema datasource URL is supplied through `packages/db/prisma.config.ts`, and the generated client lives under `packages/db/src/generated/client`.
 - `packages/db/src/generated/` is ignored source output. Run `bun run db:generate` before local typechecks that import `@school-clerk/db`; dashboard and school-site build scripts generate the client before `next build` for app-direct Vercel builds.
