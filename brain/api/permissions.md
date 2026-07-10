@@ -130,6 +130,7 @@ Defines access control rules for each API surface.
 
 - Blank manual classroom report sheet print (`Print Empty Sheet`) is restricted to `ADMIN` SaaS owners and `Admin` staff admins.
 - Filled result sheet printing/exporting remains available to all authorized academic/report users.
+- The assessment-recording setup state may show an `Open classroom overview` CTA only to `ADMIN` SaaS owners and title-case `Admin` staff admins; assigned staff/teacher users can still use their scoped recording filters but do not see this classroom-management entry point.
 - Admin users can generate approved public assessment-recording links directly from the current assessment-recording filters, choose an expiry duration, copy the one-time URL, revoke active links, and approve/reject staff requests.
 - Non-admin staff with authorized classroom/subject scope can request a public assessment-recording link and must provide a reason. The request remains `PENDING` until an admin approves it.
 - Public assessment link request email CTAs for admins must resolve to the tenant dashboard host, `dashboard.{tenant}.school-clerk.com` in production.
