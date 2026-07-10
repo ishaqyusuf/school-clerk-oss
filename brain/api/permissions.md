@@ -91,8 +91,9 @@ Defines access control rules for each API surface.
 ## Staff Invite Status
 
 - Staff save now sends onboarding automatically when needed instead of relying on an explicit "Send onboarding email" toggle.
-- Invites create or update the tenant user record, create a Better Auth-compatible reset token, and send the shared staff invitation email with a staff-scoped onboarding link so the staff member can set a password and fill their own profile details.
-- Copying an onboarding link creates a fresh reset-password verification token directly and returns a staff-scoped onboarding URL without using email delivery or revoking other active reset tokens.
+- Invites create or update the tenant user record, create a 24-hour Better Auth-compatible reset token, and send the shared staff invitation email with a staff-scoped onboarding link so the staff member can set a password and fill their own profile details.
+- Copying an onboarding link creates a fresh 24-hour reset-password verification token directly and returns a staff-scoped onboarding URL without using email delivery or revoking other active reset tokens.
+- The reset-password/onboarding page checks token status before submitting to Better Auth so expired links are identified as expired, while invalid or already-used links remain blocked.
 
 ## Staff Management Navigation Split
 
@@ -131,6 +132,7 @@ Defines access control rules for each API surface.
 - Filled result sheet printing/exporting remains available to all authorized academic/report users.
 - Admin users can generate approved public assessment-recording links directly from the current assessment-recording filters, choose an expiry duration, copy the one-time URL, revoke active links, and approve/reject staff requests.
 - Non-admin staff with authorized classroom/subject scope can request a public assessment-recording link and must provide a reason. The request remains `PENDING` until an admin approves it.
+- Public assessment link request email CTAs for admins must resolve to the tenant dashboard host, `dashboard.{tenant}.school-clerk.com` in production.
 - Public assessment-recording token users do not authenticate through dashboard auth. Their access is limited to the stored tenant, term, classroom, subject filter, optional student filter, expiry time, and link status.
 - Public score entry must enforce the same score safety rules as authenticated entry: scoreable assessments only, no grouped parent score writes, and obtained scores within the assessment maximum.
 

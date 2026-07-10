@@ -2,13 +2,13 @@
 
 import type React from "react";
 
-import { useParams } from "next/navigation";
 import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 
 import { QuickFill } from "@/components/quick-fill";
 import { completeStaffOnboardingAction } from "@/actions/save-staff";
+import { getPasswordResetTokenStatus } from "@/actions/reset-password-token";
 import { authClient } from "@/auth/client";
 import { useLoadingToast } from "@/hooks/use-loading-toast";
 import { Alert, AlertDescription } from "@school-clerk/ui/alert";
@@ -26,9 +26,45 @@ import { Eye, EyeOff, Lock, Mail, Phone, User } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useQueryState } from "nuqs";
 
+function getTokenStatusMessage(status: string, isOnboardingFlow: boolean) {
+	if (status === "expired") {
+		return isOnboardingFlow
+			? "This onboarding link has expired. Ask your school administrator to resend your staff invite."
+			: "This password reset link has expired. Request a new password reset link.";
+	}
+
+	if (status === "missing") {
+		return isOnboardingFlow
+			? "This onboarding link is missing its reset token."
+			: "This password reset link is missing its reset token.";
+	}
+
+	return isOnboardingFlow
+		? "This onboarding link is invalid or has already been used. Ask your school administrator to resend your staff invite."
+		: "This password reset link is invalid or has already been used. Request a new password reset link.";
+}
+
+async function getResetPasswordErrorMessage(
+	token: string,
+	fallbackMessage: string,
+	isOnboardingFlow: boolean,
+) {
+	const normalizedMessage = fallbackMessage.toLowerCase();
+
+	if (!normalizedMessage.includes("token")) {
+		return fallbackMessage;
+	}
+
+	const tokenStatus = await getPasswordResetTokenStatus(token);
+	if (tokenStatus.status === "valid") {
+		return fallbackMessage;
+	}
+
+	return getTokenStatusMessage(tokenStatus.status, isOnboardingFlow);
+}
+
 export function Client() {
 	const router = useRouter();
-	const params = useParams<{ domain: string }>();
 	const toast = useLoadingToast();
 	const [legacyToken] = useQueryState("tok");
 	const [tokenFromCallback] = useQueryState("token");
@@ -68,7 +104,7 @@ export function Client() {
 
 	const handleSubmit = form.handleSubmit(async (values) => {
 		if (!token) {
-			setError("This onboarding link is missing its reset token.");
+			setError(getTokenStatusMessage("missing", isOnboardingFlow));
 			return;
 		}
 
@@ -76,15 +112,26 @@ export function Client() {
 		setError("");
 
 		try {
+			const tokenStatus = await getPasswordResetTokenStatus(token);
+
+			if (tokenStatus.status !== "valid") {
+				setIsLoading(false);
+				setError(getTokenStatusMessage(tokenStatus.status, isOnboardingFlow));
+				return;
+			}
+
 			const resetResponse = await authClient.resetPassword({
 				newPassword: values.password,
 				token,
 			});
 
 			if (resetResponse.error) {
-				throw new Error(
+				const message = await getResetPasswordErrorMessage(
+					token,
 					resetResponse.error.message || "Could not reset your password.",
+					isOnboardingFlow,
 				);
+				throw new Error(message);
 			}
 
 			if (isOnboardingFlow && staffId) {

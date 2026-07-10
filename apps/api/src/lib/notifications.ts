@@ -42,9 +42,44 @@ function getNotificationEmailFrom() {
   );
 }
 
+function normalizeHost(value?: string | null) {
+  return (
+    value
+      ?.trim()
+      .replace(/^https?:\/\//i, "")
+      .replace(/\/+$/, "") || ""
+  );
+}
+
+function stripDashboardHostPrefix(host: string) {
+  return host.startsWith("dashboard.") ? host.slice("dashboard.".length) : host;
+}
+
+function getSchoolSiteRootDomain() {
+  const explicitRoot = normalizeHost(
+    process.env.SCHOOL_SITE_ROOT_DOMAIN ?? process.env.APP_ROOT_DOMAIN,
+  );
+
+  if (explicitRoot) {
+    return stripDashboardHostPrefix(explicitRoot);
+  }
+
+  const publicHost = normalizeHost(process.env.NEXT_PUBLIC_APP_URL);
+  if (publicHost) {
+    return stripDashboardHostPrefix(publicHost);
+  }
+
+  return "school-clerk.com";
+}
+
 function getDashboardOrigin(subDomain: string) {
-  const rootDomain = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
   const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+
+  if (process.env.NODE_ENV === "production") {
+    return `${protocol}://dashboard.${subDomain}.${getSchoolSiteRootDomain()}`;
+  }
+
+  const rootDomain = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
   return `${protocol}://${subDomain}.${rootDomain}`;
 }
 

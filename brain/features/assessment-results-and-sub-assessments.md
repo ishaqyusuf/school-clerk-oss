@@ -98,6 +98,7 @@ Make classroom assessment recording, classroom result review, student result pri
   - Admins can generate an approved link immediately, choose expiry duration presets such as 24 hours, 2 days, or 7 days, copy active URLs, revoke active links, and approve/reject pending staff requests.
   - Non-admin staff can request a link for their authorized classroom/subject scope by choosing an expiry duration and writing a reason.
   - Approved/rejected staff requests notify the requester; new staff requests notify admins.
+  - Admin review-request email CTAs use the tenant dashboard host in production, `dashboard.{tenant}.school-clerk.com`, while in-app notification links stay app-relative.
   - The public recording page reuses the assessment-recording table without admin-only subject-management controls.
 
 ## Recommended PDF Patterns

@@ -122,7 +122,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `{ classRoomDepartmentId: string, sessionTermId: string, durationHours: number, selectedDepartmentSubjectIds?: string[], selectedStudentTermFormIds?: string[], reason: string }`
 - Response schema: pending link request.
 - Error cases: missing or too-short reason, unauthorized classroom/subject scope, invalid filters.
-- Notes: Staff requests notify admins; no public URL is issued until approval.
+- Notes: Staff requests notify admins; no public URL is issued until approval. Email review CTAs must target the tenant dashboard host, `dashboard.{subdomain}.school-clerk.com` in production, while in-app notification links remain app-relative.
 
 - Routes: `assessments.approvePublicAssessmentLink`, `assessments.rejectPublicAssessmentLink`, `assessments.revokePublicAssessmentLink`
 - Request schema: approve `{ id: string, durationHours?: number }`; reject `{ id: string, rejectionReason?: string }`; revoke `{ id: string }`
@@ -391,19 +391,25 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `email`, `role`, `assignments[]` where each assignment is `{ classRoomDepartmentId, departmentSubjectIds[] }`
 - Response schema: `{ invited, inviteError, staffId }`
 - Error cases: invalid classroom/subject combinations, missing tenant context, invite delivery failure
-- Notes: creates or updates the staff record, syncs tenant user role, persists teacher-only assignments, creates a staff-scoped onboarding reset token, and queues the shared staff invitation email through the Trigger `send-staff-invitation-email` job when required. In development, email CTA links prefer LAN-IP path-style dashboard URLs such as `http://<network-ip>:2200/<tenant>/reset-password` so links opened from another device can reach the tenant workspace.
+- Notes: creates or updates the staff record, syncs tenant user role, persists teacher-only assignments, creates a 24-hour staff-scoped onboarding reset token, and queues the shared staff invitation email through the Trigger `send-staff-invitation-email` job when required. In development, email CTA links prefer LAN-IP path-style dashboard URLs such as `http://<network-ip>:2200/<tenant>/reset-password` so links opened from another device can reach the tenant workspace.
 
 - Route: `action.resendStaffOnboardingAction`
 - Request schema: `staffId`
 - Response schema: `{ invited: true }` after email delivery, or `{ invited: false, inviteError, inviteLink }` in development when local email configuration prevents delivery and a manual onboarding link is generated instead
 - Error cases: missing tenant context, no staff email, onboarding already completed, invite delivery failure
-- Notes: creates a fresh staff-scoped onboarding reset token, queues the shared staff invitation email through the Trigger `send-staff-invitation-email` job, resets invite state to pending, and records resend timestamp. In development, email CTA links prefer LAN-IP path-style dashboard URLs such as `http://<network-ip>:2200/<tenant>/reset-password` so links opened from another device can reach the tenant workspace. Production invite queueing failures remain errors; the manual-link fallback is development-only for missing `DEV_EMAIL_RECIPIENT`, missing `RESEND_API_KEY`, or Resend sender-domain verification failures.
+- Notes: creates a fresh 24-hour staff-scoped onboarding reset token, queues the shared staff invitation email through the Trigger `send-staff-invitation-email` job, resets invite state to pending, and records resend timestamp. In development, email CTA links prefer LAN-IP path-style dashboard URLs such as `http://<network-ip>:2200/<tenant>/reset-password` so links opened from another device can reach the tenant workspace. Production invite queueing failures remain errors; the manual-link fallback is development-only for missing `DEV_EMAIL_RECIPIENT`, missing `RESEND_API_KEY`, or Resend sender-domain verification failures.
 
 - Route: `action.copyStaffOnboardingLinkAction`
 - Request schema: `staffId`
 - Response schema: `{ inviteLink }`
 - Error cases: missing tenant context, no staff email, onboarding already completed, invalid staff role, link generation failure
-- Notes: creates a fresh reset-password verification token and returns a staff-scoped onboarding URL with the canonical `token` query parameter, without sending email or revoking other active reset tokens.
+- Notes: creates a fresh 24-hour reset-password verification token and returns a staff-scoped onboarding URL with the canonical `token` query parameter, without sending email or revoking other active reset tokens.
+
+- Route: `action.getPasswordResetTokenStatus`
+- Request schema: reset/onboarding token string.
+- Response schema: `{ status: "missing" | "invalid" | "expired" | "valid", expiresAt: string | null }`
+- Error cases: none surfaced to the user for missing/invalid/expired token states.
+- Notes: the reset-password page checks this before calling Better Auth so expired staff onboarding links can show an explicit expired-link message instead of Better Auth's generic invalid-token error.
 
 - Route: `action.completeStaffOnboardingAction`
 - Request schema: `staffId`, `email`, `name`, optional `title`, optional `phone`, optional `phone2`, optional `address`

@@ -10,6 +10,7 @@ Track staff directory, invite onboarding, role access, and teacher assignment be
 - Each teacher assignment targets one classroom and either selected active-term subjects or all subjects in that classroom.
 - Subject selection in each classroom assignment supports bulk `Select all` and `Deselect all` controls so admins can quickly assign or clear the full subject list for that classroom.
 - Classroom-wide subject access uses `ALL` mode on the classroom assignment; it grants access to every current and future subject in that classroom without creating one explicit staff-subject row per subject.
+- Staff onboarding links use 24-hour Better Auth reset-password tokens. The reset-password flow checks token status before submission so expired onboarding links show an explicit expired-link message instead of a generic invalid-token error.
 - Staff onboarding is completed from the reset-password flow after the staff member sets a password and fills visible profile details. The title field remains in the action schema but is hidden in the onboarding form for now.
 
 ## Classroom-Wide Subject Access

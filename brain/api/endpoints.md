@@ -126,6 +126,7 @@ Catalog of API routes and responsibilities.
 - `trpc.staff.deleteStaff`
 - `action.saveStaffAction`
 - `action.resendStaffOnboardingAction`
+- `action.getPasswordResetTokenStatus`
 - `action.completeStaffOnboardingAction`
 
 ### PDF Output
