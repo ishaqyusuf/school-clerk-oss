@@ -209,6 +209,9 @@ export function AssessmentRecording() {
                   termId: effectiveTermId || null,
                 });
               }}
+              onOpenClassroomOverview={
+                canManageClassroom ? openSelectedClassroomOverview : undefined
+              }
               reportSheetHref={
                 canOpenReportSheet &&
                 permissions.all &&

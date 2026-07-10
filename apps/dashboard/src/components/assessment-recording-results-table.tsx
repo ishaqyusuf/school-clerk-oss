@@ -24,7 +24,7 @@ import {
 } from "@school-clerk/ui/table";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpenText, School, Search, X } from "lucide-react";
+import { BookOpenText, PanelRightOpen, School, Search, X } from "lucide-react";
 import {
   Fragment,
   useDeferredValue,
@@ -46,6 +46,7 @@ type Props = {
   selectedSubjectId?: string | null;
   classrooms?: ClassroomFilterOption[];
   onClassroomChange?: (departmentId: string) => void;
+  onOpenClassroomOverview?: () => void;
   publicToken?: string | null;
   reportSheetHref?: string | null;
 };
@@ -56,6 +57,7 @@ export function AssessmentRecordingResultsTable({
   selectedSubjectId,
   classrooms = [],
   onClassroomChange,
+  onOpenClassroomOverview,
   publicToken,
   reportSheetHref,
 }: Props) {
@@ -183,8 +185,19 @@ export function AssessmentRecordingResultsTable({
 
   if (!data?.studentTermForms?.length) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        No students found for this classroom in the selected term.
+      <div className="flex h-40 flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
+        <p>No students found for this classroom in the selected term.</p>
+        {onOpenClassroomOverview ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            onClick={onOpenClassroomOverview}
+          >
+            <PanelRightOpen className="size-4" />
+            Open classroom overview
+          </Button>
+        ) : null}
       </div>
     );
   }

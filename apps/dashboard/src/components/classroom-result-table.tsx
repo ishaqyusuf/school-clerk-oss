@@ -537,8 +537,17 @@ export function ClassroomResultTable({
 
 	if (!students.length) {
 		return (
-			<div className="flex items-center justify-center py-12 text-muted-foreground">
-				No students found for this classroom in the selected term.
+			<div className="flex flex-col items-center justify-center gap-3 py-12 text-center text-sm text-muted-foreground">
+				<p>No students found for this classroom in the selected term.</p>
+				<Button
+					type="button"
+					variant="outline"
+					className="gap-2"
+					onClick={openClassroomOverview}
+				>
+					<PanelRightOpen className="size-4" />
+					Open classroom overview
+				</Button>
 			</div>
 		);
 	}
