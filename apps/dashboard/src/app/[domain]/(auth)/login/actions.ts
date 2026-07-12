@@ -23,7 +23,7 @@ export async function loginWithPasswordAction(formData: FormData) {
   if (!identifier || !password) {
     await tenantRedirect(
       `/login?error=${encodeURIComponent(
-        "Email or phone and password are required.",
+        "Email and password are required.",
       )}&email=${encodeURIComponent(identifier)}`,
     );
   }

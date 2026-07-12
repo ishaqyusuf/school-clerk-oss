@@ -412,15 +412,15 @@ export function Client({
                     </>
                   ) : (
                     <Field>
-                      <FieldLabel htmlFor="email">Email or phone</FieldLabel>
+                      <FieldLabel htmlFor="email">Email</FieldLabel>
                       <InputGroup>
                         <InputGroupAddon>
                           <Mail />
                         </InputGroupAddon>
                         <InputGroupInput
                           id="email"
-                          type="text"
-                          placeholder="admin@school.edu or primary phone"
+                          type="email"
+                          placeholder="admin@school.edu"
                           autoComplete="email"
                           required
                           {...emailField}

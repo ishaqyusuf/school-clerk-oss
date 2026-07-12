@@ -182,6 +182,12 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: missing token, expired token, invalid token, deleted/missing user.
 - Notes: successful verification sets `User.emailVerified = true` and deletes the used `Verification` row.
 
+- Route/action: `dashboard tenant /forgot-password` via `requestPasswordReset`
+- Request schema: `{ email: string }`
+- Response schema: Better Auth password-reset request response.
+- Error cases: email delivery/provider errors, invalid Better Auth request.
+- Notes: reset emails use a tenant-aware `/reset-password` callback. The current tenant is preferred when the submitted email belongs to that tenant; otherwise the matched user's primary verified custom domain is preferred, falling back to the dashboard subdomain host.
+
 ## Student Contracts
 
 - Route: `students.overview`
