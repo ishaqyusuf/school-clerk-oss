@@ -1,5 +1,23 @@
 # Progress
 
+## Dashboard Root Prerender DB Access Fix (2026-07-12)
+
+### Completed
+
+- Fixed the Vercel dashboard build failure where static prerendering `/` executed `prisma.schoolProfile.findFirst()` and failed against a build database missing `public.SchoolProfile`.
+- Replaced the dashboard root page's temporary database-rendering implementation with a DB-free redirect to `/sign-up`, matching the existing app-root proxy behavior.
+
+### Changed Files
+
+- `apps/dashboard/src/app/page.tsx`
+- `.brain/progress.md`
+
+### Verification
+
+- `bun --filter @school-clerk/dashboard typecheck`
+- Verified `apps/dashboard/src/app/page.tsx` no longer imports Prisma or queries `SchoolProfile`.
+- `bun --filter @school-clerk/dashboard build` was attempted but stayed silent for several minutes and was interrupted.
+
 ## Marketing App Rename (2026-07-12)
 
 ### Completed
