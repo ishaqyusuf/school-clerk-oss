@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { prisma } from "@school-clerk/db";
 import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { BrandLogo } from "@/components/brand-logo";
 import { DevTenantsFab } from "@/components/dev-tenants-fab";
@@ -106,6 +105,47 @@ const bookDemoHref =
   process.env.NEXT_PUBLIC_BOOK_DEMO_URL ??
   "mailto:hello@schoolclerk.com?subject=Book%20a%20SchoolClerk%20demo";
 
+type TenantLink = {
+  id: string;
+  name: string;
+  slug: string;
+  studentCount: number;
+};
+
+async function getDevTenantLinks(): Promise<TenantLink[]> {
+  if (!isDev) {
+    return [];
+  }
+
+  const { prisma } = await import("@school-clerk/db");
+  const tenants = await prisma.schoolProfile.findMany({
+    where: {
+      deletedAt: null,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    select: {
+      id: true,
+      name: true,
+      subDomain: true,
+      studentCountEstimate: true,
+      _count: {
+        select: {
+          students: true,
+        },
+      },
+    },
+  });
+
+  return tenants.map((tenant) => ({
+    id: tenant.id,
+    name: tenant.name,
+    slug: tenant.subDomain,
+    studentCount: tenant._count.students || tenant.studentCountEstimate || 0,
+  }));
+}
+
 export default async function Home() {
   const schoolSiteRootDomain =
     process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "school-clerk-site.localhost";
@@ -115,34 +155,7 @@ export default async function Home() {
     process.env.DASHBOARD_PORT ??
     2200;
 
-  const tenants = isDev
-    ? await prisma.schoolProfile.findMany({
-        where: {
-          deletedAt: null,
-        },
-        orderBy: {
-          createdAt: "asc",
-        },
-        select: {
-          id: true,
-          name: true,
-          subDomain: true,
-          studentCountEstimate: true,
-          _count: {
-            select: {
-              students: true,
-            },
-          },
-        },
-      })
-    : [];
-
-  const tenantLinks = tenants.map((tenant) => ({
-    id: tenant.id,
-    name: tenant.name,
-    slug: tenant.subDomain,
-    studentCount: tenant._count.students || tenant.studentCountEstimate || 0,
-  }));
+  const tenantLinks = await getDevTenantLinks();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
