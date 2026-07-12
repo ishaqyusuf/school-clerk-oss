@@ -42,6 +42,7 @@ SchoolClerk now has a tenant-scoped notification system for in-app alerts and em
 - Every registered notification type must also register an email template definition, even if email sending is environment-gated by missing provider credentials.
 - In-app rows are created by default unless a matching preference disables the `inApp` channel.
 - Email is sent by default unless a matching preference disables the `email` channel.
+- Notification emails use the current school name as the sender display name when available.
 - Finance notification links must stay app-relative, for example `/finance/payments`, `/finance/transactions`, and `/staff/payroll`, because the dashboard mount is proxy-handled.
 - Assessment public-link notifications should link back to `/assessment-recording` for admin/requester review. Approved-request email copy may include the generated public URL because the requester needs to share it with the helper.
 

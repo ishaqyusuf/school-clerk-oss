@@ -49,7 +49,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `{ applicationId: string, admissionLetterTemplateId?: string | null, paymentRequired?: boolean, paymentLabel?: string | null, paymentAmount?: string | number | null, paymentCurrency?: string, paymentInstructions?: string | null, paymentLink?: string | null, paymentDueAt?: string | Date | null }`
 - Response schema: `{ success: true, studentId, termFormId, appliedChargeCount }`
 - Error cases: application not found, invalid tenant, invalid selected classroom, capacity reached, age requirement failed, missing applicable required documents, already approved/rejected, unknown or not-ready admission-letter template.
-- Notes: approval creates or links guardian/parent, creates student/session/term forms, applies fee histories, stores payment handoff metadata and selected admission-letter template metadata, records accepted ids, sends the successful-admission email with the selected admission-letter PDF link, and records `admissionApprovalEmailSentAt` after email delivery. Built-in template IDs and ready custom admission-letter template IDs owned by the school are allowed. When `paymentRequired=true`, approval requires a positive amount plus either payment instructions or a payment link.
+- Notes: approval creates or links guardian/parent, creates student/session/term forms, applies fee histories, stores payment handoff metadata and selected admission-letter template metadata, records accepted ids, sends the successful-admission email with the selected admission-letter PDF link, and records `admissionApprovalEmailSentAt` after email delivery. Built-in template IDs and ready custom admission-letter template IDs owned by the school are allowed. When `paymentRequired=true`, approval requires a positive amount plus either payment instructions or a payment link. Parent-facing admission emails use the school name as the sender display name when available.
 
 - Route: `enrollmentLinks.rejectApplication`
 - Request schema: `{ applicationId: string, reason?: string | null }`
@@ -60,7 +60,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: public code in URL plus submitted student, selected classroom, primary parent name/email/phone, applicable class/global typed document metadata/uploads, and notes.
 - Response schema: pending application success state plus parent onboarding/login hint.
 - Error cases: invalid/inactive/expired/full link, invalid classroom option, failed class age requirement, missing required fields, invalid parent email/phone, future DOB, missing applicable required uploads, upload for non-applicable class requirement, unsupported file type, non-image passport photo, upload too large, missing or invalid Vercel Blob store token.
-- Notes: successful public submissions send a parent confirmation email through Resend when email is configured. Admission uploads are stored with unguessable Vercel Blob keys and are exposed only through authenticated admin/registrar review payloads in the current implementation.
+- Notes: successful public submissions send a parent confirmation email through Resend when email is configured. Parent-facing admission emails use the school name as the sender display name when available. Admission uploads are stored with unguessable Vercel Blob keys and are exposed only through authenticated admin/registrar review payloads in the current implementation.
 
 - Public route: `school-site /api/pdf/admission-letter`
 - Request schema: `{ code: string, applicationId: string, templateId?: string, download?: "true" }`
@@ -174,7 +174,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `institutionName`, `institutionType`, `adminName`, `email`, `password`, optional school profile metadata, and `domainName` subdomain slug.
 - Response schema: owner email, institution type label, `loginUrl`, `onboardingUrl`, `onboardingLoginUrl`, `siteUrl`, `workspaceUrl`, school name, and subdomain.
 - Error cases: disabled institution type, reserved subdomain, unavailable subdomain, duplicate owner email, admin user creation failure.
-- Notes: successful production signup provisions `{subdomain}.school-clerk.com` on the school-site Vercel project and `dashboard.{subdomain}.school-clerk.com` on the dashboard Vercel project. Signup also creates a 24-hour `email-verification:{token}` row in `Verification` and sends a Resend verification email.
+- Notes: successful production signup provisions `{subdomain}.school-clerk.com` on the school-site Vercel project and `dashboard.{subdomain}.school-clerk.com` on the dashboard Vercel project. Signup also creates a 24-hour `email-verification:{token}` row in `Verification` and sends a Resend verification email. Signup emails use the school name as the sender display name when available.
 
 - Public route: `dashboard tenant /verify-email?token=...`
 - Request schema: verification token in query string.
@@ -186,7 +186,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `{ email: string }`
 - Response schema: Better Auth password-reset request response.
 - Error cases: email delivery/provider errors, invalid Better Auth request.
-- Notes: reset emails use a tenant-aware `/reset-password` callback. The current tenant is preferred when the submitted email belongs to that tenant; otherwise the matched user's primary verified custom domain is preferred, falling back to the dashboard subdomain host.
+- Notes: reset emails render the direct tenant-aware `/reset-password?token=...&email=...` URL in the button and fallback text instead of exposing the Better Auth API reset URL. The current tenant/custom domain is preferred when the submitted email belongs to that tenant; otherwise the matched user's primary verified custom domain is preferred, falling back to the dashboard subdomain host. Reset emails use the school name as the sender display name and account copy when available. The reset page accepts both staff-scoped `reset-password:{token}` verification rows and Better Auth reset rows where the submitted token is stored as `Verification.value`.
 
 ## Student Contracts
 
@@ -415,7 +415,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `email`, `role`, `assignments[]` where each assignment is `{ classRoomDepartmentId, departmentSubjectIds[] }`
 - Response schema: `{ invited, inviteError, staffId }`
 - Error cases: invalid classroom/subject combinations, missing tenant context, invite delivery failure
-- Notes: creates or updates the staff record, syncs tenant user role, persists teacher-only assignments, creates a 24-hour staff-scoped onboarding reset token, and queues the shared staff invitation email through the Trigger `send-staff-invitation-email` job when required. In development, email CTA links prefer LAN-IP path-style dashboard URLs such as `http://<network-ip>:2200/<tenant>/reset-password` so links opened from another device can reach the tenant workspace.
+- Notes: creates or updates the staff record, syncs tenant user role, persists teacher-only assignments, creates a 24-hour staff-scoped onboarding reset token, and queues the shared staff invitation email through the Trigger `send-staff-invitation-email` job when required. Staff invitation emails use the school name as the sender display name when available. In development, email CTA links prefer LAN-IP path-style dashboard URLs such as `http://<network-ip>:2200/<tenant>/reset-password` so links opened from another device can reach the tenant workspace.
 
 - Route: `action.resendStaffOnboardingAction`
 - Request schema: `staffId`

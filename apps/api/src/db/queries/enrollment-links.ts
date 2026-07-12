@@ -6,7 +6,7 @@ import type {
 } from "@api/trpc/schemas/enrollment-links";
 import { AdmissionApprovalEmail } from "@school-clerk/email";
 import { render } from "@school-clerk/email/render";
-import { getRecipient } from "@school-clerk/utils";
+import { formatTenantEmailFrom, getRecipient } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 
@@ -180,11 +180,13 @@ function formatDate(value?: Date | string | null) {
   }).format(date);
 }
 
-function getAdmissionEmailFrom() {
-  return (
-    process.env.RESEND_FROM_EMAIL ??
-    "School Clerk Admissions <admissions@school-clerk.com>"
-  );
+function getAdmissionEmailFrom(schoolName?: string | null) {
+  return formatTenantEmailFrom({
+    defaultEmail: "admissions@school-clerk.com",
+    fallbackFrom: process.env.RESEND_FROM_EMAIL,
+    fallbackName: "School Clerk Admissions",
+    schoolName,
+  });
 }
 
 async function sendAdmissionApprovalEmail(input: {
@@ -232,7 +234,7 @@ async function sendAdmissionApprovalEmail(input: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: getAdmissionEmailFrom(),
+      from: getAdmissionEmailFrom(input.schoolName),
       to: [getRecipient(input.parentEmail)],
       subject: `${input.schoolName}: admission approved`,
       html,

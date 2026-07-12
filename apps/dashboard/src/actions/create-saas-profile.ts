@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 
 import { ensureNotificationContact, prisma } from "@school-clerk/db";
 import { createNotificationFromType } from "@school-clerk/notifications";
-import { getRecipient, slugify } from "@school-clerk/utils";
+import { formatTenantEmailFrom, getRecipient, slugify } from "@school-clerk/utils";
 
 import { auth } from "@/auth/server";
 import {
@@ -115,9 +115,10 @@ async function sendSignupSuccessEmail({
   workspaceUrl: string;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from =
-    process.env.RESEND_FROM_EMAIL ??
-    "School Clerk <noreply@school-clerk.com>";
+  const from = formatTenantEmailFrom({
+    fallbackFrom: process.env.RESEND_FROM_EMAIL,
+    schoolName,
+  });
 
   if (!apiKey) {
     console.warn(`[signup] resend api key missing; email not sent to ${to}`);
@@ -204,9 +205,10 @@ async function sendSignupVerificationEmail({
   verificationUrl: string;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from =
-    process.env.RESEND_FROM_EMAIL ??
-    "School Clerk <noreply@school-clerk.com>";
+  const from = formatTenantEmailFrom({
+    fallbackFrom: process.env.RESEND_FROM_EMAIL,
+    schoolName,
+  });
 
   if (!apiKey) {
     console.warn(

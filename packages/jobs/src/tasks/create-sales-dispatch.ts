@@ -1,4 +1,4 @@
-import { createSalesDispatchSchemaTask, TaskName } from "@jobs/schema";
+import { createSalesDispatchSchemaTask, type TaskName } from "../schema.js";
 import { queue, schemaTask } from "@trigger.dev/sdk";
 
 export const createSalesDispatchQueue = queue({

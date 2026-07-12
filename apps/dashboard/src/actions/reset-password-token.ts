@@ -14,7 +14,17 @@ export async function getPasswordResetTokenStatus(token: string) {
 
   const verification = await prisma.verification.findFirst({
     where: {
-      identifier: `reset-password:${normalizedToken}`,
+      OR: [
+        {
+          identifier: `reset-password:${normalizedToken}`,
+        },
+        {
+          identifier: {
+            startsWith: "reset-password:",
+          },
+          value: normalizedToken,
+        },
+      ],
     },
     orderBy: {
       createdAt: "desc",

@@ -1,11 +1,12 @@
 import {
   sendStaffInvitationEmailSchema,
   sendStaffInvitationEmailTaskId,
-} from "@jobs/schema";
+} from "../schema.js";
 import { StaffInvitationEmail } from "@school-clerk/email/emails/staff-invitation";
+import { formatTenantEmailFrom } from "@school-clerk/utils/email";
 import { queue, schemaTask } from "@trigger.dev/sdk";
 import React from "react";
-import { sendEmail } from "../utils/resend";
+import { sendEmail } from "../utils/resend.js";
 
 export const sendStaffInvitationEmailQueue = queue({
   concurrencyLimit: 10,
@@ -20,9 +21,10 @@ export const sendStaffInvitationEmail = schemaTask({
   run: async (payload) => {
     await sendEmail({
       subject: `${payload.schoolName}: you're invited to join as ${payload.roleLabel}`,
-      from:
-        process.env.RESEND_FROM_EMAIL ??
-        "School Clerk <noreply@school-clerk.com>",
+      from: formatTenantEmailFrom({
+        fallbackFrom: process.env.RESEND_FROM_EMAIL,
+        schoolName: payload.schoolName,
+      }),
       to: payload.email,
       content: React.createElement(StaffInvitationEmail, {
         ctaHref: payload.ctaHref,

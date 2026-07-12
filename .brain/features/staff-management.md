@@ -15,6 +15,7 @@ Track staff directory, invite onboarding, role access, and teacher assignment be
 - Teacher authorization, teacher workspace summaries, assessment recording context options, subject lists, and classroom report sheet reads now use the shared effective access resolver so broad grants and legacy selected/all department assignments resolve through one path.
 - Staff directory summaries and staff overview metrics use effective classroom/subject coverage so broad grants are reflected in teacher workload counts rather than only explicit legacy assignment rows.
 - Staff onboarding links use 24-hour Better Auth reset-password tokens. The reset-password flow checks token status before submission so expired onboarding links show an explicit expired-link message instead of a generic invalid-token error.
+- Staff invitation emails are sent with the school name as the sender display name when available.
 - Staff onboarding is completed from the reset-password flow after the staff member sets a password and fills visible profile details. The title field remains in the action schema but is hidden in the onboarding form for now.
 
 ## Classroom-Wide Subject Access

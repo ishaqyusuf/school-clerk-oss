@@ -73,6 +73,7 @@ async function getPasswordResetUsers(email: string) {
               createdAt: "asc",
             },
             select: {
+              name: true,
               subDomain: true,
               domains: {
                 where: {
@@ -94,15 +95,44 @@ async function getPasswordResetUsers(email: string) {
   });
 }
 
-function userBelongsToTenant(user: PasswordResetUser, tenantSlug: string) {
-  return user.tenant?.schools.some((school) => {
-    if (school.subDomain === tenantSlug) return true;
-    return school.domains.some((domain) => domain.subdomain === tenantSlug);
+function schoolMatchesTenant(
+  school: NonNullable<PasswordResetUser["tenant"]>["schools"][number],
+  tenantSlug: string,
+) {
+  const normalizedTenant = normalizeHost(tenantSlug);
+
+  if (school.subDomain === normalizedTenant) return true;
+  return school.domains.some((domain) => {
+    if (domain.subdomain === normalizedTenant) return true;
+    return (
+      domain.customDomain &&
+      normalizeHost(domain.customDomain) === normalizedTenant
+    );
   });
 }
 
-function getPreferredResetUrlForUser(user?: PasswordResetUser | null) {
-  const school = user?.tenant?.schools[0];
+function userBelongsToTenant(user: PasswordResetUser, tenantSlug: string) {
+  return user.tenant?.schools.some((school) => {
+    return schoolMatchesTenant(school, tenantSlug);
+  });
+}
+
+function getPreferredResetTargetForUser({
+  currentTenantSlug,
+  user,
+}: {
+  currentTenantSlug: string | null;
+  user?: PasswordResetUser | null;
+}) {
+  const school =
+    (currentTenantSlug
+      ? user?.tenant?.schools.find((candidate) =>
+          schoolMatchesTenant(candidate, currentTenantSlug),
+        )
+      : null) ??
+    user?.tenant?.schools[0] ??
+    null;
+
   if (!school) return null;
 
   const customDomain = school.domains.find(
@@ -110,7 +140,10 @@ function getPreferredResetUrlForUser(user?: PasswordResetUser | null) {
   )?.customDomain;
 
   if (customDomain) {
-    return buildCustomDomainUrl(customDomain, "/reset-password");
+    return {
+      schoolName: school.name,
+      url: buildCustomDomainUrl(customDomain, "/reset-password"),
+    };
   }
 
   const subdomain =
@@ -121,10 +154,13 @@ function getPreferredResetUrlForUser(user?: PasswordResetUser | null) {
 
   if (!subdomain) return null;
 
-  return buildDashboardTenantUrl(subdomain, "/reset-password");
+  return {
+    schoolName: school.name,
+    url: buildDashboardTenantUrl(subdomain, "/reset-password"),
+  };
 }
 
-function getPasswordResetUrl({
+function getPasswordResetTarget({
   currentOrigin,
   currentTenantSlug,
   users,
@@ -136,9 +172,17 @@ function getPasswordResetUrl({
   const tenantUser = currentTenantSlug
     ? users.find((user) => userBelongsToTenant(user, currentTenantSlug))
     : null;
-  const resetUrl = getPreferredResetUrlForUser(tenantUser ?? users[0]);
+  const resetTarget = getPreferredResetTargetForUser({
+    currentTenantSlug,
+    user: tenantUser ?? users[0],
+  });
 
-  return resetUrl ?? `${currentOrigin}/reset-password`;
+  return (
+    resetTarget ?? {
+      schoolName: null,
+      url: `${currentOrigin}/reset-password`,
+    }
+  );
 }
 
 export async function requestPasswordReset(email: string) {
@@ -147,15 +191,20 @@ export async function requestPasswordReset(email: string) {
     getCurrentTenantSlug(),
     getPasswordResetUsers(email),
   ]);
-  const redirectTo = new URL(
-    getPasswordResetUrl({
-      currentOrigin,
-      currentTenantSlug,
-      users,
-    }),
-  );
+  const resetTarget = getPasswordResetTarget({
+    currentOrigin,
+    currentTenantSlug,
+    users,
+  });
+  const redirectTo = new URL(resetTarget.url);
   const requestHeaders = new Headers(await headers());
   requestHeaders.set("origin", redirectTo.origin);
+  if (resetTarget.schoolName) {
+    requestHeaders.set(
+      "x-school-clerk-school-name",
+      encodeURIComponent(resetTarget.schoolName),
+    );
+  }
 
   await Promise.all(
     users.map((user) => ensureCredentialAccount(prisma, user.id)),

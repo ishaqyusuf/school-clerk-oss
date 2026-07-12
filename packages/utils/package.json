@@ -29,6 +29,7 @@
     "./construct-metadata": "./src/construct-metadata.ts",
     "./context-factory": "./src/context-factory.tsx",
     "./dayjs": "./src/dayjs.ts",
+    "./email": "./src/email.ts",
     "./envs": "./src/envs.ts",
     "./runtime-url": "./src/runtime-url.ts",
     "./constants": "./src/constants.ts",

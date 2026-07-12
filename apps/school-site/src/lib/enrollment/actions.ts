@@ -11,6 +11,7 @@ import { AdmissionSubmissionEmail } from "@school-clerk/email";
 import { render } from "@school-clerk/email/render";
 import {
   createBlobUploadError,
+  formatTenantEmailFrom,
   getRecipient,
   resolveDashboardAppRootDomain,
 } from "@school-clerk/utils";
@@ -216,11 +217,13 @@ function getSubmissionUrl(input: {
   return url.toString();
 }
 
-function getAdmissionEmailFrom() {
-  return (
-    process.env.RESEND_FROM_EMAIL ??
-    "School Clerk Admissions <admissions@school-clerk.com>"
-  );
+function getAdmissionEmailFrom(schoolName?: string | null) {
+  return formatTenantEmailFrom({
+    defaultEmail: "admissions@school-clerk.com",
+    fallbackFrom: process.env.RESEND_FROM_EMAIL,
+    fallbackName: "School Clerk Admissions",
+    schoolName,
+  });
 }
 
 async function sendAdmissionSubmissionEmail(input: {
@@ -260,7 +263,7 @@ async function sendAdmissionSubmissionEmail(input: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: getAdmissionEmailFrom(),
+      from: getAdmissionEmailFrom(input.schoolName),
       to: [getRecipient(input.parentEmail)],
       subject: `${input.schoolName}: admission application received`,
       html,

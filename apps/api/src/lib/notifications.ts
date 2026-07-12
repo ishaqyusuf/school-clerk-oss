@@ -5,6 +5,7 @@ import {
   type SchoolClerkNotificationType,
 } from "@school-clerk/notifications";
 import {
+  formatTenantEmailFrom,
   getRecipient,
   resolveDashboardAppRootDomain,
 } from "@school-clerk/utils";
@@ -35,11 +36,13 @@ type CurrentUserContext = {
   };
 };
 
-function getNotificationEmailFrom() {
-  return (
-    process.env.RESEND_FROM_EMAIL ??
-    "School Clerk Notifications <notifications@school-clerk.com>"
-  );
+function getNotificationEmailFrom(schoolName?: string | null) {
+  return formatTenantEmailFrom({
+    defaultEmail: "notifications@school-clerk.com",
+    fallbackFrom: process.env.RESEND_FROM_EMAIL,
+    fallbackName: "School Clerk Notifications",
+    schoolName,
+  });
 }
 
 function normalizeHost(value?: string | null) {
@@ -85,10 +88,12 @@ function getDashboardOrigin(subDomain: string) {
 
 async function sendEmail({
   html,
+  schoolName,
   subject,
   to,
 }: {
   html: string;
+  schoolName?: string | null;
   subject: string;
   to: string;
 }) {
@@ -108,7 +113,7 @@ async function sendEmail({
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: getNotificationEmailFrom(),
+      from: getNotificationEmailFrom(schoolName),
       to: [getRecipient(to)],
       subject,
       html,
@@ -343,6 +348,7 @@ export async function dispatchSchoolNotification<
       for (const recipient of emailRecipients) {
         const sent = await sendEmail({
           html,
+          schoolName: current.school.name,
           subject: emailNotification.emailTemplate.subject,
           to: recipient.email,
         });
@@ -485,6 +491,7 @@ export async function dispatchUserNotification<
       const html = await render(emailNotification.emailTemplate.content);
       const sent = await sendEmail({
         html,
+        schoolName: current.school.name,
         subject: emailNotification.emailTemplate.subject,
         to: recipient.email,
       });

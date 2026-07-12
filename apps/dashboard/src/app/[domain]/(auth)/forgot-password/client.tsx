@@ -3,7 +3,6 @@
 import type React from "react";
 
 import { useState } from "react";
-import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 
 import { Button } from "@school-clerk/ui/button";
@@ -16,19 +15,16 @@ import {
   CardTitle,
 } from "@school-clerk/ui/card";
 import { Alert, AlertDescription } from "@school-clerk/ui/alert";
-import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { Mail, MailCheck } from "lucide-react";
 import { requestPasswordReset } from "@/actions/request-password-reset";
 
 // import { signIn } from "next-auth/react";
 
 export function Client() {
-  const router = useRouter();
-
   const [formData, setFormData] = useState({
     email: "",
-    password: "",
   });
-  const [showPassword, setShowPassword] = useState(false);
+  const [sentEmail, setSentEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,7 +38,9 @@ export function Client() {
     setIsLoading(true);
     setError("");
     try {
-      await requestPasswordReset(formData.email);
+      const email = formData.email.trim().toLowerCase();
+      await requestPasswordReset(email);
+      setSentEmail(email);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -53,6 +51,45 @@ export function Client() {
       setIsLoading(false);
     }
   };
+
+  if (sentEmail) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-8">
+          <div className="mx-auto max-w-md">
+            <Card>
+              <CardHeader className="text-center">
+                <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+                  <MailCheck className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-2xl">Reset email sent</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  If an account exists for {sentEmail}, we sent password reset
+                  instructions for this school workspace.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button asChild className="w-full bg-amber-700 hover:bg-amber-800">
+                  <Link href="/login">Back to sign in</Link>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setSentEmail("");
+                    setError("");
+                  }}
+                >
+                  Use another email
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -136,7 +173,7 @@ export function Client() {
                   className="w-full bg-amber-700 hover:bg-amber-800"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Sending..." : "Send Reset Code"}
+                  {isLoading ? "Sending..." : "Send reset link"}
                 </Button>
               </form>
             </CardContent>

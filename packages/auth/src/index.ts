@@ -1,5 +1,9 @@
 import { prisma } from "@school-clerk/db";
-import { getRecipient, resolveDashboardAppRootDomain } from "@school-clerk/utils";
+import {
+	formatTenantEmailFrom,
+	getRecipient,
+	resolveDashboardAppRootDomain,
+} from "@school-clerk/utils";
 import type { BetterAuthOptions } from "better-auth";
 // import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
@@ -7,18 +11,21 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 
 async function sendAuthEmail({
+	schoolName,
 	to,
 	subject,
 	html,
 }: {
+	schoolName?: string | null;
 	to: string;
 	subject: string;
 	html: string;
 }) {
 	const apiKey = process.env.RESEND_API_KEY;
-	const from =
-		process.env.RESEND_FROM_EMAIL ??
-		"School Clerk <noreply@school-clerk.com>";
+	const from = formatTenantEmailFrom({
+		fallbackFrom: process.env.RESEND_FROM_EMAIL,
+		schoolName,
+	});
 
 	if (!apiKey) {
 		console.warn(`[auth] resend api key missing; email not sent to ${to}`);
@@ -45,32 +52,97 @@ async function sendAuthEmail({
 	}
 }
 
+function escapeHtml(value: string) {
+	return value
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;");
+}
+
+function getHeaderValue(request: Request | undefined, name: string) {
+	const value = request?.headers.get(name)?.trim();
+	if (!value) return null;
+
+	try {
+		return decodeURIComponent(value);
+	} catch {
+		return value;
+	}
+}
+
+function getTokenFromResetUrl(url: URL) {
+	const pathToken = url.pathname.split("/").filter(Boolean).at(-1);
+
+	if (pathToken && pathToken !== "reset-password") {
+		return pathToken;
+	}
+
+	return url.searchParams.get("token");
+}
+
+function buildPasswordResetEmailUrl(url: string, email?: string | null) {
+	try {
+		const resetUrl = new URL(url);
+		const callbackUrl =
+			resetUrl.searchParams.get("callbackURL") ??
+			resetUrl.searchParams.get("callbackUrl") ??
+			resetUrl.searchParams.get("redirectTo");
+		const token = getTokenFromResetUrl(resetUrl);
+
+		if (!callbackUrl || !token) return url;
+
+		const emailUrl = new URL(callbackUrl);
+		emailUrl.searchParams.set("token", token);
+		if (email) {
+			emailUrl.searchParams.set("email", email);
+		}
+
+		return emailUrl.toString();
+	} catch {
+		return url;
+	}
+}
+
 function renderPasswordResetEmail({
 	name,
 	role,
+	schoolName,
 	url,
 }: {
 	name: string;
 	role?: string | null;
+	schoolName?: string | null;
 	url: string;
 }) {
+	const accountName = schoolName || "School Clerk";
+	const escapedAccountName = escapeHtml(accountName);
+	const escapedName = escapeHtml(name || "there");
+	const escapedRole = role ? escapeHtml(role) : null;
+	const escapedUrl = escapeHtml(url);
+
 	return `
 		<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
-			<h2 style="margin-bottom: 12px;">Set or reset your School Clerk password</h2>
-			<p>Hello ${name || "there"},</p>
+			<h2 style="margin-bottom: 12px;">Set or reset your ${escapedAccountName} password</h2>
+			<p>Hello ${escapedName},</p>
 			<p>
-				${role ? `You've been invited to join School Clerk as a ${role}.` : "Use the link below to continue with your School Clerk account."}
+				${
+					escapedRole
+						? `You've been invited to join ${escapedAccountName} as a ${escapedRole}.`
+						: `Use the link below to continue with your ${escapedAccountName} account.`
+				}
 			</p>
       <p>
         <a
-          href="${url}"
+          href="${escapedUrl}"
           style="display:inline-block;padding:12px 20px;background:#111827;color:#ffffff;text-decoration:none;border-radius:8px;"
         >
           Set password
         </a>
       </p>
       <p>If the button doesn't work, copy and paste this link into your browser:</p>
-      <p><a href="${url}">${url}</a></p>
+      <p><a href="${escapedUrl}">${escapedUrl}</a></p>
 			<p>This link lets you choose a password and continue to the dashboard.</p>
 		</div>
 	`;
@@ -147,13 +219,22 @@ export function initAuth(options: {
 				//   return true;
 				// },
 			},
-			async sendResetPassword(data, _request) {
+			async sendResetPassword(data, request) {
+				const schoolName = getHeaderValue(
+					request,
+					"x-school-clerk-school-name",
+				);
+				const emailUrl = buildPasswordResetEmailUrl(data.url, data.user.email);
+				const subject = `Set or reset your ${schoolName || "School Clerk"} password`;
+
 				await sendAuthEmail({
 					to: data.user.email,
-					subject: "Set or reset your School Clerk password",
+					schoolName,
+					subject,
 					html: renderPasswordResetEmail({
 						name: data.user.name,
-						url: data.url,
+						schoolName,
+						url: emailUrl,
 					}),
 				});
 			},
