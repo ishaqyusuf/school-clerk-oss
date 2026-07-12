@@ -18,6 +18,9 @@ Change log for database schema migrations and rollout notes.
 - Use `bun run dev` or `bun run dev --local` for the default local Docker workflow, `bun run dev --remote-dev` for remote development, and `bun run dev --prod` for the production-env dashboard/API smoke profile.
 - Use `bun run dev:services` to start only the local services implied by the selected env; it skips Postgres when the DB mode or URL points at remote dev. Use `bun run dev:services:local`, `bun run db:start`, or `bun run db:docker:up` to force local Postgres startup.
 - Prisma maintenance commands are routed through `scripts/db-command.ts`. The preferred profile form is `bun run db:push --local|--remote|--prod` and `bun run db:migrate --local|--remote|--prod`; no profile flag defaults to local Docker Postgres. Legacy aliases such as `db:push:local`, `db:push:dev`, `db:push:prod`, `db:migrate:local`, `db:migrate:dev`, and `db:migrate:prod` delegate to the same router.
+- If repository root scripts `db:migrate` and `db:push` exist, run `bun db:migrate` and `bun db:push` after Prisma schema/database updates.
+- Do not manually create migration files; use the repository scripts and Prisma workflow.
+- Keep migration commands aligned with root `package.json` and `packages/db` scripts.
 - `db:migrate --local` and `db:migrate --remote` run `prisma migrate dev`; `db:migrate --prod` runs `prisma migrate deploy`.
 - `db:push --local` and `db:push --remote` run `prisma db push` against the resolved development database. `db:push --prod` loads production env, refuses local database URLs, and requires production `DATABASE_URL`.
 - The DB command router runs Prisma from `packages/db` so `packages/db/prisma.config.ts` can stay GND-style and read the already-resolved `DATABASE_URL`.

@@ -1,16 +1,20 @@
 # AI Rules
 
 ## Purpose
+
 Operational rules for AI agents contributing to this repository.
 
 ## How To Use
+
 - Review before AI-assisted coding sessions.
 - Keep in sync with team standards.
 - Prioritize safety and maintainability.
 
 ## Template
+
 ## Core Rules
-- Read relevant `brain/` docs before changes.
+
+- Read relevant `.brain/` docs before changes.
 - Preserve existing behavior unless change is requested.
 - Keep diffs focused and minimal.
 - Update docs alongside code changes.
@@ -28,6 +32,7 @@ Operational rules for AI agents contributing to this repository.
 - Internal dashboard navigation should use proxy-relative product routes such as `/finance`, `/students`, `/academic`, etc. Do not hardcode `/dashboard/...` into hrefs or router pushes, because tenant/domain proxying already handles the dashboard mount.
 
 ## Documentation Rules
+
 - Use ADRs for architectural decisions.
 - Log resolved bugs in bug memory.
 - Move tasks across backlog, in-progress, and done states.

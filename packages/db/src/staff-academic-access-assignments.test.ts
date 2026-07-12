@@ -1,4 +1,3 @@
-// @ts-expect-error Bun test types are not included by this package tsconfig.
 import { describe, expect, test } from "bun:test";
 import {
   assertStaffAcademicAssignmentReferences,

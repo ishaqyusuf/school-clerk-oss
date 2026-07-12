@@ -1,5 +1,29 @@
 # Progress
 
+## Vercel DB Package Build Fix (2026-07-12)
+
+### Completed
+
+- Fixed the Vercel dashboard build failure in `@school-clerk/db:build` caused by stale `@ts-expect-error` comments on `bun:test` imports in DB package test files.
+- Removed the obsolete suppressions from the staff academic access DB tests.
+- Added explicit `bun-types` coverage to `packages/db` so local and Vercel TypeScript compilers resolve `bun:test` consistently.
+
+### Changed Files
+
+- `packages/db/src/staff-academic-access.test.ts`
+- `packages/db/src/staff-academic-access-assignments.test.ts`
+- `packages/db/package.json`
+- `packages/db/tsconfig.json`
+- `bun.lock`
+- `.brain/engineering/ai-rules.md`
+- `.brain/progress.md`
+
+### Verification
+
+- `bun test packages/db/src/staff-academic-access.test.ts packages/db/src/staff-academic-access-assignments.test.ts`
+- `bun --env-file=.env.local --filter @school-clerk/db build` was attempted and got past Prisma generation without the original stale `@ts-expect-error` diagnostics, but local TypeScript did not return promptly and was interrupted.
+- A targeted TypeScript compile was also attempted for the two affected test files, but it did not return promptly and was interrupted.
+
 ## Student Import Production Error Hardening (2026-07-12)
 
 ### Completed

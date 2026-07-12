@@ -1,4 +1,3 @@
-// @ts-expect-error Bun test types are not included by this package tsconfig.
 import { describe, expect, test } from "bun:test";
 import { resolveStaffAcademicAccess } from "./staff-academic-access";
 
@@ -64,10 +63,12 @@ function createMockDb(options: MockDbOptions) {
       findMany: async (query: any) => {
         const ids = query.where.id?.in as string[] | undefined;
         const departmentIds = query.where.classRoomDepartmentId?.in as
-          | string[]
-          | undefined;
+          string[] | undefined;
         const classSubjectFilters = query.where.OR as
-          | Array<{ subjectId: string; classRoomDepartment: { classRoomsId: string } }>
+          | Array<{
+              subjectId: string;
+              classRoomDepartment: { classRoomsId: string };
+            }>
           | undefined;
 
         return (options.departmentSubjects ?? [])
@@ -303,7 +304,11 @@ describe("resolveStaffAcademicAccess", () => {
         ],
         departments: [{ id: "art", classRoomsId: "class-1" }],
         departmentSubjects: [
-          { id: "stale-math", classRoomDepartmentId: "stale", subjectId: "math" },
+          {
+            id: "stale-math",
+            classRoomDepartmentId: "stale",
+            subjectId: "math",
+          },
         ],
       }),
     });
