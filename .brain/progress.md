@@ -1,5 +1,28 @@
 # Progress
 
+## Prisma Generated Client Turbo Cache Fix (2026-07-12)
+
+### Completed
+
+- Compared SchoolClerk Prisma generation against stable local references:
+  - `gnd` imports from standard `@prisma/client`, so generated Prisma code lives under package manager output instead of a source-local generated folder that app bundlers must resolve.
+  - `after-service` generates Prisma into `packages/db/generated/prisma` and declares `generated/**` as a Turbo build output, so remote cache restores the generated client.
+  - SchoolClerk generates Prisma into ignored `packages/db/src/generated/client` and imports it from `@school-clerk/db`, but `turbo.json` did not cache `src/generated/**`.
+- Added `src/generated/**` to the shared Turbo `build` task outputs so `@school-clerk/db:build` cache hits restore the generated Prisma client before dashboard bundling.
+
+### Changed Files
+
+- `turbo.json`
+- `.brain/database/migrations.md`
+- `.brain/progress.md`
+
+### Verification
+
+- Confirmed the Vercel failure was `Module not found: Can't resolve './generated/client'` from `packages/db/src/index.ts`, `packages/db/src/prisma.ts`, and `packages/db/src/website.ts` after a remote `@school-clerk/db:build` cache hit.
+- Confirmed local generated artifacts exist under `packages/db/src/generated/client`.
+- `git diff --check -- turbo.json`
+- `bun --filter @school-clerk/db db:generate` was attempted but stayed silent for several minutes and was interrupted.
+
 ## Dashboard Root Prerender DB Access Fix (2026-07-12)
 
 ### Completed
