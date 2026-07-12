@@ -84,3 +84,5 @@ snippets
 .env*
 !.env.example
 !**/.env.example
+
+
