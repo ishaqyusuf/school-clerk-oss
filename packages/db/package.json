@@ -10,7 +10,7 @@
     }
   },
   "scripts": {
-    "build": "prisma generate && tsc",
+    "build": "node ../../scripts/print-db-env.mjs && prisma generate && tsc",
     "dev": "rm -rf .cache dist tsc",
     "clean": "rm -rf .turbo node_modules",
     "lint": "biome check .",
