@@ -72,6 +72,7 @@ Tracks architectural patterns, boundaries, and major design choices.
 - `packages/db`: Prisma schema/client and data access utilities
 - `packages/ui`: shared UI components
 - `packages/template-registry`: website template registry, manifests, preview/editor engine, shared website blocks, hooks, guards, and production/preview render utilities
+- `packages/jobs`: Trigger.dev background jobs; deployment flattens the modular `packages/db/src/schema/*.prisma` files into `packages/jobs/src/schema.prisma` and preserves `url = env("DATABASE_URL")` so Trigger's Docker build can run Prisma generate.
 
 ## Tenant Domain Topology
 

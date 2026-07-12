@@ -9,6 +9,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model guardian {
@@ -949,11 +950,6 @@ model ClassroomSubjectAssessment {
   childAssessments    ClassroomSubjectAssessment[] @relation("AssessmentHierarchy")
 }
 
-enum ClassroomSubjectAssessmentPrintMode {
-  EXPANDED
-  TOTAL
-}
-
 model StudentAssessmentRecord {
   id                       Int     @unique @default(autoincrement())
   obtained                 Float?
@@ -1024,7 +1020,7 @@ model AssessmentPublicLink {
   classRoomDepartment   ClassRoomDepartment @relation(fields: [classRoomDepartmentId], references: [id], onDelete: Cascade)
 
   @@index([schoolProfileId, status])
-  @@index([schoolProfileId, sessionTermId, classRoomDepartmentId])
+  @@index([schoolProfileId, sessionTermId, classRoomDepartmentId], map: "AssessmentPublicLink_schoolProfileId_sessionTermId_classRoo_idx")
   @@index([requesterUserId])
 }
 
@@ -1034,6 +1030,11 @@ enum AssessmentPublicLinkStatus {
   REJECTED
   EXPIRED
   REVOKED
+}
+
+enum ClassroomSubjectAssessmentPrintMode {
+  EXPANDED
+  TOTAL
 }
 
 // ---- post.prisma ----
@@ -1206,6 +1207,7 @@ model ClassRoom {
   session              SchoolSession         @relation(fields: [schoolSessionId], references: [id])
   school               SchoolProfile         @relation(fields: [schoolProfileId], references: [id])
   classRoomDepartments ClassRoomDepartment[]
+  staffAcademicAccessGrants StaffAcademicAccessGrant[]
 
   @@unique([schoolSessionId, name])
 }
@@ -1234,6 +1236,7 @@ model ClassRoomDepartment {
   enrollmentDocumentRequirements EnrollmentLinkDocumentRequirement[]
   enrollmentApplications         EnrollmentApplication[]
   assessmentPublicLinks          AssessmentPublicLink[]
+  staffAcademicAccessGrants      StaffAcademicAccessGrant[]
 
   @@unique([classRoomsId, departmentName])
 }
@@ -1247,6 +1250,7 @@ model DepartmentSubject {
   classRoomDepartmentId String?
 
   staffSubjects StaffSubject[]
+  staffAcademicAccessGrants StaffAcademicAccessGrant[]
   assessments   ClassroomSubjectAssessment[]
 
   createdAt DateTime? @default(now()) @db.Timestamp(0)
@@ -1274,6 +1278,7 @@ model Subject {
   schoolProfileId String?
 
   departmentSubjects DepartmentSubject[]
+  staffAcademicAccessGrants StaffAcademicAccessGrant[]
 
   @@unique([title, schoolProfileId])
 }
@@ -2227,6 +2232,7 @@ model StaffTermProfile {
     deletedAt DateTime? @db.Timestamp(0)
 
     classroomsProfiles StaffClassroomDepartmentTermProfiles[]
+    academicAccessGrants StaffAcademicAccessGrant[]
 
     sessionTerm   SessionTerm @relation(fields: [sessionTermId], references: [id])
     sessionTermId String
@@ -2263,9 +2269,47 @@ model StaffSubject {
     deletedAt DateTime? @db.Timestamp(0)
 }
 
+model StaffAcademicAccessGrant {
+    id String @id @default(uuid())
+
+    scope StaffAcademicAccessScope
+
+    classRoom   ClassRoom? @relation(fields: [classRoomId], references: [id])
+    classRoomId String?
+
+    classRoomDepartment   ClassRoomDepartment? @relation(fields: [classRoomDepartmentId], references: [id])
+    classRoomDepartmentId String?
+
+    subject   Subject? @relation(fields: [subjectId], references: [id])
+    subjectId String?
+
+    departmentSubject   DepartmentSubject? @relation(fields: [departmentSubjectId], references: [id])
+    departmentSubjectId String?
+
+    staffTermProfile   StaffTermProfile @relation(fields: [staffTermProfileId], references: [id])
+    staffTermProfileId String
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    @@index([staffTermProfileId, scope])
+    @@index([classRoomId])
+    @@index([classRoomDepartmentId])
+    @@index([subjectId])
+    @@index([departmentSubjectId])
+}
+
 enum StaffClassroomSubjectAccessMode {
     SELECTED
     ALL
+}
+
+enum StaffAcademicAccessScope {
+    CLASS
+    DEPARTMENT
+    CLASS_SUBJECT
+    DEPARTMENT_SUBJECT
 }
 
 // ---- guardian.prisma ----

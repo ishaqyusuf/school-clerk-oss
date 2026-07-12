@@ -23,6 +23,13 @@ const collectPrismaFiles = async (dir: string): Promise<string[]> => {
   return files;
 };
 
+function ensureDatasourceUrl(schema: string) {
+  return schema.replace(
+    /(datasource db \{\n\s+provider\s+=\s+"postgresql"\n)(\})/m,
+    '$1  url      = env("DATABASE_URL")\n$2',
+  );
+}
+
 (async () => {
   const allFiles = await collectPrismaFiles(sourceDir);
 
@@ -35,7 +42,7 @@ const collectPrismaFiles = async (dir: string): Promise<string[]> => {
 
   if (schemaFile) {
     const schemaContent = await readFile(schemaFile, "utf8");
-    combined += `// ---- schema.prisma (entrypoint) ----\n${schemaContent.trim()}\n\n`;
+    combined += `// ---- schema.prisma (entrypoint) ----\n${ensureDatasourceUrl(schemaContent.trim())}\n\n`;
   }
 
   for (const file of otherFiles) {
