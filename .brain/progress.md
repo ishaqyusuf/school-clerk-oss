@@ -1,5 +1,68 @@
 # Progress
 
+## Halaalvest-Style DB Env And Client Pattern (2026-07-12)
+
+### Completed
+
+- Added a root-only database profile helper and command env wrapper modeled after Halaalvest, adapted to SchoolClerk's canonical envs.
+- Streamlined active DB envs to `DATABASE_URL`, `LOCAL_DATABASE_URL`, `REMOTE_DEV_DATABASE_URL`, `PROD_DATABASE_URL`, and `SCHOOL_CLERK_DB_MODE`, while leaving older names as read-only fallback aliases where needed.
+- Updated Prisma config to load root envs, apply the DB profile, and keep DB-less `generate`/`validate` working for marketing Vercel builds.
+- Changed `@school-clerk/db` to expose Halaalvest-style `createPrismaClient()` returning `null` when unconfigured, plus a lazy compatibility `prisma` proxy for existing callers.
+- Added `listSchoolTenants()` with seed fallback and moved marketing's dev tenant picker onto that helper.
+- Added `scripts/db-push.ts` and routed root `db:push*` scripts through it.
+
+### Changed Files
+
+- `packages/db/prisma.config.ts`
+- `packages/db/src/prisma.ts`
+- `packages/db/src/tenants.ts`
+- `packages/db/src/index.ts`
+- `apps/marketing/src/app/page.tsx`
+- `scripts/database-profile.mjs`
+- `scripts/with-workspace-env.mjs`
+- `scripts/db-push.ts`
+- `scripts/db-push.test.ts`
+- `scripts/with-dev-infra.ts`
+- `scripts/with-dev-infra.test.ts`
+- `scripts/with-root-env.mjs`
+- `scripts/start-dev-services.sh`
+- `packages/jobs/trigger.config.ts`
+- `turbo.json`
+- `.env.example`
+- `docs/local-database.md`
+- `package.json`
+- `.brain/database/migrations.md`
+- `.brain/engineering/ai-rules.md`
+- `.brain/progress.md`
+
+### Verification
+
+- `bun test scripts/db-push.test.ts scripts/with-dev-infra.test.ts`
+- `bun --filter @school-clerk/marketing build`
+- `bun --filter @school-clerk/db typecheck`
+- `bun --filter @school-clerk/db build`
+
+## Marketing Vercel Build Without Database URL (2026-07-12)
+
+### Completed
+
+- Fixed the Vercel marketing build failure where `@school-clerk/db:build` stopped during `prisma generate` because the marketing project did not define `DATABASE_URL`.
+- Updated `packages/db/prisma.config.ts` to follow the stable `after-service` pattern: `prisma generate` and `prisma validate` can use a local placeholder PostgreSQL URL when no database URL is configured, while runtime and migration commands still require a real `DATABASE_URL`.
+- Moved the marketing homepage's Prisma import behind the local-dev tenant picker path so production marketing prerendering does not initialize the Prisma client.
+
+### Changed Files
+
+- `packages/db/prisma.config.ts`
+- `apps/marketing/src/app/page.tsx`
+- `.brain/database/migrations.md`
+- `.brain/progress.md`
+
+### Verification
+
+- `bun --filter @school-clerk/marketing build`
+- `bun --filter @school-clerk/db build` was attempted, but local `tsc`/Prisma execution stayed silent and was interrupted.
+- `bun prisma generate` from `packages/db` was attempted to isolate the previous config failure; it started without the missing-`DATABASE_URL` exception but stayed silent and was interrupted.
+
 ## Prisma Generated Client Turbo Cache Fix (2026-07-12)
 
 ### Completed

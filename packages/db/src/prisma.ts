@@ -20,16 +20,20 @@ function resolvePrismaConnectionString() {
   const configuredUrl = process.env.DATABASE_URL;
 
   if (!configuredUrl) {
-    throw new Error("DATABASE_URL must be configured.");
+    return null;
   }
 
   return normalizePgConnectionString(configuredUrl);
 }
 
 const prismaClientSingleton = () => {
-  const adapter = new PrismaPg({
-    connectionString: resolvePrismaConnectionString(),
-  });
+  const connectionString = resolvePrismaConnectionString();
+
+  if (!connectionString) {
+    return null;
+  }
+
+  const adapter = new PrismaPg({ connectionString });
 
   return new PrismaClient({
     adapter,
@@ -70,14 +74,43 @@ const prismaClientSingleton = () => {
 };
 
 type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>;
+type ConfiguredPrismaClient = NonNullable<PrismaClientSingleton>;
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClientSingleton | undefined;
+  prisma: ConfiguredPrismaClient | undefined;
 };
 
-export const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
-export type Database = typeof prisma;
+export function createPrismaClient(): ConfiguredPrismaClient | null {
+  if (!globalForPrisma.prisma) {
+    const client = prismaClientSingleton();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+    if (!client) {
+      return null;
+    }
+
+    globalForPrisma.prisma = client;
+  }
+
+  return globalForPrisma.prisma;
 }
+
+function requirePrismaClient(): ConfiguredPrismaClient {
+  const client = createPrismaClient();
+
+  if (!client) {
+    throw new Error("DATABASE_URL must be configured.");
+  }
+
+  return client;
+}
+
+export type Database = ConfiguredPrismaClient;
+
+export const prisma = new Proxy({} as Database, {
+  get(_target, property, receiver) {
+    const client = requirePrismaClient();
+    const value = Reflect.get(client, property, receiver);
+
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});

@@ -117,33 +117,9 @@ async function getDevTenantLinks(): Promise<TenantLink[]> {
     return [];
   }
 
-  const { prisma } = await import("@school-clerk/db");
-  const tenants = await prisma.schoolProfile.findMany({
-    where: {
-      deletedAt: null,
-    },
-    orderBy: {
-      createdAt: "asc",
-    },
-    select: {
-      id: true,
-      name: true,
-      subDomain: true,
-      studentCountEstimate: true,
-      _count: {
-        select: {
-          students: true,
-        },
-      },
-    },
-  });
+  const { listSchoolTenants } = await import("@school-clerk/db");
 
-  return tenants.map((tenant) => ({
-    id: tenant.id,
-    name: tenant.name,
-    slug: tenant.subDomain,
-    studentCount: tenant._count.students || tenant.studentCountEstimate || 0,
-  }));
+  return listSchoolTenants();
 }
 
 export default async function Home() {

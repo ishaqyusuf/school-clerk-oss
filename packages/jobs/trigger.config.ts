@@ -28,7 +28,7 @@ export default defineConfig({
         // version: "5.20.0", // optional, we'll automatically detect the version if not provided
         // update this to the path of your Prisma schema file
         version: "^6.5.0",
-        directUrlEnvVarName: "DIRECT_URL",
+        directUrlEnvVarName: "DATABASE_URL",
         schema: "./src/schema.prisma",
         // typedSql: true,
         // migrate: true,

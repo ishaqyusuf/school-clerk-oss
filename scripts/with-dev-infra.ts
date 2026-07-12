@@ -99,17 +99,10 @@ export function findWorkspaceRoot(startDir: string): string {
 
 export function envFilesForCwd(cwd: string): string[] {
   const workspaceRoot = findWorkspaceRoot(cwd);
-  const resolvedCwd = resolve(cwd);
-  const files = [
+  return [
     resolve(workspaceRoot, ".env"),
     resolve(workspaceRoot, ".env.local"),
   ];
-
-  if (resolvedCwd !== workspaceRoot) {
-    files.push(resolve(resolvedCwd, ".env"), resolve(resolvedCwd, ".env.local"));
-  }
-
-  return files;
 }
 
 export function resolveDevInfraEnv(
@@ -139,33 +132,18 @@ export function resolveDevInfraEnv(
 
   if (!databaseUrl) {
     throw new Error(
-      "Missing remote dev database URL. Set REMOTE_DEV_POSTGRES_URL, REMOTE_DEV_DATABASE_URL, DEV_POSTGRES_URL, DEV_DATABASE_URL, POSTGRES_URL, or DATABASE_URL.",
+      "Missing remote dev database URL. Set REMOTE_DEV_DATABASE_URL or DATABASE_URL.",
     );
   }
 
-  const directUrl =
-    dbMode === "local"
-      ? firstEnvValue(env, ["LOCAL_DIRECT_URL"]) ??
-        localEnvValue(env, "DIRECT_URL") ??
-        databaseUrl
-      : firstEnvValue(env, ["REMOTE_DEV_DIRECT_URL", "DEV_DIRECT_URL"]) ??
-        nonLocalEnvValue(env, "DIRECT_URL") ??
-        databaseUrl;
-
   env.SCHOOL_CLERK_DB_MODE = dbMode;
   env.SCHOOL_CLERK_START_POSTGRES = dbMode === "local" ? "1" : "auto";
-  env.POSTGRES_URL = databaseUrl;
   env.DATABASE_URL = databaseUrl;
-  env.DIRECT_URL = directUrl;
 
   if (dbMode === "local") {
-    env.LOCAL_POSTGRES_URL = databaseUrl;
     env.LOCAL_DATABASE_URL = databaseUrl;
-    env.LOCAL_DIRECT_URL = directUrl;
   } else {
-    env.REMOTE_DEV_POSTGRES_URL = databaseUrl;
     env.REMOTE_DEV_DATABASE_URL = databaseUrl;
-    env.REMOTE_DEV_DIRECT_URL = directUrl;
   }
 
   return env;

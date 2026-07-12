@@ -97,10 +97,6 @@ function loadModeEnv(mode, cwd) {
   const modeFile = envFileForMode(mode);
   const files = [resolve(workspaceRoot, modeFile)];
 
-  if (resolve(cwd) !== workspaceRoot) {
-    files.push(resolve(cwd, modeFile));
-  }
-
   const parsed = files.reduce(
     (env, file) => ({
       ...env,
@@ -114,10 +110,6 @@ function loadModeEnv(mode, cwd) {
   }
 
   const fallbackFiles = [resolve(workspaceRoot, ".env")];
-
-  if (resolve(cwd) !== workspaceRoot) {
-    fallbackFiles.push(resolve(cwd, ".env"));
-  }
 
   return fallbackFiles.reduce(
     (env, file) => ({
@@ -205,21 +197,13 @@ function resolveChildEnv(env, mode) {
     localEnvValue(env, "POSTGRES_URL") ??
     localEnvValue(env, "DATABASE_URL") ??
     defaultLocalDatabaseUrl;
-  const directUrl =
-    firstEnvValue(env, ["LOCAL_DIRECT_URL"]) ??
-    localEnvValue(env, "DIRECT_URL") ??
-    databaseUrl;
 
   return {
     ...env,
     SCHOOL_CLERK_DB_MODE: "local",
     SCHOOL_CLERK_START_POSTGRES: "1",
-    POSTGRES_URL: databaseUrl,
     DATABASE_URL: databaseUrl,
-    DIRECT_URL: directUrl,
-    LOCAL_POSTGRES_URL: databaseUrl,
     LOCAL_DATABASE_URL: databaseUrl,
-    LOCAL_DIRECT_URL: directUrl,
   };
 }
 

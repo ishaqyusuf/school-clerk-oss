@@ -14,7 +14,7 @@ MAX_ATTEMPTS="${SCHOOL_CLERK_DB_WAIT_ATTEMPTS:-30}"
 SLEEP_SECONDS="${SCHOOL_CLERK_DB_WAIT_SECONDS:-1}"
 DOCKER_MAX_ATTEMPTS="${SCHOOL_CLERK_DOCKER_WAIT_ATTEMPTS:-60}"
 DOCKER_SLEEP_SECONDS="${SCHOOL_CLERK_DOCKER_WAIT_SECONDS:-2}"
-DEFAULT_LOCAL_DATABASE_URL="${LOCAL_POSTGRES_URL:-${LOCAL_DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:55432/school_clerk}}"
+DEFAULT_LOCAL_DATABASE_URL="${LOCAL_DATABASE_URL:-${LOCAL_POSTGRES_URL:-postgresql://postgres:postgres@127.0.0.1:55432/school_clerk}}"
 
 strip_wrapping_quotes() {
   value="$1"
@@ -124,14 +124,14 @@ is_local_host() {
 
 case "$database_mode" in
   local)
-    database_url="$(first_env_value LOCAL_POSTGRES_URL LOCAL_DATABASE_URL)"
+    database_url="$(first_env_value LOCAL_DATABASE_URL LOCAL_POSTGRES_URL)"
     database_url="${database_url:-$DEFAULT_LOCAL_DATABASE_URL}"
     ;;
   remote-dev)
-    database_url="$(first_env_value REMOTE_DEV_POSTGRES_URL DEV_POSTGRES_URL REMOTE_DEV_DATABASE_URL DEV_DATABASE_URL POSTGRES_URL DATABASE_URL)"
+    database_url="$(first_env_value REMOTE_DEV_DATABASE_URL DEV_DATABASE_URL DATABASE_URL REMOTE_DEV_POSTGRES_URL DEV_POSTGRES_URL POSTGRES_URL)"
     ;;
   auto | "")
-    database_url="$(first_env_value POSTGRES_URL DATABASE_URL)"
+    database_url="$(first_env_value DATABASE_URL POSTGRES_URL)"
     ;;
   *)
     echo "Invalid SCHOOL_CLERK_DB_MODE value: $database_mode" >&2
@@ -174,7 +174,7 @@ postgres_skip_message() {
       if [ "$database_mode" = "remote-dev" ]; then
         echo "Skipping local Postgres; SCHOOL_CLERK_DB_MODE is remote-dev."
       elif [ -n "$database_url" ] && ! is_local_host "$database_host"; then
-        echo "Skipping local Postgres; POSTGRES_URL/DATABASE_URL points to a non-local host."
+        echo "Skipping local Postgres; DATABASE_URL points to a non-local host."
       else
         echo "Skipping local Postgres."
       fi

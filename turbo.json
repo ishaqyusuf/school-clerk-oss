@@ -8,12 +8,10 @@
     },
     "build": {
       "env": [
-        "POSTGRES_URL",
         "DATABASE_URL",
-        "DIRECT_URL",
-        "REMOTE_DEV_POSTGRES_URL",
         "REMOTE_DEV_DATABASE_URL",
-        "LOCAL_POSTGRES_URL",
+        "LOCAL_DATABASE_URL",
+        "PROD_DATABASE_URL",
         "SCHOOL_CLERK_DB_MODE",
         "BETTER_AUTH_SECRET"
       ],
@@ -64,18 +62,10 @@
       "dependsOn": ["^generate"],
       "persistent": true,
       "env": [
-        "POSTGRES_URL",
         "DATABASE_URL",
-        "DIRECT_URL",
-        "REMOTE_DEV_POSTGRES_URL",
         "REMOTE_DEV_DATABASE_URL",
-        "REMOTE_DEV_DIRECT_URL",
-        "DEV_POSTGRES_URL",
         "DEV_DATABASE_URL",
-        "DEV_DIRECT_URL",
-        "LOCAL_POSTGRES_URL",
         "LOCAL_DATABASE_URL",
-        "LOCAL_DIRECT_URL",
         "SCHOOL_CLERK_DB_MODE",
         "SCHOOL_CLERK_START_POSTGRES"
       ],
