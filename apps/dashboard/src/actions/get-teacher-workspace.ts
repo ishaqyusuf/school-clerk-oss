@@ -2,7 +2,7 @@
 
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { getSession } from "@/auth/server";
-import { prisma } from "@school-clerk/db";
+import { prisma, resolveStaffAcademicAccess } from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 
 export async function getTeacherWorkspaceAction({
@@ -34,149 +34,12 @@ export async function getTeacherWorkspaceAction({
 			name: true,
 			title: true,
 			email: true,
-			termProfiles: {
-				where: {
-					deletedAt: null,
-					schoolSessionId: sessionId,
-					sessionTermId: termId,
-				},
-				take: 1,
-				select: {
-					id: true,
-					classroomsProfiles: {
-						where: {
-							deletedAt: null,
-						},
-						select: {
-							subjectAccessMode: true,
-							classRoomDepartment: {
-								select: {
-									id: true,
-									departmentName: true,
-									classRoom: {
-										select: {
-											name: true,
-										},
-									},
-									_count: {
-										select: {
-											studentSessionForms: {
-												where: {
-													deletedAt: null,
-													schoolSessionId: sessionId,
-												},
-											},
-											subjects: {
-												where: {
-													deletedAt: null,
-													sessionTermId: termId,
-												},
-											},
-										},
-									},
-									subjects: {
-										where: {
-											deletedAt: null,
-											sessionTermId: termId,
-										},
-										select: {
-											id: true,
-											subject: {
-												select: {
-													title: true,
-												},
-											},
-											classRoomDepartment: {
-												select: {
-													id: true,
-													departmentName: true,
-													classRoom: {
-														select: {
-															name: true,
-														},
-													},
-												},
-											},
-											_count: {
-												select: {
-													assessments: {
-														where: { deletedAt: null },
-													},
-												},
-											},
-											assessments: {
-												where: { deletedAt: null },
-												select: {
-													_count: {
-														select: {
-															assessmentResults: {
-																where: { deletedAt: null },
-															},
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			subjects: {
-				where: {
-					deletedAt: null,
-					departmentSubject: {
-						sessionTermId: termId,
-					},
-				},
-				select: {
-					departmentSubject: {
-						select: {
-							id: true,
-							subject: {
-								select: {
-									title: true,
-								},
-							},
-							classRoomDepartment: {
-								select: {
-									id: true,
-									departmentName: true,
-									classRoom: {
-										select: {
-											name: true,
-										},
-									},
-								},
-							},
-							_count: {
-								select: {
-									assessments: {
-										where: { deletedAt: null },
-									},
-								},
-							},
-							assessments: {
-								where: { deletedAt: null },
-								select: {
-									_count: {
-										select: {
-											assessmentResults: {
-												where: { deletedAt: null },
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
 			classRoomAttendanceList: {
 				where: {
 					deletedAt: null,
+					departmentId: {
+						not: null,
+					},
 					department: {
 						classRoom: {
 							schoolSessionId: sessionId,
@@ -191,6 +54,7 @@ export async function getTeacherWorkspaceAction({
 					id: true,
 					attendanceTitle: true,
 					createdAt: true,
+					departmentId: true,
 					department: {
 						select: {
 							departmentName: true,
@@ -211,10 +75,66 @@ export async function getTeacherWorkspaceAction({
 		return emptyTeacherWorkspace(userEmail);
 	}
 
-	const assignedClassrooms = staffProfile.termProfiles[0]?.classroomsProfiles
-		.map((profile) => profile.classRoomDepartment)
-		.filter(Boolean)
-		.map((department) => ({
+	const access = await resolveStaffAcademicAccess({
+		db: prisma,
+		staffProfileId: staffProfile.id,
+		schoolProfileId: schoolId,
+		schoolSessionId: sessionId,
+		sessionTermId: termId,
+	});
+
+	const assignedDepartmentRecords = access.classRoomDepartmentIds.length
+		? await prisma.classRoomDepartment.findMany({
+				where: {
+					id: {
+						in: access.classRoomDepartmentIds,
+					},
+					deletedAt: null,
+					schoolProfileId: schoolId,
+					classRoom: {
+						deletedAt: null,
+						schoolSessionId: sessionId,
+					},
+				},
+				select: {
+					id: true,
+					departmentName: true,
+					classRoom: {
+						select: {
+							name: true,
+						},
+					},
+					_count: {
+						select: {
+							studentSessionForms: {
+								where: {
+									deletedAt: null,
+									schoolSessionId: sessionId,
+								},
+							},
+							subjects: {
+								where: {
+									deletedAt: null,
+									sessionTermId: termId,
+								},
+							},
+						},
+					},
+				},
+				orderBy: [
+					{
+						classRoom: {
+							name: "asc",
+						},
+					},
+					{
+						departmentName: "asc",
+					},
+				],
+			})
+		: [];
+
+	const assignedClassrooms = assignedDepartmentRecords.map((department) => ({
 			id: department.id,
 			className: department.classRoom?.name ?? "—",
 			departmentName: department.departmentName ?? "—",
@@ -224,7 +144,7 @@ export async function getTeacherWorkspaceAction({
       }),
 			studentCount: department._count.studentSessionForms,
 			subjectCount: department._count.subjects,
-		})) ?? [];
+		}));
 
 	const classroomIds = assignedClassrooms.map((classroom) => classroom.id);
 
@@ -343,20 +263,66 @@ export async function getTeacherWorkspaceAction({
 		};
 	};
 
-	for (const item of staffProfile.subjects) {
-		const subject = item.departmentSubject;
-		if (!subject) continue;
+	const assignedSubjectRecords = access.departmentSubjectIds.length
+		? await prisma.departmentSubject.findMany({
+				where: {
+					id: {
+						in: access.departmentSubjectIds,
+					},
+					deletedAt: null,
+					sessionTermId: termId,
+					classRoomDepartment: {
+						deletedAt: null,
+						schoolProfileId: schoolId,
+						classRoom: {
+							deletedAt: null,
+							schoolSessionId: sessionId,
+						},
+					},
+				},
+				select: {
+					id: true,
+					subject: {
+						select: {
+							title: true,
+						},
+					},
+					classRoomDepartment: {
+						select: {
+							id: true,
+							departmentName: true,
+							classRoom: {
+								select: {
+									name: true,
+								},
+							},
+						},
+					},
+					_count: {
+						select: {
+							assessments: {
+								where: { deletedAt: null },
+							},
+						},
+					},
+					assessments: {
+						where: { deletedAt: null },
+						select: {
+							_count: {
+								select: {
+									assessmentResults: {
+										where: { deletedAt: null },
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+		: [];
 
+	for (const subject of assignedSubjectRecords) {
 		assignedSubjectMap.set(subject.id, mapAssignedSubject(subject));
-	}
-
-	for (const assignment of staffProfile.termProfiles[0]?.classroomsProfiles ??
-		[]) {
-		if (assignment.subjectAccessMode !== "ALL") continue;
-
-		for (const subject of assignment.classRoomDepartment?.subjects ?? []) {
-			assignedSubjectMap.set(subject.id, mapAssignedSubject(subject));
-		}
 	}
 
 	const assignedSubjects = Array.from(assignedSubjectMap.values()).sort((a, b) =>
@@ -400,19 +366,25 @@ export async function getTeacherWorkspaceAction({
 				.filter(Boolean)
 				.join(" "),
 		})),
-		recentAttendance: staffProfile.classRoomAttendanceList.map((attendance) => ({
-			id: attendance.id,
-			title: attendance.attendanceTitle,
-			classroom: [
-				classroomDisplayName({
-					className: attendance.department?.classRoom?.name,
-					departmentName: attendance.department?.departmentName,
-				}),
-			]
-				.filter(Boolean)
-				.join(" "),
-			createdAt: attendance.createdAt,
-		})),
+		recentAttendance: staffProfile.classRoomAttendanceList
+			.filter(
+				(attendance) =>
+					attendance.departmentId &&
+					access.classRoomDepartmentIds.includes(attendance.departmentId),
+			)
+			.map((attendance) => ({
+				id: attendance.id,
+				title: attendance.attendanceTitle,
+				classroom: [
+					classroomDisplayName({
+						className: attendance.department?.classRoom?.name,
+						departmentName: attendance.department?.departmentName,
+					}),
+				]
+					.filter(Boolean)
+					.join(" "),
+				createdAt: attendance.createdAt,
+			})),
 	};
 }
 

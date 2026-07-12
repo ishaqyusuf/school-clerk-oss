@@ -443,6 +443,9 @@
     "packages/tenant-url": {
       "name": "@school-clerk/tenant-url",
       "version": "1.0.0",
+      "dependencies": {
+        "@school-clerk/ui": "workspace:*",
+      },
       "devDependencies": {
         "@school-clerk/tsconfig": "workspace:*",
         "@types/react": "^19.2.2",

@@ -1,5 +1,8 @@
 import { buildTenantPageMetadata } from "@/utils/tenant-page-metadata";
-import { TenantUrlProvider } from "@school-clerk/tenant-url/react";
+import {
+  TenantUrlProvider,
+  TenantUrlVariantSwitcher,
+} from "@school-clerk/tenant-url/react";
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config";
 import { resolveTenantUrlContextFromHeaders } from "@school-clerk/tenant-url/next/server";
 import { getTenantUrlHeaderNames } from "@school-clerk/tenant-url";
@@ -42,6 +45,7 @@ export default async function DomainLayout({ children, params }) {
   return (
     <TenantUrlProvider config={tenantUrlConfig} context={tenantUrlContext}>
       {children}
+      <TenantUrlVariantSwitcher />
     </TenantUrlProvider>
   );
 }

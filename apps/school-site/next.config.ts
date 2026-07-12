@@ -9,6 +9,7 @@ const localSchoolSiteOrigins = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: localSchoolSiteOrigins,
+  transpilePackages: ["@school-clerk/tenant-url"],
 };
 
 export default nextConfig;

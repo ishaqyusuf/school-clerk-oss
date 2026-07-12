@@ -87,7 +87,7 @@ export function Client({
   initialEmail = "",
   initialError = "",
   initialPassword = "",
-  initialRememberMe = false,
+  initialRememberMe = true,
   schoolName,
   signupHref,
   quickLoginUsers = [],
@@ -207,6 +207,7 @@ export function Client({
 
       const cookie = await resetCookie({
         bearerToken,
+        rememberMe,
         userId,
         redirectUrl: defaultHref,
       });

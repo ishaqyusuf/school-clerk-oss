@@ -59,6 +59,9 @@ Catalog of API routes and responsibilities.
 
 - `GET /results`
 - `POST /results`
+- `trpc.assessments.saveAssessement`
+- `trpc.assessments.getClassroomReportSheet`
+- `trpc.assessments.updateAssessmentScore`
 - `trpc.assessments.listPublicAssessmentLinks`
 - `trpc.assessments.createPublicAssessmentLink`
 - `trpc.assessments.requestPublicAssessmentLink`

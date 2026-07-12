@@ -24,9 +24,11 @@ Describes entity relationships and cardinality constraints.
 - `SchoolSession` 1:N `SessionTerm`, `ClassRoom`, `StudentSessionForm`, `StudentTermForm`
 - `ClassRoom` 1:N `ClassRoomDepartment`
 - `ClassRoomDepartment` 1:N `DepartmentSubject`, `StudentSessionForm`, `StudentTermForm`, `StudentAttendance`
-- `StaffProfile` 1:N `StaffTermProfile`; `StaffTermProfile` 1:N `StaffClassroomDepartmentTermProfiles`; `StaffProfile` 1:N `StaffSubject`
+- `StaffProfile` 1:N `StaffTermProfile`; `StaffTermProfile` 1:N `StaffClassroomDepartmentTermProfiles`; `StaffProfile` 1:N `StaffSubject`; `StaffTermProfile` 1:N `StaffAcademicAccessGrant`
 - `StaffClassroomDepartmentTermProfiles` links a staff term profile to one classroom department and stores `subjectAccessMode = SELECTED | ALL`.
 - `StaffSubject` links staff profiles to explicit `DepartmentSubject` rows when classroom access mode is `SELECTED`; `ALL` classroom assignments resolve subject access dynamically through the assigned classroom department.
+- `StaffAcademicAccessGrant` stores durable hierarchy-aware teacher grants for class, department/arm, subject-across-class, and subject-in-department scopes without materializing every covered department subject.
+- Effective teacher access is the union of active `StaffAcademicAccessGrant` rows plus legacy `StaffClassroomDepartmentTermProfiles` and `StaffSubject` rows for the same staff term profile.
 - `Students` 1:N `StudentSessionForm`, `StudentTermForm`, `StudentFee`, `StudentAssessmentRecord`, `StudentWalletTransactions`
 - `Students` N:M `Guardians` via `StudentGuardians`
 - `User` 1:N `Guardians` through nullable `Guardians.userId` for authenticated parent portal access

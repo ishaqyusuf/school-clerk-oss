@@ -1,4 +1,4 @@
-import { createTRPCRouter, publicProcedure } from "../init";
+import { authenticatedProcedure, createTRPCRouter, publicProcedure } from "../init";
 import {
   getStudents,
   getStudent,
@@ -70,7 +70,7 @@ export const studentsRouter = createTRPCRouter({
     .mutation(async (props) => {
       return updateStudentBasicProfile(props.ctx, props.input);
     }),
-  changeGender: publicProcedure
+  changeGender: authenticatedProcedure
     .input(changeStudentGenderSchema)
     .mutation(async (props) => {
       return changeStudentGender(props.ctx, props.input);

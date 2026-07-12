@@ -21,8 +21,6 @@ Tracks tasks currently being worked on.
 - Blockers:
 - Owner:
 
-## Task Item
-
 - ID: WEB-002
 - Title: Design tenant website configuration persistence model
 - Started: 2026-04-08
@@ -57,37 +55,17 @@ Tracks tasks currently being worked on.
 - Blockers: Runtime sidebar ownership still needs confirmation before final signoff. Remaining work includes runtime redirect/navigation verification, Overview design verification, deeper workflow-specific actions, deeper empty-state actions, richer overview read models where needed, and runtime permission verification. Static breadcrumb audit found no central finance breadcrumb renderer to update.
 - Owner: Unassigned
 
-## Task Item
-
-- ID: ASMT-001
-- Title: Make assessments and sub-assessments reliable across recording, reports, print, and PDF output
-- Started: 2026-06-07
-- Current status: Product rules and target print behavior are documented in `brain/features/assessment-results-and-sub-assessments.md`. Required work includes fixing term-scoped report queries, preserving assessment order, separating scoreable assessment data from printable columns, skipping no-weight assessments in student result print/PDF, adding grouped-assessment print modes (`expanded` and `total`), showing parent-child labels consistently, and adding validation/warnings for grouped and zero-weight assessment cases.
-- Blockers: None. Implementation has not been fully completed or verified yet.
-- Owner: Codex
-
 ### Shared Report Roster Sorting And Gender Controls
 
 - Priority: High
 - Description: Track plan in `brain/plans/2026-06-12-ux-ui-shared-report-roster-sorting-and-gender-controls.md`.
 - Related Feature: assessment results and classroom report sheets
 - Status: In Progress
-- Plan Status: In Progress
+- Plan Status: Implemented and browser-verified; pending handoff approval
 - Plan File: brain/plans/2026-06-12-ux-ui-shared-report-roster-sorting-and-gender-controls.md
 - Intake File: brain/intake/2026-06-12-report-pages-and-sidebar-polish.md
 - Handoff File: brain/handoffs/ready/2026-06-13-shared-report-roster-sorting-and-gender-controls-handoff.md
 - Started Date: 2026-06-13
-
-### Batch Classroom Student Import Support
-
-- Priority: Medium
-- Description: Track plan in `brain/plans/2026-06-19-feature-batch-classroom-student-import-support.md`.
-- Related Feature: student import
-- Status: In Progress
-- Plan Status: In Progress
-- Plan File: brain/plans/2026-06-19-feature-batch-classroom-student-import-support.md
-- Created Date: 2026-06-19
-- Started Date: 2026-06-19
 
 ### Flat Minimal Dashboard UI Audit And Refactor
 

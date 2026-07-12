@@ -87,6 +87,30 @@ Do not move the task to `done`. `brain-review-handoff` owns final approval.
 Fill this in after implementation:
 
 - Changed files:
+  - `packages/assessment-results/src/index.ts`
+  - `packages/assessment-results/src/index.test.ts`
+  - `packages/assessment-results/tsconfig.json`
+  - `apps/dashboard/src/components/student-gender-cell.tsx`
+  - `apps/dashboard/src/components/assessment-recording-results-table.tsx`
+  - `apps/dashboard/src/components/classroom-result-table.tsx`
+  - `apps/api/src/db/queries/students.ts`
+  - `apps/api/src/db/queries/students.test.ts`
+  - `apps/api/src/trpc/routers/students.routes.ts`
+  - `brain/features/assessment-results-and-sub-assessments.md`
+  - `brain/api/permissions.md`
+  - `brain/progress.md`
+  - `brain/tasks/in-progress.md`
 - Checks run:
+  - `bun test packages/assessment-results/src/index.test.ts apps/api/src/db/queries/students.test.ts`
+  - `bun --filter @school-clerk/dashboard typecheck`
+  - `bun --filter @school-clerk/api typecheck`
+  - `bun --filter @school-clerk/assessment-results typecheck`
+  - `git diff --check`
+  - Browser smoke on `crestview-03553.school-clerk-dashboard.localhost:2200` for assessment recording, classroom report LTR/RTL layouts, and gender mutation/reorder/restore behavior.
 - Brain docs updated:
+  - `brain/features/assessment-results-and-sub-assessments.md`
+  - `brain/api/permissions.md`
+  - `brain/progress.md`
+  - `brain/tasks/in-progress.md`
 - Unresolved issues:
+  - Handoff approval remains pending. The browser smoke still reports the pre-existing login form hydration mismatch (`method="post"` vs `method="POST"`), but no report-table runtime error was observed.

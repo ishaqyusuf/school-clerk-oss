@@ -7,6 +7,15 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = resolve(scriptDir, "..");
+const defaultLocalDatabaseUrl =
+  "postgresql://postgres:postgres@127.0.0.1:55432/school_clerk";
+const localHosts = new Set([
+  "localhost",
+  "127.0.0.1",
+  "::1",
+  "0.0.0.0",
+  "postgres",
+]);
 
 function parseArgs(argv) {
   const args = [...argv];
@@ -166,13 +175,13 @@ if (childCommand.length === 0) {
 
 const child = spawn(childCommand[0], childCommand.slice(1), {
   cwd: process.cwd(),
-  env: {
+  env: resolveChildEnv({
     ...fileEnv,
     ...process.env,
     ...inlineEnv,
     SCHOOL_CLERK_ENV_MODE: mode === "production" ? "production" : "local",
     SCHOOL_CLERK_WORKSPACE_ROOT: workspaceRoot,
-  },
+  }, mode),
   shell: process.platform === "win32",
   stdio: "inherit",
 });
@@ -185,3 +194,54 @@ child.on("exit", (code, signal) => {
 
   process.exit(code ?? 1);
 });
+
+function resolveChildEnv(env, mode) {
+  if (mode !== "local" && mode !== "development") {
+    return env;
+  }
+
+  const databaseUrl =
+    firstEnvValue(env, ["LOCAL_POSTGRES_URL", "LOCAL_DATABASE_URL"]) ??
+    localEnvValue(env, "POSTGRES_URL") ??
+    localEnvValue(env, "DATABASE_URL") ??
+    defaultLocalDatabaseUrl;
+  const directUrl =
+    firstEnvValue(env, ["LOCAL_DIRECT_URL"]) ??
+    localEnvValue(env, "DIRECT_URL") ??
+    databaseUrl;
+
+  return {
+    ...env,
+    SCHOOL_CLERK_DB_MODE: "local",
+    SCHOOL_CLERK_START_POSTGRES: "1",
+    POSTGRES_URL: databaseUrl,
+    DATABASE_URL: databaseUrl,
+    DIRECT_URL: directUrl,
+    LOCAL_POSTGRES_URL: databaseUrl,
+    LOCAL_DATABASE_URL: databaseUrl,
+    LOCAL_DIRECT_URL: directUrl,
+  };
+}
+
+function firstEnvValue(env, keys) {
+  for (const key of keys) {
+    if (env[key]) {
+      return env[key];
+    }
+  }
+
+  return undefined;
+}
+
+function localEnvValue(env, key) {
+  const value = env[key];
+  return value && isLocalUrl(value) ? value : undefined;
+}
+
+function isLocalUrl(value) {
+  try {
+    return localHosts.has(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+}

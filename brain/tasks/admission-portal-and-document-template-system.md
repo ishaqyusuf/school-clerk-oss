@@ -327,7 +327,7 @@ export function EnrollmentFormClient(props: {
 - `bun run db:generate`
 - `bun run typecheck`
 - Focused test command if a matching test file is added, for example `bun test apps/api/src/db/queries/enrollment-links.test.ts`
-- Manual check with `bun run dev:school-site` and `bun run dev:dashboard`:
+- Manual check with `bun run dev --filter school-site` and `bun run dev --filter dashboard`:
   - Create active manual-only link and confirm copied direct URL works.
   - Confirm manual-only link does not appear on website once ADM-002 exists.
   - Create website-visible link and confirm `showOnWebsite` is stored and listed.

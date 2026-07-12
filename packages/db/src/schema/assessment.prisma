@@ -1,11 +1,12 @@
 model ClassroomSubjectAssessment {
-  id                   Int     @unique @default(autoincrement())
+  id                   Int                                  @unique @default(autoincrement())
   title                String
-  obtainable           Float   @default(0)
-  percentageObtainable Float?  @default(0)
+  obtainable           Float                                @default(0)
+  percentageObtainable Float?                               @default(0)
   index                Float?
-  isGroup              Boolean @default(false)
+  isGroup              Boolean                              @default(false)
   parentAssessmentId   Int?
+  printMode            ClassroomSubjectAssessmentPrintMode  @default(EXPANDED)
 
   createdAt DateTime? @default(now()) @db.Timestamp(0)
   updatedAt DateTime? @updatedAt
@@ -88,7 +89,7 @@ model AssessmentPublicLink {
   classRoomDepartment   ClassRoomDepartment @relation(fields: [classRoomDepartmentId], references: [id], onDelete: Cascade)
 
   @@index([schoolProfileId, status])
-  @@index([schoolProfileId, sessionTermId, classRoomDepartmentId])
+  @@index([schoolProfileId, sessionTermId, classRoomDepartmentId], map: "AssessmentPublicLink_schoolProfileId_sessionTermId_classRoo_idx")
   @@index([requesterUserId])
 }
 
@@ -98,4 +99,9 @@ enum AssessmentPublicLinkStatus {
   REJECTED
   EXPIRED
   REVOKED
+}
+
+enum ClassroomSubjectAssessmentPrintMode {
+  EXPANDED
+  TOTAL
 }

@@ -1,4 +1,8 @@
-import { getResultComment } from "@school-clerk/assessment-results";
+import {
+  getResultComment,
+  isPrintableAssessment,
+  normalizeAssessmentPrintMode,
+} from "@school-clerk/assessment-results";
 import { classroomDisplayName, sum } from "@school-clerk/utils";
 
 const assessmentOrder = ["الحضور", "الاختبار", "الامتحان"];
@@ -12,7 +16,10 @@ type AssessmentResult = {
 type Assessment = {
   title: string;
   parentAssessment?: {
+    id?: number | null;
     title?: string | null;
+    index?: number | null;
+    printMode?: string | null;
   } | null;
   percentageObtainable: number | null;
   obtainable: number;
@@ -91,6 +98,83 @@ function tableModel() {
   return tables;
 }
 
+type PrintableAssessmentEntry = {
+  obtainable: number | null;
+  obtained: number | null;
+  index?: number | null;
+  label: string;
+};
+
+function getWeightedObtained(
+  assessment: Assessment,
+  studentTermFormId: string,
+) {
+  const record = assessment.assessmentResults.find(
+    (r) => r.studentTermFormId === studentTermFormId,
+  );
+
+  if (!record?.percentageScore && !record?.obtained) return null;
+
+  if (assessment.percentageObtainable === assessment.obtainable) {
+    return record.obtained;
+  }
+
+  return assessment.percentageObtainable
+    ? sum([
+        ((record.obtained ?? 0) / assessment.obtainable) *
+          assessment.percentageObtainable,
+      ])
+    : null;
+}
+
+function buildPrintableAssessmentsForStudent(
+  assessments: Assessment[],
+  studentTermFormId: string,
+) {
+  const entries: PrintableAssessmentEntry[] = [];
+  const totalModeEntries = new Map<string, PrintableAssessmentEntry>();
+
+  for (const assessment of assessments) {
+    if (!isPrintableAssessment(assessment)) continue;
+
+    const parent = assessment.parentAssessment;
+    const obtained = getWeightedObtained(assessment, studentTermFormId);
+
+    if (parent && normalizeAssessmentPrintMode(parent.printMode) === "total") {
+      const key = String(parent.id ?? parent.title ?? assessment.title);
+      const existing = totalModeEntries.get(key);
+
+      if (existing) {
+        existing.obtainable = sum([
+          existing.obtainable,
+          assessment.percentageObtainable,
+        ]);
+        existing.obtained = sum([existing.obtained, obtained]);
+      } else {
+        const entry = {
+          obtainable: assessment.percentageObtainable,
+          obtained,
+          index: parent.index ?? assessment.index,
+          label: parent.title ?? assessment.title,
+        };
+        totalModeEntries.set(key, entry);
+        entries.push(entry);
+      }
+
+      continue;
+    }
+
+    entries.push({
+      obtainable: assessment.percentageObtainable,
+      obtained,
+      index: assessment.index,
+      label: parent?.title ? `${parent.title} - ${assessment.title}` : assessment.title,
+    });
+  }
+
+  return entries;
+}
+
 export function buildStudentReportsById({
   departmentSheets,
   classrooms,
@@ -105,46 +189,32 @@ export function buildStudentReportsById({
 
     return (
       data.studentTermForms?.map((tf) => {
-        const subjectList = data.subjects?.map((subject) => {
-          const assessments = subject.assessments.map((_as) => {
-            const record = _as.assessmentResults.find(
-              (r) => r.studentTermFormId === tf.id,
+        const subjectList = data.subjects
+          ?.map((subject) => {
+            const assessments = buildPrintableAssessmentsForStudent(
+              subject.assessments,
+              tf.id,
             );
-            const obtained =
-              record?.percentageScore || record?.obtained
-                ? _as?.percentageObtainable === _as?.obtainable
-                  ? record?.obtained
-                  : _as.percentageObtainable
-                    ? sum([
-                        ((record?.obtained ?? 0) / _as.obtainable) *
-                          _as.percentageObtainable,
-                      ])
-                    : null
-                : null;
 
             return {
-              obtainable: _as.percentageObtainable,
-              obtained,
-              index: _as.index,
-              label: _as.parentAssessment?.title
-                ? `${_as.parentAssessment.title} - ${_as.title}`
-                : _as.title,
+              title: subject.subject.title,
+              assessments,
             };
-          });
-
-          return {
-            title: subject.subject.title,
-            assessments,
-          };
-        });
+          })
+          .filter((subject) => subject.assessments.length > 0);
 
         const tables = tableModel();
 
         subjectList.map((subject, si) => {
           const assessments = subject.assessments
             .map((a) => {
-              a.index = assessmentOrder.findIndex((b) => b === a.label);
-              return a;
+              const preferredIndex = assessmentOrder.findIndex(
+                (b) => b === a.label,
+              );
+              return {
+                ...a,
+                index: preferredIndex >= 0 ? preferredIndex : a.index,
+              };
             })
             .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
 

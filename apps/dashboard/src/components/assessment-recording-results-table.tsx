@@ -2,11 +2,14 @@
 
 import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
 import { AssessmentPublicLinksPanel } from "@/components/assessment-public-links-panel";
+import { StudentGenderCell } from "@/components/student-gender-cell";
 import { SubjectAssessments } from "@/components/subject-assessments";
+import { useAuth } from "@/hooks/use-auth";
 import {
   buildResultRows,
   filterResultStudents,
   filterResultSubjects,
+  getAssessmentDisplayTitle,
   getStudentDisplayName,
 } from "@school-clerk/assessment-results";
 import { Badge } from "@school-clerk/ui/badge";
@@ -65,6 +68,9 @@ export function AssessmentRecordingResultsTable({
   const [nameSearch, setNameSearch] = useState("");
   const [openSubjectId, setOpenSubjectId] = useState<string | null>(null);
   const deferredNameSearch = useDeferredValue(nameSearch);
+  const auth = useAuth();
+  const canUpdateStudentGender =
+    auth.role === "ADMIN" || auth.role === "Admin" || auth.role === "Registrar";
 
   const classroomReportQuery = useQuery(
     _trpc.assessments.getClassroomReportSheet.queryOptions(
@@ -319,10 +325,18 @@ export function AssessmentRecordingResultsTable({
               <TableRow>
                 <TableHead
                   rowSpan={2}
-                  className="sticky right-0 z-20 bg-muted/10"
+                  className="sticky right-0 z-20 w-[180px] min-w-[180px] bg-muted/10"
                 >
                   Student
                 </TableHead>
+                {!publicToken ? (
+                  <TableHead
+                    rowSpan={2}
+                    className="sticky right-[180px] z-20 w-[96px] min-w-[96px] border-r bg-muted/10 text-center"
+                  >
+                    Gender
+                  </TableHead>
+                ) : null}
                 {visibleSubjects.map((subject) => (
                   <TableHead
                     key={subject.id}
@@ -352,7 +366,7 @@ export function AssessmentRecordingResultsTable({
                           key={`${subject.id}-${assessment.id}`}
                           className="w-[70px] min-w-[70px] max-w-[70px] text-center text-xs"
                         >
-                          <div>{assessment.title}</div>
+                          <div>{getAssessmentDisplayTitle(assessment)}</div>
                           <div className="text-muted-foreground">
                             ({assessment.obtainable})
                           </div>
@@ -371,9 +385,20 @@ export function AssessmentRecordingResultsTable({
               {resultRows.length ? (
                 resultRows.map((row, index) => (
                   <TableRow key={row.student.id} className="hover:bg-muted/30">
-                    <TableCell className="sticky right-0 z-10 whitespace-nowrap bg-background">
+                    <TableCell className="sticky right-0 z-10 w-[180px] min-w-[180px] whitespace-nowrap bg-background">
                       {index + 1}. {getStudentDisplayName(row.student.student)}
                     </TableCell>
+                    {!publicToken ? (
+                      <TableCell className="sticky right-[180px] z-10 w-[96px] min-w-[96px] border-r bg-background text-center">
+                        <StudentGenderCell
+                          studentId={row.student.student?.id}
+                          gender={row.student.student?.gender}
+                          disabled={!canUpdateStudentGender}
+                          align="start"
+                          onUpdated={() => classroomReportQuery.refetch()}
+                        />
+                      </TableCell>
+                    ) : null}
                     {row.subjectTotals.map((subjectTotal) => (
                       <Fragment key={subjectTotal.subject.id}>
                         {subjectTotal.cells.length ? (
@@ -403,6 +428,7 @@ export function AssessmentRecordingResultsTable({
                   <TableCell
                     colSpan={
                       1 +
+                      (publicToken ? 0 : 1) +
                       visibleSubjects.reduce(
                         (total, subject) =>
                           total + Math.max(subject.assessments.length, 1),

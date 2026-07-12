@@ -10,6 +10,7 @@ model ClassRoom {
   session              SchoolSession         @relation(fields: [schoolSessionId], references: [id])
   school               SchoolProfile         @relation(fields: [schoolProfileId], references: [id])
   classRoomDepartments ClassRoomDepartment[]
+  staffAcademicAccessGrants StaffAcademicAccessGrant[]
 
   @@unique([schoolSessionId, name])
 }
@@ -38,6 +39,7 @@ model ClassRoomDepartment {
   enrollmentDocumentRequirements EnrollmentLinkDocumentRequirement[]
   enrollmentApplications         EnrollmentApplication[]
   assessmentPublicLinks          AssessmentPublicLink[]
+  staffAcademicAccessGrants      StaffAcademicAccessGrant[]
 
   @@unique([classRoomsId, departmentName])
 }
@@ -51,6 +53,7 @@ model DepartmentSubject {
   classRoomDepartmentId String?
 
   staffSubjects StaffSubject[]
+  staffAcademicAccessGrants StaffAcademicAccessGrant[]
   assessments   ClassroomSubjectAssessment[]
 
   createdAt DateTime? @default(now()) @db.Timestamp(0)
@@ -78,6 +81,7 @@ model Subject {
   schoolProfileId String?
 
   departmentSubjects DepartmentSubject[]
+  staffAcademicAccessGrants StaffAcademicAccessGrant[]
 
   @@unique([title, schoolProfileId])
 }

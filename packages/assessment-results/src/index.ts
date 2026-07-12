@@ -7,6 +7,12 @@ const subAssessmentSchema = z.object({
   percentageObtainable: z.number().min(0),
 });
 
+export const assessmentPrintModeSchema = z
+  .enum(["expanded", "total"])
+  .default("expanded");
+
+export type AssessmentPrintMode = z.infer<typeof assessmentPrintModeSchema>;
+
 export const saveAssessementSchema = z
   .object({
     id: z.number().optional().nullable(),
@@ -16,6 +22,7 @@ export const saveAssessementSchema = z
     percentageObtainable: z.number().min(0),
     departmentSubjectId: z.string(),
     isGroup: z.boolean().optional().default(false),
+    printMode: assessmentPrintModeSchema,
     parentAssessmentId: z.number().optional().nullable(),
     childAssessments: z.array(subAssessmentSchema).optional().default([]),
   })
@@ -123,7 +130,10 @@ export type AssessmentRecord = {
   percentageObtainable?: number | null;
   index?: number | null;
   parentAssessment?: {
+    id?: number | null;
     title?: string | null;
+    index?: number | null;
+    printMode?: string | null;
   } | null;
   assessmentResults?: AssessmentResultRecord[];
 };
@@ -176,6 +186,135 @@ export function getAssessmentDisplayTitle(assessment: AssessmentRecord) {
   return assessment.parentAssessment?.title
     ? `${assessment.parentAssessment.title} - ${assessment.title}`
     : assessment.title;
+}
+
+type PrintableAssessmentInput = {
+  percentageObtainable?: number | null;
+};
+
+export function isPrintableAssessment(assessment: PrintableAssessmentInput) {
+  return (assessment.percentageObtainable ?? 0) > 0;
+}
+
+export type AssessmentPrintStatusInput = PrintableAssessmentInput & {
+  id?: number | null;
+  title?: string | null;
+  index?: number | null;
+  isGroup?: boolean | null;
+  printMode?: AssessmentPrintMode | "EXPANDED" | "TOTAL" | string | null;
+  childAssessments?: AssessmentPrintStatusInput[] | null;
+};
+
+export type AssessmentPrintStatus = {
+  isGrouped: boolean;
+  printable: boolean;
+  printableWeight: number;
+  label: "Print column" | "Print expanded" | "Print total only" | "No print";
+  warnings: string[];
+};
+
+export function normalizeAssessmentPrintMode(
+  printMode?: AssessmentPrintStatusInput["printMode"],
+): AssessmentPrintMode {
+  return printMode === "total" || printMode === "TOTAL" ? "total" : "expanded";
+}
+
+export function getAssessmentPrintableWeight(
+  assessment: AssessmentPrintStatusInput,
+) {
+  const children = assessment.childAssessments ?? [];
+  if (assessment.isGroup || children.length > 0) {
+    return sum(children.map((child) => child.percentageObtainable));
+  }
+
+  return assessment.percentageObtainable ?? 0;
+}
+
+export function getAssessmentPrintStatus(
+  assessment: AssessmentPrintStatusInput,
+): AssessmentPrintStatus {
+  const children = assessment.childAssessments ?? [];
+  const isGrouped = !!assessment.isGroup || children.length > 0;
+  const printMode = normalizeAssessmentPrintMode(assessment.printMode);
+  const printableWeight = getAssessmentPrintableWeight(assessment);
+  const printable = printableWeight > 0;
+  const warnings: string[] = [];
+
+  if (isGrouped && !children.length) {
+    warnings.push("Grouped assessments need at least one sub-assessment.");
+  }
+
+  if (!printable) {
+    warnings.push(
+      isGrouped
+        ? "This group has no printable weight and will not appear on printed results."
+        : "This assessment can be recorded but will not appear on printed results.",
+    );
+  }
+
+  if (isGrouped && children.some((child) => !isPrintableAssessment(child))) {
+    warnings.push(
+      "Sub-assessments with 0% weight can be recorded but will not print.",
+    );
+  }
+
+  return {
+    isGrouped,
+    printable,
+    printableWeight,
+    label: printable
+      ? isGrouped
+        ? printMode === "total"
+          ? "Print total only"
+          : "Print expanded"
+        : "Print column"
+      : "No print",
+    warnings,
+  };
+}
+
+export type AssessmentPrintColumn = {
+  id?: number | null;
+  label: string;
+  weight: number;
+};
+
+export function getAssessmentPrintColumns(
+  assessments: AssessmentPrintStatusInput[] = [],
+): AssessmentPrintColumn[] {
+  return assessments.flatMap((assessment) => {
+    const status = getAssessmentPrintStatus(assessment);
+    if (!status.printable) return [];
+
+    const title = assessment.title ?? "Assessment";
+    if (status.isGrouped) {
+      if (normalizeAssessmentPrintMode(assessment.printMode) === "total") {
+        return [
+          {
+            id: assessment.id,
+            label: title,
+            weight: status.printableWeight,
+          },
+        ];
+      }
+
+      return (assessment.childAssessments ?? [])
+        .filter(isPrintableAssessment)
+        .map((child) => ({
+          id: child.id,
+          label: `${title} - ${child.title ?? "Sub-assessment"}`,
+          weight: child.percentageObtainable ?? 0,
+        }));
+    }
+
+    return [
+      {
+        id: assessment.id,
+        label: title,
+        weight: assessment.percentageObtainable ?? 0,
+      },
+    ];
+  });
 }
 
 export function getStudentDisplayName(student?: StudentTermRecord["student"]) {
@@ -236,11 +375,35 @@ export function filterResultStudents<TStudent extends StudentTermRecord>({
   search?: string | null;
 }) {
   const query = search?.trim().toLowerCase();
-  if (!query) return students;
+  const orderedStudents = sortResultRoster(students);
+  if (!query) return orderedStudents;
 
-  return students.filter((student) =>
+  return orderedStudents.filter((student) =>
     getStudentSearchKey(student.student).includes(query),
   );
+}
+
+function getRosterGenderRank(gender?: string | null) {
+  if (gender === "Male") return 0;
+  if (gender === "Female") return 1;
+  return 2;
+}
+
+export function sortResultRoster<TStudent extends StudentTermRecord>(
+  students: TStudent[],
+) {
+  return [...students].sort((left, right) => {
+    const genderDiff =
+      getRosterGenderRank(left.student?.gender) -
+      getRosterGenderRank(right.student?.gender);
+    if (genderDiff !== 0) return genderDiff;
+
+    return getStudentDisplayName(left.student).localeCompare(
+      getStudentDisplayName(right.student),
+      undefined,
+      { sensitivity: "base" },
+    );
+  });
 }
 
 export function buildResultRows<TStudent extends StudentTermRecord>({

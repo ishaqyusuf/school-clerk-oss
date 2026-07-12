@@ -8,11 +8,14 @@ import { FormInput } from "@school-clerk/ui/controls/form-input";
 import { Suspense, useEffect, useMemo } from "react";
 import { FormSkeleton } from "@school-clerk/ui/custom/form-skeleton";
 import { toast } from "@school-clerk/ui/use-toast";
-import { saveAssessementSchema } from "@school-clerk/assessment-results";
+import {
+  getAssessmentPrintStatus,
+  saveAssessementSchema,
+} from "@school-clerk/assessment-results";
 import FormSwitch from "@school-clerk/ui/controls/form-switch";
 import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
-import { Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Plus, Trash2 } from "lucide-react";
 interface Props {
   defaultValues?: typeof saveAssessementSchema._type;
   children?;
@@ -34,6 +37,7 @@ function Content(props: Props) {
       percentageObtainable: 0,
       title: "",
       isGroup: false,
+      printMode: "expanded",
       parentAssessmentId: null,
       childAssessments: [],
     },
@@ -43,6 +47,7 @@ function Content(props: Props) {
       obtainable: 0,
       percentageObtainable: 0,
       isGroup: false,
+      printMode: "expanded",
       parentAssessmentId: null,
       childAssessments: [],
       ...props.defaultValues,
@@ -61,6 +66,14 @@ function Content(props: Props) {
     control: form.control,
     name: "childAssessments",
   });
+  const printMode = useWatch({
+    control: form.control,
+    name: "printMode",
+  });
+  const percentageObtainable = useWatch({
+    control: form.control,
+    name: "percentageObtainable",
+  });
   const childTotals = useMemo(
     () =>
       (childAssessments ?? []).reduce(
@@ -73,8 +86,18 @@ function Content(props: Props) {
           obtainable: 0,
           percentageObtainable: 0,
         },
-      ),
+    ),
     [childAssessments],
+  );
+  const printStatus = useMemo(
+    () =>
+      getAssessmentPrintStatus({
+        isGroup,
+        printMode,
+        percentageObtainable,
+        childAssessments,
+      }),
+    [childAssessments, isGroup, percentageObtainable, printMode],
   );
 
   return (
@@ -129,6 +152,46 @@ function Content(props: Props) {
                 <Badge variant="neutral" className="rounded-full px-3 py-1">
                   {childTotals.percentageObtainable}% total weight
                 </Badge>
+                <Badge
+                  variant={printStatus.printable ? "neutral" : "warning"}
+                  className="rounded-full px-3 py-1"
+                >
+                  {printStatus.label}
+                </Badge>
+                {!printStatus.printable ? (
+                  <Badge variant="warning" className="rounded-full px-3 py-1">
+                    0% weight
+                  </Badge>
+                ) : null}
+              </div>
+
+              <div className="grid gap-2 border border-border bg-muted/20 p-3 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant={printMode === "expanded" ? "secondary" : "outline"}
+                  className="justify-start"
+                  onClick={() =>
+                    form.setValue("printMode", "expanded", {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
+                >
+                  Print sub-assessments
+                </Button>
+                <Button
+                  type="button"
+                  variant={printMode === "total" ? "secondary" : "outline"}
+                  className="justify-start"
+                  onClick={() =>
+                    form.setValue("printMode", "total", {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
+                >
+                  Print group total only
+                </Button>
               </div>
 
               {childAssessmentsFieldArray.fields.length ? (
@@ -203,6 +266,33 @@ function Content(props: Props) {
               />
             </div>
           )}
+
+          {!isGroup ? (
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                variant={printStatus.printable ? "success" : "warning"}
+                className="rounded-full px-3 py-1"
+              >
+                {printStatus.label}
+              </Badge>
+              {!printStatus.printable ? (
+                <Badge variant="warning" className="rounded-full px-3 py-1">
+                  0% weight
+                </Badge>
+              ) : null}
+            </div>
+          ) : null}
+
+          {printStatus.warnings.length ? (
+            <div className="space-y-2 border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+              {printStatus.warnings.map((warning) => (
+                <div key={warning} className="flex gap-2">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  <span>{warning}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
         {props.children}
       </div>

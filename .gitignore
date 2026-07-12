@@ -46,6 +46,11 @@ yarn-error.log*
 # turbo
 .turbo
 packages/db/src/generated/
+packages/db/prisma.config.js
+packages/db/src/index.js
+packages/db/src/notification-contacts.js
+packages/db/src/prisma.js
+packages/db/src/website.js
 .tmp/
 
 # react-email

@@ -1,14 +1,20 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
-const localDashboardOrigins = [
-  "school-clerk-dashboard.localhost",
-  "*.school-clerk-dashboard.localhost",
+const localDashboardHosts = [
   "school-clerk.localhost",
   "*.school-clerk.localhost",
+  "school-clerk-dashboard.localhost",
+  "*.school-clerk-dashboard.localhost",
   "localhost:2200",
   "127.0.0.1:2200",
   "192.168.18.5",
   "10.31.248.73",
+];
+
+const localDashboardOrigins = [
+  ...localDashboardHosts,
+  ...localDashboardHosts.map((host) => `http://${host}`),
+  ...localDashboardHosts.map((host) => `https://${host}`),
 ];
 
 /** @type {import("next").NextConfig} */
@@ -19,6 +25,7 @@ const config = {
   transpilePackages: [
     "@school-clerk/ui",
     "@school-clerk/api",
+    "@school-clerk/tenant-url",
 
     // "@school-clerk/stripe",
   ],

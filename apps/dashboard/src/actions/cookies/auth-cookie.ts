@@ -4,6 +4,7 @@ import {
   getTenantUrlHeaderNames,
   resolveTenantUrlContext,
 } from "@school-clerk/tenant-url";
+import { auth } from "@/auth/server";
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config";
 import { cookies, headers } from "next/headers";
 
@@ -18,8 +19,41 @@ export interface AuthCookie {
     bearerToken: string;
     userId: string;
   };
+  remembered?: boolean;
 }
 const getCookieName = (domain) => `${domain}-session-cookie`;
+const workspaceSessionMaxAge = 60 * 60 * 24 * 30;
+const workspaceCookieOptions = (remembered = true) => ({
+  httpOnly: true,
+  maxAge: remembered ? workspaceSessionMaxAge : undefined,
+  path: "/",
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+});
+
+function parseAuthCookie(value?: string) {
+  if (!value) return {} as AuthCookie;
+
+  try {
+    return JSON.parse(value) as AuthCookie;
+  } catch {
+    return {} as AuthCookie;
+  }
+}
+
+async function readWorkspaceCookie(domain: string) {
+  const cookieStore = await cookies();
+  return parseAuthCookie(cookieStore.get(getCookieName(domain))?.value);
+}
+
+function isUsableWorkspaceCookie(profile: AuthCookie, domain: string) {
+  return Boolean(
+    profile?.schoolId &&
+      profile?.domain === domain &&
+      profile?.auth?.bearerToken &&
+      profile?.auth?.userId,
+  );
+}
 
 function findCurrentDatedTerm<
   T extends {
@@ -84,58 +118,142 @@ export async function getTenantDomain() {
 }
 export async function getAuthCookie() {
   const { domain } = await getTenantDomain();
-  const cookieStore = await cookies();
-  const cookieName = getCookieName(domain);
-  const value = cookieStore.get(cookieName)?.value;
-  const profile = JSON.parse((value || "{}") as any) as AuthCookie;
-  return profile;
+  const profile = await readWorkspaceCookie(domain);
+  const requestHeaders = await headers();
+  const session = await auth.api.getSession({
+    headers: requestHeaders,
+  });
+  const bearerToken = session?.session?.token;
+  const userId = session?.user?.id;
+
+  if (!bearerToken || !userId) return profile;
+
+  if (
+    isUsableWorkspaceCookie(profile, domain) &&
+    profile.auth.userId === userId &&
+    profile.auth.bearerToken === bearerToken
+  ) {
+    return profile;
+  }
+
+  return resolveTenantAuthCookie({
+    authCookie: profile,
+    bearerToken,
+    domain,
+    userId,
+  });
 }
-export async function resetCookie({ bearerToken, userId, redirectUrl = null }) {
-  let authCookie = await getAuthCookie();
+export async function resetCookie({
+  bearerToken,
+  userId,
+  redirectUrl = null,
+  rememberMe = true,
+}) {
   const { domain } = await getTenantDomain();
-  console.log({ domain });
-  const school = await prisma.schoolProfile.findFirst({
-    where: {
-      domains: {
-        some: {
-          subdomain: domain,
+  let authCookie = await readWorkspaceCookie(domain);
+  authCookie = await resolveTenantAuthCookie({
+    authCookie,
+    bearerToken,
+    domain,
+    rememberMe,
+    userId,
+  });
+
+  const cookie = await cookies();
+  const cookieName = getCookieName(domain);
+  cookie.set(
+    cookieName,
+    JSON.stringify(authCookie),
+    workspaceCookieOptions(authCookie.remembered !== false),
+  );
+  // if (redirectUrl) redirect(redirectUrl);
+  return authCookie;
+}
+
+async function resolveTenantAuthCookie({
+  authCookie,
+  bearerToken,
+  domain,
+  rememberMe = authCookie.remembered !== false,
+  userId,
+}: {
+  authCookie: AuthCookie;
+  bearerToken: string;
+  domain: string;
+  rememberMe?: boolean;
+  userId: string;
+}) {
+  const [school, user] = await Promise.all([
+    prisma.schoolProfile.findFirst({
+      where: {
+        deletedAt: null,
+        domains: {
+          some: {
+            deletedAt: null,
+            subdomain: domain,
+          },
         },
       },
-    },
-    select: {
-      id: true,
-      sessions: {
-        where: {
-          deletedAt: null,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        // take: 1,
-        select: {
-          id: true,
-          title: true,
-          terms: {
-            // take: 1,
-            where: {
-              deletedAt: null,
-            },
-            select: {
-              id: true,
-              title: true,
-              sessionId: true,
-              startDate: true,
-              endDate: true,
-              createdAt: true,
-            },
-            orderBy: {
-              createdAt: "desc",
+      select: {
+        id: true,
+        accountId: true,
+        sessions: {
+          where: {
+            deletedAt: null,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          // take: 1,
+          select: {
+            id: true,
+            title: true,
+            terms: {
+              // take: 1,
+              where: {
+                deletedAt: null,
+              },
+              select: {
+                id: true,
+                title: true,
+                sessionId: true,
+                startDate: true,
+                endDate: true,
+                createdAt: true,
+              },
+              orderBy: {
+                createdAt: "desc",
+              },
             },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.user.findFirst({
+      where: {
+        id: userId,
+        deletedAt: null,
+      },
+      select: {
+        saasAccountId: true,
+      },
+    }),
+  ]);
+
+  if (
+    school?.accountId &&
+    user?.saasAccountId &&
+    school.accountId !== user.saasAccountId
+  ) {
+    return {
+      domain,
+      auth: {
+        bearerToken,
+        userId,
+      },
+      remembered: rememberMe,
+    } as AuthCookie;
+  }
 
   const termProfiles =
     school?.sessions.flatMap((session) =>
@@ -167,13 +285,20 @@ export async function resetCookie({ bearerToken, userId, redirectUrl = null }) {
       bearerToken,
       userId,
     },
+    remembered: rememberMe,
   };
-  const cookie = await cookies();
-  const cookieName = getCookieName(domain);
-  cookie.set(cookieName, JSON.stringify(authCookie));
-  // if (redirectUrl) redirect(redirectUrl);
   return authCookie;
 }
+
+export async function clearAuthCookie() {
+  const { domain } = await getTenantDomain();
+  const cookie = await cookies();
+  cookie.set(getCookieName(domain), "", {
+    ...workspaceCookieOptions(false),
+    maxAge: 0,
+  });
+}
+
 export async function switchSessionTerm(
   input:
     | string
@@ -199,5 +324,9 @@ export async function switchSessionTerm(
     sessionId: sessionId ?? authCookie.sessionId,
     sessionTitle: sessionTitle ?? authCookie.sessionTitle,
   };
-  cookie.set(cookieName, JSON.stringify(authCookie));
+  cookie.set(
+    cookieName,
+    JSON.stringify(authCookie),
+    workspaceCookieOptions(authCookie.remembered !== false),
+  );
 }

@@ -23,6 +23,51 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: STUD-IMP-PROD-ERROR
+- Title: Harden student import production error handling and row-level import
+- Completed: 2026-07-12
+- Outcome: Completed the `.scratch/student-import-production-error` bundle. Student import now keeps staged review data when verification or execution receives an HTML/non-JSON response, shows a friendly recovery alert with redacted diagnostics, supports per-row `Import row` execution without disturbing remaining rows, returns structured tRPC errors for import classroom/session validation failures, and has production-like tenant-route checks confirming valid verification/execution and invalid inputs return JSON instead of HTML.
+- Related changes: `apps/api/src/db/queries/students.ts`, `apps/api/src/db/queries/students.test.ts`, `apps/dashboard/src/components/modals/student-import/import-activities.tsx`, `apps/dashboard/src/components/modals/student-import/import-errors.ts`, `apps/dashboard/src/components/modals/student-import/import-errors.test.ts`, `brain/api/contracts.md`, `brain/features/student-import.md`, `brain/progress.md`
+- Owner: Codex
+
+## Completed Task
+
+- ID: ASMT-001
+- Title: Make assessments and sub-assessments reliable across recording, reports, print, and PDF output
+- Completed: 2026-07-12
+- Outcome: Completed the assessment reliability pass across ordering, printable-column filtering, grouped assessment print modes, parent-aware labels, print-status warnings, and API validation. Browser smoke on local Crestview verified the grouped total-mode workflow for `Codex Print Total Smoke`: the subject assessment manager's result-print preview shows the parent total column only, and the student report print table renders `Codex Print Total Smoke(30)` while omitting the `Codex Oral Child` and `Codex Written Child` columns.
+- Related changes: `packages/assessment-results/src/index.ts`, `apps/api/src/db/queries/assessments.ts`, `apps/api/src/db/queries/report-sheet.ts`, `apps/api/src/db/queries/subjects.ts`, `apps/dashboard/src/components/forms/assessment-form.tsx`, `apps/dashboard/src/components/subject-assessments.tsx`, `apps/dashboard/src/features/student-report/report-model.ts`, `packages/db/src/schema/assessment.prisma`, `packages/db/src/schema/migrations/20260712133000_assessment_print_modes/migration.sql`, `brain/features/assessment-results-and-sub-assessments.md`, `brain/api/contracts.md`, `brain/api/endpoints.md`, `brain/database/schema.md`, `brain/database/migrations.md`, `brain/progress.md`
+- Owner: Codex
+
+## Completed Task
+
+- ID: STUD-IMP-006
+- Title: Batch Classroom Student Import Support
+- Completed: 2026-07-12
+- Outcome: Added explicit single/multiple classroom import modes, multi-classroom paste parsing, ambiguous-classroom handling, row-level classroom assignment during review, classroom scope summaries, row-targeted verification/execution behavior, and parser/API/browser coverage. Browser smoke on `daarulhadith.localhost:2200` verified a two-classroom paste moves from upload to review and completes execution with `Import complete`, `NEW CREATED 2`, `TERM SHEETS 2`, and `ERRORS 0`; DB verification for smoke run `60856831` confirmed both created students have current term forms in different classroom departments.
+- Related changes: `apps/dashboard/src/components/modals/student-import/index.tsx`, `apps/dashboard/src/components/modals/student-import/parser.ts`, `apps/dashboard/src/components/modals/student-import/import-activities.tsx`, `apps/dashboard/src/components/modals/student-import/parser.test.ts`, `apps/api/src/db/queries/students.ts`, `apps/api/src/db/queries/students.test.ts`, `apps/api/src/trpc/routers/students.routes.ts`, `brain/features/student-import.md`, `brain/progress.md`
+- Owner: Codex
+
+## Completed Task
+
+- ID: STAFF-AUTH-001
+- Title: Add senior secondary staff assignment scopes
+- Completed: 2026-07-12
+- Outcome: Added hierarchy-aware teacher academic access grants for whole-class, department/arm, subject-across-class, and subject-in-department scopes. Effective access now resolves dynamically from `StaffAcademicAccessGrant` plus legacy selected/all department assignments and is used by teacher authorization, teacher workspace, assessment recording context options, subject lists, report sheets, staff save/form-data paths, staff list summaries, and staff overview effective counts. Runtime smoke verified a local Crestview teacher can load `/teacher`, `/teacher/assessments`, and `/teacher/reports` without the tenant recovery screen, login redirect, or dashboard error boundary after applying the grant migration locally.
+- Related changes: `packages/db/src/schema/staffs.prisma`, `packages/db/src/schema/classroom.prisma`, `packages/db/src/schema/migrations/20260712120000_staff_academic_access_grants/migration.sql`, `packages/db/src/staff-academic-access.ts`, `packages/db/src/staff-academic-access-assignments.ts`, `apps/api/src/lib/teacher-authorization.ts`, `apps/api/src/db/queries/report-sheet.ts`, `apps/api/src/db/queries/subjects.ts`, `apps/api/src/trpc/routers/assessment.routes.ts`, `apps/api/src/trpc/routers/staff.routes.ts`, `apps/dashboard/src/actions/save-staff.ts`, `apps/dashboard/src/actions/schema.ts`, `apps/dashboard/src/actions/get-teacher-workspace.ts`, `apps/dashboard/src/components/forms/staff-form.tsx`, `apps/dashboard/src/components/staff/staff-overview-shell.tsx`, `brain/features/staff-management.md`, `brain/api/contracts.md`, `brain/api/permissions.md`, `brain/database/schema.md`, `brain/database/relationships.md`, `brain/database/migrations.md`
+- Owner: Codex
+
+## Completed Task
+
+- ID: TASK-2026-07-12-dashboard-session-persistence
+- Title: Harden dashboard tenant session persistence
+- Completed: 2026-07-12
+- Outcome: Extended remembered Better Auth sessions to 30 days, made the tenant workspace cookie HTTP-only and lifetime-aligned with remembered sessions, defaulted login to remember trusted devices, added tenant workspace cookie cleanup on sign-out, and allowed dashboard server/proxy helpers to reconstruct tenant context from a still-valid Better Auth session when the workspace cookie is missing, malformed, stale, or mismatched against the active tenant/user/session token.
+- Related changes: `packages/auth/src/index.ts`, `apps/dashboard/src/actions/cookies/auth-cookie.ts`, `apps/dashboard/src/app/[domain]/(auth)/login/*`, `apps/dashboard/src/app/[domain]/(auth)/signout/page.tsx`, `brain/api/permissions.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: TASK-2026-07-09-dev-infra-db-modes
 - Title: Replicate GND-style local, remote-dev, and production DB infra for SchoolClerk
 - Completed: 2026-07-09

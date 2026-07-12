@@ -17,6 +17,7 @@ import { percent, sum, uniqueList } from "@school-clerk/utils";
 import {
   assertTeacherCanAccessClassroomDepartment,
   assertTeacherCanAccessDepartmentSubject,
+  getTeacherAcademicAccess,
 } from "../../lib/teacher-authorization";
 
 export { saveSubjectSchema } from "@school-clerk/assessment-results";
@@ -24,9 +25,22 @@ export { saveSubjectSchema } from "@school-clerk/assessment-results";
 export async function getSubjects(ctx: TRPCContext, query: GetSubjectsSchema) {
   const { db } = ctx;
   const model = db.departmentSubject;
+  const teacherAccess = await getTeacherAcademicAccess(ctx, query.termId);
+  const subjectWhere = whereSubjects(query);
+  const accessWhere = teacherAccess
+    ? {
+        id: {
+          in: teacherAccess.departmentSubjectIds,
+        },
+      }
+    : undefined;
   const { response, searchMeta, where } = await composeQueryData(
     query,
-    whereSubjects(query),
+    composeQuery(
+      [subjectWhere, accessWhere].filter(
+        Boolean,
+      ) as Prisma.DepartmentSubjectWhereInput[],
+    ),
     model
   );
   const data = await model.findMany({
@@ -138,6 +152,7 @@ export async function overview(ctx: TRPCContext, query: SubjectOverviewSchema) {
           obtainable: true,
           percentageObtainable: true,
           isGroup: true,
+          printMode: true,
           childAssessments: {
             where: {
               deletedAt: null,
@@ -150,6 +165,7 @@ export async function overview(ctx: TRPCContext, query: SubjectOverviewSchema) {
               obtainable: true,
               percentageObtainable: true,
               isGroup: true,
+              printMode: true,
               _count: {
                 select: {
                   assessmentResults: {
@@ -204,6 +220,7 @@ export async function getClassroomSubjects(
   params: GetClassroomSubjects
 ) {
   await assertTeacherCanAccessClassroomDepartment(ctx, params?.departmentId);
+  const teacherAccess = await getTeacherAcademicAccess(ctx, params.sessionTermId);
 
   const { db } = ctx;
   const department = await db.classRoomDepartment.findUniqueOrThrow({
@@ -228,6 +245,13 @@ export async function getClassroomSubjects(
       subjects: {
         where: {
           sessionTermId: params.sessionTermId,
+          ...(teacherAccess
+            ? {
+                id: {
+                  in: teacherAccess.departmentSubjectIds,
+                },
+              }
+            : {}),
         },
         select: {
           id: true,

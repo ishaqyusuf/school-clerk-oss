@@ -3,6 +3,7 @@
   "include": ["src/index.ts", "src/react.tsx", "src/next.tsx", "src/next-server.ts"],
   "exclude": ["node_modules"],
   "compilerOptions": {
+    "baseUrl": ".",
     "jsx": "react-jsx",
     "noImplicitAny": false
   }

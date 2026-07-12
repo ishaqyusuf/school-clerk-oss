@@ -2,7 +2,8 @@
   "extends": "@school-clerk/tsconfig/base.json",
   "compilerOptions": {
     "module": "ESNext",
-    "moduleResolution": "Bundler"
+    "moduleResolution": "Bundler",
+    "noEmit": true
   },
   "include": ["src", "."],
   "exclude": ["node_modules"]

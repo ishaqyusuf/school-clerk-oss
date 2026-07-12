@@ -7,6 +7,7 @@ import { Prisma } from "@school-clerk/db";
 import { studentDisplayName } from "./enrollment-query";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { subDays } from "date-fns";
@@ -1175,10 +1176,40 @@ export async function changeStudentGender(
   query: ChangeStudentGenderSchema,
 ) {
   const { db } = ctx;
-  await db.students.update({
-    where: { id: query.id },
+  const schoolProfileId = ctx.profile.schoolId;
+  const role = ctx.currentUser?.role;
+  const canUpdateGender =
+    role === "ADMIN" || role === "Admin" || role === "Registrar";
+
+  if (!schoolProfileId) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "A school workspace is required to update student gender.",
+    });
+  }
+
+  if (!canUpdateGender) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You do not have permission to update student gender.",
+    });
+  }
+
+  const result = await db.students.updateMany({
+    where: {
+      id: query.id,
+      schoolProfileId,
+      deletedAt: null,
+    },
     data: { gender: query.gender },
   });
+
+  if (result.count === 0) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Student was not found in this school workspace.",
+    });
+  }
 }
 
 export const deleteTermSheetSchema = z.object({
@@ -1329,6 +1360,13 @@ export async function verifyStudentImport(
   const sessionTermId = profile.termId;
   const schoolSessionId = profile.sessionId;
 
+  if (!profile.schoolId || !schoolSessionId || !sessionTermId) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Active school, session, and term are required",
+    });
+  }
+
   const requestedClassroomIds = Array.from(
     new Set(
       [
@@ -1357,9 +1395,11 @@ export async function verifyStudentImport(
   );
 
   if (classRoomDepts.length !== requestedClassroomIds.length) {
-    throw new Error(
-      "One or more selected classroom departments were not found, unauthorized, or not in the active session.",
-    );
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "One or more selected classroom departments were not found, unauthorized, or not in the active session.",
+    });
   }
 
   // 2. Fetch candidate students
@@ -1678,7 +1718,10 @@ export async function executeStudentImport(
   const profile = ctx.profile;
 
   if (!profile.schoolId || !profile.sessionId || !profile.termId) {
-    throw new Error("Active school, session, and term are required");
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Active school, session, and term are required",
+    });
   }
 
   const requestedClassroomIds = Array.from(
@@ -1691,7 +1734,10 @@ export async function executeStudentImport(
   );
 
   if (!requestedClassroomIds.length) {
-    throw new Error("At least one classroom is required");
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "At least one classroom is required",
+    });
   }
 
   const classrooms = await db.classRoomDepartment.findMany({
@@ -1712,9 +1758,11 @@ export async function executeStudentImport(
   );
 
   if (classrooms.length !== requestedClassroomIds.length) {
-    throw new Error(
-      "One or more selected classrooms do not belong to the active school",
-    );
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "One or more selected classrooms do not belong to the active school",
+    });
   }
 
   if (
@@ -1722,9 +1770,11 @@ export async function executeStudentImport(
       (classroom) => classroom.classRoom?.schoolSessionId !== profile.sessionId,
     )
   ) {
-    throw new Error(
-      "One or more selected classrooms do not belong to the active session",
-    );
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "One or more selected classrooms do not belong to the active session",
+    });
   }
 
   const rows: ImportRowResult[] = [];

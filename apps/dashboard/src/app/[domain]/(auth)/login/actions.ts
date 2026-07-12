@@ -51,6 +51,7 @@ export async function loginWithPasswordAction(formData: FormData) {
 
     const cookie = await resetCookie({
       bearerToken,
+      rememberMe,
       userId,
       redirectUrl: defaultHref,
     });

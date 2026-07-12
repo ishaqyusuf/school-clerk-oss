@@ -31,8 +31,7 @@ Make classroom assessment recording, classroom result review, student result pri
   - `ClassroomSubjectAssessment.percentageObtainable` is the report/print weight.
   - `ClassroomSubjectAssessment.obtainable` is the raw score maximum.
   - `ClassroomSubjectAssessment.index` controls display order.
-- Target field:
-  - `printMode` for grouped parent assessments, with values such as `expanded` and `total`.
+- `ClassroomSubjectAssessment.printMode` stores the grouped parent result-print behavior as `EXPANDED` or `TOTAL`, defaulting to `EXPANDED`.
 - Optional future field:
   - `printOnResult` if schools need to hide a weighted item from print without setting weight to zero.
 - Public assessment-recording links use `AssessmentPublicLink`:
@@ -65,17 +64,23 @@ Make classroom assessment recording, classroom result review, student result pri
   - Print expanded
   - Print total only
   - 0% weight
+- The assessment create/edit form should show live print-status badges and warnings from the current weight/sub-assessment values.
+- Saved assessment rows should show print-status badges and warnings so admins can audit printable result behavior without opening each assessment.
 - Printable labels should include parent context for expanded child columns, for example `Exam - Oral`.
-- A print preview inside the assessment manager should show the exact columns that will appear on result printouts.
+- Assessment recording, classroom result review, CSV export, and print spreadsheet headers use the same parent-aware assessment labels.
+- A print preview inside the assessment manager shows the exact weighted columns that will appear on result printouts for the current subject.
 
 ## Print Rules
 
 - Standalone assessment with `percentageObtainable > 0`: print as a column.
 - Standalone assessment with no weight or zero weight: do not print as a column.
+- Subjects with no printable assessment columns are hidden from printed/PDF student results.
 - Grouped parent assessment: never print as a directly scored parent row.
 - Grouped assessment with `printMode = expanded`: print weighted children only.
 - Grouped assessment with `printMode = total`: print one parent total column if summed child weight is greater than zero.
 - Child assessment with no weight or zero weight: do not print as a column.
+- Authenticated and public score-entry routes must write only to non-group scoreable assessment rows.
+- Assessment setup rejects child assessment IDs that do not already belong to the grouped parent being edited.
 - Recording/classroom review may still show zero-weight scoreable items when they are useful for internal tracking.
 - Assessment recording defaults to the first loaded subject when no explicit subject is selected, while preserving explicit `deptSubjectId` deep links.
 - Assessment recording score-entry tables show editable assessment cells only; subject total columns are reserved for classroom result review rather than score entry.
@@ -86,6 +91,8 @@ Make classroom assessment recording, classroom result review, student result pri
 - The assessment recording header hides the `Report Sheet` shortcut for staff-facing roles; it remains an admin-only shortcut from the recording screen.
 - The classroom context selector belongs inside the assessment recording table header beside the subject filter, not in a fixed viewport header, so classroom and subject filtering live in one control cluster.
 - Assessment recording score cells keep a fixed column width in display and edit modes so focusing an input does not resize the assessment column.
+- Assessment recording and classroom result review rosters share the same default student ordering: `Male` students first, then `Female` students, then alphabetic display names within each gender group.
+- Authenticated assessment recording and classroom result review tables include a compact Gender column near the student identity columns. Users with student-management permission can update gender from the table, and the report query is invalidated/refetched so the corrected gender and roster position refresh together.
 - The subject assessment editor modal uses a flat tool-panel layout: no nested card shell, flat assessment rows, and simple bordered stat/form sections.
 - The subject assessment editor `Record submission` action opens `/assessment-recording` with `termId`, `deptId`, and `deptSubjectId` prefilled so the score-entry table is filtered to that subject.
 - Dashboard current-term selection is date-aware: terms with no start date are not considered current; terms whose start/end span today are preferred; started terms without an end date are the fallback current term.
@@ -134,7 +141,5 @@ Make classroom assessment recording, classroom result review, student result pri
 
 ## Open Questions
 
-- Should subject rows with no printable assessments be hidden from printed student results or shown as blank subjects?
 - Should total subject printable weight be required to equal 100%, or only warned when it does not?
 - Should zero-weight assessments remain visible in classroom result review, or only in recording screens?
-- Should `printMode` default to `total` or `expanded` for grouped assessments?

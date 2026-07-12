@@ -1,8 +1,17 @@
 import type { NextConfig } from "next";
 
+const localSchoolClerkHosts = [
+  "school-clerk.localhost",
+  "*.school-clerk.localhost",
+];
+
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["*.school-clerk.localhost"],
-  transpilePackages: ["@school-clerk/ui"],
+  allowedDevOrigins: [
+    ...localSchoolClerkHosts,
+    ...localSchoolClerkHosts.map((host) => `http://${host}`),
+    ...localSchoolClerkHosts.map((host) => `https://${host}`),
+  ],
+  transpilePackages: ["@school-clerk/ui", "@school-clerk/tenant-url"],
   typescript: { ignoreBuildErrors: true },
 };
 

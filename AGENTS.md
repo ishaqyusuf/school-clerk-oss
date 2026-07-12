@@ -26,9 +26,9 @@ Final responses must include the Brain files updated, or `No Brain documentation
 
 - Package manager: `bun`.
 - Start the full dev stack with `bun run dev`.
-- Start dashboard plus API with `bun run dashboard`.
-- Start only the dashboard with `bun run dev:dashboard`.
-- Start site work with `bun run dev:site` or `bun run dev:school-site`.
+- Start dashboard plus API with `bun run dev --filter dashboard api`.
+- Start only the dashboard with `bun run dev --filter dashboard`.
+- Start site work with `bun run dev --filter site` or `bun run dev --filter school-site`.
 - Generate Prisma client with `bun run db:generate`.
 - Run migrations with `bun run db:migrate`.
 - Validate broad changes with `bun run typecheck` and the narrowest relevant build or lint command.

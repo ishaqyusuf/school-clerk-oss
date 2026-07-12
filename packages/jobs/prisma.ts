@@ -44,5 +44,5 @@ const collectPrismaFiles = async (dir: string): Promise<string[]> => {
     combined += `// ---- ${relPath} ----\n${content.trim()}\n\n`;
   }
 
-  await writeFile(outputFile, combined);
+  await writeFile(outputFile, `${combined.trimEnd()}\n`);
 })();

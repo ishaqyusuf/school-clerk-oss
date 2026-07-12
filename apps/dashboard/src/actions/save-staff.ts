@@ -20,11 +20,17 @@ import { networkInterfaces } from "node:os";
 import { z } from "zod";
 import { ensureCredentialAccount } from "./ensure-credential-account";
 
-import { ensureNotificationContact, prisma } from "@school-clerk/db";
+import {
+  assertStaffAcademicAssignmentReferences,
+  buildStaffAcademicAccessPersistence,
+  collectStaffAcademicAssignmentReferenceIds,
+  ensureNotificationContact,
+  normalizeStaffAcademicAssignments,
+  prisma,
+} from "@school-clerk/db";
 import { createNotificationFromType } from "@school-clerk/notifications";
 import {
   STAFF_ASSIGNMENT_ROLES,
-  type StaffClassroomSubjectAccessMode,
   type StaffInviteStatus,
 } from "@school-clerk/utils/constants";
 
@@ -57,52 +63,6 @@ function buildPendingStaffName(email: string) {
   return formatted.replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
-function dedupeAssignments(
-  assignments: Array<{
-    classRoomDepartmentId?: string;
-    subjectAccessMode?: StaffClassroomSubjectAccessMode;
-    departmentSubjectIds?: string[];
-  }>,
-) {
-  const map = new Map<
-    string,
-    {
-      subjectAccessMode: StaffClassroomSubjectAccessMode;
-      subjectIds: Set<string>;
-    }
-  >();
-
-  for (const assignment of assignments) {
-    const classroomId = assignment.classRoomDepartmentId?.trim();
-    if (!classroomId) continue;
-
-    const subjectAccessMode = assignment.subjectAccessMode ?? "SELECTED";
-    const current = map.get(classroomId) ?? {
-      subjectAccessMode,
-      subjectIds: new Set<string>(),
-    };
-    current.subjectAccessMode =
-      current.subjectAccessMode === "ALL" || subjectAccessMode === "ALL"
-        ? "ALL"
-        : "SELECTED";
-
-    for (const subjectId of assignment.departmentSubjectIds ?? []) {
-      if (subjectId?.trim()) {
-        current.subjectIds.add(subjectId);
-      }
-    }
-    map.set(classroomId, current);
-  }
-
-  return Array.from(map.entries()).map(([classRoomDepartmentId, assignment]) => ({
-      classRoomDepartmentId,
-      subjectAccessMode: assignment.subjectAccessMode,
-      departmentSubjectIds:
-        assignment.subjectAccessMode === "ALL"
-          ? []
-          : Array.from(assignment.subjectIds),
-    }));
-}
 
 function getHostPort(host: string) {
   if (host.startsWith("[")) return host.match(/]:(\d+)$/)?.[1] ?? "";
@@ -488,7 +448,7 @@ export const saveStaffAction = actionClient
 
     const email = normalizeEmail(parsedInput.email);
     const assignments = roleSupportsAssignments(parsedInput.role)
-      ? dedupeAssignments(parsedInput.assignments)
+      ? normalizeStaffAcademicAssignments(parsedInput.assignments)
       : [];
 
     const savedStaff = await prisma.$transaction(async (tx) => {
@@ -512,14 +472,29 @@ export const saveStaffAction = actionClient
         throw new Error("Staff record not found.");
       }
 
-      const requestedClassroomIds = assignments.map(
-        (item) => item.classRoomDepartmentId,
-      );
-      const selectedSubjectIds = assignments.flatMap(
-        (item) => item.departmentSubjectIds,
-      );
+      const {
+        classRoomIds: requestedClassIds,
+        classRoomDepartmentIds: requestedClassroomIds,
+        subjectIds: requestedSubjectIds,
+        departmentSubjectIds: selectedSubjectIds,
+      } = collectStaffAcademicAssignmentReferenceIds(assignments);
 
-      const [validClassrooms, validSubjects] = await Promise.all([
+      const [validClasses, validClassrooms, validSubjects, validDepartmentSubjects] = await Promise.all([
+        requestedClassIds.length
+          ? tx.classRoom.findMany({
+              where: {
+                id: {
+                  in: requestedClassIds,
+                },
+                deletedAt: null,
+                schoolProfileId: profile.schoolId,
+                schoolSessionId: profile.sessionId,
+              },
+              select: {
+                id: true,
+              },
+            })
+          : Promise.resolve([]),
         requestedClassroomIds.length
           ? tx.classRoomDepartment.findMany({
               where: {
@@ -538,6 +513,20 @@ export const saveStaffAction = actionClient
               },
             })
           : Promise.resolve([]),
+        requestedSubjectIds.length
+          ? tx.subject.findMany({
+              where: {
+                id: {
+                  in: requestedSubjectIds,
+                },
+                deletedAt: null,
+                schoolProfileId: profile.schoolId,
+              },
+              select: {
+                id: true,
+              },
+            })
+          : Promise.resolve([]),
         selectedSubjectIds.length
           ? tx.departmentSubject.findMany({
               where: {
@@ -549,40 +538,28 @@ export const saveStaffAction = actionClient
                 classRoomDepartment: {
                   deletedAt: null,
                   schoolProfileId: profile.schoolId,
+                  classRoom: {
+                    deletedAt: null,
+                    schoolSessionId: profile.sessionId,
+                  },
                 },
               },
               select: {
                 id: true,
                 classRoomDepartmentId: true,
+                subjectId: true,
               },
             })
           : Promise.resolve([]),
       ]);
 
-      if (validClassrooms.length !== requestedClassroomIds.length) {
-        throw new Error("One or more selected classrooms are no longer valid.");
-      }
-
-      if (validSubjects.length !== selectedSubjectIds.length) {
-        throw new Error("One or more selected subjects are no longer valid.");
-      }
-
-      const subjectToClassroom = new Map(
-        validSubjects.map((subject) => [
-          subject.id,
-          subject.classRoomDepartmentId,
-        ]),
-      );
-
-      for (const assignment of assignments) {
-        for (const subjectId of assignment.departmentSubjectIds) {
-          if (subjectToClassroom.get(subjectId) !== assignment.classRoomDepartmentId) {
-            throw new Error(
-              "Subjects must belong to the selected classroom assignment.",
-            );
-          }
-        }
-      }
+      assertStaffAcademicAssignmentReferences({
+        assignments,
+        validClassIds: validClasses,
+        validClassRoomDepartmentIds: validClassrooms,
+        validSubjectIds: validSubjects,
+        validDepartmentSubjects,
+      });
 
       const resolvedName =
         existingStaff?.name?.trim() || buildPendingStaffName(email);
@@ -650,13 +627,34 @@ export const saveStaffAction = actionClient
         },
       });
 
-      if (assignments.length) {
+      const {
+        legacyClassroomAssignments,
+        academicAccessGrants,
+        selectedDepartmentSubjectIds,
+      } = buildStaffAcademicAccessPersistence({
+        assignments,
+        staffTermProfileId: termProfile.id,
+      });
+
+      if (legacyClassroomAssignments.length) {
         await tx.staffClassroomDepartmentTermProfiles.createMany({
-          data: assignments.map(({ classRoomDepartmentId, subjectAccessMode }) => ({
-            staffTermProfileId: termProfile.id,
-            classRoomDepartmentId,
-            subjectAccessMode,
-          })),
+          data: legacyClassroomAssignments,
+        });
+      }
+
+      await tx.staffAcademicAccessGrant.updateMany({
+        where: {
+          staffTermProfileId: termProfile.id,
+          deletedAt: null,
+        },
+        data: {
+          deletedAt: new Date(),
+        },
+      });
+
+      if (academicAccessGrants.length) {
+        await tx.staffAcademicAccessGrant.createMany({
+          data: academicAccessGrants,
         });
       }
 
@@ -673,9 +671,9 @@ export const saveStaffAction = actionClient
         },
       });
 
-      if (selectedSubjectIds.length) {
+      if (selectedDepartmentSubjectIds.length) {
         await tx.staffSubject.createMany({
-          data: selectedSubjectIds.map((departmentSubjectId) => ({
+          data: selectedDepartmentSubjectIds.map((departmentSubjectId) => ({
             staffProfilesId: staffProfile.id,
             departmentSubjectId,
           })),

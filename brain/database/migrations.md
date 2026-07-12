@@ -13,17 +13,17 @@ Change log for database schema migrations and rollout notes.
 ## Operational Runbook
 
 - Dev database selection follows the GND-style three-layer model: `remote-dev` for shared development databases, `local` for the Docker Postgres database, and `production` for production-only scripts and deploys.
-- `scripts/with-dev-infra.ts` is the development DB-mode resolver. It loads root plus package `.env`/`.env.local` files, defaults to `SCHOOL_CLERK_DB_MODE=remote-dev`, and exports `POSTGRES_URL`, `DATABASE_URL`, and `DIRECT_URL` consistently for apps, Prisma, and jobs.
+- `scripts/dev.ts` is the local development router and delegates DB-mode resolution to `scripts/with-dev-infra.ts`. The router defaults `bun run dev` to local Docker Postgres, supports `bun run dev --remote-dev` for hosted dev, and accepts `--filter`, `--f`, `-f`, or `-filter` with Turbo selector syntax plus bare exact package-name shorthand such as `api site! @school-clerk/jobs`. `scripts/with-dev-infra.ts` still loads root plus package `.env`/`.env.local` files and exports `DATABASE_URL` as the canonical Prisma/app database URL.
 - Local database runs in Docker and is currently mapped to `localhost:55432`.
-- Use `bun run dev` for the default remote-dev workflow, `bun run dev:remote-db` to be explicit, and `bun run dev:local` to force the local Docker database.
+- Use `bun run dev` or `bun run dev --local` for the default local Docker workflow, `bun run dev --remote-dev` for remote development, and `bun run dev --prod` for the production-env dashboard/API smoke profile.
 - Use `bun run dev:services` to start only the local services implied by the selected env; it skips Postgres when the DB mode or URL points at remote dev. Use `bun run dev:services:local`, `bun run db:start`, or `bun run db:docker:up` to force local Postgres startup.
-- Unqualified DB commands (`db:migrate`, `db:pull`, `db:studio`, `db:generate`, and `db:shell`) use the selected/default dev DB mode.
-- Use the `:dev` DB command variants (`db:migrate:dev`, `db:pull:dev`, `db:studio:dev`, `db:generate:dev`, `db:push:dev`, and `db:shell:dev`) to force the remote development DB.
-- Use the `:local` DB command variants (`db:migrate:local`, `db:pull:local`, `db:studio:local`, `db:generate:local`, `db:push:local`, and `db:shell:local`) to force the Docker/local DB.
-- Root DB aliases call package scripts through `bun run --cwd packages/db ...`; keep this form so interactive Prisma prompts behave the same from the repo root as they do inside `packages/db`.
-- Use `bun run db:push:prod` or `bun run db:push` only for the server/production database; these resolve through production env loading and set `SCHOOL_CLERK_PRISMA_USE_DIRECT_URL=1` so Prisma maintenance uses `DIRECT_URL` instead of the transaction pooler.
+- Prisma maintenance commands are routed through `scripts/db-command.ts`. The preferred profile form is `bun run db:push --local|--remote|--prod` and `bun run db:migrate --local|--remote|--prod`; no profile flag defaults to local Docker Postgres. Legacy aliases such as `db:push:local`, `db:push:dev`, `db:push:prod`, `db:migrate:local`, `db:migrate:dev`, and `db:migrate:prod` delegate to the same router.
+- `db:migrate --local` and `db:migrate --remote` run `prisma migrate dev`; `db:migrate --prod` runs `prisma migrate deploy`.
+- `db:push --local` and `db:push --remote` run `prisma db push` against the resolved development database. `db:push --prod` loads production env, refuses local database URLs, and requires production `DATABASE_URL`.
+- The DB command router runs Prisma from `packages/db` so `packages/db/prisma.config.ts` can stay GND-style and read the already-resolved `DATABASE_URL`.
+- Local package dev scripts also pass through `scripts/with-root-env.mjs --mode local`, which forces `DATABASE_URL`, `POSTGRES_URL`, and `DIRECT_URL` to the local Docker profile from `LOCAL_*` env vars when present. This prevents `.env.local` top-level remote database URLs from leaking into filtered local `turbo dev` package processes.
 - The `packages/jobs` dev script now uses the same dev-infra resolver as the DB package, while `jobs:deploy` uses production env loading.
-- Prisma 7 is the default ORM runtime. The schema datasource URL is supplied through `packages/db/prisma.config.ts`, and the generated client lives under `packages/db/src/generated/client`.
+- Prisma 7 is the default ORM runtime. `packages/db/prisma.config.ts` reads `DATABASE_URL` only; profile selection and PostgreSQL SSL URL normalization for Prisma CLI commands happen before Prisma is spawned. The generated client lives under `packages/db/src/generated/client`.
 - `packages/db/src/generated/` is ignored source output. Run `bun run db:generate` before local typechecks that import `@school-clerk/db`; dashboard and school-site build scripts generate the client before `next build` for app-direct Vercel builds.
 - Use `bun run db:studio` for Prisma Studio against the selected development database.
 - If the Docker DB is not running yet, start it with `bun run db:start` or `docker compose up -d postgres` from the repo root.
@@ -46,6 +46,26 @@ Change log for database schema migrations and rollout notes.
 
 ## Migration Entry
 
+- Date: 2026-07-12
+- ID: 20260712133000_assessment_print_modes
+- Summary: Added `ClassroomSubjectAssessmentPrintMode` and `ClassroomSubjectAssessment.printMode` so grouped assessment parents can choose expanded child columns or a single total column on printed/PDF student results.
+- Affected entities: `ClassroomSubjectAssessment`, `ClassroomSubjectAssessmentPrintMode`
+- Backfill required: No manual backfill; existing rows default to `EXPANDED`, preserving current printed result behavior.
+- Rollback plan: Remove dashboard/API use of grouped total print mode, regenerate clients, then drop `ClassroomSubjectAssessment.printMode` and `ClassroomSubjectAssessmentPrintMode`.
+- Owner: Codex
+
+## Migration Entry
+
+- Date: 2026-07-12
+- ID: 20260712120000_staff_academic_access_grants
+- Summary: Added hierarchy-aware staff academic access grants for whole-class, department/arm, subject-across-class, and subject-in-department teacher assignment scopes.
+- Affected entities: `StaffAcademicAccessGrant`, `StaffAcademicAccessScope`, `StaffTermProfile`, `ClassRoom`, `ClassRoomDepartment`, `Subject`, `DepartmentSubject`
+- Backfill required: No immediate data backfill; the effective-access resolver reads existing `StaffClassroomDepartmentTermProfiles` and `StaffSubject` rows as legacy compatibility input. New saves write both dynamic grant rows and legacy rows where applicable.
+- Rollback plan: Remove staff form/API use of broad grant scopes, switch teacher authorization back to legacy assignment rows, then drop `StaffAcademicAccessGrant`, its indexes/foreign keys, and `StaffAcademicAccessScope`.
+- Owner: Codex
+
+## Migration Entry
+
 - Date: 2026-07-09
 - ID: 20260709120000_assessment_public_links
 - Summary: Added tenant-scoped public assessment-recording links with approval lifecycle, hashed signed tokens, expiry metadata, captured subject/student filters, and assessment public-link activity events.
@@ -53,6 +73,7 @@ Change log for database schema migrations and rollout notes.
 - Backfill required: No; existing assessment recording continues to use authenticated routes and no links exist until created or requested.
 - Rollback plan: Remove dashboard/API use of public assessment links and notification types, revoke any issued links operationally, then drop the table, enum, indexes, and activity enum values where supported.
 - Owner: Codex
+- Note: The composite `AssessmentPublicLink` tenant/term/classroom index is explicitly named `AssessmentPublicLink_schoolProfileId_sessionTermId_classRoo_idx` to avoid generated-name truncation drift between Prisma and PostgreSQL.
 
 ## Migration Entry
 

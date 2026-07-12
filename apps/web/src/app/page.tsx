@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@school-clerk/db";
-import { buildTenantAppUrl } from "@school-clerk/tenant-url";
 import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { BrandLogo } from "@/components/brand-logo";
 import { DevTenantsFab } from "@/components/dev-tenants-fab";
-import { headers } from "next/headers";
 
 // export default function Home() {
 //   return (
@@ -109,14 +107,13 @@ const bookDemoHref =
   "mailto:hello@schoolclerk.com?subject=Book%20a%20SchoolClerk%20demo";
 
 export default async function Home() {
-  const headerStore = await headers();
-  const currentHost = getRequestHost(headerStore);
-  const currentProtocol = headerStore.get("x-forwarded-proto") ?? "http";
-  const dashboardRootDomain = resolveDashboardAppRootDomain(
-    process.env.DASHBOARD_ROOT_DOMAIN ?? process.env.APP_ROOT_DOMAIN,
-  );
   const schoolSiteRootDomain =
     process.env.SCHOOL_SITE_ROOT_DOMAIN ?? "school-clerk-site.localhost";
+  const schoolSitePort = process.env.SCHOOL_SITE_PORT ?? 2400;
+  const dashboardPort =
+    process.env.SCHOOL_CLERK_DASHBOARD_APP_PORT ??
+    process.env.DASHBOARD_PORT ??
+    2200;
 
   const tenants = isDev
     ? await prisma.schoolProfile.findMany({
@@ -124,41 +121,27 @@ export default async function Home() {
           deletedAt: null,
         },
         orderBy: {
-          createdAt: "desc",
+          createdAt: "asc",
         },
         select: {
+          id: true,
           name: true,
           subDomain: true,
+          studentCountEstimate: true,
+          _count: {
+            select: {
+              students: true,
+            },
+          },
         },
-        take: 12,
       })
     : [];
 
   const tenantLinks = tenants.map((tenant) => ({
-    dashboardHref: buildTenantAppUrl({
-      tenantSlug: tenant.subDomain,
-      path: "/login",
-      currentHost,
-      currentProtocol,
-      targetRootDomain: dashboardRootDomain,
-      targetPort: process.env.DASHBOARD_PORT ?? 2200,
-      pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
-      enablePathStyleHosts: isDev,
-      defaultProtocol: isDev ? "http" : "https",
-    }),
-    mainHref: buildTenantAppUrl({
-      tenantSlug: tenant.subDomain,
-      path: "/",
-      currentHost,
-      currentProtocol,
-      targetRootDomain: schoolSiteRootDomain,
-      targetPort: process.env.SCHOOL_SITE_PORT ?? 2400,
-      pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
-      enablePathStyleHosts: isDev,
-      defaultProtocol: isDev ? "http" : "https",
-    }),
+    id: tenant.id,
     name: tenant.name,
-    subdomain: tenant.subDomain,
+    slug: tenant.subDomain,
+    studentCount: tenant._count.students || tenant.studentCountEstimate || 0,
   }));
 
   return (
@@ -648,14 +631,15 @@ export default async function Home() {
         </div>
       </footer>
 
-      {isDev ? <DevTenantsFab tenants={tenantLinks} /> : null}
+      {isDev ? (
+        <DevTenantsFab
+          dashboardPort={dashboardPort}
+          dashboardRootDomain={configuredDashboardHost}
+          sitePort={schoolSitePort}
+          siteRootDomain={schoolSiteRootDomain}
+          tenants={tenantLinks}
+        />
+      ) : null}
     </div>
-  );
-}
-
-function getRequestHost(headerStore: Headers) {
-  return (
-    headerStore.get("x-forwarded-host")?.split(",")[0]?.trim() ||
-    headerStore.get("host")
   );
 }

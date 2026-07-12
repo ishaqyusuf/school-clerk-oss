@@ -42,6 +42,7 @@ import {
   updatePublicAssessmentScoreSchema,
 } from "@api/db/queries/assessment-public-links";
 import { classroomDisplayName } from "@school-clerk/utils";
+import { resolveStaffAcademicAccess } from "@school-clerk/db";
 import { z } from "zod";
 
 const recordingContextOptionsSchema = z
@@ -266,65 +267,67 @@ export const assessmentRouter = createTRPCRouter({
           endDate: term.endDate,
         }));
 
-      const termIds = terms.map((term) => term.id);
-      const classroomAssignments = termIds.length
-        ? await ctx.db.staffClassroomDepartmentTermProfiles.findMany({
+      const effectiveAccessByTerm = new Map<string, string[]>();
+      await Promise.all(
+        terms.map(async (term) => {
+          if (!term.sessionId) return;
+
+          const access = await resolveStaffAcademicAccess({
+            db: ctx.db,
+            staffProfileId: staffProfile.id,
+            schoolProfileId: ctx.profile.schoolId!,
+            schoolSessionId: term.sessionId,
+            sessionTermId: term.id,
+          });
+
+          effectiveAccessByTerm.set(term.id, access.classRoomDepartmentIds);
+        }),
+      );
+      const effectiveClassroomIds = Array.from(
+        new Set(Array.from(effectiveAccessByTerm.values()).flat()),
+      );
+      const effectiveClassrooms = effectiveClassroomIds.length
+        ? await ctx.db.classRoomDepartment.findMany({
             where: {
-              deletedAt: null,
-              staffTermProfile: {
-                deletedAt: null,
-                staffProfileId: staffProfile.id,
-                sessionTermId: {
-                  in: termIds,
-                },
+              id: {
+                in: effectiveClassroomIds,
               },
-              classRoomDepartment: {
+              deletedAt: null,
+              schoolProfileId: ctx.profile.schoolId,
+              classRoom: {
                 deletedAt: null,
-                schoolProfileId: ctx.profile.schoolId,
               },
             },
             select: {
-              staffTermProfile: {
-                select: {
-                  sessionTermId: true,
-                },
-              },
-              classRoomDepartment: {
+              id: true,
+              departmentName: true,
+              departmentLevel: true,
+              classRoom: {
                 select: {
                   id: true,
-                  departmentName: true,
-                  departmentLevel: true,
-                  classRoom: {
-                    select: {
-                      id: true,
-                      name: true,
-                      classLevel: true,
-                    },
-                  },
+                  name: true,
+                  classLevel: true,
                 },
               },
             },
             orderBy: [
               {
-                classRoomDepartment: {
-                  classRoom: {
-                    classLevel: "asc",
-                  },
+                classRoom: {
+                  classLevel: "asc",
                 },
               },
               {
-                classRoomDepartment: {
-                  departmentLevel: "asc",
-                },
+                departmentLevel: "asc",
               },
               {
-                classRoomDepartment: {
-                  departmentName: "asc",
-                },
+                departmentName: "asc",
               },
             ],
           })
         : [];
+      const effectiveClassroomById = new Map(
+        effectiveClassrooms.map((classroom) => [classroom.id, classroom]),
+      );
 
       const classroomsByTerm = new Map<
         string,
@@ -341,26 +344,27 @@ export const assessmentRouter = createTRPCRouter({
         }>
       >();
 
-      for (const assignment of classroomAssignments) {
-        const termId = assignment.staffTermProfile.sessionTermId;
-        const department = assignment.classRoomDepartment;
-        if (!termId || !department) continue;
+      for (const [termId, classroomIds] of effectiveAccessByTerm) {
+        for (const classroomId of classroomIds) {
+          const department = effectiveClassroomById.get(classroomId);
+          if (!department) continue;
 
-        const termClassrooms = classroomsByTerm.get(termId) ?? [];
-        if (
-          termClassrooms.some((classroom) => classroom.id === department.id)
-        ) {
-          continue;
+          const termClassrooms = classroomsByTerm.get(termId) ?? [];
+          if (
+            termClassrooms.some((classroom) => classroom.id === department.id)
+          ) {
+            continue;
+          }
+
+          termClassrooms.push({
+            ...department,
+            displayName: classroomDisplayName({
+              className: department.classRoom?.name,
+              departmentName: department.departmentName,
+            }),
+          });
+          classroomsByTerm.set(termId, termClassrooms);
         }
-
-        termClassrooms.push({
-          ...department,
-          displayName: classroomDisplayName({
-            className: department.classRoom?.name,
-            departmentName: department.departmentName,
-          }),
-        });
-        classroomsByTerm.set(termId, termClassrooms);
       }
 
       const requestedTermId = input?.termId ?? null;

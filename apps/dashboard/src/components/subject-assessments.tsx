@@ -7,7 +7,12 @@ import {
 } from "@school-clerk/ui/composite";
 import { useEffect, useState } from "react";
 import { AssessmentForm, AssessmentFormAction } from "./forms/assessment-form";
-import { saveAssessementSchema } from "@school-clerk/assessment-results";
+import {
+  getAssessmentPrintColumns,
+  getAssessmentPrintStatus,
+  isPrintableAssessment,
+  saveAssessementSchema,
+} from "@school-clerk/assessment-results";
 import { _qc, _trpc } from "./static-trpc";
 import { Badge } from "@school-clerk/ui/badge";
 import { Icons } from "@school-clerk/ui/icons";
@@ -27,6 +32,15 @@ import {
 } from "lucide-react";
 import { Separator } from "@school-clerk/ui/separator";
 import { cn } from "@school-clerk/ui/cn";
+
+function printBadgeVariant(printable: boolean, isGrouped = false) {
+  if (!printable) return "warning" as const;
+  return isGrouped ? ("neutral" as const) : ("success" as const);
+}
+
+function toAssessmentFormPrintMode(printMode?: string | null) {
+  return printMode === "TOTAL" || printMode === "total" ? "total" : "expanded";
+}
 
 interface Props {
   overview: RouterOutputs["subjects"]["overview"];
@@ -50,6 +64,11 @@ export function SubjectAssessments(props: Props) {
   const groupedAssessmentCount =
     assessments?.filter((assessment) => assessment?.childAssessments?.length)
       ?.length ?? 0;
+  const printColumns = getAssessmentPrintColumns(assessments ?? []);
+  const printableWeight = printColumns.reduce(
+    (total, column) => total + column.weight,
+    0,
+  );
   const [view, setView] = useState("general");
   const [defaultFormValue, setDefaultFormValue] =
     useState<typeof saveAssessementSchema._type>(null);
@@ -280,54 +299,122 @@ export function SubjectAssessments(props: Props) {
                   </div>
                 </div>
 
+                <div className="border-y border-border bg-muted/20 px-4 py-3">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Result print preview
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {printColumns.length
+                          ? `${printColumns.length} column${
+                              printColumns.length === 1 ? "" : "s"
+                            } · ${printableWeight}% total weight`
+                          : "No weighted assessment columns will print for this subject."}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 lg:justify-end">
+                      {printColumns.length ? (
+                        printColumns.map((column) => (
+                          <Badge
+                            key={`${column.id ?? column.label}-${column.label}`}
+                            variant="outline"
+                            className="rounded-full px-3 py-1"
+                          >
+                            {column.label} ({column.weight}%)
+                          </Badge>
+                        ))
+                      ) : (
+                        <Badge variant="warning" className="rounded-full px-3 py-1">
+                          No print columns
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {assessments?.length ? (
                   <div className="border-y border-border">
-                    {assessments.map((a, ai) => (
-                      <div
-                        key={a.id}
-                        className="border-b border-border bg-background py-4 transition-colors last:border-b-0 hover:bg-muted/30"
-                      >
-                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                          <div className="flex min-w-0 items-start gap-4">
-                            <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-background text-muted-foreground">
-                              <CalendarClock className="size-5" />
-                            </div>
-                            <div className="min-w-0 space-y-2">
-                              <div className="space-y-1">
-                                <h3 className="truncate text-base font-semibold text-foreground">
-                                  {a.title}
-                                </h3>
-                                <p className="text-sm text-muted-foreground">
-                                  Assessment #{(a.index ?? ai) + 1} for this subject.
-                                </p>
+                    {assessments.map((a, ai) => {
+                      const printStatus = getAssessmentPrintStatus(a);
+
+                      return (
+                        <div
+                          key={a.id}
+                          className="border-b border-border bg-background py-4 transition-colors last:border-b-0 hover:bg-muted/30"
+                        >
+                          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                            <div className="flex min-w-0 items-start gap-4">
+                              <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-background text-muted-foreground">
+                                <CalendarClock className="size-5" />
                               </div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="outline" className="rounded-full px-3 py-1">
-                                  {a.percentageObtainable}% weight
-                                </Badge>
-                                <Badge variant="neutral" className="rounded-full px-3 py-1">
-                                  {a._count?.assessmentResults ?? 0} submissions
-                                </Badge>
-                                {a.obtainable ? (
+                              <div className="min-w-0 space-y-2">
+                                <div className="space-y-1">
+                                  <h3 className="truncate text-base font-semibold text-foreground">
+                                    {a.title}
+                                  </h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    Assessment #{(a.index ?? ai) + 1} for this
+                                    subject.
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
                                   <Badge
-                                    variant="success"
+                                    variant="outline"
                                     className="rounded-full px-3 py-1"
                                   >
-                                    {a.obtainable} points
+                                    {a.percentageObtainable}% weight
                                   </Badge>
-                                ) : null}
-                                {a.childAssessments?.length ? (
                                   <Badge
                                     variant="neutral"
                                     className="rounded-full px-3 py-1"
                                   >
-                                    {a.childAssessments.length} sub-assessments
+                                    {a._count?.assessmentResults ?? 0} submissions
                                   </Badge>
+                                  {a.obtainable ? (
+                                    <Badge
+                                      variant="success"
+                                      className="rounded-full px-3 py-1"
+                                    >
+                                      {a.obtainable} points
+                                    </Badge>
+                                  ) : null}
+                                  {a.childAssessments?.length ? (
+                                    <Badge
+                                      variant="neutral"
+                                      className="rounded-full px-3 py-1"
+                                    >
+                                      {a.childAssessments.length} sub-assessments
+                                    </Badge>
+                                  ) : null}
+                                  <Badge
+                                    variant={printBadgeVariant(
+                                      printStatus.printable,
+                                      printStatus.isGrouped,
+                                    )}
+                                    className="rounded-full px-3 py-1"
+                                  >
+                                    {printStatus.label}
+                                  </Badge>
+                                  {!printStatus.printable ? (
+                                    <Badge
+                                      variant="warning"
+                                      className="rounded-full px-3 py-1"
+                                    >
+                                      0% weight
+                                    </Badge>
+                                  ) : null}
+                                </div>
+                                {printStatus.warnings.length ? (
+                                  <div className="space-y-1 text-sm text-yellow-700">
+                                    {printStatus.warnings.map((warning) => (
+                                      <p key={warning}>{warning}</p>
+                                    ))}
+                                  </div>
                                 ) : null}
                               </div>
                             </div>
-                          </div>
-                          <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-2">
                             <Button
                               size="sm"
                               variant="ghost"
@@ -361,6 +448,9 @@ export function SubjectAssessments(props: Props) {
                                   percentageObtainable:
                                     a.percentageObtainable ?? 0,
                                   isGroup: !!a.childAssessments?.length,
+                                  printMode: toAssessmentFormPrintMode(
+                                    a.printMode,
+                                  ),
                                   childAssessments:
                                     a.childAssessments?.map((child) => ({
                                       id: child.id,
@@ -391,50 +481,60 @@ export function SubjectAssessments(props: Props) {
                             >
                               <Trash2 className="size-4 text-destructive" />
                             </Button>
+                            </div>
                           </div>
-                        </div>
 
-                        {a.childAssessments?.length ? (
-                          <div className="mt-4 border-t border-border">
-                            {a.childAssessments.map((child, childIndex) => (
-                              <div
-                                key={child.id}
-                                className="flex flex-col gap-3 border-b border-border/70 bg-background py-3 last:border-b-0 md:flex-row md:items-center md:justify-between"
-                              >
-                                <div>
-                                  <p className="font-medium text-foreground">
-                                    {child.title}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    Part {childIndex + 1} under {a.title}
-                                  </p>
+                          {a.childAssessments?.length ? (
+                            <div className="mt-4 border-t border-border">
+                              {a.childAssessments.map((child, childIndex) => (
+                                <div
+                                  key={child.id}
+                                  className="flex flex-col gap-3 border-b border-border/70 bg-background py-3 last:border-b-0 md:flex-row md:items-center md:justify-between"
+                                >
+                                  <div>
+                                    <p className="font-medium text-foreground">
+                                      {child.title}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Part {childIndex + 1} under {a.title}
+                                    </p>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <Badge
+                                      variant="outline"
+                                      className="rounded-full px-3 py-1"
+                                    >
+                                      {child.percentageObtainable ?? 0}% weight
+                                    </Badge>
+                                    {!isPrintableAssessment(child) ? (
+                                      <Badge
+                                        variant="warning"
+                                        className="rounded-full px-3 py-1"
+                                      >
+                                        No print
+                                      </Badge>
+                                    ) : null}
+                                    <Badge
+                                      variant="success"
+                                      className="rounded-full px-3 py-1"
+                                    >
+                                      {child.obtainable ?? 0} points
+                                    </Badge>
+                                    <Badge
+                                      variant="neutral"
+                                      className="rounded-full px-3 py-1"
+                                    >
+                                      {child._count?.assessmentResults ?? 0}{" "}
+                                      submissions
+                                    </Badge>
+                                  </div>
                                 </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <Badge
-                                    variant="outline"
-                                    className="rounded-full px-3 py-1"
-                                  >
-                                    {child.percentageObtainable ?? 0}% weight
-                                  </Badge>
-                                  <Badge
-                                    variant="success"
-                                    className="rounded-full px-3 py-1"
-                                  >
-                                    {child.obtainable ?? 0} points
-                                  </Badge>
-                                  <Badge
-                                    variant="neutral"
-                                    className="rounded-full px-3 py-1"
-                                  >
-                                    {child._count?.assessmentResults ?? 0} submissions
-                                  </Badge>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <Empty>

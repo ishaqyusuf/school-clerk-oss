@@ -21,7 +21,7 @@ function isDashboardTenantHost(host: string) {
   );
 }
 
-export function proxy(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
 
   if (!isDashboardTenantHost(host)) {

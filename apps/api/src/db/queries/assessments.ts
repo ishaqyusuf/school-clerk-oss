@@ -36,9 +36,12 @@ export async function saveAssessement(
     parentAssessmentId,
     childAssessments,
     isGroup,
+    printMode,
   } = data;
   const normalizedChildren = childAssessments ?? [];
   const groupedAssessment = isGroup || normalizedChildren.length > 0;
+  const assessmentPrintMode =
+    groupedAssessment && printMode === "total" ? "TOTAL" : "EXPANDED";
   const summaryObtainable = groupedAssessment
     ? normalizedChildren.reduce((sum, child) => sum + (child.obtainable ?? 0), 0)
     : obtainable;
@@ -58,6 +61,7 @@ export async function saveAssessement(
             obtainable: summaryObtainable,
             percentageObtainable: summaryPercentage,
             isGroup: groupedAssessment,
+            printMode: assessmentPrintMode,
             parentAssessmentId: parentAssessmentId ?? null,
             deletedAt: null,
           },
@@ -70,6 +74,7 @@ export async function saveAssessement(
             percentageObtainable: summaryPercentage,
             departmentSubjectId,
             isGroup: groupedAssessment,
+            printMode: assessmentPrintMode,
             parentAssessmentId: parentAssessmentId ?? null,
           },
         });
@@ -85,7 +90,19 @@ export async function saveAssessement(
 
     const incomingChildIds = normalizedChildren
       .map((child) => child.id)
-      .filter(Boolean);
+      .filter((childId): childId is number => typeof childId === "number");
+    const existingChildIds = new Set(existingChildren.map((child) => child.id));
+    const invalidChildIds = incomingChildIds.filter(
+      (childId) => !existingChildIds.has(childId),
+    );
+
+    if (invalidChildIds.length) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          "One or more sub-assessments do not belong to this grouped assessment.",
+      });
+    }
 
     if (groupedAssessment) {
       await Promise.all(
@@ -97,6 +114,7 @@ export async function saveAssessement(
             index: childIndex,
             departmentSubjectId,
             isGroup: false,
+            printMode: "EXPANDED" as const,
             parentAssessmentId: assessment.id,
             deletedAt: null,
           };
@@ -387,6 +405,7 @@ export async function updateAssessmentScore(
       deletedAt: null,
     },
     select: {
+      isGroup: true,
       departmentSubject: {
         select: {
           classRoomDepartmentId: true,
@@ -394,6 +413,14 @@ export async function updateAssessmentScore(
       },
     },
   });
+
+  if (!assessment || assessment.isGroup) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Scores can only be recorded against scoreable assessments.",
+    });
+  }
+
   const studentTermForm = await ctx.db.studentTermForm.findFirst({
     where: {
       id: data.studentTermId,

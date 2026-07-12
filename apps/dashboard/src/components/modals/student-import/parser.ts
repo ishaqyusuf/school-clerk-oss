@@ -9,8 +9,9 @@ export interface ParsedStudent {
   originalText: string;
   parsedGender?: "M" | "F";
   batchGender?: "M" | "F";
-  classroomSource?: "selected" | "header" | "missing";
+  classroomSource?: "selected" | "header" | "missing" | "ambiguous";
   classroomLabel?: string;
+  classroomResolutionStatus?: "resolved" | "missing" | "ambiguous";
 }
 
 export interface ParsedWarning {
@@ -134,7 +135,24 @@ function buildClassroomResolver(classrooms: ImportClassroomOption[]) {
 
   return (label: string) => {
     const matches = labelMap.get(normalizeClassroomLabel(label)) || [];
-    return matches.length === 1 ? matches[0] : null;
+    if (matches.length === 1) {
+      return {
+        classroom: matches[0],
+        status: "unique" as const,
+      };
+    }
+
+    if (matches.length > 1) {
+      return {
+        classroom: null,
+        status: "ambiguous" as const,
+      };
+    }
+
+    return {
+      classroom: null,
+      status: "missing" as const,
+    };
   };
 }
 
@@ -226,6 +244,9 @@ export function parseRawInput(
   let activeClassroomSource: ParsedStudent["classroomSource"] = classRoomId
     ? "selected"
     : "missing";
+  let activeClassroomResolutionStatus: NonNullable<
+    ParsedStudent["classroomResolutionStatus"]
+  > = classRoomId ? "resolved" : "missing";
   let activeBatchGender: "M" | "F" | undefined;
 
   if (!rawText) {
@@ -238,12 +259,28 @@ export function parseRawInput(
     const trimmed = line.trim();
     if (!trimmed) return;
 
-    const matchedClassroom = resolveClassroom(trimmed);
+    const classroomResolution = resolveClassroom(trimmed);
+    const matchedClassroom = classroomResolution.classroom;
     if (matchedClassroom) {
       activeClassRoomName = getClassroomDisplayName(matchedClassroom);
       activeClassRoomId = matchedClassroom.id;
       activeClassroomSource = "header";
+      activeClassroomResolutionStatus = "resolved";
       activeBatchGender = undefined;
+      return;
+    }
+
+    if (classroomResolution.status === "ambiguous") {
+      activeClassRoomName = trimmed;
+      activeClassRoomId = "";
+      activeClassroomSource = "ambiguous";
+      activeClassroomResolutionStatus = "ambiguous";
+      activeBatchGender = undefined;
+      warnings.push({
+        lineNumber,
+        text: trimmed,
+        warning: "Classroom label is ambiguous; choose classroom manually",
+      });
       return;
     }
 
@@ -326,6 +363,7 @@ export function parseRawInput(
       batchGender: parsedGender ? undefined : activeBatchGender,
       classroomSource: activeClassroomSource,
       classroomLabel: activeClassRoomName,
+      classroomResolutionStatus: activeClassroomResolutionStatus,
     });
   });
 

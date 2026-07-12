@@ -17,20 +17,10 @@ function normalizePgConnectionString(connectionString: string) {
 }
 
 function resolvePrismaConnectionString() {
-  const configuredUrl = process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
-
-  // Local development is more reliable against Supabase over the direct
-  // connection than the transaction pooler, which can fail on DNS/transient issues.
-  if (
-    process.env.NODE_ENV !== "production" &&
-    process.env.DIRECT_URL &&
-    (!configuredUrl || configuredUrl.includes(".pooler.supabase.com:6543"))
-  ) {
-    return normalizePgConnectionString(process.env.DIRECT_URL);
-  }
+  const configuredUrl = process.env.DATABASE_URL;
 
   if (!configuredUrl) {
-    throw new Error("POSTGRES_URL or DATABASE_URL must be configured.");
+    throw new Error("DATABASE_URL must be configured.");
   }
 
   return normalizePgConnectionString(configuredUrl);

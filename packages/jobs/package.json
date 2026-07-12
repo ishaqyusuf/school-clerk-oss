@@ -2,9 +2,10 @@
   "name": "@school-clerk/jobs",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "bun run with-env bunx trigger dev",
-    "deploy": "bun run with-env:prod sh -c 'bun run prisma.ts && bunx trigger deploy'",
+    "dev": "bun run prisma.ts && bun ../../scripts/with-dev-infra.ts -- node node_modules/trigger.dev/dist/esm/index.js dev --skip-update-check --skip-mcp-install --skip-rules-install --skip-platform-notifications",
+    "deploy": "../../scripts/with-root-env.sh --mode production sh -c 'bun run prisma.ts && node node_modules/trigger.dev/dist/esm/index.js deploy'",
     "typecheck": "tsc --noEmit",
     "with-env": "bun ../../scripts/with-dev-infra.ts --",
     "with-env:prod": "../../scripts/with-root-env.sh --mode production"

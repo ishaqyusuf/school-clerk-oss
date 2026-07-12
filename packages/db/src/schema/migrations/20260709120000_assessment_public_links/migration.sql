@@ -44,7 +44,7 @@ CREATE TABLE "AssessmentPublicLink" (
 
 CREATE UNIQUE INDEX "AssessmentPublicLink_tokenHash_key" ON "AssessmentPublicLink"("tokenHash");
 CREATE INDEX "AssessmentPublicLink_schoolProfileId_status_idx" ON "AssessmentPublicLink"("schoolProfileId", "status");
-CREATE INDEX "AssessmentPublicLink_schoolProfileId_sessionTermId_classRoomDepartmentId_idx" ON "AssessmentPublicLink"("schoolProfileId", "sessionTermId", "classRoomDepartmentId");
+CREATE INDEX "AssessmentPublicLink_schoolProfileId_sessionTermId_classRoo_idx" ON "AssessmentPublicLink"("schoolProfileId", "sessionTermId", "classRoomDepartmentId");
 CREATE INDEX "AssessmentPublicLink_requesterUserId_idx" ON "AssessmentPublicLink"("requesterUserId");
 
 ALTER TABLE "AssessmentPublicLink"

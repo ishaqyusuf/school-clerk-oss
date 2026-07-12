@@ -1,5 +1,9 @@
 import { z } from "@hono/zod-openapi";
 import {
+	mapStaffAcademicAccessGrantsToAssignments,
+	resolveStaffAcademicAccess,
+} from "@school-clerk/db";
+import {
 	STAFF_CLASSROOM_SUBJECT_ACCESS_MODES,
 	STAFF_ASSIGNMENT_ROLES,
 	STAFF_ROLES,
@@ -61,7 +65,13 @@ const createStaffSchema = z.object({
 	assignments: z
 		.array(
 			z.object({
-				classRoomDepartmentId: z.string(),
+				scope: z
+					.enum(["CLASS", "DEPARTMENT", "CLASS_SUBJECT", "DEPARTMENT_SUBJECT"])
+					.default("DEPARTMENT"),
+				classRoomId: z.string().optional().nullable(),
+				classRoomDepartmentId: z.string().optional().nullable(),
+				subjectId: z.string().optional().nullable(),
+				departmentSubjectId: z.string().optional().nullable(),
 				subjectAccessMode: z
 					.enum(STAFF_CLASSROOM_SUBJECT_ACCESS_MODES)
 					.default("SELECTED"),
@@ -97,14 +107,31 @@ export const staffRouter = createTRPCRouter({
 
 			if (!schoolId || !sessionId || !termId) {
 				return {
+					classes: [],
 					classrooms: [],
 					roles: [],
 					staff: null,
+					subjects: [],
+					subjectsByClass: {},
 					subjectsByClassroom: {},
 				};
 			}
 
-			const [classrooms, subjects, school, staffProfile] = await Promise.all([
+			const [classes, classrooms, subjects, school, staffProfile] = await Promise.all([
+				ctx.db.classRoom.findMany({
+					where: {
+						deletedAt: null,
+						schoolProfileId: schoolId,
+						schoolSessionId: sessionId,
+					},
+					select: {
+						id: true,
+						name: true,
+					},
+					orderBy: {
+						name: "asc",
+					},
+				}),
 				ctx.db.classRoomDepartment.findMany({
 					where: {
 						deletedAt: null,
@@ -146,6 +173,7 @@ export const staffRouter = createTRPCRouter({
 					select: {
 						id: true,
 						classRoomDepartmentId: true,
+						subjectId: true,
 						subject: {
 							select: {
 								title: true,
@@ -156,6 +184,7 @@ export const staffRouter = createTRPCRouter({
 								departmentName: true,
 								classRoom: {
 									select: {
+										id: true,
 										name: true,
 									},
 								},
@@ -221,6 +250,23 @@ export const staffRouter = createTRPCRouter({
 											select: {
 												classRoomDepartmentId: true,
 												subjectAccessMode: true,
+											},
+										},
+										academicAccessGrants: {
+											where: {
+												deletedAt: null,
+											},
+											select: {
+												scope: true,
+												classRoomId: true,
+												classRoomDepartmentId: true,
+												subjectId: true,
+												departmentSubjectId: true,
+												departmentSubject: {
+													select: {
+														classRoomDepartmentId: true,
+													},
+												},
 											},
 										},
 									},
@@ -293,6 +339,10 @@ export const staffRouter = createTRPCRouter({
 				}),
 				value: classroom.id,
 			}));
+			const classOptions = classes.map((classroom) => ({
+				label: classroom.name ?? "Untitled class",
+				value: classroom.id,
+			}));
 
 			const subjectsByClassroom = subjects.reduce<
 				Record<string, Array<{ label: string; value: string }>>
@@ -307,10 +357,71 @@ export const staffRouter = createTRPCRouter({
 				});
 				return acc;
 			}, {});
+			const subjectsByClass = subjects.reduce<
+				Record<string, Array<{ label: string; value: string }>>
+			>((acc, subject) => {
+				const classId = subject.classRoomDepartment?.classRoom?.id;
+				if (!classId) return acc;
+
+				acc[classId] ??= [];
+				if (
+					!acc[classId]!.some((option) => option.value === subject.subjectId)
+				) {
+					acc[classId]!.push({
+						label: subject.subject.title,
+						value: subject.subjectId,
+					});
+				}
+				return acc;
+			}, {});
+			const subjectOptions = Array.from(
+				new Map(
+					subjects.map((subject) => [
+						subject.subjectId,
+						{
+							label: subject.subject.title,
+							value: subject.subjectId,
+						},
+					]),
+				).values(),
+			).sort((a, b) => a.label.localeCompare(b.label));
+
+			const legacyAssignments = (
+				staffProfile?.termProfiles[0]?.classroomsProfiles ?? []
+			).map((profile) => ({
+				scope: "DEPARTMENT",
+				classRoomDepartmentId: profile.classRoomDepartmentId ?? "",
+				subjectAccessMode: profile.subjectAccessMode ?? "SELECTED",
+				departmentSubjectIds:
+					profile.subjectAccessMode === "ALL"
+						? []
+						: (selectedSubjectsByClassroom.get(
+								profile.classRoomDepartmentId ?? "",
+							) ?? []),
+			}));
+			const academicGrantAssignments = mapStaffAcademicAccessGrantsToAssignments(
+				staffProfile?.termProfiles[0]?.academicAccessGrants ?? [],
+			);
+			const assignments = academicGrantAssignments.length
+				? academicGrantAssignments
+				: legacyAssignments;
+			const effectiveAccess =
+				staffProfile?.termProfiles[0] && roleSupportsAssignments(role)
+					? await resolveStaffAcademicAccess({
+							db: ctx.db,
+							staffProfileId: staffProfile.id,
+							schoolProfileId: schoolId,
+							schoolSessionId: sessionId,
+							sessionTermId: termId,
+						})
+					: null;
 
 			return {
 				roles: [...STAFF_ROLES],
+				classes: classOptions,
 				classrooms: classroomOptions,
+				subjects: subjectOptions,
+				subjectsByClass,
 				subjectsByClassroom,
 				staff: staffProfile
 					? {
@@ -322,18 +433,16 @@ export const staffRouter = createTRPCRouter({
 							phone2: staffProfile.phone2,
 							address: staffProfile.address,
 							role,
-							assignments: (
-								staffProfile.termProfiles[0]?.classroomsProfiles ?? []
-							).map((profile) => ({
-								classRoomDepartmentId: profile.classRoomDepartmentId ?? "",
-								subjectAccessMode: profile.subjectAccessMode ?? "SELECTED",
-								departmentSubjectIds:
-									profile.subjectAccessMode === "ALL"
-										? []
-										: (selectedSubjectsByClassroom.get(
-												profile.classRoomDepartmentId ?? "",
-											) ?? []),
-							})),
+							assignments,
+							effectiveClassroomCount:
+								effectiveAccess?.classRoomDepartmentIds.length ?? assignments.length,
+							effectiveSubjectCount:
+								effectiveAccess?.departmentSubjectIds.length ??
+								assignments.reduce(
+									(total, assignment) =>
+										total + assignment.departmentSubjectIds.length,
+									0,
+								),
 							onboardingStatus: resolveOnboardingStatus({
 								inviteStatus: staffProfile.inviteStatus,
 								inviteSentAt: staffProfile.inviteSentAt,
@@ -500,7 +609,7 @@ export const staffRouter = createTRPCRouter({
 				users.map((user) => [user.email.trim().toLowerCase(), user]),
 			);
 
-			const items = staff.map((item) => {
+			const items = await Promise.all(staff.map(async (item) => {
 				const normalizedEmail = item.email?.trim().toLowerCase();
 				const user = normalizedEmail ? userByEmail.get(normalizedEmail) : null;
 				const role = normalizeRole(user?.role);
@@ -512,10 +621,8 @@ export const staffRouter = createTRPCRouter({
 					user,
 				});
 				const classrooms = item.termProfiles[0]?.classroomsProfiles ?? [];
-				const hasClassroomWideSubjectAccess = classrooms.some(
-					(classroom) => classroom.subjectAccessMode === "ALL",
-				);
-				const classroomLabels = classrooms
+				const termProfile = item.termProfiles[0];
+				let classroomLabels = classrooms
 					.map((classroom) =>
 						classroomDisplayName({
 							className: classroom.classRoomDepartment?.classRoom?.name,
@@ -523,19 +630,90 @@ export const staffRouter = createTRPCRouter({
 						}),
 					)
 					.filter(Boolean);
-				const explicitSubjectLabels = item.subjects
-					.map((subject) => subject.departmentSubject?.subject?.title)
-					.filter(Boolean);
-				const classroomWideSubjectLabels = classrooms.flatMap((classroom) =>
-					classroom.subjectAccessMode === "ALL"
-						? (classroom.classRoomDepartment?.subjects ?? [])
-								.map((subject) => subject.subject.title)
-								.filter(Boolean)
-						: [],
-				);
-				const subjectLabels = Array.from(
-					new Set([...explicitSubjectLabels, ...classroomWideSubjectLabels]),
+				let subjectLabels = Array.from(
+					new Set(
+						item.subjects
+							.map((subject) => subject.departmentSubject?.subject?.title)
+							.filter(Boolean),
+					),
 				) as string[];
+				let hasClassroomWideSubjectAccess = classrooms.some(
+					(classroom) => classroom.subjectAccessMode === "ALL",
+				);
+
+				if (
+					roleSupportsAssignments(role) &&
+					termProfile &&
+					schoolId &&
+					sessionId &&
+					termId
+				) {
+					const access = await resolveStaffAcademicAccess({
+						db: ctx.db,
+						staffProfileId: item.id,
+						schoolProfileId: schoolId,
+						schoolSessionId: sessionId,
+						sessionTermId: termId,
+					});
+					const [effectiveClassrooms, effectiveSubjects] = await Promise.all([
+						access.classRoomDepartmentIds.length
+							? ctx.db.classRoomDepartment.findMany({
+									where: {
+										id: {
+											in: access.classRoomDepartmentIds,
+										},
+										deletedAt: null,
+										schoolProfileId: schoolId,
+									},
+									select: {
+										departmentName: true,
+										classRoom: {
+											select: {
+												name: true,
+											},
+										},
+									},
+								})
+							: Promise.resolve([]),
+						access.departmentSubjectIds.length
+							? ctx.db.departmentSubject.findMany({
+									where: {
+										id: {
+											in: access.departmentSubjectIds,
+										},
+										deletedAt: null,
+										sessionTermId: termId,
+									},
+									select: {
+										subject: {
+											select: {
+												title: true,
+											},
+										},
+									},
+								})
+							: Promise.resolve([]),
+					]);
+
+					classroomLabels = effectiveClassrooms
+						.map((classroom) =>
+							classroomDisplayName({
+								className: classroom.classRoom?.name,
+								departmentName: classroom.departmentName,
+							}),
+						)
+						.filter(Boolean);
+					subjectLabels = Array.from(
+						new Set(
+							effectiveSubjects
+								.map((subject) => subject.subject?.title)
+								.filter(Boolean),
+						),
+					) as string[];
+					hasClassroomWideSubjectAccess =
+						hasClassroomWideSubjectAccess ||
+						access.departmentSubjectIds.length > item.subjects.length;
+				}
 
 				return {
 					id: item.id,
@@ -548,7 +726,7 @@ export const staffRouter = createTRPCRouter({
 					inviteSentAt: item.inviteSentAt,
 					inviteResentAt: item.inviteResentAt,
 					lastInviteError: item.lastInviteError,
-					classroomCount: classrooms.length,
+					classroomCount: classroomLabels.length,
 					subjectCount: subjectLabels.length,
 					hasClassroomWideSubjectAccess,
 					classroomLabels,
@@ -558,7 +736,7 @@ export const staffRouter = createTRPCRouter({
 						(onboardingStatus === "PENDING" || onboardingStatus === "FAILED"),
 					canManageAssignments: roleSupportsAssignments(role),
 				};
-			});
+			}));
 
 			const filteredItems =
 				input?.status && input.status !== "all"
@@ -589,9 +767,7 @@ export const staffRouter = createTRPCRouter({
 					teachersNeedingAssignments: items.filter(
 						(item) =>
 							item.role === "Teacher" &&
-							(item.classroomCount === 0 ||
-								(!item.hasClassroomWideSubjectAccess &&
-									item.subjectCount === 0)),
+							(item.classroomCount === 0 || item.subjectCount === 0),
 					).length,
 				},
 			};

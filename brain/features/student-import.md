@@ -7,7 +7,10 @@ Allow school operators to import multiple students from pasted text data, assign
 ## User Flow
 
 1. **Upload / Start Screen**:
-   - Select an optional **Default Classroom** (department) from the active academic session.
+   - Select an **Import Mode**:
+     - **Single** requires a classroom from the active academic session and assigns every parsed row to that classroom.
+     - **Multiple** enables raw classroom-header parsing and uses the selected classroom only as a fallback for rows outside a resolved header section.
+   - Select a classroom/default classroom from the active academic session according to the selected mode.
    - Optionally select **Global Gender** as a default fallback.
    - Paste student records into the textarea, one student per line, or use raw class-name section headers for multi-classroom imports.
    - Preview parsed row count and validation warnings.
@@ -18,15 +21,19 @@ Allow school operators to import multiple students from pasted text data, assign
    - Exact matches default to `Keep match`; suspected matches require an explicit action and only require a selected candidate when the action targets an existing student.
    - Batch defaults are available for ready rows, exact matches, and suspected matches while preserving row-level overrides.
 4. **Execution**:
-   - The batch mutation creates new students, keeps existing matches, or updates matched names.
+   - Each row can be imported individually, or selected rows can be imported as a batch.
+   - The execution mutation creates new students, keeps existing matches, or updates matched names.
    - Session and term sheets are created idempotently for each row's target classroom/session/term.
 
 ## Input Parsing Contract
 
 Each pasted line is parsed as follows:
 
-- A line that exactly matches a current-session classroom display label becomes a class section header. Following student rows use that classroom until the next class section header.
+- In **Multiple** import mode, a line that exactly matches a current-session classroom display label becomes a class section header. Following student rows use that classroom until the next class section header.
+- In **Single** import mode, classroom label parsing is disabled and the selected classroom is required before proceeding.
 - Supported classroom label forms include the combined class/department display, department name when unique, class name when unique, and class plus department words normalized with all whitespace ignored and dash/separator variants removed.
+- If a classroom label matches more than one current-session classroom, it becomes an unresolved classroom section instead of a student row. Following student rows remain in `Needs attention` until the operator assigns the correct classroom manually; the default fallback classroom does not silently resolve ambiguous sections.
+- Parsed rows carry `classroomResolutionStatus` as `resolved`, `missing`, or `ambiguous`, alongside `classroomSource`, so review and verification can distinguish fallback-eligible missing rows from ambiguous rows that require explicit manual assignment.
 - When a class header is read, the active batch gender resets to unset.
 - A line that exactly matches `M`, `Male`, `F`, `Female`, `M | Male`, or `F | Female` becomes a batch-gender marker for following student rows in the active class section.
 - Batch gender applies only when the student row does not have an explicit row-level gender.
@@ -102,24 +109,28 @@ Musa Garba, M
 
 ### Tabs
 
-- **Ready to import**: rows with no existing match and complete required fields. These default to `Import new`, and the tab includes an `Import checked` batch action for checked, untouched rows.
-- **Match Found**: rows with exact or suspected existing-student matches. Exact matches default to `Keep match`; suspected matches start unresolved unless a batch default or row action is selected.
-- **Needs attention**: rows that are not matched but still need a required manual value, such as gender. No-match rows still default to `Import new` so they become executable as soon as the missing gender is resolved.
+- **Ready to import**: rows with no existing match, a resolved classroom, and complete required fields. These default to `Import new`, and the tab includes an `Import checked` batch action for checked, untouched rows.
+- **Match Found**: rows with exact or suspected existing-student matches and a resolved classroom. Exact matches default to `Keep match`; suspected matches start unresolved unless a batch default or row action is selected.
+- **Needs attention**: rows that still need a required manual value, such as classroom or gender. No-match rows still default to `Import new` so they become executable as soon as the missing classroom/gender is resolved.
 
 ### Batch And Row Decisions
 
 - Exact-match and suspected-match batch defaults only apply to rows the operator has not touched.
 - Each import row has a checkbox. Batch execution sends only checked rows; unchecked rows are omitted before validation and execution.
+- Each review row exposes an `Import row` action. It validates and executes only that row through the same `executeStudentImport` contract used by batch import, then marks the row imported so it cannot be submitted twice while the remaining staged rows stay intact.
 - Each review tab exposes local check/uncheck-all controls for the rows visible in that tab.
 - `Keep match` and `Update match with name` require a selected candidate before execution.
 - `Import new` and `Skip` are complete decisions for suspected-match rows and do not require selecting an existing candidate.
 - `Skip` is a dashboard-only review action for matched or attention rows. It is disabled for no-match rows so ready imports cannot be accidentally omitted. Skipped rows are omitted from the `executeStudentImport` payload and counted in the review summary.
 - Review rows display parsed `name`, `surname`, and `otherName` as separate editable fields.
+- Review rows include a per-row classroom selector. Choosing a classroom updates that row's target `classroomDepartmentId`, reruns verification/matching with the new target, and moves the row out of the attention tab once the classroom and other required values are resolved.
+- The review and execution panels show a classroom scope summary with total, checked, executable, and attention counts per classroom so multi-classroom batches can be scanned without opening every row.
 - Review row name parts are clickable dropdown controls. Before a row is edited, each part can choose from the full set of contiguous name-token combinations. After a selection, only the explicitly selected span is treated as taken and removed from the other part dropdowns; adjacent fields that were auto-adjusted remain available until the operator selects them. A reset control appears to clear the edited split. Selecting a possible name/surname/other-name combination recalculates the adjacent name fields from the original pasted tokens before execution, then locally re-checks existing students and surfaces an approvable suggested match when the edited name aligns with an existing record.
 - Review rows include a search control for finding existing students. When the search field is empty, the dropdown recommends existing students ranked by the import row's parsed name parts. Selecting a student normalizes the import row to that student's stored name fields and exposes a `Move to match found` action that treats the selected student as the row's match.
 - Review rows use a compact card layout with a status header, parsed-name fields, row actions, existing-student search, and match candidates separated into clear scan areas. The original pasted line is no longer shown in each row.
 - The import modal uses a fixed viewport height; modal headers, classroom/action controls, and tab selectors remain stable while the active tab body is the only scrollable review surface.
 - The execute action shows the selected/executable row count before import. During execution and completion, the classroom controls, execute action, tabs, and review rows are hidden so the operator focuses on the import status. The import analysis panel appears during import or after a completed import; it summarizes new students created, term sheets created, existing students kept without name changes, matched names updated, skipped rows, and failed rows with line-level failure reasons in a three-column analytics grid. Pre-submit or mutation-blocking errors appear as compact dismissible alerts above the review tabs so operators can keep resolving row contents. Completed imports show `Start new import` and `Close` actions below the analysis card.
+- Verification, batch execution, and single-row execution errors are normalized before display. If the dashboard receives an HTML/non-JSON response instead of tRPC JSON, the modal shows a recoverable `Import needs attention` message, keeps the last successful staged review data, and includes only safe diagnostics such as operation, HTTP status, content type, and a short redacted response preview.
 - `Cancel Import` is available before execution and returns the operator to the initial import screen, clearing staged verification/review state without writing new student records.
 
 ### Candidate Metadata
@@ -167,7 +178,7 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 - `trpc.students.getImportNameGuide`: compact tenant-scoped existing-name guide for whitespace-only import parsing.
 - `trpc.students.verifyStudentImport`: single-query batch verification with row-level classroom scoping, edit-distance matching, and gender inference.
 - `trpc.students.verifyStudentImportBatch`: POST-backed verification mutation with the same input/output as `verifyStudentImport`, used by the dashboard modal so large pasted batches are not constrained by query URL length.
-- `trpc.students.executeStudentImport`: batch mutation for row-level import decisions.
+- `trpc.students.executeStudentImport`: mutation for row-level import decisions. The dashboard uses it for both selected-row batch import and one-row import actions.
 
 ### Execute Input Schema
 

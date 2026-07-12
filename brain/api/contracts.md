@@ -100,6 +100,18 @@ Defines request/response contracts, validation rules, and versioning expectation
 
 ## Assessment Contracts
 
+- Route: `assessments.saveAssessement`
+- Request schema: assessment setup payload with `title`, `obtainable`, `percentageObtainable`, `departmentSubjectId`, optional `id`, optional `isGroup`, optional `childAssessments[]`, and grouped `printMode: "expanded" | "total"`.
+- Response schema: saved `ClassroomSubjectAssessment` parent row.
+- Error cases: unauthorized subject/assessment scope, grouped parent with no children, child assessment IDs that do not already belong to the grouped parent being edited.
+- Notes: grouped parent rows store the printable mode; child rows remain the scoreable assessment records.
+
+- Route: `assessments.getClassroomReportSheet`
+- Request schema: `{ departmentId: string, sessionTermId: string }`
+- Response schema: classroom report sheet with subjects, scoreable non-group assessments, parent assessment metadata including `id`, `title`, `index`, and `printMode`, assessment results scoped to the selected term, and active student term forms.
+- Error cases: unauthorized classroom access or invalid classroom/term scope.
+- Notes: student result print/PDF uses `parentAssessment.printMode = "TOTAL"` to collapse weighted child scores into one parent column; score-entry/review tables continue to use the scoreable child rows.
+
 - Route: `assessments.getRecordingContextOptions`
 - Request schema: `{ termId?: string | null }`
 - Response schema: `{ scoped: boolean, terms, classrooms, defaultTermId: string | null, defaultDepartmentId: string | null }`, where each term includes `id`, `title`, `sessionId`, `sessionTitle`, `label`, `startDate`, and `endDate`.
@@ -136,19 +148,25 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: malformed token, hash mismatch, pending/rejected/revoked/expired link, score target outside captured subject/student scope, grouped parent assessment, score above obtainable, invalid classroom/term ancestry.
 - Notes: Public token routes are intentionally unauthenticated but never broaden beyond the stored classroom, term, subject, and student scope.
 
+- Route: `assessments.updateAssessmentScore`
+- Request schema: `{ assessmentId: number, studentTermId: string, studentId: string, departmentId: string, obtained?: number | null, id?: number | null }`
+- Response schema: saved score record.
+- Error cases: unauthorized assessment scope, grouped parent assessment, score target outside the selected classroom subject, score record mismatch.
+- Notes: authenticated score entry writes only to scoreable, non-group assessment rows.
+
 ## Staff Management Contracts
 
 - Route/action: `action.saveStaffAction`
-- Request schema: `{ staffId?, email, role, assignments[] }`, where each assignment is `{ classRoomDepartmentId, subjectAccessMode, departmentSubjectIds[] }`.
+- Request schema: `{ staffId?, email, role, assignments[] }`, where each assignment supports `scope: "CLASS" | "DEPARTMENT" | "CLASS_SUBJECT" | "DEPARTMENT_SUBJECT"` plus the matching identifiers: `classRoomId`, `classRoomDepartmentId`, `subjectId`, `departmentSubjectId`, `subjectAccessMode`, and/or `departmentSubjectIds`.
 - Response schema: `{ invited, inviteError, staffId }`.
-- Error cases: missing tenant/session/term context, staff not found, invalid classroom, invalid selected subject, selected subject outside selected classroom, onboarding email failure surfaced as `inviteError`.
-- Notes: `subjectAccessMode` is `SELECTED` or `ALL`. `SELECTED` requires one or more `departmentSubjectIds`; `ALL` accepts an empty subject list and grants every current and future active-term subject for the classroom. Classroom/subject assignment remains teacher-only; non-teaching roles persist empty assignment sets.
+- Error cases: missing tenant/session/term context, staff not found, invalid class, invalid classroom/department, invalid subject, invalid selected department subject, selected subject outside selected department, onboarding email failure surfaced as `inviteError`.
+- Notes: `DEPARTMENT` assignments preserve the legacy `subjectAccessMode = SELECTED | ALL` behavior. `CLASS`, `DEPARTMENT`, `CLASS_SUBJECT`, and `DEPARTMENT_SUBJECT` are persisted as `StaffAcademicAccessGrant` rows and resolved dynamically for teacher authorization. Classroom/subject assignment remains teacher-only; non-teaching roles persist empty assignment sets.
 
 - Route: `staff.getFormData`
 - Request schema: `{ staffId?: string }`
-- Response schema: staff invite/edit options with `subjectsByClassroom` and staff `assignments[]` including `subjectAccessMode`.
+- Response schema: staff invite/edit options with `classes`, `classrooms`, `subjects`, `subjectsByClass`, `subjectsByClassroom`, and staff `assignments[]` including `scope` and relevant identifiers.
 - Error cases: missing active school/session/term context returns empty options.
-- Notes: `ALL` assignments round-trip with empty `departmentSubjectIds` because effective subject access is resolved dynamically from the assigned classroom.
+- Notes: Existing selected/all department assignments still round-trip. New broad grant rows are preferred when present; legacy rows remain a compatibility fallback for older staff records.
 
 ## School Signup And Owner Verification Contracts
 
@@ -211,14 +229,14 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Route: `students.verifyStudentImport`
 - Request schema: optional fallback `classroomDepartmentId`, plus `rows` array of `{ lineNumber: number, originalText: string, name: string, surname: string, otherName?: string | null, gender?: string | null, classroomDepartmentId?: string | null }`
 - Response schema: `{ results: Array<{ lineNumber, originalText, name, surname, otherName, inputGender, inferredGender, genderInferenceDetails: { confidence: number, sampleSize: number, source: string } | null, needsGender: boolean, status: 'readyToImport' | 'matchFound' | 'needsAttention', classRoom: string | null, classroomDepartmentId: string | null, fullMatch: MatchMeta | null, suspectedMatches: MatchMeta[] }> }` where MatchMeta is a student record metadata block containing name, classroom, term/session details, match confidence (0-100), and matching reason.
-- Error cases: any supplied classroom department not found, unauthorized, or outside the active session.
+- Error cases: missing active school/session/term context returns a structured tRPC `UNAUTHORIZED` error; any supplied classroom department not found, unauthorized, or outside the active session returns a structured tRPC `BAD_REQUEST` error.
 - Notes: performs single-query batch validation for pasted student imports. Checks exact matches, flags edit-distance name typos (<= 2), infers missing gender with confidence >= 80% (min 2 samples), validates all supplied row-level classroom ids once, and avoids large child records to keep payloads compact. Rows without a row-level or fallback classroom are returned as `needsAttention`.
 
 - Route: `students.verifyStudentImportBatch`
 - Request schema: same as `students.verifyStudentImport`
 - Response schema: same as `students.verifyStudentImport`
 - Error cases: same as `students.verifyStudentImport`
-- Notes: POST-backed mutation wrapper for the dashboard student-import modal. Use it for large pasted batches to avoid URL-length limits while preserving the same verification semantics as the query route.
+- Notes: POST-backed mutation wrapper for the dashboard student-import modal. Use it for large pasted batches to avoid URL-length limits while preserving the same verification semantics as the query route. Production-like tenant routing must leave `/api/trpc` requests on the tRPC handler and return JSON for both valid responses and structured tRPC errors.
 
 - Route: `students.bulkDeleteTermSheets`
 - Request schema: `ids[]` where each id is a `StudentTermForm.id`
@@ -264,8 +282,8 @@ Defines request/response contracts, validation rules, and versioning expectation
     }[];
   }
   ```
-- Error cases: missing active school/session/term context, supplied classroom not in active school or session, row without a valid classroom, existing student not in tenant, student has current term sheet in conflicting classroom
-- Notes: batch mutation that creates students, keeps/updates matched students, and idempotently creates term sheets. Validates all supplied row-level classrooms against active school AND session ancestry. Detects cross-classroom current-term conflicts and reports them as row-level failures rather than creating duplicates. Applies fee histories to newly-created term sheets using the row target classroom. Per-row failures do not block successful rows.
+- Error cases: missing active school/session/term context returns a structured tRPC `UNAUTHORIZED` error; missing/supplied classroom errors return structured tRPC `BAD_REQUEST` errors; existing student not in tenant and current-term conflicting classroom conditions are reported as row-level failures where possible.
+- Notes: mutation that creates students, keeps/updates matched students, and idempotently creates term sheets. The dashboard may send many selected rows for batch import or a single row for the row-level `Import row` action. Validates all supplied row-level classrooms against active school AND session ancestry. Detects cross-classroom current-term conflicts and reports them as row-level failures rather than creating duplicates. Applies fee histories to newly-created term sheets using the row target classroom. Per-row failures do not block successful rows.
 - Dashboard cache invalidation on success:
   - Invalidates: `students.index`, `students.analytics`, `students.studentsRecentRecord`, `classrooms.all`
   - Report-sheet queries (`classroomReportSheet`, `getSubjectAssessmentRecordings`) require parameterized keys (classroom + term) not available in the import component context; these views refresh on navigation.

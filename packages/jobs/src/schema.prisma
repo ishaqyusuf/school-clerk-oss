@@ -3,13 +3,12 @@
 // ---- schema.prisma (entrypoint) ----
 generator client {
   provider     = "prisma-client-js"
+  output       = "../generated/client"
   relationMode = "prisma"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("POSTGRES_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 model guardian {
@@ -109,47 +108,54 @@ model session_class {
 
 // ---- activity.prisma ----
 model Activity {
-    id              String         @id @default(uuid())
-    userId          String
-    title           String?
-    description     String?
-    author          String
-    source          ActivitySource
-    type            ActivityType
-    meta            Json?
-    createdAt       DateTime?      @default(now()) @db.Timestamp(0)
-    updatedAt       DateTime?      @updatedAt
-    deletedAt       DateTime?      @db.Timestamp(0)
-    schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
-    schoolProfileId String?
+  id              String         @id @default(uuid())
+  userId          String
+  title           String?
+  description     String?
+  author          String
+  source          ActivitySource
+  type            ActivityType
+  meta            Json?
+  createdAt       DateTime?      @default(now()) @db.Timestamp(0)
+  updatedAt       DateTime?      @updatedAt
+  deletedAt       DateTime?      @db.Timestamp(0)
+  schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
+  schoolProfileId String?
 }
 
 enum ActivitySource {
-    user
-    system
+  user
+  system
 }
 
 enum ActivityType {
-    wallet_created
+  wallet_created
 
-    student_fee_created
-    student_fee_cancelled
+  student_fee_created
+  student_fee_cancelled
 
-    // student payment transaction activities
-    student_payment_received
-    student_payment_refund
-    student_payment_cancelled
+  // student payment transaction activities
+  student_payment_received
+  student_payment_refund
+  student_payment_cancelled
 
-    student_payment_transaction_cancelled
-    student_payment_transaction_created
+  student_payment_transaction_cancelled
+  student_payment_transaction_created
 
-    student_term_created
-    student_term_cancelled
+  student_term_created
+  student_term_cancelled
 
-    assistant_run
-    assistant_action_requested
-    assistant_action_completed
-    assistant_action_blocked
+  assistant_run
+  assistant_action_requested
+  assistant_action_completed
+  assistant_action_blocked
+
+  assessment_public_link_created
+  assessment_public_link_requested
+  assessment_public_link_approved
+  assessment_public_link_rejected
+  assessment_public_link_revoked
+  assessment_public_link_score_recorded
 }
 
 // ---- .bin/school-sessions.prisma ----
@@ -723,6 +729,7 @@ model EnrollmentLink {
     title           String
     code            String                 @unique
     status          EnrollmentLinkStatus   @default(ACTIVE)
+    showOnWebsite   Boolean                @default(false)
     capacityMode    EnrollmentCapacityMode @default(TOTAL)
     totalCapacity   Int?
     instructions    String?
@@ -738,6 +745,7 @@ model EnrollmentLink {
     applications         EnrollmentApplication[]
 
     @@index([schoolProfileId, status])
+    @@index([schoolProfileId, status, showOnWebsite])
     @@index([schoolProfileId, createdAt])
 }
 
@@ -748,6 +756,10 @@ model EnrollmentLinkClassroom {
     classRoomDepartment   ClassRoomDepartment @relation(fields: [classRoomDepartmentId], references: [id], onDelete: Cascade)
     classRoomDepartmentId String
     capacity              Int?
+    minimumAgeMonths      Int?
+    maximumAgeMonths      Int?
+    ageCutoffDate         DateTime?           @db.Timestamp(0)
+    requirementNotes      String?
     createdAt             DateTime?           @default(now()) @db.Timestamp(0)
     updatedAt             DateTime?           @updatedAt
     deletedAt             DateTime?           @db.Timestamp(0)
@@ -757,20 +769,26 @@ model EnrollmentLinkClassroom {
 }
 
 model EnrollmentLinkDocumentRequirement {
-    id               String         @id @default(uuid())
-    enrollmentLink   EnrollmentLink @relation(fields: [enrollmentLinkId], references: [id], onDelete: Cascade)
-    enrollmentLinkId String
-    label            String
-    description      String?
-    uploadRequired   Boolean        @default(true)
-    sortOrder        Int            @default(0)
-    createdAt        DateTime?      @default(now()) @db.Timestamp(0)
-    updatedAt        DateTime?      @updatedAt
-    deletedAt        DateTime?      @db.Timestamp(0)
+    id                    String               @id @default(uuid())
+    enrollmentLink        EnrollmentLink       @relation(fields: [enrollmentLinkId], references: [id], onDelete: Cascade)
+    enrollmentLinkId      String
+    classRoomDepartment   ClassRoomDepartment? @relation(fields: [classRoomDepartmentId], references: [id], onDelete: SetNull)
+    classRoomDepartmentId String?
+    label                 String
+    description           String?
+    documentType          String               @default("GENERAL")
+    uploadRequired        Boolean              @default(true)
+    sortOrder             Int                  @default(0)
+    createdAt             DateTime?            @default(now()) @db.Timestamp(0)
+    updatedAt             DateTime?            @updatedAt
+    deletedAt             DateTime?            @db.Timestamp(0)
 
     documents EnrollmentApplicationDocument[]
 
     @@index([enrollmentLinkId, sortOrder])
+    @@index([enrollmentLinkId, classRoomDepartmentId, sortOrder], map: "EnrollmentLinkDocumentRequirement_enrollmentLinkId_classRoomDep")
+    @@index([enrollmentLinkId, documentType], map: "EnrollmentLinkDocumentRequirement_enrollmentLinkId_documentType")
+    @@index([classRoomDepartmentId])
 }
 
 model EnrollmentApplication {
@@ -791,6 +809,16 @@ model EnrollmentApplication {
     reviewedByUserId      String?
     reviewedAt            DateTime?                   @db.Timestamp(0)
     rejectionReason       String?
+    admissionPaymentRequired Boolean                    @default(false)
+    admissionPaymentLabel String?
+    admissionPaymentAmount Decimal?                     @db.Decimal(14, 2)
+    admissionPaymentCurrency String?                    @default("NGN")
+    admissionPaymentInstructions String?
+    admissionPaymentLink String?
+    admissionPaymentDueAt DateTime?                     @db.Timestamp(0)
+    admissionApprovalEmailSentAt DateTime?              @db.Timestamp(0)
+    admissionLetterTemplateId String?
+    admissionLetterTemplateVersion Int?
     acceptedStudentId     String?
     acceptedTermFormId    String?
     createdAt             DateTime?                   @default(now()) @db.Timestamp(0)
@@ -801,6 +829,8 @@ model EnrollmentApplication {
     documents EnrollmentApplicationDocument[]
 
     @@index([schoolProfileId, status, createdAt])
+    @@index([schoolProfileId, admissionPaymentRequired], map: "EnrollmentApplication_schoolProfileId_admissionPaymentRequired_")
+    @@index([schoolProfileId, admissionLetterTemplateId], map: "EnrollmentApplication_schoolProfileId_admissionLetterTemplateId")
     @@index([enrollmentLinkId, status])
     @@index([classRoomDepartmentId, status])
     @@index([acceptedStudentId])
@@ -840,6 +870,7 @@ model EnrollmentApplicationDocument {
     storageKey            String?
     mimeType              String?
     sizeBytes             Int?
+    documentType          String                          @default("GENERAL")
     reviewStatus          EnrollmentDocumentReviewStatus @default(PENDING)
     uploadedAt            DateTime?                      @default(now()) @db.Timestamp(0)
     createdAt             DateTime?                      @default(now()) @db.Timestamp(0)
@@ -847,6 +878,7 @@ model EnrollmentApplicationDocument {
     deletedAt             DateTime?                      @db.Timestamp(0)
 
     @@index([enrollmentApplicationId])
+    @@index([enrollmentApplicationId, documentType], map: "EnrollmentApplicationDocument_enrollmentApplicationId_documentT")
     @@index([requirementId])
     @@index([reviewStatus])
 }
@@ -897,56 +929,111 @@ model InventoryIssuance {
 
 // ---- assessment.prisma ----
 model ClassroomSubjectAssessment {
-    id                   Int    @unique @default(autoincrement())
-    title                String
-    obtainable           Float  @default(0)
-    percentageObtainable Float? @default(0)
-    index                Float?
-    isGroup              Boolean @default(false)
-    parentAssessmentId   Int?
+  id                   Int                                  @unique @default(autoincrement())
+  title                String
+  obtainable           Float                                @default(0)
+  percentageObtainable Float?                               @default(0)
+  index                Float?
+  isGroup              Boolean                              @default(false)
+  parentAssessmentId   Int?
+  printMode            ClassroomSubjectAssessmentPrintMode  @default(EXPANDED)
 
-    createdAt DateTime? @default(now()) @db.Timestamp(0)
-    updatedAt DateTime? @updatedAt
-    deletedAt DateTime? @db.Timestamp(0)
+  createdAt DateTime? @default(now()) @db.Timestamp(0)
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime? @db.Timestamp(0)
 
-    assessmentResults   StudentAssessmentRecord[]
-    departmentSubjectId String?
-    departmentSubject   DepartmentSubject?        @relation(fields: [departmentSubjectId], references: [id])
-    parentAssessment    ClassroomSubjectAssessment? @relation("AssessmentHierarchy", fields: [parentAssessmentId], references: [id])
-    childAssessments    ClassroomSubjectAssessment[] @relation("AssessmentHierarchy")
+  assessmentResults   StudentAssessmentRecord[]
+  departmentSubjectId String?
+  departmentSubject   DepartmentSubject?           @relation(fields: [departmentSubjectId], references: [id])
+  parentAssessment    ClassroomSubjectAssessment?  @relation("AssessmentHierarchy", fields: [parentAssessmentId], references: [id])
+  childAssessments    ClassroomSubjectAssessment[] @relation("AssessmentHierarchy")
+}
+
+enum ClassroomSubjectAssessmentPrintMode {
+  EXPANDED
+  TOTAL
 }
 
 model StudentAssessmentRecord {
-    id                       Int     @unique @default(autoincrement())
-    obtained                 Float?
-    percentageScore          Float?
-    studentId                String?
-    classSubjectAssessmentId Int?
-    remarkOnAssementId       Int?
-    studentTermFormId        String?
+  id                       Int     @unique @default(autoincrement())
+  obtained                 Float?
+  percentageScore          Float?
+  studentId                String?
+  classSubjectAssessmentId Int?
+  remarkOnAssementId       Int?
+  studentTermFormId        String?
 
-    createdAt DateTime? @default(now()) @db.Timestamp(0)
-    updatedAt DateTime? @updatedAt
-    deletedAt DateTime? @db.Timestamp(0)
+  createdAt DateTime? @default(now()) @db.Timestamp(0)
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime? @db.Timestamp(0)
 
-    student                Students?                   @relation(fields: [studentId], references: [id])
-    classSubjectAssessment ClassroomSubjectAssessment? @relation(fields: [classSubjectAssessmentId], references: [id])
-    studentTermForm        StudentTermForm?            @relation(fields: [studentTermFormId], references: [id])
+  student                Students?                   @relation(fields: [studentId], references: [id])
+  classSubjectAssessment ClassroomSubjectAssessment? @relation(fields: [classSubjectAssessmentId], references: [id])
+  studentTermForm        StudentTermForm?            @relation(fields: [studentTermFormId], references: [id])
 
-    @@unique([studentId, studentTermFormId, classSubjectAssessmentId])
+  @@unique([studentId, studentTermFormId, classSubjectAssessmentId])
 }
 
 model ReportPrintLog {
-    id              String   @id @default(uuid())
-    schoolProfileId String?
-    termId          String?
-    termFormIds     String[]
-    departmentIds   String[]
-    printedAt       DateTime @default(now()) @db.Timestamp(0)
-    createdAt       DateTime @default(now()) @db.Timestamp(0)
+  id              String   @id @default(uuid())
+  schoolProfileId String?
+  termId          String?
+  termFormIds     String[]
+  departmentIds   String[]
+  printedAt       DateTime @default(now()) @db.Timestamp(0)
+  createdAt       DateTime @default(now()) @db.Timestamp(0)
 
-    schoolProfile SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
-    sessionTerm   SessionTerm?   @relation(fields: [termId], references: [id])
+  schoolProfile SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
+  sessionTerm   SessionTerm?   @relation(fields: [termId], references: [id])
+}
+
+model AssessmentPublicLink {
+  id                           String                     @id @default(uuid())
+  status                       AssessmentPublicLinkStatus @default(PENDING)
+  tokenHash                    String?                    @unique
+  requestedDurationHours       Int                        @default(24)
+  selectedDepartmentSubjectIds String[]                   @default([])
+  selectedStudentTermFormIds   String[]                   @default([])
+  reason                       String?
+  rejectionNote                String?
+  requesterUserId              String?
+  requesterName                String?
+  requesterEmail               String?
+  createdByUserId              String?
+  createdByName                String?
+  approvedByUserId             String?
+  approvedByName               String?
+  rejectedByUserId             String?
+  rejectedByName               String?
+  revokedByUserId              String?
+  revokedByName                String?
+  approvedAt                   DateTime?                  @db.Timestamp(0)
+  rejectedAt                   DateTime?                  @db.Timestamp(0)
+  revokedAt                    DateTime?                  @db.Timestamp(0)
+  expiresAt                    DateTime?                  @db.Timestamp(0)
+  lastUsedAt                   DateTime?                  @db.Timestamp(0)
+  createdAt                    DateTime?                  @default(now()) @db.Timestamp(0)
+  updatedAt                    DateTime?                  @updatedAt
+  deletedAt                    DateTime?                  @db.Timestamp(0)
+
+  schoolProfileId       String
+  schoolProfile         SchoolProfile       @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+  sessionTermId         String
+  sessionTerm           SessionTerm         @relation(fields: [sessionTermId], references: [id], onDelete: Cascade)
+  classRoomDepartmentId String
+  classRoomDepartment   ClassRoomDepartment @relation(fields: [classRoomDepartmentId], references: [id], onDelete: Cascade)
+
+  @@index([schoolProfileId, status])
+  @@index([schoolProfileId, sessionTermId, classRoomDepartmentId])
+  @@index([requesterUserId])
+}
+
+enum AssessmentPublicLinkStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  REVOKED
 }
 
 // ---- post.prisma ----
@@ -1108,85 +1195,87 @@ model StudentTermForm {
 
 // ---- classroom.prisma ----
 model ClassRoom {
-    id                   String                @id @default(uuid())
-    name                 String?
-    classLevel           Float?
-    schoolProfileId      String
-    schoolSessionId      String
-    createdAt            DateTime?             @default(now()) @db.Timestamp(0)
-    updatedAt            DateTime?             @updatedAt
-    deletedAt            DateTime?             @db.Timestamp(0)
-    session              SchoolSession         @relation(fields: [schoolSessionId], references: [id])
-    school               SchoolProfile         @relation(fields: [schoolProfileId], references: [id])
-    classRoomDepartments ClassRoomDepartment[]
+  id                   String                @id @default(uuid())
+  name                 String?
+  classLevel           Float?
+  schoolProfileId      String
+  schoolSessionId      String
+  createdAt            DateTime?             @default(now()) @db.Timestamp(0)
+  updatedAt            DateTime?             @updatedAt
+  deletedAt            DateTime?             @db.Timestamp(0)
+  session              SchoolSession         @relation(fields: [schoolSessionId], references: [id])
+  school               SchoolProfile         @relation(fields: [schoolProfileId], references: [id])
+  classRoomDepartments ClassRoomDepartment[]
 
-    @@unique([schoolSessionId, name])
+  @@unique([schoolSessionId, name])
 }
 
 model ClassRoomDepartment {
-    // if a class has multiple sub classes: eg: js 1 A, js 1 B etc.
-    id                    String                                 @id @default(uuid())
-    departmentName        String?
-    classRoomsId          String?
-    schoolProfileId       String?
-    departmentLevel       Float?
-    classRoom             ClassRoom?                             @relation(fields: [classRoomsId], references: [id])
-    createdAt             DateTime?                              @default(now()) @db.Timestamp(0)
-    updatedAt             DateTime?                              @updatedAt
-    deletedAt             DateTime?                              @db.Timestamp(0)
-    schoolProfile         SchoolProfile?                         @relation(fields: [schoolProfileId], references: [id])
-    attendance            ClassRoomAttendance[]
-    studentAttendanceList StudentAttendance[]
-    subjects              DepartmentSubject[]
-    studentSessionForms   StudentSessionForm[]
-    staffTermProfiles     StaffClassroomDepartmentTermProfiles[]
-    studentTermForms      StudentTermForm[]
-    financeItemApplicabilities FinanceItemClassRoomDepartment[]
-    financeCharges             FinanceCharge[]
-    enrollmentLinkClassrooms    EnrollmentLinkClassroom[]
-    enrollmentApplications      EnrollmentApplication[]
+  // if a class has multiple sub classes: eg: js 1 A, js 1 B etc.
+  id                             String                                 @id @default(uuid())
+  departmentName                 String?
+  classRoomsId                   String?
+  schoolProfileId                String?
+  departmentLevel                Float?
+  classRoom                      ClassRoom?                             @relation(fields: [classRoomsId], references: [id])
+  createdAt                      DateTime?                              @default(now()) @db.Timestamp(0)
+  updatedAt                      DateTime?                              @updatedAt
+  deletedAt                      DateTime?                              @db.Timestamp(0)
+  schoolProfile                  SchoolProfile?                         @relation(fields: [schoolProfileId], references: [id])
+  attendance                     ClassRoomAttendance[]
+  studentAttendanceList          StudentAttendance[]
+  subjects                       DepartmentSubject[]
+  studentSessionForms            StudentSessionForm[]
+  staffTermProfiles              StaffClassroomDepartmentTermProfiles[]
+  studentTermForms               StudentTermForm[]
+  financeItemApplicabilities     FinanceItemClassRoomDepartment[]
+  financeCharges                 FinanceCharge[]
+  enrollmentLinkClassrooms       EnrollmentLinkClassroom[]
+  enrollmentDocumentRequirements EnrollmentLinkDocumentRequirement[]
+  enrollmentApplications         EnrollmentApplication[]
+  assessmentPublicLinks          AssessmentPublicLink[]
 
-    @@unique([classRoomsId, departmentName])
+  @@unique([classRoomsId, departmentName])
 }
 
 model DepartmentSubject {
-    id String @id @default(uuid())
+  id String @id @default(uuid())
 
-    description String?
+  description String?
 
-    classRoomDepartment   ClassRoomDepartment? @relation(fields: [classRoomDepartmentId], references: [id])
-    classRoomDepartmentId String?
+  classRoomDepartment   ClassRoomDepartment? @relation(fields: [classRoomDepartmentId], references: [id])
+  classRoomDepartmentId String?
 
-    staffSubjects StaffSubject[]
-    assessments   ClassroomSubjectAssessment[]
+  staffSubjects StaffSubject[]
+  assessments   ClassroomSubjectAssessment[]
 
-    createdAt DateTime? @default(now()) @db.Timestamp(0)
-    updatedAt DateTime? @updatedAt
-    deletedAt DateTime? @db.Timestamp(0)
+  createdAt DateTime? @default(now()) @db.Timestamp(0)
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime? @db.Timestamp(0)
 
-    sessionTerm   SessionTerm? @relation(fields: [sessionTermId], references: [id])
-    sessionTermId String?
+  sessionTerm   SessionTerm? @relation(fields: [sessionTermId], references: [id])
+  sessionTermId String?
 
-    subject   Subject @relation(fields: [subjectId], references: [id])
-    subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id])
+  subjectId String
 
-    // @@unique([classRoomDepartmentId,sessionTermId,])
+  // @@unique([classRoomDepartmentId,sessionTermId,])
 }
 
 model Subject {
-    id    String @id @default(uuid())
-    title String
+  id    String @id @default(uuid())
+  title String
 
-    createdAt DateTime? @default(now()) @db.Timestamp(0)
-    updatedAt DateTime? @updatedAt
-    deletedAt DateTime? @db.Timestamp(0)
+  createdAt DateTime? @default(now()) @db.Timestamp(0)
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime? @db.Timestamp(0)
 
-    schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
-    schoolProfileId String?
+  schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
+  schoolProfileId String?
 
-    departmentSubjects DepartmentSubject[]
+  departmentSubjects DepartmentSubject[]
 
-    @@unique([title, schoolProfileId])
+  @@unique([title, schoolProfileId])
 }
 
 // ---- assistant.prisma ----
@@ -1506,121 +1595,125 @@ model NotificationContact {
 
 // ---- school.prisma ----
 model SchoolProfile {
-    id                      String                @id @default(uuid())
-    name                    String
-    slug                    String
-    subDomain               String                @unique
-    institutionType         String?
-    studentCountEstimate    Int?
-    country                 String?
-    educationSystem         String?
-    curriculumType          String?
-    languageOfInstruction   String?
-    onboardingCompletedAt   DateTime?             @db.Timestamp(0)
-    createdAt               DateTime?             @default(now()) @db.Timestamp(0)
-    accountId               String
-    updatedAt               DateTime?             @updatedAt
-    deletedAt               DateTime?             @db.Timestamp(0)
-    sessions                SchoolSession[]
-    terms                   SessionTerm[]
-    classRooms              ClassRoom[]
-    classRoomDepartments    ClassRoomDepartment[]
-    classRoomAttendanceList ClassRoomAttendance[]
-    students                Students[]
-    sessionForms            StudentSessionForm[]
-    termForms               StudentTermForm[]
-    studentAttendanceList   StudentAttendance[]
-    staffProfiles           StaffProfile[]
+  id                      String                @id @default(uuid())
+  name                    String
+  slug                    String
+  subDomain               String                @unique
+  institutionType         String?
+  studentCountEstimate    Int?
+  country                 String?
+  educationSystem         String?
+  curriculumType          String?
+  languageOfInstruction   String?
+  onboardingCompletedAt   DateTime?             @db.Timestamp(0)
+  createdAt               DateTime?             @default(now()) @db.Timestamp(0)
+  accountId               String
+  updatedAt               DateTime?             @updatedAt
+  deletedAt               DateTime?             @db.Timestamp(0)
+  sessions                SchoolSession[]
+  terms                   SessionTerm[]
+  classRooms              ClassRoom[]
+  classRoomDepartments    ClassRoomDepartment[]
+  classRoomAttendanceList ClassRoomAttendance[]
+  students                Students[]
+  sessionForms            StudentSessionForm[]
+  termForms               StudentTermForm[]
+  studentAttendanceList   StudentAttendance[]
+  staffProfiles           StaffProfile[]
 
-    subjects               Subject[]
-    account                SaasAccount      @relation(fields: [accountId], references: [id])
-    guardians              Guardians[]
-    domains                TenantDomain[]
-    websiteMediaAssets     WebsiteMediaAsset[]
-    websiteConfigs         WebsiteTemplateConfig[]
-    websitePublishedConfig WebsitePublishedConfig?
-    activities             Activity[]
-    reportPrintLogs        ReportPrintLog[]
-    notifications          Notification[]
-    notificationPreferences NotificationPreference[]
-    notificationContacts  NotificationContact[]
-    inventoryItems         Inventory[]
-    inventoryIssuances     InventoryIssuance[]
-    enrollmentLinks        EnrollmentLink[]
-    enrollmentApplications EnrollmentApplication[]
-    assistantConversations AssistantConversation[]
-    assistantMessages      AssistantMessage[]
-    assistantRuns          AssistantRun[]
-    assistantToolExecutions AssistantToolExecution[]
-    assistantConfig        SchoolAssistantConfig?
-    assistantFeedback      AssistantFeedback[]
-    financeStreams         FinanceStream[]
-    financeItems           FinanceItem[]
-    financeCharges         FinanceCharge[]
-    financePayments        FinancePayment[]
-    financeTransfers       FinanceTransfer[]
-    financeLedgerEntries   FinanceLedgerEntry[]
+  subjects                       Subject[]
+  account                        SaasAccount                        @relation(fields: [accountId], references: [id])
+  guardians                      Guardians[]
+  domains                        TenantDomain[]
+  websiteMediaAssets             WebsiteMediaAsset[]
+  websiteConfigs                 WebsiteTemplateConfig[]
+  websitePublishedConfig         WebsitePublishedConfig?
+  activities                     Activity[]
+  reportPrintLogs                ReportPrintLog[]
+  assessmentPublicLinks          AssessmentPublicLink[]
+  notifications                  Notification[]
+  notificationPreferences        NotificationPreference[]
+  notificationContacts           NotificationContact[]
+  inventoryItems                 Inventory[]
+  inventoryIssuances             InventoryIssuance[]
+  enrollmentLinks                EnrollmentLink[]
+  enrollmentApplications         EnrollmentApplication[]
+  documentTemplatePreferences    SchoolDocumentTemplatePreference[]
+  customDocumentTemplateRequests CustomDocumentTemplateRequest[]
+  assistantConversations         AssistantConversation[]
+  assistantMessages              AssistantMessage[]
+  assistantRuns                  AssistantRun[]
+  assistantToolExecutions        AssistantToolExecution[]
+  assistantConfig                SchoolAssistantConfig?
+  assistantFeedback              AssistantFeedback[]
+  financeStreams                 FinanceStream[]
+  financeItems                   FinanceItem[]
+  financeCharges                 FinanceCharge[]
+  financePayments                FinancePayment[]
+  financeTransfers               FinanceTransfer[]
+  financeLedgerEntries           FinanceLedgerEntry[]
 
-    @@unique([name, subDomain, slug, deletedAt])
+  @@unique([name, subDomain, slug, deletedAt])
 }
 
 model TenantDomain {
-    id           String    @id @default(uuid())
-    subdomain    String?   @unique
-    customDomain String?   @unique
-    isPrimary    Boolean   @default(true)
-    isVerified   Boolean   @default(false)
+  id           String  @id @default(uuid())
+  subdomain    String? @unique
+  customDomain String? @unique
+  isPrimary    Boolean @default(true)
+  isVerified   Boolean @default(false)
 
-    createdAt DateTime? @default(now()) @db.Timestamp(0)
-    updatedAt DateTime? @updatedAt
-    deletedAt DateTime? @db.Timestamp(0)
+  createdAt DateTime? @default(now()) @db.Timestamp(0)
+  updatedAt DateTime? @updatedAt
+  deletedAt DateTime? @db.Timestamp(0)
 
-    schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
-    schoolProfileId String?
-    saasAccount     SaasAccount?   @relation(fields: [saasAccountId], references: [id])
-    saasAccountId   String?
+  schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
+  schoolProfileId String?
+  saasAccount     SaasAccount?   @relation(fields: [saasAccountId], references: [id])
+  saasAccountId   String?
 }
 
 model SchoolSession {
-    id    String @id @default(uuid())
-    title String
+  id    String @id @default(uuid())
+  title String
 
-    createdAt DateTime?     @default(now()) @db.Timestamp(0)
-    updatedAt DateTime?     @updatedAt
-    deletedAt DateTime?     @db.Timestamp(0)
-    schoolId  String
-    school    SchoolProfile @relation(fields: [schoolId], references: [id])
+  createdAt DateTime?     @default(now()) @db.Timestamp(0)
+  updatedAt DateTime?     @updatedAt
+  deletedAt DateTime?     @db.Timestamp(0)
+  schoolId  String
+  school    SchoolProfile @relation(fields: [schoolId], references: [id])
 
-    startDate DateTime? @db.Timestamp(0)
-    endDate   DateTime? @db.Timestamp(0)
+  startDate DateTime? @db.Timestamp(0)
+  endDate   DateTime? @db.Timestamp(0)
 
-    terms             SessionTerm[]
-    classRooms        ClassRoom[]
-    sessionForms      StudentSessionForm[]
-    termForms         StudentTermForm[]
-    staffTermProfiles StaffTermProfile[]
-    financeItems      FinanceItem[]
-    financeCharges    FinanceCharge[]
+  terms             SessionTerm[]
+  classRooms        ClassRoom[]
+  sessionForms      StudentSessionForm[]
+  termForms         StudentTermForm[]
+  staffTermProfiles StaffTermProfile[]
+  financeItems      FinanceItem[]
+  financeCharges    FinanceCharge[]
 }
 
 model SessionTerm {
-    id                 String              @id @default(uuid())
-    sessionId          String
-    schoolId           String
-    title              String
-    startDate          DateTime?           @db.Timestamp(0)
-    endDate            DateTime?           @db.Timestamp(0)
-    createdAt          DateTime?           @default(now()) @db.Timestamp(0)
-    updatedAt          DateTime?           @updatedAt
-    deletedAt          DateTime?           @db.Timestamp(0)
-    school             SchoolProfile?      @relation(fields: [schoolId], references: [id])
-    session            SchoolSession?      @relation(fields: [sessionId], references: [id])
-    termForms          StudentTermForm[]
-    departmentSubjects DepartmentSubject[]
-    staffTermProfiles  StaffTermProfile[]
-    reportPrintLogs    ReportPrintLog[]
-    financeItems       FinanceItem[]
-    financeCharges     FinanceCharge[]
+  id                    String                 @id @default(uuid())
+  sessionId             String
+  schoolId              String
+  title                 String
+  startDate             DateTime?              @db.Timestamp(0)
+  endDate               DateTime?              @db.Timestamp(0)
+  createdAt             DateTime?              @default(now()) @db.Timestamp(0)
+  updatedAt             DateTime?              @updatedAt
+  deletedAt             DateTime?              @db.Timestamp(0)
+  school                SchoolProfile?         @relation(fields: [schoolId], references: [id])
+  session               SchoolSession?         @relation(fields: [sessionId], references: [id])
+  termForms             StudentTermForm[]
+  departmentSubjects    DepartmentSubject[]
+  staffTermProfiles     StaffTermProfile[]
+  reportPrintLogs       ReportPrintLog[]
+  assessmentPublicLinks AssessmentPublicLink[]
+  financeItems          FinanceItem[]
+  financeCharges        FinanceCharge[]
 }
 
 // ---- student-activity.prisma ----
@@ -2031,6 +2124,64 @@ model FinanceLedgerEntry {
     @@index([chargeId])
     @@index([paymentId])
     @@index([transferId])
+}
+
+// ---- document-template.prisma ----
+model SchoolDocumentTemplatePreference {
+    id              String        @id @default(uuid())
+    schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+    schoolProfileId String
+    documentType    String
+    templateId      String
+    templateVersion Int           @default(1)
+    source          String        @default("code")
+    createdAt       DateTime?     @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?     @updatedAt
+    deletedAt       DateTime?     @db.Timestamp(0)
+
+    @@index([schoolProfileId, documentType], map: "SchoolDocumentTemplatePreference_schoolProfileId_documentType_i")
+    @@index([templateId])
+}
+
+enum CustomDocumentTemplateRequestStatus {
+    SUBMITTED
+    QUOTED
+    PAID
+    IN_BUILD
+    READY
+    REJECTED
+}
+
+model CustomDocumentTemplateRequest {
+    id                       String                              @id @default(uuid())
+    schoolProfile            SchoolProfile                       @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+    schoolProfileId          String
+    documentType             String
+    title                    String
+    notes                    String?
+    status                   CustomDocumentTemplateRequestStatus @default(SUBMITTED)
+    sourceFileName           String?
+    sourceFileUrl            String?
+    storageProvider          String?
+    storageKey               String?
+    mimeType                 String?
+    sizeBytes                Int?
+    quotedAmount             Decimal?                            @db.Decimal(14, 2)
+    quotedCurrency           String?                             @default("NGN")
+    quotePaymentInstructions String?
+    quotePaymentLink         String?
+    quotePaymentDueAt        DateTime?                           @db.Timestamp(0)
+    builtTemplateId          String?
+    builtTemplateVersion     Int?
+    builtTemplateJson        Json?
+    operatorNotes            String?
+    requestedByUserId        String?
+    createdAt                DateTime?                           @default(now()) @db.Timestamp(0)
+    updatedAt                DateTime?                           @updatedAt
+    deletedAt                DateTime?                           @db.Timestamp(0)
+
+    @@index([schoolProfileId, documentType, status], map: "CustomDocumentTemplateRequest_schoolProfileId_documentType_stat")
+    @@index([builtTemplateId])
 }
 
 // ---- staffs.prisma ----

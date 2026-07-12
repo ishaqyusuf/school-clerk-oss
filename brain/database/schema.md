@@ -15,8 +15,8 @@ Tracks logical and physical schema for SchoolClerk data entities.
 - Prisma schema location: `packages/db/src/schema/*.prisma`
 - Primary datasource: PostgreSQL (`provider = "postgresql"`)
 - ORM client: Prisma Client 7 (`prisma-client-js`) generated to `packages/db/src/generated/client`
-- Runtime adapter: `@prisma/adapter-pg`; `packages/db/src/prisma.ts` resolves `POSTGRES_URL` first, falls back to `DATABASE_URL`, and normalizes PostgreSQL SSL connection parameters for Supabase-compatible deployments.
-- Development infra uses `scripts/with-dev-infra.ts` to select `SCHOOL_CLERK_DB_MODE=remote-dev` or `local` and then exports `POSTGRES_URL`, `DATABASE_URL`, and `DIRECT_URL` together. The jobs package uses the same env contract because its generated Trigger schema reads `POSTGRES_URL` and `DIRECT_URL`.
+- Runtime adapter: `@prisma/adapter-pg`; `packages/db/src/prisma.ts` resolves `DATABASE_URL` only and normalizes PostgreSQL SSL connection parameters for Supabase-compatible deployments.
+- Development infra uses `scripts/with-dev-infra.ts` to select `SCHOOL_CLERK_DB_MODE=remote-dev` or `local` and then exports the final `DATABASE_URL` used by Prisma maintenance commands. `scripts/db-command.ts` runs Prisma from `packages/db` with that resolved `DATABASE_URL`; `packages/db/prisma.config.ts` intentionally stays GND-style and only reads `DATABASE_URL`. The jobs package uses the same env resolver for local Trigger development, refreshes its flattened Prisma schema before dev/deploy, and invokes the Trigger CLI through Node to avoid Bun bin-runner crashes.
 
 ## Active Model Groups
 
@@ -92,7 +92,9 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 
 - `ClassRoom`, `ClassRoomDepartment`, `DepartmentSubject`, `Subject`
 - `Students`, `StudentSessionForm`, `StudentTermForm`
-- `StaffProfile`, `StaffTermProfile`, `StaffClassroomDepartmentTermProfiles`, `StaffSubject`
+- `StaffProfile`, `StaffTermProfile`, `StaffClassroomDepartmentTermProfiles`, `StaffSubject`, `StaffAcademicAccessGrant`
+- `StaffAcademicAccessGrant.scope` supports `CLASS`, `DEPARTMENT`, `CLASS_SUBJECT`, and `DEPARTMENT_SUBJECT` for hierarchy-aware teacher academic access. Grants are term-owned through `StaffTermProfile` and may reference `ClassRoom`, `ClassRoomDepartment`, `Subject`, or `DepartmentSubject` depending on scope.
+- Legacy classroom/subject assignment rows remain active compatibility inputs to the effective teacher access resolver.
 
 ### Classroom Search Indexes (updated — session 2026-06)
 
@@ -126,6 +128,19 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 - `ClassRoomAttendance`, `StudentAttendance`
 - `ClassroomSubjectAssessment`, `StudentAssessmentRecord`
 
+### ClassroomSubjectAssessment Print Mode (added — session 2026-07)
+
+| Field       | Type                                    | Notes                                                                 |
+| ----------- | --------------------------------------- | --------------------------------------------------------------------- |
+| `printMode` | `ClassroomSubjectAssessmentPrintMode`   | Defaults to `EXPANDED`; meaningful on grouped parent assessments only |
+
+`ClassroomSubjectAssessmentPrintMode` values:
+
+- `EXPANDED`: print weighted child assessments as separate `Parent - Child` columns.
+- `TOTAL`: print one parent total column using the summed weighted child scores.
+
+Child assessment rows remain the scoreable records. Grouped parent rows are containers and must not receive direct `StudentAssessmentRecord` scores.
+
 ### AssessmentPublicLink (added — session 2026-07)
 
 | Field                                                              | Type           | Notes                                                                                           |
@@ -144,6 +159,8 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 | `deletedAt`                                                        | DateTime?      | Soft-delete marker                                                                              |
 
 Assessment public links are tenant-scoped and store only the hash of the externally shared token. Approved links expose the classroom report sheet for the captured classroom, term, subject filter, and optional student filter until expiry or revocation.
+
+The composite assessment public-link lookup index on `schoolProfileId`, `sessionTermId`, and `classRoomDepartmentId` uses the explicit PostgreSQL-safe map name `AssessmentPublicLink_schoolProfileId_sessionTermId_classRoo_idx` to avoid Prisma/PostgreSQL truncation drift.
 
 ## Finance
 

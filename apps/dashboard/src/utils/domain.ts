@@ -3,9 +3,22 @@
 import { env } from "@/env";
 import { Vercel } from "@vercel/sdk";
 
-const vercel = new Vercel({
-  bearerToken: env.VERCEL_BEARER_TOKEN,
-});
+function requireVercelEnv(name: string, value?: string | null) {
+  if (!value) {
+    throw new Error(`${name} is required to provision Vercel domains.`);
+  }
+
+  return value;
+}
+
+function getVercelClient() {
+  return new Vercel({
+    bearerToken: requireVercelEnv(
+      "VERCEL_BEARER_TOKEN",
+      env.VERCEL_BEARER_TOKEN,
+    ),
+  });
+}
 
 function isAlreadyRegisteredDomainError(error: unknown) {
   if (!(error instanceof Error)) return false;
@@ -23,10 +36,14 @@ export async function addDomainToVercelProject({
   projectId: string;
   projectSlug?: string | null;
 }) {
+  const vercel = getVercelClient();
   const result = await vercel.projects.addProjectDomain({
     idOrName: projectId,
-    teamId: env.VERCEL_TEAM_ID,
-    slug: projectSlug ?? env.VERCEL_PROJECT_SLUG,
+    teamId: requireVercelEnv("VERCEL_TEAM_ID", env.VERCEL_TEAM_ID),
+    slug: requireVercelEnv(
+      "VERCEL_PROJECT_SLUG",
+      projectSlug ?? env.VERCEL_PROJECT_SLUG,
+    ),
     requestBody: {
       name: domain,
       gitBranch: null,
@@ -62,7 +79,10 @@ export async function provisionSchoolVercelDomains({
     },
     {
       domain: dashboardDomain,
-      projectId: dashboardProjectId,
+      projectId: requireVercelEnv(
+        "VERCEL_DASHBOARD_PROJECT_ID or VERCEL_PROJECT_ID",
+        dashboardProjectId,
+      ),
       projectSlug:
         env.VERCEL_DASHBOARD_PROJECT_SLUG ?? env.VERCEL_PROJECT_SLUG,
     },

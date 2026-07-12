@@ -135,6 +135,14 @@ export function StaffOverviewShell({
 	}
 
 	const assignmentRows = (data.staff.assignments ?? []).map((assignment) => {
+		const scope = assignment.scope ?? "DEPARTMENT";
+		const classOption = data.classes?.find(
+			(item) => item.value === assignment.classRoomId,
+		);
+		const subjectOption =
+			(data.subjectsByClass?.[assignment.classRoomId ?? ""] ?? data.subjects ?? []).find(
+				(item) => item.value === assignment.subjectId,
+			);
 		const classroom = data.classrooms.find(
 			(item) => item.value === assignment.classRoomDepartmentId,
 		);
@@ -144,9 +152,29 @@ export function StaffOverviewShell({
 			classroomSubjects.map((subject) => [subject.value, subject.label]),
 		);
 		const grantsAllSubjects = assignment.subjectAccessMode === "ALL";
+
+		if (scope === "CLASS") {
+			return {
+				classroomLabel: classOption?.label || "Class assignment",
+				grantsAllSubjects: true,
+				scopeLabel: "Whole class",
+				subjects: ["All current and future departments and subjects"],
+			};
+		}
+
+		if (scope === "CLASS_SUBJECT") {
+			return {
+				classroomLabel: classOption?.label || "Class assignment",
+				grantsAllSubjects: false,
+				scopeLabel: "Subject across class",
+				subjects: [subjectOption?.label || "Selected subject"],
+			};
+		}
+
 		return {
 			classroomLabel: classroom?.label || "Classroom assignment",
 			grantsAllSubjects,
+			scopeLabel: "Department/arm",
 			subjects: grantsAllSubjects
 				? classroomSubjects.map((subject) => subject.label)
 				: (assignment.departmentSubjectIds
@@ -158,6 +186,10 @@ export function StaffOverviewShell({
 		(total, row) => total + row.subjects.length,
 		0,
 	);
+	const effectiveClassroomCount =
+		data.staff.effectiveClassroomCount ?? assignmentRows.length;
+	const effectiveSubjectCount =
+		data.staff.effectiveSubjectCount ?? totalSubjects;
 
 	return (
 		<div
@@ -235,11 +267,11 @@ export function StaffOverviewShell({
 						<QuickInfoCard
 							icon={School}
 							label="Classrooms"
-							value={String(assignmentRows.length)}
+							value={String(effectiveClassroomCount)}
 							helper={
-								assignmentRows.length
-									? `${totalSubjects} linked subject${
-											totalSubjects === 1 ? "" : "s"
+								effectiveClassroomCount
+									? `${effectiveSubjectCount} linked subject${
+											effectiveSubjectCount === 1 ? "" : "s"
 										}`
 									: "No active classroom assignments"
 							}
@@ -303,15 +335,15 @@ export function StaffOverviewShell({
 						<MetricCard
 							icon={School}
 							label="Assignments"
-							value={`${assignmentRows.length} classroom${
-								assignmentRows.length === 1 ? "" : "s"
+							value={`${effectiveClassroomCount} classroom${
+								effectiveClassroomCount === 1 ? "" : "s"
 							}`}
 							helper="Current teaching coverage"
 						/>
 						<MetricCard
 							icon={BookOpen}
 							label="Subjects"
-							value={String(totalSubjects)}
+							value={String(effectiveSubjectCount)}
 							helper="Linked subject permissions"
 						/>
 					</div>
@@ -420,7 +452,10 @@ export function StaffOverviewShell({
 												</p>
 											</div>
 											<Badge variant={assignment.grantsAllSubjects ? "outline" : "secondary"}>
-												{assignment.grantsAllSubjects
+												{assignment.scopeLabel === "Whole class" ||
+												assignment.scopeLabel === "Subject across class"
+													? assignment.scopeLabel
+													: assignment.grantsAllSubjects
 													? "All subjects"
 													: `${assignment.subjects.length} subject${
 															assignment.subjects.length === 1 ? "" : "s"

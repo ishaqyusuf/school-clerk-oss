@@ -2,6 +2,7 @@
 
 import { updateStudentReportCookieByName } from "@/actions/cookies/student-report";
 import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
+import { StudentGenderCell } from "@/components/student-gender-cell";
 import { SubjectAssessments } from "@/components/subject-assessments";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useReportPageContext } from "@/hooks/use-report-page";
@@ -12,6 +13,7 @@ import {
 	buildResultRows,
 	filterResultStudents,
 	filterResultSubjects,
+	getAssessmentDisplayTitle,
 	getDuplicateStudentNameKeys,
 	getStudentDisplayName,
 	getStudentSearchKey,
@@ -58,7 +60,7 @@ import {
 	useState,
   useTransition,
 } from "react";
-import { _trpc } from "./static-trpc";
+import { _qc, _trpc } from "./static-trpc";
 
 type SortColumn = "student" | "grandTotal";
 type SortDirection = "asc" | "desc";
@@ -95,6 +97,8 @@ export function ClassroomResultTable({
 	const auth = useAuth();
 	const role = auth.role;
 	const isAdmin = role === "ADMIN" || role === "Admin";
+	const canUpdateStudentGender =
+		role === "ADMIN" || role === "Admin" || role === "Registrar";
   const [, startSavingLayout] = useTransition();
 
 	const allSubjects = reportData?.subjects ?? [];
@@ -113,6 +117,7 @@ export function ClassroomResultTable({
 	const stickyEdgeClass = isRtl ? "right-0" : "left-0";
 	const stickyIndexClass = isRtl ? "right-[40px]" : "left-[40px]";
 	const stickyNameClass = isRtl ? "right-[80px]" : "left-[80px]";
+	const stickyGenderClass = isRtl ? "right-[240px]" : "left-[240px]";
 	const dividerClass = isRtl ? "border-r" : "border-l";
 
   useEffect(() => {
@@ -222,7 +227,9 @@ export function ClassroomResultTable({
 		if (!totalsOnly) {
 			for (const subject of visibleSubjects) {
 				for (const assessment of subject.assessments) {
-					headers.push(`${subject.subject.title} - ${assessment.title}`);
+					headers.push(
+						`${subject.subject.title} - ${getAssessmentDisplayTitle(assessment)}`,
+					);
 				}
 				headers.push(`${subject.subject.title} Total`);
 			}
@@ -287,7 +294,7 @@ export function ClassroomResultTable({
 				return [
 					...subject.assessments.map(
 						(assessment) =>
-							`<th>${subject.subject.title} - ${assessment.title}</th>`,
+							`<th>${subject.subject.title} - ${getAssessmentDisplayTitle(assessment)}</th>`,
 					),
 					`<th>${subject.subject.title} Total</th>`,
 				];
@@ -370,7 +377,7 @@ export function ClassroomResultTable({
 				return [
 					...subject.assessments.map(
 						(assessment) =>
-							`<th>${subject.subject.title} - ${assessment.title}</th>`,
+							`<th>${subject.subject.title} - ${getAssessmentDisplayTitle(assessment)}</th>`,
 					),
 					`<th>${subject.subject.title} Total</th>`,
 				];
@@ -517,6 +524,12 @@ export function ClassroomResultTable({
 		},
 		[activeDepts, filters.departmentId, printOrder, setFilters],
 	);
+
+	const refetchReportData = useCallback(() => {
+		_qc.invalidateQueries({
+			queryKey: _trpc.assessments.getClassroomReportSheet.queryKey({}),
+		});
+	}, []);
 
 	if (!filters.departmentId) {
 		return (
@@ -808,7 +821,7 @@ export function ClassroomResultTable({
 									<TableHead
 										rowSpan={2}
 										className={cn(
-											"sticky z-30 bg-background min-w-[160px] cursor-pointer select-none whitespace-nowrap",
+											"sticky z-30 w-[160px] min-w-[160px] cursor-pointer select-none whitespace-nowrap bg-background",
 											stickyNameClass,
 											isRtl ? "border-l text-right" : "border-r text-left",
 										)}
@@ -819,6 +832,16 @@ export function ClassroomResultTable({
 											Student
 											<SortIcon column="student" sort={sort} />
 										</span>
+									</TableHead>
+									<TableHead
+										rowSpan={2}
+										className={cn(
+											"sticky z-30 w-[96px] min-w-[96px] bg-background text-center",
+											stickyGenderClass,
+											isRtl ? "border-l" : "border-r",
+										)}
+									>
+										Gender
 									</TableHead>
 									{visibleSubjects.map((subject) => (
 										<TableHead
@@ -874,7 +897,7 @@ export function ClassroomResultTable({
 															dividerClass,
 														)}
 													>
-														<div>{assessment.title}</div>
+														<div>{getAssessmentDisplayTitle(assessment)}</div>
 														<div className="text-muted-foreground">
 															({assessment.obtainable})
 														</div>
@@ -907,6 +930,8 @@ export function ClassroomResultTable({
                       isDuplicateName={duplicateNames.has(
                         getStudentSearchKey(row.student.student),
                       )}
+											onGenderUpdated={refetchReportData}
+											canUpdateStudentGender={canUpdateStudentGender}
 										/>
 									);
 								}) : (
@@ -914,6 +939,7 @@ export function ClassroomResultTable({
 										<TableCell
 											colSpan={
 												3 +
+												1 +
 												visibleSubjects.reduce(
 													(total, subject) =>
 														total +
@@ -969,7 +995,9 @@ interface StudentResultRowProps {
 	onToggle: (termFormId: string) => void;
 	isRtl: boolean;
 	dividerClass: string;
-  isDuplicateName: boolean;
+	isDuplicateName: boolean;
+	onGenderUpdated: () => void;
+	canUpdateStudentGender: boolean;
 }
 
 function StudentResultRow({
@@ -981,6 +1009,8 @@ function StudentResultRow({
 	isRtl,
 	dividerClass,
   isDuplicateName,
+	onGenderUpdated,
+	canUpdateStudentGender,
 }: StudentResultRowProps) {
 	const student = row.student;
 
@@ -1011,7 +1041,7 @@ function StudentResultRow({
 			</TableCell>
 			<TableCell
 				className={cn(
-					"sticky z-10 bg-background whitespace-nowrap",
+					"sticky z-10 w-[160px] min-w-[160px] bg-background whitespace-nowrap",
 					isRtl
 						? "right-[80px] border-l text-right"
 						: "left-[80px] border-r text-left",
@@ -1026,6 +1056,20 @@ function StudentResultRow({
             </Badge>
           ) : null}
         </div>
+			</TableCell>
+			<TableCell
+				className={cn(
+					"sticky z-10 w-[96px] min-w-[96px] bg-background text-center",
+					isRtl ? "right-[240px] border-l" : "left-[240px] border-r",
+				)}
+			>
+				<StudentGenderCell
+					studentId={student.student?.id}
+					gender={student.student?.gender}
+					disabled={!canUpdateStudentGender}
+					align={isRtl ? "start" : "end"}
+					onUpdated={onGenderUpdated}
+				/>
 			</TableCell>
 			{row.subjectTotals.map((subjectTotal) => {
 				const subject = subjectTotal.subject;

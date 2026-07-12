@@ -40,6 +40,7 @@ model StaffTermProfile {
     deletedAt DateTime? @db.Timestamp(0)
 
     classroomsProfiles StaffClassroomDepartmentTermProfiles[]
+    academicAccessGrants StaffAcademicAccessGrant[]
 
     sessionTerm   SessionTerm @relation(fields: [sessionTermId], references: [id])
     sessionTermId String
@@ -76,7 +77,45 @@ model StaffSubject {
     deletedAt DateTime? @db.Timestamp(0)
 }
 
+model StaffAcademicAccessGrant {
+    id String @id @default(uuid())
+
+    scope StaffAcademicAccessScope
+
+    classRoom   ClassRoom? @relation(fields: [classRoomId], references: [id])
+    classRoomId String?
+
+    classRoomDepartment   ClassRoomDepartment? @relation(fields: [classRoomDepartmentId], references: [id])
+    classRoomDepartmentId String?
+
+    subject   Subject? @relation(fields: [subjectId], references: [id])
+    subjectId String?
+
+    departmentSubject   DepartmentSubject? @relation(fields: [departmentSubjectId], references: [id])
+    departmentSubjectId String?
+
+    staffTermProfile   StaffTermProfile @relation(fields: [staffTermProfileId], references: [id])
+    staffTermProfileId String
+
+    createdAt DateTime? @default(now()) @db.Timestamp(0)
+    updatedAt DateTime? @updatedAt
+    deletedAt DateTime? @db.Timestamp(0)
+
+    @@index([staffTermProfileId, scope])
+    @@index([classRoomId])
+    @@index([classRoomDepartmentId])
+    @@index([subjectId])
+    @@index([departmentSubjectId])
+}
+
 enum StaffClassroomSubjectAccessMode {
     SELECTED
     ALL
+}
+
+enum StaffAcademicAccessScope {
+    CLASS
+    DEPARTMENT
+    CLASS_SUBJECT
+    DEPARTMENT_SUBJECT
 }

@@ -8,6 +8,12 @@ export const staffRoleSchema = z.enum(STAFF_ROLES);
 export const staffClassroomSubjectAccessModeSchema = z.enum(
   STAFF_CLASSROOM_SUBJECT_ACCESS_MODES,
 );
+export const staffAcademicAccessScopeSchema = z.enum([
+  "CLASS",
+  "DEPARTMENT",
+  "CLASS_SUBJECT",
+  "DEPARTMENT_SUBJECT",
+]);
 
 export const createAcadSessionSchema = z.object({
   title: z.string().min(1),
@@ -94,7 +100,11 @@ export const createStaffSchema = z
     assignments: z
       .array(
         z.object({
-          classRoomDepartmentId: z.string().min(1),
+          scope: staffAcademicAccessScopeSchema.default("DEPARTMENT"),
+          classRoomId: z.string().optional().nullable(),
+          classRoomDepartmentId: z.string().optional().nullable(),
+          subjectId: z.string().optional().nullable(),
+          departmentSubjectId: z.string().optional().nullable(),
           subjectAccessMode: staffClassroomSubjectAccessModeSchema.default(
             "SELECTED",
           ),
@@ -121,8 +131,47 @@ export const createStaffSchema = z
     }
 
     value.assignments.forEach((assignment, index) => {
+      if (assignment.scope === "CLASS" && !assignment.classRoomId) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Select a class for this assignment.",
+          path: ["assignments", index, "classRoomId"],
+        });
+      }
+
+      if (assignment.scope === "DEPARTMENT" && !assignment.classRoomDepartmentId) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Select a department for this assignment.",
+          path: ["assignments", index, "classRoomDepartmentId"],
+        });
+      }
+
+      if (
+        assignment.scope === "CLASS_SUBJECT" &&
+        (!assignment.classRoomId || !assignment.subjectId)
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Select both a class and subject for this assignment.",
+          path: ["assignments", index],
+        });
+      }
+
+      if (
+        assignment.scope === "DEPARTMENT_SUBJECT" &&
+        (!assignment.classRoomDepartmentId && !assignment.departmentSubjectId)
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Select a department subject for this assignment.",
+          path: ["assignments", index, "departmentSubjectId"],
+        });
+      }
+
       if (
         value.role === "Teacher" &&
+        assignment.scope === "DEPARTMENT" &&
         assignment.subjectAccessMode !== "ALL" &&
         !assignment.departmentSubjectIds.length
       ) {

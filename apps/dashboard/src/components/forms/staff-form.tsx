@@ -27,6 +27,11 @@ const SUBJECT_ACCESS_MODE_OPTIONS = [
   { label: "Selected subjects", value: "SELECTED" },
   { label: "All subjects in this classroom", value: "ALL" },
 ];
+const ASSIGNMENT_SCOPE_OPTIONS = [
+  { label: "Whole class", value: "CLASS" },
+  { label: "Department/arm", value: "DEPARTMENT" },
+  { label: "Subject across class", value: "CLASS_SUBJECT" },
+];
 
 type Props = {
   staffId?: string | null;
@@ -145,6 +150,8 @@ export function Form({
   });
 
   const classroomOptions = (formData?.classrooms ?? []) as Option[];
+  const classOptions = (formData?.classes ?? []) as Option[];
+  const allSubjectOptions = (formData?.subjects ?? []) as Option[];
 
   return (
     <div className="flex flex-col gap-5">
@@ -215,7 +222,11 @@ export function Form({
               variant="outline"
               onClick={() =>
                 assignmentsFieldArray.append({
+                  scope: "DEPARTMENT",
+                  classRoomId: "",
                   classRoomDepartmentId: "",
+                  subjectId: "",
+                  departmentSubjectId: "",
                   subjectAccessMode: "SELECTED",
                   departmentSubjectIds: [],
                 })
@@ -231,11 +242,17 @@ export function Form({
           <div className="mt-4 space-y-4">
             {assignmentsFieldArray.fields.length ? (
               assignmentsFieldArray.fields.map((field, index) => {
+                const assignmentScope =
+                  assignmentValues?.[index]?.scope ?? "DEPARTMENT";
+                const selectedClass = assignmentValues?.[index]?.classRoomId;
                 const selectedClassroom =
                   assignmentValues?.[index]?.classRoomDepartmentId;
                 const subjectOptions = (formData?.subjectsByClassroom?.[
                   selectedClassroom
                 ] ?? []) as Option[];
+                const classSubjectOptions = (formData?.subjectsByClass?.[
+                  selectedClass
+                ] ?? allSubjectOptions) as Option[];
                 const selectedSubjectIds =
                   assignmentValues?.[index]?.departmentSubjectIds ?? [];
                 const subjectAccessMode =
@@ -269,105 +286,166 @@ export function Form({
 
                     <div className="mt-4 grid gap-4">
                       <FormSelect
-                        name={`assignments.${index}.classRoomDepartmentId`}
-                        label="Classroom"
+                        name={`assignments.${index}.scope`}
+                        label="Assignment scope"
                         control={control}
-                        options={classroomOptions}
-                        placeholder={
-                          isLoading
-                            ? "Loading classrooms..."
-                            : "Select classroom"
-                        }
+                        options={ASSIGNMENT_SCOPE_OPTIONS}
+                        placeholder="Select assignment scope"
                       />
 
-                      <FormSelect
-                        name={`assignments.${index}.subjectAccessMode`}
-                        label="Subject access"
-                        control={control}
-                        options={SUBJECT_ACCESS_MODE_OPTIONS}
-                        placeholder="Select subject access"
-                      />
-
-                      <div className="space-y-2">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <div>
-                            <p className="text-sm font-medium">
-                              Subjects in this classroom
-                            </p>
-                            {grantsAllSubjects ? (
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                This staff member can access every current and
-                                future subject in this classroom.
-                              </p>
-                            ) : null}
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              disabled={
-                                grantsAllSubjects ||
-                                !subjectIds.length ||
-                                allSubjectsSelected
-                              }
-                              onClick={() =>
-                                setValue(
-                                  `assignments.${index}.departmentSubjectIds`,
-                                  subjectIds,
-                                  {
-                                    shouldDirty: true,
-                                    shouldValidate: true,
-                                  },
-                                )
-                              }
-                            >
-                              <CheckCheck className="mr-2 h-4 w-4" />
-                              Select all
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              disabled={
-                                grantsAllSubjects || !selectedSubjectIds.length
-                              }
-                              onClick={() =>
-                                setValue(
-                                  `assignments.${index}.departmentSubjectIds`,
-                                  [],
-                                  {
-                                    shouldDirty: true,
-                                    shouldValidate: true,
-                                  },
-                                )
-                              }
-                            >
-                              <X className="mr-2 h-4 w-4" />
-                              Deselect all
-                            </Button>
-                          </div>
-                        </div>
-                        <FormMultipleSelector
-                          control={control}
-                          name={`assignments.${index}.departmentSubjectIds`}
-                          options={subjectOptions}
-                          disabled={grantsAllSubjects}
-                          placeholder={
-                            grantsAllSubjects
-                              ? "All current and future subjects are included"
-                              : selectedClassroom
-                                ? "Select subjects"
-                                : "Choose a classroom first"
-                          }
-                        />
-                        {grantsAllSubjects ? null : (
+                      {assignmentScope === "CLASS" ? (
+                        <>
+                          <FormSelect
+                            name={`assignments.${index}.classRoomId`}
+                            label="Class"
+                            control={control}
+                            options={classOptions}
+                            placeholder={
+                              isLoading ? "Loading classes..." : "Select class"
+                            }
+                          />
                           <FormDescription>
-                            Use `All subjects in this classroom` when future
-                            subjects should be included automatically.
+                            Includes every current and future department and
+                            subject under this class for the active term.
                           </FormDescription>
-                        )}
-                      </div>
+                        </>
+                      ) : null}
+
+                      {assignmentScope === "CLASS_SUBJECT" ? (
+                        <>
+                          <FormSelect
+                            name={`assignments.${index}.classRoomId`}
+                            label="Class"
+                            control={control}
+                            options={classOptions}
+                            placeholder={
+                              isLoading ? "Loading classes..." : "Select class"
+                            }
+                          />
+                          <FormSelect
+                            name={`assignments.${index}.subjectId`}
+                            label="Subject across class"
+                            control={control}
+                            options={classSubjectOptions}
+                            placeholder={
+                              selectedClass
+                                ? "Select subject"
+                                : "Choose a class first"
+                            }
+                          />
+                          <FormDescription>
+                            Applies only to departments under this class where
+                            the subject is offered now or added later.
+                          </FormDescription>
+                        </>
+                      ) : null}
+
+                      {assignmentScope === "DEPARTMENT" ? (
+                        <>
+                          <FormSelect
+                            name={`assignments.${index}.classRoomDepartmentId`}
+                            label="Department/arm"
+                            control={control}
+                            options={classroomOptions}
+                            placeholder={
+                              isLoading
+                                ? "Loading departments..."
+                                : "Select department"
+                            }
+                          />
+
+                          <FormSelect
+                            name={`assignments.${index}.subjectAccessMode`}
+                            label="Subject access"
+                            control={control}
+                            options={SUBJECT_ACCESS_MODE_OPTIONS}
+                            placeholder="Select subject access"
+                          />
+
+                          <div className="space-y-2">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <p className="text-sm font-medium">
+                                  Subjects in this department
+                                </p>
+                                {grantsAllSubjects ? (
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    This staff member can access every current and
+                                    future subject in this department.
+                                  </p>
+                                ) : null}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={
+                                    grantsAllSubjects ||
+                                    !subjectIds.length ||
+                                    allSubjectsSelected
+                                  }
+                                  onClick={() =>
+                                    setValue(
+                                      `assignments.${index}.departmentSubjectIds`,
+                                      subjectIds,
+                                      {
+                                        shouldDirty: true,
+                                        shouldValidate: true,
+                                      },
+                                    )
+                                  }
+                                >
+                                  <CheckCheck className="mr-2 h-4 w-4" />
+                                  Select all
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={
+                                    grantsAllSubjects ||
+                                    !selectedSubjectIds.length
+                                  }
+                                  onClick={() =>
+                                    setValue(
+                                      `assignments.${index}.departmentSubjectIds`,
+                                      [],
+                                      {
+                                        shouldDirty: true,
+                                        shouldValidate: true,
+                                      },
+                                    )
+                                  }
+                                >
+                                  <X className="mr-2 h-4 w-4" />
+                                  Deselect all
+                                </Button>
+                              </div>
+                            </div>
+                            <FormMultipleSelector
+                              control={control}
+                              name={`assignments.${index}.departmentSubjectIds`}
+                              options={subjectOptions}
+                              disabled={grantsAllSubjects}
+                              placeholder={
+                                grantsAllSubjects
+                                  ? "All current and future subjects are included"
+                                  : selectedClassroom
+                                    ? "Select subjects"
+                                    : "Choose a department first"
+                              }
+                            />
+                            {grantsAllSubjects ? null : (
+                              <FormDescription>
+                                Select one subject for a precise department-subject
+                                assignment, or choose multiple subjects for the
+                                same department.
+                              </FormDescription>
+                            )}
+                          </div>
+                        </>
+                      ) : null}
                     </div>
                   </div>
                 );

@@ -67,7 +67,7 @@ export default async function Page({ params, searchParams }) {
       initialPassword={
         typeof query?.password === "string" ? query.password : ""
       }
-      initialRememberMe={query?.rememberMe === "1"}
+      initialRememberMe={query?.rememberMe !== "0"}
       schoolName={tenant?.name ?? domain}
       signupHref={signupHref}
       quickLoginUsers={quickLoginUsers}

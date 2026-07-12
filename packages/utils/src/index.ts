@@ -25,7 +25,7 @@ export function stripSpecialCharacters(inputString: string) {
     .toLowerCase(); // Convert to lowercase for consistency
 }
 export const devMode = process.env.NODE_ENV != "production";
-export const DASHBOARD_DEV_ROOT_DOMAIN = "school-clerk.localhost";
+export const DASHBOARD_DEV_ROOT_DOMAIN = "school-clerk-dashboard.localhost";
 
 function isBareLocalhostDomain(domain?: string | null) {
   if (!domain) return true;

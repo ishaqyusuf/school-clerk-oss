@@ -21,6 +21,7 @@ import { parseRawInput } from "./parser";
 const studentImportSchema = z.object({
   classRoomId: z.string().optional(),
   globalGender: z.enum(["Male", "Female", "unset", ""]).optional(),
+  importMode: z.enum(["single", "multiple"]).optional(),
   raw: z.string().min(1, "Student data is required"),
 });
 
@@ -44,6 +45,7 @@ export function StudentImportModal() {
     defaultValues: {
       classRoomId: "",
       globalGender: "unset",
+      importMode: "multiple",
       raw: ls,
     },
   });
@@ -69,6 +71,8 @@ export function StudentImportModal() {
   const raw = form.watch("raw");
   const classRoomId = form.watch("classRoomId");
   const globalGender = form.watch("globalGender");
+  const importMode = form.watch("importMode") || "multiple";
+  const needsClassroomSelection = importMode === "single" && !classRoomId;
 
   const parse = useMemo(() => {
     const selectedDept = classList?.data?.find((d) => d.id === classRoomId);
@@ -77,6 +81,8 @@ export function StudentImportModal() {
         ? `${selectedDept.classRoom.name} - ${selectedDept.departmentName}`
         : selectedDept.departmentName
       : "";
+    const classroomsForParsing =
+      importMode === "multiple" ? classList?.data || [] : [];
 
     return parseRawInput(
       raw,
@@ -84,9 +90,16 @@ export function StudentImportModal() {
       classRoomId || "",
       globalGender,
       importNameGuide?.names || [],
-      classList?.data || [],
+      classroomsForParsing,
     );
-  }, [raw, classRoomId, classList?.data, globalGender, importNameGuide?.names]);
+  }, [
+    raw,
+    classRoomId,
+    classList?.data,
+    globalGender,
+    importMode,
+    importNameGuide?.names,
+  ]);
 
   useEffect(() => {
     setLs(raw);
@@ -114,14 +127,54 @@ export function StudentImportModal() {
           >
             <form id="form-rhf-demo" onSubmit={form.handleSubmit(onSubmit)}>
               <div className="grid w-full gap-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Controller
+                    name="importMode"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Field>
+                        <Field.Label>Import Mode</Field.Label>
+                        <ToggleGroup
+                          type="single"
+                          variant="outline"
+                          size="sm"
+                          value={field.value || "multiple"}
+                          onValueChange={(value) =>
+                            field.onChange(value || "multiple")
+                          }
+                          className="justify-start"
+                        >
+                          <ToggleGroupItem
+                            value="single"
+                            aria-label="Import students into one classroom"
+                            className="min-w-20"
+                          >
+                            Single
+                          </ToggleGroupItem>
+                          <ToggleGroupItem
+                            value="multiple"
+                            aria-label="Import students into multiple classrooms"
+                            className="min-w-20"
+                          >
+                            Multiple
+                          </ToggleGroupItem>
+                        </ToggleGroup>
+                      </Field>
+                    )}
+                  />
                   <Controller
                     name="classRoomId"
                     control={form.control}
                     render={({ field, fieldState }) => (
-                      <Field data-invalid={fieldState.invalid}>
+                      <Field
+                        data-invalid={
+                          fieldState.invalid || needsClassroomSelection
+                        }
+                      >
                         <Field.Label htmlFor="classroom-select">
-                          Default Classroom
+                          {importMode === "single"
+                            ? "Classroom"
+                            : "Default Classroom"}
                         </Field.Label>
                         <Select
                           value={field.value || ""}
@@ -135,7 +188,9 @@ export function StudentImportModal() {
                               placeholder={
                                 isClassListLoading
                                   ? "Loading classrooms..."
-                                  : "Use raw class headers or choose fallback"
+                                  : importMode === "single"
+                                    ? "Choose classroom"
+                                    : "Use headers or choose fallback"
                               }
                             />
                           </SelectTrigger>
@@ -149,6 +204,11 @@ export function StudentImportModal() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {needsClassroomSelection && (
+                          <p className="text-xs text-destructive">
+                            Choose a classroom for single-class import.
+                          </p>
+                        )}
                       </Field>
                     )}
                   />
@@ -202,9 +262,9 @@ export function StudentImportModal() {
                           Student Data
                         </Field.Label>
                         <p className="text-xs text-muted-foreground">
-                          Paste class names as headers, then student names
-                          below. Use M/F marker lines for batch gender, or
-                          row-level gender like John Doe, M.
+                          {importMode === "single"
+                            ? "Paste student names below. Use M/F marker lines for batch gender, or row-level gender like John Doe, M."
+                            : "Paste class names as headers, then student names below. Use M/F marker lines for batch gender, or row-level gender like John Doe, M."}
                         </p>
 
                         <InputGroup>
@@ -213,7 +273,11 @@ export function StudentImportModal() {
                             dir="rtl"
                             aria-invalid={fieldState.invalid}
                             className="min-h-[20vh]"
-                            placeholder={`JSS 1 - A\nM | Male\nJohn Doe\n\nF | Female\nMaryam Bello\n\nJSS 2 - B\nYusuf Ahmad, M`}
+                            placeholder={
+                              importMode === "single"
+                                ? `M | Male\nJohn Doe\n\nF | Female\nMaryam Bello\nYusuf Ahmad, M`
+                                : `JSS 1 - A\nM | Male\nJohn Doe\n\nF | Female\nMaryam Bello\n\nJSS 2 - B\nYusuf Ahmad, M`
+                            }
                           />
                           <InputGroup.Addon align="block-end">
                             <p className="text-xs text-muted-foreground mt-1">
@@ -227,6 +291,7 @@ export function StudentImportModal() {
                               disabled={
                                 !raw?.trim() ||
                                 isClassListLoading ||
+                                needsClassroomSelection ||
                                 !parse?.students?.length
                               }
                             >

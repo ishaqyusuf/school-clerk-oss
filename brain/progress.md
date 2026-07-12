@@ -1,5 +1,263 @@
 # Progress
 
+## Student Import Production Error Hardening (2026-07-12)
+
+### Completed
+
+- Added dashboard-side normalization for student import verification, batch execution, and single-row execution errors so HTML/non-JSON responses show a recoverable `Import needs attention` message instead of raw JSON parse text.
+- Preserved the last successful verification report after a failed retry so staged rows, row decisions, checked state, manual gender choices, and match selections remain available for retry or cancellation.
+- Added a row-level `Import row` action that validates one review row with the same classroom/gender/action/match rules as batch execution, submits only that row to `students.executeStudentImport`, marks successful rows imported, and leaves the rest of the staged review untouched.
+- Converted import classroom/session validation failures in `verifyStudentImport` and `executeStudentImport` from plain `Error` throws into structured `TRPCError` responses.
+- Verified production-like local tenant routing for `students.verifyStudentImportBatch` and `students.executeStudentImport` on `crestview-03553.school-clerk-dashboard.localhost:2200`: valid authenticated POST requests returned `application/json`, realistic 20-row verification returned tRPC JSON, single-row execution returned tRPC JSON, invalid classroom payloads returned JSON tRPC errors, and unauthenticated invalid verification still returned JSON instead of an HTML page.
+
+### Changed Files
+
+- `apps/api/src/db/queries/students.ts`
+- `apps/api/src/db/queries/students.test.ts`
+- `apps/dashboard/src/components/modals/student-import/import-activities.tsx`
+- `apps/dashboard/src/components/modals/student-import/import-errors.ts`
+- `apps/dashboard/src/components/modals/student-import/import-errors.test.ts`
+- `brain/api/contracts.md`
+- `brain/features/student-import.md`
+- `brain/progress.md`
+- `brain/tasks/done.md`
+
+### Verification
+
+- `bun test apps/api/src/db/queries/students.test.ts apps/dashboard/src/components/modals/student-import/import-errors.test.ts apps/dashboard/src/components/modals/student-import/parser.test.ts`
+- `bun --filter @school-clerk/api typecheck`
+- `bun --filter @school-clerk/dashboard typecheck`
+- Direct `fetch` checks against `http://crestview-03553.school-clerk-dashboard.localhost:2200/api/trpc/...` using Better Auth API sign-in plus `Authorization` and `x-ttss-id` headers for the active school/session/term.
+
+## Grouped Assessment Print Modes (2026-07-12)
+
+### Completed
+
+- Added persisted grouped assessment print modes with `ClassroomSubjectAssessment.printMode`, backed by the `ClassroomSubjectAssessmentPrintMode` enum and a default of `EXPANDED`.
+- Added a migration for the new print-mode enum/column and regenerated the Prisma client.
+- Extended `saveAssessement` to accept `printMode: "expanded" | "total"` and persist grouped parent rows as `EXPANDED` or `TOTAL`.
+- Exposed parent assessment `id`, `index`, and `printMode` through classroom report sheet data.
+- Student result browser print and PDF generation now collapse weighted child scores into one parent total column when the grouped parent is set to total mode, while expanded mode keeps child columns.
+- Hardened assessment writes so grouped parent rows cannot receive direct scores and child assessment IDs cannot be reparented through a grouped assessment save payload.
+- Added a shared printable-column preview helper and rendered the exact result-print columns in the subject assessment manager.
+- Browser-verified the grouped total-mode workflow on local Crestview using a seeded `Codex Print Total Smoke` parent with `Codex Oral Child` and `Codex Written Child`: the assessment manager preview showed the parent print column only, and the student report print table rendered `Codex Print Total Smoke(30)` without child columns.
+
+### Changed Files
+
+- `packages/db/src/schema/assessment.prisma`
+- `packages/db/src/schema/migrations/20260712133000_assessment_print_modes/migration.sql`
+- `packages/jobs/src/schema.prisma`
+- `packages/assessment-results/src/index.ts`
+- `packages/assessment-results/src/index.test.ts`
+- `apps/api/src/db/queries/assessments.ts`
+- `apps/api/src/db/queries/assessments.test.ts`
+- `apps/api/src/db/queries/report-sheet.ts`
+- `apps/api/src/db/queries/report-sheet.test.ts`
+- `apps/api/src/db/queries/subjects.ts`
+- `apps/dashboard/src/components/forms/assessment-form.tsx`
+- `apps/dashboard/src/components/subject-assessments.tsx`
+- `apps/dashboard/src/features/student-report/report-model.ts`
+- `apps/dashboard/src/features/student-report/report-model.test.ts`
+- `brain/api/contracts.md`
+- `brain/api/endpoints.md`
+- `brain/database/schema.md`
+- `brain/database/migrations.md`
+- `brain/features/assessment-results-and-sub-assessments.md`
+- `brain/tasks/in-progress.md`
+- `brain/progress.md`
+
+### Verification
+
+- `bun run db:generate`
+- `bun test packages/assessment-results/src/index.test.ts apps/dashboard/src/features/student-report/report-model.test.ts apps/api/src/db/queries/report-sheet.test.ts apps/api/src/db/queries/assessments.test.ts`
+- `bun --filter @school-clerk/assessment-results typecheck`
+- `bun --filter @school-clerk/api typecheck`
+- `bun --filter @school-clerk/dashboard typecheck`
+- `bun --filter @school-clerk/db typecheck`
+- `bun --filter @school-clerk/jobs typecheck` was attempted but is blocked by existing unrelated `@jobs/schema` module-resolution and NodeNext extension errors.
+- `bunx playwright test .codex/tmp/asmt-print-mode-smoke.spec.ts --reporter=line --timeout=120000`
+
+## Assessment Print Status Warnings (2026-07-12)
+
+### Completed
+
+- Added shared assessment print-status helpers that derive printable weight, print label, and warnings from standalone or grouped assessment data.
+- The assessment create/edit form now shows live print badges and warnings for zero-weight standalone assessments, grouped assessments with no printable child weight, and zero-weight children.
+- The saved assessment list now shows `Print column`, `Print expanded`, `No print`, and `0% weight` badges where applicable, plus warning text for configurations that will not appear on printed results.
+- Child rows in grouped assessments now mark zero-weight children as `No print`.
+
+### Changed Files
+
+- `packages/assessment-results/src/index.ts`
+- `packages/assessment-results/src/index.test.ts`
+- `apps/dashboard/src/components/forms/assessment-form.tsx`
+- `apps/dashboard/src/components/subject-assessments.tsx`
+- `brain/features/assessment-results-and-sub-assessments.md`
+- `brain/tasks/in-progress.md`
+- `brain/progress.md`
+
+### Verification
+
+- `bun test packages/assessment-results/src/index.test.ts apps/dashboard/src/features/student-report/report-model.test.ts`
+- `bun --filter @school-clerk/assessment-results typecheck`
+- `bun --filter @school-clerk/dashboard typecheck`
+
+## Assessment Parent-Child Display Labels (2026-07-12)
+
+### Completed
+
+- Reused the shared assessment display-title helper in classroom result review and assessment recording tables.
+- CSV export, printed classroom spreadsheets, blank manual spreadsheets, classroom result review headers, and assessment recording headers now show child assessments with parent context, for example `Exam - Oral`.
+- Kept score IDs, saving behavior, filtering, and total calculations unchanged.
+
+### Changed Files
+
+- `apps/dashboard/src/components/classroom-result-table.tsx`
+- `apps/dashboard/src/components/assessment-recording-results-table.tsx`
+- `brain/features/assessment-results-and-sub-assessments.md`
+- `brain/tasks/in-progress.md`
+- `brain/progress.md`
+
+### Verification
+
+- `rg -n "assessment\\.title" apps/dashboard/src/components/classroom-result-table.tsx apps/dashboard/src/components/assessment-recording-results-table.tsx apps/dashboard/src/features/student-report/report-model.ts`
+- `bun --filter @school-clerk/dashboard typecheck`
+
+## Student Result Printable Assessment Filtering (2026-07-12)
+
+### Completed
+
+- Added a shared `isPrintableAssessment` predicate for result assessment output.
+- Updated the student report model used by browser print and PDF generation to omit assessments with missing or zero `percentageObtainable`.
+- Student result print/PDF output now hides subjects that have no printable assessment columns, and grade totals/percentages are computed from printable weighted columns only.
+- Added regression coverage for printable assessment detection and student report table/grade generation.
+
+### Changed Files
+
+- `packages/assessment-results/src/index.ts`
+- `packages/assessment-results/src/index.test.ts`
+- `apps/dashboard/src/features/student-report/report-model.ts`
+- `apps/dashboard/src/features/student-report/report-model.test.ts`
+- `brain/features/assessment-results-and-sub-assessments.md`
+- `brain/tasks/in-progress.md`
+- `brain/progress.md`
+
+### Verification
+
+- `bun test packages/assessment-results/src/index.test.ts apps/dashboard/src/features/student-report/report-model.test.ts`
+- `bun --filter @school-clerk/assessment-results typecheck`
+- `bun --filter @school-clerk/dashboard typecheck`
+- `git diff --check -- packages/assessment-results/src/index.ts packages/assessment-results/src/index.test.ts apps/dashboard/src/features/student-report/report-model.ts apps/dashboard/src/features/student-report/report-model.test.ts`
+
+## Assessment Report Sheet Assessment Ordering (2026-07-12)
+
+### Completed
+
+- Made classroom report sheet assessment loading preserve configured assessment order explicitly by sorting scoreable assessments by `index` and then `id`.
+- Added report-sheet query test coverage asserting the assessment `orderBy` contract is present alongside teacher subject-scope filtering.
+
+### Changed Files
+
+- `apps/api/src/db/queries/report-sheet.ts`
+- `apps/api/src/db/queries/report-sheet.test.ts`
+- `brain/progress.md`
+
+### Verification
+
+- `bun test apps/api/src/db/queries/report-sheet.test.ts`
+- `bun --filter @school-clerk/api typecheck`
+
+## Batch Classroom Student Import Review Assignment (2026-07-12)
+
+### Completed
+
+- Added per-row classroom assignment controls to the student import review cards.
+- Added an explicit import mode on the modal start screen: `Single` requires a classroom and disables classroom-header parsing, while `Multiple` keeps raw classroom headers and row-level assignment.
+- Row classroom overrides now feed back into verification, so same-classroom match metadata and execution payloads use the corrected target classroom.
+- Rows without a resolved classroom now stay in `Needs attention` instead of appearing as ready imports.
+- Ambiguous classroom sections now require explicit row assignment instead of inheriting the fallback classroom.
+- Parsed rows now carry explicit `classroomResolutionStatus` metadata for resolved, missing, and ambiguous classroom states.
+- Added classroom scope summaries in review and execution states with total, checked, executable, and attention counts per classroom.
+- Added parser coverage for multi-classroom headers, ambiguous classroom labels, batch gender markers, explicit row gender overrides, and rows pasted before any classroom header.
+- Added API coverage proving `verifyStudentImport` computes same-classroom metadata from each row target and `executeStudentImport` creates matched-student term sheets in each row target classroom.
+- Browser-smoked the student import start screen on `daarulhadith.localhost:2200` with an authenticated admin context: the modal opens from `/students/list?action=student-import`, `Single` mode blocks submit until a classroom is selected, and `Multiple` mode parses a two-classroom pasted batch to `2 students` after classroom data loads.
+- Browser-smoked the full multi-classroom review-to-execution path on the same tenant. Smoke run `60856831` imported two unique students across two classroom headers, reached `Import complete`, reported `NEW CREATED 2`, `TERM SHEETS 2`, and `ERRORS 0`, and was confirmed in the remote-dev DB with one current term form per created student in different classroom departments.
+
+### Changed Files
+
+- `apps/dashboard/src/components/modals/student-import/import-activities.tsx`
+- `apps/dashboard/src/components/modals/student-import/index.tsx`
+- `apps/dashboard/src/components/modals/student-import/parser.test.ts`
+- `apps/api/src/db/queries/students.test.ts`
+- `brain/features/student-import.md`
+- `brain/tasks/in-progress.md`
+- `brain/tasks/done.md`
+- `brain/progress.md`
+
+### Verification
+
+- `bun test apps/dashboard/src/components/modals/student-import/parser.test.ts`
+- `bun test apps/api/src/db/queries/students.test.ts`
+- `bun test apps/dashboard/src/components/modals/student-import/parser.test.ts apps/api/src/db/queries/students.test.ts`
+- `bun --filter @school-clerk/dashboard typecheck`
+- `bun --filter @school-clerk/api typecheck`
+- Playwright smoke against `http://daarulhadith.localhost:2200/students/list?action=student-import` using Better Auth API sign-in plus the tenant workspace cookie. The only earlier console noise observed in login-path experiments was the pre-existing login form hydration mismatch; the final modal smoke reported no non-hydration console errors.
+- Playwright execution smoke against `http://daarulhadith.localhost:2200/students/list?action=student-import` using the same authenticated-cookie setup. It verified upload, review, execution completion, classroom summary, created-student count, term-sheet count, and zero-error summary for run `60856831`.
+- Remote-dev DB verification queried smoke run `60856831` and confirmed `CodexSmoke60856831 Alpha` and `CodexProof60856831 Beta` exist with `Male`/`Female` gender values and current term forms in two different `classroomDepartmentId` values.
+
+## Dashboard Session Persistence Recovery (2026-07-12)
+
+### Completed
+
+- Added proxy-side tenant workspace cookie recovery for requests that still have a valid Better Auth session but have lost or malformed the tenant `{subdomain}-session-cookie`.
+- Recovered workspace cookies are injected into the current request headers and written back to the browser, so protected dashboard pages can load without sending the user through the recovery screen or another login.
+- Kept remembered-device behavior aligned with the 30-day Better Auth session and tenant workspace cookie lifetime.
+
+### Changed Files
+
+- `apps/dashboard/src/proxy.ts`
+- `apps/dashboard/src/actions/cookies/auth-cookie.ts`
+- `apps/dashboard/src/app/[domain]/(auth)/login/actions.ts`
+- `apps/dashboard/src/app/[domain]/(auth)/login/client.tsx`
+- `packages/auth/src/index.ts`
+- `brain/api/permissions.md`
+- `brain/progress.md`
+
+### Verification
+
+- `bun --filter @school-clerk/dashboard typecheck`
+- `bun --filter @school-clerk/auth typecheck`
+- `git diff --check -- apps/dashboard/src/proxy.ts apps/dashboard/src/actions/cookies/auth-cookie.ts packages/auth/src/index.ts 'apps/dashboard/src/app/[domain]/(auth)/login/actions.ts' 'apps/dashboard/src/app/[domain]/(auth)/login/client.tsx'`
+
+## Shared Report Roster Sorting And Gender Controls (2026-07-12)
+
+### Completed
+
+- Added shared assessment-result roster ordering so report/recording student lists default to `Male` first, then `Female`, with alphabetic display names inside each gender group.
+- Added a compact dashboard Gender cell and wired it into assessment recording and classroom result review tables near the sticky student identity columns.
+- Gender updates now invalidate/refetch report data so the visible value and default roster order refresh after correction.
+- Hardened `students.changeGender` from a public, raw-id update into an authenticated, tenant-scoped mutation restricted to `ADMIN`, `Admin`, and `Registrar` roles.
+
+### Changed Files
+
+- `packages/assessment-results/src/index.ts`
+- `apps/dashboard/src/components/student-gender-cell.tsx`
+- `apps/dashboard/src/components/assessment-recording-results-table.tsx`
+- `apps/dashboard/src/components/classroom-result-table.tsx`
+- `apps/api/src/db/queries/students.ts`
+- `apps/api/src/trpc/routers/students.routes.ts`
+- `brain/features/assessment-results-and-sub-assessments.md`
+- `brain/api/permissions.md`
+- `brain/progress.md`
+
+### Verification
+
+- `bun test packages/assessment-results/src/index.test.ts apps/api/src/db/queries/students.test.ts`
+- `bun --filter @school-clerk/dashboard typecheck`
+- `bun --filter @school-clerk/api typecheck`
+- `bun --filter @school-clerk/assessment-results typecheck`
+- Browser smoke on `crestview-03553.school-clerk-dashboard.localhost:2200` verified assessment recording and classroom report tables render the Gender column, keep score cells aligned, expose three gender controls for the test classroom, move a changed `Male` student to the top of the roster, restore the original order after changing the student back to `Female`, and move sticky student/gender columns correctly between LTR and RTL report layouts. The only browser console error observed was the pre-existing login form hydration mismatch.
+
 ## Student Report Classroom Overview CTAs (2026-07-09)
 
 ### Completed

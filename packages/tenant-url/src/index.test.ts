@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildTenantAppUrl,
+  buildTenantUrlVariants,
   buildTenantHref,
   getTenantUrlHeaderNames,
   resolveTenantUrlContext,
@@ -83,6 +84,24 @@ describe("resolveTenantUrlContext", () => {
     expect(ctx.style).toBe("subdomain");
     expect(ctx.tenantSlug).toBe("daarulhadith");
     expect(ctx.internalPath).toBe("/daarulhadith/finance");
+  });
+
+  test("resolves subdomain style from an additional root domain", () => {
+    const ctx = resolveTenantUrlContext(
+      {
+        host: "daarulhadith.school-clerk.localhost",
+        pathname: "/login",
+      },
+      {
+        ...config,
+        appRootDomain: "school-clerk-dashboard.localhost",
+        additionalRootDomains: ["school-clerk.localhost"],
+      },
+    );
+
+    expect(ctx.style).toBe("subdomain");
+    expect(ctx.tenantSlug).toBe("daarulhadith");
+    expect(ctx.internalPath).toBe("/daarulhadith/login");
   });
 
   test("resolves LAN IP path style", () => {
@@ -301,5 +320,42 @@ describe("buildTenantAppUrl", () => {
         targetRootDomain: "localhost:3001",
       }),
     ).toBe("http://daarulhadith.localhost:3001");
+  });
+});
+
+describe("buildTenantUrlVariants", () => {
+  test("builds reusable current-page URL variants", () => {
+    const ctx = resolveTenantUrlContext(
+      {
+        host: "localhost:2200",
+        pathname: "/daarulhadith/academic/classes",
+      },
+      {
+        ...config,
+        appRootDomain: "school-clerk-dashboard.localhost",
+        additionalRootDomains: ["school-clerk.localhost"],
+        urlVariantPathHosts: ["localhost:2200", "192.168.18.5:2200"],
+      },
+    );
+
+    const variants = buildTenantUrlVariants({
+      config: {
+        ...config,
+        appRootDomain: "school-clerk-dashboard.localhost",
+        additionalRootDomains: ["school-clerk.localhost"],
+        urlVariantPathHosts: ["localhost:2200", "192.168.18.5:2200"],
+      },
+      context: ctx,
+      currentUrl:
+        "http://localhost:2200/daarulhadith/academic/classes?tab=students",
+    });
+
+    expect(variants.map((variant) => variant.url)).toEqual([
+      "http://daarulhadith.school-clerk-dashboard.localhost/academic/classes?tab=students",
+      "http://daarulhadith.school-clerk.localhost/academic/classes?tab=students",
+      "http://localhost:2200/daarulhadith/academic/classes?tab=students",
+      "http://192.168.18.5:2200/daarulhadith/academic/classes?tab=students",
+    ]);
+    expect(variants[2]?.isCurrent).toBe(true);
   });
 });

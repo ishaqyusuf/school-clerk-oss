@@ -29,6 +29,10 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  normalizeStudentImportError,
+  type NormalizedStudentImportError,
+} from "./import-errors";
 
 interface Props {
   classrooms: { title: string }[];
@@ -43,8 +47,9 @@ interface Props {
     originalText: string;
     parsedGender?: "M" | "F";
     batchGender?: "M" | "F";
-    classroomSource?: "selected" | "header" | "missing";
+    classroomSource?: "selected" | "header" | "missing" | "ambiguous";
     classroomLabel?: string;
+    classroomResolutionStatus?: "resolved" | "missing" | "ambiguous";
   }[];
   onCancelImport?: () => void;
   onStartNewImport?: () => void;
@@ -56,6 +61,8 @@ type VerifyResult =
 type MatchCandidate = NonNullable<VerifyResult["fullMatch"]>;
 type ExistingStudent =
   RouterOutputs["students"]["studentsRecentRecord"]["students"][number];
+type ClassDepartment =
+  RouterOutputs["students"]["studentsRecentRecord"]["classDepartments"][number];
 type ExecuteResult = RouterOutputs["students"]["executeStudentImport"];
 type ExecuteRow = {
   lineNumber: number;
@@ -68,15 +75,20 @@ type ExecuteRow = {
   existingStudentId: string | null;
 };
 type ImportAction =
-  | "import_new"
-  | "keep_match"
-  | "update_match_with_name"
-  | "skip";
+  "import_new" | "keep_match" | "update_match_with_name" | "skip";
 
 type RowDecision = {
   action?: ImportAction;
   existingStudentId?: string | null;
   touched?: boolean;
+};
+type ClassroomBreakdown = {
+  id: string;
+  label: string;
+  totalRows: number;
+  checkedRows: number;
+  executableRows: number;
+  attentionRows: number;
 };
 type EditableNamePart = "name" | "surname" | "otherName";
 type NameTokenSpan = {
@@ -100,6 +112,10 @@ type StudentSearchItem = {
   label: string;
   student: ExistingStudent;
 };
+type BuildExecuteRowResult =
+  | { status: "ready"; row: ExecuteRow }
+  | { status: "skipped" }
+  | { status: "invalid"; reason: string };
 
 const EMPTY_IMPORT_ROWS: VerifyResult[] = [];
 const EMPTY_LOCKED_NAME_SPANS: Partial<
@@ -129,6 +145,8 @@ export function ImportActivity({
   const [manualGenders, setManualGenders] = useState<
     Record<number, "Male" | "Female">
   >({});
+  const [manualClassroomDepartmentIds, setManualClassroomDepartmentIds] =
+    useState<Record<number, string>>({});
   const [checkedRows, setCheckedRows] = useState<Record<number, boolean>>({});
   const [nameOverrides, setNameOverrides] = useState<
     Record<number, NameOverride>
@@ -143,13 +161,42 @@ export function ImportActivity({
     Record<number, MatchCandidate>
   >({});
   const [preSubmitError, setPreSubmitError] = useState<string | null>(null);
+  const [
+    lastSuccessfulVerificationReport,
+    setLastSuccessfulVerificationReport,
+  ] = useState<RouterOutputs["students"]["verifyStudentImport"] | null>(null);
   const [lastExecutionSkippedRows, setLastExecutionSkippedRows] = useState(0);
+  const [importedLineNumbers, setImportedLineNumbers] = useState<
+    Record<number, boolean>
+  >({});
+  const [singleRowErrors, setSingleRowErrors] = useState<
+    Record<number, NormalizedStudentImportError | null>
+  >({});
+  const [importingLineNumber, setImportingLineNumber] = useState<number | null>(
+    null,
+  );
 
   const {
     data: records,
     refetch: refetchRecentRecords,
     isPending: isRecentRecordsPending,
   } = useQuery(_trpc.students.studentsRecentRecord.queryOptions({}));
+
+  useEffect(() => {
+    setManualClassroomDepartmentIds({});
+  }, [students]);
+
+  const manualClassroomRequiredLineNumbers = useMemo(
+    () =>
+      new Set(
+        students
+          .filter(
+            (student) => student.classroomResolutionStatus === "ambiguous",
+          )
+          .map((student) => student.lineNumber),
+      ),
+    [students],
+  );
 
   useEffect(() => {
     if (classroomDeptId) return;
@@ -186,7 +233,12 @@ export function ImportActivity({
         surname: student.surname,
         originalClassRoom: student.classRoom,
         classroomDepartmentId:
-          student.classroomDepartmentId || classroomDeptId || null,
+          manualClassroomDepartmentIds[student.lineNumber] ||
+          student.classroomDepartmentId ||
+          (student.classroomResolutionStatus === "ambiguous"
+            ? null
+            : classroomDeptId) ||
+          null,
         otherName: student.otherName || null,
         gender:
           student.gender === "M"
@@ -196,7 +248,7 @@ export function ImportActivity({
               : student.gender || null,
       })),
     };
-  }, [classroomDeptId, students]);
+  }, [classroomDeptId, manualClassroomDepartmentIds, students]);
 
   const {
     data: verificationReport,
@@ -204,9 +256,7 @@ export function ImportActivity({
     mutate: verifyStudents,
     error: verificationError,
     reset: resetVerification,
-  } = useMutation(
-    _trpc.students.verifyStudentImportBatch.mutationOptions(),
-  );
+  } = useMutation(_trpc.students.verifyStudentImportBatch.mutationOptions());
 
   useEffect(() => {
     if (!verifyInput) return;
@@ -221,7 +271,15 @@ export function ImportActivity({
     verifyStudents(verifyInput);
   };
 
-  const verificationRows = verificationReport?.results;
+  useEffect(() => {
+    if (verificationReport) {
+      setLastSuccessfulVerificationReport(verificationReport);
+    }
+  }, [verificationReport]);
+
+  const activeVerificationReport =
+    verificationReport ?? lastSuccessfulVerificationReport;
+  const verificationRows = activeVerificationReport?.results;
   const baseRows = verificationRows ?? EMPTY_IMPORT_ROWS;
   const rows = useMemo<VerifyResult[]>(
     () =>
@@ -256,15 +314,27 @@ export function ImportActivity({
 
   const readyRows = rows.filter(
     (row) =>
-      !row.fullMatch && row.suspectedMatches.length === 0 && !row.needsGender,
+      row.status !== "needsAttention" &&
+      Boolean(row.classroomDepartmentId) &&
+      !row.fullMatch &&
+      row.suspectedMatches.length === 0 &&
+      !row.needsGender,
   );
-  const exactRows = rows.filter((row) => row.fullMatch);
+  const exactRows = rows.filter(
+    (row) => row.fullMatch && Boolean(row.classroomDepartmentId),
+  );
   const suspectedRows = rows.filter(
-    (row) => !row.fullMatch && row.suspectedMatches.length > 0,
+    (row) =>
+      Boolean(row.classroomDepartmentId) &&
+      !row.fullMatch &&
+      row.suspectedMatches.length > 0,
   );
   const attentionRows = rows.filter(
     (row) =>
-      !row.fullMatch && row.suspectedMatches.length === 0 && row.needsGender,
+      !row.classroomDepartmentId ||
+      (!row.fullMatch &&
+        row.suspectedMatches.length === 0 &&
+        (row.needsGender || row.status === "needsAttention")),
   );
   const matchedCount = exactRows.length + suspectedRows.length;
 
@@ -300,6 +370,7 @@ export function ImportActivity({
     setPendingNameMatches({});
     setPreSubmitError(null);
     setLastExecutionSkippedRows(0);
+    setSingleRowErrors({});
   }, [verificationRows]);
 
   useEffect(() => {
@@ -343,6 +414,84 @@ export function ImportActivity({
     }),
   );
 
+  const { mutate: executeSingleRow, reset: resetSingleRowMutation } =
+    useMutation(
+      _trpc.students.executeStudentImport.mutationOptions({
+        onSuccess(result, variables) {
+          _qc.invalidateQueries({
+            queryKey: _trpc.students.index.infiniteQueryKey(),
+          });
+          _qc.invalidateQueries({
+            queryKey: _trpc.students.analytics.queryKey(),
+          });
+          _qc.invalidateQueries({
+            queryKey: _trpc.students.studentsRecentRecord.queryKey(),
+          });
+          _qc.invalidateQueries({
+            queryKey: _trpc.classrooms.all.queryKey({}),
+          });
+
+          const inputRows =
+            variables && "rows" in variables ? variables.rows : undefined;
+          const lineNumber = inputRows?.[0]?.lineNumber;
+          const resultRow = result.rows.find(
+            (row) => row.lineNumber === lineNumber,
+          );
+          if (lineNumber && resultRow?.status !== "failed") {
+            setImportedLineNumbers((current) => ({
+              ...current,
+              [lineNumber]: true,
+            }));
+            setCheckedRows((current) => ({
+              ...current,
+              [lineNumber]: false,
+            }));
+            setSingleRowErrors((current) => ({
+              ...current,
+              [lineNumber]: null,
+            }));
+          } else if (lineNumber) {
+            setSingleRowErrors((current) => ({
+              ...current,
+              [lineNumber]: {
+                title: "Import needs attention",
+                message:
+                  resultRow?.reason ||
+                  "This row could not be imported. Review the row and try again.",
+                diagnostics: [
+                  `Operation: single-row execution`,
+                  `Line: ${lineNumber}`,
+                ],
+                isTransportError: false,
+              },
+            }));
+          }
+          setImportingLineNumber(null);
+        },
+        onError(error, variables) {
+          setImportingLineNumber(null);
+          const inputRows =
+            variables && "rows" in variables ? variables.rows : undefined;
+          const lineNumber = inputRows?.[0]?.lineNumber;
+          if (!lineNumber) return;
+          setSingleRowErrors((current) => ({
+            ...current,
+            [lineNumber]: normalizeStudentImportError(
+              "single-row execution",
+              error,
+            ),
+          }));
+        },
+        meta: {
+          toastTitle: {
+            loading: "Importing row...",
+            success: "Row imported",
+            error: "Row import failed",
+          },
+        },
+      }),
+    );
+
   const setDecision = (
     lineNumber: number,
     decision: RowDecision | ((current: RowDecision) => RowDecision),
@@ -359,6 +508,10 @@ export function ImportActivity({
 
   const setAction = (row: VerifyResult, action: ImportAction) => {
     if (action === "skip" && !getCandidates(row).length) return;
+    setSingleRowErrors((current) => ({
+      ...current,
+      [row.lineNumber]: null,
+    }));
 
     setDecision(row.lineNumber, (current) => {
       const needsExisting =
@@ -374,6 +527,10 @@ export function ImportActivity({
   };
 
   const setCandidate = (row: VerifyResult, candidateId: string) => {
+    setSingleRowErrors((current) => ({
+      ...current,
+      [row.lineNumber]: null,
+    }));
     setDecision(row.lineNumber, (current) => ({
       action:
         current.action === "update_match_with_name"
@@ -436,6 +593,22 @@ export function ImportActivity({
     }));
   };
 
+  const setRowClassroom = (
+    lineNumber: number,
+    classroomDepartmentId: string,
+  ) => {
+    setManualClassroomDepartmentIds((current) => ({
+      ...current,
+      [lineNumber]: classroomDepartmentId,
+    }));
+    setPreSubmitError(null);
+    setSingleRowErrors((current) => ({
+      ...current,
+      [lineNumber]: null,
+    }));
+    resetExecuteBatch();
+  };
+
   const setNamePart = (row: VerifyResult, option: NamePartOption) => {
     const nextNames = resolveNameSelection(row, option);
     const editedRow = {
@@ -449,7 +622,11 @@ export function ImportActivity({
       records?.students || [],
       records?.sessionTermId,
       records?.schoolSessionId,
-      getRowClassroomDepartmentId(row, classroomDeptId),
+      getRowClassroomDepartmentId(
+        row,
+        classroomDeptId,
+        manualClassroomRequiredLineNumbers,
+      ),
     );
 
     setNameOverrides((current) => {
@@ -501,7 +678,11 @@ export function ImportActivity({
       student,
       records?.sessionTermId,
       records?.schoolSessionId,
-      getRowClassroomDepartmentId(row, classroomDeptId),
+      getRowClassroomDepartmentId(
+        row,
+        classroomDeptId,
+        manualClassroomRequiredLineNumbers,
+      ),
     );
 
     setNameOverrides((current) => ({
@@ -573,53 +754,27 @@ export function ImportActivity({
     let skippedBeforeExecution = 0;
 
     for (const row of rows) {
+      if (importedLineNumbers[row.lineNumber]) continue;
       if (!isRowChecked(checkedRows, row.lineNumber)) continue;
-
-      const decision = rowDecisions[row.lineNumber];
-      const action = decision?.action;
-      const gender = resolveGender(row, manualGenders[row.lineNumber]);
-      const rowClassroomDepartmentId = getRowClassroomDepartmentId(
+      const result = buildExecuteRow({
         row,
-        classroomDeptId,
-      );
-      const needsExisting =
-        action === "keep_match" || action === "update_match_with_name";
+        decision: rowDecisions[row.lineNumber],
+        manualGender: manualGenders[row.lineNumber],
+        fallbackClassroomDepartmentId: classroomDeptId,
+        manualClassroomRequiredLineNumbers,
+      });
 
-      if (!rowClassroomDepartmentId) {
+      if (result.status === "invalid") {
         needsDecisionLines.push(row.lineNumber);
         continue;
       }
 
-      if (!gender) {
-        needsDecisionLines.push(row.lineNumber);
-        continue;
-      }
-
-      if (!action) {
-        needsDecisionLines.push(row.lineNumber);
-        continue;
-      }
-
-      if (needsExisting && !decision?.existingStudentId) {
-        needsDecisionLines.push(row.lineNumber);
-        continue;
-      }
-
-      if (action === "skip") {
+      if (result.status === "skipped") {
         skippedBeforeExecution += 1;
         continue;
       }
 
-      importRows.push({
-        lineNumber: row.lineNumber,
-        name: row.name,
-        surname: row.surname,
-        otherName: row.otherName ?? null,
-        gender,
-        classroomDepartmentId: rowClassroomDepartmentId,
-        action,
-        existingStudentId: decision?.existingStudentId || null,
-      });
+      importRows.push(result.row);
     }
 
     if (needsDecisionLines.length > 0) {
@@ -647,12 +802,68 @@ export function ImportActivity({
     });
   };
 
+  const executeOne = (row: VerifyResult) => {
+    resetSingleRowMutation();
+    const result = buildExecuteRow({
+      row,
+      decision: rowDecisions[row.lineNumber],
+      manualGender: manualGenders[row.lineNumber],
+      fallbackClassroomDepartmentId: classroomDeptId,
+      manualClassroomRequiredLineNumbers,
+    });
+
+    if (result.status !== "ready") {
+      setSingleRowErrors((current) => ({
+        ...current,
+        [row.lineNumber]: {
+          title: "Import needs attention",
+          message:
+            result.status === "skipped"
+              ? "This row is marked Skip. Choose an import action before importing this row."
+              : result.reason,
+          diagnostics: [
+            "Operation: single-row execution",
+            `Line: ${row.lineNumber}`,
+          ],
+          isTransportError: false,
+        },
+      }));
+      return;
+    }
+
+    setImportingLineNumber(row.lineNumber);
+    setSingleRowErrors((current) => ({
+      ...current,
+      [row.lineNumber]: null,
+    }));
+    executeSingleRow({
+      classroomDepartmentId: classroomDeptId,
+      rows: [result.row],
+    });
+  };
+
   const selectedClassroom = records?.classDepartments?.find(
     (classroom) => classroom.id === classroomDeptId,
   );
+  const classroomById = useMemo(
+    () =>
+      new Map(
+        (records?.classDepartments ?? []).map((classroom) => [
+          classroom.id,
+          classroom,
+        ]),
+      ),
+    [records?.classDepartments],
+  );
   const selectedClassroomIds = new Set(
     rows
-      .map((row) => getRowClassroomDepartmentId(row, classroomDeptId))
+      .map((row) =>
+        getRowClassroomDepartmentId(
+          row,
+          classroomDeptId,
+          manualClassroomRequiredLineNumbers,
+        ),
+      )
       .filter(Boolean),
   );
   const classroomSummary =
@@ -663,27 +874,76 @@ export function ImportActivity({
         : selectedClassroomIds.size === 1
           ? rows.find((row) =>
               selectedClassroomIds.has(
-                getRowClassroomDepartmentId(row, classroomDeptId),
+                getRowClassroomDepartmentId(
+                  row,
+                  classroomDeptId,
+                  manualClassroomRequiredLineNumbers,
+                ),
               ),
             )?.classRoom || "Selected classroom"
           : null;
+  const classroomBreakdown = useMemo(
+    () =>
+      buildClassroomBreakdown({
+        checkedRows,
+        classroomById,
+        fallbackClassroomDepartmentId: classroomDeptId,
+        manualClassroomRequiredLineNumbers,
+        manualGenders,
+        rowDecisions,
+        rows,
+      }),
+    [
+      checkedRows,
+      classroomById,
+      classroomDeptId,
+      manualClassroomRequiredLineNumbers,
+      manualGenders,
+      rowDecisions,
+      rows,
+    ],
+  );
   const skippedBeforeExecution = rows.filter(
     (row) =>
+      !importedLineNumbers[row.lineNumber] &&
       isRowChecked(checkedRows, row.lineNumber) &&
       rowDecisions[row.lineNumber]?.action === "skip",
   ).length;
-  const selectedRowCount = rows.filter((row) =>
-    isRowChecked(checkedRows, row.lineNumber),
+  const selectedRowCount = rows.filter(
+    (row) =>
+      !importedLineNumbers[row.lineNumber] &&
+      isRowChecked(checkedRows, row.lineNumber),
   ).length;
   const executableRowCount = Math.max(
     selectedRowCount - skippedBeforeExecution,
     0,
   );
   const showExecutionOnly = isExecutingBatch || Boolean(batchResult);
-  const executionErrorMessage =
-    preSubmitError || verificationError?.message || batchError?.message || null;
+  const verificationImportError = useMemo(
+    () => normalizeStudentImportError("verification", verificationError),
+    [verificationError],
+  );
+  const batchImportError = useMemo(
+    () => normalizeStudentImportError("execution", batchError),
+    [batchError],
+  );
+  const preSubmitImportError = useMemo<NormalizedStudentImportError | null>(
+    () =>
+      preSubmitError
+        ? {
+            title: "Import needs attention",
+            message: preSubmitError,
+            diagnostics: [],
+            isTransportError: false,
+          }
+        : null,
+    [preSubmitError],
+  );
+  const executionError =
+    preSubmitImportError || verificationImportError || batchImportError;
   const dismissExecutionError = () => {
     setPreSubmitError(null);
+    resetVerification();
     resetExecuteBatch();
   };
   const studentSearchItems = useMemo(
@@ -791,6 +1051,7 @@ export function ImportActivity({
       {isExecutingBatch || batchResult ? (
         <ImportExecutionPanel
           classroomLabel={classroomSummary}
+          classroomBreakdown={classroomBreakdown}
           pastedRowCount={rows.length || students.length}
           selectedRowCount={selectedRowCount}
           executableRowCount={executableRowCount}
@@ -809,14 +1070,16 @@ export function ImportActivity({
 
       {!showExecutionOnly ? (
         <>
-          {executionErrorMessage ? (
+          {executionError ? (
             <ImportExecutionErrorAlert
-              message={executionErrorMessage}
+              error={executionError}
               onDismiss={dismissExecutionError}
             />
           ) : null}
 
           <Separator />
+
+          <ClassroomBreakdownStrip breakdown={classroomBreakdown} />
 
           {isVerifying ? (
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-12 text-xs">
@@ -872,6 +1135,7 @@ export function ImportActivity({
                   <RowsList
                     emptyText="No rows are currently ready to import."
                     rows={readyRows}
+                    classroomOptions={records?.classDepartments ?? []}
                     rowDecisions={rowDecisions}
                     manualGenders={manualGenders}
                     checkedRows={checkedRows}
@@ -887,6 +1151,17 @@ export function ImportActivity({
                     onSearchStudentSelect={selectSearchStudent}
                     onPromoteSearchMatch={promoteSearchMatch}
                     onPromoteNameMatch={promoteNameMatch}
+                    onClassroomChange={setRowClassroom}
+                    onImportRow={executeOne}
+                    importedLineNumbers={importedLineNumbers}
+                    importingLineNumber={importingLineNumber}
+                    singleRowErrors={singleRowErrors}
+                    onDismissSingleRowError={(lineNumber) =>
+                      setSingleRowErrors((current) => ({
+                        ...current,
+                        [lineNumber]: null,
+                      }))
+                    }
                     onGenderChange={(lineNumber, gender) =>
                       setManualGenders((current) => ({
                         ...current,
@@ -922,6 +1197,7 @@ export function ImportActivity({
                   <RowsList
                     emptyText="No exact matches found."
                     rows={exactRows}
+                    classroomOptions={records?.classDepartments ?? []}
                     rowDecisions={rowDecisions}
                     manualGenders={manualGenders}
                     checkedRows={checkedRows}
@@ -937,6 +1213,17 @@ export function ImportActivity({
                     onSearchStudentSelect={selectSearchStudent}
                     onPromoteSearchMatch={promoteSearchMatch}
                     onPromoteNameMatch={promoteNameMatch}
+                    onClassroomChange={setRowClassroom}
+                    onImportRow={executeOne}
+                    importedLineNumbers={importedLineNumbers}
+                    importingLineNumber={importingLineNumber}
+                    singleRowErrors={singleRowErrors}
+                    onDismissSingleRowError={(lineNumber) =>
+                      setSingleRowErrors((current) => ({
+                        ...current,
+                        [lineNumber]: null,
+                      }))
+                    }
                     onGenderChange={(lineNumber, gender) =>
                       setManualGenders((current) => ({
                         ...current,
@@ -972,6 +1259,7 @@ export function ImportActivity({
                   <RowsList
                     emptyText="No possible matches found."
                     rows={suspectedRows}
+                    classroomOptions={records?.classDepartments ?? []}
                     rowDecisions={rowDecisions}
                     manualGenders={manualGenders}
                     checkedRows={checkedRows}
@@ -987,6 +1275,17 @@ export function ImportActivity({
                     onSearchStudentSelect={selectSearchStudent}
                     onPromoteSearchMatch={promoteSearchMatch}
                     onPromoteNameMatch={promoteNameMatch}
+                    onClassroomChange={setRowClassroom}
+                    onImportRow={executeOne}
+                    importedLineNumbers={importedLineNumbers}
+                    importingLineNumber={importingLineNumber}
+                    singleRowErrors={singleRowErrors}
+                    onDismissSingleRowError={(lineNumber) =>
+                      setSingleRowErrors((current) => ({
+                        ...current,
+                        [lineNumber]: null,
+                      }))
+                    }
                     onGenderChange={(lineNumber, gender) =>
                       setManualGenders((current) => ({
                         ...current,
@@ -1014,6 +1313,7 @@ export function ImportActivity({
                   <RowsList
                     emptyText="No rows need manual attention."
                     rows={attentionRows}
+                    classroomOptions={records?.classDepartments ?? []}
                     rowDecisions={rowDecisions}
                     manualGenders={manualGenders}
                     checkedRows={checkedRows}
@@ -1029,6 +1329,17 @@ export function ImportActivity({
                     onSearchStudentSelect={selectSearchStudent}
                     onPromoteSearchMatch={promoteSearchMatch}
                     onPromoteNameMatch={promoteNameMatch}
+                    onClassroomChange={setRowClassroom}
+                    onImportRow={executeOne}
+                    importedLineNumbers={importedLineNumbers}
+                    importingLineNumber={importingLineNumber}
+                    singleRowErrors={singleRowErrors}
+                    onDismissSingleRowError={(lineNumber) =>
+                      setSingleRowErrors((current) => ({
+                        ...current,
+                        [lineNumber]: null,
+                      }))
+                    }
                     onGenderChange={(lineNumber, gender) =>
                       setManualGenders((current) => ({
                         ...current,
@@ -1047,18 +1358,27 @@ export function ImportActivity({
 }
 
 function ImportExecutionErrorAlert({
-  message,
+  error,
   onDismiss,
 }: {
-  message: string;
+  error: NormalizedStudentImportError;
   onDismiss: () => void;
 }) {
   return (
     <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50/70 px-3 py-2 text-xs text-red-700 dark:border-red-900/70 dark:bg-red-950/15 dark:text-red-300">
       <AlertCircle className="mt-0.5 size-4 shrink-0" />
       <div className="min-w-0 flex-1">
-        <div className="font-medium">Import needs attention</div>
-        <p className="mt-0.5 text-red-700/90 dark:text-red-300/90">{message}</p>
+        <div className="font-medium">{error.title}</div>
+        <p className="mt-0.5 text-red-700/90 dark:text-red-300/90">
+          {error.message}
+        </p>
+        {error.diagnostics.length ? (
+          <div className="mt-2 rounded border border-red-200/80 bg-white/50 px-2 py-1 font-mono text-[10px] leading-5 text-red-800/80 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-200/80">
+            {error.diagnostics.map((diagnostic) => (
+              <div key={diagnostic}>{diagnostic}</div>
+            ))}
+          </div>
+        ) : null}
       </div>
       <Button
         type="button"
@@ -1076,6 +1396,7 @@ function ImportExecutionErrorAlert({
 
 function ImportExecutionPanel({
   classroomLabel,
+  classroomBreakdown,
   pastedRowCount,
   selectedRowCount,
   executableRowCount,
@@ -1087,6 +1408,7 @@ function ImportExecutionPanel({
   onCloseImport,
 }: {
   classroomLabel: string | null;
+  classroomBreakdown: ClassroomBreakdown[];
   pastedRowCount: number;
   selectedRowCount: number;
   executableRowCount: number;
@@ -1217,6 +1539,8 @@ function ImportExecutionPanel({
         />
       </div>
 
+      <ClassroomBreakdownStrip breakdown={classroomBreakdown} compact />
+
       <div className="grid grid-cols-3 border-t">
         <ImportStat
           icon={<UserPlus className="size-4" />}
@@ -1308,6 +1632,54 @@ function ImportExecutionPanel({
           ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function ClassroomBreakdownStrip({
+  breakdown,
+  compact = false,
+}: {
+  breakdown: ClassroomBreakdown[];
+  compact?: boolean;
+}) {
+  if (!breakdown.length) return null;
+
+  return (
+    <div
+      className={cn(
+        "border-t bg-muted/10 px-3 py-2 text-xs",
+        compact ? "space-y-1.5" : "rounded-md border bg-background",
+      )}
+    >
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="font-medium text-foreground">Classroom scope</span>
+        <span className="text-[11px] text-muted-foreground">
+          {breakdown.length} classroom{breakdown.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {breakdown.map((item) => (
+          <Badge
+            key={item.id}
+            variant={item.attentionRows > 0 ? "outline" : "secondary"}
+            className={cn(
+              "h-auto max-w-full justify-start gap-1 bg-background px-2 py-1 text-[11px]",
+              item.attentionRows > 0 &&
+                "border-amber-300 text-amber-700 dark:border-amber-900 dark:text-amber-300",
+            )}
+          >
+            <Arabic>{item.label}</Arabic>
+            <span className="text-muted-foreground">
+              {item.totalRows} rows · {item.checkedRows} checked ·{" "}
+              {item.executableRows} executable
+              {item.attentionRows > 0
+                ? ` · ${item.attentionRows} attention`
+                : ""}
+            </span>
+          </Badge>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1447,6 +1819,7 @@ function TabSelectionActions({
 function RowsList({
   emptyText,
   rows,
+  classroomOptions,
   rowDecisions,
   manualGenders,
   checkedRows,
@@ -1462,10 +1835,17 @@ function RowsList({
   onSearchStudentSelect,
   onPromoteSearchMatch,
   onPromoteNameMatch,
+  onClassroomChange,
+  onImportRow,
+  importedLineNumbers,
+  importingLineNumber,
+  singleRowErrors,
+  onDismissSingleRowError,
   onGenderChange,
 }: {
   emptyText: string;
   rows: VerifyResult[];
+  classroomOptions: ClassDepartment[];
   rowDecisions: Record<number, RowDecision>;
   manualGenders: Record<number, "Male" | "Female">;
   checkedRows: Record<number, boolean>;
@@ -1481,6 +1861,15 @@ function RowsList({
   onSearchStudentSelect: (row: VerifyResult, student: ExistingStudent) => void;
   onPromoteSearchMatch: (row: VerifyResult) => void;
   onPromoteNameMatch: (row: VerifyResult) => void;
+  onClassroomChange: (
+    lineNumber: number,
+    classroomDepartmentId: string,
+  ) => void;
+  onImportRow: (row: VerifyResult) => void;
+  importedLineNumbers: Record<number, boolean>;
+  importingLineNumber: number | null;
+  singleRowErrors: Record<number, NormalizedStudentImportError | null>;
+  onDismissSingleRowError: (lineNumber: number) => void;
   onGenderChange: (lineNumber: number, gender: "Male" | "Female") => void;
 }) {
   if (!rows.length) {
@@ -1497,6 +1886,7 @@ function RowsList({
         <RowCard
           key={row.lineNumber}
           row={row}
+          classroomOptions={classroomOptions}
           decision={rowDecisions[row.lineNumber]}
           manualGender={manualGenders[row.lineNumber]}
           checked={isRowChecked(checkedRows, row.lineNumber)}
@@ -1516,6 +1906,12 @@ function RowsList({
           onSearchStudentSelect={onSearchStudentSelect}
           onPromoteSearchMatch={onPromoteSearchMatch}
           onPromoteNameMatch={onPromoteNameMatch}
+          onClassroomChange={onClassroomChange}
+          onImportRow={onImportRow}
+          imported={Boolean(importedLineNumbers[row.lineNumber])}
+          importing={importingLineNumber === row.lineNumber}
+          singleRowError={singleRowErrors[row.lineNumber] ?? null}
+          onDismissSingleRowError={onDismissSingleRowError}
           onGenderChange={onGenderChange}
         />
       ))}
@@ -1525,6 +1921,7 @@ function RowsList({
 
 function RowCard({
   row,
+  classroomOptions,
   decision,
   manualGender,
   checked,
@@ -1541,9 +1938,16 @@ function RowCard({
   onSearchStudentSelect,
   onPromoteSearchMatch,
   onPromoteNameMatch,
+  onClassroomChange,
+  onImportRow,
+  imported,
+  importing,
+  singleRowError,
+  onDismissSingleRowError,
   onGenderChange,
 }: {
   row: VerifyResult;
+  classroomOptions: ClassDepartment[];
   decision?: RowDecision;
   manualGender?: "Male" | "Female";
   checked: boolean;
@@ -1560,6 +1964,15 @@ function RowCard({
   onSearchStudentSelect: (row: VerifyResult, student: ExistingStudent) => void;
   onPromoteSearchMatch: (row: VerifyResult) => void;
   onPromoteNameMatch: (row: VerifyResult) => void;
+  onClassroomChange: (
+    lineNumber: number,
+    classroomDepartmentId: string,
+  ) => void;
+  onImportRow: (row: VerifyResult) => void;
+  imported: boolean;
+  importing: boolean;
+  singleRowError: NormalizedStudentImportError | null;
+  onDismissSingleRowError: (lineNumber: number) => void;
   onGenderChange: (lineNumber: number, gender: "Male" | "Female") => void;
 }) {
   const [showSearch, setShowSearch] = useState(false);
@@ -1575,13 +1988,20 @@ function RowCard({
     !decision?.existingStudentId;
   const needsResolution = !action;
   const needsGender = !resolvedGender;
-  const isBlocked = needsGender || needsResolution || needsExistingMatch;
+  const needsClassroom = !row.classroomDepartmentId;
+  const isBlocked =
+    !imported &&
+    (needsGender || needsClassroom || needsResolution || needsExistingMatch);
   const matchKind = row.fullMatch
     ? "Exact match"
     : row.suspectedMatches.length > 0
       ? "Possible match"
       : "No match";
-  const statusLabel = isBlocked ? "Action required" : "Ready";
+  const statusLabel = imported
+    ? "Imported"
+    : isBlocked
+      ? "Action required"
+      : "Ready";
 
   return (
     <div
@@ -1622,7 +2042,9 @@ function RowCard({
               isBlocked ? "text-red-600" : "text-green-600",
             )}
           >
-            {isBlocked ? (
+            {imported ? (
+              <CheckCircle2 className="size-3.5" />
+            ) : isBlocked ? (
               <AlertCircle className="size-3.5" />
             ) : (
               <CheckCircle2 className="size-3.5" />
@@ -1704,7 +2126,7 @@ function RowCard({
           </div>
         </div>
 
-        <div className="flex flex-row gap-4">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             type="button"
             variant={showSearch ? "secondary" : "outline"}
@@ -1715,6 +2137,15 @@ function RowCard({
           >
             <Search className="size-4" />
           </Button>
+
+          <ClassroomSelect
+            className="w-44"
+            options={classroomOptions}
+            value={row.classroomDepartmentId || ""}
+            onValueChange={(classroomDepartmentId) =>
+              onClassroomChange(row.lineNumber, classroomDepartmentId)
+            }
+          />
 
           {needsGender ? (
             <GenderToggle
@@ -1728,6 +2159,7 @@ function RowCard({
             onValueChange={(value) =>
               onActionChange(row, value as ImportAction)
             }
+            disabled={imported || importing}
           >
             <Select.Trigger className="h-8 w-full bg-background text-xs sm:w-48 lg:w-full">
               <Select.Value placeholder="Select action" />
@@ -1748,8 +2180,35 @@ function RowCard({
               </Select.Item>
             </Select.Content>
           </Select>
+
+          <Button
+            type="button"
+            size="sm"
+            variant={imported ? "secondary" : "default"}
+            className="h-8 w-full sm:w-auto lg:w-full"
+            disabled={imported || importing}
+            onClick={() => onImportRow(row)}
+          >
+            {importing ? (
+              <RefreshCw className="mr-2 size-3.5 animate-spin" />
+            ) : imported ? (
+              <CheckCircle2 className="mr-2 size-3.5" />
+            ) : (
+              <Import className="mr-2 size-3.5" />
+            )}
+            {importing ? "Importing..." : imported ? "Imported" : "Import row"}
+          </Button>
         </div>
       </div>
+
+      {singleRowError ? (
+        <div className="border-t px-3 py-2">
+          <ImportExecutionErrorAlert
+            error={singleRowError}
+            onDismiss={() => onDismissSingleRowError(row.lineNumber)}
+          />
+        </div>
+      ) : null}
 
       {showSearch ? (
         <StudentSearchPanel
@@ -1954,6 +2413,33 @@ function StudentSearchPanel({
   );
 }
 
+function ClassroomSelect({
+  className,
+  options,
+  value,
+  onValueChange,
+}: {
+  className?: string;
+  options: ClassDepartment[];
+  value: string;
+  onValueChange: (classroomDepartmentId: string) => void;
+}) {
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <Select.Trigger className={cn("h-8 bg-background text-xs", className)}>
+        <Select.Value placeholder="Assign classroom" />
+      </Select.Trigger>
+      <Select.Content className="max-h-72 overflow-y-auto">
+        {options.map((classroom) => (
+          <Select.Item key={classroom.id} value={classroom.id}>
+            <Arabic>{getClassDepartmentDisplayName(classroom)}</Arabic>
+          </Select.Item>
+        ))}
+      </Select.Content>
+    </Select>
+  );
+}
+
 function GenderToggle({
   value,
   onValueChange,
@@ -1990,6 +2476,17 @@ function GenderToggle({
       </ToggleGroupItem>
     </ToggleGroup>
   );
+}
+
+function getClassDepartmentDisplayName(classroom: ClassDepartment) {
+  const className = classroom.classRoom?.name?.trim();
+  const departmentName = classroom.departmentName?.trim();
+
+  if (className && departmentName && className !== departmentName) {
+    return `${className} - ${departmentName}`;
+  }
+
+  return departmentName || className || "Classroom";
 }
 
 function CandidateCard({
@@ -2078,10 +2575,159 @@ function isRowChecked(
 }
 
 function getRowClassroomDepartmentId(
-  row: Pick<VerifyResult, "classroomDepartmentId">,
+  row: Pick<VerifyResult, "classroomDepartmentId" | "lineNumber">,
   fallbackClassroomDepartmentId: string,
+  manualClassroomRequiredLineNumbers: Set<number> = new Set(),
 ) {
-  return row.classroomDepartmentId || fallbackClassroomDepartmentId || "";
+  if (row.classroomDepartmentId) return row.classroomDepartmentId;
+  if (manualClassroomRequiredLineNumbers.has(row.lineNumber)) return "";
+  return fallbackClassroomDepartmentId || "";
+}
+
+function buildExecuteRow({
+  row,
+  decision,
+  manualGender,
+  fallbackClassroomDepartmentId,
+  manualClassroomRequiredLineNumbers,
+}: {
+  row: VerifyResult;
+  decision?: RowDecision;
+  manualGender?: "Male" | "Female";
+  fallbackClassroomDepartmentId: string;
+  manualClassroomRequiredLineNumbers: Set<number>;
+}): BuildExecuteRowResult {
+  const action = decision?.action;
+  const gender = resolveGender(row, manualGender);
+  const rowClassroomDepartmentId = getRowClassroomDepartmentId(
+    row,
+    fallbackClassroomDepartmentId,
+    manualClassroomRequiredLineNumbers,
+  );
+  const needsExisting =
+    action === "keep_match" || action === "update_match_with_name";
+
+  if (!rowClassroomDepartmentId) {
+    return {
+      status: "invalid",
+      reason: `Line ${row.lineNumber} needs a classroom before import.`,
+    };
+  }
+
+  if (!gender) {
+    return {
+      status: "invalid",
+      reason: `Line ${row.lineNumber} needs a gender before import.`,
+    };
+  }
+
+  if (!action) {
+    return {
+      status: "invalid",
+      reason: `Line ${row.lineNumber} needs an import action before import.`,
+    };
+  }
+
+  if (needsExisting && !decision?.existingStudentId) {
+    return {
+      status: "invalid",
+      reason: `Line ${row.lineNumber} needs a selected match before import.`,
+    };
+  }
+
+  if (action === "skip") {
+    return { status: "skipped" };
+  }
+
+  return {
+    status: "ready",
+    row: {
+      lineNumber: row.lineNumber,
+      name: row.name,
+      surname: row.surname,
+      otherName: row.otherName ?? null,
+      gender,
+      classroomDepartmentId: rowClassroomDepartmentId,
+      action,
+      existingStudentId: decision?.existingStudentId || null,
+    },
+  };
+}
+
+function buildClassroomBreakdown({
+  checkedRows,
+  classroomById,
+  fallbackClassroomDepartmentId,
+  manualClassroomRequiredLineNumbers,
+  manualGenders,
+  rowDecisions,
+  rows,
+}: {
+  checkedRows: Record<number, boolean>;
+  classroomById: Map<string, ClassDepartment>;
+  fallbackClassroomDepartmentId: string;
+  manualClassroomRequiredLineNumbers: Set<number>;
+  manualGenders: Record<number, "Male" | "Female">;
+  rowDecisions: Record<number, RowDecision>;
+  rows: VerifyResult[];
+}) {
+  const breakdown = new Map<string, ClassroomBreakdown>();
+
+  for (const row of rows) {
+    const classroomDepartmentId = getRowClassroomDepartmentId(
+      row,
+      fallbackClassroomDepartmentId,
+      manualClassroomRequiredLineNumbers,
+    );
+    const id = classroomDepartmentId || "unassigned";
+    const classroom = classroomDepartmentId
+      ? classroomById.get(classroomDepartmentId)
+      : null;
+    const label = classroom
+      ? getClassDepartmentDisplayName(classroom)
+      : row.classRoom || "Unassigned";
+    const current = breakdown.get(id) ?? {
+      id,
+      label,
+      totalRows: 0,
+      checkedRows: 0,
+      executableRows: 0,
+      attentionRows: 0,
+    };
+    const decision = rowDecisions[row.lineNumber];
+    const action = decision?.action;
+    const needsExisting =
+      action === "keep_match" || action === "update_match_with_name";
+    const checked = isRowChecked(checkedRows, row.lineNumber);
+    const hasGender = Boolean(
+      resolveGender(row, manualGenders[row.lineNumber]),
+    );
+    const executable =
+      checked &&
+      Boolean(classroomDepartmentId) &&
+      Boolean(hasGender) &&
+      Boolean(action) &&
+      action !== "skip" &&
+      (!needsExisting || Boolean(decision?.existingStudentId));
+    const needsAttention =
+      !classroomDepartmentId ||
+      !hasGender ||
+      !action ||
+      (needsExisting && !decision?.existingStudentId) ||
+      row.status === "needsAttention";
+
+    current.totalRows += 1;
+    if (checked) current.checkedRows += 1;
+    if (executable) current.executableRows += 1;
+    if (needsAttention) current.attentionRows += 1;
+    breakdown.set(id, current);
+  }
+
+  return [...breakdown.values()].sort((a, b) => {
+    if (a.id === "unassigned") return -1;
+    if (b.id === "unassigned") return 1;
+    return a.label.localeCompare(b.label);
+  });
 }
 
 function findEditedNameMatch(

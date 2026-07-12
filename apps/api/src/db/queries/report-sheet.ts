@@ -1,6 +1,9 @@
 import type { TRPCContext } from "@api/trpc/init";
 import { z } from "zod";
-import { assertTeacherCanAccessClassroomDepartment } from "../../lib/teacher-authorization";
+import {
+  assertTeacherCanAccessClassroomDepartment,
+  getTeacherAcademicAccess,
+} from "../../lib/teacher-authorization";
 
 export const getClassroomReportSheetSchema = z.object({
   departmentId: z.string(),
@@ -19,6 +22,10 @@ export async function getClassroomReportSheet(
     query.departmentId,
     query.sessionTermId,
   );
+  const teacherAccess = await getTeacherAcademicAccess(
+    ctx,
+    query.sessionTermId,
+  );
 
   const { db } = ctx;
   const department = await db.classRoomDepartment.findUniqueOrThrow({
@@ -31,7 +38,14 @@ export async function getClassroomReportSheet(
         where: {
           deletedAt: null,
           classRoomDepartmentId: query.departmentId,
-          // sessionTermId: query.sessionTermId,
+          sessionTermId: query.sessionTermId,
+          ...(teacherAccess
+            ? {
+                id: {
+                  in: teacherAccess.departmentSubjectIds,
+                },
+              }
+            : {}),
         },
         select: {
           id: true,
@@ -40,12 +54,23 @@ export async function getClassroomReportSheet(
               deletedAt: null,
               isGroup: false,
             },
+            orderBy: [
+              {
+                index: "asc",
+              },
+              {
+                id: "asc",
+              },
+            ],
             select: {
               id: true,
               title: true,
               parentAssessment: {
                 select: {
+                  id: true,
                   title: true,
+                  index: true,
+                  printMode: true,
                 },
               },
               percentageObtainable: true,
