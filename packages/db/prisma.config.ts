@@ -27,10 +27,13 @@ function loadEnv() {
   const loadedEnv = { ...process.env };
   const isProduction =
     process.env.NODE_ENV === "production" ||
-    process.env.APP_ENV === "production";
+    process.env.APP_ENV === "production" ||
+    process.env.SCHOOL_CLERK_DB_MODE === "prod" ||
+    process.env.SCHOOL_CLERK_DB_MODE === "production";
   const isRemoteDev =
     process.env.APP_ENV === "remote-dev" ||
-    process.env.DEV_PROFILE === "remote-dev";
+    process.env.DEV_PROFILE === "remote-dev" ||
+    process.env.SCHOOL_CLERK_DB_MODE === "remote-dev";
   const envFiles = [
     path.join(repoRoot, ".env"),
     path.join(repoRoot, ".env.development"),
@@ -94,7 +97,7 @@ export default defineConfig({
     url: env("DATABASE_URL"),
   },
   migrations: {
-    path: "prisma/migrations",
+    path: "src/schema/migrations",
   },
-  schema: "prisma",
+  schema: "src/schema",
 });

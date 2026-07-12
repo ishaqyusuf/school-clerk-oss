@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { applyDatabaseProfile } from "./database-profile.mjs";
+
 const URL_ENV_KEYS = [
   "DATABASE_URL",
   "POSTGRES_URL",
@@ -56,11 +58,25 @@ function printContextEnv(key) {
   console.log(`[db-env] ${key}=${value || "missing"}`);
 }
 
+function printEffectiveDatabaseUrl() {
+  const effectiveEnv = applyDatabaseProfile({ ...process.env });
+  const value = effectiveEnv.DATABASE_URL;
+
+  if (!value) {
+    console.log("[db-env] EFFECTIVE_DATABASE_URL=missing");
+    return;
+  }
+
+  console.log(`[db-env] EFFECTIVE_DATABASE_URL=${maskUrlValue(value)}`);
+}
+
 console.log("[db-env] sanitized database environment before Prisma generate");
 
 for (const key of CONTEXT_ENV_KEYS) {
   printContextEnv(key);
 }
+
+printEffectiveDatabaseUrl();
 
 for (const key of URL_ENV_KEYS) {
   printUrlEnv(key);

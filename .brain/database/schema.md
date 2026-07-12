@@ -15,7 +15,7 @@ Tracks logical and physical schema for SchoolClerk data entities.
 - Prisma schema location: `packages/db/src/schema/*.prisma`
 - Primary datasource: PostgreSQL (`provider = "postgresql"`)
 - ORM client: Prisma Client 7 (`prisma-client-js`) generated to `packages/db/src/generated/client`
-- Runtime adapter: `@prisma/adapter-pg`; `packages/db/src/prisma.ts` resolves `DATABASE_URL` only and normalizes PostgreSQL SSL connection parameters for Supabase-compatible deployments.
+- Runtime adapter: `@prisma/adapter-pg`; `packages/db/src/prisma.ts` resolves the canonical `DATABASE_URL` plus production/development provider aliases such as `POSTGRES_URL`, `PROD_DATABASE_URL`, and `REMOTE_DEV_DATABASE_URL`, then normalizes PostgreSQL SSL connection parameters for Supabase-compatible deployments.
 - Development infra uses `scripts/with-dev-infra.ts` to select `SCHOOL_CLERK_DB_MODE=remote-dev` or `local` and then exports the final `DATABASE_URL` used by Prisma maintenance commands. `scripts/db-command.ts` runs Prisma from `packages/db` with that resolved `DATABASE_URL`; `packages/db/prisma.config.ts` intentionally stays GND-style and only reads `DATABASE_URL`. The jobs package uses the same env resolver for local Trigger development, refreshes its flattened Prisma schema before dev/deploy, and invokes the Trigger CLI through Node to avoid Bun bin-runner crashes.
 
 ## Active Model Groups
