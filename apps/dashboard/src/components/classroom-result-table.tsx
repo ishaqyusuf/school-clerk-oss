@@ -42,11 +42,13 @@ import {
 	ArrowDown,
 	ArrowUp,
 	ArrowUpDown,
+	AlertTriangle,
 	BookOpenText,
 	FileSpreadsheet,
 	Languages,
 	PanelRightOpen,
 	Printer,
+	RefreshCw,
 	Search,
 	Users,
 	X,
@@ -540,6 +542,58 @@ export function ClassroomResultTable({
 	}
 
 	if (reportData === undefined) {
+		if (ctx.reportError) {
+			return (
+				<div className="flex min-h-[45vh] flex-col items-center justify-center gap-4 px-4 py-12 text-center">
+					<div className="flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+						<AlertTriangle className="size-7" />
+					</div>
+					<div className="max-w-md space-y-2">
+						<h2 className="text-lg font-semibold tracking-tight">
+							Could not load classroom results
+						</h2>
+						<p className="text-sm leading-6 text-muted-foreground">
+							The selected term and classroom could not be loaded. Try again, or
+							choose another term/classroom.
+						</p>
+						<p className="text-xs text-muted-foreground">
+							{ctx.reportError instanceof Error
+								? ctx.reportError.message
+								: "Unknown report loading error."}
+						</p>
+					</div>
+					<div className="flex flex-wrap justify-center gap-2">
+						<Button
+							type="button"
+							variant="outline"
+							className="gap-2"
+							onClick={ctx.refetchReportData}
+						>
+							<RefreshCw className="size-4" />
+							Try again
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							className="gap-2"
+							onClick={openClassroomOverview}
+						>
+							<PanelRightOpen className="size-4" />
+							Open classroom overview
+						</Button>
+					</div>
+				</div>
+			);
+		}
+
+		if (!ctx.isReportLoading) {
+			return (
+				<div className="flex items-center justify-center py-12 text-muted-foreground">
+					Select a term and classroom to view results.
+				</div>
+			);
+		}
+
 		return (
 			<div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
 				<Spinner size={16} />

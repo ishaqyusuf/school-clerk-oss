@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useCallback, useContext, useMemo } from "react";
 import { useStudentReportFilterParams } from "./use-student-report-filter-params";
 import { _trpc } from "@/components/static-trpc";
 import { useQuery, useQueries } from "@tanstack/react-query";
@@ -41,8 +41,20 @@ export const createReportPageContext = (defaultTermId?: string) => {
 
   // Current department's data (for sidebar display)
   const currentDeptIndex = deptsToLoad.indexOf(filters.departmentId ?? "");
+  const currentDeptQuery =
+    currentDeptIndex >= 0 ? deptQueries[currentDeptIndex] : null;
   const reportData =
-    currentDeptIndex >= 0 ? deptQueries[currentDeptIndex]?.data : undefined;
+    currentDeptIndex >= 0 ? currentDeptQuery?.data : undefined;
+  const reportError = currentDeptQuery?.error ?? null;
+  const isReportLoading = Boolean(
+    filters.departmentId &&
+      effectiveTermId &&
+      currentDeptQuery &&
+      (currentDeptQuery.isLoading || currentDeptQuery.isFetching),
+  );
+  const refetchReportData = useCallback(() => {
+    void currentDeptQuery?.refetch();
+  }, [currentDeptQuery]);
 
   // Build a flat map of termFormId -> studentTermForm across all loaded depts
   const allTermForms = useMemo(() => {
@@ -86,6 +98,10 @@ export const createReportPageContext = (defaultTermId?: string) => {
     reportsById: calculatedReport?.reportsById,
     classRooms: classRooms?.data,
     reportData,
+    reportError,
+    isReportLoading,
+    refetchReportData,
+    effectiveTermId,
   };
 };
 export const useReportPageContext = () => {

@@ -90,8 +90,14 @@ export function StudentReportFilter({
 
   const controls = (
     <>
-      <Field.Group className={controlsOnly ? "grid gap-3 md:grid-cols-[minmax(0,220px)_minmax(0,260px)_auto] md:items-end" : undefined}>
-        <Field>
+      <Field.Group
+        className={
+          controlsOnly
+            ? "grid grid-cols-2 items-end gap-3 md:grid-cols-[minmax(0,220px)_minmax(0,260px)_auto]"
+            : undefined
+        }
+      >
+        <Field className="min-w-0">
           <Field.Label>Term</Field.Label>
           <Select
             value={filters.termId}
@@ -117,7 +123,7 @@ export function StudentReportFilter({
             </Select.Content>
           </Select>
         </Field>
-        <Field>
+        <Field className="min-w-0">
           <Field.Label>Classroom</Field.Label>
           <Select
             dir="rtl"
@@ -142,7 +148,13 @@ export function StudentReportFilter({
           </Select>
         </Field>
         {isResultEntryAllowed && (
-          <div className={controlsOnly ? "flex items-end" : undefined}>
+          <div
+            className={
+              controlsOnly
+                ? "col-span-2 flex items-end md:col-span-1"
+                : undefined
+            }
+          >
             <Button asChild variant="outline" className="gap-2">
               <a
                 href={`/assessment-recording?deptId=${filters.departmentId}&permission=all&termId=${filters.termId}`}
