@@ -150,6 +150,31 @@
         "vercel": "^48.2.9",
       },
     },
+    "apps/marketing": {
+      "name": "@school-clerk/marketing",
+      "version": "0.1.0",
+      "dependencies": {
+        "@school-clerk/db": "workspace:*",
+        "@school-clerk/tenant-url": "workspace:*",
+        "@school-clerk/ui": "workspace:*",
+        "@school-clerk/utils": "workspace:*",
+        "lucide-react": "^0.544.0",
+        "next": "^16.0.1",
+        "react": "^19.2.0",
+        "react-dom": "^19.2.0",
+      },
+      "devDependencies": {
+        "@eslint/eslintrc": "^3",
+        "@school-clerk/tsconfig": "workspace:*",
+        "@tailwindcss/postcss": "^4",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "eslint": "^9",
+        "eslint-config-next": "15.5.5",
+        "tailwindcss": "^4.1.17",
+        "typescript": "^5.9.3",
+      },
+    },
     "apps/school-site": {
       "name": "@school-clerk/school-site",
       "version": "0.1.0",
@@ -173,31 +198,6 @@
         "@eslint/eslintrc": "^3",
         "@tailwindcss/postcss": "^4",
         "@types/node": "^24.7.2",
-        "@types/react": "^19",
-        "@types/react-dom": "^19",
-        "eslint": "^9",
-        "eslint-config-next": "15.5.5",
-        "tailwindcss": "^4.1.17",
-        "typescript": "^5.9.3",
-      },
-    },
-    "apps/web": {
-      "name": "@school-clerk/site",
-      "version": "0.1.0",
-      "dependencies": {
-        "@school-clerk/db": "workspace:*",
-        "@school-clerk/tenant-url": "workspace:*",
-        "@school-clerk/ui": "workspace:*",
-        "@school-clerk/utils": "workspace:*",
-        "lucide-react": "^0.544.0",
-        "next": "^16.0.1",
-        "react": "^19.2.0",
-        "react-dom": "^19.2.0",
-      },
-      "devDependencies": {
-        "@eslint/eslintrc": "^3",
-        "@school-clerk/tsconfig": "workspace:*",
-        "@tailwindcss/postcss": "^4",
         "@types/react": "^19",
         "@types/react-dom": "^19",
         "eslint": "^9",
@@ -1579,6 +1579,8 @@
 
     "@school-clerk/jobs": ["@school-clerk/jobs@workspace:packages/jobs"],
 
+    "@school-clerk/marketing": ["@school-clerk/marketing@workspace:apps/marketing"],
+
     "@school-clerk/navigation": ["@school-clerk/navigation@workspace:packages/navigation"],
 
     "@school-clerk/notifications": ["@school-clerk/notifications@workspace:packages/notifications"],
@@ -1590,8 +1592,6 @@
     "@school-clerk/react-pdf": ["@school-clerk/react-pdf@workspace:packages/react-pdf-style"],
 
     "@school-clerk/school-site": ["@school-clerk/school-site@workspace:apps/school-site"],
-
-    "@school-clerk/site": ["@school-clerk/site@workspace:apps/web"],
 
     "@school-clerk/site-nav": ["@school-clerk/site-nav@workspace:packages/site-nav"],
 

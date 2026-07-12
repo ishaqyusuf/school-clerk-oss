@@ -62,7 +62,7 @@ Tracks architectural patterns, boundaries, and major design choices.
 
 ## Runtime Topology
 
-- `apps/web`: SaaS landing page (public marketing site)
+- `apps/marketing`: SaaS landing page (public marketing site)
 - `apps/dashboard`: SaaS application (authenticated product app)
 - `apps/api`: API application surface
 - `apps/school-site`: tenant-resolved public school website runtime backed by published template configurations

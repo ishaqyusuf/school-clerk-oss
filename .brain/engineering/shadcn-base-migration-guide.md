@@ -230,7 +230,7 @@ That means:
 
 1. Consolidate icon exports into `@school-clerk/ui/icons`.
 2. Convert `packages/ui` internal icon imports first.
-3. Convert `apps/dashboard`, `apps/web`, and `packages/site-nav` to use `Icons`.
+3. Convert `apps/dashboard`, `apps/marketing`, and `packages/site-nav` to use `Icons`.
 4. Remove `@school-clerk/ui/custom/icons` usage from app code.
 5. Remove `lucide-react` from package manifests only when `rg 'lucide-react'` returns no hits outside the temporary registry migration layer.
 
@@ -315,7 +315,7 @@ In this repo, dependency cleanup will mostly happen in:
 
 - [packages/ui/package.json](/Users/M1PRO/Documents/code/school-clerk/packages/ui/package.json)
 - [apps/dashboard/package.json](/Users/M1PRO/Documents/code/school-clerk/apps/dashboard/package.json)
-- [apps/web/package.json](/Users/M1PRO/Documents/code/school-clerk/apps/web/package.json)
+- [apps/marketing/package.json](/Users/M1PRO/Documents/code/school-clerk/apps/marketing/package.json)
 
 ## Suggested Execution Order For This Repo
 
@@ -337,7 +337,7 @@ In this repo, dependency cleanup will mostly happen in:
 6. Replace direct Radix imports inside `packages/ui`.
 7. Fix downstream breakages in `apps/dashboard`.
 8. Migrate `packages/site-nav`.
-9. Migrate `apps/web`.
+9. Migrate `apps/marketing`.
 10. Remove unused dependencies.
 11. Run `bun run typecheck`, then targeted app builds.
 

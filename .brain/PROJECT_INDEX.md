@@ -20,7 +20,7 @@ Map of key repository areas so contributors and AI can navigate the codebase qui
 
 ## Known Workspace Map
 
-- `apps/web`: SaaS landing page (marketing/public website)
+- `apps/marketing`: SaaS landing page (marketing/public website)
 - `apps/dashboard`: SaaS application (authenticated product app)
 - `apps/api`: API application surface
 - `apps/school-site`: public school website runtime for tenant-published template configurations

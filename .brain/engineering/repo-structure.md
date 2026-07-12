@@ -18,7 +18,7 @@ Documents how the monorepo is organized and where code belongs.
 
 ## Known App and Package Layout
 
-- `apps/web`: SaaS landing page (marketing/public website)
+- `apps/marketing`: SaaS landing page (marketing/public website)
 - `apps/dashboard`: SaaS application (authenticated product experience)
 - `apps/api`: API application surface
 - `apps/school-site`: public tenant website runtime for published school website templates

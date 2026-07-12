@@ -1,5 +1,37 @@
 # Progress
 
+## Marketing App Rename (2026-07-12)
+
+### Completed
+
+- Renamed the SaaS marketing app workspace from `apps/web` / `@school-clerk/site` to `apps/marketing` / `@school-clerk/marketing`.
+- Updated root build filters and dev-router tests to use the new `marketing` shorthand and package name.
+- Refreshed the Bun workspace lockfile so the marketing package resolves from `apps/marketing`.
+- Updated active Brain architecture and repository-structure docs to use the new marketing app name while leaving `apps/school-site`, `@school-clerk/school-site`, and `packages/site-nav` unchanged.
+
+### Changed Files
+
+- `apps/marketing/package.json`
+- `package.json`
+- `bun.lock`
+- `scripts/dev.test.ts`
+- `.brain/PROJECT_INDEX.md`
+- `.brain/system/overview.md`
+- `.brain/system/architecture.md`
+- `.brain/engineering/repo-structure.md`
+- `.brain/engineering/ai-rules.md`
+- `.brain/engineering/shadcn-base-migration-guide.md`
+- `.brain/database/migrations.md`
+- `.brain/decisions/ADR-0001-baseline-system-stack-and-layered-architecture.md`
+- `.brain/progress.md`
+
+### Verification
+
+- `bun install`
+- `bun test scripts/dev.test.ts`
+- `git diff --check -- package.json bun.lock scripts/dev.test.ts apps/marketing/package.json .brain/PROJECT_INDEX.md .brain/system/overview.md .brain/system/architecture.md .brain/engineering/repo-structure.md .brain/engineering/ai-rules.md .brain/database/migrations.md .brain/engineering/shadcn-base-migration-guide.md`
+- `bun --filter @school-clerk/marketing build` was attempted but stayed silent for several minutes and was interrupted.
+
 ## Vercel DB Package Build Fix (2026-07-12)
 
 ### Completed

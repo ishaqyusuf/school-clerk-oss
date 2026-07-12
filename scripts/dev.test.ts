@@ -45,7 +45,7 @@ describe("dev script profile router", () => {
   test("passes exact monorepo package filters through", () => {
     const options = parseArgs([
       "--filter",
-      "@school-clerk/site",
+      "@school-clerk/marketing",
       "@school-clerk/dashboard",
       "@school-clerk/jobs",
     ]);
@@ -54,7 +54,7 @@ describe("dev script profile router", () => {
       profile: "local",
       filters: {
         targets: [
-          "@school-clerk/site",
+          "@school-clerk/marketing",
           "@school-clerk/dashboard",
           "@school-clerk/jobs",
         ],
@@ -69,7 +69,7 @@ describe("dev script profile router", () => {
       "bun",
       "scripts/dev-run.ts",
       "--filter",
-      "@school-clerk/site",
+      "@school-clerk/marketing",
       "--filter",
       "@school-clerk/dashboard",
       "--filter",
@@ -82,39 +82,48 @@ describe("dev script profile router", () => {
       "--remote-dev",
       "--filter",
       "@school-clerk/api!",
-      "@school-clerk/site!",
+      "@school-clerk/marketing!",
     ]);
 
     expect(options).toEqual({
       profile: "remote-dev",
       filters: {
-        targets: ["!@school-clerk/api", "!@school-clerk/site"],
+        targets: ["!@school-clerk/api", "!@school-clerk/marketing"],
       },
     });
     expect(commandForProfile(options.profile, options.filters)).toContain(
       "!@school-clerk/api",
     );
     expect(commandForProfile(options.profile, options.filters)).toContain(
-      "!@school-clerk/site",
+      "!@school-clerk/marketing",
     );
   });
 
   test("supports bare package-name shorthand for exact workspace packages", () => {
-    const options = parseArgs(["--filter", "api", "site!", "@school-clerk/jobs"]);
+    const options = parseArgs([
+      "--filter",
+      "api",
+      "marketing!",
+      "@school-clerk/jobs",
+    ]);
 
     expect(options).toEqual({
       profile: "local",
       filters: {
-        targets: ["@school-clerk/api", "!@school-clerk/site", "@school-clerk/jobs"],
+        targets: [
+          "@school-clerk/api",
+          "!@school-clerk/marketing",
+          "@school-clerk/jobs",
+        ],
       },
     });
   });
 
   test("supports filter flag aliases", () => {
-    const expectedTargets = ["@school-clerk/api", "!@school-clerk/site"];
+    const expectedTargets = ["@school-clerk/api", "!@school-clerk/marketing"];
 
     for (const filterFlag of ["--filter", "--f", "-f", "-filter"]) {
-      expect(parseArgs([filterFlag, "api", "site!"])).toEqual({
+      expect(parseArgs([filterFlag, "api", "marketing!"])).toEqual({
         profile: "local",
         filters: {
           targets: expectedTargets,
@@ -122,10 +131,16 @@ describe("dev script profile router", () => {
       });
     }
 
-    expect(parseArgs(["--filter", "api", "-f", "jobs", "--f", "site!"])).toEqual({
+    expect(
+      parseArgs(["--filter", "api", "-f", "jobs", "--f", "marketing!"]),
+    ).toEqual({
       profile: "local",
       filters: {
-        targets: ["@school-clerk/api", "@school-clerk/jobs", "!@school-clerk/site"],
+        targets: [
+          "@school-clerk/api",
+          "@school-clerk/jobs",
+          "!@school-clerk/marketing",
+        ],
       },
     });
   });
@@ -157,8 +172,6 @@ describe("dev script profile router", () => {
   test("lists valid packages when a filter target is missing", () => {
     expect(() =>
       parseArgs(["--filter", "marketing", "@school-clerk/missing"]),
-    ).toThrow(
-      /Unknown dev filter packages: marketing, @school-clerk\/missing\nAvailable packages:\napps\/:\n  @school-clerk\/api[\s\S]*  @school-clerk\/site\npackages\/:\n  @school-clerk\/ai[\s\S]*  @school-clerk\/utils/,
-    );
+    ).toThrow("Unknown dev filter package: @school-clerk/missing");
   });
 });

@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "build": "./scripts/with-root-env.sh --mode production turbo build",
-    "build:dashboard": "./scripts/with-root-env.sh --mode production turbo build --parallel --filter !@school-clerk/jobs --filter  !@school-clerk/api --filter !@school-clerk/site",
+    "build:dashboard": "./scripts/with-root-env.sh --mode production turbo build --parallel --filter !@school-clerk/jobs --filter  !@school-clerk/api --filter !@school-clerk/marketing",
     "clean": "git clean -xdf node_modules",
     "clean:workspaces": "turbo clean",
     "db:push": "bun scripts/db-command.ts push",
