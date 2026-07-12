@@ -22,11 +22,7 @@ export default async function Page({ params, searchParams }) {
   const tenant = await prisma.schoolProfile.findFirst({
     where: {
       deletedAt: null,
-      domains: {
-        some: {
-          subdomain: domain,
-        },
-      },
+      subDomain: domain,
     },
     select: {
       name: true,

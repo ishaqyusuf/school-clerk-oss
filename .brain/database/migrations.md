@@ -12,6 +12,10 @@ Change log for database schema migrations and rollout notes.
 
 ## Operational Runbook
 
+- Use `bun run db:push --local` for local schema readiness checks.
+- Use `bun run db:push --prod` only for explicitly requested production validation/push after confirming the target database and risk. Do not force data-loss prompts or destructive changes without approval.
+- The root `db:push` router must call `scripts/db-command.ts push --<profile>` directly so production pushes keep the production guard and do not fall through to the package-local default push profile.
+
 - Dev database selection follows the GND-style three-layer model: `remote-dev` for shared development databases, `local` for the Docker Postgres database, and `production` for production-only scripts and deploys.
 - `scripts/dev.ts` is the local development router and delegates DB-mode resolution to `scripts/with-dev-infra.ts`. The router defaults `bun run dev` to local Docker Postgres, supports `bun run dev --remote-dev` for hosted dev, and accepts `--filter`, `--f`, `-f`, or `-filter` with Turbo selector syntax plus bare exact package-name shorthand such as `api marketing! @school-clerk/jobs`. DB env loading is root-only; package-local `.env` files are not part of the database profile contract.
 - The canonical database env set is `DATABASE_URL`, `LOCAL_DATABASE_URL`, `REMOTE_DEV_DATABASE_URL`, `PROD_DATABASE_URL`, and `SCHOOL_CLERK_DB_MODE`. Older `POSTGRES_URL`, `LOCAL_POSTGRES_URL`, `REMOTE_DEV_POSTGRES_URL`, `DEV_DATABASE_URL`, and `PROD_POSTGRES_URL` names may be read as fallback aliases by compatibility code, but new scripts and Vercel/Turbo env allowlists should use the canonical names.

@@ -7,6 +7,7 @@ import {
   isInstitutionTypeEnabled,
 } from "@/features/signup/institution-types";
 import { getSignupPreviewSuffix } from "@/features/signup/tenant-urls";
+import { isTenantDomainTableMissing } from "@/utils/tenant-domain-context";
 
 const RESERVED_SUBDOMAINS = new Set([
   "admin",
@@ -70,13 +71,29 @@ export async function GET(request: Request) {
     });
   }
 
-  const existing = await prisma.tenantDomain.findFirst({
-    where: {
-      deletedAt: null,
-      OR: [{ subdomain: value }, { customDomain: value }],
-    },
-    select: { id: true },
-  });
+  let existing: { id: string } | null = null;
+
+  try {
+    existing = await prisma.tenantDomain.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [{ subdomain: value }, { customDomain: value }],
+      },
+      select: { id: true },
+    });
+  } catch (error) {
+    if (!isTenantDomainTableMissing(error)) {
+      throw error;
+    }
+
+    existing = await prisma.schoolProfile.findFirst({
+      where: {
+        deletedAt: null,
+        subDomain: value,
+      },
+      select: { id: true },
+    });
+  }
 
   return NextResponse.json({
     available: !existing,

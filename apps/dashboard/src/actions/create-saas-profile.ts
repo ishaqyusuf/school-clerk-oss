@@ -17,6 +17,7 @@ import {
   isInstitutionTypeEnabled,
 } from "@/features/signup/institution-types";
 import { provisionSchoolVercelDomains } from "@/utils/domain";
+import { isTenantDomainTableMissing } from "@/utils/tenant-domain-context";
 import { actionClient } from "./safe-action";
 import { createSignupSchema } from "./schema";
 
@@ -58,6 +59,46 @@ function parseStudentCount(value?: string | null) {
 
   const parsed = Number.parseInt(digits, 10);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function findExistingSignupDomain(domainName: string) {
+  try {
+    return await prisma.tenantDomain.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [{ subdomain: domainName }, { customDomain: domainName }],
+      },
+      select: { id: true },
+    });
+  } catch (error) {
+    if (!isTenantDomainTableMissing(error)) {
+      throw error;
+    }
+
+    return prisma.schoolProfile.findFirst({
+      where: {
+        deletedAt: null,
+        subDomain: domainName,
+      },
+      select: { id: true },
+    });
+  }
+}
+
+async function hasTenantDomainTable() {
+  try {
+    await prisma.tenantDomain.findFirst({
+      select: { id: true },
+      take: 1,
+    });
+    return true;
+  } catch (error) {
+    if (isTenantDomainTableMissing(error)) {
+      return false;
+    }
+
+    throw error;
+  }
 }
 
 async function sendSignupSuccessEmail({
@@ -275,13 +316,7 @@ export const createSaasProfileAction = actionClient
     }
 
     const [domainTaken, emailTaken] = await Promise.all([
-      prisma.tenantDomain.findFirst({
-        where: {
-          deletedAt: null,
-          OR: [{ subdomain: domainName }, { customDomain: domainName }],
-        },
-        select: { id: true },
-      }),
+      findExistingSignupDomain(domainName),
       prisma.user.findFirst({
         where: {
           deletedAt: null,
@@ -298,6 +333,8 @@ export const createSaasProfileAction = actionClient
     if (emailTaken) {
       throw new Error("An account with that email already exists.");
     }
+
+    const tenantDomainTableAvailable = await hasTenantDomainTable();
 
     const school = await prisma.$transaction(async (tx) => {
       const account = await tx.saasAccount.create({
@@ -323,15 +360,17 @@ export const createSaasProfileAction = actionClient
         },
       });
 
-      await tx.tenantDomain.create({
-        data: {
-          subdomain: domainName,
-          isPrimary: true,
-          isVerified: true,
-          schoolProfileId: profile.id,
-          saasAccountId: account.id,
-        },
-      });
+      if (tenantDomainTableAvailable) {
+        await tx.tenantDomain.create({
+          data: {
+            subdomain: domainName,
+            isPrimary: true,
+            isVerified: true,
+            schoolProfileId: profile.id,
+            saasAccountId: account.id,
+          },
+        });
+      }
 
       return {
         accountId: account.id,
@@ -385,11 +424,13 @@ export const createSaasProfileAction = actionClient
           });
         }
 
-        await tx.tenantDomain.deleteMany({
-          where: {
-            saasAccountId: school.accountId,
-          },
-        });
+        if (tenantDomainTableAvailable) {
+          await tx.tenantDomain.deleteMany({
+            where: {
+              saasAccountId: school.accountId,
+            },
+          });
+        }
         await tx.schoolProfile.deleteMany({
           where: {
             accountId: school.accountId,

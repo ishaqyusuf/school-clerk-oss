@@ -38,6 +38,19 @@ Defines implementation standards for consistency, maintainability, and reliabili
 - Use shared `@school-clerk/ui` components instead of raw one-off HTML primitives where an approved component already exists.
 - Dashboard client components must not import `@api/db/queries/*`, `@school-clerk/db`, or other server/database modules for schemas or helpers. Move browser-safe schemas/helpers into a shared client-safe package and have server modules re-export them when older server imports need compatibility.
 
+## Local QA And Dev Commands
+
+- Website/dashboard QA should start the local web stack with `bun run dev --local --filter dashboard marketing` when those apps are in scope. Add the school-site filter only when school-site behavior is part of the QA slice.
+- Website QA must use Portless hostnames instead of raw localhost ports:
+  - marketing/public site: `school-clerk.localhost`
+  - tenant dashboard: `<tenant>.school-clerk-dashboard.localhost`
+  - tenant school site: `<tenant>.school-clerk-site.localhost`
+- Use raw localhost ports only for low-level debugging when Portless itself is the suspected failure.
+- For schema readiness checks, use profile-routed DB commands:
+  - local validation/push: `bun run db:push --local`
+  - production validation/push: `bun run db:push --prod`
+- Do not run production-profile DB commands unless the task explicitly calls for production validation and the target database is confirmed.
+
 ## Midday Architecture Standards
 
 - Treat `/Users/M1PRO/Documents/code/_kitchen_sink/midday` as the primary implementation reference for pages, tables, modals, sheets, sidebar, forms, onboarding, layouts, tRPC calls, loading states, error states, and caching patterns.

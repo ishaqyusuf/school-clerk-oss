@@ -6,6 +6,7 @@ import { resetCookie } from "@/actions/cookies/auth-cookie";
 import { getTenantDomain } from "@/actions/cookies/auth-cookie";
 import { auth } from "@/auth/server";
 import { getFirstPermittedHref } from "@/components/sidebar/links";
+import { findTenantDomainBySubdomain } from "@/utils/tenant-domain-context";
 import { tenantRedirect } from "@/utils/tenant-redirect";
 import { prisma } from "@school-clerk/db";
 
@@ -85,15 +86,7 @@ async function resolveLoginEmail(identifier: string) {
 
   const phone = identifier.replace(/[^\d+]/g, "").trim();
   const { domain } = await getTenantDomain();
-  const tenant = await prisma.tenantDomain.findFirst({
-    where: {
-      subdomain: domain,
-      deletedAt: null,
-    },
-    select: {
-      saasAccountId: true,
-    },
-  });
+  const tenant = domain ? await findTenantDomainBySubdomain(domain) : null;
 
   const user = await prisma.user.findFirst({
     where: {

@@ -10,12 +10,12 @@ import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth/server";
 import { getFirstPermittedHref } from "./components/sidebar/links";
 import { env } from "./env";
+import {
+  findTenantDomainByCustomDomain,
+  findTenantDomainBySubdomain,
+  type TenantDomainContext,
+} from "./utils/tenant-domain-context";
 import { getDashboardTenantUrlConfig } from "./utils/tenant-url-config";
-
-type TenantDomainContext = {
-  subdomain: string | null;
-  saasAccountId: string | null;
-};
 
 type TenantWorkspaceCookie = {
   domain: string;
@@ -71,32 +71,14 @@ export default async function proxy(req: NextRequest) {
   let tenantDomain: TenantDomainContext | null = null;
 
   if (canonicalSlug) {
-    tenantDomain = await prisma.tenantDomain.findFirst({
-      where: {
-        deletedAt: null,
-        subdomain: canonicalSlug,
-      },
-      select: {
-        subdomain: true,
-        saasAccountId: true,
-      },
-    });
+    tenantDomain = await findTenantDomainBySubdomain(canonicalSlug);
   }
 
   if (!canonicalSlug && !isAppRootHost) {
     const bareHost = tenantUrlContext.customDomainLookupHost;
 
     if (bareHost) {
-      const record = await prisma.tenantDomain.findFirst({
-        where: {
-          customDomain: bareHost,
-          deletedAt: null,
-        },
-        select: {
-          subdomain: true,
-          saasAccountId: true,
-        },
-      });
+      const record = await findTenantDomainByCustomDomain(bareHost);
       if (record?.subdomain) {
         canonicalSlug = record.subdomain;
         tenantDomain = record;
@@ -506,12 +488,7 @@ async function resolveTenantWorkspaceCookie({
   const school = await prisma.schoolProfile.findFirst({
     where: {
       deletedAt: null,
-      domains: {
-        some: {
-          deletedAt: null,
-          subdomain: tenantSlug,
-        },
-      },
+      subDomain: tenantSlug,
     },
     select: {
       id: true,

@@ -11,15 +11,10 @@ describe("db:push script profile router", () => {
 
     expect(options).toEqual({ profile: "local" });
     expect(commandForProfile(options.profile)).toEqual([
-      "node",
-      "./scripts/with-workspace-env.mjs",
-      "DEV_PROFILE=local",
-      "SCHOOL_CLERK_DB_MODE=local",
       "bun",
-      "run",
-      "--cwd",
-      "packages/db",
+      "scripts/db-command.ts",
       "push",
+      "--local",
     ]);
   });
 
@@ -28,15 +23,10 @@ describe("db:push script profile router", () => {
 
     expect(options).toEqual({ profile: "prod" });
     expect(commandForProfile(options.profile)).toEqual([
-      "node",
-      "./scripts/with-workspace-env.mjs",
-      "APP_ENV=production",
-      "REQUIRE_PROD_DATABASE_URL=1",
       "bun",
-      "run",
-      "--cwd",
-      "packages/db",
+      "scripts/db-command.ts",
       "push",
+      "--prod",
     ]);
   });
 
@@ -45,16 +35,10 @@ describe("db:push script profile router", () => {
 
     expect(options).toEqual({ profile: "remote-dev" });
     expect(commandForProfile(options.profile)).toEqual([
-      "node",
-      "./scripts/with-workspace-env.mjs",
-      "APP_ENV=remote-dev",
-      "DEV_PROFILE=remote-dev",
-      "SCHOOL_CLERK_DB_MODE=remote-dev",
       "bun",
-      "run",
-      "--cwd",
-      "packages/db",
+      "scripts/db-command.ts",
       "push",
+      "--remote",
     ]);
   });
 

@@ -23,11 +23,7 @@ const getTenantSchool = cache(async (domain: string) => {
 
   return prisma.schoolProfile.findFirst({
     where: {
-      domains: {
-        some: {
-          subdomain: domain,
-        },
-      },
+      subDomain: domain,
     },
     select: {
       name: true,

@@ -5,6 +5,7 @@ import {
   resolveTenantUrlContext,
 } from "@school-clerk/tenant-url";
 import { auth } from "@/auth/server";
+import { findTenantDomainByCustomDomain } from "@/utils/tenant-domain-context";
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config";
 import { cookies, headers } from "next/headers";
 
@@ -107,10 +108,7 @@ export async function getTenantDomain() {
   const bareHost = tenantUrlContext.customDomainLookupHost;
 
   if (bareHost) {
-    const record = await prisma.tenantDomain.findUnique({
-      where: { customDomain: bareHost },
-      select: { subdomain: true },
-    });
+    const record = await findTenantDomainByCustomDomain(bareHost);
     if (record?.subdomain) return { domain: record.subdomain };
   }
 
@@ -187,12 +185,7 @@ async function resolveTenantAuthCookie({
     prisma.schoolProfile.findFirst({
       where: {
         deletedAt: null,
-        domains: {
-          some: {
-            deletedAt: null,
-            subdomain: domain,
-          },
-        },
+        subDomain: domain,
       },
       select: {
         id: true,

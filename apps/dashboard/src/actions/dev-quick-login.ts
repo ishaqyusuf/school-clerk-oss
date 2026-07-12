@@ -34,11 +34,7 @@ async function resolveDevQuickLoginUser({
   const tenant = await prisma.schoolProfile.findFirst({
     where: {
       deletedAt: null,
-      domains: {
-        some: {
-          subdomain: domain,
-        },
-      },
+      subDomain: domain,
       account: {
         users: {
           some: {
