@@ -37,6 +37,14 @@ This layer covers:
 - collections by classroom
 - owing ledger
 
+## Term Ledger Foundation
+
+### `finance.getTermLedger`
+- Provides the first operator-facing **Term Ledger** read model for the active or selected term.
+- The current implementation is derived from `SessionTerm`, finance streams, and finance ledger entries rather than a persisted close/snapshot table.
+- Response includes term/session identity, status label, account summaries, money in/out, available balance, deficit account count/amount, lifecycle metadata, and Admin-only close/reopen capability flags.
+- Term close snapshots, carry-forward entries, and historical lock/reopen persistence remain planned follow-up work.
+
 ## Billable To Payable Automation
 
 ### `finance.generateBillsFromBillables`

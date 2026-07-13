@@ -23,7 +23,6 @@ Change log for database schema migrations and rollout notes.
 - Use `bun run dev` or `bun run dev --local` for the default local Docker workflow, `bun run dev --remote-dev` for remote development, and `bun run dev --prod` for the production-env dashboard/API smoke profile.
 - Use `bun run dev:services` to start only the local services implied by the selected env; it skips Postgres when the DB mode or URL points at remote dev. Use `bun run dev:services:local`, `bun run db:start`, or `bun run db:docker:up` to force local Postgres startup.
 - Prisma maintenance commands are profile-routed. `bun run db:push --local|--remote|--prod` uses the explicit `scripts/db-push.ts` router; migrate/generate/pull/studio still use `scripts/db-command.ts`. No profile flag defaults to local Docker Postgres. Legacy aliases such as `db:push:local`, `db:push:dev`, `db:push:prod`, `db:migrate:local`, `db:migrate:dev`, and `db:migrate:prod` delegate to those routers.
-- The `@school-clerk/db` package build prints a sanitized database environment summary before `prisma generate` so Vercel logs can confirm which DB env names are present without exposing credentials.
 - If repository root scripts `db:migrate` and `db:push` exist, run `bun db:migrate` and `bun db:push` after Prisma schema/database updates.
 - Do not manually create migration files; use the repository scripts and Prisma workflow.
 - Keep migration commands aligned with root `package.json` and `packages/db` scripts.

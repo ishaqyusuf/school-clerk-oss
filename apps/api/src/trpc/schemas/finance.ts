@@ -112,6 +112,20 @@ export const financeStudentQueryCompatSchema = financeStudentQuerySchema
 	})
 	.passthrough();
 
+export const financeReceivePaymentOptionsSchema = financeStudentQuerySchema
+	.partial({
+		termId: true,
+		sessionId: true,
+	})
+	.passthrough();
+
+export const financeTermLedgerQuerySchema = z
+	.object({
+		termId: nullableString,
+		sessionId: nullableString,
+	})
+	.optional();
+
 export type FinanceStreamInput = z.infer<typeof financeStreamInputSchema>;
 export type FinanceItemInput = z.infer<typeof financeItemInputSchema>;
 export type FinanceChargeInput = z.infer<typeof financeChargeInputSchema>;
@@ -122,3 +136,9 @@ export type FinanceStreamDetailsInput = z.infer<
 	typeof financeStreamDetailsSchema
 >;
 export type FinanceStudentQuery = z.infer<typeof financeStudentQuerySchema>;
+export type FinanceReceivePaymentOptionsInput = z.infer<
+	typeof financeReceivePaymentOptionsSchema
+>;
+export type FinanceTermLedgerQuery = z.infer<
+	typeof financeTermLedgerQuerySchema
+>;

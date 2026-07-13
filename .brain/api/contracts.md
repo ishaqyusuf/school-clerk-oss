@@ -373,6 +373,18 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Auth schema: authenticated tenant session required; finance read/write access is role-gated server-side for `Admin` and `Accountant`
 - Notes: this now applies consistently to streams, bills, billables, payroll, service payments, student payment receipt/reversal, and collections routes
 
+- Route: `finance.getReceivePaymentOptions`
+- Request schema: `{ studentId, termId?, sessionId? }`
+- Response schema: selected student context, current term/session/class context, `paymentTypes[]` grouped by account/stream, each with configured description/item options and outstanding-charge options, summary counts/totals, and permission flags for receiving payment, simple collection creation, school-fee creation, reusable description creation, and one-off manual charges.
+- Error cases: missing tenant context, student not found for tenant, unauthorized finance read access.
+- Notes: read model for the simplified cashier receive-payment flow. It filters configured collectable items by tenant, active/current term or global scope, session scope, and student classroom applicability. Outstanding student charges remain available even when their item is inactive or from an older term.
+
+- Route: `finance.getTermLedger`
+- Request schema: `{ termId?, sessionId? }`
+- Response schema: derived term-ledger payload with term/session identity, status label, account/stream summaries, money in/out, available balance, deficit count/amount, lifecycle metadata, and permission flags.
+- Error cases: missing tenant context, missing term context, term not found for tenant, unauthorized finance read access.
+- Notes: first implementation is a derived read model over the active `SessionTerm`, finance streams, and ledger entries. Persistent term-close snapshots and carry-forward records are deferred to the term close/carry-forward implementation slice.
+
 - Route: `finance.getFinanceIntegrityReport`
 - Request schema: optional `termId`
 - Response schema: `{ totals, checks[], mismatches }`

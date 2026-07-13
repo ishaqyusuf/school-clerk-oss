@@ -82,6 +82,13 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 - Finance charge reconciliation is serialized per student term sheet before creating missing charge rows, so concurrent payment/payable queries cannot temporarily create duplicate all-classroom charges.
 - When no explicit term is supplied, finance student queries default to the active dashboard term instead of the latest-created student term sheet, keeping payables aligned with the selected operational term.
 
+### `finance.getReceivePaymentOptions`
+- Returns the simplified receive-payment option read model for a selected student.
+- Includes selected student context, active term/session/class context, payment types grouped by account/stream, configured description/item options, outstanding-charge options, summary counts/totals, and receive-payment permission flags.
+- Configured options are limited to active, collectable, tenant-owned finance items that are global/current-term, session-compatible, and applicable to the student's classroom.
+- Outstanding student charges remain available even when their finance item is inactive or from an older term, so collectors can still see and collect pending balances.
+- Permission flags distinguish receiving payment from creating reusable simple collections, school fees, reusable descriptions/items, and one-off manual charge rows.
+
 ### `finance.receiveStudentPayment`
 - Handles allocation source `"feeHistory"`:
   - Finds the `FeeHistory` record.

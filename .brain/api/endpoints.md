@@ -101,6 +101,8 @@ Catalog of API routes and responsibilities.
 - `POST /payments`
 - `trpc.finance.getStreams`
 - `trpc.finance.getStreamDetails`
+- `trpc.finance.getTermLedger`
+- `trpc.finance.getReceivePaymentOptions`
 - `trpc.finance.transferFunds`
 - `trpc.finance.getServicePayments`
 - `trpc.finance.repayBillOwing`

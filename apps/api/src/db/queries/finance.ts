@@ -5,9 +5,11 @@ import type {
 	FinanceChargeInput,
 	FinanceItemInput,
 	FinancePaymentInput,
+	FinanceReceivePaymentOptionsInput,
 	FinanceStreamDetailsInput,
 	FinanceStreamInput,
 	FinanceStreamQuery,
+	FinanceTermLedgerQuery,
 	FinanceTransferInput,
 } from "../../trpc/schemas/finance";
 
@@ -84,6 +86,36 @@ type StudentTermChargeForm = {
 	schoolSessionId: string | null;
 	classroomDepartmentId: string | null;
 };
+
+const FINANCE_READ_ROLES = new Set(["ADMIN", "Admin", "Accountant"]);
+
+function requireFinanceReadAccess(ctx: TRPCContext) {
+	const role = ctx.currentUser?.role;
+	if (!role || !FINANCE_READ_ROLES.has(role)) {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message: "You do not have permission to view finance records.",
+		});
+	}
+}
+
+function financePermissionFlags(ctx: TRPCContext) {
+	const role = ctx.currentUser?.role;
+	const isAdmin = role === "ADMIN" || role === "Admin";
+	const isFinanceOperator = isAdmin || role === "Accountant";
+
+	return {
+		canReceivePayment: isFinanceOperator,
+		canCreateSimpleCollection: isAdmin,
+		canCreateSchoolFee: isAdmin,
+		canCreateReusableDescription: isAdmin,
+		canCreateOneOffManualCharge: isFinanceOperator,
+	};
+}
+
+function normalizeOptionTitle(value: string) {
+	return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
 
 async function lockStudentTermChargeReconciliation(
 	tx: Pick<TRPCContext["db"], "$executeRaw">,
@@ -468,16 +500,21 @@ export async function listFinanceStreams(
 	input?: FinanceStreamQuery,
 ) {
 	const schoolProfileId = requireSchoolId(ctx);
+	const ledgerEntryTermFilters: Prisma.FinanceLedgerEntryWhereInput[] = [
+		...(input?.termId
+			? [{ charge: { sessionTermId: input.termId } }]
+			: []),
+		...(input?.sessionId
+			? [{ charge: { schoolSessionId: input.sessionId } }]
+			: []),
+	];
 	const streams = await ctx.db.financeStream.findMany({
 		where: { schoolProfileId },
 		include: {
 			ledgerEntries: {
-				where: {
-					...(input?.termId ? { charge: { sessionTermId: input.termId } } : {}),
-					...(input?.sessionId
-						? { charge: { schoolSessionId: input.sessionId } }
-						: {}),
-				},
+				where: ledgerEntryTermFilters.length
+					? { AND: ledgerEntryTermFilters }
+					: {},
 				select: { direction: true, amount: true },
 			},
 			_count: {
@@ -1762,6 +1799,476 @@ export async function getStudentFinanceStatement(
 				(sum, row) => sum + row.outstanding,
 				0,
 			),
+		},
+	};
+}
+
+export async function getReceivePaymentOptions(
+	ctx: TRPCContext,
+	input: FinanceReceivePaymentOptionsInput,
+) {
+	requireFinanceReadAccess(ctx);
+
+	const schoolProfileId = requireSchoolId(ctx);
+	const termId = input.termId ?? ctx.profile.termId ?? null;
+	const sessionId =
+		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+
+	await reconcileStudentTermCharges(ctx, {
+		studentId: input.studentId,
+		termId,
+		sessionId,
+	});
+
+	const student = await ctx.db.students.findFirst({
+		where: { id: input.studentId, schoolProfileId },
+		select: {
+			id: true,
+			name: true,
+			surname: true,
+			otherName: true,
+			termForms: {
+				where: {
+					deletedAt: null,
+					...(termId ? { sessionTermId: termId } : {}),
+					...(sessionId ? { schoolSessionId: sessionId } : {}),
+				},
+				take: 1,
+				orderBy: { createdAt: "desc" },
+				select: {
+					id: true,
+					sessionTermId: true,
+					schoolSessionId: true,
+					classroomDepartmentId: true,
+					classroomDepartment: {
+						select: {
+							id: true,
+							departmentName: true,
+							classRoom: { select: { id: true, name: true } },
+						},
+					},
+					sessionTerm: {
+						select: {
+							id: true,
+							title: true,
+							session: { select: { id: true, title: true } },
+						},
+					},
+				},
+			},
+		},
+	});
+
+	if (!student) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Student was not found.",
+		});
+	}
+
+	const termForm = student.termForms[0] ?? null;
+	const effectiveTermId = termId ?? termForm?.sessionTermId ?? null;
+	const effectiveSessionId = sessionId ?? termForm?.schoolSessionId ?? null;
+	const classroomDepartmentId = termForm?.classroomDepartmentId ?? null;
+
+	const classApplicability: Prisma.FinanceItemWhereInput[] = [
+		{
+			applicableClasses: {
+				none: {
+					deletedAt: null,
+				},
+			},
+		},
+	];
+
+	if (classroomDepartmentId) {
+		classApplicability.push({
+			applicableClasses: {
+				some: {
+					deletedAt: null,
+					classRoomDepartmentId: classroomDepartmentId,
+				},
+			},
+		});
+	}
+
+	const configuredItems = await ctx.db.financeItem.findMany({
+		where: {
+			schoolProfileId,
+			deletedAt: null,
+			isActive: true,
+			collectable: true,
+			...(effectiveTermId
+				? { OR: [{ sessionTermId: effectiveTermId }, { sessionTermId: null }] }
+				: {}),
+			AND: [
+				...(effectiveSessionId
+					? [
+							{
+								OR: [
+									{ schoolSessionId: effectiveSessionId },
+									{ schoolSessionId: null },
+								],
+							},
+						]
+					: []),
+				{ OR: classApplicability },
+			],
+		},
+		include: {
+			stream: { select: { id: true, name: true, accountType: true } },
+			applicableClasses: {
+				where: { deletedAt: null },
+				include: {
+					classRoomDepartment: {
+						select: {
+							id: true,
+							departmentName: true,
+							classRoom: { select: { id: true, name: true } },
+						},
+					},
+				},
+			},
+		},
+		orderBy: [{ type: "asc" }, { name: "asc" }],
+	});
+
+	const outstandingCharges = await ctx.db.financeCharge.findMany({
+		where: {
+			schoolProfileId,
+			studentId: input.studentId,
+			deletedAt: null,
+			status: { in: ["PENDING", "PARTIALLY_PAID"] },
+		},
+		include: {
+			stream: { select: { id: true, name: true, accountType: true } },
+			item: { select: { id: true, type: true, name: true, isActive: true } },
+			studentTermForm: {
+				select: {
+					id: true,
+					sessionTermId: true,
+					schoolSessionId: true,
+					sessionTerm: {
+						select: {
+							id: true,
+							title: true,
+							session: { select: { id: true, title: true } },
+						},
+					},
+					classroomDepartment: {
+						select: {
+							id: true,
+							departmentName: true,
+							classRoom: { select: { id: true, name: true } },
+						},
+					},
+				},
+			},
+		},
+		orderBy: [{ createdAt: "desc" }],
+	});
+
+	type DescriptionOption = {
+		id: string;
+		source: "configuredItem" | "outstandingCharge";
+		title: string;
+		description: string | null;
+		itemId: string | null;
+		chargeId: string | null;
+		streamId: string;
+		itemType: string | null;
+		amount: number;
+		amountPaid: number;
+		amountDue: number;
+		defaultAmount: number;
+		sessionTermId: string | null;
+		schoolSessionId: string | null;
+		termLabel: string | null;
+		classroomNames: string[];
+		isActive: boolean;
+		collectable: boolean;
+	};
+
+	type PaymentTypeOption = {
+		id: string;
+		title: string;
+		normalizedTitle: string;
+		streamId: string;
+		streamName: string;
+		accountType: "CREDIT" | "DEBIT";
+		source: "configured" | "outstanding" | "mixed";
+		itemTypes: string[];
+		hasOutstanding: boolean;
+		hasConfiguredItems: boolean;
+		defaultAmount: number;
+		descriptions: DescriptionOption[];
+	};
+
+	const paymentTypes = new Map<string, PaymentTypeOption>();
+
+	function upsertPaymentType(params: {
+		stream: { id: string; name: string; accountType: "CREDIT" | "DEBIT" };
+		source: "configured" | "outstanding";
+		itemType?: string | null;
+		description: DescriptionOption;
+	}) {
+		const existing = paymentTypes.get(params.stream.id);
+		const nextSource: PaymentTypeOption["source"] =
+			existing && existing.source !== params.source ? "mixed" : params.source;
+		const descriptions = existing?.descriptions ?? [];
+		const hasDescription = descriptions.some(
+			(description) => description.id === params.description.id,
+		);
+		const itemTypes = new Set(existing?.itemTypes ?? []);
+
+		if (params.itemType) itemTypes.add(params.itemType);
+
+		paymentTypes.set(params.stream.id, {
+			id: `stream:${params.stream.id}`,
+			title: params.stream.name,
+			normalizedTitle: normalizeOptionTitle(params.stream.name),
+			streamId: params.stream.id,
+			streamName: params.stream.name,
+			accountType: params.stream.accountType,
+			source: nextSource,
+			itemTypes: [...itemTypes],
+			hasOutstanding:
+				(existing?.hasOutstanding ?? false) ||
+				params.source === "outstanding",
+			hasConfiguredItems:
+				(existing?.hasConfiguredItems ?? false) ||
+				params.source === "configured",
+			defaultAmount:
+				existing?.defaultAmount && existing.defaultAmount > 0
+					? existing.defaultAmount
+					: params.description.defaultAmount,
+			descriptions: hasDescription
+				? descriptions
+				: [...descriptions, params.description],
+		});
+	}
+
+	for (const item of configuredItems) {
+		upsertPaymentType({
+			stream: item.stream,
+			source: "configured",
+			itemType: item.type,
+			description: {
+				id: `item:${item.id}`,
+				source: "configuredItem",
+				title: item.name,
+				description: item.description,
+				itemId: item.id,
+				chargeId: null,
+				streamId: item.streamId,
+				itemType: item.type,
+				amount: toNumber(item.amount),
+				amountPaid: 0,
+				amountDue: toNumber(item.amount),
+				defaultAmount: toNumber(item.amount),
+				sessionTermId: item.sessionTermId,
+				schoolSessionId: item.schoolSessionId,
+				termLabel: null,
+				classroomNames: item.applicableClasses.map((row) =>
+					[
+						row.classRoomDepartment.classRoom?.name,
+						row.classRoomDepartment.departmentName,
+					]
+						.filter(Boolean)
+						.join(" "),
+				),
+				isActive: item.isActive,
+				collectable: item.collectable,
+			},
+		});
+	}
+
+	for (const charge of outstandingCharges) {
+		const amount = toNumber(charge.amount);
+		const amountPaid = toNumber(charge.amountPaid);
+		const amountDue = Math.max(amount - amountPaid, 0);
+		if (amountDue <= 0) continue;
+
+		upsertPaymentType({
+			stream: charge.stream,
+			source: "outstanding",
+			itemType: charge.item?.type ?? null,
+			description: {
+				id: `charge:${charge.id}`,
+				source: "outstandingCharge",
+				title: charge.title,
+				description: charge.description,
+				itemId: charge.itemId,
+				chargeId: charge.id,
+				streamId: charge.streamId,
+				itemType: charge.item?.type ?? null,
+				amount,
+				amountPaid,
+				amountDue,
+				defaultAmount: amountDue,
+				sessionTermId:
+					charge.sessionTermId ?? charge.studentTermForm?.sessionTermId ?? null,
+				schoolSessionId:
+					charge.schoolSessionId ?? charge.studentTermForm?.schoolSessionId ?? null,
+				termLabel: charge.studentTermForm?.sessionTerm?.title ?? null,
+				classroomNames: [
+					[
+						charge.studentTermForm?.classroomDepartment?.classRoom?.name,
+						charge.studentTermForm?.classroomDepartment?.departmentName,
+					]
+						.filter(Boolean)
+						.join(" "),
+				].filter(Boolean),
+				isActive: charge.item?.isActive ?? true,
+				collectable: true,
+			},
+		});
+	}
+
+	const sortedPaymentTypes = [...paymentTypes.values()].sort((a, b) => {
+		if (a.hasOutstanding !== b.hasOutstanding) {
+			return a.hasOutstanding ? -1 : 1;
+		}
+
+		if (a.hasConfiguredItems !== b.hasConfiguredItems) {
+			return a.hasConfiguredItems ? -1 : 1;
+		}
+
+		return a.title.localeCompare(b.title);
+	});
+
+	return {
+		student: {
+			id: student.id,
+			name: studentDisplayName(student),
+			currentClassroom: [
+				termForm?.classroomDepartment?.classRoom?.name,
+				termForm?.classroomDepartment?.departmentName,
+			]
+				.filter(Boolean)
+				.join(" "),
+			currentTerm: termForm?.sessionTerm?.title ?? null,
+			currentTermFormId: termForm?.id ?? null,
+			classroomDepartmentId,
+			sessionTermId: effectiveTermId,
+			schoolSessionId: effectiveSessionId,
+		},
+		context: {
+			termId: effectiveTermId,
+			sessionId: effectiveSessionId,
+			termTitle: termForm?.sessionTerm?.title ?? null,
+			sessionTitle: termForm?.sessionTerm?.session?.title ?? null,
+		},
+		paymentTypes: sortedPaymentTypes,
+		summary: {
+			paymentTypeCount: sortedPaymentTypes.length,
+			descriptionCount: sortedPaymentTypes.reduce(
+				(sum, paymentType) => sum + paymentType.descriptions.length,
+				0,
+			),
+			outstandingCount: outstandingCharges.length,
+			totalOutstanding: outstandingCharges.reduce(
+				(sum, charge) =>
+					sum +
+					Math.max(toNumber(charge.amount) - toNumber(charge.amountPaid), 0),
+				0,
+			),
+		},
+		permissions: financePermissionFlags(ctx),
+	};
+}
+
+export async function getFinanceTermLedger(
+	ctx: TRPCContext,
+	input?: FinanceTermLedgerQuery,
+) {
+	requireFinanceReadAccess(ctx);
+
+	const schoolProfileId = requireSchoolId(ctx);
+	const termId = input?.termId ?? ctx.profile.termId ?? null;
+	const sessionId =
+		input?.sessionId ?? (termId ? null : ctx.profile.sessionId ?? null);
+
+	if (!termId) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Term context is required for the term ledger.",
+		});
+	}
+
+	const term = await ctx.db.sessionTerm.findFirst({
+		where: {
+			id: termId,
+			schoolId: schoolProfileId,
+			deletedAt: null,
+			...(sessionId ? { sessionId } : {}),
+		},
+		select: {
+			id: true,
+			title: true,
+			startDate: true,
+			endDate: true,
+			sessionId: true,
+			session: { select: { id: true, title: true } },
+		},
+	});
+
+	if (!term) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Term ledger was not found.",
+		});
+	}
+
+	const accounts = await listFinanceStreams(ctx, {
+		termId: term.id,
+		sessionId: term.sessionId,
+	});
+	const moneyIn = accounts.reduce((sum, account) => sum + account.totalIn, 0);
+	const moneyOut = accounts.reduce((sum, account) => sum + account.totalOut, 0);
+	const availableBalance = accounts.reduce(
+		(sum, account) => sum + account.balance,
+		0,
+	);
+	const deficitAccounts = accounts.filter(
+		(account) => account.projectedBalance < 0,
+	);
+
+	return {
+		id: `term-ledger:${term.id}`,
+		termId: term.id,
+		sessionId: term.sessionId,
+		title: `${term.session?.title ? `${term.session.title} · ` : ""}${term.title}`,
+		termTitle: term.title,
+		sessionTitle: term.session?.title ?? null,
+		status: "OPEN" as const,
+		statusLabel: "Open",
+		isCurrent: term.id === ctx.profile.termId,
+		startDate: term.startDate,
+		endDate: term.endDate,
+		accounts,
+		summary: {
+			moneyIn,
+			moneyOut,
+			availableBalance,
+			accountCount: accounts.length,
+			deficitAccountCount: deficitAccounts.length,
+			deficitAmount: deficitAccounts.reduce(
+				(sum, account) => sum + Math.abs(account.projectedBalance),
+				0,
+			),
+		},
+		lifecycle: {
+			current: "OPEN" as const,
+			availableStatuses: ["DRAFT", "OPEN", "CLOSING", "CLOSED", "REOPENED"],
+			canClose: financePermissionFlags(ctx).canCreateSchoolFee,
+			canReopen: financePermissionFlags(ctx).canCreateSchoolFee,
+			isReadOnly: false,
+		},
+		permissions: {
+			canView: true,
+			canClose: financePermissionFlags(ctx).canCreateSchoolFee,
+			canReopen: financePermissionFlags(ctx).canCreateSchoolFee,
 		},
 	};
 }

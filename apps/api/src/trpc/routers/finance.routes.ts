@@ -3,6 +3,8 @@ import { z } from "zod";
 import {
 	createFinanceCharge,
 	getFinanceOverview,
+	getFinanceTermLedger,
+	getReceivePaymentOptions,
 	getFinanceStreamDetails,
 	getStudentFinanceStatement,
 	listFinanceCharges,
@@ -29,12 +31,14 @@ import {
 	financeChargeInputSchema,
 	financeItemInputSchema,
 	financePaymentInputSchema,
+	financeReceivePaymentOptionsSchema,
 	financeSearchInputSchema,
 	financeStreamDetailsSchema,
 	financeStreamInputSchema,
 	financeStreamQuerySchema,
 	financeStudentQueryCompatSchema,
 	financeStudentQuerySchema,
+	financeTermLedgerQuerySchema,
 	financeTransferInputSchema,
 } from "../schemas/finance";
 
@@ -400,6 +404,10 @@ function normalizeLegacyChargeInput(
 export const financeRouter = createTRPCRouter({
 	overview: authenticatedProcedure.query(({ ctx }) => getFinanceOverview(ctx)),
 
+	getTermLedger: authenticatedProcedure
+		.input(financeTermLedgerQuerySchema)
+		.query(({ ctx, input }) => getFinanceTermLedger(ctx, input)),
+
 	getStreams: authenticatedProcedure
 		.input(financeStreamQuerySchema)
 		.query(({ ctx, input }) => listFinanceStreams(ctx, input)),
@@ -602,6 +610,11 @@ export const financeRouter = createTRPCRouter({
 		.input(financeStudentQueryCompatSchema)
 		.query(async ({ ctx, input }) =>
 			getStudentFinanceStatement(ctx, normalizeStudentQuery(input, ctx)),
+		),
+	getReceivePaymentOptions: authenticatedProcedure
+		.input(financeReceivePaymentOptionsSchema)
+		.query(async ({ ctx, input }) =>
+			getReceivePaymentOptions(ctx, normalizeStudentQuery(input, ctx)),
 		),
 	getStudentPayments: authenticatedProcedure
 		.input(financeStudentQueryCompatSchema)
