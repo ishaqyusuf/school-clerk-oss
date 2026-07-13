@@ -1,5 +1,5 @@
 Type: research
-Status: open
+Status: done
 Blocked by: 01
 
 ## Question

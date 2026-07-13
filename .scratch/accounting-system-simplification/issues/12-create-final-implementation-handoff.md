@@ -1,5 +1,5 @@
 Type: task
-Status: open
+Status: done
 Blocked by: 09, 10, 11
 
 ## Question

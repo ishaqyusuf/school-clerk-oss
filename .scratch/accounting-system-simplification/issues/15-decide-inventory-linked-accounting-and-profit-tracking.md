@@ -1,5 +1,5 @@
 Type: grilling
-Status: open
+Status: done
 Blocked by: 04, 05, 06, 07, 14
 
 ## Question
