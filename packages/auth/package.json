@@ -27,7 +27,8 @@
     "better-auth": "^1.5.5",
     "date-fns": "^4.1.0",
     "next-auth": "^4.24.11",
-    "scrypt": "6.0.3"
+    "scrypt": "6.0.3",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@better-auth/cli": "^1.4.21",

@@ -101,7 +101,6 @@ export default async function proxy(req: NextRequest) {
     "/forgot-password",
     "/reset-password",
     "/verify-email",
-    "/dev-quick-login",
   ]);
   const isPublicRoute =
     isSignupRoute || publicRoutes.has(tenantUrlContext.productPath);
@@ -111,9 +110,7 @@ export default async function proxy(req: NextRequest) {
   const allowAuthenticatedPublicRoute =
     tenantUrlContext.productPath === "/forgot-password" ||
     tenantUrlContext.productPath === "/reset-password" ||
-    tenantUrlContext.productPath === "/verify-email" ||
-    (process.env.NODE_ENV !== "production" &&
-      tenantUrlContext.productPath === "/dev-quick-login");
+    tenantUrlContext.productPath === "/verify-email";
 
   // ---- Handle special app subdomain ----
   if (canonicalSlug === "app" || canonicalSlug?.startsWith("app.")) {
@@ -395,13 +392,13 @@ function hasUsableTenantWorkspaceCookie({
 
     return Boolean(
       tenantSlug &&
-        cookie?.schoolId &&
-        cookie?.domain === tenantSlug &&
-        cookie?.auth?.userId &&
-        cookie?.auth?.bearerToken &&
-        (!session?.user?.id || cookie.auth.userId === session.user.id) &&
-        (!session?.session?.token ||
-          cookie.auth.bearerToken === session.session.token),
+      cookie?.schoolId &&
+      cookie?.domain === tenantSlug &&
+      cookie?.auth?.userId &&
+      cookie?.auth?.bearerToken &&
+      (!session?.user?.id || cookie.auth.userId === session.user.id) &&
+      (!session?.session?.token ||
+        cookie.auth.bearerToken === session.session.token),
     );
   } catch {
     return false;
@@ -417,7 +414,9 @@ function getTenantWorkspaceCookieValue(
   tenantSlug?: string | null,
 ) {
   if (!tenantSlug) return null;
-  return req.cookies.get(getTenantWorkspaceCookieName(tenantSlug))?.value ?? null;
+  return (
+    req.cookies.get(getTenantWorkspaceCookieName(tenantSlug))?.value ?? null
+  );
 }
 
 function parseTenantWorkspaceCookie(value?: string | null) {

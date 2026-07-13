@@ -38,6 +38,6 @@ export function getDashboardTenantUrlConfig(): TenantUrlConfig {
     projectSlug: process.env.TENANT_URL_PROJECT_SLUG ?? "school-clerk",
     pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
     enablePathStyleHosts: process.env.NODE_ENV !== "production",
-    reservedPaths: ["sign-up", "login", "dev-quick-login"],
+    reservedPaths: ["sign-up", "login"],
   };
 }

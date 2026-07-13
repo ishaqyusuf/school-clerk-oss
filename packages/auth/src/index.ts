@@ -4,11 +4,14 @@ import {
 	getRecipient,
 	resolveDashboardAppRootDomain,
 } from "@school-clerk/utils";
-import type { BetterAuthOptions } from "better-auth";
-// import { expo } from "@better-auth/expo";
+import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+// import { expo } from "@better-auth/expo";
+import { APIError, createAuthEndpoint } from "better-auth/api";
+import { setSessionCookie } from "better-auth/cookies";
 import { nextCookies } from "better-auth/next-js";
+import * as z from "zod";
 
 async function sendAuthEmail({
 	schoolName,
@@ -148,6 +151,69 @@ function renderPasswordResetEmail({
 	`;
 }
 
+const devQuickLoginBodySchema = z.object({
+	userId: z.string().min(1),
+	rememberMe: z.boolean().optional(),
+});
+
+function devQuickLoginPlugin() {
+	return {
+		id: "school-clerk-dev-quick-login",
+		endpoints: {
+			devQuickLogin: createAuthEndpoint(
+				"/school-clerk/dev-quick-login",
+				{
+					method: "POST",
+					body: devQuickLoginBodySchema,
+				},
+				async (ctx) => {
+					if (process.env.NODE_ENV === "production") {
+						throw new APIError("FORBIDDEN", {
+							message: "Dev quick login is not available in production.",
+						});
+					}
+
+					const user = await ctx.context.internalAdapter.findUserById(
+						ctx.body.userId,
+					);
+
+					if (!user) {
+						throw new APIError("NOT_FOUND", {
+							message: "Quick login user was not found.",
+						});
+					}
+
+					const dontRememberMe = ctx.body.rememberMe === false;
+					const session = await ctx.context.internalAdapter.createSession(
+						user.id,
+						dontRememberMe,
+					);
+
+					if (!session) {
+						throw new APIError("UNAUTHORIZED", {
+							message: "Failed to create quick login session.",
+						});
+					}
+
+					await setSessionCookie(
+						ctx,
+						{
+							session,
+							user,
+						},
+						dontRememberMe,
+					);
+
+					return ctx.json({
+						token: session.token,
+						user,
+					});
+				},
+			),
+		},
+	} satisfies BetterAuthPlugin;
+}
+
 export function initAuth(options: {
 	baseUrl: string;
 	productionUrl: string;
@@ -241,6 +307,7 @@ export function initAuth(options: {
 		},
 		plugins: [
 			nextCookies(),
+			devQuickLoginPlugin(),
 			//   username({}),
 			//   oAuthProxy({
 			//     /**

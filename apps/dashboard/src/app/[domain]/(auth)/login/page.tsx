@@ -36,11 +36,12 @@ export default async function Page({ params, searchParams }) {
               createdAt: "asc",
             },
             select: {
+              id: true,
               email: true,
               name: true,
               role: true,
             },
-            take: 8,
+            take: process.env.NODE_ENV === "production" ? 0 : 100,
           },
         },
       },
@@ -51,6 +52,7 @@ export default async function Page({ params, searchParams }) {
     process.env.NODE_ENV === "production"
       ? []
       : (tenant?.account?.users ?? []).map((user) => ({
+          id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,

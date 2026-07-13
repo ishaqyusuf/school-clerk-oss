@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQueryState } from "nuqs";
 import { FormProvider, useForm } from "react-hook-form";
 
 import { resetCookie } from "@/actions/cookies/auth-cookie";
-import { restoreDevQuickLoginCredential } from "@/actions/dev-quick-login";
 import { authClient } from "@/auth/client";
 import { getFirstPermittedHref } from "@/components/sidebar/links";
 import { SubmitButton } from "@/components/submit-button";
@@ -41,7 +40,11 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@school-clerk/ui/input-group";
-import { Popover, PopoverContent, PopoverTrigger } from "@school-clerk/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@school-clerk/ui/popover";
 import { Separator } from "@school-clerk/ui/separator";
 import {
   ArrowRight,
@@ -56,6 +59,7 @@ import {
 } from "lucide-react";
 
 type QuickLoginUser = {
+  id: string;
   email: string;
   name: string | null;
   role: string | null;
@@ -80,8 +84,6 @@ type LoginFormValues = {
 type LoginSubmitValues = LoginFormValues & {
   afterSessionPrepared?: () => Promise<void>;
 };
-
-const quickLoginPassword = "lorem-ipsum";
 
 export function Client({
   initialEmail = "",
@@ -111,19 +113,19 @@ export function Client({
   const rememberMe = form.watch("rememberMe");
   const showDevEmailPicker =
     process.env.NODE_ENV !== "production" && quickLoginUsers.length > 0;
+  const initialQuickLoginUserId =
+    quickLoginUsers.find((user) => user.email === initialEmail)?.id ?? "";
+  const [selectedQuickLoginUserId, setSelectedQuickLoginUserId] = useState(
+    initialQuickLoginUserId,
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(initialError);
   const [returnTo] = useQueryState("return_to");
-  const attemptedAutoLoginRef = useRef(false);
   const emailFromQuery = searchParams.get("email") ?? "";
   const errorFromQuery = searchParams.get("error") ?? "";
   const passwordFromQuery = searchParams.get("password") ?? "";
   const rememberMeFromQuery = searchParams.get("rememberMe") === "1";
-  const devRestoreTokenFromQuery = searchParams.get("dev_restore_token") ?? "";
-  const shouldAutoLogin =
-    process.env.NODE_ENV !== "production" &&
-    searchParams.get("autologin") === "1";
 
   const markFieldFilled = () => setError("");
 
@@ -136,17 +138,17 @@ export function Client({
   };
 
   const selectQuickLoginUser = (user: QuickLoginUser) => {
+    setSelectedQuickLoginUserId(user.id);
     form.setValue("email", user.email, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    form.setValue("password", quickLoginPassword, {
+    form.setValue("password", "", {
       shouldDirty: true,
       shouldTouch: true,
-      shouldValidate: true,
+      shouldValidate: false,
     });
-    setNativeInputValue("password", quickLoginPassword);
     markFieldFilled();
   };
 
@@ -171,10 +173,21 @@ export function Client({
     };
 
     try {
+      if (selectedQuickLoginUserId) {
+        const formData = new FormData();
+        formData.set("email", email);
+        formData.set("userId", selectedQuickLoginUserId);
+        formData.set("returnTo", returnTo ?? "");
+        if (rememberMe) formData.set("rememberMe", "on");
+        await loginWithPasswordAction(formData);
+        return true;
+      }
+
       if (!email.includes("@")) {
         const formData = new FormData();
         formData.set("email", email);
         formData.set("password", password);
+        formData.set("returnTo", returnTo ?? "");
         if (rememberMe) formData.set("rememberMe", "on");
         await loginWithPasswordAction(formData);
         return true;
@@ -256,6 +269,10 @@ export function Client({
     if (!emailFromQuery && !passwordFromQuery) return;
 
     if (emailFromQuery) {
+      const quickLoginUser = quickLoginUsers.find(
+        (user) => user.email === emailFromQuery,
+      );
+      setSelectedQuickLoginUserId(quickLoginUser?.id ?? "");
       form.setValue("email", emailFromQuery, {
         shouldDirty: true,
         shouldTouch: true,
@@ -280,29 +297,6 @@ export function Client({
 
     markFieldFilled();
   }, [emailFromQuery, form, passwordFromQuery, rememberMeFromQuery]);
-
-  useEffect(() => {
-    if (!shouldAutoLogin || attemptedAutoLoginRef.current) return;
-    if (!emailFromQuery || !passwordFromQuery) return;
-
-    attemptedAutoLoginRef.current = true;
-    void submitCredentials({
-      afterSessionPrepared: devRestoreTokenFromQuery
-        ? () =>
-            restoreDevQuickLoginCredential({
-              restoreToken: devRestoreTokenFromQuery,
-            }).then(() => undefined)
-        : undefined,
-      email: emailFromQuery,
-      password: passwordFromQuery,
-      rememberMe: true,
-    });
-  }, [
-    devRestoreTokenFromQuery,
-    emailFromQuery,
-    passwordFromQuery,
-    shouldAutoLogin,
-  ]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -404,10 +398,15 @@ export function Client({
                   {showDevEmailPicker ? (
                     <>
                       <input type="hidden" {...emailField} />
+                      <input
+                        name="userId"
+                        type="hidden"
+                        value={selectedQuickLoginUserId}
+                      />
                       <DevEmailCombobox
                         onSelect={selectQuickLoginUser}
                         users={quickLoginUsers}
-                        value={emailValue}
+                        value={selectedQuickLoginUserId}
                       />
                     </>
                   ) : (
@@ -447,9 +446,13 @@ export function Client({
                       <InputGroupInput
                         id="password"
                         type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
+                        placeholder={
+                          selectedQuickLoginUserId
+                            ? "Not required for quick login"
+                            : "Enter your password"
+                        }
                         autoComplete="current-password"
-                        required
+                        required={!selectedQuickLoginUserId}
                         {...passwordField}
                         defaultValue={initialPassword}
                       />
@@ -472,6 +475,11 @@ export function Client({
                       type="hidden"
                       name="rememberMe"
                       value={rememberMe ? "on" : ""}
+                    />
+                    <input
+                      name="returnTo"
+                      type="hidden"
+                      value={returnTo ?? ""}
                     />
                     <Checkbox
                       id="remember-me"
@@ -532,7 +540,7 @@ function DevEmailCombobox({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const selectedUser = users.find((user) => user.email === value) ?? null;
+  const selectedUser = users.find((user) => user.id === value) ?? null;
   const normalizedQuery = query.trim().toLowerCase();
   const filteredUsers = useMemo(() => {
     if (!normalizedQuery) {
@@ -557,7 +565,7 @@ function DevEmailCombobox({
 
   return (
     <Field>
-      <FieldLabel htmlFor="email">Email</FieldLabel>
+      <FieldLabel htmlFor="email">Quick login account</FieldLabel>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -568,7 +576,7 @@ function DevEmailCombobox({
             variant="outline"
           >
             <span className="min-w-0 truncate">
-              {selectedUser?.email ?? "Search email"}
+              {selectedUser?.email ?? "Select account"}
             </span>
             <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
           </Button>
@@ -580,7 +588,7 @@ function DevEmailCombobox({
           <Command shouldFilter={false}>
             <CommandInput
               onValueChange={setQuery}
-              placeholder="Search email"
+              placeholder="Search account"
               value={query}
             />
             <CommandList>
@@ -600,14 +608,17 @@ function DevEmailCombobox({
                           {user.email}
                         </p>
                       </div>
-                      <Badge variant="secondary" className="shrink-0 capitalize">
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 capitalize"
+                      >
                         {user.role || "User"}
                       </Badge>
                     </CommandItem>
                   ))}
                 </CommandGroup>
               ) : (
-                <CommandEmpty>No emails found.</CommandEmpty>
+                <CommandEmpty>No accounts found.</CommandEmpty>
               )}
             </CommandList>
           </Command>

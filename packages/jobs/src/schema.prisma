@@ -1657,6 +1657,11 @@ model SchoolProfile {
   financePayments                FinancePayment[]
   financeTransfers               FinanceTransfer[]
   financeLedgerEntries           FinanceLedgerEntry[]
+  financeTermLedgerCloses        FinanceTermLedgerClose[]
+  financeTermCarryForwards       FinanceTermCarryForward[]
+  financePayees                  FinancePayee[]
+  financePayrollStructures       FinancePayrollStructure[]
+  financePurchases               FinancePurchase[]
 
   @@unique([name, subDomain, slug, deletedAt])
 }
@@ -1698,6 +1703,8 @@ model SchoolSession {
   staffTermProfiles StaffTermProfile[]
   financeItems      FinanceItem[]
   financeCharges    FinanceCharge[]
+  collectedFinancePayments      FinancePayment[]     @relation("FinancePaymentCollectedSchoolSession")
+  collectedFinanceLedgerEntries FinanceLedgerEntry[] @relation("FinanceLedgerEntryCollectedSchoolSession")
 }
 
 model SessionTerm {
@@ -1719,6 +1726,8 @@ model SessionTerm {
   assessmentPublicLinks AssessmentPublicLink[]
   financeItems          FinanceItem[]
   financeCharges        FinanceCharge[]
+  collectedFinancePayments      FinancePayment[]     @relation("FinancePaymentCollectedSessionTerm")
+  collectedFinanceLedgerEntries FinanceLedgerEntry[] @relation("FinanceLedgerEntryCollectedSessionTerm")
 }
 
 // ---- student-activity.prisma ----
@@ -1914,6 +1923,47 @@ enum FinanceLedgerSourceType {
     ADJUSTMENT
 }
 
+enum FinanceTermLedgerStatus {
+    OPEN
+    CLOSING
+    CLOSED
+    REOPENED
+}
+
+enum FinancePayeeType {
+    VENDOR
+    CASUAL_WORKER
+    SERVICE_PROVIDER
+    STAFF
+    OTHER
+}
+
+enum FinancePayrollCadence {
+    MONTHLY
+    TERM
+    DAILY
+    HOURLY
+    TASK
+    ONE_OFF
+}
+
+enum FinancePurchaseKind {
+    PURCHASE
+    SERVICE
+    VENDOR_BILL
+    DIRECT_EXPENSE
+    REIMBURSEMENT
+    LABOR
+}
+
+enum FinancePurchaseStatus {
+    UNPAID
+    PARTIALLY_PAID
+    PAID
+    CANCELLED
+    REFUNDED
+}
+
 model FinanceStream {
     id              String             @id @default(uuid())
     schoolProfile   SchoolProfile      @relation(fields: [schoolProfileId], references: [id])
@@ -1931,6 +1981,9 @@ model FinanceStream {
     charges           FinanceCharge[]
     payments          FinancePayment[]
     ledgerEntries     FinanceLedgerEntry[]
+    carryForwards     FinanceTermCarryForward[]
+    payrollStructures FinancePayrollStructure[]
+    purchases         FinancePurchase[]
     outgoingTransfers FinanceTransfer[]    @relation("FinanceTransferFromStream")
     incomingTransfers FinanceTransfer[]    @relation("FinanceTransferToStream")
 
@@ -1998,6 +2051,10 @@ model FinanceCharge {
     staffProfileId        String?
     staffTermProfile      StaffTermProfile?         @relation(fields: [staffTermProfileId], references: [id])
     staffTermProfileId    String?
+    payee                 FinancePayee?             @relation(fields: [payeeId], references: [id])
+    payeeId               String?
+    payrollStructure      FinancePayrollStructure?  @relation(fields: [payrollStructureId], references: [id])
+    payrollStructureId    String?
     classroomDepartment   ClassRoomDepartment?      @relation(fields: [classroomDepartmentId], references: [id])
     classroomDepartmentId String?
     schoolSession         SchoolSession?            @relation(fields: [schoolSessionId], references: [id])
@@ -2021,10 +2078,13 @@ model FinanceCharge {
 
     allocations   FinancePaymentAllocation[]
     ledgerEntries FinanceLedgerEntry[]
+    purchase      FinancePurchase?
 
     @@index([schoolProfileId, streamId, status])
     @@index([studentId, sessionTermId])
     @@index([staffProfileId, sessionTermId])
+    @@index([payeeId, sessionTermId])
+    @@index([payrollStructureId])
     @@index([schoolSessionId, sessionTermId])
 }
 
@@ -2039,6 +2099,12 @@ model FinancePayment {
     studentId          String?
     staffProfile       StaffProfile?              @relation(fields: [staffProfileId], references: [id])
     staffProfileId     String?
+    payee              FinancePayee?              @relation(fields: [payeeId], references: [id])
+    payeeId            String?
+    collectedSchoolSession   SchoolSession?       @relation("FinancePaymentCollectedSchoolSession", fields: [collectedSchoolSessionId], references: [id])
+    collectedSchoolSessionId String?
+    collectedSessionTerm     SessionTerm?         @relation("FinancePaymentCollectedSessionTerm", fields: [collectedSessionTermId], references: [id])
+    collectedSessionTermId   String?
     amount             Decimal                    @default(0) @db.Decimal(14, 2)
     status             FinancePaymentStatus       @default(PAID)
     paymentDate        DateTime                   @default(now()) @db.Timestamp(0)
@@ -2055,10 +2121,13 @@ model FinancePayment {
 
     allocations   FinancePaymentAllocation[]
     ledgerEntries FinanceLedgerEntry[]
+    purchase      FinancePurchase?
 
     @@index([schoolProfileId, streamId, status])
     @@index([studentId, paymentDate])
     @@index([staffProfileId, paymentDate])
+    @@index([payeeId, paymentDate])
+    @@index([collectedSchoolSessionId, collectedSessionTermId])
 }
 
 model FinancePaymentAllocation {
@@ -2114,6 +2183,10 @@ model FinanceLedgerEntry {
     occurredAt      DateTime                @default(now()) @db.Timestamp(0)
     note            String?
     createdById     String?
+    collectedSchoolSession   SchoolSession?  @relation("FinanceLedgerEntryCollectedSchoolSession", fields: [collectedSchoolSessionId], references: [id])
+    collectedSchoolSessionId String?
+    collectedSessionTerm     SessionTerm?    @relation("FinanceLedgerEntryCollectedSessionTerm", fields: [collectedSessionTermId], references: [id])
+    collectedSessionTermId   String?
     charge          FinanceCharge?          @relation(fields: [chargeId], references: [id])
     chargeId        String?
     payment         FinancePayment?         @relation(fields: [paymentId], references: [id])
@@ -2129,6 +2202,144 @@ model FinanceLedgerEntry {
     @@index([chargeId])
     @@index([paymentId])
     @@index([transferId])
+    @@index([collectedSchoolSessionId, collectedSessionTermId])
+}
+
+model FinanceTermLedgerClose {
+    id              String                  @id @default(uuid())
+    schoolProfile   SchoolProfile           @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+    sessionTermId   String
+    schoolSessionId String?
+    status          FinanceTermLedgerStatus @default(CLOSED)
+    summaryJson     Json?
+    closedAt        DateTime?               @default(now()) @db.Timestamp(0)
+    closedById      String?
+    reopenedAt      DateTime?               @db.Timestamp(0)
+    reopenedById    String?
+    createdAt       DateTime?               @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?               @updatedAt
+    deletedAt       DateTime?               @db.Timestamp(0)
+
+    carryForwards FinanceTermCarryForward[]
+
+    @@index([schoolProfileId, sessionTermId, status])
+}
+
+model FinanceTermCarryForward {
+    id                  String                 @id @default(uuid())
+    schoolProfile       SchoolProfile          @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId     String
+    close               FinanceTermLedgerClose @relation(fields: [closeId], references: [id])
+    closeId             String
+    stream              FinanceStream          @relation(fields: [streamId], references: [id])
+    streamId            String
+    nextSessionTermId   String?
+    nextSchoolSessionId String?
+    amount              Decimal                @default(0) @db.Decimal(14, 2)
+    direction           FinanceLedgerDirection
+    ledgerEntryId       String?
+    createdAt           DateTime?              @default(now()) @db.Timestamp(0)
+    updatedAt           DateTime?              @updatedAt
+    deletedAt           DateTime?              @db.Timestamp(0)
+
+    @@index([schoolProfileId, closeId])
+    @@index([streamId, nextSessionTermId])
+}
+
+model FinancePayee {
+    id              String           @id @default(uuid())
+    schoolProfile   SchoolProfile    @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+    name            String
+    normalizedName  String
+    type            FinancePayeeType @default(OTHER)
+    phone           String?
+    email           String?
+    note            String?
+    createdById     String?
+    createdAt       DateTime?        @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?        @updatedAt
+    deletedAt       DateTime?        @db.Timestamp(0)
+
+    charges   FinanceCharge[]
+    payments  FinancePayment[]
+    purchases FinancePurchase[]
+
+    @@unique([schoolProfileId, normalizedName, deletedAt])
+    @@index([schoolProfileId, type])
+}
+
+model FinancePayrollStructure {
+    id              String                @id @default(uuid())
+    schoolProfile   SchoolProfile         @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+    staffProfile    StaffProfile?         @relation(fields: [staffProfileId], references: [id])
+    staffProfileId  String?
+    stream          FinanceStream         @relation(fields: [streamId], references: [id])
+    streamId        String
+    title           String
+    cadence         FinancePayrollCadence @default(MONTHLY)
+    baseAmount      Decimal               @default(0) @db.Decimal(14, 2)
+    allowanceAmount Decimal               @default(0) @db.Decimal(14, 2)
+    deductionAmount Decimal               @default(0) @db.Decimal(14, 2)
+    advanceAmount   Decimal               @default(0) @db.Decimal(14, 2)
+    bonusAmount     Decimal               @default(0) @db.Decimal(14, 2)
+    netAmount       Decimal               @default(0) @db.Decimal(14, 2)
+    roleLabel       String?
+    isActive        Boolean               @default(true)
+    schoolSessionId String?
+    sessionTermId   String?
+    notes           String?
+    createdById     String?
+    createdAt       DateTime?             @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?             @updatedAt
+    deletedAt       DateTime?             @db.Timestamp(0)
+
+    charges FinanceCharge[]
+
+    @@index([schoolProfileId, staffProfileId, isActive])
+    @@index([schoolProfileId, streamId])
+    @@index([schoolSessionId, sessionTermId])
+}
+
+model FinancePurchase {
+    id              String                @id @default(uuid())
+    schoolProfile   SchoolProfile         @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId String
+    stream          FinanceStream         @relation(fields: [streamId], references: [id])
+    streamId        String
+    payee           FinancePayee?         @relation(fields: [payeeId], references: [id])
+    payeeId         String?
+    charge          FinanceCharge?        @relation(fields: [chargeId], references: [id])
+    chargeId        String?               @unique
+    payment         FinancePayment?       @relation(fields: [paymentId], references: [id])
+    paymentId       String?               @unique
+    kind            FinancePurchaseKind   @default(PURCHASE)
+    status          FinancePurchaseStatus @default(UNPAID)
+    title           String
+    description     String?
+    quantity        Decimal               @default(1) @db.Decimal(14, 2)
+    unitCost        Decimal               @default(0) @db.Decimal(14, 2)
+    totalCost       Decimal               @default(0) @db.Decimal(14, 2)
+    amountPaid      Decimal               @default(0) @db.Decimal(14, 2)
+    receiptNumber   String?
+    reference       String?
+    note            String?
+    schoolSessionId String?
+    sessionTermId   String?
+    occurredAt      DateTime              @default(now()) @db.Timestamp(0)
+    cancelledAt     DateTime?             @db.Timestamp(0)
+    cancelledById   String?
+    cancellationReason String?
+    createdById     String?
+    createdAt       DateTime?             @default(now()) @db.Timestamp(0)
+    updatedAt       DateTime?             @updatedAt
+    deletedAt       DateTime?             @db.Timestamp(0)
+
+    @@index([schoolProfileId, streamId, status])
+    @@index([schoolProfileId, payeeId])
+    @@index([schoolSessionId, sessionTermId])
 }
 
 // ---- document-template.prisma ----
@@ -2213,6 +2424,7 @@ model StaffProfile {
     termProfiles            StaffTermProfile[]
     financeCharges          FinanceCharge[]
     financePayments         FinancePayment[]
+    financePayrollStructures FinancePayrollStructure[]
     createdAt               DateTime?             @default(now()) @db.Timestamp(0)
     updatedAt               DateTime?             @updatedAt
     deletedAt               DateTime?             @db.Timestamp(0)
