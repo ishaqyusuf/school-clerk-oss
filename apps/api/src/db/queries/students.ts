@@ -6,6 +6,7 @@ import { composeQuery, txContext } from "@api/utils";
 import { Prisma } from "@school-clerk/db";
 import { studentDisplayName } from "./enrollment-query";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
+import { assertNoExactDuplicateStudentInClassTerm } from "./student-duplicates";
 import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -26,6 +27,17 @@ const emptySearchQuery = (q: GetStudentsSchema) =>
       "sessionId",
     ] as (keyof GetStudentsSchema)[]
   ).every((a) => !q[a]);
+
+function withDefaultStudentQueryContext(
+  ctx: TRPCContext,
+  query: GetStudentsSchema,
+) {
+  return {
+    ...query,
+    sessionId: query.sessionId || ctx.profile?.sessionId || null,
+    sessionTermId: query.sessionTermId || ctx.profile?.termId || null,
+  } satisfies GetStudentsSchema;
+}
 
 const STUDENT_MANAGEMENT_ROLES = new Set(["ADMIN", "Admin", "Registrar"]);
 
@@ -53,19 +65,13 @@ function requireStudentManagementAccess(ctx: TRPCContext) {
 // !q.q && !q.status && !q.studentId && !q.sessionId && !q.sessionTermId;
 export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
   const { db } = ctx;
-  // query.q = "Adam";
-  // query.status = "enrolled";
-
-  if (emptySearchQuery(query)) {
-    query.sessionId = ctx.profile?.sessionId;
-    query.sessionTermId = ctx.profile?.termId;
-  }
+  const effectiveQuery = withDefaultStudentQueryContext(ctx, query);
 
   const model = db.students;
 
   const { response, searchMeta, where } = await composeQueryData(
-    query,
-    whereStudents(query, ctx),
+    effectiveQuery,
+    whereStudents(effectiveQuery, ctx),
     model,
   );
 
@@ -79,9 +85,37 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
       surname: true,
       dob: true,
       gender: true,
+      termForms: {
+        where: {
+          deletedAt: null,
+          ...(effectiveQuery.sessionTermId
+            ? { sessionTermId: effectiveQuery.sessionTermId }
+            : effectiveQuery.sessionId
+              ? { schoolSessionId: effectiveQuery.sessionId }
+              : {}),
+        },
+        take: 1,
+        select: {
+          id: true,
+          sessionTermId: true,
+          classroomDepartment: {
+            select: {
+              departmentLevel: true,
+              departmentName: true,
+              id: true,
+              classRoom: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      },
       sessionForms: {
         where: {
-          schoolSessionId: query.sessionId,
+          schoolSessionId: effectiveQuery.sessionId,
         },
         select: {
           id: true,
@@ -99,12 +133,12 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
             },
           },
           termForms: {
-            where: !query?.sessionTermId
+            where: !effectiveQuery?.sessionTermId
               ? {
-                  schoolSessionId: query?.sessionId,
+                  schoolSessionId: effectiveQuery?.sessionId,
                 }
               : {
-                  sessionTermId: query?.sessionTermId,
+                  sessionTermId: effectiveQuery?.sessionTermId,
                 },
             take: 1,
             select: {
@@ -129,12 +163,13 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
   return await response(
     list.map((student) => {
       const sf = student.sessionForms?.[0];
-      const classroomDepartment = sf?.classroomDepartment;
+      const term = student.termForms?.[0] ?? sf?.termForms?.[0];
+      const classroomDepartment =
+        student.termForms?.[0]?.classroomDepartment ?? sf?.classroomDepartment;
       const classRoom = classroomDepartment?.classRoom;
       const className = classRoom?.name;
       const departmentName = classroomDepartment?.departmentName;
       const departmentId = classroomDepartment?.id;
-      const term = sf?.termForms?.[0];
       const termFormId = term?.id;
       const termFormSessionTermId = term?.sessionTermId;
       return {
@@ -196,23 +231,33 @@ function whereStudents(query: GetStudentsSchema, ctx: TRPCContext) {
         break;
       case "departmentId":
         where.push({
-          sessionForms: {
-            some: {
-              schoolSessionId: query.sessionId,
-              classroomDepartmentId:
-                query.departmentId == "undocumented" || !query?.departmentId
-                  ? null
-                  : query.departmentId,
-            },
-          },
+          ...(query.departmentId == "undocumented" || !query?.departmentId
+            ? {
+                sessionForms: {
+                  some: {
+                    schoolSessionId: query.sessionId,
+                    classroomDepartmentId: null,
+                  },
+                },
+              }
+            : {
+                termForms: {
+                  some: {
+                    deletedAt: null,
+                    sessionTermId: query.sessionTermId || ctx?.profile?.termId,
+                    classroomDepartmentId: query.departmentId,
+                  },
+                },
+              }),
         });
         break;
       case "departmentTitles":
         if (query.departmentTitles?.length!)
           where.push({
-            sessionForms: {
+            termForms: {
               some: {
-                schoolSessionId: query.sessionId,
+                deletedAt: null,
+                sessionTermId: query.sessionTermId || ctx?.profile?.termId,
                 classroomDepartment:
                   query.departmentTitles?.length! > 1
                     ? {
@@ -229,9 +274,10 @@ function whereStudents(query: GetStudentsSchema, ctx: TRPCContext) {
         break;
       case "classroomTitle":
         where.push({
-          sessionForms: {
+          termForms: {
             some: {
-              schoolSessionId: query.sessionId,
+              deletedAt: null,
+              sessionTermId: query.sessionTermId || ctx?.profile?.termId,
               classroomDepartment: {
                 classRoom: {
                   name: value as any,
@@ -438,6 +484,15 @@ type CreateStudent = typeof createStudentSchema._type;
 export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
   const profile = ctx.profile;
   const tx = ctx.db;
+  await assertNoExactDuplicateStudentInClassTerm(tx, {
+    schoolProfileId: profile.schoolId,
+    sessionTermId: profile.termId,
+    classroomDepartmentId: data.classRoomId,
+    name: data.name,
+    surname: data.surname,
+    otherName: data.otherName,
+  });
+
   const student = await tx.students.create({
     data: {
       gender: data.gender,
@@ -1349,6 +1404,16 @@ export async function changeStudentClass(
       select: {
         id: true,
         studentSessionFormId: true,
+        studentId: true,
+        sessionTermId: true,
+        student: {
+          select: {
+            id: true,
+            name: true,
+            surname: true,
+            otherName: true,
+          },
+        },
       },
     });
 
@@ -1356,6 +1421,18 @@ export async function changeStudentClass(
       throw new TRPCError({
         code: "NOT_FOUND",
         message: "Term sheet was not found in this school workspace.",
+      });
+    }
+
+    if (termForm.student) {
+      await assertNoExactDuplicateStudentInClassTerm(tx, {
+        schoolProfileId,
+        sessionTermId: termForm.sessionTermId,
+        classroomDepartmentId: classroomDepartment.id,
+        name: termForm.student.name,
+        surname: termForm.student.surname,
+        otherName: termForm.student.otherName,
+        excludeStudentIds: [termForm.student.id],
       });
     }
 
@@ -1950,6 +2027,15 @@ export async function executeStudentImport(
       const result = await db.$transaction(async (tx) => {
         switch (row.action) {
           case "import_new": {
+            await assertNoExactDuplicateStudentInClassTerm(tx, {
+              schoolProfileId: profile.schoolId,
+              sessionTermId: profile.termId,
+              classroomDepartmentId: rowClassroomDepartmentId,
+              name: row.name,
+              surname: row.surname,
+              otherName: row.otherName,
+            });
+
             const student = await tx.students.create({
               data: {
                 gender: row.gender,

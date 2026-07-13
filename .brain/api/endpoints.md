@@ -27,6 +27,9 @@ Catalog of API routes and responsibilities.
 - `trpc.students.deleteStudent` (authenticated tenant-scoped Admin/Registrar mutation for soft-deleting a student and active academic forms)
 - `trpc.students.getImportNameGuide` (tenant-scoped existing name-part guide for student import parsing)
 - `trpc.students.verifyStudentImport` (batch verify student import rows for duplicates, typos, gender inference, and row-level classroom assignment)
+- `trpc.students.duplicateGroups` (tenant-scoped class/term duplicate-name read model with student counts, duplicate groups, and recommended survivor metadata)
+- `trpc.students.previewDuplicateMerge` (authenticated Admin/Registrar duplicate merge preview with records-to-move counts and blocking conflicts)
+- `trpc.students.mergeDuplicates` (authenticated Admin/Registrar transaction that moves safe duplicate references to the survivor and soft-deletes duplicate student copies)
 
 ### Admissions
 

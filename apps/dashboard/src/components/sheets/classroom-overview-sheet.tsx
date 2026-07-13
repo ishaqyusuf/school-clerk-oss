@@ -168,7 +168,12 @@ export function Content({}) {
                     )}
                   >
                     <Icon className="h-4 w-4" />
-                    {tab.label}
+                    <span>{tab.label}</span>
+                    {tab.value === "students" ? (
+                      <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
+                        {studentCount}
+                      </Badge>
+                    ) : null}
                   </button>
                 );
               })}
@@ -177,7 +182,10 @@ export function Content({}) {
           <Sheet.ScrollArea className="flex flex-col gap-2">
             <TabsBase value={params?.classroomTab}>
               <TabsContent value="students" className="h-screen">
-                <ClassroomStudents departmentId={viewClassroomId} />
+                <ClassroomStudents
+                  departmentId={viewClassroomId}
+                  sessionTermId={classRoom?.classRoom?.session?.term?.id}
+                />
               </TabsContent>
               <TabsContent value="subjects" className="h-screen">
                 <ClassroomSubject departmentId={viewClassroomId} />

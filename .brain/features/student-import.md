@@ -234,6 +234,7 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 - If one exists in the same classroom, it is reused without duplicate creation.
 - If one exists in a different classroom, the row fails with the conflicting classroom name.
 - If none exists, the system creates `StudentSessionForm` when needed, then creates `StudentTermForm`, then applies fee histories.
+- `import_new` rows are blocked when an exact normalized `name + surname + otherName` duplicate already exists in the row target classroom for the active term. Operators should keep/update the existing match or resolve the duplicate group first instead of creating another copy.
 
 ### Dashboard Invalidation
 

@@ -15,6 +15,7 @@ Operational rules for AI agents contributing to this repository.
 ## Core Rules
 
 - Read relevant `.brain/` docs before changes.
+- Keep Wayfinder maps, Wayfinder tickets, and scratch artifacts from Matt Pocock-style planning skills under `.scratch/`, not under `.brain/`. Brain should record durable project knowledge and final documentation updates, while scratch skill work stays in the scratch folder.
 - Preserve existing behavior unless change is requested.
 - Keep diffs focused and minimal.
 - Update docs alongside code changes.

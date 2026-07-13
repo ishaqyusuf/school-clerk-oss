@@ -19,6 +19,7 @@ import {
 } from "@api/db/queries/classroom";
 import { z } from "zod";
 import { applyFeeHistoriesToStudentTermForm } from "@api/db/queries/student-fee-application";
+import { assertNoExactDuplicateStudentInClassTerm } from "@api/db/queries/student-duplicates";
 import {
   addYears,
   constructNow,
@@ -28,6 +29,7 @@ import {
   subDays,
 } from "date-fns";
 import { classroomDisplayName, consoleLog } from "@school-clerk/utils";
+import { TRPCError } from "@trpc/server";
 
 const previewApplicableFeeHistoriesSchema = z.object({
   sessionTermId: z.string(),
@@ -465,6 +467,14 @@ export const academicsRouter = createTRPCRouter({
               studentId: true,
               studentSessionFormId: true,
               classroomDepartmentId: true,
+              student: {
+                select: {
+                  id: true,
+                  name: true,
+                  surname: true,
+                  otherName: true,
+                },
+              },
             },
           },
         },
@@ -530,18 +540,35 @@ export const academicsRouter = createTRPCRouter({
             assessmentIdMap.set(assessment.id, created.id);
           }
         }
-        await tx.studentTermForm.createManyAndReturn({
-          data: currentTerm.termForms.map(
-            ({ studentId, studentSessionFormId, classroomDepartmentId }) => ({
+        for (const {
+          studentId,
+          studentSessionFormId,
+          classroomDepartmentId,
+          student,
+        } of currentTerm.termForms) {
+          if (student && classroomDepartmentId) {
+            await assertNoExactDuplicateStudentInClassTerm(tx, {
+              schoolProfileId: term.schoolId,
+              sessionTermId: term.id,
+              classroomDepartmentId,
+              name: student.name,
+              surname: student.surname,
+              otherName: student.otherName,
+              excludeStudentIds: student.id ? [student.id] : [],
+            });
+          }
+
+          await tx.studentTermForm.create({
+            data: {
               studentId,
               studentSessionFormId,
               classroomDepartmentId,
               schoolSessionId: term.sessionId,
               schoolProfileId: term.schoolId,
               sessionTermId: term.id,
-            }),
-          ),
-        });
+            },
+          });
+        }
       });
     }),
   entrollStudentToTerm: publicProcedure
@@ -658,20 +685,45 @@ export const academicsRouter = createTRPCRouter({
               studentId: true,
               studentSessionFormId: true,
               classroomDepartmentId: true,
+              student: {
+                select: {
+                  id: true,
+                  name: true,
+                  surname: true,
+                  otherName: true,
+                },
+              },
             },
           });
-          await tx.studentTermForm.createMany({
-            data: previousTermForms.map(
-              ({ studentId, studentSessionFormId, classroomDepartmentId }) => ({
+          for (const {
+            studentId,
+            studentSessionFormId,
+            classroomDepartmentId,
+            student,
+          } of previousTermForms) {
+            if (student && classroomDepartmentId) {
+              await assertNoExactDuplicateStudentInClassTerm(tx, {
+                schoolProfileId: ctx.profile.schoolId,
+                sessionTermId: input.termId,
+                classroomDepartmentId,
+                name: student.name,
+                surname: student.surname,
+                otherName: student.otherName,
+                excludeStudentIds: student.id ? [student.id] : [],
+              });
+            }
+
+            await tx.studentTermForm.create({
+              data: {
                 studentId,
                 studentSessionFormId,
                 classroomDepartmentId,
                 schoolSessionId: input.sessionId,
                 schoolProfileId: ctx.profile.schoolId,
                 sessionTermId: input.termId,
-              }),
-            ),
-          });
+              },
+            });
+          }
         }
         // throw new Error("Not implemented yet");
       });
@@ -1054,14 +1106,44 @@ export const academicsRouter = createTRPCRouter({
         select: {
           studentId: true,
           classroomDepartmentId: true,
+          student: {
+            select: {
+              id: true,
+              name: true,
+              surname: true,
+              otherName: true,
+            },
+          },
         },
       });
 
       return db.$transaction(async (tx) => {
+        let skippedDuplicates = 0;
         for (const form of sourceTermForms) {
           if (!form.studentId) continue;
           const targetClassroomDepartmentId =
             input.toClassroomDepartmentId ?? form.classroomDepartmentId;
+
+          if (form.student && targetClassroomDepartmentId) {
+            try {
+              await assertNoExactDuplicateStudentInClassTerm(tx, {
+                schoolProfileId: ctx.profile.schoolId,
+                sessionTermId: input.toTermId,
+                classroomDepartmentId: targetClassroomDepartmentId,
+                name: form.student.name,
+                surname: form.student.surname,
+                otherName: form.student.otherName,
+                excludeStudentIds: [form.student.id],
+              });
+            } catch (error) {
+              if (error instanceof TRPCError && error.code === "CONFLICT") {
+                skippedDuplicates += 1;
+                continue;
+              }
+              throw error;
+            }
+          }
+
           let sessionForm = await tx.studentSessionForm.findFirst({
             where: {
               studentId: form.studentId,
@@ -1159,7 +1241,11 @@ export const academicsRouter = createTRPCRouter({
             });
           }
         }
-        return { promoted: sourceTermForms.length, mode: input.mode };
+        return {
+          promoted: sourceTermForms.length - skippedDuplicates,
+          skippedDuplicates,
+          mode: input.mode,
+        };
       });
     }),
   reversePromotion: publicProcedure

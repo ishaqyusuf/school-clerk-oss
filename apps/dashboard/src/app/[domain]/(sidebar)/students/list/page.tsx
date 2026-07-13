@@ -6,6 +6,7 @@ import type { SearchParams } from "nuqs";
 import { ErrorFallback } from "@/components/error-fallback";
 import { StudentHeader } from "@/components/student-header";
 import { PromotionCta } from "@/components/students/promotion-cta";
+import { StudentDuplicateAlert } from "@/components/students/student-duplicate-alert";
 import { DataTable } from "@/components/tables/students/data-table";
 import { StudentsSkeleton } from "@/components/tables/students/skeleton";
 import { StudentStatsCards } from "@/components/tables/students/student-stats-cards";
@@ -44,6 +45,13 @@ export default async function Page(props: Props) {
 				</div>
 				<PromotionCta />
 				<StudentStatsCards />
+				<div className="mt-6">
+					<StudentDuplicateAlert
+						classroomDepartmentId={filter.departmentId}
+						sessionTermId={filter.sessionTermId}
+						showCount
+					/>
+				</div>
 				<div className="flex flex-col gap-6 mt-8">
 					<ErrorBoundary errorComponent={ErrorFallback}>
 						<Suspense fallback={<StudentsSkeleton />}>

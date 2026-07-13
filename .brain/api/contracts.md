@@ -223,8 +223,26 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Route: `students.changeStudentClass`
 - Request schema: `{ studentTermFormId: string, classroomDepartmentId: string }`
 - Response schema: mutation success with no response body.
-- Error cases: unauthenticated, role not allowed, missing active tenant context, target term sheet not found in tenant, target classroom not found in tenant.
-- Notes: updates the selected `StudentTermForm.classroomDepartmentId` and its linked `StudentSessionForm.classroomDepartmentId` when present. It does not create a duplicate term sheet.
+- Error cases: unauthenticated, role not allowed, missing active tenant context, target term sheet not found in tenant, target classroom not found in tenant, exact duplicate student name already exists in the target class/term.
+- Notes: updates the selected `StudentTermForm.classroomDepartmentId` and its linked `StudentSessionForm.classroomDepartmentId` when present. It does not create a duplicate term sheet, and it blocks exact normalized `name + surname + otherName` duplicates in the target classroom/term.
+
+- Route: `students.duplicateGroups`
+- Request schema: `{ classroomDepartmentId?: string | null, sessionTermId?: string | null, studentId?: string | null }`
+- Response schema: `{ scope, totalStudents, duplicateGroupCount, duplicateStudentCount, groups[] }`, where each group includes normalized name key, classroom/term scope, members with history counts, and `recommendedSurvivorId`.
+- Error cases: missing active school or term context.
+- Notes: groups active, non-deleted `StudentTermForm` records in a class/term by normalized `Students.name + surname + otherName`. When `studentId` is supplied, the response narrows to duplicate groups containing that student.
+
+- Route: `students.previewDuplicateMerge`
+- Request schema: `{ classroomDepartmentId?: string | null, sessionTermId?: string | null, survivorStudentId: string, duplicateStudentIds: string[] }`
+- Response schema: `{ group, survivorStudentId, duplicateStudentIds, primaryTermFormId, recordsToMove, conflicts, canMerge }`
+- Error cases: unauthenticated, role not allowed, missing active tenant context, selected students are no longer a duplicate group.
+- Notes: recommends and previews moving duplicate references into the survivor. It blocks execution when multiple current-term copies have assessment, attendance, or finance records that need manual review, and when assessment records would collide with the unique `(studentId, studentTermFormId, classSubjectAssessmentId)` key after merge.
+
+- Route: `students.mergeDuplicates`
+- Request schema: same as `students.previewDuplicateMerge`.
+- Response schema: `{ success, survivorStudentId, mergedStudentIds, primaryTermFormId, recordsMoved }`
+- Error cases: unauthenticated, role not allowed, stale/non-duplicate group, unresolved preview conflict, tenant/class/term mismatch.
+- Notes: re-runs the preview inside a transaction, moves safe term-form and direct student references to the survivor, updates enrollment accepted ids where applicable, preserves notification recipient history under one surviving student notification contact, soft-deletes duplicate term forms, and soft-deletes duplicate student records. It never hard-deletes historical records.
 
 - Route: `students.deleteTermSheet`
 - Request schema: `{ id: string }`
@@ -306,8 +324,8 @@ Defines request/response contracts, validation rules, and versioning expectation
     }[];
   }
   ```
-- Error cases: missing active school/session/term context returns a structured tRPC `UNAUTHORIZED` error; missing/supplied classroom errors return structured tRPC `BAD_REQUEST` errors; existing student not in tenant and current-term conflicting classroom conditions are reported as row-level failures where possible.
-- Notes: mutation that creates students, keeps/updates matched students, and idempotently creates term sheets. The dashboard may send many selected rows for batch import or a single row for the row-level `Import row` action. Validates all supplied row-level classrooms against active school AND session ancestry. Detects cross-classroom current-term conflicts and reports them as row-level failures rather than creating duplicates. Applies fee histories to newly-created term sheets using the row target classroom. Per-row failures do not block successful rows.
+- Error cases: missing active school/session/term context returns a structured tRPC `UNAUTHORIZED` error; missing/supplied classroom errors return structured tRPC `BAD_REQUEST` errors; exact duplicate `import_new` rows, existing student not in tenant, and current-term conflicting classroom conditions are reported as row-level failures where possible.
+- Notes: mutation that creates students, keeps/updates matched students, and idempotently creates term sheets. The dashboard may send many selected rows for batch import or a single row for the row-level `Import row` action. Validates all supplied row-level classrooms against active school AND session ancestry. Detects cross-classroom current-term conflicts and exact normalized duplicate names in the target class/term, then reports them as row-level failures rather than creating duplicates. Applies fee histories to newly-created term sheets using the row target classroom. Per-row failures do not block successful rows.
 - Dashboard cache invalidation on success:
   - Invalidates: `students.index`, `students.analytics`, `students.studentsRecentRecord`, `classrooms.all`
   - Report-sheet queries (`classroomReportSheet`, `getSubjectAssessmentRecordings`) require parameterized keys (classroom + term) not available in the import component context; these views refresh on navigation.

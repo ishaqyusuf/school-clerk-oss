@@ -28,6 +28,13 @@ import {
   getImportNameGuide,
 } from "../../db/queries/students";
 import {
+  studentDuplicateScopeSchema,
+  getStudentDuplicateGroups,
+  studentDuplicateMergePreviewSchema,
+  previewStudentDuplicateMerge,
+  mergeStudentDuplicates,
+} from "../../db/queries/student-duplicates";
+import {
   getStudentOverviewSchema,
   getStudentsSchema,
 } from "../schemas/schemas";
@@ -91,6 +98,21 @@ export const studentsRouter = createTRPCRouter({
     .input(studentsAnalyticsSchema)
     .query(async (props) => {
       return studentsAnalytics(props.ctx, props.input);
+    }),
+  duplicateGroups: publicProcedure
+    .input(studentDuplicateScopeSchema)
+    .query(async (props) => {
+      return getStudentDuplicateGroups(props.ctx, props.input);
+    }),
+  previewDuplicateMerge: authenticatedProcedure
+    .input(studentDuplicateMergePreviewSchema)
+    .query(async (props) => {
+      return previewStudentDuplicateMerge(props.ctx, props.input);
+    }),
+  mergeDuplicates: authenticatedProcedure
+    .input(studentDuplicateMergePreviewSchema)
+    .mutation(async (props) => {
+      return mergeStudentDuplicates(props.ctx, props.input);
     }),
   academicsOverview: publicProcedure
     .input(getStudentOverviewSchema)

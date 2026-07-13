@@ -53,7 +53,7 @@ Academic Dashboard
 | `academics.createAcademicSession` | mutation | Updated: returns `{ sessionId, sessionTitle, terms }` |
 | `academics.getPromotionStudents` | query | Students from last term + isPromoted flag + avg score |
 | `academics.getStudentTermPerformance` | query | Full subject breakdown for modal |
-| `academics.batchPromote` | mutation | Create StudentSessionForm + StudentTermForm per student |
+| `academics.batchPromote` | mutation | Create StudentSessionForm + StudentTermForm per student, skipping exact duplicate target class/term names |
 | `academics.reversePromotion` | mutation | Soft-delete StudentTermForm |
 
 ## Data Models Used
@@ -67,7 +67,8 @@ Academic Dashboard
 On successful session creation, the active session cookie is immediately updated via `switchSessionTerm()` (server action from `auth-cookie.ts`). This ensures the new session context is active before reaching the promotion page.
 
 ## Promotion Logic
-- `batchPromote`: For each student, find or create `StudentSessionForm` for the new session, then create `StudentTermForm` for the first term. Idempotent (skips if already promoted).
+- `batchPromote`: For each student, first blocks exact normalized `name + surname + otherName` duplicates in the target class/term. Non-conflicting rows find or create `StudentSessionForm` for the new session, then create or update `StudentTermForm` for the first term. Idempotent (skips if already promoted) and reports `skippedDuplicates` for duplicate-name rows.
+- Session/term rollover copy paths also apply the duplicate guard before copying previous/current term forms into a new term.
 - `reversePromotion`: Soft-deletes `StudentTermForm` (sets `deletedAt = now()`). Leaves `StudentSessionForm` intact.
 
 ## Student Overview Integration

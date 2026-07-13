@@ -4,8 +4,14 @@ import { TRPCError } from "@trpc/server";
 process.env.DATABASE_URL ??= "postgresql://test:test@127.0.0.1:5432/test";
 process.env.POSTGRES_URL ??= process.env.DATABASE_URL;
 
-const { changeStudentGender, executeStudentImport, verifyStudentImport } =
-  await import("./students");
+const {
+  changeStudentGender,
+  executeStudentImport,
+  getStudents,
+  verifyStudentImport,
+} = await import("./students");
+const { getStudentDuplicateGroups, previewStudentDuplicateMerge } =
+  await import("./student-duplicates");
 
 function createCtx({
   schoolId = "school-1",
@@ -81,6 +87,58 @@ describe("changeStudentGender", () => {
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
     } satisfies Partial<TRPCError>);
+  });
+});
+
+describe("getStudents", () => {
+  test("defaults active session and term for classroom-only filters", async () => {
+    const countCalls: any[] = [];
+    const findManyCalls: any[] = [];
+    const ctx = {
+      profile: {
+        schoolId: "school-1",
+        sessionId: "session-1",
+        termId: "term-1",
+      },
+      db: {
+        students: {
+          count: async (args: any) => {
+            countCalls.push(args);
+            return 0;
+          },
+          findMany: async (args: any) => {
+            findManyCalls.push(args);
+            return [];
+          },
+        },
+      },
+    } as any;
+
+    await getStudents(ctx, { departmentId: "classroom-a" });
+
+    expect(countCalls[0]?.where).toMatchObject({
+      AND: [
+        {
+          termForms: {
+            some: {
+              deletedAt: null,
+              sessionTermId: "term-1",
+              classroomDepartmentId: "classroom-a",
+            },
+          },
+        },
+        {
+          termForms: {
+            some: {
+              sessionTermId: "term-1",
+            },
+          },
+        },
+      ],
+    });
+    expect(findManyCalls[0]?.select?.sessionForms?.where).toEqual({
+      schoolSessionId: "session-1",
+    });
   });
 });
 
@@ -368,5 +426,236 @@ describe("executeStudentImport", () => {
     expect(
       createdTermForms.map((form: any) => form.classroomDepartmentId),
     ).toEqual(["classroom-a", "classroom-b"]);
+  });
+});
+
+function createDuplicateCtx({
+  firstAssessmentCount = 0,
+  secondAssessmentCount = 0,
+  assessmentRecords = [],
+}: {
+  firstAssessmentCount?: number;
+  secondAssessmentCount?: number;
+  assessmentRecords?: Array<{
+    id: number;
+    classSubjectAssessmentId: number | null;
+    studentId: string | null;
+    studentTermFormId: string | null;
+  }>;
+} = {}) {
+  const termForms = [
+    {
+      id: "term-form-history",
+      studentSessionFormId: "session-form-history",
+      classroomDepartmentId: "classroom-a",
+      sessionTermId: "term-1",
+      createdAt: new Date("2025-01-01"),
+      classroomDepartment: {
+        id: "classroom-a",
+        departmentName: "A",
+        classRoom: { name: "JSS 1" },
+      },
+      _count: {
+        assessmentRecords: firstAssessmentCount,
+        attendanceList: 3,
+        financeCharges: 2,
+      },
+      student: {
+        id: "student-history",
+        name: "Aisha",
+        surname: "Bello",
+        otherName: null,
+        gender: "Female",
+        createdAt: new Date("2024-01-01"),
+        _count: {
+          sessionForms: 2,
+          termForms: 4,
+          guardians: 1,
+          assessmentRecords: 5,
+          financeCharges: 3,
+          financePayments: 2,
+        },
+      },
+    },
+    {
+      id: "term-form-current",
+      studentSessionFormId: "session-form-current",
+      classroomDepartmentId: "classroom-a",
+      sessionTermId: "term-1",
+      createdAt: new Date("2026-01-01"),
+      classroomDepartment: {
+        id: "classroom-a",
+        departmentName: "A",
+        classRoom: { name: "JSS 1" },
+      },
+      _count: {
+        assessmentRecords: secondAssessmentCount,
+        attendanceList: 0,
+        financeCharges: 0,
+      },
+      student: {
+        id: "student-current",
+        name: "  Aisha ",
+        surname: "Bello",
+        otherName: null,
+        gender: "Female",
+        createdAt: new Date("2026-01-01"),
+        _count: {
+          sessionForms: 1,
+          termForms: 1,
+          guardians: 0,
+          assessmentRecords: 0,
+          financeCharges: 0,
+          financePayments: 0,
+        },
+      },
+    },
+    {
+      id: "term-form-other-name",
+      studentSessionFormId: "session-form-other-name",
+      classroomDepartmentId: "classroom-a",
+      sessionTermId: "term-1",
+      createdAt: new Date("2026-01-02"),
+      classroomDepartment: {
+        id: "classroom-a",
+        departmentName: "A",
+        classRoom: { name: "JSS 1" },
+      },
+      _count: {
+        assessmentRecords: 0,
+        attendanceList: 0,
+        financeCharges: 0,
+      },
+      student: {
+        id: "student-other-name",
+        name: "Aisha",
+        surname: "Bello",
+        otherName: "Khadijah",
+        gender: "Female",
+        createdAt: new Date("2026-01-02"),
+        _count: {
+          sessionForms: 1,
+          termForms: 1,
+          guardians: 0,
+          assessmentRecords: 0,
+          financeCharges: 0,
+          financePayments: 0,
+        },
+      },
+    },
+  ];
+
+  return {
+    profile: {
+      schoolId: "school-1",
+      sessionId: "session-1",
+      termId: "term-1",
+    },
+    currentUser: {
+      id: "user-1",
+      role: "Admin",
+    },
+    db: {
+      studentTermForm: {
+        findMany: async ({ where }: any) => {
+          const studentIds = where.studentId?.in as string[] | undefined;
+          return termForms.filter(
+            (termForm) =>
+              (!where.classroomDepartmentId ||
+                termForm.classroomDepartmentId === where.classroomDepartmentId) &&
+              termForm.sessionTermId === where.sessionTermId &&
+              (!studentIds || studentIds.includes(termForm.student.id)),
+          );
+        },
+      },
+      studentAssessmentRecord: {
+        findMany: async () => assessmentRecords,
+      },
+    },
+  } as any;
+}
+
+describe("student duplicate detection", () => {
+  test("groups exact normalized full names within the same class and term", async () => {
+    const ctx = createDuplicateCtx();
+
+    const result = await getStudentDuplicateGroups(ctx, {
+      classroomDepartmentId: "classroom-a",
+    });
+
+    expect(result).toMatchObject({
+      duplicateGroupCount: 1,
+      duplicateStudentCount: 2,
+    });
+    expect(result.groups[0]?.members.map((member) => member.studentId)).toEqual([
+      "student-history",
+      "student-current",
+    ]);
+    expect(result.groups[0]?.recommendedSurvivorId).toBe("student-history");
+  });
+
+  test("preview blocks merge when multiple current copies have assessment records", async () => {
+    const ctx = createDuplicateCtx({
+      firstAssessmentCount: 1,
+      secondAssessmentCount: 1,
+    });
+
+    const preview = await previewStudentDuplicateMerge(ctx, {
+      classroomDepartmentId: "classroom-a",
+      survivorStudentId: "student-history",
+      duplicateStudentIds: ["student-current"],
+    });
+
+    expect(preview.canMerge).toBe(false);
+    expect(preview.conflicts).toContain(
+      "Multiple duplicate copies have current-term assessment records. Review scores before merging.",
+    );
+  });
+
+  test("preview allows moving a single current copy into the history survivor", async () => {
+    const ctx = createDuplicateCtx({
+      firstAssessmentCount: 0,
+      secondAssessmentCount: 1,
+    });
+
+    const preview = await previewStudentDuplicateMerge(ctx, {
+      classroomDepartmentId: "classroom-a",
+      survivorStudentId: "student-history",
+      duplicateStudentIds: ["student-current"],
+    });
+
+    expect(preview.canMerge).toBe(true);
+    expect(preview.conflicts).toEqual([]);
+    expect(preview.recordsToMove.assessmentRecords).toBe(1);
+  });
+
+  test("preview blocks assessment unique-key collisions before merge", async () => {
+    const ctx = createDuplicateCtx({
+      assessmentRecords: [
+        {
+          id: 1,
+          classSubjectAssessmentId: 100,
+          studentId: "student-history",
+          studentTermFormId: "term-form-history",
+        },
+        {
+          id: 2,
+          classSubjectAssessmentId: 100,
+          studentId: "student-current",
+          studentTermFormId: "term-form-current",
+        },
+      ],
+    });
+
+    const preview = await previewStudentDuplicateMerge(ctx, {
+      classroomDepartmentId: "classroom-a",
+      survivorStudentId: "student-history",
+      duplicateStudentIds: ["student-current"],
+    });
+
+    expect(preview.canMerge).toBe(false);
+    expect(preview.conflicts).toContain(
+      "The survivor and duplicate copy both have a record for the same assessment. Review scores before merging.",
+    );
   });
 });

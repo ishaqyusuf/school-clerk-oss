@@ -26,6 +26,7 @@ import {
 } from "@school-clerk/ui/select";
 import { Spinner } from "@school-clerk/ui/spinner";
 import { useStudentParams } from "@/hooks/use-student-params";
+import { StudentDuplicateAlert } from "./student-duplicate-alert";
 
 function fullClassName(term?: {
   classDisplayName?: string | null;
@@ -125,6 +126,13 @@ function Content({}) {
       </div>
 
       <StudentManagementActions />
+
+      <StudentDuplicateAlert
+        classroomDepartmentId={currentTerm?.departmentId}
+        sessionTermId={currentTerm?.termId}
+        studentId={student?.id}
+        compact
+      />
 
       {overviewData?.studentTerms && overviewData.studentTerms.length > 0 && (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.5fr_1fr] xl:gap-6">
