@@ -2002,6 +2002,9 @@ function RowCard({
     : isBlocked
       ? "Action required"
       : "Ready";
+  const parsedDisplayName = [row.name, row.surname, row.otherName]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div
@@ -2077,10 +2080,15 @@ function RowCard({
         </div>
       </div>
 
-      <div className="grid gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="grid gap-3 p-3 xl:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)]">
         <div className="min-w-0 space-y-3">
           <div className="space-y-2">
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="rounded-md border bg-muted/15 px-3 py-2">
+              <Arabic className="block truncate text-sm font-semibold text-foreground">
+                {parsedDisplayName || "Unnamed student"}
+              </Arabic>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]">
               <NamePartControl
                 label="Name"
                 part="name"
@@ -2126,7 +2134,7 @@ function RowCard({
           </div>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2 xl:justify-start">
           <Button
             type="button"
             variant={showSearch ? "secondary" : "outline"}
@@ -2161,7 +2169,7 @@ function RowCard({
             }
             disabled={imported || importing}
           >
-            <Select.Trigger className="h-8 w-full bg-background text-xs sm:w-48 lg:w-full">
+            <Select.Trigger className="h-8 w-full bg-background text-xs sm:w-48 xl:w-full">
               <Select.Value placeholder="Select action" />
             </Select.Trigger>
             <Select.Content>
@@ -2185,7 +2193,7 @@ function RowCard({
             type="button"
             size="sm"
             variant={imported ? "secondary" : "default"}
-            className="h-8 w-full sm:w-auto lg:w-full"
+            className="h-8 w-full sm:w-auto xl:w-full"
             disabled={imported || importing}
             onClick={() => onImportRow(row)}
           >
@@ -2271,9 +2279,9 @@ function NamePartControl({
   ]);
 
   return (
-    <div className="min-w-0">
-      <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-        <span>{label}</span>
+    <div className="min-w-[10rem] rounded-md border bg-background px-2.5 py-2">
+      <div className="mb-1 flex min-w-0 items-center justify-between gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="truncate">{label}</span>
         {isDirty ? (
           <Button
             type="button"
@@ -2294,7 +2302,7 @@ function NamePartControl({
           if (option) onValueChange(option);
         }}
       >
-        <Select.Trigger className="h-7 border-0 bg-transparent p-0 text-xs shadow-none focus:ring-0">
+        <Select.Trigger className="h-7 min-w-0 border-0 bg-transparent p-0 text-left text-sm font-medium shadow-none focus:ring-0">
           <Select.Value placeholder={value} />
         </Select.Trigger>
         <Select.Content className="max-h-64 overflow-y-auto">
