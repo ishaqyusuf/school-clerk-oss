@@ -130,7 +130,9 @@ Defines access control rules for each API surface.
 - Finance write routes are enforced server-side for `Admin` and `Accountant` roles.
 - This enforcement now covers streams, payroll, service payments, student payment receipt/reversal, billables, bills, collections, and stream-funding operations.
 - `finance.getReceivePaymentOptions`, `finance.getTermLedger`, and `finance.getTermAccountStatement` enforce finance read access for `Admin` and `Accountant`.
-- `finance.receiveStudentPaymentSimple` enforces finance write access for `Admin` and `Accountant`; reusable school finance-setting creation remains represented as Admin-only permission flags in the options read model.
+- `finance.getFinanceIntegrityReport` and `finance.getFinanceReports` enforce finance read access for `Admin` and `Accountant`; these report routes are read-only but still finance-gated.
+- `finance.receiveStudentPaymentSimple` and `finance.recordPayment` enforce finance write access for `Admin` and `Accountant`; reusable school finance-setting creation remains represented as Admin-only permission flags in the options read model.
+- `finance.createItem` / reusable finance-item creation is Admin-only because those items can become school-wide or class-wide fee/payment definitions. Tenant-scoped update guards must verify the target row belongs to the active school before updating by id.
 - `finance.transferFunds` enforces finance write access, requires a transfer note/reason, and requires Admin role for transfers above `NGN 250,000` or insufficient-balance overrides.
 - `finance.closeTermLedger` and `finance.reopenTermLedger` require Admin role. `finance.previewTermClose` requires finance read access.
 - `finance.getPayees`, `finance.getStaffFinanceHistory`, `finance.getPayeeHistory`, and `finance.getProjectAccountSummary` require finance read access for `Admin` and `Accountant`.

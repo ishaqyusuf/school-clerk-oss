@@ -63,8 +63,9 @@ This layer covers:
 
 ### `finance.previewTermClose` / `finance.closeTermLedger` / `finance.reopenTermLedger`
 - Preview returns the selected term ledger, warnings, blockers, next-term target, and per-account carry-forward rows.
+- Preview warnings cover negative accounts, pending staff/school payables, ledger entries missing term attribution, unresolved transfers, cancelled or refunded records that still have active ledger effects, carry-forward rows not linked to opening ledger entries, and missing next-term targets.
 - Close is Admin-only and creates a durable `FinanceTermLedgerClose` row plus one `FinanceTermCarryForward` row per non-zero account balance.
-- When a next term exists, close creates opening balance `FinanceLedgerEntry` adjustment rows scoped to that next term.
+- When a next term exists, close creates opening balance `FinanceLedgerEntry` adjustment rows scoped to that next term. Automatic next-term selection only chooses a future term in the same session, using the current term's start date when available.
 - Closed ledgers block normal payment, charge, and transfer writes until an Admin reopens the ledger.
 - Reopen marks the close row as `REOPENED` and preserves close/carry-forward history for audit.
 

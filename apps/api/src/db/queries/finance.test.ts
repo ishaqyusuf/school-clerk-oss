@@ -17,6 +17,8 @@ const {
 	recordFinancePayment,
 	receiveStudentPaymentSimple,
 	transferFinanceFunds,
+	upsertFinanceItem,
+	upsertFinancePayee,
 	upsertFinancePayrollStructure,
 } = await import("./finance");
 const { financeRouter } = await import("../../trpc/routers/finance.routes");
@@ -244,6 +246,78 @@ describe("getReceivePaymentOptions", () => {
 		).rejects.toMatchObject({
 			code: "FORBIDDEN",
 		} satisfies Partial<TRPCError>);
+	});
+});
+
+describe("upsertFinanceItem", () => {
+	test("allows only Admins to create reusable finance items", async () => {
+		await expect(
+			upsertFinanceItem(createFinanceCtx({ role: "Accountant", db: {} }), {
+				id: null,
+				streamId: null,
+				streamName: "Books",
+				accountType: "CREDIT",
+				type: "BOOK",
+				name: "English Reader",
+				description: "Primary English book",
+				amount: 250,
+				collectable: true,
+				isActive: true,
+				sessionId: "session-1",
+				termId: "term-1",
+				classRoomDepartmentIds: [],
+			} as any),
+		).rejects.toMatchObject({
+			code: "FORBIDDEN",
+		} satisfies Partial<TRPCError>);
+	});
+
+	test("does not update a finance item from another school", async () => {
+		let updateCalled = false;
+		const db = {
+			$transaction: async (fn: (tx: any) => unknown) =>
+				fn({
+					financeStream: {
+						findFirst: async () => ({
+							id: "stream-books",
+							name: "Books",
+							accountType: "CREDIT",
+						}),
+					},
+					financeItem: {
+						findFirst: async () => null,
+						update: async () => {
+							updateCalled = true;
+							return {};
+						},
+					},
+					financeItemClassRoomDepartment: {
+						deleteMany: async () => undefined,
+						createMany: async () => undefined,
+					},
+				}),
+		};
+
+		await expect(
+			upsertFinanceItem(createFinanceCtx({ db }), {
+				id: "item-other-school",
+				streamId: "stream-books",
+				streamName: null,
+				accountType: "CREDIT",
+				type: "BOOK",
+				name: "English Reader",
+				description: null,
+				amount: 250,
+				collectable: true,
+				isActive: true,
+				sessionId: "session-1",
+				termId: "term-1",
+				classRoomDepartmentIds: [],
+			} as any),
+		).rejects.toMatchObject({
+			code: "NOT_FOUND",
+		} satisfies Partial<TRPCError>);
+		expect(updateCalled).toBe(false);
 	});
 });
 
@@ -679,6 +753,24 @@ describe("receiveStudentPaymentSimple", () => {
 });
 
 describe("recordFinancePayment term attribution", () => {
+	test("rejects payment writes from non-finance roles", async () => {
+		await expect(
+			recordFinancePayment(createFinanceCtx({ role: "Teacher", db: {} }), {
+				chargeId: "charge-1",
+				amount: 100,
+				paymentDate: new Date("2026-02-10"),
+				method: "cash",
+				reference: null,
+				note: null,
+				receivedById: null,
+				collectedTermId: "term-1",
+				collectedSessionId: "session-1",
+			}),
+		).rejects.toMatchObject({
+			code: "FORBIDDEN",
+		} satisfies Partial<TRPCError>);
+	});
+
 	test("records collected-in term separately from the paid-for charge term", async () => {
 		const createdPayments: any[] = [];
 		const createdLedgerEntries: any[] = [];
@@ -1138,6 +1230,15 @@ describe("closeFinanceTermLedger", () => {
 			financeCharge: {
 				findMany: async () => [],
 			},
+			financeLedgerEntry: {
+				findMany: async () => [],
+			},
+			financeTransfer: {
+				findMany: async () => [],
+			},
+			financeTermCarryForward: {
+				findMany: async () => [],
+			},
 			$transaction: async (fn: (tx: any) => unknown) =>
 				fn({
 					financeTermLedgerClose: {
@@ -1204,6 +1305,11 @@ describe("closeFinanceTermLedger", () => {
 			collectedSessionTermId: "term-2",
 		});
 		expect(sessionTermCalls.length).toBeGreaterThanOrEqual(2);
+		expect(sessionTermCalls[1].where).toMatchObject({
+			id: { not: "term-1" },
+			sessionId: "session-1",
+			startDate: { gt: new Date("2026-01-01") },
+		});
 	});
 
 	test("blocks normal payment writes into a closed term", async () => {
@@ -1311,6 +1417,77 @@ describe("payroll, purchases, and payee accounting", () => {
 			advanceAmount: 200,
 			netAmount: 920,
 		});
+	});
+
+	test("does not update a payee from another school", async () => {
+		let updateCalled = false;
+		const db = {
+			financePayee: {
+				findFirst: async () => null,
+				update: async () => {
+					updateCalled = true;
+					return {};
+				},
+			},
+		};
+
+		await expect(
+			upsertFinancePayee(createFinanceCtx({ db }), {
+				id: "payee-other-school",
+				name: "Tailor",
+				type: "VENDOR",
+				phone: null,
+				email: null,
+				note: null,
+			} as any),
+		).rejects.toMatchObject({
+			code: "NOT_FOUND",
+		} satisfies Partial<TRPCError>);
+		expect(updateCalled).toBe(false);
+	});
+
+	test("does not update a payroll structure from another school", async () => {
+		let updateCalled = false;
+		const db = {
+			financeStream: {
+				findFirst: async () => ({
+					id: "stream-salary",
+					name: "Salary/Wages",
+					accountType: "DEBIT",
+				}),
+			},
+			financePayrollStructure: {
+				findFirst: async () => null,
+				update: async () => {
+					updateCalled = true;
+					return {};
+				},
+			},
+		};
+
+		await expect(
+			upsertFinancePayrollStructure(createFinanceCtx({ db }), {
+				id: "payroll-other-school",
+				staffProfileId: null,
+				streamId: "stream-salary",
+				streamName: null,
+				title: "Teaching Staff Salary",
+				cadence: "MONTHLY",
+				baseAmount: 1000,
+				allowanceAmount: 0,
+				bonusAmount: 0,
+				deductionAmount: 0,
+				advanceAmount: 0,
+				roleLabel: "Teaching",
+				isActive: true,
+				sessionId: "session-1",
+				termId: "term-1",
+				notes: null,
+			} as any),
+		).rejects.toMatchObject({
+			code: "NOT_FOUND",
+		} satisfies Partial<TRPCError>);
+		expect(updateCalled).toBe(false);
 	});
 
 	test("records an immediate purchase through a reusable payee and debit ledger", async () => {
@@ -2195,5 +2372,39 @@ describe("finance report routes", () => {
 			purchases: [{ id: "purchase-1", action: "purchase-recorded" }],
 			payees: [{ id: "payee-1", action: "payee-available" }],
 		});
+	});
+
+	test("rejects report access for non-finance roles", async () => {
+		const db = {
+			session: {
+				findFirst: async () => ({
+					id: "auth-session",
+					token: "auth-session",
+					user: {
+						id: "user-1",
+						email: "teacher@example.com",
+						name: "Teacher",
+						role: "Teacher",
+						saasAccountId: null,
+					},
+				}),
+			},
+		};
+		const caller = financeRouter.createCaller({
+			profile: {
+				authSessionId: "auth-session",
+				schoolId: "school-1",
+				termId: "term-1",
+				sessionId: "session-1",
+			},
+			db,
+		} as any);
+
+		await expect(caller.getFinanceIntegrityReport({})).rejects.toMatchObject({
+			code: "FORBIDDEN",
+		} satisfies Partial<TRPCError>);
+		await expect(caller.getFinanceReports({})).rejects.toMatchObject({
+			code: "FORBIDDEN",
+		} satisfies Partial<TRPCError>);
 	});
 });

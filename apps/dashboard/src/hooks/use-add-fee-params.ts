@@ -5,6 +5,9 @@ export function useAddFeeParams(options?: { shallow: boolean }) {
 		{
 			addFee: parseAsBoolean,
 			addFeeClassroomId: parseAsString,
+			addFeeStudentId: parseAsString,
+			addFeeStudentTermFormId: parseAsString,
+			addFeeTitle: parseAsString,
 		},
 		options,
 	);

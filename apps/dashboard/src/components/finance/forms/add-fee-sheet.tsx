@@ -31,7 +31,7 @@ import { useFieldArray } from "react-hook-form";
 import { z } from "zod";
 
 const addFeeSchema = z.object({
-	scope: z.enum(["global", "classroom"]),
+	scope: z.enum(["global", "classroom", "student"]),
 	classroomIds: z.array(z.string()).default([]),
 	streamId: z.string().nullable().optional(),
 	streamName: z.string().min(1, "Fee title is required"),
@@ -47,19 +47,26 @@ const addFeeSchema = z.object({
 });
 
 export function AddFeeSheet() {
-	const { addFee, addFeeClassroomId, setParams } = useAddFeeParams();
+	const {
+		addFee,
+		addFeeClassroomId,
+		addFeeStudentId,
+		addFeeStudentTermFormId,
+		addFeeTitle,
+		setParams,
+	} = useAddFeeParams();
 	const isOpen = Boolean(addFee);
 	const trpc = useTRPC();
 	const qc = useQueryClient();
 
 	const form = useZodForm(addFeeSchema, {
 		defaultValues: {
-			scope: addFeeClassroomId ? "classroom" : "global",
+			scope: addFeeStudentId ? "student" : addFeeClassroomId ? "classroom" : "global",
 			classroomIds: addFeeClassroomId ? [addFeeClassroomId] : [],
 			streamId: null,
-			streamName: "",
+			streamName: addFeeTitle ?? "",
 			required: true,
-			lines: [{ description: "", amount: 0 }],
+			lines: [{ description: addFeeTitle ?? "", amount: 0 }],
 		},
 	});
 
@@ -69,15 +76,15 @@ export function AddFeeSheet() {
 	useEffect(() => {
 		if (isOpen) {
 			form.reset({
-				scope: addFeeClassroomId ? "classroom" : "global",
+				scope: addFeeStudentId ? "student" : addFeeClassroomId ? "classroom" : "global",
 				classroomIds: addFeeClassroomId ? [addFeeClassroomId] : [],
 				streamId: null,
-				streamName: "",
+				streamName: addFeeTitle ?? "",
 				required: true,
-				lines: [{ description: "", amount: 0 }],
+				lines: [{ description: addFeeTitle ?? "", amount: 0 }],
 			});
 		}
-	}, [isOpen, addFeeClassroomId, form]);
+	}, [isOpen, addFeeClassroomId, addFeeStudentId, addFeeTitle, form]);
 
 	const { data: streams = [] } = useQuery(
 		trpc.finance.getStreams.queryOptions(
@@ -121,11 +128,55 @@ export function AddFeeSheet() {
 					title: "Fee added successfully",
 					variant: "success",
 				});
-				setParams({ addFee: null, addFeeClassroomId: null });
+				setParams({
+					addFee: null,
+					addFeeClassroomId: null,
+					addFeeStudentId: null,
+					addFeeStudentTermFormId: null,
+					addFeeTitle: null,
+				});
 			},
 			onError: (error) => {
 				toast({
 					title: "Error adding fee",
+					description: error.message,
+					variant: "destructive",
+				});
+			},
+		}),
+	);
+	const createCharge = useMutation(
+		trpc.finance.createCharge.mutationOptions({
+			onSuccess: async () => {
+				await Promise.all([
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getCharges.queryKey(),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getReceivePaymentData.queryKey(),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getReceivePaymentOptions.queryKey(),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.overview.queryKey(),
+					}),
+				]);
+				toast({
+					title: "Student fee added successfully",
+					variant: "success",
+				});
+				setParams({
+					addFee: null,
+					addFeeClassroomId: null,
+					addFeeStudentId: null,
+					addFeeStudentTermFormId: null,
+					addFeeTitle: null,
+				});
+			},
+			onError: (error) => {
+				toast({
+					title: "Error adding student fee",
 					description: error.message,
 					variant: "destructive",
 				});
@@ -231,6 +282,46 @@ export function AddFeeSheet() {
 		// Because we're making multiple requests (one per line item),
 		// we should collect them in a Promise.all.
 		try {
+			if (data.scope === "student") {
+				if (!addFeeStudentId) {
+					toast({
+						title: "Student is required",
+						description: "Select a student before creating a student-only fee.",
+						variant: "destructive",
+					});
+					return;
+				}
+
+				await Promise.all(
+					data.lines.map((line) =>
+						createCharge.mutateAsync({
+							itemId: null,
+							streamId: data.streamId,
+							streamName: data.streamName,
+							type: "OTHER",
+							payerType: "STUDENT",
+							studentId: addFeeStudentId,
+							studentTermFormId: addFeeStudentTermFormId,
+							staffProfileId: null,
+							staffTermProfileId: null,
+							payeeId: null,
+							payrollStructureId: null,
+							classroomDepartmentId: addFeeClassroomId,
+							sessionId: null,
+							termId: null,
+							title: line.description || data.streamName,
+							description: line.description,
+							amount: line.amount,
+							collectionStatus: data.required
+								? "NOT_COLLECTED"
+								: "NOT_REQUIRED",
+							dueDate: null,
+						}),
+					),
+				);
+				return;
+			}
+
 			await Promise.all(
 				data.lines.map((line) =>
 					createItem.mutateAsync({
@@ -262,7 +353,15 @@ export function AddFeeSheet() {
 		<Sheet
 			open={isOpen}
 			onOpenChange={(open) => {
-				if (!open) setParams({ addFee: null, addFeeClassroomId: null });
+				if (!open) {
+					setParams({
+						addFee: null,
+						addFeeClassroomId: null,
+						addFeeStudentId: null,
+						addFeeStudentTermFormId: null,
+						addFeeTitle: null,
+					});
+				}
 			}}
 		>
 			<SheetContent className="w-full overflow-y-auto sm:max-w-xl">
@@ -278,7 +377,7 @@ export function AddFeeSheet() {
 								<Label>Scope</Label>
 								<Select
 									value={scope}
-									onValueChange={(value: "global" | "classroom") =>
+									onValueChange={(value: "global" | "classroom" | "student") =>
 										form.setValue("scope", value)
 									}
 								>
@@ -286,6 +385,9 @@ export function AddFeeSheet() {
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
+										{addFeeStudentId ? (
+											<SelectItem value="student">Selected Student</SelectItem>
+										) : null}
 										<SelectItem value="global">Global (All Classes)</SelectItem>
 										<SelectItem value="classroom">Specific Classroom</SelectItem>
 									</SelectContent>

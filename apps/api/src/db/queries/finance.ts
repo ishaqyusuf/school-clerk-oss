@@ -102,7 +102,7 @@ type StudentTermChargeForm = {
 const FINANCE_READ_ROLES = new Set(["ADMIN", "Admin", "Accountant"]);
 const LARGE_FINANCE_ACTION_THRESHOLD = 250_000;
 
-function requireFinanceReadAccess(ctx: TRPCContext) {
+export function requireFinanceReadAccess(ctx: TRPCContext) {
 	const role = ctx.currentUser?.role;
 	if (!role || !FINANCE_READ_ROLES.has(role)) {
 		throw new TRPCError({
@@ -139,7 +139,7 @@ function isFinanceAdmin(ctx: TRPCContext) {
 	return role === "ADMIN" || role === "Admin";
 }
 
-function requireFinanceWriteAccess(ctx: TRPCContext) {
+export function requireFinanceWriteAccess(ctx: TRPCContext) {
 	const role = ctx.currentUser?.role;
 	if (!role || !FINANCE_READ_ROLES.has(role)) {
 		throw new TRPCError({
@@ -149,7 +149,7 @@ function requireFinanceWriteAccess(ctx: TRPCContext) {
 	}
 }
 
-function requireFinanceAdmin(ctx: TRPCContext, message: string) {
+export function requireFinanceAdmin(ctx: TRPCContext, message: string) {
 	if (!isFinanceAdmin(ctx)) {
 		throw new TRPCError({
 			code: "FORBIDDEN",
@@ -796,10 +796,22 @@ export async function upsertFinanceStream(
 	ctx: TRPCContext,
 	input: FinanceStreamInput,
 ) {
+	requireFinanceWriteAccess(ctx);
 	const schoolProfileId = requireSchoolId(ctx);
 	const slug = input.slug?.trim() || slugify(input.name);
 
 	if (input.id) {
+		const existing = await ctx.db.financeStream.findFirst({
+			where: { id: input.id, schoolProfileId, deletedAt: null },
+			select: { id: true },
+		});
+		if (!existing) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Finance stream was not found.",
+			});
+		}
+
 		return ctx.db.financeStream.update({
 			where: { id: input.id },
 			data: {
@@ -828,6 +840,7 @@ export async function upsertFinanceItem(
 	ctx: TRPCContext,
 	input: FinanceItemInput,
 ) {
+	requireFinanceAdmin(ctx, "Only an Admin can create or update finance items.");
 	const schoolProfileId = requireSchoolId(ctx);
 
 	return ctx.db.$transaction(async (tx) => {
@@ -854,9 +867,22 @@ export async function upsertFinanceItem(
 			createdById: ctx.currentUser?.id,
 		};
 
-		const item = input.id
-			? await tx.financeItem.update({ where: { id: input.id }, data })
-			: await tx.financeItem.create({ data });
+		let item;
+		if (input.id) {
+			const existing = await tx.financeItem.findFirst({
+				where: { id: input.id, schoolProfileId, deletedAt: null },
+				select: { id: true },
+			});
+			if (!existing) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Finance item was not found.",
+				});
+			}
+			item = await tx.financeItem.update({ where: { id: input.id }, data });
+		} else {
+			item = await tx.financeItem.create({ data });
+		}
 
 		await tx.financeItemClassRoomDepartment.deleteMany({
 			where: { itemId: item.id },
@@ -937,6 +963,7 @@ export async function createFinanceCharge(
 	ctx: TRPCContext,
 	input: FinanceChargeInput,
 ) {
+	requireFinanceWriteAccess(ctx);
 	const schoolProfileId = requireSchoolId(ctx);
 	await assertTermLedgerWritable(ctx.db as any, {
 		schoolProfileId,
@@ -1174,6 +1201,7 @@ export async function recordFinancePayment(
 	ctx: TRPCContext,
 	input: FinancePaymentInput,
 ) {
+	requireFinanceWriteAccess(ctx);
 	const schoolProfileId = requireSchoolId(ctx);
 
 	return ctx.db.$transaction(async (tx) => {
@@ -1320,6 +1348,7 @@ export async function reverseFinancePayment(
 	ctx: TRPCContext,
 	input: { paymentId: string; note?: string }
 ) {
+	requireFinanceWriteAccess(ctx);
 	const schoolProfileId = requireSchoolId(ctx);
 
 	return ctx.db.$transaction(async (tx) => {
@@ -1797,6 +1826,17 @@ export async function upsertFinancePayee(
 	const normalizedName = normalizePayeeName(input.name);
 
 	if (input.id) {
+		const existing = await ctx.db.financePayee.findFirst({
+			where: { id: input.id, schoolProfileId, deletedAt: null },
+			select: { id: true },
+		});
+		if (!existing) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Finance payee was not found.",
+			});
+		}
+
 		const payee = await ctx.db.financePayee.update({
 			where: { id: input.id },
 			data: {
@@ -1900,12 +1940,25 @@ export async function upsertFinancePayrollStructure(
 		createdById: ctx.currentUser?.id,
 	};
 
-	const structure = input.id
-		? await ctx.db.financePayrollStructure.update({
-				where: { id: input.id },
-				data,
-			})
-		: await ctx.db.financePayrollStructure.create({ data });
+	let structure;
+	if (input.id) {
+		const existing = await ctx.db.financePayrollStructure.findFirst({
+			where: { id: input.id, schoolProfileId, deletedAt: null },
+			select: { id: true },
+		});
+		if (!existing) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Payroll structure was not found.",
+			});
+		}
+		structure = await ctx.db.financePayrollStructure.update({
+			where: { id: input.id },
+			data,
+		});
+	} else {
+		structure = await ctx.db.financePayrollStructure.create({ data });
+	}
 
 	return {
 		...structure,
@@ -3097,6 +3150,7 @@ export async function getFinanceTermLedger(
 			title: true,
 			startDate: true,
 			endDate: true,
+			createdAt: true,
 			sessionId: true,
 			session: { select: { id: true, title: true } },
 		},
@@ -3216,6 +3270,7 @@ export async function getFinanceTermLedger(
 		isCurrent: term.id === ctx.profile.termId,
 		startDate: term.startDate,
 		endDate: term.endDate,
+		createdAt: term.createdAt,
 		accounts,
 		summary: {
 			moneyIn,
@@ -3254,7 +3309,12 @@ async function findCarryForwardNextTerm(
 	ctx: TRPCContext,
 	params: {
 		schoolProfileId: string;
-		currentTerm: { id: string; sessionId: string | null };
+		currentTerm: {
+			id: string;
+			sessionId: string | null;
+			startDate?: Date | string | null;
+			createdAt?: Date | string | null;
+		};
 		nextTermId?: string | null;
 	},
 ) {
@@ -3269,6 +3329,11 @@ async function findCarryForwardNextTerm(
 						...(params.currentTerm.sessionId
 							? { sessionId: params.currentTerm.sessionId }
 							: {}),
+						...(params.currentTerm.startDate
+							? { startDate: { gt: params.currentTerm.startDate } }
+							: params.currentTerm.createdAt
+								? { createdAt: { gt: params.currentTerm.createdAt } }
+								: {}),
 					}),
 		},
 		select: { id: true, sessionId: true, title: true },
@@ -3295,9 +3360,63 @@ export async function previewFinanceTermClose(
 	});
 	const nextTerm = await findCarryForwardNextTerm(ctx, {
 		schoolProfileId,
-		currentTerm: { id: ledger.termId, sessionId: ledger.sessionId },
+		currentTerm: {
+			id: ledger.termId,
+			sessionId: ledger.sessionId,
+			startDate: ledger.startDate,
+			createdAt: ledger.createdAt,
+		},
 		nextTermId: input?.nextTermId,
 	});
+	const [
+		missingLedgerTerms,
+		unresolvedTransfers,
+		cancelledLedgerEffects,
+		unmatchedCarryForwards,
+	] = await Promise.all([
+		ctx.db.financeLedgerEntry.findMany({
+			where: {
+				schoolProfileId,
+				deletedAt: null,
+				collectedSessionTermId: null,
+				charge: { sessionTermId: null },
+			},
+			select: { id: true },
+			take: 1,
+		}),
+		ctx.db.financeTransfer.findMany({
+			where: {
+				schoolProfileId,
+				deletedAt: null,
+				status: { not: "COMPLETED" },
+			},
+			select: { id: true },
+			take: 1,
+		}),
+		ctx.db.financeLedgerEntry.findMany({
+			where: {
+				schoolProfileId,
+				deletedAt: null,
+				OR: [
+					{ charge: { status: "CANCELLED" } },
+					{ payment: { status: { in: ["CANCELLED", "REFUNDED"] } } },
+				],
+			},
+			select: { id: true },
+			take: 1,
+		}),
+		(ctx.db as any).financeTermCarryForward?.findMany
+			? (ctx.db as any).financeTermCarryForward.findMany({
+					where: {
+						schoolProfileId,
+						deletedAt: null,
+						ledgerEntryId: null,
+					},
+					select: { id: true },
+					take: 1,
+				})
+			: [],
+	]);
 	const carryForwards = ledger.accounts
 		.map((account) => {
 			const balance = Number(account.balance || 0);
@@ -3312,12 +3431,60 @@ export async function previewFinanceTermClose(
 		})
 		.filter((row) => row.amount > 0);
 	const warnings = [
+		...(ledger.summary.deficitAccountCount > 0
+			? [
+					{
+						key: "negative-accounts",
+						label: "Negative Accounts",
+						message: `${ledger.summary.deficitAccountCount} account(s) need funding before close.`,
+					},
+				]
+			: []),
 		...(ledger.summary.outstandingPayables > 0
 			? [
 					{
 						key: "outstanding-payables",
 						label: "Outstanding Payables",
 						message: `${ledger.summary.outstandingPayablesCount} payable(s) remain outstanding.`,
+					},
+				]
+			: []),
+		...(missingLedgerTerms.length
+			? [
+					{
+						key: "missing-ledger-terms",
+						label: "Missing Ledger Terms",
+						message:
+							"Some ledger entries need collected-in or paid-for term attribution review.",
+					},
+				]
+			: []),
+		...(unresolvedTransfers.length
+			? [
+					{
+						key: "unresolved-transfers",
+						label: "Unresolved Transfers",
+						message: "Some account transfers are not completed.",
+					},
+				]
+			: []),
+		...(cancelledLedgerEffects.length
+			? [
+					{
+						key: "cancelled-ledger-effects",
+						label: "Cancelled Ledger Effects",
+						message:
+							"Some cancelled or refunded finance records still have ledger effects to review.",
+					},
+				]
+			: []),
+		...(unmatchedCarryForwards.length
+			? [
+					{
+						key: "unmatched-carry-forward",
+						label: "Unmatched Carry Forward",
+						message:
+							"Some carry-forward rows are not linked to opening ledger entries.",
 					},
 				]
 			: []),

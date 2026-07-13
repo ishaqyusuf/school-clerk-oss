@@ -26,6 +26,7 @@ import {
 	previewFinanceTermClose,
 	recordFinancePurchase,
 	recordFinancePayment,
+	requireFinanceReadAccess,
 	receiveStudentPaymentSimple,
 	reopenFinanceTermLedger,
 	reverseFinancePayment,
@@ -570,6 +571,7 @@ export const financeRouter = createTRPCRouter({
 	getFinanceIntegrityReport: authenticatedProcedure
 		.input(optionalCompatInput)
 		.query(async ({ ctx }) => {
+			requireFinanceReadAccess(ctx);
 			const overview = await getFinanceOverview(ctx);
 			const schoolProfileId = ctx.profile.schoolId;
 			const termId = ctx.profile.termId ?? null;
@@ -738,6 +740,7 @@ export const financeRouter = createTRPCRouter({
 	getFinanceReports: authenticatedProcedure
 		.input(optionalCompatInput)
 		.query(async ({ ctx }) => {
+			requireFinanceReadAccess(ctx);
 			const overview = await getFinanceOverview(ctx);
 			const schoolProfileId = ctx.profile.schoolId;
 			const termId = ctx.profile.termId ?? null;

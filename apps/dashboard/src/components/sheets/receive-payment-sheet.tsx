@@ -664,6 +664,10 @@ function SimpleReceivePaymentSheet({
 											addFee: true,
 											addFeeClassroomId:
 												optionsData?.student?.classroomDepartmentId ?? null,
+											addFeeStudentId: selectedStudent.id,
+											addFeeStudentTermFormId:
+												optionsData?.student?.currentTermFormId ?? null,
+											addFeeTitle: customPaymentTypeTitle,
 										});
 									}}
 								>
