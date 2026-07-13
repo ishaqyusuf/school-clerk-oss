@@ -22,6 +22,9 @@ Catalog of API routes and responsibilities.
 - `PATCH /students/:id`
 - `trpc.students.overview` (tenant-scoped student overview payload with active term options, identity fields, and first guardian for overview/page hosts)
 - `trpc.students.updateStudentBasicProfile` (tenant-scoped mutation for names, gender, DOB, and first parent/guardian details)
+- `trpc.students.changeStudentClass` (authenticated tenant-scoped Admin/Registrar mutation for changing the selected student term sheet classroom)
+- `trpc.students.deleteTermSheet` (authenticated tenant-scoped Admin/Registrar mutation for soft-deleting a selected student term sheet)
+- `trpc.students.deleteStudent` (authenticated tenant-scoped Admin/Registrar mutation for soft-deleting a student and active academic forms)
 - `trpc.students.getImportNameGuide` (tenant-scoped existing name-part guide for student import parsing)
 - `trpc.students.verifyStudentImport` (batch verify student import rows for duplicates, typos, gender inference, and row-level classroom assignment)
 
@@ -152,7 +155,7 @@ Catalog of API routes and responsibilities.
 
 ## Router Ownership Map
 
-- `trpc.students.*`: student listing, detail, overview, student-centric workflows, focused basic-profile edits, and **student import** (`createStudent`, `updateStudentBasicProfile`, `getImportNameGuide`, `executeStudentImport`)
+- `trpc.students.*`: student listing, detail, overview, student-centric workflows, focused basic-profile edits, student overview management actions, and **student import** (`createStudent`, `updateStudentBasicProfile`, `changeStudentClass`, `deleteTermSheet`, `deleteStudent`, `getImportNameGuide`, `executeStudentImport`)
 - `trpc.classrooms.*`: classroom lists, overview, and classroom-scoped actions
 - `trpc.academics.*`: academic session, term, enrollment, and promotion flows (includes `entrollStudentToTerm` used during import workflow)
 - `trpc.transactions.*`: fee definitions, fee imports, and other transaction-oriented finance writes

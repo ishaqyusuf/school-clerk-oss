@@ -19,6 +19,13 @@ import { Card, CardContent } from "@school-clerk/ui/card";
 import { Badge } from "@school-clerk/ui/badge";
 import { GraduationCap, Layers3, Info } from "lucide-react";
 
+function fullClassName(term?: {
+  classDisplayName?: string | null;
+  departmentName?: string | null;
+}) {
+  return term?.classDisplayName || term?.departmentName || "--";
+}
+
 export function StudentAcademicsOverview({}) {
   return (
     <Suspense fallback={<TableSkeleton />}>
@@ -71,7 +78,7 @@ function Content({}) {
                   Current Class
                 </p>
                 <p className="break-words text-sm font-semibold text-foreground">
-                  {term?.departmentName || "--"}
+                  {fullClassName(term)}
                 </p>
               </div>
             </div>

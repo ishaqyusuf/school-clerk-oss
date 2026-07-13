@@ -3,6 +3,7 @@ import type {
   CreateAcademicSession,
   GetStudentTermListSchema,
 } from "@api/trpc/schemas/schemas";
+import { classroomDisplayName } from "@school-clerk/utils";
 
 export async function getStudentTermsList(
   ctx: TRPCContext,
@@ -69,6 +70,9 @@ export async function getStudentTermsList(
   });
   const termList = terms.map((term) => {
     const termForm = term?.termForms?.[0];
+    const className = termForm?.classroomDepartment?.classRoom?.name ?? null;
+    const departmentName =
+      termForm?.classroomDepartment?.departmentName ?? null;
     return {
       term: `${term.title} ${term.session?.title}`,
       termId: term?.id,
@@ -76,7 +80,13 @@ export async function getStudentTermsList(
 
       //   description: [term.startDate, term.endDate].map(d => ())
       studentTermId: termForm?.id || null,
-      departmentName: termForm?.classroomDepartment?.departmentName || null,
+      departmentName,
+      className,
+      classDisplayName:
+        classroomDisplayName({
+          className,
+          departmentName,
+        }) || null,
       departmentId: termForm?.classroomDepartment?.id || null,
       classroomId: termForm?.classroomDepartment?.classRoomsId || null,
       studentSessionId: termForm?.sessionForm?.id || null,
@@ -98,6 +108,8 @@ export async function getStudentTermsList(
         tl.classroomId ||= fallback.classroomId;
         tl.departmentId ||= fallback.departmentId;
         tl.departmentName ||= fallback.departmentName;
+        tl.className ||= fallback.className;
+        tl.classDisplayName ||= fallback.classDisplayName;
       }
     }
     return tl;

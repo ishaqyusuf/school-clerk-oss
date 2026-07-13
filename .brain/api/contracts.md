@@ -192,7 +192,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 
 - Route: `students.overview`
 - Request schema: `{ studentId: string, termSheetId?: string | null }`
-- Response schema: `{ id?: string, student: { id, name, surname, otherName, dob, gender, guardian, studentName }, studentTerms }`, where `guardian` is the first non-deleted linked guardian with `id`, `name`, `phone`, and `phone2`.
+- Response schema: `{ id?: string, student: { id, name, surname, otherName, dob, gender, guardian, studentName }, studentTerms }`, where `guardian` is the first non-deleted linked guardian with `id`, `name`, `phone`, and `phone2`, and each `studentTerms[]` item includes `className`, `departmentName`, and full `classDisplayName`.
 - Error cases: student not found for the active tenant; requested term sheet not found returns no active `id` while student overview data still loads.
 - Notes: used by the student overview sheet/page and by the focused basic-info edit sheet. Student and term-sheet lookups are tenant-scoped by `schoolProfileId` and ignore soft-deleted rows.
 
@@ -219,6 +219,24 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Response schema: mutation success with no response body.
 - Error cases: missing active tenant context, student not found in active tenant, guardian id not found in active tenant, invalid required student fields.
 - Notes: updates student names, gender, and DOB. Parent details are normalized by trimming whitespace; blank or incomplete parent details clear the first existing guardian link, a supplied guardian id updates that tenant guardian, and complete parent details without an id upsert by name + phone + tenant before linking to the student.
+
+- Route: `students.changeStudentClass`
+- Request schema: `{ studentTermFormId: string, classroomDepartmentId: string }`
+- Response schema: mutation success with no response body.
+- Error cases: unauthenticated, role not allowed, missing active tenant context, target term sheet not found in tenant, target classroom not found in tenant.
+- Notes: updates the selected `StudentTermForm.classroomDepartmentId` and its linked `StudentSessionForm.classroomDepartmentId` when present. It does not create a duplicate term sheet.
+
+- Route: `students.deleteTermSheet`
+- Request schema: `{ id: string }`
+- Response schema: mutation success with no response body.
+- Error cases: unauthenticated, role not allowed, missing active tenant context, term sheet not found in tenant.
+- Notes: soft-deletes the selected student term sheet only.
+
+- Route: `students.deleteStudent`
+- Request schema: `{ studentId: string }`
+- Response schema: mutation success with no response body.
+- Error cases: unauthenticated, role not allowed, missing active tenant context, student not found in tenant.
+- Notes: soft-deletes the student plus active tenant-scoped student term/session forms for that student.
 
 - Route: `students.getImportNameGuide`
 - Request schema: none

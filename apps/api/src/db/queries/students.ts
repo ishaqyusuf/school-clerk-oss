@@ -26,6 +26,30 @@ const emptySearchQuery = (q: GetStudentsSchema) =>
       "sessionId",
     ] as (keyof GetStudentsSchema)[]
   ).every((a) => !q[a]);
+
+const STUDENT_MANAGEMENT_ROLES = new Set(["ADMIN", "Admin", "Registrar"]);
+
+function requireStudentManagementAccess(ctx: TRPCContext) {
+  const schoolProfileId = ctx.profile.schoolId;
+  const role = ctx.currentUser?.role;
+
+  if (!schoolProfileId) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "A school workspace is required.",
+    });
+  }
+
+  if (!role || !STUDENT_MANAGEMENT_ROLES.has(role)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You do not have permission to manage student records.",
+    });
+  }
+
+  return { schoolProfileId };
+}
+
 // !q.q && !q.status && !q.studentId && !q.sessionId && !q.sessionTermId;
 export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
   const { db } = ctx;
@@ -1155,12 +1179,42 @@ export async function deleteStudent(
   query: DeleteStudentSchema,
 ) {
   const { db } = ctx;
-  await db.students.update({
-    where: { id: query.studentId },
-    data: {
-      deletedAt: new Date(0),
+  const { schoolProfileId } = requireStudentManagementAccess(ctx);
+  const deletedAt = new Date();
+  const result = await db.students.updateMany({
+    where: {
+      id: query.studentId,
+      schoolProfileId,
+      deletedAt: null,
     },
+    data: { deletedAt },
   });
+
+  if (result.count === 0) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Student was not found in this school workspace.",
+    });
+  }
+
+  await Promise.all([
+    db.studentTermForm.updateMany({
+      where: {
+        studentId: query.studentId,
+        schoolProfileId,
+        deletedAt: null,
+      },
+      data: { deletedAt },
+    }),
+    db.studentSessionForm.updateMany({
+      where: {
+        studentId: query.studentId,
+        schoolProfileId,
+        deletedAt: null,
+      },
+      data: { deletedAt },
+    }),
+  ]);
 }
 
 export const changeStudentGenderSchema = z.object({
@@ -1217,6 +1271,14 @@ export const deleteTermSheetSchema = z.object({
 });
 export type DeleteTermSheetSchema = z.infer<typeof deleteTermSheetSchema>;
 
+export const changeStudentClassSchema = z.object({
+  studentTermFormId: z.string(),
+  classroomDepartmentId: z.string(),
+});
+export type ChangeStudentClassSchema = z.infer<
+  typeof changeStudentClassSchema
+>;
+
 export const bulkDeleteTermSheetsSchema = z.object({
   ids: z.array(z.string()).min(1),
 });
@@ -1229,11 +1291,93 @@ export async function deleteTermSheet(
   query: DeleteTermSheetSchema,
 ) {
   const { db } = ctx;
-  await db.studentTermForm.update({
-    where: { id: query.id },
-    data: {
-      deletedAt: new Date(),
+  const { schoolProfileId } = requireStudentManagementAccess(ctx);
+  const result = await db.studentTermForm.updateMany({
+    where: {
+      id: query.id,
+      schoolProfileId,
+      deletedAt: null,
     },
+    data: { deletedAt: new Date() },
+  });
+
+  if (result.count === 0) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Term sheet was not found in this school workspace.",
+    });
+  }
+}
+
+export async function changeStudentClass(
+  ctx: TRPCContext,
+  query: ChangeStudentClassSchema,
+) {
+  const { db } = ctx;
+  const { schoolProfileId } = requireStudentManagementAccess(ctx);
+
+  await db.$transaction(async (tx) => {
+    const classroomDepartment = await tx.classRoomDepartment.findFirst({
+      where: {
+        id: query.classroomDepartmentId,
+        deletedAt: null,
+        classRoom: {
+          schoolProfileId,
+          deletedAt: null,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!classroomDepartment) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Target class was not found in this school workspace.",
+      });
+    }
+
+    const termForm = await tx.studentTermForm.findFirst({
+      where: {
+        id: query.studentTermFormId,
+        schoolProfileId,
+        deletedAt: null,
+        student: {
+          deletedAt: null,
+          schoolProfileId,
+        },
+      },
+      select: {
+        id: true,
+        studentSessionFormId: true,
+      },
+    });
+
+    if (!termForm) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Term sheet was not found in this school workspace.",
+      });
+    }
+
+    await tx.studentTermForm.update({
+      where: { id: termForm.id },
+      data: {
+        classroomDepartmentId: classroomDepartment.id,
+      },
+    });
+
+    if (termForm.studentSessionFormId) {
+      await tx.studentSessionForm.updateMany({
+        where: {
+          id: termForm.studentSessionFormId,
+          schoolProfileId,
+          deletedAt: null,
+        },
+        data: {
+          classroomDepartmentId: classroomDepartment.id,
+        },
+      });
+    }
   });
 }
 
@@ -1242,11 +1386,12 @@ export async function bulkDeleteTermSheets(
   query: BulkDeleteTermSheetsSchema,
 ) {
   const { db } = ctx;
+  const { schoolProfileId } = requireStudentManagementAccess(ctx);
   const result = await db.studentTermForm.updateMany({
     where: {
       id: { in: query.ids },
       deletedAt: null,
-      schoolProfileId: ctx.profile.schoolId,
+      schoolProfileId,
     },
     data: {
       deletedAt: new Date(),

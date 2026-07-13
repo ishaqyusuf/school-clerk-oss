@@ -23,7 +23,7 @@ Defines access control rules for each API surface.
 
 ## Permission Matrix
 
-- Student Management: TBD by role
+- Student Management: `ADMIN`, `Admin`, and `Registrar` can perform administrative student overview actions including changing a selected term sheet class, deleting the selected term sheet, and deleting the student. Other authenticated roles may read student surfaces only where their route/module access allows.
 - Admissions: TBD by role
 - Attendance: TBD by role
 - Results: TBD by role

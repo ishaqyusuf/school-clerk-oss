@@ -15,6 +15,8 @@ import {
   deleteStudent,
   deleteTermSheetSchema,
   deleteTermSheet,
+  changeStudentClassSchema,
+  changeStudentClass,
   bulkDeleteTermSheetsSchema,
   bulkDeleteTermSheets,
   changeStudentGenderSchema,
@@ -50,17 +52,22 @@ export const studentsRouter = createTRPCRouter({
     .mutation(async (props) => {
       return createStudent(props.ctx, props.input);
     }),
-  deleteStudent: publicProcedure
+  deleteStudent: authenticatedProcedure
     .input(deleteStudentSchema)
     .mutation(async (props) => {
       return deleteStudent(props.ctx, props.input);
     }),
-  deleteTermSheet: publicProcedure
+  deleteTermSheet: authenticatedProcedure
     .input(deleteTermSheetSchema)
     .mutation(async (props) => {
       return deleteTermSheet(props.ctx, props.input);
     }),
-  bulkDeleteTermSheets: publicProcedure
+  changeStudentClass: authenticatedProcedure
+    .input(changeStudentClassSchema)
+    .mutation(async (props) => {
+      return changeStudentClass(props.ctx, props.input);
+    }),
+  bulkDeleteTermSheets: authenticatedProcedure
     .input(bulkDeleteTermSheetsSchema)
     .mutation(async (props) => {
       return bulkDeleteTermSheets(props.ctx, props.input);

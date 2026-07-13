@@ -30,6 +30,8 @@ The shared shell keeps the same overview, academics, attendance, and payments fe
 - The page host adds breadcrumb chrome while the sheet host keeps the compact scrollable sheet container.
 - The shell uses one tab state model per host, so sheet interactions do not leak into the page view and page interactions do not require sheet query params.
 - The overview header's Edit action opens a focused student information sheet using the `studentEditId` query param. It edits names, gender, DOB, and the first linked parent/guardian without exposing enrollment or fee setup fields.
+- The overview tab shows an administrative student-management panel for `ADMIN`, `Admin`, and `Registrar` users. It can change the selected term sheet's class, delete the selected/current term sheet, or delete the student.
+- Class labels in the overview and academics tabs use the full classroom display name (`className + departmentName` unless the department already contains the class name) instead of showing only the department/arm name.
 - The overview sheet uses mobile-first spacing and overflow controls: long names and term labels truncate inside the header, tab navigation scrolls within the sheet, term history rows stack status badges on narrow screens, attendance records render as compact cards on mobile, and finance actions/forms collapse into single-column or full-width controls where needed.
 
 ## Data Behavior
@@ -38,3 +40,4 @@ The shared shell keeps the same overview, academics, attendance, and payments fe
 - Sheet mode syncs term selection back into `studentViewTermId` and `studentTermSheetId`.
 - Page mode keeps its own local tab and term state, which allows attendance, finance, academics, and overview components to work outside the sheet.
 - Saving the focused edit sheet calls `students.updateStudentBasicProfile`, which tenant-scopes the student lookup, updates basic student fields, and creates, updates, reconnects, or clears the first guardian link based on the submitted parent details.
+- Administrative overview actions call authenticated, tenant-scoped `students.changeStudentClass`, `students.deleteTermSheet`, and `students.deleteStudent` mutations. The class-change mutation updates the selected term sheet and linked session form rather than creating a duplicate enrollment.
