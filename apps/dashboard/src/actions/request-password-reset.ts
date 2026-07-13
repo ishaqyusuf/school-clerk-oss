@@ -5,8 +5,8 @@ import { getTenantUrlHeaderNames } from "@school-clerk/tenant-url";
 import { headers } from "next/headers";
 import { prisma } from "@school-clerk/db";
 import { ensureCredentialAccount } from "./ensure-credential-account";
-import { buildDashboardTenantUrl } from "@/features/signup/tenant-urls";
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config";
+import { getTenantDashboardEmailUrl } from "./tenant-email-url";
 
 type PasswordResetUser = Awaited<
   ReturnType<typeof getPasswordResetUsers>
@@ -117,7 +117,7 @@ function userBelongsToTenant(user: PasswordResetUser, tenantSlug: string) {
   });
 }
 
-function getPreferredResetTargetForUser({
+async function getPreferredResetTargetForUser({
   currentTenantSlug,
   user,
 }: {
@@ -156,11 +156,14 @@ function getPreferredResetTargetForUser({
 
   return {
     schoolName: school.name,
-    url: buildDashboardTenantUrl(subdomain, "/reset-password"),
+    url: await getTenantDashboardEmailUrl({
+      path: "/reset-password",
+      tenantSlug: subdomain,
+    }),
   };
 }
 
-function getPasswordResetTarget({
+async function getPasswordResetTarget({
   currentOrigin,
   currentTenantSlug,
   users,
@@ -172,7 +175,7 @@ function getPasswordResetTarget({
   const tenantUser = currentTenantSlug
     ? users.find((user) => userBelongsToTenant(user, currentTenantSlug))
     : null;
-  const resetTarget = getPreferredResetTargetForUser({
+  const resetTarget = await getPreferredResetTargetForUser({
     currentTenantSlug,
     user: tenantUser ?? users[0],
   });
@@ -191,7 +194,7 @@ export async function requestPasswordReset(email: string) {
     getCurrentTenantSlug(),
     getPasswordResetUsers(email),
   ]);
-  const resetTarget = getPasswordResetTarget({
+  const resetTarget = await getPasswordResetTarget({
     currentOrigin,
     currentTenantSlug,
     users,
