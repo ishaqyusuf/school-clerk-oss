@@ -140,6 +140,34 @@ type PurchaseSuggestion = {
 	applicableClasses?: { id: string }[];
 };
 
+type SimplePaymentTypeOption = {
+	id: string;
+	title: string;
+	streamId: string;
+	streamName: string;
+	hasOutstanding: boolean;
+	hasConfiguredItems: boolean;
+	defaultAmount: number;
+	descriptions: SimpleDescriptionOption[];
+};
+
+type SimpleDescriptionOption = {
+	id: string;
+	source: "configuredItem" | "outstandingCharge";
+	title: string;
+	description?: string | null;
+	itemId?: string | null;
+	chargeId?: string | null;
+	streamId: string;
+	amountDue: number;
+	defaultAmount: number;
+	termLabel?: string | null;
+	isActive: boolean;
+};
+
+type SimplePaymentTypeComboboxItem = SimplePaymentTypeOption & { label: string };
+type SimpleDescriptionComboboxItem = SimpleDescriptionOption & { label: string };
+
 const paymentMethods = [
 	"Bank Transfer",
 	"Cash",
@@ -160,7 +188,806 @@ function toNumber(value: string | number | null | undefined) {
 	return Number(value || 0);
 }
 
+function normalizeOptionText(value: string) {
+	return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 export function ReceivePaymentSheet() {
+	const [advancedMode, setAdvancedMode] = useState(false);
+
+	if (advancedMode) {
+		return (
+			<LegacyReceivePaymentSheet
+				onExitAdvanced={() => setAdvancedMode(false)}
+			/>
+		);
+	}
+
+	return <SimpleReceivePaymentSheet onUseAdvanced={() => setAdvancedMode(true)} />;
+}
+
+function SimpleReceivePaymentSheet({
+	onUseAdvanced,
+}: {
+	onUseAdvanced: () => void;
+}) {
+	const {
+		receivePayment: receivePaymentOpen,
+		receivePaymentStudentId,
+		receivePaymentStudentName,
+		setParams,
+	} = useReceivePaymentParams();
+	const studentSheetParams = useStudentParams();
+	const { setParams: setAddFeeParams } = useAddFeeParams();
+	const trpc = useTRPC();
+	const qc = useQueryClient();
+	const isOpen = Boolean(receivePaymentOpen);
+	const selectedStudentId = receivePaymentStudentId || "";
+
+	const [studentSearch, setStudentSearch] = useState("");
+	const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0]);
+	const [paymentDate, setPaymentDate] = useState(
+		format(new Date(), "yyyy-MM-dd"),
+	);
+	const [reference, setReference] = useState("");
+	const [note, setNote] = useState("");
+	const [selectedPaymentTypeId, setSelectedPaymentTypeId] = useState("");
+	const [customPaymentTypeTitle, setCustomPaymentTypeTitle] = useState("");
+	const [selectedDescriptionId, setSelectedDescriptionId] = useState("");
+	const [customDescriptionTitle, setCustomDescriptionTitle] = useState("");
+	const [amountDue, setAmountDue] = useState("");
+	const [amountPaid, setAmountPaid] = useState("");
+	const [receiptState, setReceiptState] = useState<ReceiptState | null>(null);
+
+	const resetPaymentChoice = () => {
+		setSelectedPaymentTypeId("");
+		setCustomPaymentTypeTitle("");
+		setSelectedDescriptionId("");
+		setCustomDescriptionTitle("");
+		setAmountDue("");
+		setAmountPaid("");
+		setNote("");
+		setReceiptState(null);
+	};
+
+	useEffect(() => {
+		if (!isOpen) {
+			setStudentSearch("");
+			setPaymentMethod(paymentMethods[0]);
+			setPaymentDate(format(new Date(), "yyyy-MM-dd"));
+			setReference("");
+			resetPaymentChoice();
+		}
+	}, [isOpen]);
+
+	useEffect(() => {
+		resetPaymentChoice();
+	}, [selectedStudentId]);
+
+	const { data: searchResults = [] } = useQuery(
+		trpc.finance.searchStudentsForPayment.queryOptions(
+			{ query: studentSearch || undefined },
+			{ enabled: isOpen },
+		),
+	);
+
+	const { data: optionsData, isLoading } = useQuery(
+		trpc.finance.getReceivePaymentOptions.queryOptions(
+			{ studentId: selectedStudentId },
+			{ enabled: isOpen && Boolean(selectedStudentId) },
+		),
+	);
+
+	const studentOptions = searchResults.map((student) => ({
+		id: student.id,
+		label: studentDisplayName(student) || student.name,
+		classroom: student.classroom,
+		term: student.currentTermLabel,
+		hasCurrentTermSheet: student.hasCurrentTermSheet,
+	}));
+
+	const selectedStudent =
+		studentOptions.find((student) => student.id === selectedStudentId) ||
+		(optionsData?.student
+			? {
+					id: optionsData.student.id,
+					label: optionsData.student.name,
+					classroom: optionsData.student.currentClassroom,
+					term: optionsData.student.currentTerm,
+					hasCurrentTermSheet: Boolean(optionsData.student.currentTermFormId),
+				}
+			: undefined);
+
+	const paymentTypes = (optionsData?.paymentTypes ??
+		[]) as SimplePaymentTypeOption[];
+
+	const selectedPaymentType =
+		paymentTypes.find((option) => option.id === selectedPaymentTypeId) ??
+		(customPaymentTypeTitle
+			? {
+					id: "custom-payment-type",
+					title: customPaymentTypeTitle,
+					streamId: "",
+					streamName: customPaymentTypeTitle,
+					hasOutstanding: false,
+					hasConfiguredItems: false,
+					defaultAmount: 0,
+					descriptions: [],
+				}
+			: undefined);
+
+	const descriptionOptions = selectedPaymentType?.descriptions ?? [];
+	const selectedDescription =
+		descriptionOptions.find((option) => option.id === selectedDescriptionId) ??
+		(customDescriptionTitle
+			? {
+					id: "custom-description",
+					source: "configuredItem" as const,
+					title: customDescriptionTitle,
+					streamId: selectedPaymentType?.streamId ?? "",
+					amountDue: Number(amountDue || 0),
+					defaultAmount: Number(amountPaid || amountDue || 0),
+					isActive: true,
+				}
+			: undefined);
+	const canCreateReusableSimpleCollection = Boolean(
+		optionsData?.permissions?.canCreateSimpleCollection,
+	);
+	const canCreateSchoolFee = Boolean(optionsData?.permissions?.canCreateSchoolFee);
+
+	const paymentTypeItems = useMemo<SimplePaymentTypeComboboxItem[]>(
+		() =>
+			paymentTypes.map((option) => ({
+				...option,
+				label: option.title,
+			})),
+		[paymentTypes],
+	);
+	const selectedPaymentTypeItem = selectedPaymentType
+		? {
+				...selectedPaymentType,
+				label: selectedPaymentType.title,
+			}
+		: undefined;
+	const descriptionItems = useMemo<SimpleDescriptionComboboxItem[]>(
+		() =>
+			descriptionOptions.map((option) => ({
+				...option,
+				label: option.title,
+			})),
+		[descriptionOptions],
+	);
+	const selectedDescriptionItem = selectedDescription
+		? {
+				...selectedDescription,
+				label: selectedDescription.title,
+			}
+		: undefined;
+
+	const receivePaymentMutation = useMutation(
+		trpc.finance.receiveStudentPaymentSimple.mutationOptions({
+			meta: {
+				toastTitle: {
+					loading: "Recording payment...",
+					success: "Payment recorded",
+					error: "Could not record payment",
+				},
+			},
+			onSuccess(result) {
+				if (!selectedStudentId) return;
+				void Promise.all([
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getReceivePaymentOptions.queryKey({
+							studentId: selectedStudentId,
+						}),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getReceivePaymentData.queryKey({
+							studentId: selectedStudentId,
+						}),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getStudentPayments.queryKey({
+							studentId: selectedStudentId,
+						}),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getCharges.queryKey(),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),
+					}),
+				]);
+				setReceiptState({
+					paymentIds: result.paymentIds,
+					count: result.count,
+					totalAllocated: result.totalAllocated,
+				});
+				setReference("");
+				setNote("");
+			},
+		}),
+	);
+	const createReusableItemMutation = useMutation(
+		trpc.finance.createItem.mutationOptions({
+			meta: {
+				toastTitle: {
+					loading: "Saving payment option...",
+					success: "Payment option saved",
+					error: "Could not save payment option",
+				},
+			},
+			onSuccess() {
+				void Promise.all([
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getItems.queryKey(),
+					}),
+					selectedStudentId
+						? qc.invalidateQueries({
+								queryKey: trpc.finance.getReceivePaymentOptions.queryKey({
+									studentId: selectedStudentId,
+								}),
+							})
+						: Promise.resolve(),
+				]);
+			},
+		}),
+	);
+
+	const openReceipt = (paymentIds: string[], download = false) => {
+		if (!paymentIds.length) return;
+		const params = new URLSearchParams({
+			paymentIds: paymentIds.join(","),
+		});
+		if (download) params.set("download", "true");
+		window.open(
+			`/api/pdf/student-payment-receipt?${params.toString()}`,
+			"_blank",
+		);
+	};
+
+	const handleStudentSelect = (studentId: string) => {
+		setReceiptState(null);
+		setParams({
+			receivePayment: true,
+			receivePaymentStudentId: studentId,
+			receivePaymentStudentName: null,
+			receivePaymentCreatedStudentId: null,
+			receivePaymentReturnTo: null,
+		});
+	};
+
+	const openCreateStudent = (name?: string) => {
+		const fallbackName = (
+			name ||
+			studentSearch ||
+			receivePaymentStudentName ||
+			""
+		).trim();
+		setParams({
+			receivePayment: null,
+			receivePaymentStudentId: null,
+			receivePaymentStudentName: fallbackName || null,
+			receivePaymentReturnTo: "student-create",
+		});
+		studentSheetParams.setParams({
+			createStudent: true,
+			createStudentPrefillName: fallbackName || null,
+			createStudentReturnTo: "receive-payment",
+		});
+	};
+
+	const handlePaymentTypeSelect = (option: SimplePaymentTypeOption) => {
+		setSelectedPaymentTypeId(option.id);
+		setCustomPaymentTypeTitle("");
+		const firstDescription = option.descriptions[0];
+		setSelectedDescriptionId(firstDescription?.id ?? "");
+		setCustomDescriptionTitle("");
+		const defaultAmount =
+			firstDescription?.defaultAmount ?? option.defaultAmount ?? 0;
+		setAmountDue(defaultAmount ? String(defaultAmount) : "");
+		setAmountPaid(defaultAmount ? String(defaultAmount) : "");
+		setReceiptState(null);
+	};
+
+	const handleDescriptionSelect = (option: SimpleDescriptionOption) => {
+		setSelectedDescriptionId(option.id);
+		setCustomDescriptionTitle("");
+		const defaultAmount = option.defaultAmount ?? option.amountDue ?? 0;
+		setAmountDue(option.amountDue ? String(option.amountDue) : "");
+		setAmountPaid(defaultAmount ? String(defaultAmount) : "");
+		setReceiptState(null);
+	};
+
+	const canSubmit =
+		Boolean(selectedStudentId) &&
+		Boolean(selectedPaymentType) &&
+		Boolean(selectedDescription || customDescriptionTitle.trim()) &&
+		Number(amountPaid) > 0 &&
+		!receivePaymentMutation.isPending &&
+		!createReusableItemMutation.isPending;
+
+	const submit = async () => {
+		if (!canSubmit || !selectedPaymentType) return;
+		const normalizedCustomDescription = normalizeOptionText(
+			customDescriptionTitle,
+		);
+		const matchedExistingDescription = normalizedCustomDescription
+			? descriptionOptions.find(
+					(option) =>
+						normalizeOptionText(option.title) === normalizedCustomDescription,
+				)
+			: null;
+		let reusableItemId =
+			selectedDescription?.itemId ?? matchedExistingDescription?.itemId ?? null;
+		const shouldCreateReusableItem =
+			canCreateReusableSimpleCollection &&
+			!selectedDescription?.chargeId &&
+			!reusableItemId &&
+			Boolean(customPaymentTypeTitle || customDescriptionTitle) &&
+			Number(amountDue || amountPaid || 0) > 0;
+
+		if (shouldCreateReusableItem) {
+			const createdItem = await createReusableItemMutation.mutateAsync({
+				id: null,
+				streamId: selectedPaymentType.streamId || null,
+				streamName: selectedPaymentType.streamName || selectedPaymentType.title,
+				accountType: "CREDIT",
+				type: "OTHER",
+				name:
+					customDescriptionTitle.trim() ||
+					selectedDescription?.title ||
+					selectedPaymentType.title,
+				description: note.trim() || null,
+				amount: Number(amountDue || amountPaid),
+				collectable: true,
+				isActive: true,
+				sessionId: null,
+				termId: null,
+				classRoomDepartmentIds: [],
+			});
+			reusableItemId = createdItem.id;
+		}
+
+		await receivePaymentMutation.mutateAsync({
+			studentId: selectedStudentId,
+			studentTermFormId: optionsData?.student?.currentTermFormId ?? null,
+			chargeId:
+				selectedDescription?.chargeId ??
+				matchedExistingDescription?.chargeId ??
+				null,
+			itemId: reusableItemId,
+			streamId: selectedPaymentType.streamId || null,
+			streamName: selectedPaymentType.streamName || selectedPaymentType.title,
+			paymentTypeTitle: selectedPaymentType.title,
+			descriptionTitle:
+				selectedDescription?.title || customDescriptionTitle.trim() || null,
+			description: note.trim() || selectedDescription?.description || null,
+			amountDue: amountDue ? Number(amountDue) : null,
+			amountPaid: Number(amountPaid),
+			method: paymentMethod,
+			paymentDate: paymentDate ? new Date(`${paymentDate}T00:00:00`) : null,
+			reference: reference.trim() || null,
+			note: note.trim() || null,
+			termId: optionsData?.context?.termId ?? null,
+			sessionId: optionsData?.context?.sessionId ?? null,
+		});
+	};
+
+	return (
+		<>
+			<Sheet
+				open={isOpen}
+				onOpenChange={(open) => {
+					if (!open) {
+						setParams({
+							receivePayment: null,
+							receivePaymentStudentId: null,
+							receivePaymentStudentName: null,
+							receivePaymentCreatedStudentId: null,
+							receivePaymentReturnTo: null,
+						});
+					}
+				}}
+			>
+			<SheetContent className="flex h-[100dvh] w-full flex-col overflow-hidden p-0 sm:max-w-[640px]">
+				<SheetHeader className="shrink-0 border-b px-6 py-5">
+					<div className="flex items-center justify-between gap-3">
+						<SheetTitle>Receive Student Payment</SheetTitle>
+						<Button type="button" variant="outline" size="sm" onClick={onUseAdvanced}>
+							Advanced
+						</Button>
+					</div>
+				</SheetHeader>
+
+				<div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
+					<div className="space-y-2">
+						<Label>Select student</Label>
+						<div className="relative">
+							<Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+								<ComboboxDropdown
+								items={studentOptions}
+								selectedItem={selectedStudent}
+								placeholder="Search by student name"
+								searchPlaceholder="Search by student name..."
+								className="pl-2"
+								onSearch={(value) => {
+									setStudentSearch(value);
+									if (
+										receivePaymentStudentName &&
+										value !== receivePaymentStudentName
+									) {
+										setParams({ receivePaymentStudentName: value || null });
+									}
+								}}
+								onSelect={(student) => handleStudentSelect(student.id)}
+								onCreate={(value) => {
+									setStudentSearch(value);
+									openCreateStudent(value);
+								}}
+								renderOnCreate={(value) => (
+									<div className="flex items-center gap-2 text-primary">
+										<UserPlus className="h-4 w-4" />
+										<span>Create student "{value}"</span>
+									</div>
+								)}
+								renderSelectedItem={(student) => <span>{student.label}</span>}
+								renderListItem={({ item }) => (
+									<div className="flex w-full items-center justify-between gap-3">
+										<div className="flex flex-col">
+											<span className="font-medium">{item.label}</span>
+											<span className="text-xs text-muted-foreground">
+												{[item.classroom, item.term].filter(Boolean).join(" • ") ||
+													"No term sheet yet"}
+											</span>
+										</div>
+										{!item.hasCurrentTermSheet ? (
+											<Badge variant="outline">No current sheet</Badge>
+										) : null}
+									</div>
+								)}
+							/>
+							{customPaymentTypeTitle && canCreateSchoolFee ? (
+								<Button
+									type="button"
+									variant="outline"
+									className="w-full gap-2"
+									onClick={() => {
+										setParams({
+											receivePayment: null,
+											receivePaymentStudentId: null,
+											receivePaymentStudentName: null,
+											receivePaymentCreatedStudentId: null,
+											receivePaymentReturnTo: null,
+										});
+										setAddFeeParams({
+											addFee: true,
+											addFeeClassroomId:
+												optionsData?.student?.classroomDepartmentId ?? null,
+										});
+									}}
+								>
+									<Plus className="h-4 w-4" />
+									Create as school fee
+								</Button>
+							) : null}
+						</div>
+						{!selectedStudent && (studentSearch || receivePaymentStudentName) ? (
+							<Button
+								type="button"
+								variant="outline"
+								className="gap-2"
+								onClick={() => openCreateStudent()}
+							>
+								<UserPlus className="h-4 w-4" />
+								Create student "{(studentSearch || receivePaymentStudentName || "").trim()}"
+							</Button>
+						) : null}
+					</div>
+
+					{selectedStudent ? (
+						<Card>
+							<CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+								<div>
+									<h3 className="text-base font-semibold">{selectedStudent.label}</h3>
+									<p className="text-sm text-muted-foreground">
+										{[
+											optionsData?.student?.currentClassroom || selectedStudent.classroom,
+											optionsData?.student?.currentTerm || selectedStudent.term,
+										]
+											.filter(Boolean)
+											.join(" • ") || "No active term sheet"}
+									</p>
+								</div>
+								<div className="text-sm font-medium">
+									{formatCurrency(optionsData?.summary?.totalOutstanding || 0)} outstanding
+								</div>
+							</CardContent>
+						</Card>
+					) : null}
+
+					{receiptState ? (
+						<Alert>
+							<CheckCircle2 className="h-4 w-4" />
+							<AlertTitle>Payment recorded successfully</AlertTitle>
+							<AlertDescription className="space-y-3">
+								<p>
+									{receiptState.count} payment allocation
+									{receiptState.count !== 1 ? "s" : ""} recorded for{" "}
+									{formatCurrency(receiptState.totalAllocated)}.
+								</p>
+								<div className="flex flex-wrap gap-2">
+									<Button
+										type="button"
+										size="sm"
+										onClick={() => openReceipt(receiptState.paymentIds)}
+									>
+										Print Receipt
+									</Button>
+									<Button
+										type="button"
+										size="sm"
+										variant="outline"
+										onClick={() => openReceipt(receiptState.paymentIds, true)}
+									>
+										Download PDF
+									</Button>
+									<Button
+										type="button"
+										size="sm"
+										variant="ghost"
+										onClick={resetPaymentChoice}
+									>
+										Record another payment
+									</Button>
+								</div>
+							</AlertDescription>
+						</Alert>
+					) : null}
+
+					<div className="grid gap-4">
+						<div className="space-y-2">
+							<Label>Payment type</Label>
+							<ComboboxDropdown<SimplePaymentTypeComboboxItem>
+								items={paymentTypeItems}
+								selectedItem={selectedPaymentTypeItem}
+								disabled={!selectedStudentId || isLoading}
+								placeholder={isLoading ? "Loading payment types..." : "Select payment type"}
+								searchPlaceholder="Search payment types..."
+								onSelect={handlePaymentTypeSelect}
+								onCreate={(value) => {
+									const trimmed = value.trim();
+									if (!trimmed) return;
+									const existing = paymentTypes.find(
+										(option) =>
+											normalizeOptionText(option.title) ===
+											normalizeOptionText(trimmed),
+									);
+									if (existing) {
+										handlePaymentTypeSelect(existing);
+										return;
+									}
+									setSelectedPaymentTypeId("");
+									setCustomPaymentTypeTitle(trimmed);
+									setSelectedDescriptionId("");
+									setCustomDescriptionTitle("");
+									setAmountDue("");
+									setAmountPaid("");
+									setReceiptState(null);
+								}}
+								renderOnCreate={(value) => (
+									<div className="flex items-center gap-2 text-primary">
+										<Plus className="h-4 w-4" />
+										<span>Add "{value}"</span>
+									</div>
+								)}
+								renderListItem={({ item }) => (
+									<div className="flex w-full items-center justify-between gap-3">
+										<div className="flex flex-col">
+											<span className="font-medium">{item.title}</span>
+											<span className="text-xs text-muted-foreground">
+												{item.descriptions.length} option
+												{item.descriptions.length !== 1 ? "s" : ""}
+											</span>
+										</div>
+										{item.hasOutstanding ? (
+											<Badge variant="secondary">Outstanding</Badge>
+										) : null}
+									</div>
+								)}
+							/>
+						</div>
+
+						<div className="space-y-2">
+							<Label>Description</Label>
+								<ComboboxDropdown<SimpleDescriptionComboboxItem>
+								items={descriptionItems}
+								selectedItem={selectedDescriptionItem}
+								disabled={!selectedPaymentType}
+								placeholder="Select or type description"
+								searchPlaceholder="Search descriptions..."
+								onSelect={handleDescriptionSelect}
+								onCreate={(value) => {
+									const trimmed = value.trim();
+									if (!trimmed) return;
+									const existing = descriptionOptions.find(
+										(option) =>
+											normalizeOptionText(option.title) ===
+											normalizeOptionText(trimmed),
+									);
+									if (existing) {
+										handleDescriptionSelect(existing);
+										return;
+									}
+									setSelectedDescriptionId("");
+									setCustomDescriptionTitle(trimmed);
+									const defaultAmount =
+										selectedPaymentType?.defaultAmount || Number(amountPaid || 0);
+									setAmountDue(defaultAmount ? String(defaultAmount) : "");
+									setAmountPaid(defaultAmount ? String(defaultAmount) : "");
+									setReceiptState(null);
+								}}
+								renderOnCreate={(value) => (
+									<div className="flex items-center gap-2 text-primary">
+										<Plus className="h-4 w-4" />
+										<span>Use "{value}"</span>
+									</div>
+								)}
+								renderListItem={({ item }) => (
+									<div className="flex w-full items-center justify-between gap-3">
+										<div className="flex flex-col">
+											<span className="font-medium">{item.title}</span>
+											<span className="text-xs text-muted-foreground">
+												{item.termLabel || item.description || "Current option"}
+											</span>
+										</div>
+										<span className="text-sm font-medium">
+											{formatCurrency(item.defaultAmount)}
+										</span>
+									</div>
+								)}
+							/>
+						</div>
+
+						<div className="grid gap-4 sm:grid-cols-2">
+							<div className="space-y-2">
+								<Label>Price / amount due</Label>
+								<Input
+									type="number"
+									min="0"
+									value={amountDue}
+									onChange={(event) => {
+										setAmountDue(event.target.value);
+										if (!amountPaid) setAmountPaid(event.target.value);
+									}}
+									placeholder="0.00"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label>Amount paying</Label>
+								<Input
+									type="number"
+									min="0"
+									value={amountPaid}
+									onChange={(event) => setAmountPaid(event.target.value)}
+									placeholder="0.00"
+								/>
+							</div>
+						</div>
+
+						<div className="grid gap-4 sm:grid-cols-2">
+							<div className="space-y-2">
+								<Label>Payment method</Label>
+								<Select value={paymentMethod} onValueChange={setPaymentMethod}>
+									<SelectTrigger>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{paymentMethods.map((method) => (
+											<SelectItem key={method} value={method}>
+												{method}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-2">
+								<Label>Payment date</Label>
+								<div className="relative">
+									<Calendar className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+									<Input
+										className="pl-10"
+										type="date"
+										value={paymentDate}
+										onChange={(event) => setPaymentDate(event.target.value)}
+									/>
+								</div>
+							</div>
+						</div>
+
+						<div className="grid gap-4 sm:grid-cols-2">
+							<div className="space-y-2">
+								<Label>Reference</Label>
+								<Input
+									value={reference}
+									onChange={(event) => setReference(event.target.value)}
+									placeholder="TRX-00123"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label>Note</Label>
+								<Input
+									value={note}
+									onChange={(event) => setNote(event.target.value)}
+									placeholder="Optional note"
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div className="shrink-0 border-t bg-background/95 px-6 py-4 shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.45)] backdrop-blur supports-[backdrop-filter]:bg-background/85">
+					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+						<div>
+							<p className="text-sm font-semibold">
+								{formatCurrency(Number(amountPaid || 0))}
+							</p>
+							<p className="text-xs text-muted-foreground">
+								{selectedPaymentType?.title || "Select a payment type"}
+								{selectedDescription?.title || customDescriptionTitle
+									? ` • ${selectedDescription?.title || customDescriptionTitle}`
+									: ""}
+							</p>
+							{(customPaymentTypeTitle || customDescriptionTitle) &&
+							selectedPaymentType ? (
+								<p className="mt-1 text-xs text-muted-foreground">
+									{canCreateReusableSimpleCollection
+										? "New option will be saved for future payments."
+										: "New option will be recorded for this payment only."}
+								</p>
+							) : null}
+						</div>
+						<div className="grid grid-cols-2 gap-3 sm:flex">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() =>
+									setParams({
+										receivePayment: null,
+										receivePaymentStudentId: null,
+										receivePaymentStudentName: null,
+										receivePaymentCreatedStudentId: null,
+										receivePaymentReturnTo: null,
+									})
+								}
+							>
+								Cancel
+							</Button>
+							<Button
+								type="button"
+								className="gap-2"
+								disabled={!canSubmit}
+								onClick={() => void submit()}
+							>
+								<CreditCard className="h-4 w-4" />
+								<span className="sm:hidden">Confirm</span>
+								<span className="hidden sm:inline">Confirm payment</span>
+							</Button>
+						</div>
+					</div>
+				</div>
+				</SheetContent>
+			</Sheet>
+			<AddFeeSheet />
+		</>
+	);
+}
+
+function LegacyReceivePaymentSheet({
+	onExitAdvanced,
+}: {
+	onExitAdvanced: () => void;
+}) {
 	const {
 		receivePayment: receivePaymentOpen,
 		receivePaymentStudentId,
@@ -761,7 +1588,17 @@ export function ReceivePaymentSheet() {
 		>
 			<SheetContent className="flex h-[100dvh] w-full flex-col overflow-hidden p-0 sm:max-w-[880px]">
 				<SheetHeader className="shrink-0 border-b px-6 py-5">
-					<SheetTitle>Receive Student Payment</SheetTitle>
+					<div className="flex items-center justify-between gap-3">
+						<SheetTitle>Receive Student Payment</SheetTitle>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={onExitAdvanced}
+						>
+							Simple mode
+						</Button>
+					</div>
 				</SheetHeader>
 
 				<div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
@@ -770,7 +1607,7 @@ export function ReceivePaymentSheet() {
 							<Label>Select student</Label>
 							<div className="relative">
 								<Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-								<ComboboxDropdown
+									<ComboboxDropdown
 									items={studentOptions}
 									selectedItem={selectedStudent}
 									placeholder="Search by student name"

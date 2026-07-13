@@ -379,23 +379,107 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: missing tenant context, student not found for tenant, unauthorized finance read access.
 - Notes: read model for the simplified cashier receive-payment flow. It filters configured collectable items by tenant, active/current term or global scope, session scope, and student classroom applicability. Outstanding student charges remain available even when their item is inactive or from an older term.
 
+- Route: `finance.receiveStudentPaymentSimple`
+- Request schema: `{ studentId, studentTermFormId?, chargeId?, itemId?, streamId?, streamName?, paymentTypeTitle?, descriptionTitle?, description?, amountDue?, amountPaid, method?, paymentDate?, reference?, note?, termId?, sessionId? }`
+- Response schema: `recordFinancePayment` result including `{ success, paymentId, paymentIds, allocationId, count, totalAllocated, chargeStatus }`.
+- Error cases: missing tenant context, unauthorized finance write access, missing/invalid student or term sheet, payment amount not positive, amount paid greater than amount due, overpayment against an existing charge, configured item not active/collectable/applicable to the student.
+- Notes: simplified cashier submit adapter. It can pay an existing outstanding charge, create a charge from a configured collectable finance item, or quick-create a one-off/simple collection charge under an existing or newly named finance stream before recording the payment. `termId` / `sessionId` are treated as the collected-in term/session for the payment and ledger entry, while the charge keeps the paid-for term.
+
 - Route: `finance.getTermLedger`
 - Request schema: `{ termId?, sessionId? }`
-- Response schema: derived term-ledger payload with term/session identity, status label, account/stream summaries, money in/out, available balance, deficit count/amount, lifecycle metadata, and permission flags.
+- Response schema: derived term-ledger payload with term/session identity, status label, account/stream summaries, money in/out, available balance, deficit count/amount, outstanding payable count/amount, needs-funding account count, lifecycle metadata, and permission flags.
 - Error cases: missing tenant context, missing term context, term not found for tenant, unauthorized finance read access.
 - Notes: first implementation is a derived read model over the active `SessionTerm`, finance streams, and ledger entries. Persistent term-close snapshots and carry-forward records are deferred to the term close/carry-forward implementation slice.
 
+- Route: `finance.getTermAccountStatement`
+- Request schema: `{ streamId, termId?, sessionId? }`
+- Response schema: selected term/session ids, account identity with operator-facing labels (`Money In`, `Money Out`, `Available Balance`, `Deficit`, `Needs Funding`), summary totals, and up to 500 ledger entries mapped to `money-in` / `money-out` directions with collected-in term ids, paid-for term ids, charge, payment, transfer, and payer context.
+- Error cases: missing tenant context, missing term context, stream not found for tenant, unauthorized finance read access.
+- Notes: statement read model for opening a term account/stream from the term ledger. The route keeps the raw stream direction under `technicalAccountType`; operator UI should use the provided labels and `money-in` / `money-out` directions.
+
+- Route: `finance.getPayees` / `finance.upsertPayee`
+- Request schema: list `{ q?, type? }`; upsert `{ id?, name, type, phone?, email?, note? }`
+- Response schema: reusable payee rows with usage counts for charges, payments, and purchases.
+- Error cases: missing tenant context, unauthorized finance access, invalid payee id.
+- Notes: reusable vendors, service providers, casual workers, and other external payees are tenant-scoped and normalized by name for quick-create reuse.
+
+- Route: `finance.upsertPayrollStructure`
+- Request schema: `{ id?, staffProfileId?, streamId?, streamName?, title, cadence, baseAmount, allowanceAmount?, deductionAmount?, advanceAmount?, bonusAmount?, roleLabel?, isActive?, sessionId?, termId?, notes? }`
+- Response schema: saved payroll structure with numeric amount fields and computed `netAmount`.
+- Error cases: missing tenant context, unauthorized finance write access, invalid staff profile.
+- Notes: teaching and non-teaching staff share the same structure model; `roleLabel` and staff role/title provide filtering context. Cadence supports salary and wage styles: monthly, term, daily, hourly, task, and one-off.
+
+- Route: `finance.createPayrollObligation`
+- Request schema: `{ payrollStructureId, title?, description?, amount?, dueDate?, sessionId?, termId? }`
+- Response schema: created `FinanceCharge` salary/wage payable.
+- Error cases: missing tenant context, unauthorized finance write access, payroll structure not found.
+- Notes: generated obligations are canonical finance charges linked back to the payroll structure and salary/wages stream, so payment and term-ledger effects use the standard charge/payment/ledger path.
+
+- Route: `finance.recordPurchase`
+- Request schema: `{ id?, kind, streamId?, streamName?, payeeId?, payeeName?, payeeType?, title, description?, quantity?, unitCost?, totalCost?, amountPaid?, method?, paymentDate?, receiptNumber?, reference?, note?, sessionId?, termId? }`
+- Response schema: `{ success, purchaseId, chargeId, paymentId?, streamId, payeeId?, status, totalCost, amountPaid }`
+- Error cases: missing tenant context, unauthorized finance write access, paid amount greater than purchase cost, closed term ledger, invalid stream/payee.
+- Notes: records purchases, services, vendor bills, direct expenses, reimbursements, and labor costs. Every purchase creates a canonical payable charge; immediate payments call `recordFinancePayment` and create money-out ledger entries.
+
+- Route: `finance.cancelPurchase`
+- Request schema: `{ purchaseId, reason }`
+- Response schema: `{ success, purchaseId, status, reversedPaymentId? }`
+- Error cases: missing tenant context, unauthorized finance write access, purchase not found.
+- Notes: preserves the purchase row, cancels the linked charge, and reverses the linked payment through the standard payment reversal path when money had already gone out. Paid purchases become `REFUNDED`; unpaid purchases become `CANCELLED`.
+
+- Route: `finance.getStaffFinanceHistory`
+- Request schema: `{ staffProfileId, termId?, sessionId? }`
+- Response schema: staff identity, payroll structures, salary/wage charges with receipts, and totals for due, paid, and outstanding.
+- Error cases: missing tenant context, unauthorized finance read access, staff not found.
+- Notes: used by the staff profile Finance tab so salary structure, wage/salary history, advances/deductions, unpaid balances, and receipts are visible from the profile context.
+
+- Route: `finance.getPayeeHistory`
+- Request schema: `{ payeeId, termId?, sessionId? }`
+- Response schema: payee identity, purchase/service records, canonical charge/payment links, totals paid/outstanding, and receipts.
+- Error cases: missing tenant context, unauthorized finance read access, payee not found.
+- Notes: vendor/non-staff history remains linked to canonical finance records rather than duplicated into a separate ledger.
+
+- Route: `finance.getProjectAccountSummary`
+- Request schema: `{ streamId, termId?, sessionId? }`
+- Response schema: account statement plus project summary fields: transferred funding, student sales income, purchase cost, labor cost, service cost, reimbursement cost, total cost, profit/loss, purchases, and entries.
+- Error cases: missing tenant context, unauthorized finance read access, missing term context, stream not found.
+- Notes: supports product/project accounts such as Uniforms or Books without requiring full inventory/warehouse management.
+
+- Route: `finance.transferFunds`
+- Request schema: `{ fromStreamId, toStreamId, amount, note, sentById? }`
+- Response schema: `{ success: true, transferId }`
+- Error cases: missing tenant context, unauthorized finance write access, same source/destination account, missing note/reason, missing source/destination stream, large transfer without Admin role, insufficient source balance for non-Admin users.
+- Notes: creates paired ledger entries, debiting the source account and crediting the destination account. Admin users may override insufficient-balance transfers for approved correction/funding scenarios; transfers above `NGN 250,000` require Admin role.
+
+- Route: `finance.previewTermClose`
+- Request schema: `{ termId?, sessionId?, nextTermId? }`
+- Response schema: selected ledger snapshot, next-term target, blockers, warnings, and per-account carry-forward rows.
+- Error cases: missing tenant context, missing/invalid term context, unauthorized finance read access.
+- Notes: preview is derived and does not write. It reports outstanding-payable warnings and whether next-term opening entries can be created.
+
+- Route: `finance.closeTermLedger`
+- Request schema: `{ termId?, sessionId?, nextTermId? }`
+- Response schema: `{ success, closeId, status: "CLOSED", carryForwards[], warnings[] }`
+- Error cases: missing tenant context, non-Admin role, already closed term, invalid term context.
+- Notes: creates `FinanceTermLedgerClose`, one `FinanceTermCarryForward` per non-zero account balance, and next-term opening `FinanceLedgerEntry` adjustment rows when a next term is available. Closed ledgers block normal payment/charge/transfer writes until reopened.
+
+- Route: `finance.reopenTermLedger`
+- Request schema: `{ termId?, sessionId? }`
+- Response schema: `{ success, closeId, status: "REOPENED" }`
+- Error cases: missing tenant context, non-Admin role, closed term not found.
+- Notes: marks the latest closed ledger row as reopened. Historical carry-forward rows are preserved for audit; correction/reversal policy remains a follow-up.
+
 - Route: `finance.getFinanceIntegrityReport`
 - Request schema: optional `termId`
-- Response schema: `{ totals, checks[], mismatches }`
+- Response schema: `{ totals, checks[], mismatches }`, including pre-close checks for missing ledger terms, negative accounts, pending payables, unresolved transfers, cancelled/refunded records with ledger effects, and unmatched carry-forward rows.
 - Error cases: missing tenant context, unauthorized finance read access
-- Notes: powers the reconciliation workspace with integrity checks for stream/payable/collections consistency
+- Notes: powers the reconciliation workspace with operator-facing integrity checks before close/carry-forward.
 
 - Route: `finance.getFinanceReports`
 - Request schema: optional `termId`
-- Response schema: `{ summary, streams[], payroll[], servicePayments[], collections[], owingLedger[] }`
+- Response schema: `{ summary, streams[], accounts[], termLedgers, payroll[], payables[], purchases[], servicePayments[], collections[], arrears[], productProjectAccounts[], reconciliation, auditTrail, owingLedger[] }`
 - Error cases: missing tenant context, unauthorized finance read access
-- Notes: canonical reporting snapshot used for reconciliation exports and operator reporting
+- Notes: canonical reporting snapshot used for reconciliation exports and operator reporting. `auditTrail` is a projection over canonical finance records and actor fields (`createdById`, `receivedById`, `sentById`, close/reopen ids), not a separate immutable audit-log table.
 
 - Route: `finance.generateBillsFromBillables`
 - Request schema: optional `termId`, optional `billableIds[]`

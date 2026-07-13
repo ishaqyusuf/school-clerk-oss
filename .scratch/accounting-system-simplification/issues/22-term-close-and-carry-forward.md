@@ -4,12 +4,14 @@
 
 **Blocked by:** 19 — Collected-In Vs Paid-For Term Attribution; 20 — Account Transfers And Deficit Funding; 21 — Money-Out And Needs-Funding Payables
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Admins can preview term close before confirming.
-- [ ] Close preview reports account balances, surplus/deficit, pending payables, unresolved transfers, and reconciliation warnings.
-- [ ] Closing snapshots each account balance and keeps the old term readable.
-- [ ] Carry-forward is created per account, not only as one school-wide net amount.
-- [ ] The next term receives opening balances from carry-forward.
-- [ ] Closed terms block normal new transactions.
-- [ ] Tests cover close preview, blockers/warnings, snapshots, per-account carry-forward, next-term opening balances, closed-term read-only behavior, and Admin-only enforcement.
+- [x] Admins can preview term close before confirming.
+- [x] Close preview reports account balances, surplus/deficit, pending payables, unresolved transfers, and reconciliation warnings.
+- [x] Closing snapshots each account balance and keeps the old term readable.
+- [x] Carry-forward is created per account, not only as one school-wide net amount.
+- [x] The next term receives opening balances from carry-forward.
+- [x] Closed terms block normal new transactions.
+- [x] Tests cover close preview, blockers/warnings, snapshots, per-account carry-forward, next-term opening balances, closed-term read-only behavior, and Admin-only enforcement.
+
+**Implementation note:** Added `FinanceTermLedgerClose` and `FinanceTermCarryForward`, plus `finance.previewTermClose`, `finance.closeTermLedger`, and `finance.reopenTermLedger`. Focused tests cover close snapshots, per-account carry-forward, opening ledger entries, and closed-term payment blocking; broader Admin-only and warning/blocker coverage remains.

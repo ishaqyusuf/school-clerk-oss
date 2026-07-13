@@ -13,6 +13,7 @@ import { getInitials } from "@school-clerk/utils";
 import { useQuery } from "@tanstack/react-query";
 import {
 	AlertTriangle,
+	Banknote,
 	BookOpen,
 	Clock3,
 	GraduationCap,
@@ -21,6 +22,7 @@ import {
 	MapPin,
 	PencilLine,
 	Phone,
+	ReceiptText,
 	School,
 	ShieldCheck,
 	UserSquare2,
@@ -29,6 +31,7 @@ import {
 const tabs = [
 	{ id: "overview", label: "Overview", icon: UserSquare2 },
 	{ id: "assignments", label: "Assignments", icon: GraduationCap },
+	{ id: "finance", label: "Finance", icon: Banknote },
 	{ id: "edit", label: "Edit profile", icon: PencilLine },
 ] as const;
 const metricSkeletonKeys = [
@@ -57,6 +60,14 @@ function formatDate(value?: Date | string | null) {
 		month: "short",
 		year: "numeric",
 	}).format(date);
+}
+
+function formatCurrency(value?: number | null) {
+	return new Intl.NumberFormat("en-NG", {
+		style: "currency",
+		currency: "NGN",
+		maximumFractionDigits: 0,
+	}).format(value ?? 0);
 }
 
 function onboardingTone(status?: string | null) {
@@ -109,6 +120,16 @@ export function StaffOverviewShell({
 		trpc.staff.getFormData.queryOptions({
 			staffId,
 		}),
+	);
+	const { data: financeHistory, isLoading: isFinanceHistoryLoading } = useQuery(
+		trpc.finance.getStaffFinanceHistory.queryOptions(
+			{
+				staffProfileId: staffId,
+				termId: null,
+				sessionId: null,
+			},
+			{ enabled: Boolean(data?.staff) },
+		),
 	);
 
 	const resolvedTab = (activeTab as TabId | undefined) || "overview";
@@ -524,6 +545,156 @@ export function StaffOverviewShell({
 				</div>
 			) : null}
 
+			{resolvedTab === "finance" ? (
+				<div className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
+					<section className="border bg-background">
+						<div className="flex items-center justify-between gap-3 border-b px-4 py-4 sm:px-5">
+							<div>
+								<h3 className="text-base font-semibold">Payroll history</h3>
+								<p className="mt-1 text-sm text-muted-foreground">
+									Salary and wage obligations linked to this staff profile.
+								</p>
+							</div>
+							<Badge variant="outline">
+								{financeHistory?.summary.chargeCount ?? 0} record
+								{financeHistory?.summary.chargeCount === 1 ? "" : "s"}
+							</Badge>
+						</div>
+						<div className="space-y-4 p-4 sm:p-5">
+							{isFinanceHistoryLoading ? (
+								<div className="space-y-3">
+									<Skeleton className="h-20 w-full" />
+									<Skeleton className="h-20 w-full" />
+								</div>
+							) : financeHistory?.charges.length ? (
+								financeHistory.charges.map((charge) => (
+									<div key={charge.id} className="border p-4">
+										<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+											<div>
+												<div className="flex flex-wrap items-center gap-2">
+													<p className="font-medium text-foreground">
+														{charge.title}
+													</p>
+													<Badge variant="secondary">{charge.status}</Badge>
+												</div>
+												<p className="mt-1 text-sm text-muted-foreground">
+													{charge.stream.name}
+													{charge.payrollStructure
+														? ` · ${charge.payrollStructure.cadence.toLowerCase()}`
+														: ""}
+												</p>
+											</div>
+											<div className="text-left sm:text-right">
+												<p className="font-semibold text-foreground">
+													{formatCurrency(charge.amount)}
+												</p>
+												<p className="text-sm text-muted-foreground">
+													{formatCurrency(charge.outstanding)} outstanding
+												</p>
+											</div>
+										</div>
+										{charge.receipts.length ? (
+											<div className="mt-4 space-y-2 border-t pt-3">
+												{charge.receipts.map((receipt) => (
+													<div
+														key={receipt.id}
+														className="flex items-center justify-between gap-3 text-sm"
+													>
+														<div className="flex items-center gap-2 text-muted-foreground">
+															<ReceiptText className="h-4 w-4" />
+															<span>{receipt.reference || receipt.method || "Receipt"}</span>
+														</div>
+														<span className="font-medium text-foreground">
+															{formatCurrency(receipt.amount)}
+														</span>
+													</div>
+												))}
+											</div>
+										) : null}
+									</div>
+								))
+							) : (
+								<div className="border border-dashed p-8 text-center">
+									<p className="font-medium text-foreground">
+										No finance records yet
+									</p>
+									<p className="mt-2 text-sm text-muted-foreground">
+										Salary, wage, advance, deduction, and payment records will
+										appear here once recorded from payroll.
+									</p>
+								</div>
+							)}
+						</div>
+					</section>
+
+					<section className="border bg-background">
+						<div className="border-b px-4 py-4 sm:px-5">
+							<h3 className="text-base font-semibold">Salary structure</h3>
+						</div>
+						<div className="space-y-4 p-4 sm:p-5">
+							<div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+								<FinanceMetric
+									label="Total due"
+									value={financeHistory?.summary.totalDue ?? 0}
+								/>
+								<FinanceMetric
+									label="Paid"
+									value={financeHistory?.summary.totalPaid ?? 0}
+								/>
+								<FinanceMetric
+									label="Outstanding"
+									value={financeHistory?.summary.totalOutstanding ?? 0}
+								/>
+							</div>
+
+							{financeHistory?.payrollStructures.length ? (
+								<div className="space-y-3">
+									{financeHistory.payrollStructures.map((structure) => (
+										<div key={structure.id} className="border bg-muted/20 p-4">
+											<div className="flex items-start justify-between gap-3">
+												<div>
+													<p className="font-medium text-foreground">
+														{structure.title}
+													</p>
+													<p className="mt-1 text-sm text-muted-foreground">
+														{structure.cadence.toLowerCase()} ·{" "}
+														{structure.stream.name}
+													</p>
+												</div>
+												<Badge variant={structure.isActive ? "success" : "secondary"}>
+													{structure.isActive ? "Active" : "Inactive"}
+												</Badge>
+											</div>
+											<div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+												<AmountLine label="Base" value={structure.baseAmount} />
+												<AmountLine label="Allowance" value={structure.allowanceAmount} />
+												<AmountLine label="Bonus" value={structure.bonusAmount} />
+												<AmountLine label="Deductions" value={structure.deductionAmount + structure.advanceAmount} />
+											</div>
+											<div className="mt-4 border-t pt-3">
+												<div className="flex items-center justify-between gap-3">
+													<span className="text-sm font-medium text-muted-foreground">
+														Net amount
+													</span>
+													<span className="font-semibold text-foreground">
+														{formatCurrency(structure.netAmount)}
+													</span>
+												</div>
+											</div>
+										</div>
+									))}
+								</div>
+							) : (
+								<p className="text-sm text-muted-foreground">
+									No reusable salary or wage structure has been saved for this
+									staff member.
+								</p>
+							)}
+						</div>
+					</section>
+				</div>
+			) : null}
+
 			{resolvedTab === "edit" ? (
 				<section className="border bg-background">
 					<div className="space-y-2 border-b px-4 py-4 sm:px-5">
@@ -642,6 +813,28 @@ function TimelineRow({ label, value }: { label: string; value: string }) {
 		<div className="flex items-center justify-between gap-4 border border-border bg-background px-4 py-3">
 			<span className="text-sm font-medium text-foreground">{label}</span>
 			<span className="text-sm text-muted-foreground">{value}</span>
+		</div>
+	);
+}
+
+function FinanceMetric({ label, value }: { label: string; value: number }) {
+	return (
+		<div className="border bg-muted/20 p-4">
+			<p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+				{label}
+			</p>
+			<p className="mt-2 text-lg font-semibold text-foreground">
+				{formatCurrency(value)}
+			</p>
+		</div>
+	);
+}
+
+function AmountLine({ label, value }: { label: string; value: number }) {
+	return (
+		<div className="flex items-center justify-between gap-3">
+			<span className="text-muted-foreground">{label}</span>
+			<span className="font-medium text-foreground">{formatCurrency(value)}</span>
 		</div>
 	);
 }

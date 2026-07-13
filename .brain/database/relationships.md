@@ -62,6 +62,15 @@ Describes entity relationships and cardinality constraints.
 - `BillSettlement` 1:N `BillSettlementRepayment` (later funding applied against owing)
 - `BillSettlementRepayment` 1:1 `WalletTransactions` (cash transaction used to cover prior owing)
 - `BillPayment.amount` represents the issued payable amount, the linked `WalletTransactions.amount` represents the cash-funded portion, and `BillSettlement.owingAmount` now acts as the canonical outstanding owing balance.
+- `FinancePayment` N:1 `SessionTerm` / `SchoolSession` through collected-in fields; this is separate from the paid-for term stored on `FinanceCharge`.
+- `FinanceLedgerEntry` N:1 `SessionTerm` / `SchoolSession` through collected-in fields; term ledgers and account statements use these fields for cash/account attribution.
+- `FinancePaymentAllocation` links a collected payment to the `FinanceCharge` it settles, preserving paid-for term attribution even when cash was collected in a later term.
+- `FinanceTermLedgerClose` 1:N `FinanceTermCarryForward`; each close row snapshots one term ledger and each carry-forward row belongs to one finance stream/account.
+- `FinanceTermCarryForward` may point to a next term/session by scalar ids and may store the opening `FinanceLedgerEntry.id` created for that next term.
+- `FinancePayee` 1:N `FinanceCharge`, `FinancePayment`, and `FinancePurchase`; reusable vendor/casual-worker/service-provider records are identity/context records, while the charge/payment/ledger rows remain canonical accounting records.
+- `StaffProfile` 1:N `FinancePayrollStructure`; each payroll structure can generate or guide `FinanceCharge` salary/wage obligations through `FinanceCharge.payrollStructureId`.
+- `FinanceStream` 1:N `FinancePayrollStructure` and `FinancePurchase`; salary/wage and purchase/project activity is always attributed to a stream/account for term ledger and account statement reporting.
+- `FinancePurchase` may link 1:1 to `FinanceCharge` and 1:1 to `FinancePayment`; unpaid purchases have a charge without a payment, while immediately paid purchases link both.
 
 ## Integrity Rules
 

@@ -485,10 +485,16 @@ function CreateServicePaymentForm({ onSuccess }: { onSuccess: () => void }) {
   const [title, setTitle] = useState("");
   const [streamId, setStreamId] = useState("");
   const [streamName, setStreamName] = useState("");
+  const [payeeId, setPayeeId] = useState("");
+  const [payeeName, setPayeeName] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const [markAsPaid, setMarkAsPaid] = useState(false);
   const { data: streams = [] } = useSuspenseQuery(
     trpc.finance.getStreams.queryOptions({ filter: "term" })
+  );
+  const { data: payees = [] } = useSuspenseQuery(
+    trpc.finance.getPayees.queryOptions({})
   );
   const streamOptions = useMemo(
     () =>
@@ -517,9 +523,31 @@ function CreateServicePaymentForm({ onSuccess }: { onSuccess: () => void }) {
           amount: null,
         }
       : undefined);
+  const payeeOptions = useMemo(
+    () =>
+      payees.map((payee) => ({
+        id: payee.id,
+        name: payee.name,
+        label: payee.name,
+        description: payee.type.replaceAll("_", " ").toLowerCase(),
+        usageCount: payee.usageCount,
+      })),
+    [payees]
+  );
+  const selectedPayee =
+    payeeOptions.find((payee) => payee.id === payeeId) ||
+    (payeeName
+      ? {
+          id: payeeId || "__new__",
+          name: payeeName.trim(),
+          label: payeeName.trim(),
+          description: "New reusable payee",
+          usageCount: 0,
+        }
+      : undefined);
 
   const { mutate, isPending } = useMutation(
-    trpc.finance.createServicePayment.mutationOptions({
+    trpc.finance.recordPurchase.mutationOptions({
       meta: {
         toastTitle: {
           loading: "Saving...",
@@ -564,7 +592,7 @@ function CreateServicePaymentForm({ onSuccess }: { onSuccess: () => void }) {
             </button>
           ))}
         </div>
-        <div className="grid sm:grid-cols-4 gap-4 items-end">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           <div className="grid gap-1.5">
             <Label>Title</Label>
             <ComboboxDropdown
@@ -600,6 +628,38 @@ function CreateServicePaymentForm({ onSuccess }: { onSuccess: () => void }) {
             />
           </div>
           <div className="grid gap-1.5">
+            <Label>Vendor / Payee</Label>
+            <ComboboxDropdown
+              items={payeeOptions}
+              selectedItem={selectedPayee}
+              placeholder="Select or create payee"
+              searchPlaceholder="Search vendors and payees..."
+              onSelect={(payee) => {
+                setPayeeId(payee.id);
+                setPayeeName(payee.name);
+              }}
+              onCreate={(value) => {
+                const nextName = value.trim();
+                setPayeeId("");
+                setPayeeName(nextName);
+              }}
+              renderOnCreate={(value) => (
+                <span>Create reusable payee "{value}"</span>
+              )}
+              renderListItem={({ item }) => (
+                <div className="flex w-full items-center gap-2">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="truncate text-muted-foreground">
+                    {item.description}
+                  </span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {item.usageCount} use{item.usageCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+              )}
+            />
+          </div>
+          <div className="grid gap-1.5">
             <Label>Description (optional)</Label>
             <Input
               placeholder="Additional notes"
@@ -617,17 +677,43 @@ function CreateServicePaymentForm({ onSuccess }: { onSuccess: () => void }) {
             />
           </div>
         </div>
+        <div className="flex items-start gap-3 rounded-xl border bg-muted/10 px-4 py-3">
+          <input
+            id="service-mark-as-paid"
+            type="checkbox"
+            checked={markAsPaid}
+            onChange={(event) => setMarkAsPaid(event.target.checked)}
+            className="mt-1"
+          />
+          <div className="space-y-1">
+            <Label htmlFor="service-mark-as-paid" className="text-sm font-semibold">
+              Mark as paid
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Create the expense and immediately post money out from the selected account.
+            </p>
+          </div>
+        </div>
         <div className="flex gap-2">
           <SubmitButton
             isSubmitting={isPending}
-            disabled={!title || !amount}
+            disabled={!title || !amount || !selectedPayee}
             onClick={() =>
               mutate({
+                id: null,
+                kind: "SERVICE",
                 title,
                 streamId: streamId || undefined,
                 streamName: (streamName || title).trim() || undefined,
+                payeeId: payeeId || undefined,
+                payeeName: (payeeName || selectedPayee?.name || "").trim() || undefined,
+                payeeType: "SERVICE_PROVIDER",
                 description: description || undefined,
-                amount: parseFloat(amount),
+                quantity: 1,
+                unitCost: parseFloat(amount),
+                totalCost: parseFloat(amount),
+                amountPaid: markAsPaid ? parseFloat(amount) : 0,
+                method: markAsPaid ? "cash" : undefined,
               })
             }
             type="button"

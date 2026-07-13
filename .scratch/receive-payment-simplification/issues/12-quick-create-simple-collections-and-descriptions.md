@@ -4,12 +4,14 @@
 
 **Blocked by:** 11 — Cashier-Style Receive Payment Sheet
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Typing a missing payment type title shows a create option.
-- [ ] Choosing Simple collection creates or reuses a cashier-style payment category that appears in future payment type lists.
-- [ ] Simple collection creation does not automatically apply charges to students.
-- [ ] Typing a missing description under an existing payment type can create a reusable description/item with amount.
-- [ ] Duplicate payment types and duplicate descriptions are blocked or matched to existing options.
-- [ ] Users without creation permission see collection-only behavior and clear permission messaging.
-- [ ] Tests cover simple collection creation, description creation, duplicate prevention, future option visibility, and permission gating.
+- [x] Typing a missing payment type title shows a create option.
+- [x] Choosing Simple collection creates or reuses a cashier-style payment category that appears in future payment type lists.
+- [x] Simple collection creation does not automatically apply charges to students.
+- [x] Typing a missing description under an existing payment type can create a reusable description/item with amount.
+- [x] Duplicate payment types and duplicate descriptions are blocked or matched to existing options.
+- [x] Users without creation permission see collection-only behavior and clear permission messaging.
+- [x] Tests cover simple collection creation, description creation, duplicate prevention, future option visibility, and permission gating.
+
+**Implementation note:** Admin-capable quick-create saves a collectable `FinanceItem` before submitting payment; non-privileged finance operators still submit a one-off charge through `finance.receiveStudentPaymentSimple`.

@@ -4,8 +4,20 @@ import type { TRPCContext } from "../../trpc/init";
 import type {
 	FinanceChargeInput,
 	FinanceItemInput,
+	FinancePayeeHistoryInput,
+	FinancePayeeInput,
+	FinancePayeeQuery,
 	FinancePaymentInput,
+	FinancePayrollObligationInput,
+	FinancePayrollStructureInput,
+	FinanceProjectAccountSummaryInput,
+	FinancePurchaseCancellationInput,
+	FinancePurchaseInput,
 	FinanceReceivePaymentOptionsInput,
+	FinanceSimpleStudentPaymentInput,
+	FinanceStaffHistoryInput,
+	FinanceTermAccountStatementInput,
+	FinanceTermCloseInput,
 	FinanceStreamDetailsInput,
 	FinanceStreamInput,
 	FinanceStreamQuery,
@@ -88,6 +100,7 @@ type StudentTermChargeForm = {
 };
 
 const FINANCE_READ_ROLES = new Set(["ADMIN", "Admin", "Accountant"]);
+const LARGE_FINANCE_ACTION_THRESHOLD = 250_000;
 
 function requireFinanceReadAccess(ctx: TRPCContext) {
 	const role = ctx.currentUser?.role;
@@ -101,7 +114,7 @@ function requireFinanceReadAccess(ctx: TRPCContext) {
 
 function financePermissionFlags(ctx: TRPCContext) {
 	const role = ctx.currentUser?.role;
-	const isAdmin = role === "ADMIN" || role === "Admin";
+	const isAdmin = isFinanceAdmin(ctx);
 	const isFinanceOperator = isAdmin || role === "Accountant";
 
 	return {
@@ -115,6 +128,34 @@ function financePermissionFlags(ctx: TRPCContext) {
 
 function normalizeOptionTitle(value: string) {
 	return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function normalizePayeeName(value: string) {
+	return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function isFinanceAdmin(ctx: TRPCContext) {
+	const role = ctx.currentUser?.role;
+	return role === "ADMIN" || role === "Admin";
+}
+
+function requireFinanceWriteAccess(ctx: TRPCContext) {
+	const role = ctx.currentUser?.role;
+	if (!role || !FINANCE_READ_ROLES.has(role)) {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message: "You do not have permission to update finance records.",
+		});
+	}
+}
+
+function requireFinanceAdmin(ctx: TRPCContext, message: string) {
+	if (!isFinanceAdmin(ctx)) {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message,
+		});
+	}
 }
 
 async function lockStudentTermChargeReconciliation(
@@ -182,6 +223,33 @@ async function getOrCreateStream(
 			isSystem: true,
 		},
 	});
+}
+
+async function assertTermLedgerWritable(
+	db: any,
+	params: {
+		schoolProfileId: string;
+		termId?: string | null;
+	},
+) {
+	if (!params.termId || !db.financeTermLedgerClose?.findFirst) return;
+
+	const closedLedger = await db.financeTermLedgerClose.findFirst({
+		where: {
+			schoolProfileId: params.schoolProfileId,
+			sessionTermId: params.termId,
+			status: "CLOSED",
+			deletedAt: null,
+		},
+		select: { id: true },
+	});
+
+	if (closedLedger) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "This term ledger is closed. Reopen it before recording changes.",
+		});
+	}
 }
 
 async function reconcileStudentTermChargesForForm(
@@ -502,10 +570,30 @@ export async function listFinanceStreams(
 	const schoolProfileId = requireSchoolId(ctx);
 	const ledgerEntryTermFilters: Prisma.FinanceLedgerEntryWhereInput[] = [
 		...(input?.termId
-			? [{ charge: { sessionTermId: input.termId } }]
+			? [
+					{
+						OR: [
+							{ collectedSessionTermId: input.termId },
+							{
+								collectedSessionTermId: null,
+								charge: { sessionTermId: input.termId },
+							},
+						],
+					},
+				]
 			: []),
 		...(input?.sessionId
-			? [{ charge: { schoolSessionId: input.sessionId } }]
+			? [
+					{
+						OR: [
+							{ collectedSchoolSessionId: input.sessionId },
+							{
+								collectedSchoolSessionId: null,
+								charge: { schoolSessionId: input.sessionId },
+							},
+						],
+					},
+				]
 			: []),
 	];
 	const streams = await ctx.db.financeStream.findMany({
@@ -850,6 +938,10 @@ export async function createFinanceCharge(
 	input: FinanceChargeInput,
 ) {
 	const schoolProfileId = requireSchoolId(ctx);
+	await assertTermLedgerWritable(ctx.db as any, {
+		schoolProfileId,
+		termId: input.termId,
+	});
 
 	return ctx.db.$transaction(async (tx) => {
 		const item = input.itemId
@@ -868,6 +960,7 @@ export async function createFinanceCharge(
 		const stream = await getOrCreateStream(tx, {
 			schoolProfileId,
 			streamId: input.streamId ?? item?.streamId,
+			streamName: input.streamName,
 			type: input.type ?? item?.type,
 		});
 
@@ -882,6 +975,8 @@ export async function createFinanceCharge(
 				studentTermFormId: input.studentTermFormId,
 				staffProfileId: input.staffProfileId,
 				staffTermProfileId: input.staffTermProfileId,
+				payeeId: input.payeeId,
+				payrollStructureId: input.payrollStructureId,
 				classroomDepartmentId: input.classroomDepartmentId,
 				schoolSessionId: input.sessionId ?? item?.schoolSessionId,
 				sessionTermId: input.termId ?? item?.sessionTermId,
@@ -997,6 +1092,12 @@ export async function listFinanceCharges(
 					staffProfile: { select: { id: true, name: true, title: true } },
 				},
 			},
+			payee: {
+				select: { id: true, name: true, type: true, phone: true, email: true },
+			},
+			payrollStructure: {
+				select: { id: true, title: true, cadence: true, netAmount: true },
+			},
 			classroomDepartment: {
 				select: {
 					id: true,
@@ -1043,6 +1144,15 @@ export async function listFinanceCharges(
 			studentTermFormId: charge.studentTermFormId,
 			staffTermProfileId: charge.staffTermProfileId,
 			staffTermProfile: charge.staffTermProfile,
+			payeeId: charge.payeeId,
+			payee: charge.payee,
+			payrollStructureId: charge.payrollStructureId,
+			payrollStructure: charge.payrollStructure
+				? {
+						...charge.payrollStructure,
+						netAmount: toNumber(charge.payrollStructure.netAmount),
+					}
+				: null,
 			walletId: charge.streamId,
 			billPaymentId: null,
 			billPayment: null,
@@ -1093,6 +1203,17 @@ export async function recordFinancePayment(
 		const nextStatus = totalPaid.greaterThanOrEqualTo(chargeAmount)
 			? "PAID"
 			: "PARTIALLY_PAID";
+		const collectedSessionTermId =
+			input.collectedTermId ?? ctx.profile.termId ?? charge.sessionTermId ?? null;
+		const collectedSchoolSessionId =
+			input.collectedSessionId ??
+			(input.collectedTermId ? null : ctx.profile.sessionId ?? null) ??
+			charge.schoolSessionId ??
+			null;
+		await assertTermLedgerWritable(tx as any, {
+			schoolProfileId,
+			termId: collectedSessionTermId,
+		});
 
 		const payment = await tx.financePayment.create({
 			data: {
@@ -1100,9 +1221,12 @@ export async function recordFinancePayment(
 				streamId: charge.streamId,
 				payerType: charge.payerType,
 				studentId: charge.studentId,
-				staffProfileId: charge.staffProfileId,
-				amount,
+			staffProfileId: charge.staffProfileId,
+			payeeId: charge.payeeId,
+			amount,
 				paymentDate: input.paymentDate ?? new Date(),
+				collectedSessionTermId,
+				collectedSchoolSessionId,
 				method: input.method,
 				reference: input.reference,
 				note: input.note,
@@ -1173,6 +1297,8 @@ export async function recordFinancePayment(
 				occurredAt: payment.paymentDate,
 				note: input.note ?? `Payment for ${charge.title}`,
 				createdById: ctx.currentUser?.id,
+				collectedSessionTermId,
+				collectedSchoolSessionId,
 				chargeId: charge.id,
 				paymentId: payment.id,
 			},
@@ -1251,6 +1377,8 @@ export async function reverseFinancePayment(
 					occurredAt: new Date(),
 					note: input.note ?? `Reversal of payment ${payment.reference || payment.id}`,
 					createdById: ctx.currentUser?.id,
+					collectedSessionTermId: ledger.collectedSessionTermId,
+					collectedSchoolSessionId: ledger.collectedSchoolSessionId,
 					chargeId: ledger.chargeId,
 					paymentId: payment.id,
 				},
@@ -1265,13 +1393,29 @@ export async function transferFinanceFunds(
 	ctx: TRPCContext,
 	input: FinanceTransferInput,
 ) {
+	requireFinanceWriteAccess(ctx);
 	const schoolProfileId = requireSchoolId(ctx);
+	const amountNumber = toNumber(input.amount);
 
 	if (input.fromStreamId === input.toStreamId) {
 		throw new TRPCError({
 			code: "BAD_REQUEST",
 			message: "Transfer source and destination streams must be different.",
 		});
+	}
+
+	if (!input.note?.trim()) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Transfer note or reason is required.",
+		});
+	}
+
+	if (amountNumber > LARGE_FINANCE_ACTION_THRESHOLD) {
+		requireFinanceAdmin(
+			ctx,
+			"Only an Admin can approve large account transfers.",
+		);
 	}
 
 	return ctx.db.$transaction(async (tx) => {
@@ -1292,6 +1436,31 @@ export async function transferFinanceFunds(
 		}
 
 		const amount = toMoney(input.amount);
+		const collectedSessionTermId = ctx.profile.termId ?? null;
+		const collectedSchoolSessionId = ctx.profile.sessionId ?? null;
+		await assertTermLedgerWritable(tx as any, {
+			schoolProfileId,
+			termId: collectedSessionTermId,
+		});
+		const fromEntries = await tx.financeLedgerEntry.findMany({
+			where: {
+				schoolProfileId,
+				streamId: fromStream.id,
+				deletedAt: null,
+			},
+			select: {
+				direction: true,
+				amount: true,
+			},
+		});
+		const fromBalance = summarizeLedger(fromEntries).balance;
+		if (amountNumber - fromBalance > 0.01 && !isFinanceAdmin(ctx)) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Source account does not have enough available balance.",
+			});
+		}
+
 		const transfer = await tx.financeTransfer.create({
 			data: {
 				schoolProfileId,
@@ -1314,6 +1483,8 @@ export async function transferFinanceFunds(
 					amount,
 					note: input.note ?? `Transfer to ${toStream.name}`,
 					createdById: ctx.currentUser?.id,
+					collectedSessionTermId,
+					collectedSchoolSessionId,
 					transferId: transfer.id,
 				},
 				{
@@ -1325,6 +1496,8 @@ export async function transferFinanceFunds(
 					amount,
 					note: input.note ?? `Transfer from ${fromStream.name}`,
 					createdById: ctx.currentUser?.id,
+					collectedSessionTermId,
+					collectedSchoolSessionId,
 					transferId: transfer.id,
 				},
 			],
@@ -1504,6 +1677,496 @@ export async function listFinanceStaff(ctx: TRPCContext) {
 		select: { id: true, name: true, title: true },
 		orderBy: { name: "asc" },
 	});
+}
+
+async function getOrCreateFinancePayee(
+	db: any,
+	params: {
+		schoolProfileId: string;
+		payeeId?: string | null;
+		name?: string | null;
+		type?: string | null;
+		phone?: string | null;
+		email?: string | null;
+		note?: string | null;
+		createdById?: string | null;
+	},
+) {
+	if (params.payeeId) {
+		const payee = await db.financePayee.findFirst({
+			where: {
+				id: params.payeeId,
+				schoolProfileId: params.schoolProfileId,
+				deletedAt: null,
+			},
+		});
+
+		if (!payee) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Finance payee was not found.",
+			});
+		}
+
+		return payee;
+	}
+
+	const name = params.name?.trim();
+	if (!name) return null;
+
+	const normalizedName = normalizePayeeName(name);
+	const existing = await db.financePayee.findFirst({
+		where: {
+			schoolProfileId: params.schoolProfileId,
+			normalizedName,
+			deletedAt: null,
+		},
+	});
+
+	if (existing) return existing;
+
+	return db.financePayee.create({
+		data: {
+			schoolProfileId: params.schoolProfileId,
+			name,
+			normalizedName,
+			type: (params.type ?? "OTHER") as any,
+			phone: params.phone,
+			email: params.email,
+			note: params.note,
+			createdById: params.createdById,
+		},
+	});
+}
+
+export async function listFinancePayees(
+	ctx: TRPCContext,
+	input?: FinancePayeeQuery,
+) {
+	requireFinanceReadAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+	const search = input?.q?.trim();
+
+	const payees = await ctx.db.financePayee.findMany({
+		where: {
+			schoolProfileId,
+			deletedAt: null,
+			...(input?.type ? { type: input.type as any } : {}),
+			...(search
+				? {
+						OR: [
+							{ name: { contains: search, mode: "insensitive" } },
+							{ phone: { contains: search, mode: "insensitive" } },
+							{ email: { contains: search, mode: "insensitive" } },
+						],
+					}
+				: {}),
+		},
+		select: {
+			id: true,
+			name: true,
+			type: true,
+			phone: true,
+			email: true,
+			note: true,
+			_count: {
+				select: {
+					charges: true,
+					payments: true,
+					purchases: true,
+				},
+			},
+		},
+		orderBy: { name: "asc" },
+		take: 50,
+	});
+
+	return payees.map((payee) => ({
+		...payee,
+		usageCount:
+			payee._count.charges + payee._count.payments + payee._count.purchases,
+	}));
+}
+
+export async function upsertFinancePayee(
+	ctx: TRPCContext,
+	input: FinancePayeeInput,
+) {
+	requireFinanceWriteAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+	const normalizedName = normalizePayeeName(input.name);
+
+	if (input.id) {
+		const payee = await ctx.db.financePayee.update({
+			where: { id: input.id },
+			data: {
+				name: input.name.trim(),
+				normalizedName,
+				type: input.type,
+				phone: input.phone,
+				email: input.email,
+				note: input.note,
+			},
+		});
+
+		return payee;
+	}
+
+	return getOrCreateFinancePayee(ctx.db, {
+		schoolProfileId,
+		name: input.name,
+		type: input.type,
+		phone: input.phone,
+		email: input.email,
+		note: input.note,
+		createdById: ctx.currentUser?.id,
+	});
+}
+
+function payrollNetAmount(input: {
+	baseAmount: number;
+	allowanceAmount?: number;
+	deductionAmount?: number;
+	advanceAmount?: number;
+	bonusAmount?: number;
+}) {
+	return Math.max(
+		0,
+		input.baseAmount +
+			(input.allowanceAmount ?? 0) +
+			(input.bonusAmount ?? 0) -
+			(input.deductionAmount ?? 0) -
+			(input.advanceAmount ?? 0),
+	);
+}
+
+export async function upsertFinancePayrollStructure(
+	ctx: TRPCContext,
+	input: FinancePayrollStructureInput,
+) {
+	requireFinanceWriteAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+	const netAmount = payrollNetAmount({
+		baseAmount: input.baseAmount ?? 0,
+		allowanceAmount: input.allowanceAmount ?? 0,
+		deductionAmount: input.deductionAmount ?? 0,
+		advanceAmount: input.advanceAmount ?? 0,
+		bonusAmount: input.bonusAmount ?? 0,
+	});
+
+	if (input.staffProfileId) {
+		const staff = await ctx.db.staffProfile.findFirst({
+			where: {
+				id: input.staffProfileId,
+				schoolProfileId,
+				deletedAt: null,
+			},
+			select: { id: true },
+		});
+
+		if (!staff) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Staff profile was not found.",
+			});
+		}
+	}
+
+	const stream = await getOrCreateStream(ctx.db, {
+		schoolProfileId,
+		streamId: input.streamId,
+		streamName: input.streamName ?? "Salary/Wages",
+		type: "SALARY",
+		accountType: "DEBIT",
+	});
+
+	const data = {
+		schoolProfileId,
+		staffProfileId: input.staffProfileId,
+		streamId: stream.id,
+		title: input.title.trim(),
+		cadence: input.cadence,
+		baseAmount: toMoney(input.baseAmount ?? 0),
+		allowanceAmount: toMoney(input.allowanceAmount ?? 0),
+		deductionAmount: toMoney(input.deductionAmount ?? 0),
+		advanceAmount: toMoney(input.advanceAmount ?? 0),
+		bonusAmount: toMoney(input.bonusAmount ?? 0),
+		netAmount: toMoney(netAmount),
+		roleLabel: input.roleLabel,
+		isActive: input.isActive ?? true,
+		schoolSessionId: input.sessionId ?? ctx.profile.sessionId ?? null,
+		sessionTermId: input.termId ?? ctx.profile.termId ?? null,
+		notes: input.notes,
+		createdById: ctx.currentUser?.id,
+	};
+
+	const structure = input.id
+		? await ctx.db.financePayrollStructure.update({
+				where: { id: input.id },
+				data,
+			})
+		: await ctx.db.financePayrollStructure.create({ data });
+
+	return {
+		...structure,
+		baseAmount: toNumber(structure.baseAmount),
+		allowanceAmount: toNumber(structure.allowanceAmount),
+		deductionAmount: toNumber(structure.deductionAmount),
+		advanceAmount: toNumber(structure.advanceAmount),
+		bonusAmount: toNumber(structure.bonusAmount),
+		netAmount: toNumber(structure.netAmount),
+	};
+}
+
+export async function createFinancePayrollObligation(
+	ctx: TRPCContext,
+	input: FinancePayrollObligationInput,
+) {
+	requireFinanceWriteAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+	const structure = await ctx.db.financePayrollStructure.findFirst({
+		where: {
+			id: input.payrollStructureId,
+			schoolProfileId,
+			deletedAt: null,
+		},
+		include: { staffProfile: true, stream: true },
+	});
+
+	if (!structure) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Payroll structure was not found.",
+		});
+	}
+
+	const amount = input.amount ?? toNumber(structure.netAmount);
+	return createFinanceCharge(ctx, {
+		id: null,
+		itemId: null,
+		streamId: structure.streamId,
+		streamName: null,
+		type: "SALARY",
+		payerType: "STAFF",
+		studentId: null,
+		studentTermFormId: null,
+		staffProfileId: structure.staffProfileId,
+		staffTermProfileId: null,
+		payeeId: null,
+		payrollStructureId: structure.id,
+		classroomDepartmentId: null,
+		sessionId: input.sessionId ?? structure.schoolSessionId,
+		termId: input.termId ?? structure.sessionTermId,
+		title: input.title ?? structure.title,
+		description: input.description ?? structure.notes,
+		amount,
+		collectionStatus: "NOT_REQUIRED",
+		dueDate: input.dueDate,
+	});
+}
+
+export async function recordFinancePurchase(
+	ctx: TRPCContext,
+	input: FinancePurchaseInput,
+) {
+	requireFinanceWriteAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+	const termId = input.termId ?? ctx.profile.termId ?? null;
+	const sessionId =
+		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+	const quantity = input.quantity ?? 1;
+	const totalCost = input.totalCost ?? quantity * (input.unitCost ?? 0);
+	const amountPaid = input.amountPaid ?? 0;
+
+	if (amountPaid > totalCost) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Paid amount cannot exceed purchase cost.",
+		});
+	}
+
+	await assertTermLedgerWritable(ctx.db as any, {
+		schoolProfileId,
+		termId,
+	});
+
+	const created = await ctx.db.$transaction(async (tx) => {
+		const stream = await getOrCreateStream(tx, {
+			schoolProfileId,
+			streamId: input.streamId,
+			streamName: input.streamName ?? "Purchases",
+			type: input.kind === "LABOR" || input.kind === "SERVICE" ? "SERVICE" : "OTHER",
+			accountType: "DEBIT",
+		});
+		const payee = await getOrCreateFinancePayee(tx, {
+			schoolProfileId,
+			payeeId: input.payeeId,
+			name: input.payeeName,
+			type: input.payeeType ?? (input.kind === "LABOR" ? "CASUAL_WORKER" : "VENDOR"),
+			createdById: ctx.currentUser?.id,
+		});
+		const charge = await tx.financeCharge.create({
+			data: {
+				schoolProfileId,
+				streamId: stream.id,
+				payerType: "SCHOOL",
+				payeeId: payee?.id,
+				schoolSessionId: sessionId,
+				sessionTermId: termId,
+				title: input.title,
+				description: input.description,
+				amount: toMoney(totalCost),
+				amountPaid: toMoney(0),
+				status: amountPaid > 0 ? "PARTIALLY_PAID" : "PENDING",
+				collectionStatus: "NOT_REQUIRED",
+				createdById: ctx.currentUser?.id,
+			},
+		});
+		const status =
+			amountPaid <= 0
+				? "UNPAID"
+				: amountPaid >= totalCost
+					? "PAID"
+					: "PARTIALLY_PAID";
+		const purchase = await tx.financePurchase.create({
+			data: {
+				schoolProfileId,
+				streamId: stream.id,
+				payeeId: payee?.id,
+				chargeId: charge.id,
+				kind: input.kind,
+				status,
+				title: input.title,
+				description: input.description,
+				quantity: toMoney(quantity),
+				unitCost: toMoney(input.unitCost ?? 0),
+				totalCost: toMoney(totalCost),
+				amountPaid: toMoney(0),
+				receiptNumber: input.receiptNumber,
+				reference: input.reference,
+				note: input.note,
+				schoolSessionId: sessionId,
+				sessionTermId: termId,
+				occurredAt: input.paymentDate ?? new Date(),
+				createdById: ctx.currentUser?.id,
+			},
+		});
+
+		return { purchase, charge, stream, payee };
+	});
+
+	let paymentResult: Awaited<ReturnType<typeof recordFinancePayment>> | null =
+		null;
+	if (amountPaid > 0) {
+		paymentResult = await recordFinancePayment(ctx, {
+			chargeId: created.charge.id,
+			amount: amountPaid,
+			paymentDate: input.paymentDate,
+			method: input.method,
+			reference: input.reference,
+			note: input.note ?? input.description,
+			receivedById: ctx.currentUser?.id,
+			collectedTermId: termId,
+			collectedSessionId: sessionId,
+		});
+
+		await ctx.db.financePurchase.update({
+			where: { id: created.purchase.id },
+			data: {
+				paymentId: paymentResult.paymentId,
+				amountPaid: toMoney(amountPaid),
+				status: amountPaid >= totalCost ? "PAID" : "PARTIALLY_PAID",
+			},
+		});
+	}
+
+	return {
+		success: true,
+		purchaseId: created.purchase.id,
+		chargeId: created.charge.id,
+		paymentId: paymentResult?.paymentId ?? null,
+		streamId: created.stream.id,
+		payeeId: created.payee?.id ?? null,
+		status:
+			amountPaid <= 0
+				? "UNPAID"
+				: amountPaid >= totalCost
+					? "PAID"
+					: "PARTIALLY_PAID",
+		totalCost,
+		amountPaid,
+	};
+}
+
+export async function cancelFinancePurchase(
+	ctx: TRPCContext,
+	input: FinancePurchaseCancellationInput,
+) {
+	requireFinanceWriteAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+	const purchase = await ctx.db.financePurchase.findFirst({
+		where: {
+			id: input.purchaseId,
+			schoolProfileId,
+			deletedAt: null,
+		},
+		select: {
+			id: true,
+			chargeId: true,
+			paymentId: true,
+			status: true,
+		},
+	});
+
+	if (!purchase) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Purchase record was not found.",
+		});
+	}
+
+	if (purchase.status === "CANCELLED" || purchase.status === "REFUNDED") {
+		return { success: true, purchaseId: purchase.id, status: purchase.status };
+	}
+
+	if (purchase.paymentId) {
+		await reverseFinancePayment(ctx, {
+			paymentId: purchase.paymentId,
+			note: input.reason,
+		});
+	}
+
+	const nextStatus = purchase.paymentId ? "REFUNDED" : "CANCELLED";
+	await ctx.db.$transaction(async (tx) => {
+		await tx.financePurchase.update({
+			where: { id: purchase.id },
+			data: {
+				status: nextStatus,
+				cancelledAt: new Date(),
+				cancelledById: ctx.currentUser?.id,
+				cancellationReason: input.reason,
+			},
+		});
+
+		if (purchase.chargeId) {
+			await tx.financeCharge.update({
+				where: { id: purchase.chargeId },
+				data: {
+					status: "CANCELLED",
+					cancelledAt: new Date(),
+					cancelledById: ctx.currentUser?.id,
+					cancellationReason: input.reason,
+				},
+			});
+		}
+	});
+
+	return {
+		success: true,
+		purchaseId: purchase.id,
+		status: nextStatus,
+		reversedPaymentId: purchase.paymentId,
+	};
 }
 
 export async function searchFinanceStudents(
@@ -2178,6 +2841,232 @@ export async function getReceivePaymentOptions(
 	};
 }
 
+export async function receiveStudentPaymentSimple(
+	ctx: TRPCContext,
+	input: FinanceSimpleStudentPaymentInput,
+) {
+	requireFinanceWriteAccess(ctx);
+
+	const schoolProfileId = requireSchoolId(ctx);
+	const termId = input.termId ?? ctx.profile.termId ?? null;
+	const sessionId =
+		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+	const amountPaid = toNumber(input.amountPaid);
+	const amountDue = input.amountDue == null ? null : toNumber(input.amountDue);
+
+	if (amountPaid <= 0) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Payment amount must be greater than zero.",
+		});
+	}
+
+	if (amountDue != null && amountPaid - amountDue > 0.01) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Payment amount cannot exceed the amount due.",
+		});
+	}
+
+	const student = await ctx.db.students.findFirst({
+		where: { id: input.studentId, schoolProfileId },
+		select: { id: true },
+	});
+
+	if (!student) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Student was not found.",
+		});
+	}
+
+	const termForm = input.studentTermFormId
+		? await ctx.db.studentTermForm.findFirst({
+				where: {
+					id: input.studentTermFormId,
+					studentId: input.studentId,
+					schoolProfileId,
+					deletedAt: null,
+				},
+				select: {
+					id: true,
+					studentId: true,
+					sessionTermId: true,
+					schoolSessionId: true,
+					classroomDepartmentId: true,
+				},
+			})
+		: await findStudentTermFormForFinance(ctx.db, {
+				schoolProfileId,
+				studentId: input.studentId,
+				termId,
+				sessionId,
+			});
+
+	if (!termForm) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Student term sheet is required for receiving payment.",
+		});
+	}
+
+	let chargeId = input.chargeId ?? null;
+
+	if (chargeId) {
+		const charge = await ctx.db.financeCharge.findFirst({
+			where: {
+				id: chargeId,
+				schoolProfileId,
+				studentId: input.studentId,
+				deletedAt: null,
+				status: { notIn: ["CANCELLED", "WAIVED"] },
+			},
+			select: {
+				id: true,
+				amount: true,
+				amountPaid: true,
+			},
+		});
+
+		if (!charge) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Outstanding charge was not found for this student.",
+			});
+		}
+
+		const outstanding = toNumber(charge.amount) - toNumber(charge.amountPaid);
+		if (amountPaid - outstanding > 0.01) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Payment amount cannot exceed the outstanding charge amount.",
+			});
+		}
+	} else if (input.itemId) {
+		const item = await ctx.db.financeItem.findFirst({
+			where: {
+				id: input.itemId,
+				schoolProfileId,
+				deletedAt: null,
+				isActive: true,
+				collectable: true,
+				OR: [
+					{ sessionTermId: termForm.sessionTermId },
+					{ sessionTermId: null },
+				],
+				AND: [
+					{
+						OR: [
+							{ schoolSessionId: termForm.schoolSessionId },
+							{ schoolSessionId: null },
+						],
+					},
+					{
+						OR: [
+							{ applicableClasses: { none: { deletedAt: null } } },
+							...(termForm.classroomDepartmentId
+								? [
+										{
+											applicableClasses: {
+												some: {
+													deletedAt: null,
+													classRoomDepartmentId:
+														termForm.classroomDepartmentId,
+												},
+											},
+										},
+									]
+								: []),
+						],
+					},
+				],
+			},
+			select: {
+				id: true,
+				type: true,
+				name: true,
+				description: true,
+				amount: true,
+				streamId: true,
+			},
+		});
+
+		if (!item) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Payment item was not found or does not apply to this student.",
+			});
+		}
+
+		const charge = await createFinanceCharge(ctx, {
+			id: null,
+			itemId: item.id,
+			streamId: item.streamId,
+			type: item.type,
+			payerType: "STUDENT",
+			studentId: input.studentId,
+			studentTermFormId: termForm.id,
+			staffProfileId: null,
+			staffTermProfileId: null,
+			classroomDepartmentId: termForm.classroomDepartmentId,
+			sessionId: termForm.schoolSessionId,
+			termId: termForm.sessionTermId,
+			title: item.name,
+			description: input.description ?? item.description,
+			amount: amountDue ?? toNumber(item.amount),
+			collectionStatus: "NOT_COLLECTED",
+			dueDate: null,
+		});
+		chargeId = charge.id;
+	} else {
+		const title =
+			input.descriptionTitle?.trim() ||
+			input.paymentTypeTitle?.trim() ||
+			input.streamName?.trim();
+
+		if (!title) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Payment description is required.",
+			});
+		}
+
+		const charge = await createFinanceCharge(ctx, {
+			id: null,
+			itemId: null,
+			streamId: input.streamId,
+			streamName: input.streamName,
+			type: "OTHER",
+			payerType: "STUDENT",
+			studentId: input.studentId,
+			studentTermFormId: termForm.id,
+			staffProfileId: null,
+			staffTermProfileId: null,
+			classroomDepartmentId: termForm.classroomDepartmentId,
+			sessionId: termForm.schoolSessionId,
+			termId: termForm.sessionTermId,
+			title,
+			description: input.description,
+			amount: amountDue ?? amountPaid,
+			collectionStatus: "NOT_REQUIRED",
+			dueDate: null,
+		});
+		chargeId = charge.id;
+	}
+
+	return recordFinancePayment(ctx, {
+		chargeId,
+		amount: amountPaid,
+		paymentDate: input.paymentDate,
+		method: input.method,
+		reference: input.reference,
+		note: input.note ?? input.description,
+		receivedById: ctx.currentUser?.id,
+		collectedTermId: termId,
+		collectedSessionId: sessionId,
+	});
+}
+
 export async function getFinanceTermLedger(
 	ctx: TRPCContext,
 	input?: FinanceTermLedgerQuery,
@@ -2219,10 +3108,71 @@ export async function getFinanceTermLedger(
 			message: "Term ledger was not found.",
 		});
 	}
+	const closeRecord = await (ctx.db as any).financeTermLedgerClose?.findFirst?.({
+		where: {
+			schoolProfileId,
+			sessionTermId: term.id,
+			deletedAt: null,
+		},
+		orderBy: [{ createdAt: "desc" }],
+	});
 
-	const accounts = await listFinanceStreams(ctx, {
+	const streamAccounts = await listFinanceStreams(ctx, {
 		termId: term.id,
 		sessionId: term.sessionId,
+	});
+	const payableCharges = await ctx.db.financeCharge.findMany({
+		where: {
+			schoolProfileId,
+			deletedAt: null,
+			payerType: { in: ["STAFF", "SCHOOL"] },
+			status: { in: ["PENDING", "PARTIALLY_PAID"] },
+			sessionTermId: term.id,
+			schoolSessionId: term.sessionId,
+		},
+		select: {
+			id: true,
+			streamId: true,
+			amount: true,
+			amountPaid: true,
+		},
+	});
+	const payableSummaryByStream = new Map<
+		string,
+		{ count: number; outstanding: number }
+	>();
+
+	for (const charge of payableCharges) {
+		const outstanding = Math.max(
+			toNumber(charge.amount) - toNumber(charge.amountPaid),
+			0,
+		);
+		if (outstanding <= 0) continue;
+		const current = payableSummaryByStream.get(charge.streamId) ?? {
+			count: 0,
+			outstanding: 0,
+		};
+		current.count += 1;
+		current.outstanding += outstanding;
+		payableSummaryByStream.set(charge.streamId, current);
+	}
+
+	const accounts = streamAccounts.map((account) => {
+		const payableSummary = payableSummaryByStream.get(account.id) ?? {
+			count: 0,
+			outstanding: 0,
+		};
+		const needsFunding =
+			account.projectedBalance < 0 ||
+			payableSummary.outstanding > Math.max(account.balance, 0);
+
+		return {
+			...account,
+			outstandingPayables: payableSummary.outstanding,
+			outstandingPayablesCount: payableSummary.count,
+			needsFunding,
+			statusLabel: needsFunding ? "Needs Funding" : "Available",
+		};
 	});
 	const moneyIn = accounts.reduce((sum, account) => sum + account.totalIn, 0);
 	const moneyOut = accounts.reduce((sum, account) => sum + account.totalOut, 0);
@@ -2233,6 +3183,15 @@ export async function getFinanceTermLedger(
 	const deficitAccounts = accounts.filter(
 		(account) => account.projectedBalance < 0,
 	);
+	const outstandingPayables = accounts.reduce(
+		(sum, account) => sum + account.outstandingPayables,
+		0,
+	);
+	const outstandingPayablesCount = accounts.reduce(
+		(sum, account) => sum + account.outstandingPayablesCount,
+		0,
+	);
+	const needsFundingAccounts = accounts.filter((account) => account.needsFunding);
 
 	return {
 		id: `term-ledger:${term.id}`,
@@ -2241,8 +3200,19 @@ export async function getFinanceTermLedger(
 		title: `${term.session?.title ? `${term.session.title} · ` : ""}${term.title}`,
 		termTitle: term.title,
 		sessionTitle: term.session?.title ?? null,
-		status: "OPEN" as const,
-		statusLabel: "Open",
+		status: (closeRecord?.status ?? "OPEN") as
+			| "OPEN"
+			| "CLOSING"
+			| "CLOSED"
+			| "REOPENED",
+		statusLabel:
+			closeRecord?.status === "CLOSED"
+				? "Closed"
+				: closeRecord?.status === "REOPENED"
+					? "Reopened"
+					: closeRecord?.status === "CLOSING"
+						? "Closing"
+						: "Open",
 		isCurrent: term.id === ctx.profile.termId,
 		startDate: term.startDate,
 		endDate: term.endDate,
@@ -2257,18 +3227,769 @@ export async function getFinanceTermLedger(
 				(sum, account) => sum + Math.abs(account.projectedBalance),
 				0,
 			),
+			outstandingPayables,
+			outstandingPayablesCount,
+			needsFundingAccountCount: needsFundingAccounts.length,
 		},
 		lifecycle: {
-			current: "OPEN" as const,
+			current: (closeRecord?.status ?? "OPEN") as
+				| "OPEN"
+				| "CLOSING"
+				| "CLOSED"
+				| "REOPENED",
 			availableStatuses: ["DRAFT", "OPEN", "CLOSING", "CLOSED", "REOPENED"],
 			canClose: financePermissionFlags(ctx).canCreateSchoolFee,
 			canReopen: financePermissionFlags(ctx).canCreateSchoolFee,
-			isReadOnly: false,
+			isReadOnly: closeRecord?.status === "CLOSED",
 		},
 		permissions: {
 			canView: true,
 			canClose: financePermissionFlags(ctx).canCreateSchoolFee,
 			canReopen: financePermissionFlags(ctx).canCreateSchoolFee,
+		},
+	};
+}
+
+async function findCarryForwardNextTerm(
+	ctx: TRPCContext,
+	params: {
+		schoolProfileId: string;
+		currentTerm: { id: string; sessionId: string | null };
+		nextTermId?: string | null;
+	},
+) {
+	return ctx.db.sessionTerm.findFirst({
+		where: {
+			schoolId: params.schoolProfileId,
+			deletedAt: null,
+			...(params.nextTermId
+				? { id: params.nextTermId }
+				: {
+						id: { not: params.currentTerm.id },
+						...(params.currentTerm.sessionId
+							? { sessionId: params.currentTerm.sessionId }
+							: {}),
+					}),
+		},
+		select: { id: true, sessionId: true, title: true },
+		orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
+	});
+}
+
+export async function previewFinanceTermClose(
+	ctx: TRPCContext,
+	input?: FinanceTermCloseInput,
+) {
+	requireFinanceReadAccess(ctx);
+
+	const schoolProfileId = requireSchoolId(ctx);
+	const ledger = await getFinanceTermLedger(ctx, input);
+	const existingClose = await (ctx.db as any).financeTermLedgerClose?.findFirst?.({
+		where: {
+			schoolProfileId,
+			sessionTermId: ledger.termId,
+			status: "CLOSED",
+			deletedAt: null,
+		},
+		select: { id: true, closedAt: true },
+	});
+	const nextTerm = await findCarryForwardNextTerm(ctx, {
+		schoolProfileId,
+		currentTerm: { id: ledger.termId, sessionId: ledger.sessionId },
+		nextTermId: input?.nextTermId,
+	});
+	const carryForwards = ledger.accounts
+		.map((account) => {
+			const balance = Number(account.balance || 0);
+			return {
+				streamId: account.id,
+				accountName: account.name,
+				amount: Math.abs(balance),
+				direction: balance < 0 ? ("DEBIT" as const) : ("CREDIT" as const),
+				nextSessionTermId: nextTerm?.id ?? null,
+				nextSchoolSessionId: nextTerm?.sessionId ?? null,
+			};
+		})
+		.filter((row) => row.amount > 0);
+	const warnings = [
+		...(ledger.summary.outstandingPayables > 0
+			? [
+					{
+						key: "outstanding-payables",
+						label: "Outstanding Payables",
+						message: `${ledger.summary.outstandingPayablesCount} payable(s) remain outstanding.`,
+					},
+				]
+			: []),
+		...(nextTerm
+			? []
+			: [
+					{
+						key: "missing-next-term",
+						label: "No Next Term",
+						message:
+							"Carry-forward rows can be created, but opening ledger entries need a next term.",
+					},
+				]),
+	];
+
+	return {
+		ledger,
+		nextTerm,
+		canClose: financePermissionFlags(ctx).canCreateSchoolFee && !existingClose,
+		blockers: existingClose
+			? [
+					{
+						key: "already-closed",
+						label: "Already Closed",
+						message: "This term ledger has already been closed.",
+					},
+				]
+			: [],
+		warnings,
+		carryForwards,
+	};
+}
+
+export async function closeFinanceTermLedger(
+	ctx: TRPCContext,
+	input?: FinanceTermCloseInput,
+) {
+	requireFinanceAdmin(ctx, "Only an Admin can close a term ledger.");
+
+	const schoolProfileId = requireSchoolId(ctx);
+	const preview = await previewFinanceTermClose(ctx, input);
+	if (preview.blockers.length) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: preview.blockers[0]?.message ?? "Term ledger cannot be closed.",
+		});
+	}
+
+	return ctx.db.$transaction(async (tx) => {
+		const close = await (tx as any).financeTermLedgerClose.create({
+			data: {
+				schoolProfileId,
+				sessionTermId: preview.ledger.termId,
+				schoolSessionId: preview.ledger.sessionId,
+				status: "CLOSED",
+				summaryJson: preview.ledger.summary,
+				closedById: ctx.currentUser?.id,
+			},
+		});
+		const carryForwards: any[] = [];
+
+		for (const row of preview.carryForwards) {
+			const carryForward = await (tx as any).financeTermCarryForward.create({
+				data: {
+					schoolProfileId,
+					closeId: close.id,
+					streamId: row.streamId,
+					nextSessionTermId: row.nextSessionTermId,
+					nextSchoolSessionId: row.nextSchoolSessionId,
+					amount: row.amount,
+					direction: row.direction,
+				},
+			});
+			let ledgerEntryId: string | null = null;
+
+			if (row.nextSessionTermId) {
+				const ledgerEntry = await tx.financeLedgerEntry.create({
+					data: {
+						schoolProfileId,
+						streamId: row.streamId,
+						direction: row.direction,
+						sourceType: "ADJUSTMENT",
+						sourceId: carryForward.id,
+						amount: row.amount,
+						note: `Opening balance from ${preview.ledger.termTitle}`,
+						createdById: ctx.currentUser?.id,
+						collectedSessionTermId: row.nextSessionTermId,
+						collectedSchoolSessionId: row.nextSchoolSessionId,
+					},
+				});
+				ledgerEntryId = ledgerEntry.id;
+				await (tx as any).financeTermCarryForward.update({
+					where: { id: carryForward.id },
+					data: { ledgerEntryId },
+				});
+			}
+
+			carryForwards.push({ ...carryForward, ledgerEntryId });
+		}
+
+		return {
+			success: true,
+			closeId: close.id,
+			status: "CLOSED" as const,
+			carryForwards,
+			warnings: preview.warnings,
+		};
+	});
+}
+
+export async function reopenFinanceTermLedger(
+	ctx: TRPCContext,
+	input?: FinanceTermCloseInput,
+) {
+	requireFinanceAdmin(ctx, "Only an Admin can reopen a term ledger.");
+
+	const schoolProfileId = requireSchoolId(ctx);
+	const termId = input?.termId ?? ctx.profile.termId ?? null;
+	if (!termId) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Term context is required for reopening a term ledger.",
+		});
+	}
+
+	const close = await (ctx.db as any).financeTermLedgerClose.findFirst({
+		where: {
+			schoolProfileId,
+			sessionTermId: termId,
+			status: "CLOSED",
+			deletedAt: null,
+		},
+		select: { id: true },
+	});
+
+	if (!close) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Closed term ledger was not found.",
+		});
+	}
+
+	await (ctx.db as any).financeTermLedgerClose.update({
+		where: { id: close.id },
+		data: {
+			status: "REOPENED",
+			reopenedAt: new Date(),
+			reopenedById: ctx.currentUser?.id,
+		},
+	});
+
+	return { success: true, closeId: close.id, status: "REOPENED" as const };
+}
+
+export async function getFinanceTermAccountStatement(
+	ctx: TRPCContext,
+	input: FinanceTermAccountStatementInput,
+) {
+	requireFinanceReadAccess(ctx);
+
+	const schoolProfileId = requireSchoolId(ctx);
+	const termId = input.termId ?? ctx.profile.termId ?? null;
+	const sessionId =
+		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+
+	if (!termId) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Term context is required for account statements.",
+		});
+	}
+
+	const stream = await ctx.db.financeStream.findFirst({
+		where: {
+			id: input.streamId,
+			schoolProfileId,
+			deletedAt: null,
+		},
+		select: {
+			id: true,
+			name: true,
+			slug: true,
+			accountType: true,
+			description: true,
+		},
+	});
+
+	if (!stream) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Account was not found.",
+		});
+	}
+
+	const entries = await ctx.db.financeLedgerEntry.findMany({
+		where: {
+			schoolProfileId,
+			streamId: stream.id,
+			deletedAt: null,
+			AND: [
+				{
+					OR: [
+						{ collectedSessionTermId: termId },
+						{
+							collectedSessionTermId: null,
+							charge: { sessionTermId: termId },
+						},
+					],
+				},
+				...(sessionId
+					? [
+							{
+								OR: [
+									{ collectedSchoolSessionId: sessionId },
+									{
+										collectedSchoolSessionId: null,
+										charge: { schoolSessionId: sessionId },
+									},
+								],
+							},
+						]
+					: []),
+			],
+		},
+		include: {
+			charge: {
+				select: {
+					id: true,
+					title: true,
+					payerType: true,
+					status: true,
+					sessionTermId: true,
+					schoolSessionId: true,
+					student: {
+						select: { id: true, name: true, surname: true, otherName: true },
+					},
+					staffProfile: { select: { id: true, name: true, title: true } },
+				},
+			},
+			payment: {
+				select: {
+					id: true,
+					reference: true,
+					method: true,
+					status: true,
+					paymentDate: true,
+				},
+			},
+			transfer: {
+				select: {
+					id: true,
+					note: true,
+					status: true,
+					fromStreamId: true,
+					toStreamId: true,
+				},
+			},
+		},
+		orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+		take: 500,
+	});
+
+	const summary = summarizeLedger(entries);
+	const statementEntries = entries.map((entry) => ({
+		id: entry.id,
+		direction: entry.direction === "CREDIT" ? "money-in" : "money-out",
+		ledgerDirection: entry.direction,
+		sourceType: entry.sourceType,
+		sourceId: entry.sourceId,
+		amount: toNumber(entry.amount),
+		occurredAt: entry.occurredAt,
+		collectedSessionTermId: entry.collectedSessionTermId,
+		collectedSchoolSessionId: entry.collectedSchoolSessionId,
+		paidForSessionTermId: entry.charge?.sessionTermId ?? null,
+		paidForSchoolSessionId: entry.charge?.schoolSessionId ?? null,
+		note: entry.note,
+		payerName:
+			studentDisplayName(entry.charge?.student) ||
+			entry.charge?.staffProfile?.name ||
+			null,
+		charge: entry.charge,
+		payment: entry.payment,
+		transfer: entry.transfer,
+	}));
+
+	return {
+		termId,
+		sessionId,
+		account: {
+			id: stream.id,
+			name: stream.name,
+			slug: stream.slug,
+			description: stream.description,
+			technicalAccountType: stream.accountType,
+			labels: {
+				moneyIn: "Money In",
+				moneyOut: "Money Out",
+				availableBalance: "Available Balance",
+				deficit: "Deficit",
+				needsFunding: "Needs Funding",
+			},
+		},
+		summary: {
+			moneyIn: summary.credit,
+			moneyOut: summary.debit,
+			availableBalance: summary.balance,
+			deficit: summary.balance < 0 ? Math.abs(summary.balance) : 0,
+			needsFunding: summary.balance < 0,
+			entryCount: statementEntries.length,
+		},
+		entries: statementEntries,
+	};
+}
+
+export async function getFinanceProjectAccountSummary(
+	ctx: TRPCContext,
+	input: FinanceProjectAccountSummaryInput,
+) {
+	const statement = await getFinanceTermAccountStatement(ctx, input);
+	const schoolProfileId = requireSchoolId(ctx);
+	const termId = input.termId ?? ctx.profile.termId ?? null;
+	const sessionId =
+		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+
+	const purchases = await ctx.db.financePurchase.findMany({
+		where: {
+			schoolProfileId,
+			streamId: input.streamId,
+			deletedAt: null,
+			...(termId ? { sessionTermId: termId } : {}),
+			...(sessionId ? { schoolSessionId: sessionId } : {}),
+			status: { not: "CANCELLED" },
+		},
+		include: {
+			payee: { select: { id: true, name: true, type: true } },
+			charge: { select: { id: true, title: true, status: true } },
+			payment: { select: { id: true, reference: true, method: true } },
+		},
+		orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+		take: 200,
+	});
+
+	const salesIncome = statement.entries
+		.filter(
+			(entry) =>
+				entry.ledgerDirection === "CREDIT" &&
+				entry.sourceType === "PAYMENT" &&
+				entry.charge?.payerType === "STUDENT",
+		)
+		.reduce((sum, entry) => sum + entry.amount, 0);
+	const transferredFunding = statement.entries
+		.filter(
+			(entry) =>
+				entry.ledgerDirection === "CREDIT" && entry.sourceType === "TRANSFER",
+		)
+		.reduce((sum, entry) => sum + entry.amount, 0);
+	const purchaseCost = purchases
+		.filter((purchase) =>
+			["PURCHASE", "VENDOR_BILL", "DIRECT_EXPENSE"].includes(purchase.kind),
+		)
+		.reduce((sum, purchase) => sum + toNumber(purchase.totalCost), 0);
+	const laborCost = purchases
+		.filter((purchase) => purchase.kind === "LABOR")
+		.reduce((sum, purchase) => sum + toNumber(purchase.totalCost), 0);
+	const serviceCost = purchases
+		.filter((purchase) => purchase.kind === "SERVICE")
+		.reduce((sum, purchase) => sum + toNumber(purchase.totalCost), 0);
+	const reimbursementCost = purchases
+		.filter((purchase) => purchase.kind === "REIMBURSEMENT")
+		.reduce((sum, purchase) => sum + toNumber(purchase.totalCost), 0);
+	const totalCost = purchaseCost + laborCost + serviceCost + reimbursementCost;
+
+	return {
+		account: statement.account,
+		termId: statement.termId,
+		sessionId: statement.sessionId,
+		summary: {
+			...statement.summary,
+			transferredFunding,
+			salesIncome,
+			purchaseCost,
+			laborCost,
+			serviceCost,
+			reimbursementCost,
+			totalCost,
+			profitLoss: salesIncome - totalCost,
+		},
+		purchases: purchases.map((purchase) => ({
+			id: purchase.id,
+			kind: purchase.kind,
+			status: purchase.status,
+			title: purchase.title,
+			description: purchase.description,
+			quantity: toNumber(purchase.quantity),
+			unitCost: toNumber(purchase.unitCost),
+			totalCost: toNumber(purchase.totalCost),
+			amountPaid: toNumber(purchase.amountPaid),
+			receiptNumber: purchase.receiptNumber,
+			reference: purchase.reference,
+			occurredAt: purchase.occurredAt,
+			payee: purchase.payee,
+			charge: purchase.charge,
+			payment: purchase.payment,
+		})),
+		entries: statement.entries,
+	};
+}
+
+export async function getFinanceStaffHistory(
+	ctx: TRPCContext,
+	input: FinanceStaffHistoryInput,
+) {
+	requireFinanceReadAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+
+	const staff = await ctx.db.staffProfile.findFirst({
+		where: {
+			id: input.staffProfileId,
+			schoolProfileId,
+			deletedAt: null,
+		},
+		select: { id: true, name: true, title: true, email: true, phone: true },
+	});
+
+	if (!staff) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Staff profile was not found.",
+		});
+	}
+
+	const termId = input.termId ?? ctx.profile.termId ?? null;
+	const sessionId =
+		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+	const [structures, charges] = await Promise.all([
+		ctx.db.financePayrollStructure.findMany({
+			where: {
+				schoolProfileId,
+				staffProfileId: staff.id,
+				deletedAt: null,
+				...(termId ? { sessionTermId: termId } : {}),
+				...(sessionId ? { schoolSessionId: sessionId } : {}),
+			},
+			include: { stream: { select: { id: true, name: true, accountType: true } } },
+			orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+		}),
+		ctx.db.financeCharge.findMany({
+			where: {
+				schoolProfileId,
+				staffProfileId: staff.id,
+				deletedAt: null,
+				status: { not: "CANCELLED" },
+				...(termId ? { sessionTermId: termId } : {}),
+				...(sessionId ? { schoolSessionId: sessionId } : {}),
+			},
+			include: {
+				stream: { select: { id: true, name: true, accountType: true } },
+				payrollStructure: {
+					select: { id: true, title: true, cadence: true },
+				},
+				allocations: {
+					include: {
+						payment: {
+							select: {
+								id: true,
+								amount: true,
+								paymentDate: true,
+								method: true,
+								reference: true,
+								status: true,
+							},
+						},
+					},
+				},
+			},
+			orderBy: [{ createdAt: "desc" }],
+			take: 200,
+		}),
+	]);
+
+	const normalizedCharges = charges.map((charge) => {
+		const amount = toNumber(charge.amount);
+		const amountPaid = toNumber(charge.amountPaid);
+		return {
+			id: charge.id,
+			title: charge.title,
+			description: charge.description,
+			amount,
+			amountPaid,
+			outstanding: amount - amountPaid,
+			status: charge.status,
+			stream: charge.stream,
+			payrollStructure: charge.payrollStructure,
+			receipts: charge.allocations.map((allocation) => ({
+				id: allocation.payment.id,
+				amount: toNumber(allocation.amount),
+				paymentDate: allocation.payment.paymentDate,
+				method: allocation.payment.method,
+				reference: allocation.payment.reference,
+				status: allocation.payment.status,
+			})),
+		};
+	});
+
+	return {
+		staff,
+		termId,
+		sessionId,
+		payrollStructures: structures.map((structure) => ({
+			...structure,
+			baseAmount: toNumber(structure.baseAmount),
+			allowanceAmount: toNumber(structure.allowanceAmount),
+			deductionAmount: toNumber(structure.deductionAmount),
+			advanceAmount: toNumber(structure.advanceAmount),
+			bonusAmount: toNumber(structure.bonusAmount),
+			netAmount: toNumber(structure.netAmount),
+		})),
+		charges: normalizedCharges,
+		summary: {
+			totalDue: normalizedCharges.reduce((sum, charge) => sum + charge.amount, 0),
+			totalPaid: normalizedCharges.reduce(
+				(sum, charge) => sum + charge.amountPaid,
+				0,
+			),
+			totalOutstanding: normalizedCharges.reduce(
+				(sum, charge) => sum + charge.outstanding,
+				0,
+			),
+			chargeCount: normalizedCharges.length,
+			activeStructureCount: structures.filter((structure) => structure.isActive)
+				.length,
+		},
+	};
+}
+
+export async function getFinancePayeeHistory(
+	ctx: TRPCContext,
+	input: FinancePayeeHistoryInput,
+) {
+	requireFinanceReadAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+	const payee = await ctx.db.financePayee.findFirst({
+		where: {
+			id: input.payeeId,
+			schoolProfileId,
+			deletedAt: null,
+		},
+		select: { id: true, name: true, type: true, phone: true, email: true },
+	});
+
+	if (!payee) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Finance payee was not found.",
+		});
+	}
+
+	const termId = input.termId ?? ctx.profile.termId ?? null;
+	const sessionId =
+		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+	const [purchases, charges] = await Promise.all([
+		ctx.db.financePurchase.findMany({
+			where: {
+				schoolProfileId,
+				payeeId: payee.id,
+				deletedAt: null,
+				...(termId ? { sessionTermId: termId } : {}),
+				...(sessionId ? { schoolSessionId: sessionId } : {}),
+			},
+			include: {
+				stream: { select: { id: true, name: true, accountType: true } },
+				charge: { select: { id: true, title: true, status: true } },
+				payment: {
+					select: {
+						id: true,
+						reference: true,
+						method: true,
+						paymentDate: true,
+						status: true,
+					},
+				},
+			},
+			orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+			take: 200,
+		}),
+		ctx.db.financeCharge.findMany({
+			where: {
+				schoolProfileId,
+				payeeId: payee.id,
+				deletedAt: null,
+				status: { not: "CANCELLED" },
+				...(termId ? { sessionTermId: termId } : {}),
+				...(sessionId ? { schoolSessionId: sessionId } : {}),
+			},
+			include: {
+				stream: { select: { id: true, name: true, accountType: true } },
+				allocations: {
+					include: {
+						payment: {
+							select: {
+								id: true,
+								amount: true,
+								paymentDate: true,
+								method: true,
+								reference: true,
+								status: true,
+							},
+						},
+					},
+				},
+			},
+			orderBy: [{ createdAt: "desc" }],
+			take: 200,
+		}),
+	]);
+
+	const normalizedPurchases = purchases.map((purchase) => ({
+		id: purchase.id,
+		kind: purchase.kind,
+		status: purchase.status,
+		title: purchase.title,
+		description: purchase.description,
+		stream: purchase.stream,
+		totalCost: toNumber(purchase.totalCost),
+		amountPaid: toNumber(purchase.amountPaid),
+		outstanding: toNumber(purchase.totalCost) - toNumber(purchase.amountPaid),
+		receiptNumber: purchase.receiptNumber,
+		reference: purchase.reference,
+		occurredAt: purchase.occurredAt,
+		charge: purchase.charge,
+		payment: purchase.payment,
+	}));
+	const normalizedCharges = charges.map((charge) => ({
+		id: charge.id,
+		title: charge.title,
+		description: charge.description,
+		stream: charge.stream,
+		amount: toNumber(charge.amount),
+		amountPaid: toNumber(charge.amountPaid),
+		outstanding: toNumber(charge.amount) - toNumber(charge.amountPaid),
+		status: charge.status,
+		receipts: charge.allocations.map((allocation) => ({
+			id: allocation.payment.id,
+			amount: toNumber(allocation.amount),
+			paymentDate: allocation.payment.paymentDate,
+			method: allocation.payment.method,
+			reference: allocation.payment.reference,
+			status: allocation.payment.status,
+		})),
+	}));
+
+	return {
+		payee,
+		termId,
+		sessionId,
+		purchases: normalizedPurchases,
+		charges: normalizedCharges,
+		summary: {
+			totalCost: normalizedPurchases.reduce(
+				(sum, purchase) => sum + purchase.totalCost,
+				0,
+			),
+			totalPaid: normalizedPurchases.reduce(
+				(sum, purchase) => sum + purchase.amountPaid,
+				0,
+			),
+			totalOutstanding: normalizedPurchases.reduce(
+				(sum, purchase) => sum + purchase.outstanding,
+				0,
+			),
+			purchaseCount: normalizedPurchases.length,
+			chargeCount: normalizedCharges.length,
 		},
 	};
 }

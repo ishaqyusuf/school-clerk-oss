@@ -89,6 +89,13 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 - Outstanding student charges remain available even when their finance item is inactive or from an older term, so collectors can still see and collect pending balances.
 - Permission flags distinguish receiving payment from creating reusable simple collections, school fees, reusable descriptions/items, and one-off manual charge rows.
 
+### `finance.receiveStudentPaymentSimple`
+- Provides the simplified cashier submit path for the new receive-payment flow.
+- Accepts either an existing outstanding `chargeId`, a configured collectable `itemId`, or a quick-created stream/title pair for one-off/simple collection payments.
+- Configured item payments create the applicable finance charge before recording the payment; quick-created payments create a one-off charge under the selected or newly named finance stream.
+- Validates positive payment amounts, blocks overpayment against known due/outstanding amounts, and returns `paymentIds[]` for receipt printing.
+- Persists collected-in term/session on `FinancePayment` and `FinanceLedgerEntry` separately from the paid-for term on `FinanceCharge`, so late payments for previous terms affect the current term account while reducing the old obligation.
+
 ### `finance.receiveStudentPayment`
 - Handles allocation source `"feeHistory"`:
   - Finds the `FeeHistory` record.
@@ -130,12 +137,15 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 - Classrooms (department names or "All classes")
 
 ### Receive Payment Sheet (`/finance` → "Receive Payment")
-- **Add school fee** card: combobox listing unapplied `FeeHistory` items for the selected student's classroom
-- Adding a fee creates a `"feeHistory"`-source allocation row in the payment table
-- Alert shown when there are unapplied fees (combined with unapplied billables count)
-- Outstanding summary includes unapplied school fees, so collectors see the full amount due before choosing which items to allocate
-- Payment totals are calculated from the line-level **Pay now** amounts and manual stream rows; the form no longer asks for a separate top-level amount received.
-- Successful submissions show immediate **Print Receipt** and **Download PDF** actions backed by the payment IDs returned from the API
+- The default sheet is a guided cashier workflow: select/confirm student, choose payment type, choose description/item, confirm price and amount paid, then enter method/date/reference/note.
+- Payment type and description options come from `finance.getReceivePaymentOptions`, so outstanding items are prioritized and configured collectable items load their default amounts.
+- Operators can type a new payment type or description for one-off/simple collections; submission maps that intent through `finance.receiveStudentPaymentSimple`.
+- When the options read model grants reusable simple-collection creation, a typed new payment type/description is first saved as an active collectable `FinanceItem`, then the payment is submitted against that item so the option appears for future student payments.
+- Operators without reusable-creation permission can still record the payment as a one-off charge, with the sheet indicating that the new option is only for the current payment.
+- Admin users who type a missing payment type can route it into the existing Add Fee sheet through **Create as school fee**. The handoff carries the selected student's classroom department so the existing fee setup flow can apply normal class/global scope rules.
+- Payment method defaults to Bank Transfer, payment date defaults to today, and reference/note remain optional.
+- Successful submissions show immediate **Print Receipt** and **Download PDF** actions backed by the payment IDs returned from the API.
+- The previous allocation-heavy flow is retained as `LegacyReceivePaymentSheet` and is reachable from the default sheet through an Advanced switch, with a Simple mode action to return to the compact cashier flow.
 
 ### Dashboard Quick Link
 - "Receive Fee" button on the main dashboard page opens the receive-payment sheet directly.

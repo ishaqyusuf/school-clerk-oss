@@ -56,6 +56,11 @@ model SchoolProfile {
   financePayments                FinancePayment[]
   financeTransfers               FinanceTransfer[]
   financeLedgerEntries           FinanceLedgerEntry[]
+  financeTermLedgerCloses        FinanceTermLedgerClose[]
+  financeTermCarryForwards       FinanceTermCarryForward[]
+  financePayees                  FinancePayee[]
+  financePayrollStructures       FinancePayrollStructure[]
+  financePurchases               FinancePurchase[]
 
   @@unique([name, subDomain, slug, deletedAt])
 }
@@ -97,6 +102,8 @@ model SchoolSession {
   staffTermProfiles StaffTermProfile[]
   financeItems      FinanceItem[]
   financeCharges    FinanceCharge[]
+  collectedFinancePayments      FinancePayment[]     @relation("FinancePaymentCollectedSchoolSession")
+  collectedFinanceLedgerEntries FinanceLedgerEntry[] @relation("FinanceLedgerEntryCollectedSchoolSession")
 }
 
 model SessionTerm {
@@ -118,4 +125,6 @@ model SessionTerm {
   assessmentPublicLinks AssessmentPublicLink[]
   financeItems          FinanceItem[]
   financeCharges        FinanceCharge[]
+  collectedFinancePayments      FinancePayment[]     @relation("FinancePaymentCollectedSessionTerm")
+  collectedFinanceLedgerEntries FinanceLedgerEntry[] @relation("FinanceLedgerEntryCollectedSessionTerm")
 }

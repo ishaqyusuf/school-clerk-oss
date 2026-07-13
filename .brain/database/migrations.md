@@ -55,6 +55,28 @@ Change log for database schema migrations and rollout notes.
 
 ## Migration Entry
 
+- Date: 2026-07-13
+- ID: schema-push-20260713_finance_payroll_purchases_payees
+- Summary: Added reusable finance payees, payroll structures, and purchase/service/expense records linked to standardized finance streams, charges, and payments.
+- Affected entities: `FinancePayee`, `FinancePayrollStructure`, `FinancePurchase`, `FinanceCharge`, `FinancePayment`, `FinanceStream`, `StaffProfile`, `SchoolProfile`
+- Backfill required: No destructive backfill. Existing staff/service charges remain valid without payee or payroll-structure links; new purchase and payroll workflows populate the new records going forward.
+- Rollback plan: Remove API/UI use of payees, payroll structures, purchases, staff finance history, and project account summaries; regenerate Prisma Client; then drop the new relations/tables/enums.
+- Owner: Codex
+- Note: `bun run db:generate` succeeded. `bun run db:migrate` still stopped on known local drift and requested a destructive reset, which was not run. `bun run db:push` completed successfully against the local Docker database and synchronized the schema.
+
+## Migration Entry
+
+- Date: 2026-07-13
+- ID: schema-push-20260713_finance_collected_term_attribution
+- Summary: Added collected-in school session and term attribution fields to standardized finance payments and ledger entries, plus durable term-ledger close and carry-forward models.
+- Affected entities: `FinancePayment`, `FinanceLedgerEntry`, `FinanceTermLedgerClose`, `FinanceTermCarryForward`, `SchoolSession`, `SessionTerm`, `FinanceStream`
+- Backfill required: Existing historical rows have null collected-in fields and are read through charge-term fallback until a later backfill/snapshot process sets explicit collection terms.
+- Rollback plan: Remove API/read-model use of collected-in fields and term close/carry-forward routes, regenerate Prisma Client, then drop the collected-in foreign keys/indexes and close/carry-forward tables.
+- Owner: Codex
+- Note: `bun run db:generate` succeeded. `bun run db:migrate` reached local Postgres but stopped on pre-existing drift in `StaffAcademicAccessGrant` foreign keys and requested a destructive reset, which was not run. `bun run db:push` completed successfully against the local Docker database.
+
+## Migration Entry
+
 - Date: 2026-07-12
 - ID: 20260712133000_assessment_print_modes
 - Summary: Added `ClassroomSubjectAssessmentPrintMode` and `ClassroomSubjectAssessment.printMode` so grouped assessment parents can choose expanded child columns or a single total column on printed/PDF student results.

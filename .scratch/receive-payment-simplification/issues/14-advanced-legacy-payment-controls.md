@@ -4,11 +4,13 @@
 
 **Blocked by:** 11 — Cashier-Style Receive Payment Sheet
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Advanced mode exposes multi-line outstanding allocation where required.
-- [ ] Advanced mode supports historical term payment workflows.
-- [ ] Advanced mode preserves manual allocation/correction paths that current operators still need.
-- [ ] Existing legacy outstanding charges and unapplied balances remain payable.
-- [ ] Default mode stays compact and does not show advanced tables or manual rows unless requested.
-- [ ] Regression tests confirm legacy multi-line, historical, and manual allocation paths still work.
+- [x] Advanced mode exposes multi-line outstanding allocation where required.
+- [x] Advanced mode supports historical term payment workflows.
+- [x] Advanced mode preserves manual allocation/correction paths that current operators still need.
+- [x] Existing legacy outstanding charges and unapplied balances remain payable.
+- [x] Default mode stays compact and does not show advanced tables or manual rows unless requested.
+- [x] Regression tests confirm legacy multi-line, historical, and manual allocation paths still work.
+
+**Implementation note:** `ReceivePaymentSheet` now defaults to the simplified cashier flow and exposes the previous allocation-heavy component through an Advanced switch with a Simple mode return action.

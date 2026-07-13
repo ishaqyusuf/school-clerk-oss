@@ -21,6 +21,7 @@ model StaffProfile {
     termProfiles            StaffTermProfile[]
     financeCharges          FinanceCharge[]
     financePayments         FinancePayment[]
+    financePayrollStructures FinancePayrollStructure[]
     createdAt               DateTime?             @default(now()) @db.Timestamp(0)
     updatedAt               DateTime?             @updatedAt
     deletedAt               DateTime?             @db.Timestamp(0)

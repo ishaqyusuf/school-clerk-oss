@@ -129,7 +129,15 @@ Defines access control rules for each API surface.
 - Finance read routes are enforced server-side for `Admin` and `Accountant` roles.
 - Finance write routes are enforced server-side for `Admin` and `Accountant` roles.
 - This enforcement now covers streams, payroll, service payments, student payment receipt/reversal, billables, bills, collections, and stream-funding operations.
-- `finance.getReceivePaymentOptions` and `finance.getTermLedger` enforce finance read access for `Admin` and `Accountant`.
+- `finance.getReceivePaymentOptions`, `finance.getTermLedger`, and `finance.getTermAccountStatement` enforce finance read access for `Admin` and `Accountant`.
+- `finance.receiveStudentPaymentSimple` enforces finance write access for `Admin` and `Accountant`; reusable school finance-setting creation remains represented as Admin-only permission flags in the options read model.
+- `finance.transferFunds` enforces finance write access, requires a transfer note/reason, and requires Admin role for transfers above `NGN 250,000` or insufficient-balance overrides.
+- `finance.closeTermLedger` and `finance.reopenTermLedger` require Admin role. `finance.previewTermClose` requires finance read access.
+- `finance.getPayees`, `finance.getStaffFinanceHistory`, `finance.getPayeeHistory`, and `finance.getProjectAccountSummary` require finance read access for `Admin` and `Accountant`.
+- `finance.upsertPayee`, `finance.upsertPayrollStructure`, `finance.createPayrollObligation`, `finance.recordPurchase`, and `finance.cancelPurchase` require finance write access for `Admin` and `Accountant`.
+- Staff profile Finance tab reads staff finance history through the finance route, so staff salary/wage details remain finance-gated even when the staff profile shell is visible.
+- Service expense entry can select or quick-create reusable payees through finance-gated purchase recording; immediate payment still posts through the standard payment ledger path.
+- Finance reporting and reconciliation routes expose canonical finance records plus actor fields as an audit-trail projection; they remain read-only and finance-gated.
 - Receive-payment option permission flags default reusable school finance-setting creation to Admin-only while allowing Admin/Accountant to receive payments and create one-off manual charge rows where the lower-level payment route permits it.
 - Large discretionary finance actions above `NGN 250,000` now require `Admin` role even within finance write access.
 

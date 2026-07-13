@@ -167,6 +167,16 @@ The composite assessment public-link lookup index on `schoolProfileId`, `session
 - `Wallet`, `WalletTransactions`, `StudentWalletTransactions`, `Funds`
 - `Fees`, `FeeHistory`, `StudentFee`, `StudentPayment`, `StudentPurchase`
 - `Billable`, `BillableHistory`, `Bills`, `BillInvoice`, `BillPayment`
+- Standardized finance ledger models: `FinanceStream`, `FinanceItem`, `FinanceCharge`, `FinancePayment`, `FinancePaymentAllocation`, `FinanceTransfer`, and `FinanceLedgerEntry`.
+- `FinanceCharge.schoolSessionId` / `FinanceCharge.sessionTermId` represent the academic period the obligation is for.
+- `FinancePayment.collectedSchoolSessionId` / `FinancePayment.collectedSessionTermId` represent the operational period when cash was collected.
+- `FinanceLedgerEntry.collectedSchoolSessionId` / `FinanceLedgerEntry.collectedSessionTermId` scope account/stream balances and statements by collection term. This allows a payment collected in the current term for a previous-term charge to affect current-term cash while still reducing the previous-term obligation through `FinancePaymentAllocation`.
+- Term account statements prefer collected-in term fields and fall back to charge term fields for older ledger rows created before collected-in attribution existed.
+- `FinanceTermLedgerClose` stores durable close snapshots for a term ledger, including status, close/reopen metadata, and a JSON summary.
+- `FinanceTermCarryForward` stores per-account carry-forward rows from a closed term to a next term. When a next term is available, close creates opening `FinanceLedgerEntry` adjustment rows scoped to the next term.
+- `FinancePayee` stores reusable vendors, casual workers, service providers, staff-like external payees, and other non-student/non-staff recipients. Payees link to finance charges, payments, and purchases so vendor/casual-worker history can be reused across finance workflows.
+- `FinancePayrollStructure` stores reusable salary/wage structures for staff, including cadence (`MONTHLY`, `TERM`, `DAILY`, `HOURLY`, `TASK`, `ONE_OFF`), base amount, allowances, deductions, advances, bonuses, computed net amount, role label, and linked salary/wages stream.
+- `FinancePurchase` stores purchase/service/expense/labor/reimbursement records funded from finance streams. Purchases link to the canonical `FinanceCharge` payable and optional `FinancePayment` when paid immediately, so the account statement remains the source of truth while the purchase record explains vendor, item/service, quantity, cost, receipt/reference, and status.
 
 ### FeeHistory (updated — session 2025-04)
 

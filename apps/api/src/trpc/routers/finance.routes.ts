@@ -1,24 +1,38 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
+	closeFinanceTermLedger,
+	cancelFinancePurchase,
+	createFinancePayrollObligation,
 	createFinanceCharge,
+	getFinancePayeeHistory,
+	getFinanceProjectAccountSummary,
 	getFinanceOverview,
+	getFinanceStaffHistory,
 	getFinanceTermLedger,
 	getReceivePaymentOptions,
+	getFinanceTermAccountStatement,
 	getFinanceStreamDetails,
 	getStudentFinanceStatement,
 	listFinanceCharges,
 	listFinanceItems,
 	listFinanceLedgerEntries,
 	listFinancePayments,
+	listFinancePayees,
 	listFinanceStaff,
 	listFinanceStreams,
 	listFinanceTransactions,
 	listFinanceTransfers,
+	previewFinanceTermClose,
+	recordFinancePurchase,
 	recordFinancePayment,
+	receiveStudentPaymentSimple,
+	reopenFinanceTermLedger,
 	reverseFinancePayment,
 	searchFinanceStudents,
 	transferFinanceFunds,
+	upsertFinancePayee,
+	upsertFinancePayrollStructure,
 	upsertFinanceItem,
 	upsertFinanceStream,
 } from "../../db/queries/finance";
@@ -30,14 +44,26 @@ import {
 import {
 	financeChargeInputSchema,
 	financeItemInputSchema,
+	financePayeeHistorySchema,
+	financePayeeInputSchema,
+	financePayeeQuerySchema,
 	financePaymentInputSchema,
+	financePayrollObligationInputSchema,
+	financePayrollStructureInputSchema,
+	financeProjectAccountSummarySchema,
+	financePurchaseInputSchema,
+	financePurchaseCancellationSchema,
 	financeReceivePaymentOptionsSchema,
+	financeSimpleStudentPaymentInputSchema,
+	financeStaffHistorySchema,
 	financeSearchInputSchema,
 	financeStreamDetailsSchema,
 	financeStreamInputSchema,
 	financeStreamQuerySchema,
 	financeStudentQueryCompatSchema,
 	financeStudentQuerySchema,
+	financeTermAccountStatementSchema,
+	financeTermCloseSchema,
 	financeTermLedgerQuerySchema,
 	financeTransferInputSchema,
 } from "../schemas/finance";
@@ -136,6 +162,8 @@ const legacyChargeInput = z
 		studentTermFormId: z.string().optional().nullable(),
 		staffProfileId: z.string().optional().nullable(),
 		staffTermProfileId: z.string().optional().nullable(),
+		payeeId: z.string().optional().nullable(),
+		payrollStructureId: z.string().optional().nullable(),
 		classroomDepartmentId: z.string().optional().nullable(),
 		sessionId: z.string().optional().nullable(),
 		termId: z.string().optional().nullable(),
@@ -390,6 +418,8 @@ function normalizeLegacyChargeInput(
 		studentTermFormId: input.studentTermFormId,
 		staffProfileId: input.staffProfileId,
 		staffTermProfileId: input.staffTermProfileId,
+		payeeId: input.payeeId,
+		payrollStructureId: input.payrollStructureId,
 		classroomDepartmentId: input.classroomDepartmentId,
 		sessionId: input.sessionId,
 		termId: input.termId,
@@ -407,6 +437,34 @@ export const financeRouter = createTRPCRouter({
 	getTermLedger: authenticatedProcedure
 		.input(financeTermLedgerQuerySchema)
 		.query(({ ctx, input }) => getFinanceTermLedger(ctx, input)),
+
+	getTermAccountStatement: authenticatedProcedure
+		.input(financeTermAccountStatementSchema)
+		.query(({ ctx, input }) => getFinanceTermAccountStatement(ctx, input)),
+
+	getProjectAccountSummary: authenticatedProcedure
+		.input(financeProjectAccountSummarySchema)
+		.query(({ ctx, input }) => getFinanceProjectAccountSummary(ctx, input)),
+
+	getStaffFinanceHistory: authenticatedProcedure
+		.input(financeStaffHistorySchema)
+		.query(({ ctx, input }) => getFinanceStaffHistory(ctx, input)),
+
+	getPayeeHistory: authenticatedProcedure
+		.input(financePayeeHistorySchema)
+		.query(({ ctx, input }) => getFinancePayeeHistory(ctx, input)),
+
+	previewTermClose: authenticatedProcedure
+		.input(financeTermCloseSchema)
+		.query(({ ctx, input }) => previewFinanceTermClose(ctx, input)),
+
+	closeTermLedger: authenticatedProcedure
+		.input(financeTermCloseSchema)
+		.mutation(({ ctx, input }) => closeFinanceTermLedger(ctx, input)),
+
+	reopenTermLedger: authenticatedProcedure
+		.input(financeTermCloseSchema)
+		.mutation(({ ctx, input }) => reopenFinanceTermLedger(ctx, input)),
 
 	getStreams: authenticatedProcedure
 		.input(financeStreamQuerySchema)
@@ -437,6 +495,25 @@ export const financeRouter = createTRPCRouter({
 	createItem: authenticatedProcedure
 		.input(financeItemInputSchema)
 		.mutation(({ ctx, input }) => upsertFinanceItem(ctx, input)),
+
+	getPayees: authenticatedProcedure
+		.input(financePayeeQuerySchema)
+		.query(({ ctx, input }) => listFinancePayees(ctx, input)),
+	upsertPayee: authenticatedProcedure
+		.input(financePayeeInputSchema)
+		.mutation(({ ctx, input }) => upsertFinancePayee(ctx, input)),
+	upsertPayrollStructure: authenticatedProcedure
+		.input(financePayrollStructureInputSchema)
+		.mutation(({ ctx, input }) => upsertFinancePayrollStructure(ctx, input)),
+	createPayrollObligation: authenticatedProcedure
+		.input(financePayrollObligationInputSchema)
+		.mutation(({ ctx, input }) => createFinancePayrollObligation(ctx, input)),
+	recordPurchase: authenticatedProcedure
+		.input(financePurchaseInputSchema)
+		.mutation(({ ctx, input }) => recordFinancePurchase(ctx, input)),
+	cancelPurchase: authenticatedProcedure
+		.input(financePurchaseCancellationSchema)
+		.mutation(({ ctx, input }) => cancelFinancePurchase(ctx, input)),
 
 	getItems: authenticatedProcedure
 		.input(itemListInput)
@@ -494,27 +571,166 @@ export const financeRouter = createTRPCRouter({
 		.input(optionalCompatInput)
 		.query(async ({ ctx }) => {
 			const overview = await getFinanceOverview(ctx);
+			const schoolProfileId = ctx.profile.schoolId;
+			const termId = ctx.profile.termId ?? null;
+			const sessionId = ctx.profile.sessionId ?? null;
+			const [
+				pendingPayables,
+				missingLedgerTerms,
+				unresolvedTransfers,
+				cancelledLedgerEffects,
+				unmatchedCarryForwards,
+			] = await Promise.all([
+				ctx.db.financeCharge.findMany({
+					where: {
+						schoolProfileId,
+						deletedAt: null,
+						payerType: { in: ["STAFF", "SCHOOL"] },
+						status: { in: ["PENDING", "PARTIALLY_PAID"] },
+						...(termId ? { sessionTermId: termId } : {}),
+						...(sessionId ? { schoolSessionId: sessionId } : {}),
+					},
+					select: {
+						id: true,
+						title: true,
+						amount: true,
+						amountPaid: true,
+						stream: { select: { id: true, name: true } },
+					},
+					take: 50,
+				}),
+				ctx.db.financeLedgerEntry.findMany({
+					where: {
+						schoolProfileId,
+						deletedAt: null,
+						collectedSessionTermId: null,
+						charge: { sessionTermId: null },
+					},
+					select: { id: true, sourceType: true, amount: true, occurredAt: true },
+					take: 50,
+				}),
+				ctx.db.financeTransfer.findMany({
+					where: {
+						schoolProfileId,
+						deletedAt: null,
+						status: { not: "COMPLETED" },
+					},
+					select: { id: true, amount: true, status: true, note: true },
+					take: 50,
+				}),
+				ctx.db.financeLedgerEntry.findMany({
+					where: {
+						schoolProfileId,
+						deletedAt: null,
+						OR: [
+							{ charge: { status: "CANCELLED" } },
+							{ payment: { status: { in: ["CANCELLED", "REFUNDED"] } } },
+						],
+					},
+					select: {
+						id: true,
+						sourceType: true,
+						sourceId: true,
+						amount: true,
+						chargeId: true,
+						paymentId: true,
+					},
+					take: 50,
+				}),
+				ctx.db.financeTermCarryForward.findMany({
+					where: {
+						schoolProfileId,
+						deletedAt: null,
+						ledgerEntryId: null,
+					},
+					select: { id: true, streamId: true, amount: true, direction: true },
+					take: 50,
+				}),
+			]);
+			const negativeAccounts = overview.streams.filter(
+				(stream) => stream.balance < 0,
+			);
+			const checks = [
+				{
+					key: "ledger-balance",
+					label: "Ledger balance",
+					status: "ok",
+					message:
+						"Account balances are computed from finance ledger entries.",
+				},
+				{
+					key: "missing-ledger-terms",
+					label: "Missing ledger terms",
+					status: missingLedgerTerms.length ? "warning" : "ok",
+					message: missingLedgerTerms.length
+						? `${missingLedgerTerms.length} ledger entries need term attribution review.`
+						: "All sampled ledger entries have collected-in or paid-for term attribution.",
+				},
+				{
+					key: "negative-accounts",
+					label: "Negative accounts",
+					status: negativeAccounts.length ? "warning" : "ok",
+					message: negativeAccounts.length
+						? `${negativeAccounts.length} account${negativeAccounts.length === 1 ? "" : "s"} need funding before close.`
+						: "No account is currently negative.",
+				},
+				{
+					key: "pending-payables",
+					label: "Pending payables",
+					status: pendingPayables.length ? "warning" : "ok",
+					message: pendingPayables.length
+						? `${pendingPayables.length} staff or school payable${pendingPayables.length === 1 ? "" : "s"} remain unpaid.`
+						: "No pending staff or school payables found for the current context.",
+				},
+				{
+					key: "unresolved-transfers",
+					label: "Unresolved transfers",
+					status: unresolvedTransfers.length ? "warning" : "ok",
+					message: unresolvedTransfers.length
+						? `${unresolvedTransfers.length} transfer${unresolvedTransfers.length === 1 ? "" : "s"} are not completed.`
+						: "No unresolved transfers found.",
+				},
+				{
+					key: "cancelled-ledger-effects",
+					label: "Cancelled ledger effects",
+					status: cancelledLedgerEffects.length ? "warning" : "ok",
+					message: cancelledLedgerEffects.length
+						? `${cancelledLedgerEffects.length} ledger entr${cancelledLedgerEffects.length === 1 ? "y" : "ies"} still point at cancelled or refunded records.`
+						: "Cancelled or refunded records do not have active sampled ledger effects.",
+				},
+				{
+					key: "carry-forward",
+					label: "Carry-forward matching",
+					status: unmatchedCarryForwards.length ? "warning" : "ok",
+					message: unmatchedCarryForwards.length
+						? `${unmatchedCarryForwards.length} carry-forward entr${unmatchedCarryForwards.length === 1 ? "y" : "ies"} are not linked to opening ledger entries.`
+						: "Carry-forward rows are linked to opening ledger entries.",
+				},
+			];
 			return {
 				totals: {
 					...overview.summary,
 					streamAvailableFunds: overview.summary.totalBalance,
-					streamPendingBills: 0,
-					streamOwing: 0,
+					streamPendingBills: pendingPayables.reduce(
+						(sum, charge) =>
+							sum + (Number(charge.amount) - Number(charge.amountPaid)),
+						0,
+					),
+					streamOwing: negativeAccounts.reduce(
+						(sum, stream) => sum + Math.abs(stream.balance),
+						0,
+					),
 					studentPendingFees: 0,
 				},
-				checks: [
-					{
-						key: "ledger-balance",
-						label: "Ledger balance",
-						status: "ok",
-						message:
-							"Stream balances are computed from finance ledger entries.",
-					},
-				],
+				checks,
 				mismatches: {
 					legacyPaymentsWithoutSettlement: [],
-					missingStreams: [],
-					streamProjectedDeficits: [],
+					missingStreams: missingLedgerTerms,
+					streamProjectedDeficits: negativeAccounts,
+					pendingPayables,
+					unresolvedTransfers,
+					cancelledLedgerEffects,
+					unmatchedCarryForwards,
 				},
 			};
 		}),
@@ -523,13 +739,207 @@ export const financeRouter = createTRPCRouter({
 		.input(optionalCompatInput)
 		.query(async ({ ctx }) => {
 			const overview = await getFinanceOverview(ctx);
+			const schoolProfileId = ctx.profile.schoolId;
+			const termId = ctx.profile.termId ?? null;
+			const sessionId = ctx.profile.sessionId ?? null;
+			const [purchases, arrears, payments, transfers, closes, carryForwards, payees] =
+				await Promise.all([
+					ctx.db.financePurchase.findMany({
+						where: {
+							schoolProfileId,
+							deletedAt: null,
+							...(termId ? { sessionTermId: termId } : {}),
+							...(sessionId ? { schoolSessionId: sessionId } : {}),
+						},
+						include: {
+							stream: { select: { id: true, name: true, accountType: true } },
+							payee: { select: { id: true, name: true, type: true } },
+							charge: { select: { id: true, title: true, status: true } },
+							payment: {
+								select: {
+									id: true,
+									reference: true,
+									method: true,
+									status: true,
+									receivedById: true,
+								},
+							},
+						},
+						orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+						take: 500,
+					}),
+					ctx.db.financeCharge.findMany({
+						where: {
+							schoolProfileId,
+							deletedAt: null,
+							studentId: { not: null },
+							status: { in: ["PENDING", "PARTIALLY_PAID"] },
+						},
+						include: {
+							stream: { select: { id: true, name: true, accountType: true } },
+							student: {
+								select: { id: true, name: true, surname: true, otherName: true },
+							},
+						},
+						orderBy: [{ createdAt: "desc" }],
+						take: 500,
+					}),
+					ctx.db.financePayment.findMany({
+						where: {
+							schoolProfileId,
+							deletedAt: null,
+							...(termId ? { collectedSessionTermId: termId } : {}),
+							...(sessionId ? { collectedSchoolSessionId: sessionId } : {}),
+						},
+						include: {
+							stream: { select: { id: true, name: true, accountType: true } },
+							staffProfile: { select: { id: true, name: true, title: true } },
+							payee: { select: { id: true, name: true, type: true } },
+						},
+						orderBy: [{ paymentDate: "desc" }, { createdAt: "desc" }],
+						take: 500,
+					}),
+					ctx.db.financeTransfer.findMany({
+						where: {
+							schoolProfileId,
+							deletedAt: null,
+						},
+						include: {
+							fromStream: { select: { id: true, name: true } },
+							toStream: { select: { id: true, name: true } },
+						},
+						orderBy: [{ createdAt: "desc" }],
+						take: 200,
+					}),
+					ctx.db.financeTermLedgerClose.findMany({
+						where: { schoolProfileId, deletedAt: null },
+						orderBy: [{ createdAt: "desc" }],
+						take: 100,
+					}),
+					ctx.db.financeTermCarryForward.findMany({
+						where: { schoolProfileId, deletedAt: null },
+						include: { stream: { select: { id: true, name: true } } },
+						orderBy: [{ createdAt: "desc" }],
+						take: 200,
+					}),
+					ctx.db.financePayee.findMany({
+						where: { schoolProfileId, deletedAt: null },
+						orderBy: [{ name: "asc" }],
+						take: 200,
+					}),
+				]);
+			const payroll = await listFinanceCharges(ctx, { payerType: "STAFF" });
+			const payables = await listFinanceCharges(ctx, {
+				excludePayerType: "STUDENT",
+				collectionStatus: "PENDING",
+			});
 			return {
 				summary: overview.summary,
 				streams: overview.streams,
-				payroll: await listFinanceCharges(ctx, { staffProfileId: null }),
-				servicePayments: [],
-				collections: [],
-				owingLedger: [],
+				accounts: overview.streams,
+				termLedgers: {
+					currentTermId: termId,
+					currentSessionId: sessionId,
+					accounts: overview.streams,
+				},
+				payroll,
+				payables,
+				purchases: purchases.map((purchase) => ({
+					...purchase,
+					quantity: Number(purchase.quantity),
+					unitCost: Number(purchase.unitCost),
+					totalCost: Number(purchase.totalCost),
+					amountPaid: Number(purchase.amountPaid),
+				})),
+				servicePayments: purchases.filter((purchase) =>
+					["SERVICE", "LABOR", "DIRECT_EXPENSE", "REIMBURSEMENT"].includes(
+						purchase.kind,
+					),
+				),
+				collections: payments,
+				arrears: arrears.map((charge) => ({
+					id: charge.id,
+					title: charge.title,
+					studentName: [charge.student?.surname, charge.student?.name]
+						.filter(Boolean)
+						.join(" "),
+					accountName: charge.stream.name,
+					amount: Number(charge.amount),
+					amountPaid: Number(charge.amountPaid),
+					outstanding: Number(charge.amount) - Number(charge.amountPaid),
+					status: charge.status,
+				})),
+				productProjectAccounts: overview.streams.map((stream) => ({
+					id: stream.id,
+					name: stream.name,
+					moneyIn: stream.credit,
+					moneyOut: stream.debit,
+					balance: stream.balance,
+					profitLoss: stream.credit - stream.debit,
+				})),
+				reconciliation: {
+					transfers,
+					closes,
+					carryForwards,
+				},
+				auditTrail: {
+					payments: payments.map((payment) => ({
+						id: payment.id,
+						action: "payment-recorded",
+						accountName: payment.stream.name,
+						amount: Number(payment.amount),
+						actorId: payment.receivedById,
+						status: payment.status,
+						occurredAt: payment.paymentDate,
+					})),
+					transfers: transfers.map((transfer) => ({
+						id: transfer.id,
+						action: "transfer-recorded",
+						fromAccountName: transfer.fromStream.name,
+						toAccountName: transfer.toStream.name,
+						amount: Number(transfer.amount),
+						actorId: transfer.sentById,
+						status: transfer.status,
+						occurredAt: transfer.createdAt,
+					})),
+					termCloses: closes.map((close) => ({
+						id: close.id,
+						action:
+							close.status === "REOPENED"
+								? "term-ledger-reopened"
+								: "term-ledger-closed",
+						actorId: close.status === "REOPENED" ? close.reopenedById : close.closedById,
+						status: close.status,
+						occurredAt: close.status === "REOPENED" ? close.reopenedAt : close.closedAt,
+					})),
+					carryForwards: carryForwards.map((carryForward) => ({
+						id: carryForward.id,
+						action: "carry-forward-created",
+						accountName: carryForward.stream.name,
+						amount: Number(carryForward.amount),
+						direction: carryForward.direction,
+						occurredAt: carryForward.createdAt,
+					})),
+					purchases: purchases.map((purchase) => ({
+						id: purchase.id,
+						action: "purchase-recorded",
+						accountName: purchase.stream.name,
+						payeeName: purchase.payee?.name ?? null,
+						amount: Number(purchase.totalCost),
+						actorId: purchase.createdById,
+						status: purchase.status,
+						occurredAt: purchase.occurredAt,
+					})),
+					payees: payees.map((payee) => ({
+						id: payee.id,
+						action: "payee-available",
+						name: payee.name,
+						type: payee.type,
+						actorId: payee.createdById,
+						occurredAt: payee.createdAt,
+					})),
+				},
+				owingLedger: payables,
 			};
 		}),
 
@@ -579,6 +989,9 @@ export const financeRouter = createTRPCRouter({
 					)
 				: recordLegacyStudentPayment(ctx, input),
 		),
+	receiveStudentPaymentSimple: authenticatedProcedure
+		.input(financeSimpleStudentPaymentInputSchema)
+		.mutation(({ ctx, input }) => receiveStudentPaymentSimple(ctx, input)),
 	payStaffBill: authenticatedProcedure
 		.input(legacyPaymentInput)
 		.mutation(({ ctx, input }) =>
