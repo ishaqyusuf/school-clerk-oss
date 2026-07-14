@@ -26,6 +26,7 @@ import { Progress } from "@school-clerk/ui/progress";
 import { Separator } from "@school-clerk/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import {
   AlertCircle,
   AlertTriangle,
@@ -76,6 +77,7 @@ interface Props {
   onStartNewImport?: () => void;
   onCloseImport?: () => void;
   onPhaseChange?: (phase: "review" | "import") => void;
+  isActive?: boolean;
 }
 
 type VerifyResult =
@@ -157,6 +159,7 @@ export function ImportActivity({
   onStartNewImport,
   onCloseImport,
   onPhaseChange,
+  isActive = true,
 }: Props) {
   const [classroomDeptId, setClassroomDeptId] = useState<string>("");
   const [rowDecisions, setRowDecisions] = useState<Record<number, RowDecision>>(
@@ -208,7 +211,9 @@ export function ImportActivity({
     data: records,
     refetch: refetchRecentRecords,
     isPending: isRecentRecordsPending,
-  } = useQuery(_trpc.students.studentsRecentRecord.queryOptions({}));
+  } = useQuery(
+    _trpc.students.studentsRecentRecord.queryOptions({}, { enabled: isActive }),
+  );
 
   useEffect(() => {
     setManualClassroomDepartmentIds({});
@@ -287,11 +292,12 @@ export function ImportActivity({
   } = useMutation(_trpc.students.verifyStudentImportBatch.mutationOptions());
 
   useEffect(() => {
+    if (!isActive) return;
     if (!verifyInput) return;
 
     resetVerification();
     verifyStudents(verifyInput);
-  }, [resetVerification, verifyInput, verifyStudents]);
+  }, [isActive, resetVerification, verifyInput, verifyStudents]);
 
   const refetchVerification = () => {
     if (!verifyInput) return;
@@ -420,6 +426,11 @@ export function ImportActivity({
       },
     }),
   );
+  const canRecoverImportJob =
+    isActive &&
+    !activeImportJobId &&
+    !startedImportJob &&
+    students.length === 0;
 
   const {
     data: activeImportJob,
@@ -429,24 +440,21 @@ export function ImportActivity({
     _trpc.students.getStudentImportJob.queryOptions(
       activeImportJobId ? { jobId: activeImportJobId } : undefined,
       {
-        enabled: Boolean(activeImportJobId),
-        refetchInterval: activeImportJobId ? 2000 : false,
+        enabled: isActive && Boolean(activeImportJobId),
+        refetchInterval: false,
       },
     ),
   );
 
-  const { data: recoveredImportJob } = useQuery(
-    _trpc.students.getStudentImportJob.queryOptions(undefined, {
-      retry: false,
-      refetchOnWindowFocus: false,
-      refetchInterval: (query) => {
-        const job = query.state.data as StudentImportJob | undefined;
-        return job?.status === "PENDING" || job?.status === "RUNNING"
-          ? 2000
-          : false;
-      },
-    }),
-  );
+  const { data: recoveredImportJob, refetch: refetchRecoveredImportJob } =
+    useQuery(
+      _trpc.students.getStudentImportJob.queryOptions(undefined, {
+        enabled: canRecoverImportJob,
+        retry: false,
+        refetchOnWindowFocus: false,
+        refetchInterval: false,
+      }),
+    );
 
   const { mutate: executeSingleRow, reset: resetSingleRowMutation } =
     useMutation(
@@ -949,7 +957,36 @@ export function ImportActivity({
   );
   const showRowClassroom = classroomBreakdown.length > 1;
   const displayedImportJob =
-    activeImportJob ?? startedImportJob ?? recoveredImportJob ?? null;
+    (isActive && activeImportJobId ? activeImportJob : null) ??
+    startedImportJob ??
+    (canRecoverImportJob ? recoveredImportJob : null) ??
+    null;
+  const displayedImportJobTriggerRunId =
+    displayedImportJob?.triggerRunId ?? undefined;
+  const displayedImportJobTriggerAccessToken =
+    displayedImportJob?.triggerAccessToken ?? undefined;
+  const { run: triggerRun, error: triggerRunError } = useRealtimeRun(
+    displayedImportJobTriggerRunId,
+    {
+      accessToken: displayedImportJobTriggerAccessToken,
+      enabled: Boolean(
+        isActive &&
+        displayedImportJobTriggerRunId &&
+        displayedImportJobTriggerAccessToken,
+      ),
+      onComplete: () => {
+        if (activeImportJobId) {
+          refetchActiveImportJob();
+        } else {
+          refetchRecoveredImportJob();
+        }
+      },
+    },
+  );
+  const triggerRunWaitingForVersion = triggerRun?.status === "PENDING_VERSION";
+  const triggerRunWaitingForVersionMessage = triggerRunWaitingForVersion
+    ? "Trigger run is waiting for a matching worker version. In local development, use a Trigger.dev dev secret key with trigger.dev dev, or deploy the production worker for the production key."
+    : null;
   const displayedImportJobRunning = Boolean(
     displayedImportJob &&
     (displayedImportJob.status === "PENDING" ||
@@ -962,7 +999,9 @@ export function ImportActivity({
       displayedImportJob.status === "FAILED" ||
       displayedImportJob.status === "CANCELLED"),
   );
-  const isExecutingBatch = isStartingImportJob || displayedImportJobRunning;
+  const isExecutingBatch =
+    isStartingImportJob ||
+    (displayedImportJobRunning && !triggerRunWaitingForVersion);
   const batchResult: ImportExecutionResult | undefined =
     displayedImportJob ?? skippedOnlyResult ?? undefined;
 
@@ -1010,9 +1049,9 @@ export function ImportActivity({
     () =>
       normalizeStudentImportError(
         "execution",
-        batchError || activeImportJobError,
+        batchError || activeImportJobError || triggerRunError,
       ),
-    [activeImportJobError, batchError],
+    [activeImportJobError, batchError, triggerRunError],
   );
   const preSubmitImportError = useMemo<NormalizedStudentImportError | null>(
     () =>
@@ -1182,7 +1221,9 @@ export function ImportActivity({
           }
           isExecuting={isExecutingBatch}
           result={batchResult}
-          errorMessage={null}
+          errorMessage={
+            triggerRunWaitingForVersionMessage ?? batchImportError?.message
+          }
           onStartNewImport={onStartNewImport || onCancelImport}
           onCloseImport={onCloseImport}
         />
@@ -1541,7 +1582,7 @@ function ImportExecutionPanel({
   const isPartialResult = jobProgress?.status === "COMPLETED_WITH_FAILURES";
   const statusIcon = isExecuting ? (
     <RefreshCw className="size-4 animate-spin" />
-  ) : hasFailures || (hasError && !hasResult) ? (
+  ) : hasFailures || hasError ? (
     <XCircle className="size-4" />
   ) : hasResult ? (
     <CheckCircle2 className="size-4" />
@@ -1550,23 +1591,23 @@ function ImportExecutionPanel({
   );
   const statusTitle = isExecuting
     ? "Importing selected rows"
-    : isPartialResult
-      ? "Import completed with issues"
-      : hasFailures
-        ? "Import needs attention"
-        : hasResult
-          ? "Import complete"
-          : hasError
-            ? "Import needs attention"
+    : hasError
+      ? "Import needs attention"
+      : isPartialResult
+        ? "Import completed with issues"
+        : hasFailures
+          ? "Import needs attention"
+          : hasResult
+            ? "Import complete"
             : "Ready for import";
   const statusDetail = isExecuting
     ? jobProgress
       ? `${jobProgress.processedRows} of ${jobProgress.totalRows} row(s) processed. You can leave this screen and come back.`
       : "Starting a durable import job for the selected rows."
-    : hasResult
-      ? `${successfulRows} row(s) applied, ${skippedRows} skipped, ${result?.failedRows ?? 0} failed.`
-      : hasError
-        ? errorMessage
+    : hasError
+      ? errorMessage
+      : hasResult
+        ? `${successfulRows} row(s) applied, ${skippedRows} skipped, ${result?.failedRows ?? 0} failed.`
         : classroomLabel
           ? `Reviewing ${selectedRowCount} of ${pastedRowCount} pasted row(s) for ${classroomLabel}.`
           : "Select a target classroom before executing the import.";
@@ -1575,7 +1616,7 @@ function ImportExecutionPanel({
     <div
       className={cn(
         "rounded-md border bg-background text-xs",
-        hasFailures || (hasError && !hasResult)
+        hasFailures || hasError
           ? "border-red-200 dark:border-red-900/70"
           : hasResult
             ? "border-green-200 dark:border-green-900/70"
@@ -1587,7 +1628,7 @@ function ImportExecutionPanel({
           <span
             className={cn(
               "mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md border bg-muted/30",
-              hasFailures || (hasError && !hasResult)
+              hasFailures || hasError
                 ? "border-red-200 text-red-600 dark:border-red-900"
                 : hasResult
                   ? "border-green-200 text-green-600 dark:border-green-900"
@@ -1610,21 +1651,25 @@ function ImportExecutionPanel({
         </div>
 
         <Badge
-          variant={hasResult && !hasFailures ? "success" : "outline"}
+          variant={
+            hasResult && !hasFailures && !hasError ? "success" : "outline"
+          }
           className={cn(
             "bg-background",
-            hasFailures || (hasError && !hasResult)
+            hasFailures || hasError
               ? "border-red-200 text-red-600 dark:border-red-900"
               : "",
           )}
         >
           {isExecuting
             ? "Working"
-            : hasResult
-              ? hasFailures
-                ? "Partial"
-                : "Success"
-              : `${executableRowCount} executable`}
+            : hasError
+              ? "Attention"
+              : hasResult
+                ? hasFailures
+                  ? "Partial"
+                  : "Success"
+                : `${executableRowCount} executable`}
         </Badge>
       </div>
 

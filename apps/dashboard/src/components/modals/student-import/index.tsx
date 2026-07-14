@@ -12,6 +12,7 @@ import {
 import { Separator } from "@school-clerk/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
 import { AlertTriangle, ArrowRight, CheckCircle2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { parseAsString, useQueryStates } from "nuqs";
 import { useEffect, useMemo, useState } from "react";
 import { Controller } from "react-hook-form";
@@ -30,11 +31,12 @@ const studentImportSchema = z.object({
 });
 
 export function StudentImportModal() {
-  const [{ action }, setParams] = useQueryStates({
+  const searchParams = useSearchParams();
+  const [, setParams] = useQueryStates({
     action: parseAsString,
   });
   const [ls, setLs] = useLocalStorage("student-import-data", "");
-  const open = action == "student-import";
+  const open = searchParams.get("action") === "student-import";
 
   const { data: classList, isLoading: isClassListLoading } = useQuery(
     _trpc.classrooms.getCurrentSessionClassroom.queryOptions(),
@@ -447,19 +449,23 @@ export function StudentImportModal() {
             value="importing"
             className="m-0 min-h-0 flex-1 overflow-hidden px-4 py-4 sm:px-6"
           >
-            <ImportActivity
-              classrooms={
-                classList?.data?.map((c) => ({ title: c.departmentName })) || []
-              }
-              students={parse?.students || []}
-              onCancelImport={() => {
-                setImportPhase("review");
-                setTab("main");
-              }}
-              onStartNewImport={startNewImport}
-              onCloseImport={closeImport}
-              onPhaseChange={setImportPhase}
-            />
+            {tab === "importing" ? (
+              <ImportActivity
+                classrooms={
+                  classList?.data?.map((c) => ({ title: c.departmentName })) ||
+                  []
+                }
+                students={parse?.students || []}
+                isActive={open && tab === "importing"}
+                onCancelImport={() => {
+                  setImportPhase("review");
+                  setTab("main");
+                }}
+                onStartNewImport={startNewImport}
+                onCloseImport={closeImport}
+                onPhaseChange={setImportPhase}
+              />
+            ) : null}
           </Tabs.Content>
         </Tabs.Root>
       </Dialog.Content>

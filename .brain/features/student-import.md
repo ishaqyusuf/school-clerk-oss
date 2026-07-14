@@ -142,6 +142,7 @@ Musa Garba, M
 - Execution and completion summaries use standard progress/status styling, responsive metric cards, classroom breakdown badges, failed-line analysis, and clear `Start new import` / `Close` actions.
 - Verification, batch execution, and single-row execution errors are normalized before display. If the dashboard receives an HTML/non-JSON response instead of tRPC JSON, the modal shows a recoverable `Import needs attention` message, keeps the last successful staged review data, and includes only safe diagnostics such as operation, HTTP status, content type, and a short redacted response preview.
 - `Cancel Import` is available before execution and returns the operator to the initial import screen, clearing staged verification/review state without writing new student records.
+- The import review component only runs verification, recent-record reads, and job polling while the import tab is active. Recovered background jobs are only shown when there is no current staged paste payload, so an old pending/recent job cannot hijack a fresh review session or keep polling from hidden modal state.
 
 ### Candidate Metadata
 
@@ -190,7 +191,9 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 - `trpc.students.verifyStudentImportBatch`: POST-backed verification mutation with the same input/output as `verifyStudentImport`, used by the dashboard modal so large pasted batches are not constrained by query URL length.
 - `trpc.students.executeStudentImport`: mutation for row-level import decisions. The dashboard uses it for both selected-row batch import and one-row import actions.
 - `trpc.students.startStudentImportJob`: mutation used by the dashboard batch execute action to create a persisted background import job from reviewed executable rows.
-- `trpc.students.getStudentImportJob`: query used by the dashboard to poll or recover active/recent import job progress and final row results.
+- `trpc.students.getStudentImportJob`: query used by the dashboard to recover active/recent import job progress and final row results.
+- Batch imports always run through the Trigger.dev `process-student-import-job` task. The server creates the tenant-scoped job rows, calls the Trigger SDK `tasks.trigger(...)` function with the task id, stores the Trigger run id, and returns a scoped public run token so the dashboard can subscribe with `useRealtimeRun`.
+- If the Trigger run reports `PENDING_VERSION`, the import job has been created but no matching worker version is available for that Trigger environment. Local development should use a Trigger.dev development secret key with `trigger.dev dev`; production keys require a deployed production worker.
 
 ### Execute Input Schema
 

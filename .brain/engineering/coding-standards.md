@@ -46,6 +46,7 @@ Defines implementation standards for consistency, maintainability, and reliabili
   - tenant dashboard: `<tenant>.school-clerk-dashboard.localhost`
   - tenant school site: `<tenant>.school-clerk-site.localhost`
 - Use raw localhost ports only for low-level debugging when Portless itself is the suspected failure.
+- `bun run kill:ports` discovers numeric env variables ending in `_PORT` and ignores names containing `PORTLESS`. Keep every project-owned dev port declared as an individual `*_PORT` env variable instead of adding aggregate kill lists.
 - For schema readiness checks, use profile-routed DB commands:
   - local validation/push: `bun run db:push --local`
   - production validation/push: `bun run db:push --prod`

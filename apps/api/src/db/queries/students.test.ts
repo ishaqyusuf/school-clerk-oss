@@ -165,6 +165,15 @@ function createImportCtx() {
         schoolSessionId: "session-1",
       },
     },
+    {
+      id: "primary-1-primary-1",
+      departmentName: "الأول الإبتدائي",
+      schoolProfileId: "school-1",
+      classRoom: {
+        name: "الأول الإبتدائي",
+        schoolSessionId: "session-1",
+      },
+    },
   ];
   const existingStudents = [
     {
@@ -203,6 +212,7 @@ function createImportCtx() {
       termForms: [],
     },
   ];
+  const createdStudents: unknown[] = [];
   const createdSessionForms: unknown[] = [];
   const createdTermForms: unknown[] = [];
 
@@ -210,9 +220,34 @@ function createImportCtx() {
     students: {
       findFirst: async ({ where }: any) =>
         existingStudents.find((student) => student.id === where.id) ?? null,
+      create: async ({ data }: any) => {
+        const student = {
+          id: `new-student-${createdStudents.length + 1}`,
+          gender: data.gender,
+          name: data.name,
+          surname: data.surname,
+          otherName: data.otherName ?? null,
+          schoolProfileId: data.schoolProfileId,
+          sessionForms: [
+            {
+              id: `new-session-form-${createdStudents.length + 1}`,
+              ...data.sessionForms.create,
+              termForms: [
+                {
+                  id: `new-term-form-${createdStudents.length + 1}`,
+                  ...data.sessionForms.create.termForms.create,
+                },
+              ],
+            },
+          ],
+        };
+        createdStudents.push(student);
+        return student;
+      },
       update: async () => ({}),
     },
     studentTermForm: {
+      findMany: async () => [],
       findFirst: async () => null,
       create: async ({ data }: any) => {
         createdTermForms.push(data);
@@ -221,6 +256,7 @@ function createImportCtx() {
           ...data,
         };
       },
+      update: async ({ where, data }: any) => ({ id: where.id, ...data }),
     },
     studentSessionForm: {
       findFirst: async () => null,
@@ -261,6 +297,7 @@ function createImportCtx() {
           callback(tx),
       },
     } as any,
+    createdStudents,
     createdSessionForms,
     createdTermForms,
   };
@@ -429,6 +466,108 @@ describe("executeStudentImport", () => {
     expect(
       createdTermForms.map((form: any) => form.classroomDepartmentId),
     ).toEqual(["classroom-a", "classroom-b"]);
+  });
+
+  test("creates Arabic fallback-classroom female rows as new students", async () => {
+    const { ctx, createdStudents } = createImportCtx();
+
+    const result = await executeStudentImport(ctx, {
+      classroomDepartmentId: "primary-1-primary-1",
+      rows: [
+        {
+          lineNumber: 2,
+          name: "بلقيس",
+          surname: "أحمد",
+          gender: "Female",
+          classroomDepartmentId: "primary-1-primary-1",
+          action: "import_new",
+        },
+        {
+          lineNumber: 3,
+          name: "بلقيس",
+          surname: "أونيكون",
+          gender: "Female",
+          classroomDepartmentId: "primary-1-primary-1",
+          action: "import_new",
+        },
+        {
+          lineNumber: 4,
+          name: "بلقيس",
+          surname: "إبراهيم",
+          gender: "Female",
+          classroomDepartmentId: "primary-1-primary-1",
+          action: "import_new",
+        },
+        {
+          lineNumber: 5,
+          name: "حنيفة",
+          surname: "عيسى",
+          gender: "Female",
+          classroomDepartmentId: "primary-1-primary-1",
+          action: "import_new",
+        },
+        {
+          lineNumber: 6,
+          name: "حليمة",
+          surname: "عثمان",
+          gender: "Female",
+          classroomDepartmentId: "primary-1-primary-1",
+          action: "import_new",
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      createdStudents: 5,
+      termSheetsCreated: 5,
+      failedRows: 0,
+    });
+    expect(result.rows.map((row) => row.status)).toEqual([
+      "created",
+      "created",
+      "created",
+      "created",
+      "created",
+    ]);
+    expect(
+      createdStudents.map((student: any) => ({
+        name: student.name,
+        surname: student.surname,
+        gender: student.gender,
+        classroomDepartmentId: student.sessionForms[0]?.classroomDepartmentId,
+      })),
+    ).toEqual([
+      {
+        name: "بلقيس",
+        surname: "أحمد",
+        gender: "Female",
+        classroomDepartmentId: "primary-1-primary-1",
+      },
+      {
+        name: "بلقيس",
+        surname: "أونيكون",
+        gender: "Female",
+        classroomDepartmentId: "primary-1-primary-1",
+      },
+      {
+        name: "بلقيس",
+        surname: "إبراهيم",
+        gender: "Female",
+        classroomDepartmentId: "primary-1-primary-1",
+      },
+      {
+        name: "حنيفة",
+        surname: "عيسى",
+        gender: "Female",
+        classroomDepartmentId: "primary-1-primary-1",
+      },
+      {
+        name: "حليمة",
+        surname: "عثمان",
+        gender: "Female",
+        classroomDepartmentId: "primary-1-primary-1",
+      },
+    ]);
   });
 });
 

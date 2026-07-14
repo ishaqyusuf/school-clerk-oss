@@ -9,7 +9,7 @@ import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 import { assertNoExactDuplicateStudentInClassTerm } from "./student-duplicates";
 import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
 import { processStudentImportJobTaskId } from "@school-clerk/utils/task-contracts";
-import { tasks } from "@trigger.dev/sdk";
+import { auth, tasks } from "@trigger.dev/sdk";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -2295,6 +2295,7 @@ type StudentImportJobRead = {
   failedRows: number;
   errorMessage?: string | null;
   triggerRunId?: string | null;
+  triggerAccessToken?: string | null;
   rows: ImportRowResult[];
 };
 
@@ -2379,10 +2380,26 @@ function summarizeStudentImportJobRows(rows: any[]) {
   return summary;
 }
 
-function serializeStudentImportJob(
+async function createStudentImportJobTriggerAccessToken(runId?: string | null) {
+  if (!runId) return null;
+
+  return auth.createPublicToken({
+    scopes: {
+      read: {
+        runs: runId,
+      },
+    },
+    expirationTime: "2h",
+    realtime: {
+      skipColumns: ["payload", "output"],
+    },
+  });
+}
+
+async function serializeStudentImportJob(
   job: any,
   rows: any[],
-): StudentImportJobRead {
+): Promise<StudentImportJobRead> {
   return {
     id: job.id,
     status: job.status,
@@ -2396,6 +2413,9 @@ function serializeStudentImportJob(
     failedRows: job.failedRows,
     errorMessage: job.errorMessage,
     triggerRunId: job.triggerRunId,
+    triggerAccessToken: await createStudentImportJobTriggerAccessToken(
+      job.triggerRunId,
+    ),
     rows: rows.map((row) => ({
       lineNumber: row.lineNumber,
       action: row.action,
@@ -2482,9 +2502,9 @@ export async function startStudentImportJob(
   });
 
   if (options.enqueue !== false) {
-    const run = (await tasks.trigger(processStudentImportJobTaskId, {
+    const run = await tasks.trigger(processStudentImportJobTaskId, {
       jobId: job.id,
-    })) as { id?: string };
+    });
 
     if (run?.id) {
       await (db as any).studentImportJob.update({

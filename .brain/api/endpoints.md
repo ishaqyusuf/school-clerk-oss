@@ -192,5 +192,6 @@ Catalog of API routes and responsibilities.
 
 - `trpc.students.getImportNameGuide`: compact query returning unique tenant-scoped existing student name parts from `name`, `surname`, and `otherName` for guided import parsing.
 - `trpc.students.executeStudentImport`: batch mutation applying import-new, keep-match, and update-match-with-name actions. Creates students and term sheets idempotently, validates each row's classroom/session ancestry, applies fee histories.
-- `trpc.students.startStudentImportJob`: creates a durable tenant-scoped background import job from reviewed execution rows and queues Trigger.dev processing.
+- `trpc.students.startStudentImportJob`: creates a durable tenant-scoped import job from reviewed execution rows, triggers the Trigger.dev `process-student-import-job` task through the Trigger SDK, stores the run id, and returns a scoped public token for dashboard realtime hooks.
 - `trpc.students.getStudentImportJob`: reads the active/recent or explicit tenant-owned student import job with progress counters and row-level results.
+- Trigger runs that remain in `PENDING_VERSION` indicate the SDK trigger succeeded but Trigger.dev has no matching worker version for that environment. In local development, use a development Trigger secret key with `trigger.dev dev`; production keys need a deployed production worker.

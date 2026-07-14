@@ -20,6 +20,14 @@ const classrooms: ImportClassroomOption[] = [
   },
 ];
 
+const arabicPrimaryOneClassroom: ImportClassroomOption = {
+  id: "primary-1-primary-1",
+  departmentName: "الأول الإبتدائي",
+  classRoom: {
+    name: "الأول الإبتدائي",
+  },
+};
+
 describe("parseRawInput", () => {
   test("assigns rows to classroom headers and gender marker sections", () => {
     const result = parseRawInput(
@@ -163,5 +171,82 @@ describe("parseRawInput", () => {
       warning:
         "Classroom missing; add a class name header or choose a default classroom",
     });
+  });
+
+  test("applies fallback classroom and female marker to Arabic student rows", () => {
+    const result = parseRawInput(
+      [
+        "Female",
+        "بلقيس أحمد",
+        "بلقيس أونيكون",
+        "بلقيس إبراهيم",
+        "حنيفة عيسى",
+        "حليمة عثمان",
+      ].join("\n"),
+      "الأول الإبتدائي - الأول الإبتدائي",
+      arabicPrimaryOneClassroom.id,
+      "unset",
+      [],
+      [...classrooms, arabicPrimaryOneClassroom],
+    );
+
+    expect(result.warnings).toEqual([]);
+    expect(result.students).toMatchObject([
+      {
+        name: "بلقيس",
+        surname: "أحمد",
+        gender: "F",
+        batchGender: "F",
+        parsedGender: undefined,
+        classRoom: "الأول الإبتدائي - الأول الإبتدائي",
+        classroomDepartmentId: arabicPrimaryOneClassroom.id,
+        classroomSource: "selected",
+        classroomResolutionStatus: "resolved",
+      },
+      {
+        name: "بلقيس",
+        surname: "أونيكون",
+        gender: "F",
+        batchGender: "F",
+        parsedGender: undefined,
+        classRoom: "الأول الإبتدائي - الأول الإبتدائي",
+        classroomDepartmentId: arabicPrimaryOneClassroom.id,
+        classroomSource: "selected",
+        classroomResolutionStatus: "resolved",
+      },
+      {
+        name: "بلقيس",
+        surname: "إبراهيم",
+        gender: "F",
+        batchGender: "F",
+        parsedGender: undefined,
+        classRoom: "الأول الإبتدائي - الأول الإبتدائي",
+        classroomDepartmentId: arabicPrimaryOneClassroom.id,
+        classroomSource: "selected",
+        classroomResolutionStatus: "resolved",
+      },
+      {
+        name: "حنيفة",
+        surname: "عيسى",
+        gender: "F",
+        batchGender: "F",
+        parsedGender: undefined,
+        classRoom: "الأول الإبتدائي - الأول الإبتدائي",
+        classroomDepartmentId: arabicPrimaryOneClassroom.id,
+        classroomSource: "selected",
+        classroomResolutionStatus: "resolved",
+      },
+      {
+        name: "حليمة",
+        surname: "عثمان",
+        gender: "F",
+        batchGender: "F",
+        parsedGender: undefined,
+        classRoom: "الأول الإبتدائي - الأول الإبتدائي",
+        classroomDepartmentId: arabicPrimaryOneClassroom.id,
+        classroomSource: "selected",
+        classroomResolutionStatus: "resolved",
+      },
+    ]);
   });
 });
