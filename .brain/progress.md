@@ -704,6 +704,34 @@
 - `packages/site-nav/src/components/user.tsx`
 - `packages/site-nav/src/components/use-site-nav.tsx`
 
+## Student Import Form Redesign (2026-07-14)
+
+### Code Completed
+
+- Reworked the student import modal into a fixed-height shadcn workflow shell with stable header, Prepare/Review/Import status indicators, one scrollable body, and sticky setup footer actions.
+- Rebuilt the setup form with grouped import mode, classroom fallback/requirement, global gender controls, a larger paste surface, live parsed counts, warning badges, and standard warning callouts.
+- Reworked the review command center to show fallback classroom, refresh/cancel actions, checked/executable/skipped/attention counts, classroom scope summary, and disabled batch execution while attention rows remain.
+- Redesigned review row cards for clearer status scanning, parsed name editing, classroom/gender resolution, search, action selection, candidate selection, and single-row import states.
+- Polished execution/completion metrics into responsive cards while preserving created/kept/updated/term-sheet/skipped/failed result semantics.
+- Left a follow-up verification gap for authenticated desktop/mobile in-app browser QA because the bundled browser bridge could not attach during this pass.
+
+### Changed Files
+
+- `apps/dashboard/src/components/modals/student-import/index.tsx`
+- `apps/dashboard/src/components/modals/student-import/import-activities.tsx`
+- `.brain/features/student-import.md`
+- `.brain/progress.md`
+
+### Verification
+
+- `bun test apps/dashboard/src/components/modals/student-import/parser.test.ts apps/dashboard/src/components/modals/student-import/import-errors.test.ts`
+- `bun --filter @school-clerk/dashboard typecheck`
+- Portless route smoke confirmed the tenant dashboard route responds and redirects unauthenticated access to login. In-app browser automation could not attach because the bundled browser bridge fails during bootstrap with `TypeError: Cannot redefine property: process`.
+
+### Remaining Verification Gap
+
+- Authenticated desktop/mobile in-app browser QA is still pending. The local dashboard/API stack started and Portless responded, but the requested in-app browser test could not proceed because the browser bridge fails before tab selection.
+
 ## Teacher Report Link Target (2026-06-15)
 
 ### Completed

@@ -3,6 +3,7 @@ import { Arabic } from "@/components/arabic";
 import { SubmitButton } from "@/components/submit-button";
 import { studentDisplayName } from "@/utils/utils";
 import type { RouterOutputs } from "@api/trpc/routers/_app";
+import { Alert, AlertDescription, AlertTitle } from "@school-clerk/ui/alert";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { Checkbox } from "@school-clerk/ui/checkbox";
@@ -54,6 +55,7 @@ interface Props {
   onCancelImport?: () => void;
   onStartNewImport?: () => void;
   onCloseImport?: () => void;
+  onPhaseChange?: (phase: "review" | "import") => void;
 }
 
 type VerifyResult =
@@ -134,6 +136,7 @@ export function ImportActivity({
   onCancelImport,
   onStartNewImport,
   onCloseImport,
+  onPhaseChange,
 }: Props) {
   const [classroomDeptId, setClassroomDeptId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"ready" | "matched" | "attention">(
@@ -903,22 +906,34 @@ export function ImportActivity({
       rows,
     ],
   );
-  const skippedBeforeExecution = rows.filter(
-    (row) =>
-      !importedLineNumbers[row.lineNumber] &&
-      isRowChecked(checkedRows, row.lineNumber) &&
-      rowDecisions[row.lineNumber]?.action === "skip",
-  ).length;
-  const selectedRowCount = rows.filter(
-    (row) =>
-      !importedLineNumbers[row.lineNumber] &&
-      isRowChecked(checkedRows, row.lineNumber),
-  ).length;
-  const executableRowCount = Math.max(
-    selectedRowCount - skippedBeforeExecution,
-    0,
-  );
+  let selectedRowCount = 0;
+  let skippedBeforeExecution = 0;
+  let executableRowCount = 0;
+
+  for (const row of rows) {
+    if (importedLineNumbers[row.lineNumber]) continue;
+    if (!isRowChecked(checkedRows, row.lineNumber)) continue;
+
+    selectedRowCount += 1;
+    const result = buildExecuteRow({
+      row,
+      decision: rowDecisions[row.lineNumber],
+      manualGender: manualGenders[row.lineNumber],
+      fallbackClassroomDepartmentId: classroomDeptId,
+      manualClassroomRequiredLineNumbers,
+    });
+
+    if (result.status === "skipped") {
+      skippedBeforeExecution += 1;
+    } else if (result.status === "ready") {
+      executableRowCount += 1;
+    }
+  }
+
   const showExecutionOnly = isExecutingBatch || Boolean(batchResult);
+  useEffect(() => {
+    onPhaseChange?.(showExecutionOnly ? "import" : "review");
+  }, [onPhaseChange, showExecutionOnly]);
   const verificationImportError = useMemo(
     () => normalizeStudentImportError("verification", verificationError),
     [verificationError],
@@ -965,86 +980,113 @@ export function ImportActivity({
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       {!showExecutionOnly ? (
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex min-w-64 flex-col gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Fallback Classroom
-            </span>
-            <Select
-              value={classroomDeptId}
-              onValueChange={(value) => {
-                setClassroomDeptId(value);
-              }}
-            >
-              <Select.Trigger className="h-9 w-72">
-                <Select.Value
-                  placeholder={
-                    isRecentRecordsPending
-                      ? "Loading classrooms..."
-                      : "Fallback for rows without a class header"
-                  }
-                />
-              </Select.Trigger>
-              <Select.Content className="max-h-60 overflow-y-auto">
-                {records?.classDepartments?.map((classroom) => (
-                  <Select.Item value={classroom.id} key={classroom.id}>
-                    {classroom.classRoom.name} - {classroom.departmentName}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select>
-          </div>
+        <div className="rounded-md border bg-background">
+          <div className="grid gap-3 p-3 lg:grid-cols-[minmax(16rem,24rem)_auto_minmax(0,1fr)] lg:items-end">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Fallback Classroom
+              </span>
+              <Select
+                value={classroomDeptId}
+                onValueChange={(value) => {
+                  setClassroomDeptId(value);
+                }}
+              >
+                <Select.Trigger className="h-9 w-full bg-background">
+                  <Select.Value
+                    placeholder={
+                      isRecentRecordsPending
+                        ? "Loading classrooms..."
+                        : "Fallback for rows without a class header"
+                    }
+                  />
+                </Select.Trigger>
+                <Select.Content className="max-h-60 overflow-y-auto">
+                  {records?.classDepartments?.map((classroom) => (
+                    <Select.Item value={classroom.id} key={classroom.id}>
+                      {classroom.classRoom.name} - {classroom.departmentName}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select>
+            </div>
 
-          <Button
-            variant="outline"
-            onClick={() => {
-              refetchRecentRecords();
-              refetchVerification();
-            }}
-            className="h-9"
-            type="button"
-          >
-            <RefreshCw className="mr-2 size-4" />
-            Refresh
-          </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  refetchRecentRecords();
+                  refetchVerification();
+                }}
+                className="h-9"
+                type="button"
+              >
+                <RefreshCw className="mr-2 size-4" />
+                Refresh
+              </Button>
 
-          {onCancelImport ? (
-            <Button
-              variant="ghost"
-              onClick={onCancelImport}
-              className="h-9"
-              type="button"
-              disabled={isExecutingBatch}
-            >
-              Cancel Import
-            </Button>
-          ) : null}
+              {onCancelImport ? (
+                <Button
+                  variant="ghost"
+                  onClick={onCancelImport}
+                  className="h-9"
+                  type="button"
+                  disabled={isExecutingBatch}
+                >
+                  Cancel Import
+                </Button>
+              ) : null}
+            </div>
 
-          <div className="ml-auto flex items-end gap-3">
-            <div className="hidden text-right text-[11px] leading-tight text-muted-foreground sm:block">
-              <div className="font-medium text-foreground">
-                {executableRowCount} ready to execute
+            <div className="flex flex-col gap-2 lg:items-end">
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground lg:justify-end">
+                <Badge variant="secondary">{selectedRowCount} checked</Badge>
+                <Badge variant="outline">{executableRowCount} executable</Badge>
+                {skippedBeforeExecution > 0 ? (
+                  <Badge variant="outline">
+                    {skippedBeforeExecution} skipped
+                  </Badge>
+                ) : null}
+                {attentionRows.length > 0 ? (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-300 text-amber-700"
+                  >
+                    <AlertTriangle className="mr-1 size-3" />
+                    {attentionRows.length} attention
+                  </Badge>
+                ) : null}
               </div>
-              <div>
-                {selectedRowCount} checked
-                {skippedBeforeExecution > 0
-                  ? ` · ${skippedBeforeExecution} skip`
-                  : ""}
+              <SubmitButton
+                isSubmitting={isExecutingBatch}
+                disabled={
+                  executableRowCount === 0 ||
+                  isVerifying ||
+                  attentionRows.length > 0
+                }
+                onClick={executeAll}
+                className="h-9 w-full justify-center font-medium sm:w-auto"
+                type="button"
+              >
+                <Import className="mr-2 size-4" />
+                {isExecutingBatch
+                  ? "Importing..."
+                  : `Execute import (${executableRowCount})`}
+              </SubmitButton>
+            </div>
+          </div>
+          {attentionRows.length > 0 ? (
+            <div className="border-t bg-amber-50/60 px-3 py-2 text-[11px] font-medium text-amber-800 dark:bg-amber-950/15 dark:text-amber-200">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="size-3.5 shrink-0" />
+                <span>
+                  Resolve {attentionRows.length} attention row
+                  {attentionRows.length === 1 ? "" : "s"} before batch
+                  execution.
+                </span>
               </div>
             </div>
-            <SubmitButton
-              isSubmitting={isExecutingBatch}
-              disabled={!selectedRowCount || isVerifying}
-              onClick={executeAll}
-              className="h-9"
-              type="button"
-            >
-              <Import className="size-4" />
-              {isExecutingBatch
-                ? "Importing..."
-                : `Execute import (${executableRowCount})`}
-            </SubmitButton>
-          </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -1082,11 +1124,18 @@ export function ImportActivity({
           <ClassroomBreakdownStrip breakdown={classroomBreakdown} />
 
           {isVerifying ? (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-12 text-xs">
-              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
-              <p className="text-muted-foreground">
-                Running verification and match analysis...
-              </p>
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-md border bg-muted/10 p-12 text-xs">
+              <span className="inline-flex size-10 items-center justify-center rounded-md border bg-background text-primary">
+                <RefreshCw className="size-5 animate-spin" />
+              </span>
+              <div className="text-center">
+                <p className="font-medium text-foreground">
+                  Running import analysis
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Checking duplicates, matches, classrooms, and missing values.
+                </p>
+              </div>
             </div>
           ) : (
             <Tabs.Root
@@ -1094,7 +1143,7 @@ export function ImportActivity({
               onValueChange={(value) => setActiveTab(value as any)}
               className="flex min-h-0 flex-1 flex-col"
             >
-              <Tabs.List className="grid w-full grid-cols-3">
+              <Tabs.List className="grid h-auto w-full grid-cols-1 gap-1 bg-muted/70 p-1 sm:grid-cols-3">
                 <Tabs.Trigger value="ready">
                   Ready to import ({readyRows.length})
                 </Tabs.Trigger>
@@ -1365,13 +1414,16 @@ function ImportExecutionErrorAlert({
   onDismiss: () => void;
 }) {
   return (
-    <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50/70 px-3 py-2 text-xs text-red-700 dark:border-red-900/70 dark:bg-red-950/15 dark:text-red-300">
+    <Alert
+      variant="destructive"
+      className="flex items-start gap-2 rounded-md bg-red-50/70 px-3 py-2 text-xs text-red-700 dark:bg-red-950/15 dark:text-red-300"
+    >
       <AlertCircle className="mt-0.5 size-4 shrink-0" />
       <div className="min-w-0 flex-1">
-        <div className="font-medium">{error.title}</div>
-        <p className="mt-0.5 text-red-700/90 dark:text-red-300/90">
+        <AlertTitle className="mb-0 font-medium">{error.title}</AlertTitle>
+        <AlertDescription className="mt-0.5 text-xs text-red-700/90 dark:text-red-300/90">
           {error.message}
-        </p>
+        </AlertDescription>
         {error.diagnostics.length ? (
           <div className="mt-2 rounded border border-red-200/80 bg-white/50 px-2 py-1 font-mono text-[10px] leading-5 text-red-800/80 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-200/80">
             {error.diagnostics.map((diagnostic) => (
@@ -1390,7 +1442,7 @@ function ImportExecutionErrorAlert({
       >
         <X className="size-3.5" />
       </Button>
-    </div>
+    </Alert>
   );
 }
 
@@ -1541,7 +1593,7 @@ function ImportExecutionPanel({
 
       <ClassroomBreakdownStrip breakdown={classroomBreakdown} compact />
 
-      <div className="grid grid-cols-3 border-t">
+      <div className="grid gap-2 border-t bg-muted/10 p-3 sm:grid-cols-2 lg:grid-cols-3">
         <ImportStat
           icon={<UserPlus className="size-4" />}
           label="New created"
@@ -1698,7 +1750,7 @@ function ImportStat({
   tone: "success" | "info" | "warning" | "danger" | "neutral";
 }) {
   return (
-    <div className="min-w-0 border-b border-r p-3 [&:nth-child(3n)]:border-r-0 [&:nth-last-child(-n+3)]:border-b-0">
+    <div className="min-w-0 rounded-md border bg-background p-3">
       <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <span
           className={cn(
@@ -1733,9 +1785,9 @@ function SectionHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/20 p-2">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-background px-3 py-2">
       <div>
-        <h3 className="text-sm font-semibold">{title}</h3>
+        <h3 className="text-sm font-semibold leading-tight">{title}</h3>
         <p className="text-xs text-muted-foreground">{detail}</p>
       </div>
       {action}
@@ -1874,8 +1926,11 @@ function RowsList({
 }) {
   if (!rows.length) {
     return (
-      <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
-        {emptyText}
+      <div className="rounded-md border border-dashed bg-muted/10 p-8 text-center text-xs text-muted-foreground">
+        <div className="mx-auto mb-2 flex size-8 items-center justify-center rounded-md border bg-background">
+          <CheckCircle2 className="size-4" />
+        </div>
+        <p>{emptyText}</p>
       </div>
     );
   }
@@ -2009,14 +2064,14 @@ function RowCard({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-md border bg-background text-xs shadow-sm",
+        "overflow-hidden rounded-md border bg-background text-xs",
         isBlocked
-          ? "border-red-200 bg-red-50/40 dark:border-red-900/60 dark:bg-red-950/15"
+          ? "border-amber-200 bg-amber-50/30 dark:border-amber-900/60 dark:bg-amber-950/10"
           : "border-border",
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/20 px-3 py-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="grid gap-2 border-b bg-muted/10 px-3 py-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Checkbox
             checked={checked}
             onCheckedChange={(value) =>
@@ -2039,56 +2094,65 @@ function RowCard({
           >
             {matchKind}
           </Badge>
-          <span
+          <Badge
+            variant="outline"
             className={cn(
-              "inline-flex items-center gap-1 font-medium",
-              isBlocked ? "text-red-600" : "text-green-600",
+              "bg-background",
+              isBlocked
+                ? "border-amber-300 text-amber-700 dark:text-amber-300"
+                : "border-green-200 text-green-700 dark:text-green-300",
             )}
           >
             {imported ? (
-              <CheckCircle2 className="size-3.5" />
+              <CheckCircle2 className="mr-1 size-3.5" />
             ) : isBlocked ? (
-              <AlertCircle className="size-3.5" />
+              <AlertCircle className="mr-1 size-3.5" />
             ) : (
-              <CheckCircle2 className="size-3.5" />
+              <CheckCircle2 className="mr-1 size-3.5" />
             )}
             {statusLabel}
-          </span>
+          </Badge>
         </div>
 
-        <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-muted-foreground lg:justify-end">
           {resolvedGender ? (
             <Badge variant="outline" className="bg-background">
               Gender: {resolvedGender}
             </Badge>
           ) : (
-            <span className="inline-flex items-center gap-1 text-orange-600">
-              <AlertTriangle className="size-3.5" />
+            <Badge
+              variant="outline"
+              className="border-amber-300 bg-background text-amber-700 dark:text-amber-300"
+            >
+              <AlertTriangle className="mr-1 size-3.5" />
               Gender missing
-            </span>
+            </Badge>
           )}
           {row.classRoom ? (
-            <Badge variant="outline" className="bg-background">
-              <Arabic>{row.classRoom}</Arabic>
+            <Badge variant="outline" className="max-w-full bg-background">
+              <Arabic className="truncate">{row.classRoom}</Arabic>
             </Badge>
           ) : (
-            <span className="inline-flex items-center gap-1 text-orange-600">
-              <AlertTriangle className="size-3.5" />
+            <Badge
+              variant="outline"
+              className="border-amber-300 bg-background text-amber-700 dark:text-amber-300"
+            >
+              <AlertTriangle className="mr-1 size-3.5" />
               Classroom missing
-            </span>
+            </Badge>
           )}
         </div>
       </div>
 
-      <div className="grid gap-3 p-3 xl:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)]">
+      <div className="grid gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
         <div className="min-w-0 space-y-3">
           <div className="space-y-2">
-            <div className="rounded-md border bg-muted/15 px-3 py-2">
+            <div className="rounded-md border bg-muted/10 px-3 py-2">
               <Arabic className="block truncate text-sm font-semibold text-foreground">
                 {parsedDisplayName || "Unnamed student"}
               </Arabic>
             </div>
-            <div className="grid gap-2 sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]">
+            <div className="grid gap-2 sm:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
               <NamePartControl
                 label="Name"
                 part="name"
@@ -2134,20 +2198,21 @@ function RowCard({
           </div>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2 xl:justify-start">
+        <div className="grid content-start gap-2 sm:grid-cols-2 lg:grid-cols-1">
           <Button
             type="button"
             variant={showSearch ? "secondary" : "outline"}
             size="sm"
-            className="h-8 w-8 px-0"
+            className="h-8 w-full justify-center px-2"
             onClick={() => setShowSearch((current) => !current)}
             aria-label={`Search existing students for line ${row.lineNumber}`}
           >
-            <Search className="size-4" />
+            <Search className="mr-2 size-4" />
+            Search
           </Button>
 
           <ClassroomSelect
-            className="w-44"
+            className="w-full"
             options={classroomOptions}
             value={row.classroomDepartmentId || ""}
             onValueChange={(classroomDepartmentId) =>
@@ -2169,7 +2234,7 @@ function RowCard({
             }
             disabled={imported || importing}
           >
-            <Select.Trigger className="h-8 w-full bg-background text-xs sm:w-48 xl:w-full">
+            <Select.Trigger className="h-8 w-full bg-background text-xs">
               <Select.Value placeholder="Select action" />
             </Select.Trigger>
             <Select.Content>
@@ -2193,7 +2258,7 @@ function RowCard({
             type="button"
             size="sm"
             variant={imported ? "secondary" : "default"}
-            className="h-8 w-full sm:w-auto xl:w-full"
+            className="h-8 w-full"
             disabled={imported || importing}
             onClick={() => onImportRow(row)}
           >
@@ -2386,7 +2451,7 @@ function StudentSearchPanel({
           placeholder="Recommended students"
           searchPlaceholder="Search by student name..."
           emptyResults="No matching student found"
-          popoverProps={{ className: "w-[360px] p-0" }}
+          popoverProps={{ className: "w-[320px] max-w-[calc(100vw-2rem)] p-0" }}
           onSearch={setSearchValue}
           renderSelectedItem={(item) => (
             <Arabic className="truncate">
@@ -2466,19 +2531,19 @@ function GenderToggle({
           onValueChange(nextValue);
         }
       }}
-      className="justify-start"
+      className="grid w-full grid-cols-2 justify-start"
     >
       <ToggleGroupItem
         value="Male"
         aria-label="Set row gender to Male"
-        className="h-8 w-10 bg-background"
+        className="h-8 min-w-0 bg-background"
       >
         M
       </ToggleGroupItem>
       <ToggleGroupItem
         value="Female"
         aria-label="Set row gender to Female"
-        className="h-8 w-10 bg-background"
+        className="h-8 min-w-0 bg-background"
       >
         F
       </ToggleGroupItem>
