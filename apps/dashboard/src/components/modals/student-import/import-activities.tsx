@@ -9,7 +9,19 @@ import { Button } from "@school-clerk/ui/button";
 import { Checkbox } from "@school-clerk/ui/checkbox";
 import { cn } from "@school-clerk/ui/cn";
 import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
-import { Item, Select, Tabs } from "@school-clerk/ui/composite";
+import { Item, Select } from "@school-clerk/ui/composite";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@school-clerk/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@school-clerk/ui/popover";
 import { Progress } from "@school-clerk/ui/progress";
 import { Separator } from "@school-clerk/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
@@ -20,6 +32,7 @@ import {
   CheckCircle2,
   FileCheck2,
   Import,
+  MoreHorizontal,
   MinusCircle,
   PencilLine,
   RefreshCw,
@@ -34,6 +47,12 @@ import {
   normalizeStudentImportError,
   type NormalizedStudentImportError,
 } from "./import-errors";
+import {
+  buildStudentImportReviewModel,
+  getStudentImportRowClassroomDepartmentId,
+  isStudentImportRowChecked,
+  resolveStudentImportGender,
+} from "./review-model";
 
 interface Props {
   classrooms: { title: string }[];
@@ -126,13 +145,6 @@ const EMPTY_LOCKED_NAME_SPANS: Partial<
   Record<EditableNamePart, NameTokenSpan>
 > = {};
 
-const actionLabels: Record<ImportAction, string> = {
-  import_new: "Import new",
-  keep_match: "Keep match",
-  update_match_with_name: "Update match with name",
-  skip: "Skip",
-};
-
 export function ImportActivity({
   students,
   onCancelImport,
@@ -141,9 +153,6 @@ export function ImportActivity({
   onPhaseChange,
 }: Props) {
   const [classroomDeptId, setClassroomDeptId] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"ready" | "matched" | "attention">(
-    "ready",
-  );
   const [rowDecisions, setRowDecisions] = useState<Record<number, RowDecision>>(
     {},
   );
@@ -323,31 +332,29 @@ export function ImportActivity({
     [baseRows, manualMatches, nameOverrides],
   );
 
-  const readyRows = rows.filter(
-    (row) =>
-      row.status !== "needsAttention" &&
-      Boolean(row.classroomDepartmentId) &&
-      !row.fullMatch &&
-      row.suspectedMatches.length === 0 &&
-      !row.needsGender,
+  const reviewModel = useMemo(
+    () =>
+      buildStudentImportReviewModel({
+        checkedRows,
+        fallbackClassroomDepartmentId: classroomDeptId,
+        importedLineNumbers,
+        manualClassroomRequiredLineNumbers,
+        manualGenders,
+        rowDecisions,
+        rows,
+      }),
+    [
+      checkedRows,
+      classroomDeptId,
+      importedLineNumbers,
+      manualClassroomRequiredLineNumbers,
+      manualGenders,
+      rowDecisions,
+      rows,
+    ],
   );
-  const exactRows = rows.filter(
-    (row) => row.fullMatch && Boolean(row.classroomDepartmentId),
-  );
-  const suspectedRows = rows.filter(
-    (row) =>
-      Boolean(row.classroomDepartmentId) &&
-      !row.fullMatch &&
-      row.suspectedMatches.length > 0,
-  );
-  const attentionRows = rows.filter(
-    (row) =>
-      !row.classroomDepartmentId ||
-      (!row.fullMatch &&
-        row.suspectedMatches.length === 0 &&
-        (row.needsGender || row.status === "needsAttention")),
-  );
-  const matchedCount = exactRows.length + suspectedRows.length;
+  const { readyRows, exactRows, suspectedRows, matchedRows, attentionRows } =
+    reviewModel;
 
   useEffect(() => {
     if (!verificationRows) return;
@@ -383,15 +390,6 @@ export function ImportActivity({
     setLastExecutionSkippedRows(0);
     setSingleRowErrors({});
   }, [verificationRows]);
-
-  useEffect(() => {
-    if (activeTab === "matched" && matchedCount === 0) {
-      setActiveTab(readyRows.length > 0 ? "ready" : "attention");
-    }
-    if (activeTab === "attention" && attentionRows.length === 0) {
-      setActiveTab(matchedCount > 0 ? "matched" : "ready");
-    }
-  }, [activeTab, attentionRows.length, matchedCount, readyRows.length]);
 
   const {
     mutate: startImportJob,
@@ -770,7 +768,6 @@ export function ImportActivity({
       delete next[lineNumber];
       return next;
     });
-    setActiveTab("matched");
   };
 
   const executeAll = () => {
@@ -966,29 +963,9 @@ export function ImportActivity({
     });
     setLastInvalidatedImportJobId(displayedImportJob.id);
   }, [displayedImportJob, displayedImportJobFinal, lastInvalidatedImportJobId]);
-  let selectedRowCount = 0;
-  let skippedBeforeExecution = 0;
-  let executableRowCount = 0;
-
-  for (const row of rows) {
-    if (importedLineNumbers[row.lineNumber]) continue;
-    if (!isRowChecked(checkedRows, row.lineNumber)) continue;
-
-    selectedRowCount += 1;
-    const result = buildExecuteRow({
-      row,
-      decision: rowDecisions[row.lineNumber],
-      manualGender: manualGenders[row.lineNumber],
-      fallbackClassroomDepartmentId: classroomDeptId,
-      manualClassroomRequiredLineNumbers,
-    });
-
-    if (result.status === "skipped") {
-      skippedBeforeExecution += 1;
-    } else if (result.status === "ready") {
-      executableRowCount += 1;
-    }
-  }
+  const selectedRowCount = reviewModel.counts.checkedRows;
+  const skippedBeforeExecution = reviewModel.counts.skippedRows;
+  const executableRowCount = reviewModel.counts.executableRows;
 
   const showExecutionOnly =
     isExecutingBatch || Boolean(batchResult) || displayedImportJobFinal;
@@ -1124,14 +1101,23 @@ export function ImportActivity({
                     {attentionRows.length} attention
                   </Badge>
                 ) : null}
+                {reviewModel.counts.blockedCheckedRows > 0 ? (
+                  <Badge
+                    variant="outline"
+                    className="border-red-200 text-red-600"
+                  >
+                    {reviewModel.counts.blockedCheckedRows} checked blocked
+                  </Badge>
+                ) : null}
+                {reviewModel.counts.uncheckedRows > 0 ? (
+                  <Badge variant="outline">
+                    {reviewModel.counts.uncheckedRows} unchecked
+                  </Badge>
+                ) : null}
               </div>
               <SubmitButton
                 isSubmitting={isExecutingBatch}
-                disabled={
-                  executableRowCount === 0 ||
-                  isVerifying ||
-                  attentionRows.length > 0
-                }
+                disabled={!reviewModel.canStartImport || isVerifying}
                 onClick={executeAll}
                 className="h-9 w-full justify-center font-medium sm:w-auto"
                 type="button"
@@ -1139,19 +1125,15 @@ export function ImportActivity({
                 <Import className="mr-2 size-4" />
                 {isExecutingBatch
                   ? "Importing..."
-                  : `Execute import (${executableRowCount})`}
+                  : `Start import (${executableRowCount})`}
               </SubmitButton>
             </div>
           </div>
-          {attentionRows.length > 0 ? (
+          {reviewModel.disabledReason ? (
             <div className="border-t bg-amber-50/60 px-3 py-2 text-[11px] font-medium text-amber-800 dark:bg-amber-950/15 dark:text-amber-200">
               <div className="flex items-center gap-1.5">
                 <AlertTriangle className="size-3.5 shrink-0" />
-                <span>
-                  Resolve {attentionRows.length} attention row
-                  {attentionRows.length === 1 ? "" : "s"} before batch
-                  execution.
-                </span>
+                <span>{reviewModel.disabledReason}</span>
               </div>
             </div>
           ) : null}
@@ -1206,267 +1188,196 @@ export function ImportActivity({
               </div>
             </div>
           ) : (
-            <Tabs.Root
-              value={activeTab}
-              onValueChange={(value) => setActiveTab(value as any)}
-              className="flex min-h-0 flex-1 flex-col"
-            >
-              <Tabs.List className="grid h-auto w-full grid-cols-1 gap-1 bg-muted/70 p-1 sm:grid-cols-3">
-                <Tabs.Trigger value="ready">
-                  Ready to import ({readyRows.length})
-                </Tabs.Trigger>
-                <Tabs.Trigger value="matched">
-                  Match Found ({matchedCount})
-                </Tabs.Trigger>
-                <Tabs.Trigger value="attention">
-                  Needs attention ({attentionRows.length})
-                </Tabs.Trigger>
-              </Tabs.List>
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="space-y-4">
+                <SectionHeader
+                  title="Needs attention"
+                  detail="Checked rows here must be fixed or unchecked before import."
+                  count={attentionRows.length}
+                  checkedCount={reviewModel.sections[0]?.checkedRows ?? 0}
+                  action={
+                    <SectionSelectionActions
+                      rows={attentionRows}
+                      checkedRows={checkedRows}
+                      onCheckAll={() => setRowsChecked(attentionRows, true)}
+                      onUncheckAll={() => setRowsChecked(attentionRows, false)}
+                    />
+                  }
+                />
+                <RowsList
+                  emptyText="No rows need manual attention."
+                  rows={attentionRows}
+                  classroomOptions={records?.classDepartments ?? []}
+                  rowDecisions={rowDecisions}
+                  manualGenders={manualGenders}
+                  checkedRows={checkedRows}
+                  nameOverrides={nameOverrides}
+                  pendingSearchMatches={pendingSearchMatches}
+                  pendingNameMatches={pendingNameMatches}
+                  studentSearchItems={studentSearchItems}
+                  onCheckedChange={setRowChecked}
+                  onActionChange={setAction}
+                  onCandidateChange={setCandidate}
+                  onNamePartChange={setNamePart}
+                  onNamePartsReset={resetNameParts}
+                  onSearchStudentSelect={selectSearchStudent}
+                  onPromoteSearchMatch={promoteSearchMatch}
+                  onPromoteNameMatch={promoteNameMatch}
+                  onClassroomChange={setRowClassroom}
+                  onImportRow={executeOne}
+                  importedLineNumbers={importedLineNumbers}
+                  importingLineNumber={importingLineNumber}
+                  singleRowErrors={singleRowErrors}
+                  onDismissSingleRowError={(lineNumber) =>
+                    setSingleRowErrors((current) => ({
+                      ...current,
+                      [lineNumber]: null,
+                    }))
+                  }
+                  onGenderChange={(lineNumber, gender) =>
+                    setManualGenders((current) => ({
+                      ...current,
+                      [lineNumber]: gender,
+                    }))
+                  }
+                />
 
-              <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
-                <Tabs.Content value="ready" className="m-0 space-y-3">
-                  <SectionHeader
-                    title="Ready to import"
-                    detail="Rows with no existing match and complete required fields."
-                    action={
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        <TabSelectionActions
-                          rows={readyRows}
-                          checkedRows={checkedRows}
-                          onCheckAll={() => setRowsChecked(readyRows, true)}
-                          onUncheckAll={() => setRowsChecked(readyRows, false)}
-                        />
-                        {readyRows.length > 0 ? (
-                          <Button
-                            size="sm"
-                            type="button"
-                            onClick={() => applyBatch("ready", "import_new")}
-                          >
-                            <Import className="mr-2 size-4" />
-                            Import checked
-                          </Button>
-                        ) : null}
-                      </div>
-                    }
-                  />
-                  <RowsList
-                    emptyText="No rows are currently ready to import."
-                    rows={readyRows}
-                    classroomOptions={records?.classDepartments ?? []}
-                    rowDecisions={rowDecisions}
-                    manualGenders={manualGenders}
-                    checkedRows={checkedRows}
-                    nameOverrides={nameOverrides}
-                    pendingSearchMatches={pendingSearchMatches}
-                    pendingNameMatches={pendingNameMatches}
-                    studentSearchItems={studentSearchItems}
-                    onCheckedChange={setRowChecked}
-                    onActionChange={setAction}
-                    onCandidateChange={setCandidate}
-                    onNamePartChange={setNamePart}
-                    onNamePartsReset={resetNameParts}
-                    onSearchStudentSelect={selectSearchStudent}
-                    onPromoteSearchMatch={promoteSearchMatch}
-                    onPromoteNameMatch={promoteNameMatch}
-                    onClassroomChange={setRowClassroom}
-                    onImportRow={executeOne}
-                    importedLineNumbers={importedLineNumbers}
-                    importingLineNumber={importingLineNumber}
-                    singleRowErrors={singleRowErrors}
-                    onDismissSingleRowError={(lineNumber) =>
-                      setSingleRowErrors((current) => ({
-                        ...current,
-                        [lineNumber]: null,
-                      }))
-                    }
-                    onGenderChange={(lineNumber, gender) =>
-                      setManualGenders((current) => ({
-                        ...current,
-                        [lineNumber]: gender,
-                      }))
-                    }
-                  />
-                </Tabs.Content>
-
-                <Tabs.Content value="matched" className="m-0 space-y-4">
-                  <SectionHeader
-                    title="Exact Matches"
-                    detail="Name and surname match an existing student. Defaults apply only to untouched rows."
-                    action={
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        <TabSelectionActions
-                          rows={exactRows}
-                          checkedRows={checkedRows}
-                          onCheckAll={() => setRowsChecked(exactRows, true)}
-                          onUncheckAll={() => setRowsChecked(exactRows, false)}
-                        />
-                        {exactRows.length > 0 ? (
-                          <BatchActionSelect
-                            defaultValue="keep_match"
-                            onValueChange={(action) =>
-                              applyBatch("exact", action)
-                            }
-                          />
-                        ) : null}
-                      </div>
-                    }
-                  />
-                  <RowsList
-                    emptyText="No exact matches found."
-                    rows={exactRows}
-                    classroomOptions={records?.classDepartments ?? []}
-                    rowDecisions={rowDecisions}
-                    manualGenders={manualGenders}
-                    checkedRows={checkedRows}
-                    nameOverrides={nameOverrides}
-                    pendingSearchMatches={pendingSearchMatches}
-                    pendingNameMatches={pendingNameMatches}
-                    studentSearchItems={studentSearchItems}
-                    onCheckedChange={setRowChecked}
-                    onActionChange={setAction}
-                    onCandidateChange={setCandidate}
-                    onNamePartChange={setNamePart}
-                    onNamePartsReset={resetNameParts}
-                    onSearchStudentSelect={selectSearchStudent}
-                    onPromoteSearchMatch={promoteSearchMatch}
-                    onPromoteNameMatch={promoteNameMatch}
-                    onClassroomChange={setRowClassroom}
-                    onImportRow={executeOne}
-                    importedLineNumbers={importedLineNumbers}
-                    importingLineNumber={importingLineNumber}
-                    singleRowErrors={singleRowErrors}
-                    onDismissSingleRowError={(lineNumber) =>
-                      setSingleRowErrors((current) => ({
-                        ...current,
-                        [lineNumber]: null,
-                      }))
-                    }
-                    onGenderChange={(lineNumber, gender) =>
-                      setManualGenders((current) => ({
-                        ...current,
-                        [lineNumber]: gender,
-                      }))
-                    }
-                  />
-
-                  <SectionHeader
-                    title="Possible Matches"
-                    detail="Suspected typo or partial-name matches. Keep/update requires a selected candidate; Import new and Skip do not."
-                    action={
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        <TabSelectionActions
-                          rows={suspectedRows}
-                          checkedRows={checkedRows}
-                          onCheckAll={() => setRowsChecked(suspectedRows, true)}
-                          onUncheckAll={() =>
-                            setRowsChecked(suspectedRows, false)
+                <SectionHeader
+                  title="Match found"
+                  detail="Exact and possible matches. Candidate-dependent actions require a selected match."
+                  count={matchedRows.length}
+                  checkedCount={reviewModel.sections[1]?.checkedRows ?? 0}
+                  action={
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <SectionSelectionActions
+                        rows={matchedRows}
+                        checkedRows={checkedRows}
+                        onCheckAll={() => setRowsChecked(matchedRows, true)}
+                        onUncheckAll={() => setRowsChecked(matchedRows, false)}
+                      />
+                      {exactRows.length > 0 ? (
+                        <BatchActionSelect
+                          placeholder="Exact default"
+                          defaultValue="keep_match"
+                          onValueChange={(action) =>
+                            applyBatch("exact", action)
                           }
                         />
-                        {suspectedRows.length > 0 ? (
-                          <BatchActionSelect
-                            placeholder="Set default"
-                            onValueChange={(action) =>
-                              applyBatch("suspected", action)
-                            }
-                          />
-                        ) : null}
-                      </div>
-                    }
-                  />
-                  <RowsList
-                    emptyText="No possible matches found."
-                    rows={suspectedRows}
-                    classroomOptions={records?.classDepartments ?? []}
-                    rowDecisions={rowDecisions}
-                    manualGenders={manualGenders}
-                    checkedRows={checkedRows}
-                    nameOverrides={nameOverrides}
-                    pendingSearchMatches={pendingSearchMatches}
-                    pendingNameMatches={pendingNameMatches}
-                    studentSearchItems={studentSearchItems}
-                    onCheckedChange={setRowChecked}
-                    onActionChange={setAction}
-                    onCandidateChange={setCandidate}
-                    onNamePartChange={setNamePart}
-                    onNamePartsReset={resetNameParts}
-                    onSearchStudentSelect={selectSearchStudent}
-                    onPromoteSearchMatch={promoteSearchMatch}
-                    onPromoteNameMatch={promoteNameMatch}
-                    onClassroomChange={setRowClassroom}
-                    onImportRow={executeOne}
-                    importedLineNumbers={importedLineNumbers}
-                    importingLineNumber={importingLineNumber}
-                    singleRowErrors={singleRowErrors}
-                    onDismissSingleRowError={(lineNumber) =>
-                      setSingleRowErrors((current) => ({
-                        ...current,
-                        [lineNumber]: null,
-                      }))
-                    }
-                    onGenderChange={(lineNumber, gender) =>
-                      setManualGenders((current) => ({
-                        ...current,
-                        [lineNumber]: gender,
-                      }))
-                    }
-                  />
-                </Tabs.Content>
+                      ) : null}
+                      {suspectedRows.length > 0 ? (
+                        <BatchActionSelect
+                          placeholder="Possible default"
+                          onValueChange={(action) =>
+                            applyBatch("suspected", action)
+                          }
+                        />
+                      ) : null}
+                    </div>
+                  }
+                />
+                <RowsList
+                  emptyText="No matches found."
+                  rows={matchedRows}
+                  classroomOptions={records?.classDepartments ?? []}
+                  rowDecisions={rowDecisions}
+                  manualGenders={manualGenders}
+                  checkedRows={checkedRows}
+                  nameOverrides={nameOverrides}
+                  pendingSearchMatches={pendingSearchMatches}
+                  pendingNameMatches={pendingNameMatches}
+                  studentSearchItems={studentSearchItems}
+                  onCheckedChange={setRowChecked}
+                  onActionChange={setAction}
+                  onCandidateChange={setCandidate}
+                  onNamePartChange={setNamePart}
+                  onNamePartsReset={resetNameParts}
+                  onSearchStudentSelect={selectSearchStudent}
+                  onPromoteSearchMatch={promoteSearchMatch}
+                  onPromoteNameMatch={promoteNameMatch}
+                  onClassroomChange={setRowClassroom}
+                  onImportRow={executeOne}
+                  importedLineNumbers={importedLineNumbers}
+                  importingLineNumber={importingLineNumber}
+                  singleRowErrors={singleRowErrors}
+                  onDismissSingleRowError={(lineNumber) =>
+                    setSingleRowErrors((current) => ({
+                      ...current,
+                      [lineNumber]: null,
+                    }))
+                  }
+                  onGenderChange={(lineNumber, gender) =>
+                    setManualGenders((current) => ({
+                      ...current,
+                      [lineNumber]: gender,
+                    }))
+                  }
+                />
 
-                <Tabs.Content value="attention" className="m-0 space-y-3">
-                  <SectionHeader
-                    title="Needs attention"
-                    detail="Rows that need manual gender or another required field before import."
-                    action={
-                      <TabSelectionActions
-                        rows={attentionRows}
+                <SectionHeader
+                  title="Ready to import"
+                  detail="Rows with no existing match and complete required fields."
+                  count={readyRows.length}
+                  checkedCount={reviewModel.sections[2]?.checkedRows ?? 0}
+                  action={
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <SectionSelectionActions
+                        rows={readyRows}
                         checkedRows={checkedRows}
-                        onCheckAll={() => setRowsChecked(attentionRows, true)}
-                        onUncheckAll={() =>
-                          setRowsChecked(attentionRows, false)
-                        }
+                        onCheckAll={() => setRowsChecked(readyRows, true)}
+                        onUncheckAll={() => setRowsChecked(readyRows, false)}
                       />
-                    }
-                  />
-                  <RowsList
-                    emptyText="No rows need manual attention."
-                    rows={attentionRows}
-                    classroomOptions={records?.classDepartments ?? []}
-                    rowDecisions={rowDecisions}
-                    manualGenders={manualGenders}
-                    checkedRows={checkedRows}
-                    nameOverrides={nameOverrides}
-                    pendingSearchMatches={pendingSearchMatches}
-                    pendingNameMatches={pendingNameMatches}
-                    studentSearchItems={studentSearchItems}
-                    onCheckedChange={setRowChecked}
-                    onActionChange={setAction}
-                    onCandidateChange={setCandidate}
-                    onNamePartChange={setNamePart}
-                    onNamePartsReset={resetNameParts}
-                    onSearchStudentSelect={selectSearchStudent}
-                    onPromoteSearchMatch={promoteSearchMatch}
-                    onPromoteNameMatch={promoteNameMatch}
-                    onClassroomChange={setRowClassroom}
-                    onImportRow={executeOne}
-                    importedLineNumbers={importedLineNumbers}
-                    importingLineNumber={importingLineNumber}
-                    singleRowErrors={singleRowErrors}
-                    onDismissSingleRowError={(lineNumber) =>
-                      setSingleRowErrors((current) => ({
-                        ...current,
-                        [lineNumber]: null,
-                      }))
-                    }
-                    onGenderChange={(lineNumber, gender) =>
-                      setManualGenders((current) => ({
-                        ...current,
-                        [lineNumber]: gender,
-                      }))
-                    }
-                  />
-                </Tabs.Content>
+                      {readyRows.length > 0 ? (
+                        <Button
+                          size="sm"
+                          type="button"
+                          onClick={() => applyBatch("ready", "import_new")}
+                        >
+                          <Import className="mr-2 size-4" />
+                          Import checked
+                        </Button>
+                      ) : null}
+                    </div>
+                  }
+                />
+                <RowsList
+                  emptyText="No rows are currently ready to import."
+                  rows={readyRows}
+                  classroomOptions={records?.classDepartments ?? []}
+                  rowDecisions={rowDecisions}
+                  manualGenders={manualGenders}
+                  checkedRows={checkedRows}
+                  nameOverrides={nameOverrides}
+                  pendingSearchMatches={pendingSearchMatches}
+                  pendingNameMatches={pendingNameMatches}
+                  studentSearchItems={studentSearchItems}
+                  onCheckedChange={setRowChecked}
+                  onActionChange={setAction}
+                  onCandidateChange={setCandidate}
+                  onNamePartChange={setNamePart}
+                  onNamePartsReset={resetNameParts}
+                  onSearchStudentSelect={selectSearchStudent}
+                  onPromoteSearchMatch={promoteSearchMatch}
+                  onPromoteNameMatch={promoteNameMatch}
+                  onClassroomChange={setRowClassroom}
+                  onImportRow={executeOne}
+                  importedLineNumbers={importedLineNumbers}
+                  importingLineNumber={importingLineNumber}
+                  singleRowErrors={singleRowErrors}
+                  onDismissSingleRowError={(lineNumber) =>
+                    setSingleRowErrors((current) => ({
+                      ...current,
+                      [lineNumber]: null,
+                    }))
+                  }
+                  onGenderChange={(lineNumber, gender) =>
+                    setManualGenders((current) => ({
+                      ...current,
+                      [lineNumber]: gender,
+                    }))
+                  }
+                />
               </div>
-            </Tabs.Root>
+            </div>
           )}
         </>
       ) : null}
@@ -1868,17 +1779,29 @@ function ImportStat({
 function SectionHeader({
   title,
   detail,
+  count,
+  checkedCount,
   action,
 }: {
   title: string;
   detail: string;
+  count?: number;
+  checkedCount?: number;
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-background px-3 py-2">
-      <div>
-        <h3 className="text-sm font-semibold leading-tight">{title}</h3>
-        <p className="text-xs text-muted-foreground">{detail}</p>
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/20 px-3 py-2">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-semibold leading-tight">{title}</h3>
+          {typeof count === "number" ? (
+            <Badge variant="secondary">{count}</Badge>
+          ) : null}
+          {typeof checkedCount === "number" ? (
+            <Badge variant="outline">{checkedCount} checked</Badge>
+          ) : null}
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
       </div>
       {action}
     </div>
@@ -1914,7 +1837,7 @@ function BatchActionSelect({
   );
 }
 
-function TabSelectionActions({
+function SectionSelectionActions({
   rows,
   checkedRows,
   onCheckAll,
@@ -2147,9 +2070,17 @@ function RowCard({
     : isBlocked
       ? "Action required"
       : "Ready";
-  const parsedDisplayName = [row.name, row.surname, row.otherName]
-    .filter(Boolean)
-    .join(" ");
+  const selectedCandidate = candidates.find(
+    (candidate) => candidate.id === decision?.existingStudentId,
+  );
+  const primaryCandidate = selectedCandidate || candidates[0] || null;
+  const extraCandidateCount = Math.max(0, candidates.length - 1);
+  const showResolutionStrip =
+    needsGender ||
+    needsClassroom ||
+    showSearch ||
+    Boolean(pendingNameMatch) ||
+    Boolean(singleRowError);
 
   return (
     <div
@@ -2160,8 +2091,8 @@ function RowCard({
           : "border-border",
       )}
     >
-      <div className="grid gap-2 border-b bg-muted/10 px-3 py-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <div className="grid gap-3 px-3 py-2 lg:grid-cols-[2rem_minmax(18rem,1.45fr)_minmax(13rem,0.9fr)_12rem_2.5rem] lg:items-center">
+        <div className="flex items-start justify-center pt-1 lg:pt-0">
           <Checkbox
             checked={checked}
             onCheckedChange={(value) =>
@@ -2170,107 +2101,97 @@ function RowCard({
             aria-label={`Include line ${row.lineNumber} in import`}
             className="bg-background"
           />
-          <Badge variant="outline" className="bg-background">
-            Line {row.lineNumber}
-          </Badge>
-          <Badge
-            variant={
-              row.fullMatch
-                ? "success"
-                : row.suspectedMatches.length
-                  ? "warning"
-                  : "secondary"
-            }
-          >
-            {matchKind}
-          </Badge>
-          <Badge
-            variant="outline"
-            className={cn(
-              "bg-background",
-              isBlocked
-                ? "border-amber-300 text-amber-700 dark:text-amber-300"
-                : "border-green-200 text-green-700 dark:text-green-300",
-            )}
-          >
-            {imported ? (
-              <CheckCircle2 className="mr-1 size-3.5" />
-            ) : isBlocked ? (
-              <AlertCircle className="mr-1 size-3.5" />
-            ) : (
-              <CheckCircle2 className="mr-1 size-3.5" />
-            )}
-            {statusLabel}
-          </Badge>
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-muted-foreground lg:justify-end">
-          {resolvedGender ? (
-            <Badge variant="outline" className="bg-background">
-              Gender: {resolvedGender}
-            </Badge>
-          ) : (
-            <Badge
-              variant="outline"
-              className="border-amber-300 bg-background text-amber-700 dark:text-amber-300"
-            >
-              <AlertTriangle className="mr-1 size-3.5" />
-              Gender missing
-            </Badge>
-          )}
-          {row.classRoom ? (
-            <Badge variant="outline" className="max-w-full bg-background">
-              <Arabic className="truncate">{row.classRoom}</Arabic>
-            </Badge>
-          ) : (
-            <Badge
-              variant="outline"
-              className="border-amber-300 bg-background text-amber-700 dark:text-amber-300"
-            >
-              <AlertTriangle className="mr-1 size-3.5" />
-              Classroom missing
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      <div className="grid gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
         <div className="min-w-0 space-y-3">
-          <div className="space-y-2">
-            <div className="rounded-md border bg-muted/10 px-3 py-2">
-              <Arabic className="block truncate text-sm font-semibold text-foreground">
-                {parsedDisplayName || "Unnamed student"}
-              </Arabic>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
-              <NamePartControl
-                label="Name"
-                part="name"
-                value={row.name}
-                options={possibleNames}
-                isDirty={isNameDirty}
-                onReset={() => onNamePartsReset(row.lineNumber)}
-                onValueChange={(option) => onNamePartChange(row, option)}
-              />
-              <NamePartControl
-                label="Surname"
-                part="surname"
-                value={row.surname}
-                options={possibleNames}
-                isDirty={isNameDirty}
-                onReset={() => onNamePartsReset(row.lineNumber)}
-                onValueChange={(option) => onNamePartChange(row, option)}
-              />
-              <NamePartControl
-                label="Other"
-                part="otherName"
-                value={row.otherName || "None"}
-                options={possibleNames}
-                isDirty={isNameDirty}
-                onReset={() => onNamePartsReset(row.lineNumber)}
-                onValueChange={(option) => onNamePartChange(row, option)}
-              />
-            </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <NamePartControl
+              label="Name"
+              part="name"
+              value={row.name}
+              options={possibleNames}
+              isDirty={isNameDirty}
+              onReset={() => onNamePartsReset(row.lineNumber)}
+              onValueChange={(option) => onNamePartChange(row, option)}
+            />
+            <NamePartControl
+              label="Surname"
+              part="surname"
+              value={row.surname}
+              options={possibleNames}
+              isDirty={isNameDirty}
+              onReset={() => onNamePartsReset(row.lineNumber)}
+              onValueChange={(option) => onNamePartChange(row, option)}
+            />
+            <NamePartControl
+              label="Other"
+              part="otherName"
+              value={row.otherName || "None"}
+              options={possibleNames}
+              isDirty={isNameDirty}
+              onReset={() => onNamePartsReset(row.lineNumber)}
+              onValueChange={(option) => onNamePartChange(row, option)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-muted-foreground">
+            <Badge variant="outline" className="bg-background">
+              Line {row.lineNumber}
+            </Badge>
+            <Badge
+              variant={
+                row.fullMatch
+                  ? "success"
+                  : row.suspectedMatches.length
+                    ? "warning"
+                    : "secondary"
+              }
+            >
+              {matchKind}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={cn(
+                "bg-background",
+                isBlocked
+                  ? "border-amber-300 text-amber-700 dark:text-amber-300"
+                  : "border-green-200 text-green-700 dark:text-green-300",
+              )}
+            >
+              {imported ? (
+                <CheckCircle2 className="mr-1 size-3.5" />
+              ) : isBlocked ? (
+                <AlertCircle className="mr-1 size-3.5" />
+              ) : (
+                <CheckCircle2 className="mr-1 size-3.5" />
+              )}
+              {statusLabel}
+            </Badge>
+            {resolvedGender ? (
+              <Badge variant="outline" className="bg-background">
+                Gender: {resolvedGender}
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="border-amber-300 bg-background text-amber-700 dark:text-amber-300"
+              >
+                <AlertTriangle className="mr-1 size-3.5" />
+                Gender missing
+              </Badge>
+            )}
+            {row.classRoom ? (
+              <Badge variant="outline" className="max-w-full bg-background">
+                <Arabic className="truncate">{row.classRoom}</Arabic>
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="border-amber-300 bg-background text-amber-700 dark:text-amber-300"
+              >
+                <AlertTriangle className="mr-1 size-3.5" />
+                Classroom missing
+              </Badge>
+            )}
             {row.inferredGender ? (
               <p className="text-[11px] text-muted-foreground">
                 Gender inferred from existing names
@@ -2279,44 +2200,21 @@ function RowCard({
                   : ""}
               </p>
             ) : null}
-            {pendingNameMatch && !row.fullMatch ? (
-              <NameEditMatchSuggestion
-                candidate={pendingNameMatch}
-                onApprove={() => onPromoteNameMatch(row)}
-              />
-            ) : null}
           </div>
         </div>
 
-        <div className="grid content-start gap-2 sm:grid-cols-2 lg:grid-cols-1">
-          <Button
-            type="button"
-            variant={showSearch ? "secondary" : "outline"}
-            size="sm"
-            className="h-8 w-full justify-center px-2"
-            onClick={() => setShowSearch((current) => !current)}
-            aria-label={`Search existing students for line ${row.lineNumber}`}
-          >
-            <Search className="mr-2 size-4" />
-            Search
-          </Button>
+        <MatchSummaryPopover
+          candidates={candidates}
+          decision={decision}
+          extraCandidateCount={extraCandidateCount}
+          needsExistingMatch={needsExistingMatch}
+          onCandidateChange={(candidateId) =>
+            onCandidateChange(row, candidateId)
+          }
+          primaryCandidate={primaryCandidate}
+        />
 
-          <ClassroomSelect
-            className="w-full"
-            options={classroomOptions}
-            value={row.classroomDepartmentId || ""}
-            onValueChange={(classroomDepartmentId) =>
-              onClassroomChange(row.lineNumber, classroomDepartmentId)
-            }
-          />
-
-          {needsGender ? (
-            <GenderToggle
-              value={manualGender}
-              onValueChange={(gender) => onGenderChange(row.lineNumber, gender)}
-            />
-          ) : null}
-
+        <div className="min-w-0">
           <Select
             value={action || ""}
             onValueChange={(value) =>
@@ -2343,71 +2241,201 @@ function RowCard({
               </Select.Item>
             </Select.Content>
           </Select>
-
-          <Button
-            type="button"
-            size="sm"
-            variant={imported ? "secondary" : "default"}
-            className="h-8 w-full"
-            disabled={imported || importing}
-            onClick={() => onImportRow(row)}
-          >
-            {importing ? (
-              <RefreshCw className="mr-2 size-3.5 animate-spin" />
-            ) : imported ? (
-              <CheckCircle2 className="mr-2 size-3.5" />
-            ) : (
-              <Import className="mr-2 size-3.5" />
-            )}
-            {importing ? "Importing..." : imported ? "Imported" : "Import row"}
-          </Button>
+          {needsExistingMatch ? (
+            <p className="mt-1 text-[11px] text-red-600">
+              Select a match first.
+            </p>
+          ) : null}
         </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 px-0"
+              aria-label={`More actions for line ${row.lineNumber}`}
+            >
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onSelect={() => setShowSearch(true)}>
+              <Search className="mr-2 size-4" />
+              Search existing student
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onNamePartsReset(row.lineNumber)}>
+              <X className="mr-2 size-4" />
+              Reset name structure
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!candidates.length}
+              onSelect={() => onActionChange(row, "skip")}
+            >
+              <MinusCircle className="mr-2 size-4" />
+              Skip row
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={imported || importing}
+              onSelect={() => onImportRow(row)}
+            >
+              {importing ? (
+                <RefreshCw className="mr-2 size-4 animate-spin" />
+              ) : imported ? (
+                <CheckCircle2 className="mr-2 size-4" />
+              ) : (
+                <Import className="mr-2 size-4" />
+              )}
+              {importing
+                ? "Importing row"
+                : imported
+                  ? "Imported"
+                  : "Import row"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {singleRowError ? (
-        <div className="border-t px-3 py-2">
-          <ImportExecutionErrorAlert
-            error={singleRowError}
-            onDismiss={() => onDismissSingleRowError(row.lineNumber)}
-          />
-        </div>
-      ) : null}
+      {showResolutionStrip ? (
+        <div className="grid gap-2 border-t bg-muted/10 px-3 py-2 lg:grid-cols-[minmax(12rem,18rem)_minmax(10rem,12rem)_minmax(0,1fr)]">
+          {needsClassroom ? (
+            <ClassroomSelect
+              className="w-full"
+              options={classroomOptions}
+              value={row.classroomDepartmentId || ""}
+              onValueChange={(classroomDepartmentId) =>
+                onClassroomChange(row.lineNumber, classroomDepartmentId)
+              }
+            />
+          ) : (
+            <div className="hidden lg:block" />
+          )}
 
-      {showSearch ? (
-        <StudentSearchPanel
-          row={row}
-          items={studentSearchItems}
-          pendingMatch={pendingSearchMatch}
-          onSelect={(student) => onSearchStudentSelect(row, student)}
-          onPromote={() => onPromoteSearchMatch(row)}
-        />
-      ) : null}
+          {needsGender ? (
+            <GenderToggle
+              value={manualGender}
+              onValueChange={(gender) => onGenderChange(row.lineNumber, gender)}
+            />
+          ) : (
+            <div className="hidden lg:block" />
+          )}
 
-      {candidates.length > 0 ? (
-        <div className="border-t bg-muted/10 px-3 py-3">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Match candidates
-            </span>
-            {needsExistingMatch ? (
-              <span className="text-[11px] font-medium text-red-600">
-                Select a candidate for {actionLabels[action!]}
-              </span>
-            ) : null}
-          </div>
-          <div className="grid gap-2">
-            {candidates.map((candidate) => (
-              <CandidateCard
-                key={candidate.id}
-                candidate={candidate}
-                selected={decision?.existingStudentId === candidate.id}
-                onSelect={() => onCandidateChange(row, candidate.id)}
+          <div className="min-w-0 space-y-2">
+            {singleRowError ? (
+              <ImportExecutionErrorAlert
+                error={singleRowError}
+                onDismiss={() => onDismissSingleRowError(row.lineNumber)}
               />
-            ))}
+            ) : null}
+            {pendingNameMatch && !row.fullMatch ? (
+              <NameEditMatchSuggestion
+                candidate={pendingNameMatch}
+                onApprove={() => onPromoteNameMatch(row)}
+              />
+            ) : null}
+            {showSearch ? (
+              <StudentSearchPanel
+                row={row}
+                items={studentSearchItems}
+                pendingMatch={pendingSearchMatch}
+                onSelect={(student) => onSearchStudentSelect(row, student)}
+                onPromote={() => onPromoteSearchMatch(row)}
+              />
+            ) : null}
           </div>
         </div>
       ) : null}
     </div>
+  );
+}
+
+function MatchSummaryPopover({
+  candidates,
+  decision,
+  extraCandidateCount,
+  needsExistingMatch,
+  onCandidateChange,
+  primaryCandidate,
+}: {
+  candidates: MatchCandidate[];
+  decision?: RowDecision;
+  extraCandidateCount: number;
+  needsExistingMatch: boolean;
+  onCandidateChange: (candidateId: string) => void;
+  primaryCandidate: MatchCandidate | null;
+}) {
+  if (!primaryCandidate) {
+    return (
+      <div className="min-w-0 rounded-md border bg-muted/10 px-2.5 py-2">
+        <div className="text-xs font-medium text-foreground">No match</div>
+        <div className="text-[11px] text-muted-foreground">
+          This row will create a new student when its action is Import new.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "min-w-0 rounded-md border bg-background px-2.5 py-2 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            needsExistingMatch && "border-amber-300",
+          )}
+        >
+          <Arabic className="block truncate text-xs font-medium text-foreground">
+            {studentDisplayName(primaryCandidate)}
+          </Arabic>
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Badge
+              variant={
+                primaryCandidate.confidence === 100 ? "success" : "warning"
+              }
+            >
+              {primaryCandidate.confidence}%
+            </Badge>
+            {extraCandidateCount > 0 ? (
+              <span>+{extraCandidateCount} more</span>
+            ) : null}
+          </div>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[min(34rem,calc(100vw-2rem))] p-2"
+      >
+        <div className="mb-2 flex items-center justify-between gap-2 px-1">
+          <div>
+            <div className="text-xs font-semibold">Match candidates</div>
+            <div className="text-[11px] text-muted-foreground">
+              Select the existing student for this row.
+            </div>
+          </div>
+          {needsExistingMatch ? (
+            <Badge
+              variant="outline"
+              className="border-amber-300 text-amber-700"
+            >
+              Required
+            </Badge>
+          ) : null}
+        </div>
+        <div className="grid max-h-80 gap-2 overflow-y-auto">
+          {candidates.map((candidate) => (
+            <CandidateCard
+              key={candidate.id}
+              candidate={candidate}
+              selected={decision?.existingStudentId === candidate.id}
+              onSelect={() => onCandidateChange(candidate.id)}
+            />
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -2434,22 +2462,10 @@ function NamePartControl({
   ]);
 
   return (
-    <div className="min-w-[10rem] rounded-md border bg-background px-2.5 py-2">
-      <div className="mb-1 flex min-w-0 items-center justify-between gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-        <span className="truncate">{label}</span>
-        {isDirty ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-5 w-5 px-0"
-            onClick={onReset}
-            aria-label={`Reset ${label.toLowerCase()} split`}
-          >
-            <X className="size-3" />
-          </Button>
-        ) : null}
-      </div>
+    <div className="inline-flex min-w-0 items-center gap-1 rounded-md border bg-background px-2 py-1">
+      <span className="text-[10px] font-semibold uppercase text-muted-foreground">
+        {label}
+      </span>
       <Select
         value={value}
         onValueChange={(nextValue) => {
@@ -2457,7 +2473,7 @@ function NamePartControl({
           if (option) onValueChange(option);
         }}
       >
-        <Select.Trigger className="h-7 min-w-0 border-0 bg-transparent p-0 text-left text-sm font-medium shadow-none focus:ring-0">
+        <Select.Trigger className="h-5 min-w-0 max-w-[12rem] border-0 bg-transparent p-0 text-left text-xs font-medium shadow-none focus:ring-0">
           <Select.Value placeholder={value} />
         </Select.Trigger>
         <Select.Content className="max-h-64 overflow-y-auto">
@@ -2471,6 +2487,18 @@ function NamePartControl({
           ))}
         </Select.Content>
       </Select>
+      {isDirty ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-5 w-5 px-0"
+          onClick={onReset}
+          aria-label={`Reset ${label.toLowerCase()} split`}
+        >
+          <X className="size-3" />
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -2734,7 +2762,7 @@ function isRowChecked(
   checkedRows: Record<number, boolean>,
   lineNumber: number,
 ) {
-  return checkedRows[lineNumber] !== false;
+  return isStudentImportRowChecked(checkedRows, lineNumber);
 }
 
 function getRowClassroomDepartmentId(
@@ -2742,9 +2770,11 @@ function getRowClassroomDepartmentId(
   fallbackClassroomDepartmentId: string,
   manualClassroomRequiredLineNumbers: Set<number> = new Set(),
 ) {
-  if (row.classroomDepartmentId) return row.classroomDepartmentId;
-  if (manualClassroomRequiredLineNumbers.has(row.lineNumber)) return "";
-  return fallbackClassroomDepartmentId || "";
+  return getStudentImportRowClassroomDepartmentId(
+    row,
+    fallbackClassroomDepartmentId,
+    manualClassroomRequiredLineNumbers,
+  );
 }
 
 function buildExecuteRow({
@@ -3238,12 +3268,7 @@ function resolveGender(
   row: VerifyResult,
   manualGender?: "Male" | "Female",
 ): "Male" | "Female" | null {
-  const gender = manualGender || row.inferredGender || row.inputGender;
-
-  if (gender === "Male" || gender === "M") return "Male";
-  if (gender === "Female" || gender === "F") return "Female";
-
-  return null;
+  return resolveStudentImportGender(row, manualGender);
 }
 
 function normalizeArabic(str: string | undefined | null) {
