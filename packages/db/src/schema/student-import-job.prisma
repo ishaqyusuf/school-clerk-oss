@@ -1,0 +1,64 @@
+enum StudentImportJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  COMPLETED_WITH_FAILURES
+  FAILED
+  CANCELLED
+}
+
+enum StudentImportJobRowStatus {
+  PENDING
+  RUNNING
+  CREATED
+  KEPT
+  UPDATED
+  SKIPPED
+  FAILED
+}
+
+model StudentImportJob {
+  id                String                 @id @default(uuid())
+  schoolProfileId   String
+  schoolSessionId   String
+  sessionTermId     String
+  createdByUserId   String?
+  status            StudentImportJobStatus @default(PENDING)
+  totalRows         Int                    @default(0)
+  processedRows     Int                    @default(0)
+  createdStudents   Int                    @default(0)
+  keptMatches       Int                    @default(0)
+  updatedMatches    Int                    @default(0)
+  termSheetsCreated Int                    @default(0)
+  skippedRows       Int                    @default(0)
+  failedRows        Int                    @default(0)
+  errorMessage      String?
+  triggerRunId      String?
+  createdAt         DateTime?              @default(now()) @db.Timestamp(0)
+  updatedAt         DateTime?              @updatedAt
+  deletedAt         DateTime?              @db.Timestamp(0)
+  rows              StudentImportJobRow[]
+
+  @@index([schoolProfileId, createdByUserId, status, createdAt])
+  @@index([schoolProfileId, createdAt])
+}
+
+model StudentImportJobRow {
+  id               String                    @id @default(uuid())
+  jobId            String
+  job              StudentImportJob          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  lineNumber       Int
+  action           String
+  status           StudentImportJobRowStatus @default(PENDING)
+  payload          Json
+  studentId        String?
+  termSheetCreated Boolean                   @default(false)
+  reason           String?
+  completedAt      DateTime?                 @db.Timestamp(0)
+  createdAt        DateTime?                 @default(now()) @db.Timestamp(0)
+  updatedAt        DateTime?                 @updatedAt
+  deletedAt        DateTime?                 @db.Timestamp(0)
+
+  @@unique([jobId, lineNumber])
+  @@index([jobId, status, lineNumber])
+}

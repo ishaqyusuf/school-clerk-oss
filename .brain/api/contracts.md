@@ -331,6 +331,41 @@ Defines request/response contracts, validation rules, and versioning expectation
   - Report-sheet queries (`classroomReportSheet`, `getSubjectAssessmentRecordings`) require parameterized keys (classroom + term) not available in the import component context; these views refresh on navigation.
   - Finance query keys (fee histories, transaction streams, student balances) are parameterized per-student/per-classroom; fee histories applied during import are reflected on navigation.
 
+- Route: `students.startStudentImportJob`
+- Request schema: same row execution payload as `students.executeStudentImport`.
+- Response schema:
+  ```ts
+  {
+    id: string;
+    status:
+      | "PENDING"
+      | "RUNNING"
+      | "COMPLETED"
+      | "COMPLETED_WITH_FAILURES"
+      | "FAILED"
+      | "CANCELLED";
+    totalRows: number;
+    processedRows: number;
+    createdStudents: number;
+    keptMatches: number;
+    updatedMatches: number;
+    termSheetsCreated: number;
+    skippedRows: number;
+    failedRows: number;
+    errorMessage?: string | null;
+    triggerRunId?: string | null;
+    rows: ExecuteStudentImportResult["rows"];
+  }
+  ```
+- Error cases: same active-context and classroom validation errors as `students.executeStudentImport`; Trigger queueing failures fail job creation before the dashboard enters progress mode.
+- Notes: creates a tenant-scoped `StudentImportJob` plus one persisted `StudentImportJobRow` per executable reviewed row, stores active school/session/term and operator id on the job, then queues the `process-student-import-job` Trigger.dev task. The dashboard uses this path for selected-row batch execution so large imports are not held inside one long HTTP request. Skipped dashboard rows remain client-side exclusions and are shown in the summary as skipped-before-execution.
+
+- Route: `students.getStudentImportJob`
+- Request schema: optional `{ jobId?: string }`. When omitted, returns the current user's latest active/recent student import job in the active tenant.
+- Response schema: same as `students.startStudentImportJob`.
+- Error cases: missing active school context returns `UNAUTHORIZED`; missing or cross-tenant jobs return `NOT_FOUND`.
+- Notes: reads persisted job progress and row-level results for dashboard polling and recovery after refresh/modal reopen. Tenant ownership is enforced through `schoolProfileId`, and active/recent discovery is additionally scoped to `createdByUserId` when the current user is known.
+
 ## Finance Contracts
 
 - Route: `transactions.createSchoolFee`

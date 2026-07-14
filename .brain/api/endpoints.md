@@ -192,3 +192,5 @@ Catalog of API routes and responsibilities.
 
 - `trpc.students.getImportNameGuide`: compact query returning unique tenant-scoped existing student name parts from `name`, `surname`, and `otherName` for guided import parsing.
 - `trpc.students.executeStudentImport`: batch mutation applying import-new, keep-match, and update-match-with-name actions. Creates students and term sheets idempotently, validates each row's classroom/session ancestry, applies fee histories.
+- `trpc.students.startStudentImportJob`: creates a durable tenant-scoped background import job from reviewed execution rows and queues Trigger.dev processing.
+- `trpc.students.getStudentImportJob`: reads the active/recent or explicit tenant-owned student import job with progress counters and row-level results.

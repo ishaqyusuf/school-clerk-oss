@@ -183,6 +183,8 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 - `trpc.students.verifyStudentImport`: single-query batch verification with row-level classroom scoping, edit-distance matching, and gender inference.
 - `trpc.students.verifyStudentImportBatch`: POST-backed verification mutation with the same input/output as `verifyStudentImport`, used by the dashboard modal so large pasted batches are not constrained by query URL length.
 - `trpc.students.executeStudentImport`: mutation for row-level import decisions. The dashboard uses it for both selected-row batch import and one-row import actions.
+- `trpc.students.startStudentImportJob`: mutation used by the dashboard batch execute action to create a persisted background import job from reviewed executable rows.
+- `trpc.students.getStudentImportJob`: query used by the dashboard to poll or recover active/recent import job progress and final row results.
 
 ### Execute Input Schema
 
@@ -242,7 +244,7 @@ Each match (`fullMatch` or `suspectedMatches[]`) includes:
 
 ### Dashboard Invalidation
 
-After successful execution, the dashboard invalidates:
+After successful direct single-row execution or completed background job execution, the dashboard invalidates:
 
 - `students.index`
 - `students.analytics`
@@ -250,6 +252,16 @@ After successful execution, the dashboard invalidates:
 - `classrooms.all`
 
 Report-sheet and finance query keys are parameterized per classroom/student and refresh on navigation. See `brain/api/contracts.md` for the full invalidation notes.
+
+## Async Import Jobs
+
+- Large selected-row batch execution is durable: the dashboard creates a `StudentImportJob` and queues the `process-student-import-job` Trigger.dev task instead of waiting for every row inside one HTTP request.
+- Job rows persist the reviewed execution payload per line number, including row-level classroom, resolved gender, selected action, and selected existing student id.
+- The worker processes pending rows in bounded 25-row chunks and reuses the same `executeStudentImport` business path for each row, preserving duplicate checks, matched-student validation, term-sheet creation/reuse, current-term classroom conflict handling, and fee-history application. Aggregate progress counters are refreshed after each chunk.
+- Completed job rows are final for retry/resume purposes. A retry only processes pending/running rows and recomputes aggregate counters from persisted row results so completed rows are not double-counted.
+- Job status values are `PENDING`, `RUNNING`, `COMPLETED`, `COMPLETED_WITH_FAILURES`, `FAILED`, and `CANCELLED`.
+- Row status values are `PENDING`, `RUNNING`, `CREATED`, `KEPT`, `UPDATED`, `SKIPPED`, and `FAILED`.
+- The dashboard progress panel shows processed/total rows, created students, kept matches, updated matches, term sheets created, skipped rows, failed rows, and failed-line reasons. It polls persisted job state and can reopen an active or recent job after refresh/modal reopen.
 
 ## Files
 

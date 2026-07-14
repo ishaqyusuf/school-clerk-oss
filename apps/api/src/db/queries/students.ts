@@ -8,6 +8,8 @@ import { studentDisplayName } from "./enrollment-query";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 import { assertNoExactDuplicateStudentInClassTerm } from "./student-duplicates";
 import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
+import { processStudentImportJobTaskId } from "@jobs/schema";
+import { tasks } from "@trigger.dev/sdk";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -1330,9 +1332,7 @@ export const changeStudentClassSchema = z.object({
   studentTermFormId: z.string(),
   classroomDepartmentId: z.string(),
 });
-export type ChangeStudentClassSchema = z.infer<
-  typeof changeStudentClassSchema
->;
+export type ChangeStudentClassSchema = z.infer<typeof changeStudentClassSchema>;
 
 export const bulkDeleteTermSheetsSchema = z.object({
   ids: z.array(z.string()).min(1),
@@ -1932,10 +1932,10 @@ export type ExecuteStudentImportResult = {
   rows: ImportRowResult[];
 };
 
-export async function executeStudentImport(
+async function resolveStudentImportClassrooms(
   ctx: TRPCContext,
   input: ExecuteStudentImport,
-): Promise<ExecuteStudentImportResult> {
+): Promise<Map<string, any>> {
   const { db } = ctx;
   const profile = ctx.profile;
 
@@ -1998,6 +1998,17 @@ export async function executeStudentImport(
         "One or more selected classrooms do not belong to the active session",
     });
   }
+
+  return classroomById;
+}
+
+export async function executeStudentImport(
+  ctx: TRPCContext,
+  input: ExecuteStudentImport,
+): Promise<ExecuteStudentImportResult> {
+  const { db } = ctx;
+  const profile = ctx.profile;
+  const classroomById = await resolveStudentImportClassrooms(ctx, input);
 
   const rows: ImportRowResult[] = [];
   let createdStudents = 0;
@@ -2261,6 +2272,379 @@ export async function executeStudentImport(
     failedRows,
     rows,
   };
+}
+
+export const startStudentImportJobSchema = executeStudentImportSchema;
+
+export const getStudentImportJobSchema = z
+  .object({
+    jobId: z.string().optional(),
+  })
+  .optional();
+
+type StudentImportJobRead = {
+  id: string;
+  status: string;
+  totalRows: number;
+  processedRows: number;
+  createdStudents: number;
+  keptMatches: number;
+  updatedMatches: number;
+  termSheetsCreated: number;
+  skippedRows: number;
+  failedRows: number;
+  errorMessage?: string | null;
+  triggerRunId?: string | null;
+  rows: ImportRowResult[];
+};
+
+const FINAL_IMPORT_JOB_ROW_STATUSES = new Set([
+  "CREATED",
+  "KEPT",
+  "UPDATED",
+  "SKIPPED",
+  "FAILED",
+]);
+const STUDENT_IMPORT_JOB_CHUNK_SIZE = 25;
+
+function importResultStatusToJobRowStatus(status: ImportRowResult["status"]) {
+  switch (status) {
+    case "created":
+      return "CREATED";
+    case "kept":
+      return "KEPT";
+    case "updated":
+      return "UPDATED";
+    case "skipped":
+      return "SKIPPED";
+    case "failed":
+      return "FAILED";
+  }
+}
+
+function jobRowStatusToImportResultStatus(
+  status: string,
+): ImportRowResult["status"] {
+  switch (status) {
+    case "CREATED":
+      return "created";
+    case "KEPT":
+      return "kept";
+    case "UPDATED":
+      return "updated";
+    case "SKIPPED":
+      return "skipped";
+    case "FAILED":
+      return "failed";
+    default:
+      return "failed";
+  }
+}
+
+function summarizeStudentImportJobRows(rows: any[]) {
+  const summary = {
+    processedRows: 0,
+    createdStudents: 0,
+    keptMatches: 0,
+    updatedMatches: 0,
+    termSheetsCreated: 0,
+    skippedRows: 0,
+    failedRows: 0,
+  };
+
+  for (const row of rows) {
+    if (!FINAL_IMPORT_JOB_ROW_STATUSES.has(row.status)) continue;
+    summary.processedRows += 1;
+    if (row.termSheetCreated) summary.termSheetsCreated += 1;
+
+    switch (row.status) {
+      case "CREATED":
+        summary.createdStudents += 1;
+        break;
+      case "KEPT":
+        summary.keptMatches += 1;
+        break;
+      case "UPDATED":
+        summary.updatedMatches += 1;
+        break;
+      case "SKIPPED":
+        summary.skippedRows += 1;
+        break;
+      case "FAILED":
+        summary.failedRows += 1;
+        break;
+    }
+  }
+
+  return summary;
+}
+
+function serializeStudentImportJob(
+  job: any,
+  rows: any[],
+): StudentImportJobRead {
+  return {
+    id: job.id,
+    status: job.status,
+    totalRows: job.totalRows,
+    processedRows: job.processedRows,
+    createdStudents: job.createdStudents,
+    keptMatches: job.keptMatches,
+    updatedMatches: job.updatedMatches,
+    termSheetsCreated: job.termSheetsCreated,
+    skippedRows: job.skippedRows,
+    failedRows: job.failedRows,
+    errorMessage: job.errorMessage,
+    triggerRunId: job.triggerRunId,
+    rows: rows.map((row) => ({
+      lineNumber: row.lineNumber,
+      action: row.action,
+      status: jobRowStatusToImportResultStatus(row.status),
+      studentId: row.studentId,
+      termSheetCreated: row.termSheetCreated,
+      reason: row.reason,
+    })),
+  };
+}
+
+async function updateStudentImportJobProgress(
+  db: any,
+  job: { id: string; totalRows: number },
+) {
+  const rows = await db.studentImportJobRow.findMany({
+    where: {
+      jobId: job.id,
+      deletedAt: null,
+    },
+    orderBy: { lineNumber: "asc" },
+  });
+  const summary = summarizeStudentImportJobRows(rows);
+  const status =
+    summary.processedRows < job.totalRows
+      ? "RUNNING"
+      : summary.failedRows > 0
+        ? "COMPLETED_WITH_FAILURES"
+        : "COMPLETED";
+  const updatedJob = await db.studentImportJob.update({
+    where: { id: job.id },
+    data: {
+      status,
+      ...summary,
+    },
+  });
+
+  return { job: updatedJob, rows };
+}
+
+export type StartStudentImportJobOptions = {
+  enqueue?: boolean;
+};
+
+export async function startStudentImportJob(
+  ctx: TRPCContext,
+  input: ExecuteStudentImport,
+  options: StartStudentImportJobOptions = {},
+): Promise<StudentImportJobRead> {
+  const { db, profile } = ctx;
+  await resolveStudentImportClassrooms(ctx, input);
+  const rows = input.rows.map((row) => ({
+    ...row,
+    classroomDepartmentId:
+      row.classroomDepartmentId || input.classroomDepartmentId,
+  }));
+
+  const job = await (db as any).studentImportJob.create({
+    data: {
+      schoolProfileId: profile.schoolId!,
+      schoolSessionId: profile.sessionId!,
+      sessionTermId: profile.termId!,
+      createdByUserId: ctx.currentUser?.id ?? null,
+      totalRows: rows.length,
+      processedRows: 0,
+      createdStudents: 0,
+      keptMatches: 0,
+      updatedMatches: 0,
+      termSheetsCreated: 0,
+      skippedRows: 0,
+      failedRows: 0,
+    },
+  });
+
+  await (db as any).studentImportJobRow.createMany({
+    data: rows.map((row) => ({
+      jobId: job.id,
+      lineNumber: row.lineNumber,
+      action: row.action,
+      status: "PENDING",
+      payload: row,
+      termSheetCreated: false,
+    })),
+  });
+
+  if (options.enqueue !== false) {
+    const run = (await tasks.trigger(processStudentImportJobTaskId, {
+      jobId: job.id,
+    })) as { id?: string };
+
+    if (run?.id) {
+      await (db as any).studentImportJob.update({
+        where: { id: job.id },
+        data: { triggerRunId: run.id },
+      });
+    }
+  }
+
+  return getStudentImportJob(ctx, { jobId: job.id });
+}
+
+export async function getStudentImportJob(
+  ctx: TRPCContext,
+  input: z.infer<typeof getStudentImportJobSchema> = {},
+): Promise<StudentImportJobRead> {
+  const { db, profile } = ctx;
+
+  if (!profile.schoolId) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Active school is required",
+    });
+  }
+
+  const job = await (db as any).studentImportJob.findFirst({
+    where: {
+      ...(input?.jobId ? { id: input.jobId } : {}),
+      schoolProfileId: profile.schoolId,
+      deletedAt: null,
+      ...(!input?.jobId && ctx.currentUser?.id
+        ? { createdByUserId: ctx.currentUser.id }
+        : {}),
+      ...(!input?.jobId
+        ? {
+            status: {
+              in: [
+                "PENDING",
+                "RUNNING",
+                "COMPLETED",
+                "COMPLETED_WITH_FAILURES",
+              ],
+            },
+          }
+        : {}),
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!job) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Student import job was not found.",
+    });
+  }
+
+  const rows = await (db as any).studentImportJobRow.findMany({
+    where: {
+      jobId: job.id,
+      deletedAt: null,
+    },
+    orderBy: { lineNumber: "asc" },
+  });
+
+  return serializeStudentImportJob(job, rows);
+}
+
+export async function processStudentImportJob(
+  db: any,
+  jobId: string,
+): Promise<StudentImportJobRead> {
+  const job = await db.studentImportJob.findFirst({
+    where: {
+      id: jobId,
+      deletedAt: null,
+    },
+  });
+
+  if (!job) {
+    throw new Error(`Student import job ${jobId} was not found.`);
+  }
+
+  await db.studentImportJob.update({
+    where: { id: job.id },
+    data: { status: "RUNNING", errorMessage: null },
+  });
+
+  const pendingRows = await db.studentImportJobRow.findMany({
+    where: {
+      jobId: job.id,
+      status: { in: ["PENDING", "RUNNING"] },
+      deletedAt: null,
+    },
+    orderBy: { lineNumber: "asc" },
+  });
+
+  const processCtx = {
+    db,
+    profile: {
+      schoolId: job.schoolProfileId,
+      sessionId: job.schoolSessionId,
+      termId: job.sessionTermId,
+    },
+  } as TRPCContext;
+
+  for (
+    let index = 0;
+    index < pendingRows.length;
+    index += STUDENT_IMPORT_JOB_CHUNK_SIZE
+  ) {
+    const chunk = pendingRows.slice(
+      index,
+      index + STUDENT_IMPORT_JOB_CHUNK_SIZE,
+    );
+
+    for (const jobRow of chunk) {
+      try {
+        await db.studentImportJobRow.update({
+          where: { id: jobRow.id },
+          data: { status: "RUNNING" },
+        });
+
+        const result = await executeStudentImport(processCtx, {
+          rows: [jobRow.payload as ExecuteStudentImport["rows"][number]],
+        });
+        const rowResult = result.rows[0];
+
+        if (!rowResult) {
+          throw new Error("Import row did not return a result.");
+        }
+
+        await db.studentImportJobRow.update({
+          where: { id: jobRow.id },
+          data: {
+            status: importResultStatusToJobRowStatus(rowResult.status),
+            studentId: rowResult.studentId ?? null,
+            termSheetCreated: Boolean(rowResult.termSheetCreated),
+            reason: rowResult.reason ?? null,
+            completedAt: new Date(),
+          },
+        });
+      } catch (error) {
+        await db.studentImportJobRow.update({
+          where: { id: jobRow.id },
+          data: {
+            status: "FAILED",
+            reason: error instanceof Error ? error.message : "Unknown error",
+            completedAt: new Date(),
+          },
+        });
+      }
+    }
+
+    await updateStudentImportJobProgress(db, job);
+  }
+
+  const { job: updatedJob, rows: allRows } =
+    await updateStudentImportJobProgress(db, job);
+
+  return serializeStudentImportJob(updatedJob, allRows);
 }
 
 async function createTermSheetIfMissing(

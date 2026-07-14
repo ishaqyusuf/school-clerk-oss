@@ -66,6 +66,8 @@ type ExistingStudent =
 type ClassDepartment =
   RouterOutputs["students"]["studentsRecentRecord"]["classDepartments"][number];
 type ExecuteResult = RouterOutputs["students"]["executeStudentImport"];
+type StudentImportJob = RouterOutputs["students"]["getStudentImportJob"];
+type ImportExecutionResult = ExecuteResult | StudentImportJob;
 type ExecuteRow = {
   lineNumber: number;
   name: string;
@@ -178,6 +180,12 @@ export function ImportActivity({
   const [importingLineNumber, setImportingLineNumber] = useState<number | null>(
     null,
   );
+  const [activeImportJobId, setActiveImportJobId] = useState<string | null>(
+    null,
+  );
+  const [lastInvalidatedImportJobId, setLastInvalidatedImportJobId] = useState<
+    string | null
+  >(null);
 
   const {
     data: records,
@@ -386,33 +394,49 @@ export function ImportActivity({
   }, [activeTab, attentionRows.length, matchedCount, readyRows.length]);
 
   const {
-    mutate: executeBatch,
-    isPending: isExecutingBatch,
-    data: batchResult,
+    mutate: startImportJob,
+    isPending: isStartingImportJob,
+    data: startedImportJob,
     error: batchError,
-    reset: resetExecuteBatch,
+    reset: resetStartImportJob,
   } = useMutation(
-    _trpc.students.executeStudentImport.mutationOptions({
-      onSuccess() {
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.index.infiniteQueryKey(),
-        });
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.analytics.queryKey(),
-        });
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.studentsRecentRecord.queryKey(),
-        });
-        _qc.invalidateQueries({
-          queryKey: _trpc.classrooms.all.queryKey({}),
-        });
+    _trpc.students.startStudentImportJob.mutationOptions({
+      onSuccess(job) {
+        setActiveImportJobId(job.id);
       },
       meta: {
         toastTitle: {
-          loading: "Executing import...",
-          success: "Import executed",
+          loading: "Starting import...",
+          success: "Import started",
           error: "Import failed",
         },
+      },
+    }),
+  );
+
+  const {
+    data: activeImportJob,
+    error: activeImportJobError,
+    refetch: refetchActiveImportJob,
+  } = useQuery(
+    _trpc.students.getStudentImportJob.queryOptions(
+      activeImportJobId ? { jobId: activeImportJobId } : undefined,
+      {
+        enabled: Boolean(activeImportJobId),
+        refetchInterval: activeImportJobId ? 2000 : false,
+      },
+    ),
+  );
+
+  const { data: recoveredImportJob } = useQuery(
+    _trpc.students.getStudentImportJob.queryOptions(undefined, {
+      retry: false,
+      refetchOnWindowFocus: false,
+      refetchInterval: (query) => {
+        const job = query.state.data as StudentImportJob | undefined;
+        return job?.status === "PENDING" || job?.status === "RUNNING"
+          ? 2000
+          : false;
       },
     }),
   );
@@ -609,7 +633,7 @@ export function ImportActivity({
       ...current,
       [lineNumber]: null,
     }));
-    resetExecuteBatch();
+    resetStartImportJob();
   };
 
   const setNamePart = (row: VerifyResult, option: NamePartOption) => {
@@ -799,7 +823,7 @@ export function ImportActivity({
     }
 
     setLastExecutionSkippedRows(skippedBeforeExecution);
-    executeBatch({
+    startImportJob({
       classroomDepartmentId: classroomDeptId,
       rows: importRows,
     });
@@ -906,6 +930,42 @@ export function ImportActivity({
       rows,
     ],
   );
+  const displayedImportJob =
+    activeImportJob ?? startedImportJob ?? recoveredImportJob ?? null;
+  const displayedImportJobRunning = Boolean(
+    displayedImportJob &&
+    (displayedImportJob.status === "PENDING" ||
+      displayedImportJob.status === "RUNNING"),
+  );
+  const displayedImportJobFinal = Boolean(
+    displayedImportJob &&
+    (displayedImportJob.status === "COMPLETED" ||
+      displayedImportJob.status === "COMPLETED_WITH_FAILURES" ||
+      displayedImportJob.status === "FAILED" ||
+      displayedImportJob.status === "CANCELLED"),
+  );
+  const isExecutingBatch = isStartingImportJob || displayedImportJobRunning;
+  const batchResult: ImportExecutionResult | undefined =
+    displayedImportJob ?? undefined;
+
+  useEffect(() => {
+    if (!displayedImportJobFinal || !displayedImportJob) return;
+    if (lastInvalidatedImportJobId === displayedImportJob.id) return;
+
+    _qc.invalidateQueries({
+      queryKey: _trpc.students.index.infiniteQueryKey(),
+    });
+    _qc.invalidateQueries({
+      queryKey: _trpc.students.analytics.queryKey(),
+    });
+    _qc.invalidateQueries({
+      queryKey: _trpc.students.studentsRecentRecord.queryKey(),
+    });
+    _qc.invalidateQueries({
+      queryKey: _trpc.classrooms.all.queryKey({}),
+    });
+    setLastInvalidatedImportJobId(displayedImportJob.id);
+  }, [displayedImportJob, displayedImportJobFinal, lastInvalidatedImportJobId]);
   let selectedRowCount = 0;
   let skippedBeforeExecution = 0;
   let executableRowCount = 0;
@@ -930,7 +990,8 @@ export function ImportActivity({
     }
   }
 
-  const showExecutionOnly = isExecutingBatch || Boolean(batchResult);
+  const showExecutionOnly =
+    isExecutingBatch || Boolean(batchResult) || displayedImportJobFinal;
   useEffect(() => {
     onPhaseChange?.(showExecutionOnly ? "import" : "review");
   }, [onPhaseChange, showExecutionOnly]);
@@ -939,8 +1000,12 @@ export function ImportActivity({
     [verificationError],
   );
   const batchImportError = useMemo(
-    () => normalizeStudentImportError("execution", batchError),
-    [batchError],
+    () =>
+      normalizeStudentImportError(
+        "execution",
+        batchError || activeImportJobError,
+      ),
+    [activeImportJobError, batchError],
   );
   const preSubmitImportError = useMemo<NormalizedStudentImportError | null>(
     () =>
@@ -959,7 +1024,10 @@ export function ImportActivity({
   const dismissExecutionError = () => {
     setPreSubmitError(null);
     resetVerification();
-    resetExecuteBatch();
+    resetStartImportJob();
+    if (activeImportJobId) {
+      refetchActiveImportJob();
+    }
   };
   const studentSearchItems = useMemo(
     () =>
@@ -1466,31 +1534,53 @@ function ImportExecutionPanel({
   executableRowCount: number;
   skippedBeforeExecution: number;
   isExecuting: boolean;
-  result?: ExecuteResult;
+  result?: ImportExecutionResult;
   errorMessage?: string | null;
   onStartNewImport?: () => void;
   onCloseImport?: () => void;
 }) {
+  const jobProgress =
+    result && "processedRows" in result ? (result as StudentImportJob) : null;
   const backendSkippedRows = result?.skippedRows ?? 0;
   const skippedRows = skippedBeforeExecution + backendSkippedRows;
   const successfulRows = result
     ? result.createdStudents + result.keptMatches + result.updatedMatches
     : 0;
-  const analyzedRows = result
-    ? successfulRows + result.failedRows + skippedRows
-    : selectedRowCount;
+  const analyzedRows = jobProgress
+    ? jobProgress.processedRows + skippedBeforeExecution
+    : result
+      ? successfulRows + result.failedRows + skippedRows
+      : selectedRowCount;
   const progressValue = result
-    ? analyzedRows
-      ? Math.round(((successfulRows + skippedRows) / analyzedRows) * 100)
-      : 100
+    ? jobProgress
+      ? jobProgress.totalRows
+        ? Math.round(
+            ((jobProgress.processedRows + skippedBeforeExecution) /
+              (jobProgress.totalRows + skippedBeforeExecution)) *
+              100,
+          )
+        : 100
+      : analyzedRows
+        ? Math.round(((successfulRows + skippedRows) / analyzedRows) * 100)
+        : 100
     : isExecuting
-      ? 66
+      ? 10
       : 0;
+  const progressLabel = jobProgress
+    ? `${jobProgress.processedRows} of ${jobProgress.totalRows} processed`
+    : result
+      ? `${progressValue}% clean`
+      : `${selectedRowCount} checked · ${skippedBeforeExecution} skipped`;
   const failedRows =
     result?.rows.filter((row) => row.status === "failed") ?? [];
-  const hasResult = Boolean(result);
+  const hasProgress = Boolean(result);
+  const hasResult = Boolean(result && !isExecuting);
   const hasError = Boolean(errorMessage) && !isExecuting;
-  const hasFailures = Boolean(result?.failedRows);
+  const hasFailures =
+    Boolean(result?.failedRows) ||
+    jobProgress?.status === "FAILED" ||
+    jobProgress?.status === "CANCELLED";
+  const isPartialResult = jobProgress?.status === "COMPLETED_WITH_FAILURES";
   const statusIcon = isExecuting ? (
     <RefreshCw className="size-4 animate-spin" />
   ) : hasFailures || (hasError && !hasResult) ? (
@@ -1502,15 +1592,19 @@ function ImportExecutionPanel({
   );
   const statusTitle = isExecuting
     ? "Importing selected rows"
-    : hasFailures
+    : isPartialResult
       ? "Import completed with issues"
-      : hasResult
-        ? "Import complete"
-        : hasError
-          ? "Import needs attention"
-          : "Ready for import";
+      : hasFailures
+        ? "Import needs attention"
+        : hasResult
+          ? "Import complete"
+          : hasError
+            ? "Import needs attention"
+            : "Ready for import";
   const statusDetail = isExecuting
-    ? "Creating students, preparing term sheets, and applying classroom fees."
+    ? jobProgress
+      ? `${jobProgress.processedRows} of ${jobProgress.totalRows} row(s) processed. You can leave this screen and come back.`
+      : "Starting a durable import job for the selected rows."
     : hasResult
       ? `${successfulRows} row(s) applied, ${skippedRows} skipped, ${result?.failedRows ?? 0} failed.`
       : hasError
@@ -1579,11 +1673,7 @@ function ImportExecutionPanel({
       <div className="border-t px-3 py-2">
         <div className="mb-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span>Import analysis</span>
-          <span>
-            {hasResult
-              ? `${progressValue}% clean`
-              : `${selectedRowCount} checked · ${skippedBeforeExecution} skipped`}
-          </span>
+          <span>{progressLabel}</span>
         </div>
         <Progress
           value={progressValue}
@@ -1598,29 +1688,29 @@ function ImportExecutionPanel({
           icon={<UserPlus className="size-4" />}
           label="New created"
           value={
-            hasResult ? (result?.createdStudents ?? 0) : executableRowCount
+            hasProgress ? (result?.createdStudents ?? 0) : executableRowCount
           }
-          detail={hasResult ? "student records" : "rows to import"}
+          detail={hasProgress ? "student records" : "rows to import"}
           tone="success"
         />
         <ImportStat
           icon={<FileCheck2 className="size-4" />}
           label="Term sheets"
-          value={hasResult ? (result?.termSheetsCreated ?? 0) : "-"}
+          value={hasProgress ? (result?.termSheetsCreated ?? 0) : "-"}
           detail="created"
           tone="info"
         />
         <ImportStat
           icon={<UserCheck className="size-4" />}
           label="Names unchanged"
-          value={hasResult ? (result?.keptMatches ?? 0) : "-"}
+          value={hasProgress ? (result?.keptMatches ?? 0) : "-"}
           detail="students kept"
           tone="neutral"
         />
         <ImportStat
           icon={<PencilLine className="size-4" />}
           label="Names updated"
-          value={hasResult ? (result?.updatedMatches ?? 0) : "-"}
+          value={hasProgress ? (result?.updatedMatches ?? 0) : "-"}
           detail="matched records"
           tone="warning"
         />
@@ -1634,7 +1724,7 @@ function ImportExecutionPanel({
         <ImportStat
           icon={<AlertCircle className="size-4" />}
           label="Errors"
-          value={hasResult ? (result?.failedRows ?? 0) : hasError ? 1 : 0}
+          value={hasProgress ? (result?.failedRows ?? 0) : hasError ? 1 : 0}
           detail="need review"
           tone={hasFailures || (hasError && !hasResult) ? "danger" : "neutral"}
         />

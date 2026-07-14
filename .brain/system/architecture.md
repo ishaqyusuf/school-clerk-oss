@@ -73,6 +73,7 @@ Tracks architectural patterns, boundaries, and major design choices.
 - `packages/ui`: shared UI components
 - `packages/template-registry`: website template registry, manifests, preview/editor engine, shared website blocks, hooks, guards, and production/preview render utilities
 - `packages/jobs`: Trigger.dev background jobs; deployment flattens the modular `packages/db/src/schema/*.prisma` files into `packages/jobs/src/schema.prisma` and preserves `url = env("DATABASE_URL")` so Trigger's Docker build can run Prisma generate.
+- `packages/jobs` owns the `process-student-import-job` worker boundary for durable student batch imports. The dashboard/API creates tenant-scoped `StudentImportJob` rows, and the worker processes persisted `StudentImportJobRow` payloads with the captured school/session/term context.
 
 ## Tenant Domain Topology
 
@@ -142,3 +143,4 @@ Tracks architectural patterns, boundaries, and major design choices.
 - [ADR-0001: Baseline System Stack and Layered Architecture](/Users/M1PRO/Documents/code/school-clerk/brain/decisions/ADR-0001-baseline-system-stack-and-layered-architecture.md)
 - [ADR-0002: Multi-Institution Configurable Module Architecture](/Users/M1PRO/Documents/code/school-clerk/brain/decisions/ADR-0002-multi-institution-configurable-module-architecture.md)
 - [ADR-0005: Prisma 7 Default Runtime and Generated Client](/Users/M1PRO/Documents/code/school-clerk/brain/decisions/ADR-0005-prisma-7-default-runtime-and-generated-client.md)
+- [ADR-0007: Durable Student Import Background Jobs](/Users/M1PRO/Documents/code/school-clerk/brain/decisions/ADR-0007-durable-student-import-background-jobs.md)

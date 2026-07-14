@@ -7,7 +7,10 @@ process.env.POSTGRES_URL ??= process.env.DATABASE_URL;
 const {
   changeStudentGender,
   executeStudentImport,
+  getStudentImportJob,
   getStudents,
+  processStudentImportJob,
+  startStudentImportJob,
   verifyStudentImport,
 } = await import("./students");
 const { getStudentDuplicateGroups, previewStudentDuplicateMerge } =
@@ -429,6 +432,367 @@ describe("executeStudentImport", () => {
   });
 });
 
+function createImportJobCtx() {
+  const base = createImportCtx();
+  const jobs: any[] = [];
+  const jobRows: any[] = [];
+  const jobUpdates: any[] = [];
+  let jobCounter = 0;
+  let rowCounter = 0;
+  const now = new Date("2026-07-14T10:00:00.000Z");
+
+  return {
+    ...base,
+    jobs,
+    jobRows,
+    jobUpdates,
+    ctx: {
+      ...base.ctx,
+      currentUser: {
+        id: "user-1",
+        email: "admin@example.com",
+        name: "Admin",
+        role: "Admin",
+        saasAccountId: null,
+      },
+      db: {
+        ...base.ctx.db,
+        studentImportJob: {
+          create: async ({ data }: any) => {
+            const job = {
+              id: `job-${++jobCounter}`,
+              status: "PENDING",
+              totalRows: data.totalRows,
+              processedRows: data.processedRows ?? 0,
+              createdStudents: data.createdStudents ?? 0,
+              keptMatches: data.keptMatches ?? 0,
+              updatedMatches: data.updatedMatches ?? 0,
+              termSheetsCreated: data.termSheetsCreated ?? 0,
+              skippedRows: data.skippedRows ?? 0,
+              failedRows: data.failedRows ?? 0,
+              errorMessage: data.errorMessage ?? null,
+              triggerRunId: data.triggerRunId ?? null,
+              schoolProfileId: data.schoolProfileId,
+              schoolSessionId: data.schoolSessionId,
+              sessionTermId: data.sessionTermId,
+              createdByUserId: data.createdByUserId ?? null,
+              createdAt: now,
+              updatedAt: now,
+            };
+            jobs.push(job);
+            return job;
+          },
+          findFirst: async ({ where }: any) => {
+            let candidates = jobs.filter((job) => job.deletedAt == null);
+            if (where.schoolProfileId) {
+              candidates = candidates.filter(
+                (job) => job.schoolProfileId === where.schoolProfileId,
+              );
+            }
+            if (where.id) {
+              candidates = candidates.filter((job) => job.id === where.id);
+            }
+            if (where.createdByUserId) {
+              candidates = candidates.filter(
+                (job) => job.createdByUserId === where.createdByUserId,
+              );
+            }
+            if (where.status?.in) {
+              candidates = candidates.filter((job) =>
+                where.status.in.includes(job.status),
+              );
+            }
+            return candidates[0] ?? null;
+          },
+          update: async ({ where, data }: any) => {
+            const job = jobs.find((candidate) => candidate.id === where.id);
+            jobUpdates.push({ id: where.id, data: { ...data } });
+            Object.assign(job, data, { updatedAt: now });
+            return job;
+          },
+        },
+        studentImportJobRow: {
+          createMany: async ({ data }: any) => {
+            for (const row of data) {
+              jobRows.push({
+                id: `job-row-${++rowCounter}`,
+                status: "PENDING",
+                studentId: null,
+                termSheetCreated: false,
+                reason: null,
+                completedAt: null,
+                ...row,
+                createdAt: now,
+                updatedAt: now,
+              });
+            }
+            return { count: data.length };
+          },
+          findMany: async ({ where }: any) =>
+            jobRows
+              .filter((row) => row.jobId === where.jobId)
+              .filter((row) =>
+                where.status?.in ? where.status.in.includes(row.status) : true,
+              )
+              .sort((a, b) => a.lineNumber - b.lineNumber),
+          update: async ({ where, data }: any) => {
+            const row = jobRows.find((candidate) => candidate.id === where.id);
+            Object.assign(row, data, { updatedAt: now });
+            return row;
+          },
+        },
+      },
+    } as any,
+  };
+}
+
+describe("student import jobs", () => {
+  test("creates a pending tenant-scoped import job with persisted row payloads", async () => {
+    const { ctx, jobs, jobRows } = createImportJobCtx();
+
+    const job = await startStudentImportJob(
+      ctx,
+      {
+        rows: [
+          {
+            lineNumber: 1,
+            name: "John",
+            surname: "Doe",
+            gender: "Male",
+            classroomDepartmentId: "classroom-a",
+            action: "keep_match",
+            existingStudentId: "student-1",
+          },
+          {
+            lineNumber: 2,
+            name: "Mary",
+            surname: "Major",
+            gender: "Female",
+            classroomDepartmentId: "classroom-b",
+            action: "keep_match",
+            existingStudentId: "student-2",
+          },
+        ],
+      },
+      { enqueue: false },
+    );
+
+    expect(job).toMatchObject({
+      id: "job-1",
+      status: "PENDING",
+      totalRows: 2,
+      processedRows: 0,
+      createdStudents: 0,
+      failedRows: 0,
+    });
+    expect(jobs[0]).toMatchObject({
+      schoolProfileId: "school-1",
+      schoolSessionId: "session-1",
+      sessionTermId: "term-1",
+      createdByUserId: "user-1",
+    });
+    expect(jobRows.map((row) => row.lineNumber)).toEqual([1, 2]);
+    expect(jobRows[0]?.payload).toMatchObject({
+      action: "keep_match",
+      existingStudentId: "student-1",
+    });
+  });
+
+  test("persists the effective classroom fallback on job rows", async () => {
+    const { ctx, jobRows } = createImportJobCtx();
+
+    await startStudentImportJob(
+      ctx,
+      {
+        classroomDepartmentId: "classroom-a",
+        rows: [
+          {
+            lineNumber: 1,
+            name: "John",
+            surname: "Doe",
+            gender: "Male",
+            action: "keep_match",
+            existingStudentId: "student-1",
+          },
+        ],
+      },
+      { enqueue: false },
+    );
+
+    expect(jobRows[0]?.payload).toMatchObject({
+      classroomDepartmentId: "classroom-a",
+    });
+  });
+
+  test("reads only tenant-owned import jobs", async () => {
+    const { ctx, jobs } = createImportJobCtx();
+    jobs.push({
+      id: "job-foreign",
+      status: "COMPLETED",
+      totalRows: 1,
+      processedRows: 1,
+      createdStudents: 1,
+      keptMatches: 0,
+      updatedMatches: 0,
+      termSheetsCreated: 1,
+      skippedRows: 0,
+      failedRows: 0,
+      schoolProfileId: "other-school",
+      schoolSessionId: "session-1",
+      sessionTermId: "term-1",
+      createdByUserId: "user-1",
+      deletedAt: null,
+    });
+
+    await expect(
+      getStudentImportJob(ctx, { jobId: "job-foreign" }),
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    } satisfies Partial<TRPCError>);
+  });
+
+  test("processes only pending rows and does not double-count completed rows", async () => {
+    const { ctx, jobs, jobRows, createdTermForms } = createImportJobCtx();
+    jobs.push({
+      id: "job-1",
+      status: "RUNNING",
+      totalRows: 2,
+      processedRows: 1,
+      createdStudents: 0,
+      keptMatches: 1,
+      updatedMatches: 0,
+      termSheetsCreated: 1,
+      skippedRows: 0,
+      failedRows: 0,
+      schoolProfileId: "school-1",
+      schoolSessionId: "session-1",
+      sessionTermId: "term-1",
+      createdByUserId: "user-1",
+      deletedAt: null,
+    });
+    jobRows.push(
+      {
+        id: "job-row-1",
+        jobId: "job-1",
+        lineNumber: 1,
+        action: "keep_match",
+        status: "KEPT",
+        studentId: "student-1",
+        termSheetCreated: true,
+        reason: null,
+        completedAt: new Date("2026-07-14T09:00:00.000Z"),
+        payload: {
+          lineNumber: 1,
+          name: "John",
+          surname: "Doe",
+          gender: "Male",
+          classroomDepartmentId: "classroom-a",
+          action: "keep_match",
+          existingStudentId: "student-1",
+        },
+      },
+      {
+        id: "job-row-2",
+        jobId: "job-1",
+        lineNumber: 2,
+        action: "keep_match",
+        status: "PENDING",
+        studentId: null,
+        termSheetCreated: false,
+        reason: null,
+        completedAt: null,
+        payload: {
+          lineNumber: 2,
+          name: "Mary",
+          surname: "Major",
+          gender: "Female",
+          classroomDepartmentId: "classroom-b",
+          action: "keep_match",
+          existingStudentId: "student-2",
+        },
+      },
+    );
+
+    const result = await processStudentImportJob(ctx.db, "job-1");
+
+    expect(result).toMatchObject({
+      status: "COMPLETED",
+      processedRows: 2,
+      keptMatches: 2,
+      termSheetsCreated: 2,
+      failedRows: 0,
+    });
+    expect(createdTermForms).toHaveLength(1);
+    expect(jobRows.map((row) => row.status)).toEqual(["KEPT", "KEPT"]);
+  });
+
+  test("persists aggregate progress after each bounded chunk", async () => {
+    const { ctx, jobs, jobRows, jobUpdates } = createImportJobCtx();
+    jobs.push({
+      id: "job-1",
+      status: "PENDING",
+      totalRows: 26,
+      processedRows: 0,
+      createdStudents: 0,
+      keptMatches: 0,
+      updatedMatches: 0,
+      termSheetsCreated: 0,
+      skippedRows: 0,
+      failedRows: 0,
+      schoolProfileId: "school-1",
+      schoolSessionId: "session-1",
+      sessionTermId: "term-1",
+      createdByUserId: "user-1",
+      deletedAt: null,
+    });
+
+    for (let lineNumber = 1; lineNumber <= 26; lineNumber += 1) {
+      jobRows.push({
+        id: `job-row-${lineNumber}`,
+        jobId: "job-1",
+        lineNumber,
+        action: "keep_match",
+        status: "PENDING",
+        studentId: null,
+        termSheetCreated: false,
+        reason: null,
+        completedAt: null,
+        payload: {
+          lineNumber,
+          name: "Mary",
+          surname: "Major",
+          gender: "Female",
+          classroomDepartmentId: "classroom-b",
+          action: "keep_match",
+          existingStudentId: "student-2",
+        },
+      });
+    }
+
+    const result = await processStudentImportJob(ctx.db, "job-1");
+    const progressUpdates = jobUpdates
+      .map((update) => update.data)
+      .filter((data) => typeof data.processedRows === "number");
+
+    expect(progressUpdates[0]).toMatchObject({
+      status: "RUNNING",
+      processedRows: 25,
+      keptMatches: 25,
+    });
+    expect(progressUpdates.at(-1)).toMatchObject({
+      status: "COMPLETED",
+      processedRows: 26,
+      keptMatches: 26,
+    });
+    expect(result).toMatchObject({
+      status: "COMPLETED",
+      processedRows: 26,
+      keptMatches: 26,
+      failedRows: 0,
+    });
+  });
+});
+
 function createDuplicateCtx({
   firstAssessmentCount = 0,
   secondAssessmentCount = 0,
@@ -562,7 +926,8 @@ function createDuplicateCtx({
           return termForms.filter(
             (termForm) =>
               (!where.classroomDepartmentId ||
-                termForm.classroomDepartmentId === where.classroomDepartmentId) &&
+                termForm.classroomDepartmentId ===
+                  where.classroomDepartmentId) &&
               termForm.sessionTermId === where.sessionTermId &&
               (!studentIds || studentIds.includes(termForm.student.id)),
           );
@@ -587,10 +952,9 @@ describe("student duplicate detection", () => {
       duplicateGroupCount: 1,
       duplicateStudentCount: 2,
     });
-    expect(result.groups[0]?.members.map((member) => member.studentId)).toEqual([
-      "student-history",
-      "student-current",
-    ]);
+    expect(result.groups[0]?.members.map((member) => member.studentId)).toEqual(
+      ["student-history", "student-current"],
+    );
     expect(result.groups[0]?.recommendedSurvivorId).toBe("student-history");
   });
 

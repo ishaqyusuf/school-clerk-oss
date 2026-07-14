@@ -55,6 +55,17 @@ Change log for database schema migrations and rollout notes.
 
 ## Migration Entry
 
+- Date: 2026-07-14
+- ID: schema-push-20260714_student_import_jobs
+- Summary: Added durable student import job and row models for background batch import execution with persisted progress and row-level results.
+- Affected entities: `StudentImportJob`, `StudentImportJobRow`
+- Backfill required: No. Existing direct student imports remain valid; new rows are created only for future async batch imports.
+- Rollback plan: Route dashboard batch import back to direct `students.executeStudentImport`, remove Trigger task usage, regenerate Prisma Client, then drop `StudentImportJob`, `StudentImportJobRow`, and their enums.
+- Owner: Codex
+- Note: `bun run db:migrate` reached local Postgres but stopped on pre-existing local drift and requested a destructive reset, which was not run. `bun run db:push` completed successfully against the local Docker database. `bun run db:generate` succeeded, and `bun --cwd packages/jobs prisma.ts` refreshed the jobs package flattened schema.
+
+## Migration Entry
+
 - Date: 2026-07-13
 - ID: schema-push-20260713_finance_payroll_purchases_payees
 - Summary: Added reusable finance payees, payroll structures, and purchase/service/expense records linked to standardized finance streams, charges, and payments.

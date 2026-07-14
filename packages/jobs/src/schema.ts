@@ -5,6 +5,7 @@ import { z } from "zod";
 export const taskNames = [
   "create-sales-dispatch",
   "send-staff-invitation-email",
+  "process-student-import-job",
   "create-sales-history",
   "mark-sales-as-completed",
   "sales-online-payment-action-notification",
@@ -36,6 +37,13 @@ export const taskNames = [
 ] as const;
 export type TaskName = (typeof taskNames)[number];
 export const sendStaffInvitationEmailTaskId = "send-staff-invitation-email";
+export const processStudentImportJobTaskId = "process-student-import-job";
+export const processStudentImportJobSchema = z.object({
+  jobId: z.string().min(1),
+});
+export type ProcessStudentImportJobPayload = z.infer<
+  typeof processStudentImportJobSchema
+>;
 export const createSalesDispatchSchemaTask = z.object({});
 export type CreateSalesDispatchSchemaTask = z.infer<
   typeof createSalesDispatchSchemaTask

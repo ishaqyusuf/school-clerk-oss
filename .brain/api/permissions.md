@@ -23,7 +23,7 @@ Defines access control rules for each API surface.
 
 ## Permission Matrix
 
-- Student Management: `ADMIN`, `Admin`, and `Registrar` can perform administrative student overview actions including changing a selected term sheet class, deleting the selected term sheet, deleting the student, previewing duplicate student merges, and executing duplicate student merges. Other authenticated roles may read student surfaces and duplicate warnings only where their route/module access allows.
+- Student Management: `ADMIN`, `Admin`, and `Registrar` can perform administrative student overview actions including changing a selected term sheet class, deleting the selected term sheet, deleting the student, previewing duplicate student merges, and executing duplicate student merges. Student import execution and import job status are tenant-scoped through active `schoolProfileId`, active session, active term, and job ownership metadata. Other authenticated roles may read student surfaces and duplicate warnings only where their route/module access allows.
 - Admissions: TBD by role
 - Attendance: TBD by role
 - Results: TBD by role

@@ -30,6 +30,7 @@ Describes entity relationships and cardinality constraints.
 - `StaffAcademicAccessGrant` stores durable hierarchy-aware teacher grants for class, department/arm, subject-across-class, and subject-in-department scopes without materializing every covered department subject.
 - Effective teacher access is the union of active `StaffAcademicAccessGrant` rows plus legacy `StaffClassroomDepartmentTermProfiles` and `StaffSubject` rows for the same staff term profile.
 - `Students` 1:N `StudentSessionForm`, `StudentTermForm`, `StudentFee`, `StudentAssessmentRecord`, `StudentWalletTransactions`
+- `StudentImportJob` 1:N `StudentImportJobRow`; each job is tenant-scoped by `schoolProfileId` and captures `schoolSessionId`, `sessionTermId`, and optional `createdByUserId` as scalar ownership/audit fields.
 - `Students` N:M `Guardians` via `StudentGuardians`
 - `User` 1:N `Guardians` through nullable `Guardians.userId` for authenticated parent portal access
 - `SchoolProfile` 1:N `EnrollmentLink`
@@ -108,3 +109,4 @@ Describes entity relationships and cardinality constraints.
 - Duplicate student merge treats `Students` as the identity record and `StudentTermForm` as the class/term enrollment record. Safe merges move term-form-owned attendance, assessment, finance charge, and enrollment accepted-term references to the primary term form, move direct student references such as guardians, direct assessments, finance charges/payments, notification recipients, and enrollment accepted student ids to the survivor, then soft-delete duplicate term forms and duplicate student copies.
 - Merge execution must block when multiple current-term duplicate copies have non-empty assessment, attendance, or finance records that require manual review, or when assessment records would collide with the `StudentAssessmentRecord` unique key after the move.
 - Student creation, student import, class change, term migration, and batch promotion must reuse the exact duplicate guard before creating or moving a student into a class/term scope.
+- Student import job retry invariant: a row with final `StudentImportJobRow.status` (`CREATED`, `KEPT`, `UPDATED`, `SKIPPED`, or `FAILED`) is not re-executed by the worker. Job aggregate counters are recomputed from persisted row statuses after processing so retries do not double-count completed rows.

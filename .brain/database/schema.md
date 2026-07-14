@@ -92,9 +92,48 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 
 - `ClassRoom`, `ClassRoomDepartment`, `DepartmentSubject`, `Subject`
 - `Students`, `StudentSessionForm`, `StudentTermForm`
+- `StudentImportJob`, `StudentImportJobRow`
 - `StaffProfile`, `StaffTermProfile`, `StaffClassroomDepartmentTermProfiles`, `StaffSubject`, `StaffAcademicAccessGrant`
 - `StaffAcademicAccessGrant.scope` supports `CLASS`, `DEPARTMENT`, `CLASS_SUBJECT`, and `DEPARTMENT_SUBJECT` for hierarchy-aware teacher academic access. Grants are term-owned through `StaffTermProfile` and may reference `ClassRoom`, `ClassRoomDepartment`, `Subject`, or `DepartmentSubject` depending on scope.
 - Legacy classroom/subject assignment rows remain active compatibility inputs to the effective teacher access resolver.
+
+### StudentImportJob (updated — session 2026-07)
+
+| Field               | Type   | Notes                                                                               |
+| ------------------- | ------ | ----------------------------------------------------------------------------------- |
+| `id`                | String | PK                                                                                  |
+| `schoolProfileId`   | String | Tenant ownership boundary                                                           |
+| `schoolSessionId`   | String | Active session captured when the job is created                                     |
+| `sessionTermId`     | String | Active term captured when the job is created                                        |
+| `createdByUserId`   | String | Optional dashboard operator id                                                      |
+| `status`            | Enum   | `PENDING`, `RUNNING`, `COMPLETED`, `COMPLETED_WITH_FAILURES`, `FAILED`, `CANCELLED` |
+| `totalRows`         | Int    | Number of executable reviewed rows persisted for the job                            |
+| `processedRows`     | Int    | Count of rows with final row status                                                 |
+| `createdStudents`   | Int    | Aggregate created student rows                                                      |
+| `keptMatches`       | Int    | Aggregate existing-student keep rows                                                |
+| `updatedMatches`    | Int    | Aggregate matched-name update rows                                                  |
+| `termSheetsCreated` | Int    | Aggregate newly created term sheets                                                 |
+| `skippedRows`       | Int    | Aggregate skipped rows                                                              |
+| `failedRows`        | Int    | Aggregate failed rows                                                               |
+| `errorMessage`      | String | Optional whole-job failure message                                                  |
+| `triggerRunId`      | String | Optional Trigger.dev run id                                                         |
+
+### StudentImportJobRow (updated — session 2026-07)
+
+| Field              | Type   | Notes                                                                   |
+| ------------------ | ------ | ----------------------------------------------------------------------- |
+| `id`               | String | PK                                                                      |
+| `jobId`            | String | Parent `StudentImportJob`                                               |
+| `lineNumber`       | Int    | Original reviewed import line number                                    |
+| `action`           | String | `import_new`, `keep_match`, or `update_match_with_name`                 |
+| `status`           | Enum   | `PENDING`, `RUNNING`, `CREATED`, `KEPT`, `UPDATED`, `SKIPPED`, `FAILED` |
+| `payload`          | Json   | Normalized execution row payload                                        |
+| `studentId`        | String | Optional affected student id                                            |
+| `termSheetCreated` | Bool   | Whether this row created a term sheet                                   |
+| `reason`           | String | Row-level failure or diagnostic reason                                  |
+| `completedAt`      | Date   | Timestamp when a row reaches final status                               |
+
+`StudentImportJobRow` is unique by `(jobId, lineNumber)` so retries cannot create duplicate result rows for the same reviewed line.
 
 ### Classroom Search Indexes (updated — session 2026-06)
 

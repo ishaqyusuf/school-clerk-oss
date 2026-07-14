@@ -25,6 +25,10 @@ import {
   verifyStudentImport,
   executeStudentImportSchema,
   executeStudentImport,
+  startStudentImportJobSchema,
+  startStudentImportJob,
+  getStudentImportJobSchema,
+  getStudentImportJob,
   getImportNameGuide,
 } from "../../db/queries/students";
 import {
@@ -93,6 +97,16 @@ export const studentsRouter = createTRPCRouter({
     .input(executeStudentImportSchema)
     .mutation(async (props) => {
       return executeStudentImport(props.ctx, props.input);
+    }),
+  startStudentImportJob: publicProcedure
+    .input(startStudentImportJobSchema)
+    .mutation(async (props) => {
+      return startStudentImportJob(props.ctx, props.input);
+    }),
+  getStudentImportJob: publicProcedure
+    .input(getStudentImportJobSchema)
+    .query(async (props) => {
+      return getStudentImportJob(props.ctx, props.input);
     }),
   analytics: publicProcedure
     .input(studentsAnalyticsSchema)
