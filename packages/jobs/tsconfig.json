@@ -6,7 +6,7 @@
     "baseUrl": ".",
     "paths": {
       "@jobs/*": ["src/*"],
-      "@api/*": ["../apps/api/src/*"]
+      "@api/*": ["../../apps/api/src/*"]
     },
     "jsx": "react-jsx"
   }

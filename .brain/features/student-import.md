@@ -267,6 +267,7 @@ Report-sheet and finance query keys are parameterized per classroom/student and 
 - Large selected-row batch execution is durable: the dashboard creates a `StudentImportJob` and queues the `process-student-import-job` Trigger.dev task instead of waiting for every row inside one HTTP request.
 - Job rows persist the reviewed execution payload per line number, including row-level classroom, resolved gender, selected action, and selected existing student id.
 - The worker processes pending rows in bounded 25-row chunks and reuses the same `executeStudentImport` business path for each row, preserving duplicate checks, matched-student validation, term-sheet creation/reuse, current-term classroom conflict handling, and fee-history application. Aggregate progress counters are refreshed after each chunk.
+- The Trigger task entrypoint statically imports the Prisma client source and shared API student import processor, so Trigger's temporary build can trace the worker dependencies instead of resolving source-tree-relative runtime `.js` paths.
 - Completed job rows are final for retry/resume purposes. A retry only processes pending/running rows and recomputes aggregate counters from persisted row results so completed rows are not double-counted.
 - Job status values are `PENDING`, `RUNNING`, `COMPLETED`, `COMPLETED_WITH_FAILURES`, `FAILED`, and `CANCELLED`.
 - Row status values are `PENDING`, `RUNNING`, `CREATED`, `KEPT`, `UPDATED`, `SKIPPED`, and `FAILED`.
