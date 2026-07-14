@@ -7,8 +7,8 @@
     "tooling/*"
   ],
   "scripts": {
-    "build": "./scripts/with-root-env.sh --mode production turbo build",
-    "build:dashboard": "./scripts/with-root-env.sh --mode production turbo build --parallel --filter !@school-clerk/jobs --filter  !@school-clerk/api --filter !@school-clerk/marketing",
+    "build": "bun ../local-infra-kit/bin/with-env.ts --profile school-clerk --mode production -- turbo build",
+    "build:dashboard": "bun ../local-infra-kit/bin/with-env.ts --profile school-clerk --mode production -- turbo build --parallel --filter !@school-clerk/jobs --filter  !@school-clerk/api --filter !@school-clerk/marketing",
     "clean": "git clean -xdf node_modules",
     "clean:workspaces": "turbo clean",
     "db:push": "bun scripts/db-push.ts",
@@ -48,7 +48,7 @@
     "format": "turbo format --continue -- --cache --cache-location='node_modules/.cache/.prettiercache' --ignore-path='../../.gitignore'",
     "format:fix": "turbo format --continue -- --write --cache --cache-location='node_modules/.cache/.prettiercache' --ignore-path='../../.gitignore'",
     "lint": "turbo lint -- --quiet -- --cache --cache-location 'node_modules/.cache/.eslintcache' && manypkg check",
-    "kill:ports": "./scripts/with-root-env.sh --mode local sh ./scripts/kill-port.sh",
+    "kill:ports": "bun ../local-infra-kit/bin/kill-ports.ts --profile school-clerk",
     "lint:fix": "turbo lint --continue -- --fix --cache --cache-location 'node_modules/.cache/.eslintcache' ",
     "typecheck": "turbo typecheck",
     "--postinstall": "bun run check-deps",

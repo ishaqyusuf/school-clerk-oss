@@ -93,7 +93,7 @@ export function StudentReportFilter({
       <Field.Group
         className={
           controlsOnly
-            ? "grid grid-cols-2 items-end gap-3 md:grid-cols-[minmax(0,220px)_minmax(0,260px)_auto]"
+            ? "grid grid-cols-1 items-end gap-3 sm:grid-cols-2 md:grid-cols-[minmax(0,220px)_minmax(0,260px)_auto]"
             : undefined
         }
       >
@@ -151,11 +151,11 @@ export function StudentReportFilter({
           <div
             className={
               controlsOnly
-                ? "col-span-2 flex items-end md:col-span-1"
+                ? "flex items-end sm:col-span-2 md:col-span-1"
                 : undefined
             }
           >
-            <Button asChild variant="outline" className="gap-2">
+            <Button asChild variant="outline" className="w-full gap-2 md:w-auto">
               <a
                 href={`/assessment-recording?deptId=${filters.departmentId}&permission=all&termId=${filters.termId}`}
                 target="_blank"
