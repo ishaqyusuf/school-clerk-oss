@@ -75,7 +75,7 @@ describe("buildStudentImportReviewModel", () => {
     expect(model.disabledReason).toContain("line 1");
   });
 
-  test("all skipped checked rows disable import with a skip-specific reason", () => {
+  test("all skipped checked rows can finish without executable rows", () => {
     const model = buildStudentImportReviewModel({
       rows: [row({ fullMatch: { id: "student-1" }, lineNumber: 1 })],
       checkedRows: { 1: true },
@@ -92,8 +92,37 @@ describe("buildStudentImportReviewModel", () => {
       executableRows: 0,
       skippedRows: 1,
     });
-    expect(model.canStartImport).toBe(false);
-    expect(model.disabledReason).toContain("marked Skip");
+    expect(model.canStartImport).toBe(true);
+    expect(model.disabledReason).toBeNull();
+  });
+
+  test("exact keep-match rows with current term sheets are auto-skipped", () => {
+    const model = buildStudentImportReviewModel({
+      rows: [
+        row({
+          fullMatch: { id: "student-1", isCurrentTermMatch: true },
+          lineNumber: 1,
+          status: "matchFound",
+        }),
+        row({ lineNumber: 2 }),
+      ],
+      checkedRows: { 1: true, 2: true },
+      rowDecisions: {
+        1: { action: "keep_match", existingStudentId: null },
+        2: { action: "import_new" },
+      },
+      manualGenders: {},
+      fallbackClassroomDepartmentId: "",
+      manualClassroomRequiredLineNumbers: new Set(),
+    });
+
+    expect(model.counts).toMatchObject({
+      checkedRows: 2,
+      executableRows: 1,
+      skippedRows: 1,
+      blockedCheckedRows: 0,
+    });
+    expect(model.canStartImport).toBe(true);
   });
 
   test("manual gender moves a no-match row out of attention", () => {

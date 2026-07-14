@@ -391,7 +391,7 @@ export function Client({
             <FormProvider {...form}>
               <form
                 action={loginWithPasswordAction}
-                method="post"
+                method="POST"
                 onSubmit={form.handleSubmit(submitCredentials)}
               >
                 <FieldGroup>

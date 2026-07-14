@@ -188,17 +188,82 @@ async function getPasswordResetTarget({
   );
 }
 
+function getPreferredPasswordResetUser({
+  currentTenantSlug,
+  users,
+}: {
+  currentTenantSlug: string | null;
+  users: PasswordResetUser[];
+}) {
+  return (
+    (currentTenantSlug
+      ? users.find((user) => userBelongsToTenant(user, currentTenantSlug))
+      : null) ??
+    users[0] ??
+    null
+  );
+}
+
+async function createLocalPasswordResetUrl({
+  email,
+  resetTargetUrl,
+  userId,
+}: {
+  email: string;
+  resetTargetUrl: string;
+  userId: string;
+}) {
+  const token = crypto.randomUUID();
+
+  await prisma.verification.create({
+    data: {
+      identifier: `reset-password:${token}`,
+      value: userId,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+    },
+  });
+
+  const resetUrl = new URL(resetTargetUrl);
+  resetUrl.searchParams.set("token", token);
+  resetUrl.searchParams.set("email", email);
+
+  return resetUrl.toString();
+}
+
 export async function requestPasswordReset(email: string) {
+  const normalizedEmail = normalizeEmail(email);
   const currentOrigin = await getCurrentOrigin();
   const [currentTenantSlug, users] = await Promise.all([
     getCurrentTenantSlug(),
-    getPasswordResetUsers(email),
+    getPasswordResetUsers(normalizedEmail),
   ]);
   const resetTarget = await getPasswordResetTarget({
     currentOrigin,
     currentTenantSlug,
     users,
   });
+
+  if (process.env.NODE_ENV !== "production") {
+    const resetUser = getPreferredPasswordResetUser({
+      currentTenantSlug,
+      users,
+    });
+
+    if (!resetUser) {
+      return { redirectTo: null };
+    }
+
+    await ensureCredentialAccount(prisma, resetUser.id);
+
+    return {
+      redirectTo: await createLocalPasswordResetUrl({
+        email: normalizedEmail,
+        resetTargetUrl: resetTarget.url,
+        userId: resetUser.id,
+      }),
+    };
+  }
+
   const redirectTo = new URL(resetTarget.url);
   const requestHeaders = new Headers(await headers());
   requestHeaders.set("origin", redirectTo.origin);
@@ -213,11 +278,13 @@ export async function requestPasswordReset(email: string) {
     users.map((user) => ensureCredentialAccount(prisma, user.id)),
   );
 
-  return auth.api.requestPasswordReset({
+  await auth.api.requestPasswordReset({
     body: {
-      email,
+      email: normalizedEmail,
       redirectTo: redirectTo.toString(),
     },
     headers: requestHeaders,
   });
+
+  return { redirectTo: null };
 }

@@ -184,9 +184,9 @@ Defines request/response contracts, validation rules, and versioning expectation
 
 - Route/action: `dashboard tenant /forgot-password` via `requestPasswordReset`
 - Request schema: `{ email: string }`
-- Response schema: Better Auth password-reset request response.
+- Response schema: `{ redirectTo: string | null }`, where local/development requests return the tenant reset-password URL when the submitted account exists.
 - Error cases: email delivery/provider errors, invalid Better Auth request.
-- Notes: reset emails render the direct tenant-aware `/reset-password?token=...&email=...` URL in the button and fallback text instead of exposing the Better Auth API reset URL. The current tenant/custom domain is preferred when the submitted email belongs to that tenant; otherwise the matched user's primary verified custom domain is preferred, falling back to the same dashboard email URL builder used by staff invite links. In development, that fallback preserves the invite-link LAN/path-style shape such as `http://<network-ip>:2200/<tenant>/reset-password`. Reset emails use the school name as the sender display name and account copy when available. The reset page accepts both staff-scoped `reset-password:{token}` verification rows and Better Auth reset rows where the submitted token is stored as `Verification.value`.
+- Notes: reset emails render the direct tenant-aware `/reset-password?token=...&email=...` URL in the button and fallback text instead of exposing the Better Auth API reset URL. The current tenant/custom domain is preferred when the submitted email belongs to that tenant; otherwise the matched user's primary verified custom domain is preferred, falling back to the same dashboard email URL builder used by staff invite links. In development, forgot-password skips email delivery when the account exists, creates a 24-hour `reset-password:{token}` verification row, and redirects the browser directly to the tenant reset-password URL while preserving LAN/path-style shapes such as `http://<network-ip>:2200/<tenant>/reset-password`. Production reset emails use the school name as the sender display name and account copy when available. The reset page accepts both staff-scoped `reset-password:{token}` verification rows and Better Auth reset rows where the submitted token is stored as `Verification.value`.
 
 ## Student Contracts
 

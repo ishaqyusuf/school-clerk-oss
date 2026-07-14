@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  processStudentImportJobTaskId,
+  sendStaffInvitationEmailTaskId,
+} from "@school-clerk/utils/task-contracts";
 
 // import { salesQueryParamsSchema } from "@api/schemas/sales";
 
@@ -36,8 +40,6 @@ export const taskNames = [
   "reset-sales-control",
 ] as const;
 export type TaskName = (typeof taskNames)[number];
-export const sendStaffInvitationEmailTaskId = "send-staff-invitation-email";
-export const processStudentImportJobTaskId = "process-student-import-job";
 export const processStudentImportJobSchema = z.object({
   jobId: z.string().min(1),
 });
@@ -129,7 +131,7 @@ export const sendStorefrontOrderConfirmationEmailSchema = z.object({
       name: z.string(),
       quantity: z.number(),
       price: z.number(),
-    })
+    }),
   ),
   total: z.number(),
 });
@@ -167,7 +169,7 @@ export const sendGndSalesEmailSchema = z.object({
       date: z.string(), // Using string for date to avoid serialization issues
       total: z.number(),
       due: z.number(),
-    })
+    }),
   ),
 });
 export type SendGndSalesEmailPayload = z.infer<typeof sendGndSalesEmailSchema>;
@@ -182,7 +184,7 @@ export const sendStorefrontAbandonedCartEmailSchema = z.object({
         name: z.string(),
         quantity: z.number(),
         price: z.number(),
-      })
+      }),
     )
     .optional(),
 });
@@ -221,7 +223,7 @@ export const sendStorefrontHotDealsEmailSchema = z.object({
         price: z.number(),
         imageUrl: z.string().url(),
         productUrl: z.string().url(),
-      })
+      }),
     )
     .optional(),
 });

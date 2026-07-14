@@ -50,6 +50,7 @@ import {
 import {
   buildStudentImportReviewModel,
   getStudentImportRowClassroomDepartmentId,
+  isStudentImportAutoSkippedRow,
   isStudentImportRowChecked,
   resolveStudentImportGender,
 } from "./review-model";
@@ -85,7 +86,9 @@ type ExistingStudent =
 type ClassDepartment =
   RouterOutputs["students"]["studentsRecentRecord"]["classDepartments"][number];
 type ExecuteResult = RouterOutputs["students"]["executeStudentImport"];
-type StudentImportJob = RouterOutputs["students"]["getStudentImportJob"];
+type StudentImportJob = NonNullable<
+  RouterOutputs["students"]["getStudentImportJob"]
+>;
 type ImportExecutionResult = ExecuteResult | StudentImportJob;
 type ExecuteRow = {
   lineNumber: number;
@@ -144,6 +147,9 @@ const EMPTY_IMPORT_ROWS: VerifyResult[] = [];
 const EMPTY_LOCKED_NAME_SPANS: Partial<
   Record<EditableNamePart, NameTokenSpan>
 > = {};
+const EMPTY_OTHER_NAME_VALUE = "-";
+const ARABIC_SCRIPT_RE =
+  /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff]/;
 
 export function ImportActivity({
   students,
@@ -180,6 +186,8 @@ export function ImportActivity({
     setLastSuccessfulVerificationReport,
   ] = useState<RouterOutputs["students"]["verifyStudentImport"] | null>(null);
   const [lastExecutionSkippedRows, setLastExecutionSkippedRows] = useState(0);
+  const [skippedOnlyResult, setSkippedOnlyResult] =
+    useState<ExecuteResult | null>(null);
   const [importedLineNumbers, setImportedLineNumbers] = useState<
     Record<number, boolean>
   >({});
@@ -388,6 +396,7 @@ export function ImportActivity({
     setPendingNameMatches({});
     setPreSubmitError(null);
     setLastExecutionSkippedRows(0);
+    setSkippedOnlyResult(null);
     setSingleRowErrors({});
   }, [verificationRows]);
 
@@ -772,6 +781,7 @@ export function ImportActivity({
 
   const executeAll = () => {
     setPreSubmitError(null);
+    setSkippedOnlyResult(null);
 
     const importRows: ExecuteRow[] = [];
     const needsDecisionLines: number[] = [];
@@ -811,11 +821,21 @@ export function ImportActivity({
     }
 
     if (!importRows.length) {
-      setPreSubmitError(
-        skippedBeforeExecution
-          ? "All rows are marked Skip. Choose at least one row to execute."
-          : "Check at least one row before executing the import.",
-      );
+      if (skippedBeforeExecution > 0) {
+        setLastExecutionSkippedRows(skippedBeforeExecution);
+        setSkippedOnlyResult({
+          createdStudents: 0,
+          keptMatches: 0,
+          updatedMatches: 0,
+          termSheetsCreated: 0,
+          skippedRows: 0,
+          failedRows: 0,
+          rows: [],
+        });
+        return;
+      }
+
+      setPreSubmitError("Check at least one row before executing the import.");
       return;
     }
 
@@ -843,7 +863,7 @@ export function ImportActivity({
           title: "Import needs attention",
           message:
             result.status === "skipped"
-              ? "This row is marked Skip. Choose an import action before importing this row."
+              ? "This row is skipped because it already has a current term sheet or is marked Skip."
               : result.reason,
           diagnostics: [
             "Operation: single-row execution",
@@ -927,6 +947,7 @@ export function ImportActivity({
       rows,
     ],
   );
+  const showRowClassroom = classroomBreakdown.length > 1;
   const displayedImportJob =
     activeImportJob ?? startedImportJob ?? recoveredImportJob ?? null;
   const displayedImportJobRunning = Boolean(
@@ -943,7 +964,7 @@ export function ImportActivity({
   );
   const isExecutingBatch = isStartingImportJob || displayedImportJobRunning;
   const batchResult: ImportExecutionResult | undefined =
-    displayedImportJob ?? undefined;
+    displayedImportJob ?? skippedOnlyResult ?? undefined;
 
   useEffect(() => {
     if (!displayedImportJobFinal || !displayedImportJob) return;
@@ -966,9 +987,18 @@ export function ImportActivity({
   const selectedRowCount = reviewModel.counts.checkedRows;
   const skippedBeforeExecution = reviewModel.counts.skippedRows;
   const executableRowCount = reviewModel.counts.executableRows;
+  const importActionLabel =
+    executableRowCount > 0
+      ? `Start import (${executableRowCount})`
+      : skippedBeforeExecution > 0
+        ? `Finish import (${skippedBeforeExecution} skipped)`
+        : "Start import";
 
   const showExecutionOnly =
-    isExecutingBatch || Boolean(batchResult) || displayedImportJobFinal;
+    isExecutingBatch ||
+    Boolean(batchResult) ||
+    displayedImportJobFinal ||
+    Boolean(skippedOnlyResult);
   useEffect(() => {
     onPhaseChange?.(showExecutionOnly ? "import" : "review");
   }, [onPhaseChange, showExecutionOnly]);
@@ -1123,9 +1153,7 @@ export function ImportActivity({
                 type="button"
               >
                 <Import className="mr-2 size-4" />
-                {isExecutingBatch
-                  ? "Importing..."
-                  : `Start import (${executableRowCount})`}
+                {isExecutingBatch ? "Importing..." : importActionLabel}
               </SubmitButton>
             </div>
           </div>
@@ -1190,192 +1218,211 @@ export function ImportActivity({
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               <div className="space-y-4">
-                <SectionHeader
-                  title="Needs attention"
-                  detail="Checked rows here must be fixed or unchecked before import."
-                  count={attentionRows.length}
-                  checkedCount={reviewModel.sections[0]?.checkedRows ?? 0}
-                  action={
-                    <SectionSelectionActions
-                      rows={attentionRows}
-                      checkedRows={checkedRows}
-                      onCheckAll={() => setRowsChecked(attentionRows, true)}
-                      onUncheckAll={() => setRowsChecked(attentionRows, false)}
+                {attentionRows.length > 0 ? (
+                  <>
+                    <SectionHeader
+                      title="Needs attention"
+                      detail="Checked rows here must be fixed or unchecked before import."
+                      count={attentionRows.length}
+                      checkedCount={reviewModel.sections[0]?.checkedRows ?? 0}
+                      action={
+                        <SectionSelectionActions
+                          rows={attentionRows}
+                          checkedRows={checkedRows}
+                          onCheckAll={() => setRowsChecked(attentionRows, true)}
+                          onUncheckAll={() =>
+                            setRowsChecked(attentionRows, false)
+                          }
+                        />
+                      }
                     />
-                  }
-                />
-                <RowsList
-                  emptyText="No rows need manual attention."
-                  rows={attentionRows}
-                  classroomOptions={records?.classDepartments ?? []}
-                  rowDecisions={rowDecisions}
-                  manualGenders={manualGenders}
-                  checkedRows={checkedRows}
-                  nameOverrides={nameOverrides}
-                  pendingSearchMatches={pendingSearchMatches}
-                  pendingNameMatches={pendingNameMatches}
-                  studentSearchItems={studentSearchItems}
-                  onCheckedChange={setRowChecked}
-                  onActionChange={setAction}
-                  onCandidateChange={setCandidate}
-                  onNamePartChange={setNamePart}
-                  onNamePartsReset={resetNameParts}
-                  onSearchStudentSelect={selectSearchStudent}
-                  onPromoteSearchMatch={promoteSearchMatch}
-                  onPromoteNameMatch={promoteNameMatch}
-                  onClassroomChange={setRowClassroom}
-                  onImportRow={executeOne}
-                  importedLineNumbers={importedLineNumbers}
-                  importingLineNumber={importingLineNumber}
-                  singleRowErrors={singleRowErrors}
-                  onDismissSingleRowError={(lineNumber) =>
-                    setSingleRowErrors((current) => ({
-                      ...current,
-                      [lineNumber]: null,
-                    }))
-                  }
-                  onGenderChange={(lineNumber, gender) =>
-                    setManualGenders((current) => ({
-                      ...current,
-                      [lineNumber]: gender,
-                    }))
-                  }
-                />
+                    <RowsList
+                      emptyText="No rows need manual attention."
+                      rows={attentionRows}
+                      classroomOptions={records?.classDepartments ?? []}
+                      rowDecisions={rowDecisions}
+                      manualGenders={manualGenders}
+                      showRowClassroom={showRowClassroom}
+                      checkedRows={checkedRows}
+                      nameOverrides={nameOverrides}
+                      pendingSearchMatches={pendingSearchMatches}
+                      pendingNameMatches={pendingNameMatches}
+                      studentSearchItems={studentSearchItems}
+                      onCheckedChange={setRowChecked}
+                      onActionChange={setAction}
+                      onCandidateChange={setCandidate}
+                      onNamePartChange={setNamePart}
+                      onNamePartsReset={resetNameParts}
+                      onSearchStudentSelect={selectSearchStudent}
+                      onPromoteSearchMatch={promoteSearchMatch}
+                      onPromoteNameMatch={promoteNameMatch}
+                      onClassroomChange={setRowClassroom}
+                      onImportRow={executeOne}
+                      importedLineNumbers={importedLineNumbers}
+                      importingLineNumber={importingLineNumber}
+                      singleRowErrors={singleRowErrors}
+                      onDismissSingleRowError={(lineNumber) =>
+                        setSingleRowErrors((current) => ({
+                          ...current,
+                          [lineNumber]: null,
+                        }))
+                      }
+                      onGenderChange={(lineNumber, gender) =>
+                        setManualGenders((current) => ({
+                          ...current,
+                          [lineNumber]: gender,
+                        }))
+                      }
+                    />
+                  </>
+                ) : null}
 
-                <SectionHeader
-                  title="Match found"
-                  detail="Exact and possible matches. Candidate-dependent actions require a selected match."
-                  count={matchedRows.length}
-                  checkedCount={reviewModel.sections[1]?.checkedRows ?? 0}
-                  action={
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <SectionSelectionActions
-                        rows={matchedRows}
-                        checkedRows={checkedRows}
-                        onCheckAll={() => setRowsChecked(matchedRows, true)}
-                        onUncheckAll={() => setRowsChecked(matchedRows, false)}
-                      />
-                      {exactRows.length > 0 ? (
-                        <BatchActionSelect
-                          placeholder="Exact default"
-                          defaultValue="keep_match"
-                          onValueChange={(action) =>
-                            applyBatch("exact", action)
-                          }
-                        />
-                      ) : null}
-                      {suspectedRows.length > 0 ? (
-                        <BatchActionSelect
-                          placeholder="Possible default"
-                          onValueChange={(action) =>
-                            applyBatch("suspected", action)
-                          }
-                        />
-                      ) : null}
-                    </div>
-                  }
-                />
-                <RowsList
-                  emptyText="No matches found."
-                  rows={matchedRows}
-                  classroomOptions={records?.classDepartments ?? []}
-                  rowDecisions={rowDecisions}
-                  manualGenders={manualGenders}
-                  checkedRows={checkedRows}
-                  nameOverrides={nameOverrides}
-                  pendingSearchMatches={pendingSearchMatches}
-                  pendingNameMatches={pendingNameMatches}
-                  studentSearchItems={studentSearchItems}
-                  onCheckedChange={setRowChecked}
-                  onActionChange={setAction}
-                  onCandidateChange={setCandidate}
-                  onNamePartChange={setNamePart}
-                  onNamePartsReset={resetNameParts}
-                  onSearchStudentSelect={selectSearchStudent}
-                  onPromoteSearchMatch={promoteSearchMatch}
-                  onPromoteNameMatch={promoteNameMatch}
-                  onClassroomChange={setRowClassroom}
-                  onImportRow={executeOne}
-                  importedLineNumbers={importedLineNumbers}
-                  importingLineNumber={importingLineNumber}
-                  singleRowErrors={singleRowErrors}
-                  onDismissSingleRowError={(lineNumber) =>
-                    setSingleRowErrors((current) => ({
-                      ...current,
-                      [lineNumber]: null,
-                    }))
-                  }
-                  onGenderChange={(lineNumber, gender) =>
-                    setManualGenders((current) => ({
-                      ...current,
-                      [lineNumber]: gender,
-                    }))
-                  }
-                />
+                {matchedRows.length > 0 ? (
+                  <>
+                    <SectionHeader
+                      title="Match found"
+                      detail="Exact and possible matches. Candidate-dependent actions require a selected match."
+                      count={matchedRows.length}
+                      checkedCount={reviewModel.sections[1]?.checkedRows ?? 0}
+                      action={
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <SectionSelectionActions
+                            rows={matchedRows}
+                            checkedRows={checkedRows}
+                            onCheckAll={() => setRowsChecked(matchedRows, true)}
+                            onUncheckAll={() =>
+                              setRowsChecked(matchedRows, false)
+                            }
+                          />
+                          {exactRows.length > 0 ? (
+                            <BatchActionSelect
+                              placeholder="Exact default"
+                              defaultValue="keep_match"
+                              onValueChange={(action) =>
+                                applyBatch("exact", action)
+                              }
+                            />
+                          ) : null}
+                          {suspectedRows.length > 0 ? (
+                            <BatchActionSelect
+                              placeholder="Possible default"
+                              onValueChange={(action) =>
+                                applyBatch("suspected", action)
+                              }
+                            />
+                          ) : null}
+                        </div>
+                      }
+                    />
+                    <RowsList
+                      emptyText="No matches found."
+                      rows={matchedRows}
+                      classroomOptions={records?.classDepartments ?? []}
+                      rowDecisions={rowDecisions}
+                      manualGenders={manualGenders}
+                      showRowClassroom={showRowClassroom}
+                      checkedRows={checkedRows}
+                      nameOverrides={nameOverrides}
+                      pendingSearchMatches={pendingSearchMatches}
+                      pendingNameMatches={pendingNameMatches}
+                      studentSearchItems={studentSearchItems}
+                      onCheckedChange={setRowChecked}
+                      onActionChange={setAction}
+                      onCandidateChange={setCandidate}
+                      onNamePartChange={setNamePart}
+                      onNamePartsReset={resetNameParts}
+                      onSearchStudentSelect={selectSearchStudent}
+                      onPromoteSearchMatch={promoteSearchMatch}
+                      onPromoteNameMatch={promoteNameMatch}
+                      onClassroomChange={setRowClassroom}
+                      onImportRow={executeOne}
+                      importedLineNumbers={importedLineNumbers}
+                      importingLineNumber={importingLineNumber}
+                      singleRowErrors={singleRowErrors}
+                      onDismissSingleRowError={(lineNumber) =>
+                        setSingleRowErrors((current) => ({
+                          ...current,
+                          [lineNumber]: null,
+                        }))
+                      }
+                      onGenderChange={(lineNumber, gender) =>
+                        setManualGenders((current) => ({
+                          ...current,
+                          [lineNumber]: gender,
+                        }))
+                      }
+                    />
+                  </>
+                ) : null}
 
-                <SectionHeader
-                  title="Ready to import"
-                  detail="Rows with no existing match and complete required fields."
-                  count={readyRows.length}
-                  checkedCount={reviewModel.sections[2]?.checkedRows ?? 0}
-                  action={
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <SectionSelectionActions
-                        rows={readyRows}
-                        checkedRows={checkedRows}
-                        onCheckAll={() => setRowsChecked(readyRows, true)}
-                        onUncheckAll={() => setRowsChecked(readyRows, false)}
-                      />
-                      {readyRows.length > 0 ? (
-                        <Button
-                          size="sm"
-                          type="button"
-                          onClick={() => applyBatch("ready", "import_new")}
-                        >
-                          <Import className="mr-2 size-4" />
-                          Import checked
-                        </Button>
-                      ) : null}
-                    </div>
-                  }
-                />
-                <RowsList
-                  emptyText="No rows are currently ready to import."
-                  rows={readyRows}
-                  classroomOptions={records?.classDepartments ?? []}
-                  rowDecisions={rowDecisions}
-                  manualGenders={manualGenders}
-                  checkedRows={checkedRows}
-                  nameOverrides={nameOverrides}
-                  pendingSearchMatches={pendingSearchMatches}
-                  pendingNameMatches={pendingNameMatches}
-                  studentSearchItems={studentSearchItems}
-                  onCheckedChange={setRowChecked}
-                  onActionChange={setAction}
-                  onCandidateChange={setCandidate}
-                  onNamePartChange={setNamePart}
-                  onNamePartsReset={resetNameParts}
-                  onSearchStudentSelect={selectSearchStudent}
-                  onPromoteSearchMatch={promoteSearchMatch}
-                  onPromoteNameMatch={promoteNameMatch}
-                  onClassroomChange={setRowClassroom}
-                  onImportRow={executeOne}
-                  importedLineNumbers={importedLineNumbers}
-                  importingLineNumber={importingLineNumber}
-                  singleRowErrors={singleRowErrors}
-                  onDismissSingleRowError={(lineNumber) =>
-                    setSingleRowErrors((current) => ({
-                      ...current,
-                      [lineNumber]: null,
-                    }))
-                  }
-                  onGenderChange={(lineNumber, gender) =>
-                    setManualGenders((current) => ({
-                      ...current,
-                      [lineNumber]: gender,
-                    }))
-                  }
-                />
+                {readyRows.length > 0 ? (
+                  <>
+                    <SectionHeader
+                      title="Ready to import"
+                      detail="Rows with no existing match and complete required fields."
+                      count={readyRows.length}
+                      checkedCount={reviewModel.sections[2]?.checkedRows ?? 0}
+                      action={
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <SectionSelectionActions
+                            rows={readyRows}
+                            checkedRows={checkedRows}
+                            onCheckAll={() => setRowsChecked(readyRows, true)}
+                            onUncheckAll={() =>
+                              setRowsChecked(readyRows, false)
+                            }
+                          />
+                          <Button
+                            size="sm"
+                            type="button"
+                            onClick={() => applyBatch("ready", "import_new")}
+                          >
+                            <Import className="mr-2 size-4" />
+                            Import checked
+                          </Button>
+                        </div>
+                      }
+                    />
+                    <RowsList
+                      emptyText="No rows are currently ready to import."
+                      rows={readyRows}
+                      classroomOptions={records?.classDepartments ?? []}
+                      rowDecisions={rowDecisions}
+                      manualGenders={manualGenders}
+                      showRowClassroom={showRowClassroom}
+                      checkedRows={checkedRows}
+                      nameOverrides={nameOverrides}
+                      pendingSearchMatches={pendingSearchMatches}
+                      pendingNameMatches={pendingNameMatches}
+                      studentSearchItems={studentSearchItems}
+                      onCheckedChange={setRowChecked}
+                      onActionChange={setAction}
+                      onCandidateChange={setCandidate}
+                      onNamePartChange={setNamePart}
+                      onNamePartsReset={resetNameParts}
+                      onSearchStudentSelect={selectSearchStudent}
+                      onPromoteSearchMatch={promoteSearchMatch}
+                      onPromoteNameMatch={promoteNameMatch}
+                      onClassroomChange={setRowClassroom}
+                      onImportRow={executeOne}
+                      importedLineNumbers={importedLineNumbers}
+                      importingLineNumber={importingLineNumber}
+                      singleRowErrors={singleRowErrors}
+                      onDismissSingleRowError={(lineNumber) =>
+                        setSingleRowErrors((current) => ({
+                          ...current,
+                          [lineNumber]: null,
+                        }))
+                      }
+                      onGenderChange={(lineNumber, gender) =>
+                        setManualGenders((current) => ({
+                          ...current,
+                          [lineNumber]: gender,
+                        }))
+                      }
+                    />
+                  </>
+                ) : null}
               </div>
             </div>
           )}
@@ -1887,6 +1934,7 @@ function RowsList({
   classroomOptions,
   rowDecisions,
   manualGenders,
+  showRowClassroom,
   checkedRows,
   nameOverrides,
   pendingSearchMatches,
@@ -1913,6 +1961,7 @@ function RowsList({
   classroomOptions: ClassDepartment[];
   rowDecisions: Record<number, RowDecision>;
   manualGenders: Record<number, "Male" | "Female">;
+  showRowClassroom: boolean;
   checkedRows: Record<number, boolean>;
   nameOverrides: Record<number, NameOverride>;
   pendingSearchMatches: Record<number, MatchCandidate>;
@@ -1957,6 +2006,7 @@ function RowsList({
           classroomOptions={classroomOptions}
           decision={rowDecisions[row.lineNumber]}
           manualGender={manualGenders[row.lineNumber]}
+          showRowClassroom={showRowClassroom}
           checked={isRowChecked(checkedRows, row.lineNumber)}
           isNameDirty={Boolean(nameOverrides[row.lineNumber])}
           lockedNameSpans={
@@ -1992,6 +2042,7 @@ function RowCard({
   classroomOptions,
   decision,
   manualGender,
+  showRowClassroom,
   checked,
   isNameDirty,
   lockedNameSpans,
@@ -2018,6 +2069,7 @@ function RowCard({
   classroomOptions: ClassDepartment[];
   decision?: RowDecision;
   manualGender?: "Male" | "Female";
+  showRowClassroom: boolean;
   checked: boolean;
   isNameDirty: boolean;
   lockedNameSpans: Partial<Record<EditableNamePart, NameTokenSpan>>;
@@ -2051,9 +2103,12 @@ function RowCard({
   );
   const action = decision?.action;
   const resolvedGender = resolveGender(row, manualGender);
+  const isSkipped =
+    action === "skip" || isStudentImportAutoSkippedRow(row, decision);
   const needsExistingMatch =
     (action === "keep_match" || action === "update_match_with_name") &&
-    !decision?.existingStudentId;
+    !decision?.existingStudentId &&
+    !isSkipped;
   const needsResolution = !action;
   const needsGender = !resolvedGender;
   const needsClassroom = !row.classroomDepartmentId;
@@ -2067,16 +2122,27 @@ function RowCard({
       : "No match";
   const statusLabel = imported
     ? "Imported"
-    : isBlocked
-      ? "Action required"
-      : "Ready";
+    : isSkipped
+      ? "Skipped"
+      : isBlocked
+        ? "Action required"
+        : "Ready";
   const selectedCandidate = candidates.find(
     (candidate) => candidate.id === decision?.existingStudentId,
   );
   const primaryCandidate = selectedCandidate || candidates[0] || null;
   const extraCandidateCount = Math.max(0, candidates.length - 1);
+  const nameDirection = getNameDirection(row);
+  const rowClassroomOption = row.classroomDepartmentId
+    ? classroomOptions.find(
+        (classroom) => classroom.id === row.classroomDepartmentId,
+      )
+    : null;
+  const rowClassroomLabel =
+    (rowClassroomOption
+      ? getClassDepartmentDisplayName(rowClassroomOption)
+      : "") || row.classRoom;
   const showResolutionStrip =
-    needsGender ||
     needsClassroom ||
     showSearch ||
     Boolean(pendingNameMatch) ||
@@ -2091,7 +2157,7 @@ function RowCard({
           : "border-border",
       )}
     >
-      <div className="grid gap-3 px-3 py-2 lg:grid-cols-[2rem_minmax(18rem,1.45fr)_minmax(13rem,0.9fr)_12rem_2.5rem] lg:items-center">
+      <div className="grid gap-3 px-3 py-2 lg:grid-cols-[2rem_2.75rem_minmax(18rem,1.45fr)_minmax(13rem,0.9fr)_12rem_2.5rem] lg:items-center">
         <div className="flex items-start justify-center pt-1 lg:pt-0">
           <Checkbox
             checked={checked}
@@ -2103,8 +2169,20 @@ function RowCard({
           />
         </div>
 
+        <div className="flex items-start justify-center pt-1 lg:pt-0">
+          <span className="inline-flex h-6 min-w-7 items-center justify-center rounded-md border bg-muted/20 px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground">
+            {row.lineNumber}
+          </span>
+        </div>
+
         <div className="min-w-0 space-y-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <div
+            dir={nameDirection}
+            className={cn(
+              "flex min-w-0 flex-wrap items-center gap-1.5",
+              nameDirection === "rtl" && "justify-end text-right",
+            )}
+          >
             <NamePartControl
               label="Name"
               part="name"
@@ -2126,17 +2204,19 @@ function RowCard({
             <NamePartControl
               label="Other"
               part="otherName"
-              value={row.otherName || "None"}
+              value={row.otherName || EMPTY_OTHER_NAME_VALUE}
               options={possibleNames}
               isDirty={isNameDirty}
               onReset={() => onNamePartsReset(row.lineNumber)}
               onValueChange={(option) => onNamePartChange(row, option)}
             />
+            <GenderToggle
+              value={resolvedGender || undefined}
+              onValueChange={(gender) => onGenderChange(row.lineNumber, gender)}
+              compact
+            />
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-muted-foreground">
-            <Badge variant="outline" className="bg-background">
-              Line {row.lineNumber}
-            </Badge>
             <Badge
               variant={
                 row.fullMatch
@@ -2166,11 +2246,7 @@ function RowCard({
               )}
               {statusLabel}
             </Badge>
-            {resolvedGender ? (
-              <Badge variant="outline" className="bg-background">
-                Gender: {resolvedGender}
-              </Badge>
-            ) : (
+            {!resolvedGender ? (
               <Badge
                 variant="outline"
                 className="border-amber-300 bg-background text-amber-700 dark:text-amber-300"
@@ -2178,12 +2254,13 @@ function RowCard({
                 <AlertTriangle className="mr-1 size-3.5" />
                 Gender missing
               </Badge>
-            )}
-            {row.classRoom ? (
+            ) : null}
+            {showRowClassroom && rowClassroomLabel ? (
               <Badge variant="outline" className="max-w-full bg-background">
-                <Arabic className="truncate">{row.classRoom}</Arabic>
+                <Arabic className="truncate">{rowClassroomLabel}</Arabic>
               </Badge>
-            ) : (
+            ) : null}
+            {needsClassroom ? (
               <Badge
                 variant="outline"
                 className="border-amber-300 bg-background text-amber-700 dark:text-amber-300"
@@ -2191,7 +2268,7 @@ function RowCard({
                 <AlertTriangle className="mr-1 size-3.5" />
                 Classroom missing
               </Badge>
-            )}
+            ) : null}
             {row.inferredGender ? (
               <p className="text-[11px] text-muted-foreground">
                 Gender inferred from existing names
@@ -2299,7 +2376,7 @@ function RowCard({
       </div>
 
       {showResolutionStrip ? (
-        <div className="grid gap-2 border-t bg-muted/10 px-3 py-2 lg:grid-cols-[minmax(12rem,18rem)_minmax(10rem,12rem)_minmax(0,1fr)]">
+        <div className="grid gap-2 border-t bg-muted/10 px-3 py-2 lg:grid-cols-[minmax(12rem,18rem)_minmax(0,1fr)]">
           {needsClassroom ? (
             <ClassroomSelect
               className="w-full"
@@ -2308,15 +2385,6 @@ function RowCard({
               onValueChange={(classroomDepartmentId) =>
                 onClassroomChange(row.lineNumber, classroomDepartmentId)
               }
-            />
-          ) : (
-            <div className="hidden lg:block" />
-          )}
-
-          {needsGender ? (
-            <GenderToggle
-              value={manualGender}
-              onValueChange={(gender) => onGenderChange(row.lineNumber, gender)}
             />
           ) : (
             <div className="hidden lg:block" />
@@ -2391,13 +2459,7 @@ function MatchSummaryPopover({
             {studentDisplayName(primaryCandidate)}
           </Arabic>
           <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-            <Badge
-              variant={
-                primaryCandidate.confidence === 100 ? "success" : "warning"
-              }
-            >
-              {primaryCandidate.confidence}%
-            </Badge>
+            <MatchMetadataBadges candidate={primaryCandidate} />
             {extraCandidateCount > 0 ? (
               <span>+{extraCandidateCount} more</span>
             ) : null}
@@ -2439,6 +2501,27 @@ function MatchSummaryPopover({
   );
 }
 
+function MatchMetadataBadges({ candidate }: { candidate: MatchCandidate }) {
+  return (
+    <>
+      <Badge variant={candidate.confidence === 100 ? "success" : "warning"}>
+        {candidate.confidence}%
+      </Badge>
+      {!candidate.isCurrentClassroomMatch && candidate.classRoom ? (
+        <Badge
+          variant="outline"
+          className="border-amber-300 text-amber-700 dark:border-amber-900"
+        >
+          <Arabic>{candidate.classRoom}</Arabic>
+        </Badge>
+      ) : null}
+      {candidate.isCurrentTermMatch ? (
+        <Badge variant="success">Term sheet exists</Badge>
+      ) : null}
+    </>
+  );
+}
+
 function NamePartControl({
   label,
   part,
@@ -2463,9 +2546,6 @@ function NamePartControl({
 
   return (
     <div className="inline-flex min-w-0 items-center gap-1 rounded-md border bg-background px-2 py-1">
-      <span className="text-[10px] font-semibold uppercase text-muted-foreground">
-        {label}
-      </span>
       <Select
         value={value}
         onValueChange={(nextValue) => {
@@ -2473,7 +2553,10 @@ function NamePartControl({
           if (option) onValueChange(option);
         }}
       >
-        <Select.Trigger className="h-5 min-w-0 max-w-[12rem] border-0 bg-transparent p-0 text-left text-xs font-medium shadow-none focus:ring-0">
+        <Select.Trigger
+          className="h-5 min-w-0 max-w-[12rem] border-0 bg-transparent p-0 text-left text-xs font-medium shadow-none focus:ring-0"
+          aria-label={`Update ${label.toLowerCase()} structure`}
+        >
           <Select.Value placeholder={value} />
         </Select.Trigger>
         <Select.Content className="max-h-64 overflow-y-auto">
@@ -2634,12 +2717,15 @@ function ClassroomSelect({
 function GenderToggle({
   value,
   onValueChange,
+  compact = false,
 }: {
   value?: "Male" | "Female";
   onValueChange: (gender: "Male" | "Female") => void;
+  compact?: boolean;
 }) {
   return (
     <ToggleGroup
+      dir="ltr"
       type="single"
       variant="outline"
       size="sm"
@@ -2649,19 +2735,22 @@ function GenderToggle({
           onValueChange(nextValue);
         }
       }}
-      className="grid w-full grid-cols-2 justify-start"
+      className={cn(
+        "grid grid-cols-2 justify-start",
+        compact ? "w-[4.25rem]" : "w-full",
+      )}
     >
       <ToggleGroupItem
         value="Male"
         aria-label="Set row gender to Male"
-        className="h-8 min-w-0 bg-background"
+        className={cn("min-w-0 bg-background", compact ? "h-6 px-2" : "h-8")}
       >
         M
       </ToggleGroupItem>
       <ToggleGroupItem
         value="Female"
         aria-label="Set row gender to Female"
-        className="h-8 min-w-0 bg-background"
+        className={cn("min-w-0 bg-background", compact ? "h-6 px-2" : "h-8")}
       >
         F
       </ToggleGroupItem>
@@ -2678,6 +2767,18 @@ function getClassDepartmentDisplayName(classroom: ClassDepartment) {
   }
 
   return departmentName || className || "Classroom";
+}
+
+function getNameDirection(
+  row: Pick<VerifyResult, "name" | "surname" | "otherName">,
+): "ltr" | "rtl" {
+  return hasArabicText([row.name, row.surname, row.otherName || ""].join(" "))
+    ? "rtl"
+    : "ltr";
+}
+
+function hasArabicText(value: string) {
+  return ARABIC_SCRIPT_RE.test(value);
 }
 
 function CandidateCard({
@@ -2720,38 +2821,9 @@ function CandidateCard({
               {studentDisplayName(candidate)}
             </Arabic>
           </Item.Title>
-          <Item.Description className="text-xs">
-            <Arabic>Class: {candidate.classRoom || "No classroom"}</Arabic>
-          </Item.Description>
         </Item.Content>
         <Item.Actions className="flex-wrap justify-start sm:justify-end">
-          <Badge variant={candidate.confidence === 100 ? "success" : "warning"}>
-            {candidate.confidence}% confidence
-          </Badge>
-          <Badge
-            variant={candidate.isCurrentTermMatch ? "success" : "outline"}
-            className={cn(
-              "whitespace-nowrap",
-              !candidate.isCurrentTermMatch &&
-                "border-red-200 text-red-600 dark:border-red-900",
-            )}
-          >
-            {candidate.isCurrentTermMatch
-              ? "Term sheet exists"
-              : "No current term sheet"}
-          </Badge>
-          <Badge
-            variant={candidate.isCurrentClassroomMatch ? "success" : "outline"}
-            className={cn(
-              "whitespace-nowrap",
-              !candidate.isCurrentClassroomMatch &&
-                "border-red-200 text-red-600 dark:border-red-900",
-            )}
-          >
-            {candidate.isCurrentClassroomMatch
-              ? "Same classroom"
-              : "Different class"}
-          </Badge>
+          <MatchMetadataBadges candidate={candidate} />
         </Item.Actions>
       </button>
     </Item>
@@ -2819,6 +2891,10 @@ function buildExecuteRow({
       status: "invalid",
       reason: `Line ${row.lineNumber} needs an import action before import.`,
     };
+  }
+
+  if (isStudentImportAutoSkippedRow(row, decision)) {
+    return { status: "skipped" };
   }
 
   if (needsExisting && !decision?.existingStudentId) {
@@ -2891,6 +2967,7 @@ function buildClassroomBreakdown({
     const action = decision?.action;
     const needsExisting =
       action === "keep_match" || action === "update_match_with_name";
+    const autoSkipped = isStudentImportAutoSkippedRow(row, decision);
     const checked = isRowChecked(checkedRows, row.lineNumber);
     const hasGender = Boolean(
       resolveGender(row, manualGenders[row.lineNumber]),
@@ -2901,6 +2978,7 @@ function buildClassroomBreakdown({
       Boolean(hasGender) &&
       Boolean(action) &&
       action !== "skip" &&
+      !autoSkipped &&
       (!needsExisting || Boolean(decision?.existingStudentId));
     const needsAttention =
       !classroomDepartmentId ||
@@ -3067,7 +3145,12 @@ function getPossibleNamePartOptions(
     });
   }
 
-  possibleNames.push({ value: "None", as: "otherName", start: -1, end: -1 });
+  possibleNames.push({
+    value: EMPTY_OTHER_NAME_VALUE,
+    as: "otherName",
+    start: -1,
+    end: -1,
+  });
 
   return dedupeNamePartOptions(possibleNames);
 }
@@ -3138,7 +3221,7 @@ function resolveNameSelection(
 ): NameOverride {
   const { as: part, value } = option;
 
-  if (value === "None") {
+  if (value === EMPTY_OTHER_NAME_VALUE) {
     return {
       name: row.name,
       surname: row.surname,

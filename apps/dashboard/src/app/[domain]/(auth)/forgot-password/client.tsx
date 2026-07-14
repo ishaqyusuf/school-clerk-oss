@@ -39,7 +39,13 @@ export function Client() {
     setError("");
     try {
       const email = formData.email.trim().toLowerCase();
-      await requestPasswordReset(email);
+      const result = await requestPasswordReset(email);
+
+      if (result?.redirectTo) {
+        window.location.assign(result.redirectTo);
+        return;
+      }
+
       setSentEmail(email);
     } catch (caughtError) {
       setError(

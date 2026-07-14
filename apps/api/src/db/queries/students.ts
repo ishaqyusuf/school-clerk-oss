@@ -8,7 +8,7 @@ import { studentDisplayName } from "./enrollment-query";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 import { assertNoExactDuplicateStudentInClassTerm } from "./student-duplicates";
 import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
-import { processStudentImportJobTaskId } from "@jobs/schema";
+import { processStudentImportJobTaskId } from "@school-clerk/utils/task-contracts";
 import { tasks } from "@trigger.dev/sdk";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -2494,13 +2494,22 @@ export async function startStudentImportJob(
     }
   }
 
-  return getStudentImportJob(ctx, { jobId: job.id });
+  const createdJob = await getStudentImportJob(ctx, { jobId: job.id });
+
+  if (!createdJob) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Created student import job could not be read.",
+    });
+  }
+
+  return createdJob;
 }
 
 export async function getStudentImportJob(
   ctx: TRPCContext,
   input: z.infer<typeof getStudentImportJobSchema> = {},
-): Promise<StudentImportJobRead> {
+): Promise<StudentImportJobRead | null> {
   const { db, profile } = ctx;
 
   if (!profile.schoolId) {
@@ -2535,6 +2544,10 @@ export async function getStudentImportJob(
   });
 
   if (!job) {
+    if (!input?.jobId) {
+      return null;
+    }
+
     throw new TRPCError({
       code: "NOT_FOUND",
       message: "Student import job was not found.",

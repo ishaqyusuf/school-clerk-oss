@@ -1,7 +1,5 @@
-import {
-  processStudentImportJobSchema,
-  processStudentImportJobTaskId,
-} from "../schema.js";
+import { processStudentImportJobSchema } from "../schema.js";
+import { processStudentImportJobTaskId } from "@school-clerk/utils/task-contracts";
 import { queue, schemaTask } from "@trigger.dev/sdk";
 
 export const processStudentImportJobQueue = queue({

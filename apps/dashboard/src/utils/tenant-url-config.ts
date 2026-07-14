@@ -7,6 +7,35 @@ const defaultDevUrlVariantHosts = [
   "192.168.18.5",
   "10.31.248.73",
 ];
+const dashboardReservedPaths = [
+  "api",
+  "_next",
+  "_static",
+  "__nextjs",
+  "_vercel",
+  "academic",
+  "announcements",
+  "assessment-recording",
+  "calendar",
+  "dashboard",
+  "favicon",
+  "finance",
+  "fonts",
+  "forgot-password",
+  "inventory",
+  "login",
+  "notifications",
+  "onboarding",
+  "parents",
+  "questions",
+  "reset-password",
+  "settings",
+  "sign-up",
+  "signout",
+  "staff",
+  "students",
+  "verify-email",
+];
 
 function withPort(host: string, port: string) {
   return /:\d+$/.test(host) ? host : `${host}:${port}`;
@@ -38,6 +67,6 @@ export function getDashboardTenantUrlConfig(): TenantUrlConfig {
     projectSlug: process.env.TENANT_URL_PROJECT_SLUG ?? "school-clerk",
     pathStyleHosts: ["localhost", "127.0.0.1", "0.0.0.0"],
     enablePathStyleHosts: process.env.NODE_ENV !== "production",
-    reservedPaths: ["sign-up", "login"],
+    reservedPaths: dashboardReservedPaths,
   };
 }

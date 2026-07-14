@@ -11,7 +11,7 @@ import {
 import {
   sendStaffInvitationEmailTaskId,
   type SendStaffInvitationEmailPayload,
-} from "@school-clerk/jobs/schema";
+} from "@school-clerk/utils/task-contracts";
 import { tasks } from "@trigger.dev/sdk";
 import { z } from "zod";
 import { ensureCredentialAccount } from "./ensure-credential-account";
@@ -381,7 +381,12 @@ export const saveStaffAction = actionClient
         departmentSubjectIds: selectedSubjectIds,
       } = collectStaffAcademicAssignmentReferenceIds(assignments);
 
-      const [validClasses, validClassrooms, validSubjects, validDepartmentSubjects] = await Promise.all([
+      const [
+        validClasses,
+        validClassrooms,
+        validSubjects,
+        validDepartmentSubjects,
+      ] = await Promise.all([
         requestedClassIds.length
           ? tx.classRoom.findMany({
               where: {

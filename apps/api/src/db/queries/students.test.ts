@@ -651,6 +651,12 @@ describe("student import jobs", () => {
     } satisfies Partial<TRPCError>);
   });
 
+  test("returns null when no recoverable import job exists", async () => {
+    const { ctx } = createImportJobCtx();
+
+    await expect(getStudentImportJob(ctx)).resolves.toBeNull();
+  });
+
   test("processes only pending rows and does not double-count completed rows", async () => {
     const { ctx, jobs, jobRows, createdTermForms } = createImportJobCtx();
     jobs.push({

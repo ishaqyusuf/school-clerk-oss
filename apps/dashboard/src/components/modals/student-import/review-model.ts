@@ -10,7 +10,10 @@ export type StudentImportDecision = {
 export type StudentImportReviewRow = {
   lineNumber?: number;
   classroomDepartmentId?: string | null;
-  fullMatch?: { id?: string | null } | null;
+  fullMatch?: {
+    id?: string | null;
+    isCurrentTermMatch?: boolean | null;
+  } | null;
   suspectedMatches?: unknown[] | null;
   needsGender?: boolean | null;
   status?: string | null;
@@ -111,11 +114,22 @@ export function getStudentImportRowBlockReason({
   if (!classroomDepartmentId) return "needs_classroom" as const;
   if (!gender) return "needs_gender" as const;
   if (!action) return "needs_action" as const;
+  if (isStudentImportAutoSkippedRow(row, decision)) return null;
   if (needsExisting && !decision?.existingStudentId) {
     return "needs_match" as const;
   }
 
   return null;
+}
+
+export function isStudentImportAutoSkippedRow(
+  row: StudentImportReviewRow,
+  decision?: StudentImportDecision,
+) {
+  return (
+    decision?.action === "keep_match" &&
+    Boolean(row.fullMatch?.isCurrentTermMatch)
+  );
 }
 
 export function buildStudentImportReviewModel<
@@ -223,7 +237,10 @@ export function buildStudentImportReviewModel<
       continue;
     }
 
-    if (decision?.action === "skip") {
+    if (
+      decision?.action === "skip" ||
+      isStudentImportAutoSkippedRow(row, decision)
+    ) {
       counts.skippedRows += 1;
       continue;
     }
@@ -292,7 +309,7 @@ function getStudentImportDisabledReason(
 
   if (counts.executableRows === 0) {
     if (counts.skippedRows > 0) {
-      return "All checked rows are marked Skip. Choose at least one row to import.";
+      return null;
     }
 
     return "Check at least one executable row before importing.";

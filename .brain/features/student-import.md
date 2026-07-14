@@ -115,7 +115,7 @@ Musa Garba, M
 - **Needs attention**: rows that still need a required manual value, such as classroom, gender, or a match decision. No-match rows still default to `Import new` so they become executable as soon as missing classroom/gender values are resolved.
 - **Match Found**: rows with exact or suspected existing-student matches and a resolved classroom. Exact matches default to `Keep match`; suspected matches start unresolved unless a batch default or row action is selected.
 - **Ready to import**: rows with no existing match, a resolved classroom, and complete required fields. These default to `Import new`, and the section includes an `Import checked` batch action for checked, untouched rows.
-- Review sections render in one scrollable body instead of separate tabs, each with its own header, row count, checked count, and local check/uncheck-all controls.
+- Review sections render in one scrollable body instead of separate tabs. Only sections with rows are shown, and each visible section has its own header, row count, checked count, and local check/uncheck-all controls.
 
 ### Batch And Row Decisions
 
@@ -126,12 +126,14 @@ Musa Garba, M
 - `Keep match` and `Update match with name` require a selected candidate before execution.
 - `Import new` and `Skip` are complete decisions for suspected-match rows and do not require selecting an existing candidate.
 - `Skip` is a dashboard-only review action for matched or attention rows. It is disabled for no-match rows so ready imports cannot be accidentally omitted. Skipped rows are omitted from the `executeStudentImport` payload and counted in the review summary.
-- Review rows display parsed `name`, `surname`, and `otherName` as compact clickable badges so operators can adjust the name structure without opening a separate editor.
+- Exact-match rows set to `Keep match` are automatically skipped when the matched student already has a current term sheet, because there is no import or enrollment work left to perform. If every checked row is skipped, the dashboard completes the import locally with a skipped-only summary instead of queuing an empty background job or showing an error.
+- Review rows display parsed `name`, `surname`, `otherName`, and compact `M` / `F` gender controls in one line. Name part badges omit field labels, show `-` when `otherName` is empty, and auto-switch the name line to RTL when Arabic script is detected.
 - Review rows include a per-row classroom selector. Choosing a classroom updates that row's target `classroomDepartmentId`, reruns verification/matching with the new target, and moves the row out of the attention tab once the classroom and other required values are resolved.
 - The review and execution panels show a classroom scope summary with total, checked, executable, and attention counts per classroom so multi-classroom batches can be scanned without opening every row.
 - Review row name parts are clickable dropdown controls. Before a row is edited, each part can choose from the full set of contiguous name-token combinations. After a selection, only the explicitly selected span is treated as taken and removed from the other part dropdowns; adjacent fields that were auto-adjusted remain available until the operator selects them. A reset control appears to clear the edited split. Selecting a possible name/surname/other-name combination recalculates the adjacent name fields from the original pasted tokens before execution, then locally re-checks existing students and surfaces an approvable suggested match when the edited name aligns with an existing record.
 - Review rows include a search control for finding existing students. When the search field is empty, the dropdown recommends existing students ranked by the import row's parsed name parts. Selecting a student normalizes the import row to that student's stored name fields and exposes a `Move to match found` action that treats the selected student as the row's match.
-- Review rows use a compact table-like layout with a checkbox column, parsed-name and status column, closest-match column, selected action dropdown, and overflow menu for row-level utilities.
+- Review rows use a compact table-like layout with a checkbox column, a small line-number column, parsed-name/status column, closest-match column, selected action dropdown, and overflow menu for row-level utilities.
+- Review rows show per-row classroom badges only when the current import spans more than one classroom; single-classroom imports keep the row metadata quieter.
 - The closest-match column shows the selected or strongest candidate with confidence and a `+N more` indicator. Opening it reveals a popover of match candidates with metadata and selection actions.
 - The overflow menu exposes secondary row actions such as searching existing students, resetting the name structure, skipping eligible rows, and importing one row.
 - The import modal uses a fixed viewport height; modal headers, setup defaults, review command center, and footer remain stable while the setup/review body is the only scrollable surface.
@@ -143,7 +145,7 @@ Musa Garba, M
 
 ### Candidate Metadata
 
-The match UI exposes each candidate's display name, classroom, current term-sheet status, same-classroom status, and confidence so operators can resolve exact and suspected matches without leaving the modal. Current term-sheet and same-classroom badges are green for matching/current records and red when missing or different.
+The match UI exposes each candidate's display name and confidence by default. It adds classroom metadata only when the candidate is in a different class and adds a term-sheet badge only when a current term sheet exists, so same-class/no-term candidates stay visually quiet.
 
 ## Gender Inference
 

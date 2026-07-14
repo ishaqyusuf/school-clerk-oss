@@ -5,11 +5,9 @@ import {
   resolveTenantUrlContext,
   toInternalTenantPath,
 } from "@school-clerk/tenant-url";
-import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth/server";
 import { getFirstPermittedHref } from "./components/sidebar/links";
-import { env } from "./env";
 import {
   findTenantDomainByCustomDomain,
   findTenantDomainBySubdomain,
@@ -39,6 +37,13 @@ const workspaceCookieOptions = {
   sameSite: "lax" as const,
   secure: process.env.NODE_ENV === "production",
 };
+const protectedProxyHeaderNames = [
+  "x-user-id",
+  "x-session-token",
+  "x-tenant-hostname",
+  "x-tenant-subdomain",
+  "x-pathname",
+];
 
 export const config = {
   matcher: [
@@ -47,9 +52,6 @@ export const config = {
 };
 
 export default async function proxy(req: NextRequest) {
-  const hostName = resolveDashboardAppRootDomain(env.APP_ROOT_DOMAIN);
-  if (!hostName) throw new Error("APP_ROOT_DOMAIN is not defined");
-
   const host = getRequestHost(req);
   const url = req.nextUrl;
   const tenantUrlConfig = getDashboardTenantUrlConfig();
@@ -63,6 +65,11 @@ export default async function proxy(req: NextRequest) {
     },
     tenantUrlConfig,
   );
+  const baseRequestHeaders = createDashboardProxyHeaders({
+    req,
+    tenantHeaderNames,
+    tenantUrlContext,
+  });
 
   // ---- Determine canonical slug ----
   let canonicalSlug = tenantUrlContext.tenantSlug;
@@ -119,7 +126,11 @@ export default async function proxy(req: NextRequest) {
 
   if (isAppRootHost) {
     if (isSignupRoute) {
-      return NextResponse.next();
+      return NextResponse.next({
+        request: {
+          headers: baseRequestHeaders,
+        },
+      });
     }
 
     return NextResponse.redirect(new URL("/sign-up", req.url));
@@ -256,42 +267,14 @@ export default async function proxy(req: NextRequest) {
   // ---- Rewrite to school dashboard route ----
   if (canonicalSlug) {
     const searchParams = url.searchParams.toString();
-    const requestHeaders = new Headers(req.headers);
-    requestHeaders.set(
-      tenantHeaderNames.pathname,
-      tenantUrlContext.productPath,
-    );
-    requestHeaders.set(tenantHeaderNames.domain, canonicalSlug);
-
-    if (tenantUrlDevMode) {
-      requestHeaders.set(tenantHeaderNames.urlStyle, tenantUrlContext.style);
-      requestHeaders.set(
-        tenantHeaderNames.externalBasePath,
-        tenantUrlContext.externalBasePath,
-      );
-      requestHeaders.set(
-        tenantHeaderNames.externalPath,
-        tenantUrlContext.externalPath,
-      );
-    }
-
-    if (tenantDomain?.saasAccountId) {
-      requestHeaders.set(
-        tenantHeaderNames.accountId,
-        tenantDomain.saasAccountId,
-      );
-    }
-
-    if (recoveredTenantSessionCookie) {
-      requestHeaders.set(
-        "cookie",
-        appendCookieHeader(
-          req.headers.get("cookie"),
-          getTenantWorkspaceCookieName(canonicalSlug),
-          recoveredTenantSessionCookie,
-        ),
-      );
-    }
+    const requestHeaders = createDashboardProxyHeaders({
+      canonicalSlug,
+      recoveredTenantSessionCookie,
+      req,
+      tenantDomain,
+      tenantHeaderNames,
+      tenantUrlContext,
+    });
 
     const internalPrefix = toInternalTenantPath(
       { tenantSlug: canonicalSlug },
@@ -322,7 +305,7 @@ export default async function proxy(req: NextRequest) {
       searchParams ? `?${searchParams}` : ""
     }`;
 
-    // ✅ Always ensure it starts with a slash
+    // Always ensure it starts with a slash.
     if (!rewritePath.startsWith("/")) rewritePath = `/${rewritePath}`;
 
     return withRecoveredTenantSessionCookie(
@@ -335,7 +318,84 @@ export default async function proxy(req: NextRequest) {
   }
 
   // ---- Default: continue normally ----
-  return NextResponse.next();
+  return NextResponse.next({
+    request: {
+      headers: baseRequestHeaders,
+    },
+  });
+}
+
+function createDashboardProxyHeaders({
+  canonicalSlug,
+  recoveredTenantSessionCookie,
+  req,
+  tenantDomain,
+  tenantHeaderNames,
+  tenantUrlContext,
+}: {
+  canonicalSlug?: string | null;
+  recoveredTenantSessionCookie?: string | null;
+  req: NextRequest;
+  tenantDomain?: TenantDomainContext | null;
+  tenantHeaderNames: ReturnType<typeof getTenantUrlHeaderNames>;
+  tenantUrlContext: ReturnType<typeof resolveTenantUrlContext>;
+}) {
+  const requestHeaders = new Headers(req.headers);
+  const protectedHeaders = [
+    ...protectedProxyHeaderNames,
+    tenantHeaderNames.domain,
+    tenantHeaderNames.pathname,
+    tenantHeaderNames.urlStyle,
+    tenantHeaderNames.externalBasePath,
+    tenantHeaderNames.externalPath,
+    tenantHeaderNames.accountId,
+  ];
+
+  for (const header of protectedHeaders) {
+    requestHeaders.delete(header);
+  }
+
+  requestHeaders.set("x-pathname", tenantUrlContext.productPath);
+  requestHeaders.set(tenantHeaderNames.pathname, tenantUrlContext.productPath);
+  requestHeaders.set(tenantHeaderNames.urlStyle, tenantUrlContext.style);
+  requestHeaders.set(
+    tenantHeaderNames.externalBasePath,
+    tenantUrlContext.externalBasePath,
+  );
+  requestHeaders.set(
+    tenantHeaderNames.externalPath,
+    tenantUrlContext.externalPath,
+  );
+
+  if (tenantUrlContext.style === "custom-domain") {
+    const tenantHostname = tenantUrlContext.customDomainLookupHost;
+
+    if (tenantHostname) {
+      requestHeaders.set("x-tenant-hostname", tenantHostname);
+    }
+  }
+
+  if (canonicalSlug) {
+    requestHeaders.set("x-tenant-subdomain", canonicalSlug);
+    requestHeaders.set(tenantHeaderNames.domain, canonicalSlug);
+  }
+
+  if (tenantDomain?.saasAccountId) {
+    requestHeaders.set(tenantHeaderNames.accountId, tenantDomain.saasAccountId);
+  }
+
+  if (canonicalSlug && recoveredTenantSessionCookie) {
+    requestHeaders.set(
+      "cookie",
+      appendCookieHeader(
+        req.headers.get("cookie"),
+        getTenantWorkspaceCookieName(canonicalSlug),
+        recoveredTenantSessionCookie,
+      ),
+    );
+  }
+
+  return requestHeaders;
 }
 
 async function getSessionTenantAccess({
