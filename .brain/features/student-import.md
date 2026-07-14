@@ -82,6 +82,7 @@ Musa Garba, M
 - Proceeding to the verification tab requires at least one parsed student row. Rows without a raw class header use the selected default classroom when available; otherwise they are surfaced as needing classroom attention before execution.
 - The optional global gender and manual row gender resolution use compact grouped `M` / `F` controls mapped to canonical `Male` / `Female` values.
 - The import setup screen is intentionally quiet: a compact horizontal defaults form for import mode, classroom/default classroom, and global gender sits above the paste textarea.
+- On phone-width screens, the import setup modal uses a full-screen shell, compact two-column defaults, a shorter textarea minimum height, and a non-wrapping footer summary so the main `Proceed` action remains visible without crowding the pasted rows.
 - The setup footer summarizes readiness, parsed students, pasted lines, and lines needing fixes, then exposes the single **Proceed** action. Detailed parser warnings stay collapsed until the operator expands them.
 
 ## Matching Rules

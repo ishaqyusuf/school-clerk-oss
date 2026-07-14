@@ -143,19 +143,19 @@ export function StudentImportModal() {
         setParams(null);
       }}
     >
-      <Dialog.Content className="flex h-[95vh] w-[96vw] max-w-[96vw] flex-col overflow-hidden p-0 sm:h-[88vh] sm:max-h-[88vh] sm:max-w-5xl lg:max-w-6xl xl:max-w-7xl">
-        <Dialog.Header className="shrink-0 border-b px-4 py-3 sm:px-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+      <Dialog.Content className="flex h-dvh max-h-dvh w-screen max-w-none flex-col overflow-hidden rounded-none border-0 p-0 sm:h-[88vh] sm:max-h-[88vh] sm:w-[96vw] sm:max-w-5xl sm:rounded-lg sm:border lg:max-w-6xl xl:max-w-7xl">
+        <Dialog.Header className="shrink-0 border-b px-3 py-2.5 sm:px-6 sm:py-3">
+          <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <Dialog.Title className="text-base font-semibold">
+              <Dialog.Title className="text-base leading-tight font-semibold">
                 Import Students
               </Dialog.Title>
-              <Dialog.Description className="text-xs text-muted-foreground">
+              <Dialog.Description className="max-w-[18rem] text-[11px] leading-4 text-muted-foreground sm:max-w-none sm:text-xs">
                 Paste names, review the rows that need decisions, then import
                 the checked rows.
               </Dialog.Description>
             </div>
-            <Badge variant="outline" className="bg-background">
+            <Badge variant="outline" className="shrink-0 bg-background">
               {workflowPhase === "setup"
                 ? "Setup"
                 : workflowPhase === "review"
@@ -174,15 +174,17 @@ export function StudentImportModal() {
               onSubmit={form.handleSubmit(onSubmit)}
               className="flex min-h-0 flex-1 flex-col"
             >
-              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 sm:px-6">
-                <div className="rounded-md border bg-background p-2">
-                  <div className="grid gap-2 md:grid-cols-[12rem_minmax(14rem,1fr)_13rem]">
+              <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-3 sm:gap-3 sm:px-6 sm:py-4">
+                <div className="rounded-md border bg-muted/20 p-2 sm:bg-background">
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-[12rem_minmax(14rem,1fr)_13rem]">
                     <Controller
                       name="importMode"
                       control={form.control}
                       render={({ field }) => (
-                        <Field className="min-w-0 gap-1 px-2 py-1.5">
-                          <Field.Label>Import mode</Field.Label>
+                        <Field className="min-w-0 gap-1">
+                          <Field.Label className="text-xs">
+                            Import mode
+                          </Field.Label>
                           <ToggleGroup
                             type="single"
                             variant="outline"
@@ -216,12 +218,15 @@ export function StudentImportModal() {
                       control={form.control}
                       render={({ field, fieldState }) => (
                         <Field
-                          className="min-w-0 gap-1 px-2 py-1.5"
+                          className="order-3 col-span-2 min-w-0 gap-1 md:order-none md:col-span-1"
                           data-invalid={
                             fieldState.invalid || needsClassroomSelection
                           }
                         >
-                          <Field.Label htmlFor="classroom-select">
+                          <Field.Label
+                            htmlFor="classroom-select"
+                            className="text-xs"
+                          >
                             {importMode === "single"
                               ? "Classroom"
                               : "Fallback classroom"}
@@ -267,8 +272,10 @@ export function StudentImportModal() {
                       name="globalGender"
                       control={form.control}
                       render={({ field }) => (
-                        <Field className="min-w-0 gap-1 px-2 py-1.5">
-                          <Field.Label>Global gender</Field.Label>
+                        <Field className="order-2 min-w-0 gap-1 md:order-none">
+                          <Field.Label className="text-xs">
+                            Global gender
+                          </Field.Label>
                           <ToggleGroup
                             type="single"
                             variant="outline"
@@ -319,20 +326,20 @@ export function StudentImportModal() {
                   render={({ field, fieldState }) => (
                     <Field
                       data-invalid={fieldState.invalid}
-                      className="min-h-0 flex-1"
+                      className="min-h-0 flex-1 gap-2"
                     >
-                      <div className="flex flex-wrap items-end justify-between gap-2">
-                        <div>
+                      <div className="flex items-end justify-between gap-2">
+                        <div className="min-w-0">
                           <Field.Label htmlFor="student-data">
                             Student data
                           </Field.Label>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="line-clamp-2 text-xs text-muted-foreground">
                             {importMode === "single"
                               ? "Paste student names. Gender markers and row-level gender are supported."
                               : "Paste classroom headers, gender markers, and student names in one batch."}
                           </p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex shrink-0 items-center gap-1.5">
                           <Badge variant="secondary">
                             {parsedStudentCount} students
                           </Badge>
@@ -342,13 +349,13 @@ export function StudentImportModal() {
                         </div>
                       </div>
 
-                      <InputGroup className="mt-2 min-h-0 flex-1 overflow-hidden rounded-md border bg-background">
+                      <InputGroup className="min-h-0 flex-1 overflow-hidden rounded-md border bg-background">
                         <InputGroup.TextArea
                           {...field}
                           id="student-data"
                           dir="rtl"
                           aria-invalid={fieldState.invalid}
-                          className="min-h-[46vh] border-0 text-sm leading-7 shadow-none focus-visible:ring-0"
+                          className="min-h-[32dvh] border-0 text-sm leading-7 shadow-none focus-visible:ring-0 sm:min-h-[46vh]"
                           placeholder={
                             importMode === "single"
                               ? `M | Male\nJohn Doe\n\nF | Female\nMaryam Bello\nYusuf Ahmad, M`
@@ -361,7 +368,7 @@ export function StudentImportModal() {
                 />
 
                 {warningCount > 0 ? (
-                  <details className="rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/15 dark:text-amber-200">
+                  <details className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-foreground">
                     <summary className="cursor-pointer font-medium">
                       {warningCount} warning
                       {warningCount === 1 ? "" : "s"} in pasted data
@@ -370,7 +377,7 @@ export function StudentImportModal() {
                       {parse?.warnings.map((w, index) => (
                         <div
                           key={`${w.lineNumber}-${index}`}
-                          className="rounded border border-amber-200/70 bg-background/70 px-2 py-1"
+                          className="rounded border bg-background/80 px-2 py-1"
                         >
                           <span className="font-medium">
                             Line {w.lineNumber}:
@@ -388,22 +395,25 @@ export function StudentImportModal() {
               </div>
 
               <Separator />
-              <div className="flex shrink-0 flex-col gap-3 bg-background px-4 py-3 sm:flex-row sm:items-center sm:px-6">
-                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex shrink-0 flex-col gap-2 bg-background px-3 py-2.5 sm:flex-row sm:items-center sm:px-6 sm:py-3">
+                <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto text-xs text-muted-foreground">
                   <Badge
                     variant="outline"
                     className={
                       canStartAnalysis
-                        ? "border-green-200 text-green-700"
+                        ? "shrink-0 border-primary/30 text-primary"
                         : setupFixCount > 0
-                          ? "border-amber-300 text-amber-700"
-                          : ""
+                          ? "shrink-0 border-border text-muted-foreground"
+                          : "shrink-0"
                     }
                   >
                     {canStartAnalysis ? (
-                      <CheckCircle2 className="mr-1 size-3" />
+                      <CheckCircle2 className="mr-1" data-icon="inline-start" />
                     ) : setupFixCount > 0 ? (
-                      <AlertTriangle className="mr-1 size-3" />
+                      <AlertTriangle
+                        className="mr-1"
+                        data-icon="inline-start"
+                      />
                     ) : null}
                     {canStartAnalysis
                       ? "Ready"
@@ -413,33 +423,33 @@ export function StudentImportModal() {
                           ? "Needs review"
                           : "Waiting for rows"}
                   </Badge>
-                  <span>
+                  <span className="shrink-0">
                     {parsedStudentCount} parsed student
                     {parsedStudentCount === 1 ? "" : "s"}
                   </span>
-                  <span>
+                  <span className="shrink-0">
                     {rawLineCount} pasted line{rawLineCount === 1 ? "" : "s"}
                   </span>
-                  <span>
+                  <span className="shrink-0">
                     {setupFixCount} line{setupFixCount === 1 ? "" : "s"} to fix
                   </span>
                 </div>
-                <div className="flex flex-col-reverse gap-2 sm:ml-auto sm:flex-row sm:items-center">
+                <div className="grid grid-cols-[1fr_auto] gap-2 sm:ml-auto sm:flex sm:items-center">
+                  <Button
+                    type="submit"
+                    className="h-10 font-medium sm:h-9 sm:w-auto sm:px-5"
+                    disabled={!canStartAnalysis}
+                  >
+                    Proceed
+                    <ArrowRight data-icon="inline-end" />
+                  </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={closeImport}
-                    className="sm:w-auto"
+                    className="h-10 px-4 sm:h-9 sm:w-auto"
                   >
                     Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="h-9 px-5 font-medium sm:w-auto"
-                    disabled={!canStartAnalysis}
-                  >
-                    Proceed
-                    <ArrowRight className="ml-2 size-4" />
                   </Button>
                 </div>
               </div>
