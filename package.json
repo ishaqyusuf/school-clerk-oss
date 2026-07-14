@@ -42,7 +42,7 @@
     "dev:services": "sh ./scripts/start-dev-services.sh",
     "dev:services:local": "SCHOOL_CLERK_DB_MODE=local SCHOOL_CLERK_START_POSTGRES=1 bun run dev:services",
     "dev:services:local-db": "SCHOOL_CLERK_DB_MODE=local SCHOOL_CLERK_START_POSTGRES=1 bun run dev:services",
-    "dev": "bun scripts/dev.ts",
+    "dev": "bun ../local-infra-kit/bin/dev.ts --profile school-clerk",
     "jobs:deploy": "bun run --filter @school-clerk/jobs deploy",
     "terminal": "bash ./scripts/open-bun-script-terminal.sh",
     "format": "turbo format --continue -- --cache --cache-location='node_modules/.cache/.prettiercache' --ignore-path='../../.gitignore'",
