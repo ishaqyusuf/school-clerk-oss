@@ -2,4 +2,4 @@
 
 set -eu
 
-exec bun ../../scripts/with-dev-infra.ts -- "$@"
+exec bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- "$@"

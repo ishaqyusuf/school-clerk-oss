@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "../../scripts/with-root-env.sh --mode local PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 PORTLESS_PORT=${PORTLESS_PORT:-1355} PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-2300} portless school-clerk next dev --turbopack",
+    "dev": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 PORTLESS_PORT=${PORTLESS_PORT:-1355} PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-2300} portless school-clerk next dev --turbopack",
     "build": "bun next build --turbopack",
-    "start": "../../scripts/with-root-env.sh --mode production next start",
+    "start": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode prod -- next start",
     "lint": "eslint"
   },
   "dependencies": {

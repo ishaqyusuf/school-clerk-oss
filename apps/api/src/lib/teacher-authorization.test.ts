@@ -3,7 +3,6 @@ import { TRPCError } from "@trpc/server";
 
 process.env.DATABASE_URL ??=
   "postgresql://postgres:postgres@127.0.0.1:55432/school_clerk";
-process.env.POSTGRES_URL ??= process.env.DATABASE_URL;
 
 const {
   assertTeacherCanAccessAssessment,

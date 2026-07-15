@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "../../scripts/with-root-env.sh --mode local PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 PORTLESS_PORT=${PORTLESS_PORT:-1355} PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-2400} portless school-clerk-site next dev --turbopack",
-    "build": "../../scripts/with-root-env.sh --mode production sh -c 'SCHOOL_CLERK_ENV_MODE=production bun --cwd ../../packages/db prisma-generate && next build --turbopack'",
-    "start": "../../scripts/with-root-env.sh --mode production next start",
+    "dev": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 PORTLESS_PORT=${PORTLESS_PORT:-1355} PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-2400} portless school-clerk-site next dev --turbopack",
+    "build": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode prod -- sh -c 'bun --cwd ../../packages/db run prisma-generate:prod && next build --turbopack'",
+    "start": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode prod -- next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },

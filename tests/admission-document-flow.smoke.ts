@@ -9,8 +9,7 @@ const smokeDashboardPasswordHash =
 const onePixelPngDataUrl =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
-process.env.POSTGRES_URL ??= localDatabaseUrl;
-process.env.DATABASE_URL ??= process.env.POSTGRES_URL;
+process.env.DATABASE_URL ??= localDatabaseUrl;
 process.env.APP_ROOT_DOMAIN ??= "school-clerk-dashboard.localhost";
 process.env.SCHOOL_SITE_ROOT_DOMAIN ??= "school-clerk-site.localhost";
 process.env.BLOB_READ_WRITE_TOKEN ??= "smoke-blob-token";

@@ -5,8 +5,8 @@ This repo can run against a local PostgreSQL instance in Docker.
 ## What is configured
 
 - `docker-compose.yml` starts PostgreSQL 16 on `localhost:55432`
-- `.env.local` should set `LOCAL_DATABASE_URL` for that container
-- DB-related scripts load root env files and resolve the active profile to `DATABASE_URL`
+- `.env.local` should set `DATABASE_URL` for that container
+- DB-related scripts load the standard env files through `local-infra-kit`
 
 ## Start the database
 

@@ -13,11 +13,11 @@
   },
   "scripts": {
     "clean": "rm -rf .turbo node_modules",
-    "db:generate": "../../scripts/with-root-env.sh --mode local bunx @better-auth/cli",
+    "db:generate": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- bunx @better-auth/cli",
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
-    "with-env": "../../scripts/with-root-env.sh --mode local"
+    "with-env": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local --"
   },
   "dependencies": {
     "@school-clerk/db": "workspace:*",

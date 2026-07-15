@@ -1,8 +1,8 @@
 {
   "name": "@school-clerk/api",
   "scripts": {
-    "dev": "TZ=UTC ../../scripts/with-root-env.sh PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 portless api bun run --hot src/index.ts",
-    "dev:node": "../../scripts/with-root-env.sh tsx src/node.ts",
+    "dev": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- TZ=UTC PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 portless api bun run --hot src/index.ts",
+    "dev:node": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- tsx src/node.ts",
     "clean": "git clean -xdf .next .turbo node_modules",
     "--build": "bun-vercel ./src/bun.ts",
     "---build": "./bun-vercel/build.sh ./src/bun.ts",

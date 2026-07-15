@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run prisma.ts && bun ../../scripts/with-dev-infra.ts -- node node_modules/trigger.dev/dist/esm/index.js dev --skip-update-check --skip-mcp-install --skip-rules-install --skip-platform-notifications",
-    "deploy": "../../scripts/with-root-env.sh --mode production sh -c 'bun run prisma.ts && node node_modules/trigger.dev/dist/esm/index.js deploy'",
+    "dev": "bun run prisma.ts && bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- node node_modules/trigger.dev/dist/esm/index.js dev --skip-update-check --skip-mcp-install --skip-rules-install --skip-platform-notifications",
+    "deploy": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode prod -- sh -c 'bun run prisma.ts && node node_modules/trigger.dev/dist/esm/index.js deploy'",
     "typecheck": "tsc --noEmit",
-    "with-env": "bun ../../scripts/with-dev-infra.ts --",
-    "with-env:prod": "../../scripts/with-root-env.sh --mode production"
+    "with-env": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local --",
+    "with-env:prod": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode prod --"
   },
   "exports": {
     "./schema": "./src/schema.ts"

@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { TRPCError } from "@trpc/server";
 
 process.env.DATABASE_URL ??= "postgresql://test:test@127.0.0.1:5432/test";
-process.env.POSTGRES_URL ??= process.env.DATABASE_URL;
 
 const {
 	closeFinanceTermLedger,
