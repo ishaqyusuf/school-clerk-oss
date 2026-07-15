@@ -17,28 +17,7 @@ function normalizePgConnectionString(connectionString: string) {
 }
 
 function resolvePrismaConnectionString() {
-  const isProduction =
-    process.env.NODE_ENV === "production" ||
-    process.env.APP_ENV === "production" ||
-    process.env.SCHOOL_CLERK_DB_MODE === "prod" ||
-    process.env.SCHOOL_CLERK_DB_MODE === "production";
-  const isRemoteDev =
-    process.env.APP_ENV === "remote-dev" ||
-    process.env.DEV_PROFILE === "remote-dev" ||
-    process.env.SCHOOL_CLERK_DB_MODE === "remote-dev";
-  const configuredUrl = isProduction
-    ? (process.env.PROD_DATABASE_URL ??
-      process.env.PROD_POSTGRES_URL ??
-      process.env.DATABASE_URL ??
-      process.env.POSTGRES_URL)
-    : isRemoteDev
-      ? (process.env.REMOTE_DEV_DATABASE_URL ??
-        process.env.REMOTE_DEV_POSTGRES_URL ??
-        process.env.DEV_DATABASE_URL ??
-        process.env.DEV_POSTGRES_URL ??
-        process.env.DATABASE_URL ??
-        process.env.POSTGRES_URL)
-      : (process.env.DATABASE_URL ?? process.env.POSTGRES_URL);
+  const configuredUrl = process.env.DATABASE_URL;
 
   if (!configuredUrl) {
     return null;
@@ -119,7 +98,9 @@ function requirePrismaClient(): ConfiguredPrismaClient {
   const client = createPrismaClient();
 
   if (!client) {
-    throw new Error("DATABASE_URL must be configured.");
+    throw new Error(
+      "DATABASE_URL must be configured. Run through local-infra-kit env loading or set DATABASE_URL directly.",
+    );
   }
 
   return client;

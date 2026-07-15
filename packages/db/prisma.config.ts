@@ -3,13 +3,12 @@ import path from "node:path";
 import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 import { defineConfig, env } from "prisma/config";
-import { applyDatabaseProfile } from "../../scripts/database-profile.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const workspaceDir = path.dirname(__filename);
 const repoRoot = path.resolve(workspaceDir, "../..");
 
-function mergeEnvFile(filePath: string, targetEnv: NodeJS.ProcessEnv) {
+function mergeEnvFile(filePath: string, targetEnv: Record<string, string | undefined>) {
   if (!existsSync(filePath)) {
     return;
   }
@@ -23,67 +22,54 @@ function mergeEnvFile(filePath: string, targetEnv: NodeJS.ProcessEnv) {
   }
 }
 
-function loadEnv() {
-  const loadedEnv = { ...process.env };
-  const isProduction =
+function normalizeMode() {
+  if (
+    process.env.SCHOOL_CLERK_ENV_MODE === "prod" ||
+    process.env.SCHOOL_CLERK_ENV_MODE === "production" ||
     process.env.NODE_ENV === "production" ||
-    process.env.APP_ENV === "production" ||
-    process.env.SCHOOL_CLERK_DB_MODE === "prod" ||
-    process.env.SCHOOL_CLERK_DB_MODE === "production";
-  const isRemoteDev =
-    process.env.APP_ENV === "remote-dev" ||
-    process.env.DEV_PROFILE === "remote-dev" ||
-    process.env.SCHOOL_CLERK_DB_MODE === "remote-dev";
-  const envFiles = [
-    path.join(repoRoot, ".env"),
-    path.join(repoRoot, ".env.development"),
-    ...(!isRemoteDev && !isProduction
-      ? [
-          path.join(repoRoot, ".env.local"),
-          path.join(repoRoot, ".env.development.local"),
-        ]
-      : []),
-    ...(isRemoteDev
-      ? [
-          path.join(repoRoot, ".env.remote-dev"),
-          path.join(repoRoot, ".env.remote-dev.local"),
-        ]
-      : []),
-    ...(isProduction
-      ? [
-          path.join(repoRoot, ".env.production"),
-          path.join(repoRoot, ".env.production.local"),
-        ]
-      : []),
-    path.join(workspaceDir, ".env"),
-    path.join(workspaceDir, ".env.development"),
-    ...(!isRemoteDev && !isProduction
-      ? [
-          path.join(workspaceDir, ".env.local"),
-          path.join(workspaceDir, ".env.development.local"),
-        ]
-      : []),
-    ...(isRemoteDev
-      ? [
-          path.join(workspaceDir, ".env.remote-dev"),
-          path.join(workspaceDir, ".env.remote-dev.local"),
-        ]
-      : []),
-    ...(isProduction
-      ? [
-          path.join(workspaceDir, ".env.production"),
-          path.join(workspaceDir, ".env.production.local"),
-        ]
-      : []),
-  ];
+    process.env.APP_ENV === "production"
+  ) {
+    return "prod";
+  }
+
+  if (
+    process.env.SCHOOL_CLERK_ENV_MODE === "remote" ||
+    process.env.SCHOOL_CLERK_ENV_MODE === "remote-dev"
+  ) {
+    return "remote";
+  }
+
+  return "local";
+}
+
+function envFilesForMode(mode: string) {
+  if (mode === "prod") {
+    const prodFile = path.join(repoRoot, ".env.prod");
+
+    return existsSync(prodFile)
+      ? [prodFile]
+      : [path.join(repoRoot, ".env.production")];
+  }
+
+  if (mode === "remote") {
+    return [
+      path.join(repoRoot, ".env.local"),
+      path.join(repoRoot, ".env.remote.local"),
+    ];
+  }
+
+  return [path.join(repoRoot, ".env.local")];
+}
+
+function loadEnv() {
+  const loadedEnv: Record<string, string | undefined> = {};
+  const envFiles = envFilesForMode(normalizeMode());
 
   for (const filePath of envFiles) {
     mergeEnvFile(filePath, loadedEnv);
   }
 
-  applyDatabaseProfile(loadedEnv);
-
-  for (const [key, value] of Object.entries(loadedEnv)) {
+  for (const [key, value] of Object.entries({ ...loadedEnv, ...process.env })) {
     if (value !== undefined) {
       process.env[key] = value;
     }

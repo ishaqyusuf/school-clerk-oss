@@ -35,13 +35,14 @@
     "pull": "bun ../../scripts/db-command.ts pull",
     "pull:dev": "bun ../../scripts/db-command.ts pull --remote",
     "pull:local": "bun ../../scripts/db-command.ts pull --local",
-    "sync:prod-to-local": "bun scripts/sync-prod-to-local.ts",
-    "sync:prod-to-local:dry-run": "bun scripts/sync-prod-to-local.ts --dry-run",
-    "sync:prod-to-local:table": "bun scripts/sync-prod-to-local.ts --table",
+    "sync": "bun scripts/sync-prod-to-local.ts",
+    "sync:prod-to-local": "bun run sync -- -m prod-local",
+    "sync:prod-to-local:dry-run": "bun run sync -- -m prod-local --dry-run",
+    "sync:prod-to-local:table": "bun run sync -- -m prod-local --table",
     "studio": "bun ../../scripts/db-command.ts studio",
     "studio:dev": "bun ../../scripts/db-command.ts studio --remote",
     "studio:local": "bun ../../scripts/db-command.ts studio --local",
-    "with-env": "bun ../../scripts/with-dev-infra.ts --"
+    "with-env": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local --"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

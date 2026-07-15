@@ -4,6 +4,8 @@ import { PrismaClient } from "./generated/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 export type SyncMode = "incremental" | "insert-only" | "static-refresh" | "skip";
+export type SyncEnvMode = "local" | "remote" | "prod";
+export type SyncPairMode = "prod-local" | "remote-local" | "prod-remote";
 
 export type ColumnInfo = {
   name: string;
@@ -45,6 +47,9 @@ export type LocalDomainNormalizationReport = {
 };
 
 export type SyncOptions = {
+  pairMode: SyncPairMode;
+  sourceMode: SyncEnvMode;
+  targetMode: SyncEnvMode;
   sourceUrl: string;
   targetUrl: string;
   stateFile: string;
@@ -114,7 +119,7 @@ const DEFAULT_STATE: SyncState = {
   tables: {},
 };
 
-const DEFAULT_LOCAL_DATABASE_URL =
+const DEFAULT_LOCAL_DATABASE_CONNECTION_STRING =
   "postgresql://postgres:postgres@127.0.0.1:55432/school_clerk";
 const LOCAL_HOSTS = new Set([
   "localhost",
@@ -378,7 +383,11 @@ export function classifyTable(input: {
   };
 }
 
-export function assertSafeConnections(sourceUrl: string, targetUrl: string): void {
+export function assertSafeConnections(
+  sourceUrl: string,
+  targetUrl: string,
+  targetMode: SyncEnvMode = "local",
+): void {
   const source = new URL(sourceUrl);
   const target = new URL(targetUrl);
   const sourceDatabase = source.pathname.replace(/^\//, "");
@@ -392,14 +401,16 @@ export function assertSafeConnections(sourceUrl: string, targetUrl: string): voi
     throw new Error("Refusing to sync because source and target point at the same database.");
   }
 
-  if (PRODUCTION_TARGET_HOST_PATTERNS.some((pattern) => pattern.test(target.hostname))) {
-    throw new Error(`Refusing to write to production-looking target host: ${target.hostname}`);
-  }
+  if (targetMode === "local") {
+    if (PRODUCTION_TARGET_HOST_PATTERNS.some((pattern) => pattern.test(target.hostname))) {
+      throw new Error(`Refusing to write to production-looking target host: ${target.hostname}`);
+    }
 
-  if (!LOCAL_HOSTS.has(target.hostname) && !target.hostname.endsWith(".local")) {
-    throw new Error(
-      `Refusing to write to non-local target host: ${target.hostname}. Set LOCAL_POSTGRES_URL to a local PostgreSQL database.`,
-    );
+    if (!LOCAL_HOSTS.has(target.hostname) && !target.hostname.endsWith(".local")) {
+      throw new Error(
+        `Refusing to write to non-local target host: ${target.hostname}. Check the ${targetMode} DATABASE_URL for this sync mode.`,
+      );
+    }
   }
 }
 
@@ -430,8 +441,30 @@ export async function writeState(stateFile: string, state: SyncState): Promise<v
   );
 }
 
-export function parseArgs(argv: string[]): Partial<SyncOptions> & { help?: boolean } {
-  const parsed: Partial<SyncOptions> & { help?: boolean } = {};
+type ParsedSyncArgs = Partial<
+  Pick<
+    SyncOptions,
+    | "sourceUrl"
+    | "targetUrl"
+    | "stateFile"
+    | "table"
+    | "initialCursorValue"
+    | "dryRun"
+    | "resetCursor"
+    | "refreshStatic"
+    | "staticRefreshMaxRows"
+    | "readBatchSize"
+    | "writeBatchSize"
+    | "normalizeLocalDomains"
+    | "keepCustomDomains"
+  >
+> & {
+  help?: boolean;
+  pairMode?: SyncPairMode;
+};
+
+export function parseArgs(argv: string[]): ParsedSyncArgs {
+  const parsed: ParsedSyncArgs = {};
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -449,6 +482,7 @@ export function parseArgs(argv: string[]): Partial<SyncOptions> & { help?: boole
         break;
       case "--reset-cursor":
       case "--reset-state":
+      case "--reset":
         parsed.resetCursor = true;
         break;
       case "--refresh-static":
@@ -471,6 +505,10 @@ export function parseArgs(argv: string[]): Partial<SyncOptions> & { help?: boole
         break;
       case "--target-url":
         parsed.targetUrl = next();
+        break;
+      case "-m":
+      case "--mode":
+        parsed.pairMode = parseSyncPairMode(next());
         break;
       case "--initial-cursor-value":
         parsed.initialCursorValue = next();
@@ -498,6 +536,14 @@ export function parseArgs(argv: string[]): Partial<SyncOptions> & { help?: boole
   return parsed;
 }
 
+export function parseSyncPairMode(value: string): SyncPairMode {
+  if (value === "prod-local" || value === "remote-local" || value === "prod-remote") {
+    return value;
+  }
+
+  throw new Error(`Unknown sync mode: ${value}. Use prod-local, remote-local, or prod-remote.`);
+}
+
 export function parseEnvFile(text: string): Record<string, string> {
   const values: Record<string, string> = {};
 
@@ -507,7 +553,7 @@ export function parseEnvFile(text: string): Record<string, string> {
       continue;
     }
 
-    const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    const match = trimmed.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
     if (!match) {
       continue;
     }
@@ -516,6 +562,61 @@ export function parseEnvFile(text: string): Record<string, string> {
   }
 
   return values;
+}
+
+async function readEnvFiles(files: string[]): Promise<Record<string, string>> {
+  const env: Record<string, string> = {};
+
+  for (const file of files) {
+    try {
+      Object.assign(env, parseEnvFile(await readFile(file, "utf8")));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
+
+  return env;
+}
+
+async function loadModeEnv(repoRoot: string, mode: SyncEnvMode): Promise<Record<string, string>> {
+  if (mode === "remote") {
+    return readEnvFiles([
+      resolve(repoRoot, ".env.local"),
+      resolve(repoRoot, ".env.remote.local"),
+    ]);
+  }
+
+  if (mode === "prod") {
+    const prodEnv = await readEnvFiles([resolve(repoRoot, ".env.prod")]);
+
+    if (prodEnv.DATABASE_URL) {
+      return prodEnv;
+    }
+
+    return readEnvFiles([resolve(repoRoot, ".env.production")]);
+  }
+
+  return readEnvFiles([resolve(repoRoot, ".env.local")]);
+}
+
+export function syncPairModes(pairMode: SyncPairMode): {
+  sourceMode: SyncEnvMode;
+  targetMode: SyncEnvMode;
+} {
+  switch (pairMode) {
+    case "prod-local":
+      return { sourceMode: "prod", targetMode: "local" };
+    case "remote-local":
+      return { sourceMode: "remote", targetMode: "local" };
+    case "prod-remote":
+      return { sourceMode: "prod", targetMode: "remote" };
+  }
+}
+
+async function databaseUrlForMode(repoRoot: string, mode: SyncEnvMode): Promise<string | undefined> {
+  return (await loadModeEnv(repoRoot, mode)).DATABASE_URL;
 }
 
 export async function readFirstEnvValue(
@@ -546,36 +647,25 @@ export async function resolveOptions(
 ): Promise<SyncOptions & { help?: boolean }> {
   const parsed = parseArgs(argv);
   const repoRoot = cwd.endsWith("packages/db") ? resolve(cwd, "../..") : cwd;
+  const pairMode = parsed.pairMode ?? "prod-local";
+  const { sourceMode, targetMode } = syncPairModes(pairMode);
   const sourceUrl =
     parsed.sourceUrl ??
-    process.env.PROD_POSTGRES_URL ??
-    process.env.SOURCE_POSTGRES_URL ??
-    process.env.PROD_DATABASE_URL ??
     process.env.SOURCE_DATABASE_URL ??
-    (await readFirstEnvValue(
-      [resolve(cwd, ".env.production"), resolve(repoRoot, ".env.production")],
-      ["PROD_POSTGRES_URL", "SOURCE_POSTGRES_URL", "POSTGRES_URL", "DATABASE_URL"],
-    )) ??
-    (await readFirstEnvValue(
-      [resolve(cwd, ".env.local"), resolve(repoRoot, ".env.local")],
-      ["PROD_POSTGRES_URL", "SOURCE_POSTGRES_URL", "PROD_DATABASE_URL", "SOURCE_DATABASE_URL"],
-    ));
+    (await databaseUrlForMode(repoRoot, sourceMode));
   const targetUrl =
     parsed.targetUrl ??
-    process.env.LOCAL_POSTGRES_URL ??
-    process.env.TARGET_POSTGRES_URL ??
-    process.env.LOCAL_DATABASE_URL ??
     process.env.TARGET_DATABASE_URL ??
-    (await readFirstEnvValue(
-      [resolve(cwd, ".env.local"), resolve(cwd, ".env"), resolve(repoRoot, ".env.local"), resolve(repoRoot, ".env")],
-      ["LOCAL_POSTGRES_URL", "TARGET_POSTGRES_URL", "LOCAL_DATABASE_URL", "TARGET_DATABASE_URL", "POSTGRES_URL", "DIRECT_URL"],
-    )) ??
-    DEFAULT_LOCAL_DATABASE_URL;
+    (await databaseUrlForMode(repoRoot, targetMode)) ??
+    (targetMode === "local" ? DEFAULT_LOCAL_DATABASE_CONNECTION_STRING : undefined);
 
   const options = {
+    pairMode,
+    sourceMode,
+    targetMode,
     sourceUrl: sourceUrl ?? "",
     targetUrl: targetUrl ?? "",
-    stateFile: parsed.stateFile ?? resolve(repoRoot, ".local-db-sync/state.json"),
+    stateFile: parsed.stateFile ?? resolve(repoRoot, `.local-db-sync/${pairMode}.json`),
     table: parsed.table,
     initialCursorValue:
       parsed.initialCursorValue ?? process.env.LOCAL_SYNC_INITIAL_CURSOR_VALUE ?? null,
@@ -585,7 +675,7 @@ export async function resolveOptions(
     staticRefreshMaxRows: parsed.staticRefreshMaxRows ?? 5_000,
     readBatchSize: parsed.readBatchSize ?? 10_000,
     writeBatchSize: parsed.writeBatchSize ?? 500,
-    normalizeLocalDomains: parsed.normalizeLocalDomains ?? true,
+    normalizeLocalDomains: parsed.normalizeLocalDomains ?? targetMode === "local",
     keepCustomDomains: parsed.keepCustomDomains ?? false,
     help: parsed.help,
   } satisfies SyncOptions & { help?: boolean };
@@ -596,13 +686,13 @@ export async function resolveOptions(
 
   if (!sourceUrl) {
     throw new Error(
-      "Missing production database URL. Set PROD_POSTGRES_URL, SOURCE_POSTGRES_URL, or packages/db/.env.production POSTGRES_URL.",
+      `Missing source database URL. Set DATABASE_URL in ${sourceMode === "prod" ? ".env.prod" : ".env.remote.local"} or pass --source-url.`,
     );
   }
 
   if (!targetUrl) {
     throw new Error(
-      "Missing local database URL. Set LOCAL_POSTGRES_URL, TARGET_POSTGRES_URL, or packages/db/.env.local POSTGRES_URL.",
+      `Missing target database URL. Set DATABASE_URL in ${targetMode === "local" ? ".env.local" : ".env.remote.local"} or pass --target-url.`,
     );
   }
 
@@ -725,7 +815,7 @@ async function getBestKeyColumns(db: PrismaClient, table: string): Promise<strin
 }
 
 export async function syncDatabases(options: SyncOptions): Promise<SyncReport[]> {
-  assertSafeConnections(options.sourceUrl, options.targetUrl);
+  assertSafeConnections(options.sourceUrl, options.targetUrl, options.targetMode);
 
   const source = new PrismaClient({
     adapter: new PrismaPg({

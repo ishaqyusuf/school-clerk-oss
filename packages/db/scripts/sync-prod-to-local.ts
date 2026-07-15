@@ -9,15 +9,19 @@ import {
 
 function printHelp() {
   console.log(`Usage:
-  bun run sync:prod-to-local [options]
+  bun run sync -- -m prod-local [options]
+  bun run sync -- -m remote-local [options]
+  bun run sync -- -m prod-remote [options]
 
 Options:
+  -m, --mode <mode>                 prod-local, remote-local, or prod-remote (default: prod-local)
   --dry-run                         Inspect changed rows without writing locally
   --table <name>                    Sync one table only
-  --source-url <url>                Override production PostgreSQL URL
-  --target-url <url>                Override local PostgreSQL URL
+  --source-url <url>                Override source DATABASE_URL
+  --target-url <url>                Override target DATABASE_URL
   --state-file <path>               Override cursor state file
   --initial-cursor-value <value>    Floor for fresh/stale cursors; unset by default for full initial sync
+  --reset                           Alias for --reset-cursor
   --reset-cursor                    Ignore saved cursor for the selected table(s)
   --read-batch-size <number>        Source read batch size (default: 10000)
   --write-batch-size <number>       Local upsert batch size (default: 500)
@@ -28,13 +32,12 @@ Options:
   -h, --help                        Show this help
 
 Environment:
-  PROD_POSTGRES_URL, SOURCE_POSTGRES_URL, PROD_DATABASE_URL, or SOURCE_DATABASE_URL for production.
-  LOCAL_POSTGRES_URL, TARGET_POSTGRES_URL, LOCAL_DATABASE_URL, TARGET_DATABASE_URL, POSTGRES_URL, or DIRECT_URL for local.
+  prod-local    source .env.prod DATABASE_URL, target .env.local DATABASE_URL
+  remote-local  source .env.remote.local DATABASE_URL over .env.local, target .env.local DATABASE_URL
+  prod-remote   source .env.prod DATABASE_URL, target .env.remote.local DATABASE_URL over .env.local
 
-If env vars are not set, the script reads packages/db/.env.production and the repo
-root .env.production for source values. It reads packages/db/.env.local, packages/db/.env,
-the repo root .env.local, and the repo root .env for target values. Without a local URL,
-it falls back to postgresql://postgres:postgres@127.0.0.1:55432/school_clerk.`);
+Explicit SOURCE_DATABASE_URL and TARGET_DATABASE_URL still override mode resolution for one-off runs.
+Without a local target URL, local mode falls back to postgresql://postgres:postgres@127.0.0.1:55432/school_clerk.`);
 }
 
 function printReport(
@@ -136,7 +139,9 @@ try {
     process.exit(0);
   }
 
-  console.log(`${options.dryRun ? "Dry running" : "Syncing"} production DB to local...`);
+  console.log(
+    `${options.dryRun ? "Dry running" : "Syncing"} ${options.pairMode} (${options.sourceMode} -> ${options.targetMode})...`,
+  );
   console.log(`State file: ${options.stateFile}`);
   if (options.initialCursorValue) {
     console.log(`Initial cursor floor: ${options.initialCursorValue}`);

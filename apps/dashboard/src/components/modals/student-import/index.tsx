@@ -5,6 +5,7 @@ import { Dialog, Field, InputGroup, Tabs } from "@school-clerk/ui/composite";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -26,7 +27,6 @@ import { parseRawInput } from "./parser";
 const studentImportSchema = z.object({
   classRoomId: z.string().optional(),
   globalGender: z.enum(["Male", "Female", "unset", ""]).optional(),
-  importMode: z.enum(["single", "multiple"]).optional(),
   raw: z.string().min(1, "Student data is required"),
 });
 
@@ -51,7 +51,6 @@ export function StudentImportModal() {
     defaultValues: {
       classRoomId: "",
       globalGender: "unset",
-      importMode: "multiple",
       raw: ls,
     },
   });
@@ -81,8 +80,6 @@ export function StudentImportModal() {
   const raw = form.watch("raw");
   const classRoomId = form.watch("classRoomId");
   const globalGender = form.watch("globalGender");
-  const importMode = form.watch("importMode") || "multiple";
-  const needsClassroomSelection = importMode === "single" && !classRoomId;
 
   const parse = useMemo(() => {
     const selectedDept = classList?.data?.find((d) => d.id === classRoomId);
@@ -91,25 +88,15 @@ export function StudentImportModal() {
         ? `${selectedDept.classRoom.name} - ${selectedDept.departmentName}`
         : selectedDept.departmentName
       : "";
-    const classroomsForParsing =
-      importMode === "multiple" ? classList?.data || [] : [];
-
     return parseRawInput(
       raw,
       classRoomName,
       classRoomId || "",
       globalGender,
       importNameGuide?.names || [],
-      classroomsForParsing,
+      classList?.data || [],
     );
-  }, [
-    raw,
-    classRoomId,
-    classList?.data,
-    globalGender,
-    importMode,
-    importNameGuide?.names,
-  ]);
+  }, [raw, classRoomId, classList?.data, globalGender, importNameGuide?.names]);
   const warningCount = parse?.warnings?.length || 0;
   const parsedStudentCount = parse?.students?.length || 0;
   const rawLineCount = useMemo(
@@ -117,14 +104,9 @@ export function StudentImportModal() {
     [raw],
   );
   const setupFixCount =
-    warningCount +
-    (needsClassroomSelection ? 1 : 0) +
-    (raw.trim() && parsedStudentCount === 0 ? 1 : 0);
+    warningCount + (raw.trim() && parsedStudentCount === 0 ? 1 : 0);
   const canStartAnalysis =
-    Boolean(raw?.trim()) &&
-    !isClassListLoading &&
-    !needsClassroomSelection &&
-    parsedStudentCount > 0;
+    Boolean(raw?.trim()) && !isClassListLoading && parsedStudentCount > 0;
   const workflowPhase =
     tab === "main"
       ? ("setup" as const)
@@ -150,12 +132,15 @@ export function StudentImportModal() {
               <Dialog.Title className="text-base leading-tight font-semibold">
                 Import Students
               </Dialog.Title>
-              <Dialog.Description className="max-w-[18rem] text-[11px] leading-4 text-muted-foreground sm:max-w-none sm:text-xs">
+              <Dialog.Description className="hidden max-w-[18rem] text-[11px] leading-4 text-muted-foreground sm:block sm:max-w-none sm:text-xs">
                 Paste names, review the rows that need decisions, then import
                 the checked rows.
               </Dialog.Description>
             </div>
-            <Badge variant="outline" className="shrink-0 bg-background">
+            <Badge
+              variant="outline"
+              className="hidden shrink-0 bg-background sm:inline-flex"
+            >
               {workflowPhase === "setup"
                 ? "Setup"
                 : workflowPhase === "review"
@@ -175,82 +160,40 @@ export function StudentImportModal() {
               className="flex min-h-0 flex-1 flex-col"
             >
               <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-3 sm:gap-3 sm:px-6 sm:py-4">
-                <div className="rounded-md border bg-muted/20 p-2 sm:bg-background">
-                  <div className="grid grid-cols-2 gap-2 md:grid-cols-[12rem_minmax(14rem,1fr)_13rem]">
-                    <Controller
-                      name="importMode"
-                      control={form.control}
-                      render={({ field }) => (
-                        <Field className="min-w-0 gap-1">
-                          <Field.Label className="text-xs">
-                            Import mode
-                          </Field.Label>
-                          <ToggleGroup
-                            type="single"
-                            variant="outline"
-                            size="sm"
-                            value={field.value || "multiple"}
-                            onValueChange={(value) =>
-                              field.onChange(value || "multiple")
-                            }
-                            className="grid grid-cols-2 justify-start"
-                          >
-                            <ToggleGroupItem
-                              value="single"
-                              aria-label="Import students into one classroom"
-                              className="min-w-0"
-                            >
-                              Single
-                            </ToggleGroupItem>
-                            <ToggleGroupItem
-                              value="multiple"
-                              aria-label="Import students into multiple classrooms"
-                              className="min-w-0"
-                            >
-                              Multiple
-                            </ToggleGroupItem>
-                          </ToggleGroup>
-                        </Field>
-                      )}
-                    />
-                    <Controller
-                      name="classRoomId"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field
-                          className="order-3 col-span-2 min-w-0 gap-1 md:order-none md:col-span-1"
-                          data-invalid={
-                            fieldState.invalid || needsClassroomSelection
-                          }
+                <div className="grid grid-cols-[minmax(0,1fr)_9.75rem] gap-2 sm:grid-cols-[minmax(14rem,1fr)_13rem]">
+                  <Controller
+                    name="classRoomId"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field
+                        className="min-w-0 gap-1"
+                        data-invalid={fieldState.invalid}
+                      >
+                        <Field.Label
+                          htmlFor="classroom-select"
+                          className="sr-only sm:not-sr-only sm:text-xs"
                         >
-                          <Field.Label
-                            htmlFor="classroom-select"
-                            className="text-xs"
+                          Fallback classroom
+                        </Field.Label>
+                        <Select
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger
+                            id="classroom-select"
+                            aria-invalid={fieldState.invalid}
+                            className="h-9 bg-background"
                           >
-                            {importMode === "single"
-                              ? "Classroom"
-                              : "Fallback classroom"}
-                          </Field.Label>
-                          <Select
-                            value={field.value || ""}
-                            onValueChange={field.onChange}
-                          >
-                            <SelectTrigger
-                              id="classroom-select"
-                              aria-invalid={fieldState.invalid}
-                              className="bg-background"
-                            >
-                              <SelectValue
-                                placeholder={
-                                  isClassListLoading
-                                    ? "Loading classrooms..."
-                                    : importMode === "single"
-                                      ? "Choose classroom"
-                                      : "Optional fallback"
-                                }
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
+                            <SelectValue
+                              placeholder={
+                                isClassListLoading
+                                  ? "Loading classrooms..."
+                                  : "Classroom"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
                               {classList?.data?.map((dept) => (
                                 <SelectItem key={dept.id} value={dept.id}>
                                   {dept.classRoom
@@ -258,66 +201,61 @@ export function StudentImportModal() {
                                     : dept.departmentName}
                                 </SelectItem>
                               ))}
-                            </SelectContent>
-                          </Select>
-                          {needsClassroomSelection && (
-                            <p className="text-[11px] text-destructive">
-                              Choose a classroom for single-class import.
-                            </p>
-                          )}
-                        </Field>
-                      )}
-                    />
-                    <Controller
-                      name="globalGender"
-                      control={form.control}
-                      render={({ field }) => (
-                        <Field className="order-2 min-w-0 gap-1 md:order-none">
-                          <Field.Label className="text-xs">
-                            Global gender
-                          </Field.Label>
-                          <ToggleGroup
-                            type="single"
-                            variant="outline"
-                            size="sm"
-                            value={
-                              field.value === "Male" ||
-                              field.value === "Female" ||
-                              field.value === "unset"
-                                ? field.value
-                                : "unset"
-                            }
-                            onValueChange={(value) =>
-                              field.onChange(value || "unset")
-                            }
-                            className="grid grid-cols-3 justify-start"
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    )}
+                  />
+                  <Controller
+                    name="globalGender"
+                    control={form.control}
+                    render={({ field }) => (
+                      <Field className="min-w-0 gap-1">
+                        <Field.Label className="sr-only sm:not-sr-only sm:text-xs">
+                          Global gender
+                        </Field.Label>
+                        <ToggleGroup
+                          type="single"
+                          variant="outline"
+                          size="sm"
+                          value={
+                            field.value === "Male" ||
+                            field.value === "Female" ||
+                            field.value === "unset"
+                              ? field.value
+                              : "unset"
+                          }
+                          onValueChange={(value) =>
+                            field.onChange(value || "unset")
+                          }
+                          className="grid w-full grid-cols-3 justify-start"
+                        >
+                          <ToggleGroupItem
+                            value="unset"
+                            aria-label="Do not use a global gender fallback"
+                            className="min-w-0"
                           >
-                            <ToggleGroupItem
-                              value="unset"
-                              aria-label="Do not use a global gender fallback"
-                              className="min-w-0"
-                            >
-                              None
-                            </ToggleGroupItem>
-                            <ToggleGroupItem
-                              value="Male"
-                              aria-label="Use Male as the global gender"
-                              className="min-w-0"
-                            >
-                              M
-                            </ToggleGroupItem>
-                            <ToggleGroupItem
-                              value="Female"
-                              aria-label="Use Female as the global gender"
-                              className="min-w-0"
-                            >
-                              F
-                            </ToggleGroupItem>
-                          </ToggleGroup>
-                        </Field>
-                      )}
-                    />
-                  </div>
+                            None
+                          </ToggleGroupItem>
+                          <ToggleGroupItem
+                            value="Male"
+                            aria-label="Use Male as the global gender"
+                            className="min-w-0"
+                          >
+                            M
+                          </ToggleGroupItem>
+                          <ToggleGroupItem
+                            value="Female"
+                            aria-label="Use Female as the global gender"
+                            className="min-w-0"
+                          >
+                            F
+                          </ToggleGroupItem>
+                        </ToggleGroup>
+                      </Field>
+                    )}
+                  />
                 </div>
 
                 <Controller
@@ -333,10 +271,9 @@ export function StudentImportModal() {
                           <Field.Label htmlFor="student-data">
                             Student data
                           </Field.Label>
-                          <p className="line-clamp-2 text-xs text-muted-foreground">
-                            {importMode === "single"
-                              ? "Paste student names. Gender markers and row-level gender are supported."
-                              : "Paste classroom headers, gender markers, and student names in one batch."}
+                          <p className="hidden text-xs text-muted-foreground sm:line-clamp-2">
+                            Paste classroom headers, gender markers, and student
+                            names in one batch.
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-1.5">
@@ -355,12 +292,8 @@ export function StudentImportModal() {
                           id="student-data"
                           dir="rtl"
                           aria-invalid={fieldState.invalid}
-                          className="min-h-[32dvh] border-0 text-sm leading-7 shadow-none focus-visible:ring-0 sm:min-h-[46vh]"
-                          placeholder={
-                            importMode === "single"
-                              ? `M | Male\nJohn Doe\n\nF | Female\nMaryam Bello\nYusuf Ahmad, M`
-                              : `JSS 1 - A\nM | Male\nJohn Doe\n\nF | Female\nMaryam Bello\n\nJSS 2 - B\nYusuf Ahmad, M`
-                          }
+                          className="min-h-[52dvh] border-0 text-sm leading-7 shadow-none focus-visible:ring-0 sm:min-h-[46vh]"
+                          placeholder={`JSS 1 - A\nM | Male\nJohn Doe\n\nF | Female\nMaryam Bello\n\nJSS 2 - B\nYusuf Ahmad, M`}
                         />
                       </InputGroup>
                     </Field>
@@ -373,7 +306,7 @@ export function StudentImportModal() {
                       {warningCount} warning
                       {warningCount === 1 ? "" : "s"} in pasted data
                     </summary>
-                    <div className="mt-2 max-h-32 space-y-1 overflow-y-auto">
+                    <div className="mt-2 flex max-h-32 flex-col gap-1 overflow-y-auto">
                       {parse?.warnings.map((w, index) => (
                         <div
                           key={`${w.lineNumber}-${index}`}
@@ -417,20 +350,18 @@ export function StudentImportModal() {
                     ) : null}
                     {canStartAnalysis
                       ? "Ready"
-                      : needsClassroomSelection
-                        ? "Classroom needed"
-                        : parsedStudentCount
-                          ? "Needs review"
-                          : "Waiting for rows"}
+                      : parsedStudentCount
+                        ? "Needs review"
+                        : "Waiting for rows"}
                   </Badge>
                   <span className="shrink-0">
                     {parsedStudentCount} parsed student
                     {parsedStudentCount === 1 ? "" : "s"}
                   </span>
-                  <span className="shrink-0">
+                  <span className="hidden shrink-0 sm:inline">
                     {rawLineCount} pasted line{rawLineCount === 1 ? "" : "s"}
                   </span>
-                  <span className="shrink-0">
+                  <span className="hidden shrink-0 sm:inline">
                     {setupFixCount} line{setupFixCount === 1 ? "" : "s"} to fix
                   </span>
                 </div>

@@ -1,6 +1,10 @@
 // @ts-expect-error Bun test types are not included by the root TypeScript config.
 import { describe, expect, test } from "bun:test";
-import { commandForOptions, parseArgs, prismaArgsForAction } from "./db-command";
+import {
+  parseArgs,
+  prismaArgsForAction,
+  withEnvCommandForOptions,
+} from "./db-command";
 
 describe("db command router", () => {
   test("defaults DB commands to local", () => {
@@ -14,7 +18,7 @@ describe("db command router", () => {
   test("supports remote alias", () => {
     expect(parseArgs(["migrate", "--remote"])).toEqual({
       action: "migrate",
-      profile: "remote-dev",
+      profile: "remote",
       passthrough: [],
     });
   });
@@ -39,7 +43,7 @@ describe("db command router", () => {
       "migrate",
       "dev",
     ]);
-    expect(prismaArgsForAction("migrate", "remote-dev")).toEqual([
+    expect(prismaArgsForAction("migrate", "remote")).toEqual([
       "prisma",
       "migrate",
       "dev",
@@ -51,25 +55,29 @@ describe("db command router", () => {
     ]);
   });
 
-  test("wraps production commands in production env loader", () => {
+  test("wraps commands in local-infra-kit env loader", () => {
     expect(
-      commandForOptions({
-        action: "push",
-        profile: "prod",
-        passthrough: [],
-      }),
+      withEnvCommandForOptions(
+        {
+          action: "push",
+          profile: "prod",
+          passthrough: [],
+        },
+        "/repo/school-clerk",
+      ),
     ).toEqual([
-      "./scripts/with-root-env.sh",
-      "--mode",
-      "production",
-      "APP_ENV=production",
-      "NODE_ENV=production",
-      "SCHOOL_CLERK_DB_MODE=prod",
-      "SCHOOL_CLERK_DB_COMMAND_PROD_CHILD=1",
       "bun",
-      "scripts/db-command.ts",
+      "/repo/local-infra-kit/bin/with-env.ts",
+      "--profile",
+      "school-clerk",
+      "--mode",
+      "prod",
+      "--",
+      "bunx",
+      "--bun",
+      "prisma",
+      "db",
       "push",
-      "--prod",
     ]);
   });
 });

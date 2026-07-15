@@ -7,10 +7,7 @@ Allow school operators to import multiple students from pasted text data, assign
 ## User Flow
 
 1. **Upload / Start Screen**:
-   - Select an **Import Mode**:
-     - **Single** requires a classroom from the active academic session and assigns every parsed row to that classroom.
-     - **Multiple** enables raw classroom-header parsing and uses the selected classroom only as a fallback for rows outside a resolved header section.
-   - Select a classroom/default classroom from the active academic session according to the selected mode.
+   - Optionally select a fallback classroom from the active academic session. Raw classroom headers are parsed by default, and the selected classroom is used only for rows outside a resolved header section.
    - Optionally select **Global Gender** as a default fallback.
    - Paste student records into the textarea, one student per line, or use raw class-name section headers for multi-classroom imports.
    - Preview parsed row count, pasted line count, and the number of lines that need review in the sticky setup footer.
@@ -30,8 +27,7 @@ Allow school operators to import multiple students from pasted text data, assign
 
 Each pasted line is parsed as follows:
 
-- In **Multiple** import mode, a line that exactly matches a current-session classroom display label becomes a class section header. Following student rows use that classroom until the next class section header.
-- In **Single** import mode, classroom label parsing is disabled and the selected classroom is required before proceeding.
+- A line that exactly matches a current-session classroom display label becomes a class section header. Following student rows use that classroom until the next class section header.
 - Supported classroom label forms include the combined class/department display, department name when unique, class name when unique, and class plus department words normalized with all whitespace ignored and dash/separator variants removed.
 - If a classroom label matches more than one current-session classroom, it becomes an unresolved classroom section instead of a student row. Following student rows remain in `Needs attention` until the operator assigns the correct classroom manually; the default fallback classroom does not silently resolve ambiguous sections.
 - Parsed rows carry `classroomResolutionStatus` as `resolved`, `missing`, or `ambiguous`, alongside `classroomSource`, so review and verification can distinguish fallback-eligible missing rows from ambiguous rows that require explicit manual assignment.
@@ -81,8 +77,8 @@ Musa Garba, M
 - Missing surnames are surfaced as warnings.
 - Proceeding to the verification tab requires at least one parsed student row. Rows without a raw class header use the selected default classroom when available; otherwise they are surfaced as needing classroom attention before execution.
 - The optional global gender and manual row gender resolution use compact grouped `M` / `F` controls mapped to canonical `Male` / `Female` values.
-- The import setup screen is intentionally quiet: a compact horizontal defaults form for import mode, classroom/default classroom, and global gender sits above the paste textarea.
-- On phone-width screens, the import setup modal uses a full-screen shell, compact two-column defaults, a shorter textarea minimum height, and a non-wrapping footer summary so the main `Proceed` action remains visible without crowding the pasted rows.
+- The import setup screen is intentionally quiet: a compact flat defaults row for fallback classroom and global gender sits above the paste textarea without a card shell.
+- On phone-width screens, the import setup modal uses a full-screen shell, a compact one-row fallback-classroom and gender toolbar, hidden helper copy, a taller textarea, and a reduced footer summary so the main `Proceed` action remains visible without crowding the pasted rows.
 - The setup footer summarizes readiness, parsed students, pasted lines, and lines needing fixes, then exposes the single **Proceed** action. Detailed parser warnings stay collapsed until the operator expands them.
 
 ## Matching Rules

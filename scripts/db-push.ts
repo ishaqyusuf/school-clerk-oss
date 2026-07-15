@@ -89,10 +89,6 @@ async function run(command: string[]) {
 async function main() {
   const options = parseArgs(Bun.argv.slice(2));
 
-  if (options.profile === "local") {
-    await run(["bun", "run", "db:start"]);
-  }
-
   await run(commandForProfile(options.profile));
 }
 

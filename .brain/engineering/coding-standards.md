@@ -41,6 +41,8 @@ Defines implementation standards for consistency, maintainability, and reliabili
 ## Local QA And Dev Commands
 
 - The root `bun run dev` router, `dev-run` bridge, kill-port discovery, and root-level env command wrapper are owned by `/Users/M1PRO/Documents/code/local-infra-kit`; invoke the toolkit directly from `package.json` with `--profile school-clerk` and keep dev command behavior aligned with the toolkit's standard monorepo contract.
+- Standard local infra env files are `.env.local`, `.env.remote.local`, and `.env.prod`; use `DATABASE_URL` as the database URL in each mode instead of adding mode-specific database URL names.
+- Database sync uses explicit mode pairs: `bun run db:sync -- -m prod-local`, `bun run db:sync -- -m remote-local`, or `bun run db:sync -- -m prod-remote`; use `--reset` only to reset sync cursors/state for that pair.
 - Website/dashboard QA should start the local web stack with `bun run dev --local --filter dashboard marketing` when those apps are in scope. Add the school-site filter only when school-site behavior is part of the QA slice.
 - Website QA must use Portless hostnames instead of raw localhost ports:
   - marketing/public site: `school-clerk.localhost`

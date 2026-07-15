@@ -1,17 +1,10 @@
 #!/usr/bin/env bun
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import {
-  envFilesForCwd,
-  findWorkspaceRoot,
-  loadEnvFiles,
-  resolveDevInfraEnv,
-  type DevDatabaseMode,
-} from "./with-dev-infra";
 
 type DbAction = "generate" | "migrate" | "pull" | "push" | "studio";
-type DbProfile = DevDatabaseMode | "prod";
+type DbProfile = "local" | "remote" | "prod";
 
 type DbCommandCliOptions = {
   action: DbAction;
@@ -29,12 +22,10 @@ const ACTIONS = new Set<DbAction>([
 
 const PROFILE_FLAGS = new Map<string, DbProfile>([
   ["--local", "local"],
-  ["--remote", "remote-dev"],
-  ["--remote-dev", "remote-dev"],
+  ["--remote", "remote"],
+  ["--remote-dev", "remote"],
   ["--prod", "prod"],
 ]);
-
-const PROD_CHILD_ENV = "SCHOOL_CLERK_DB_COMMAND_PROD_CHILD";
 
 export function parseArgs(argv: string[]): DbCommandCliOptions {
   const action = argv[0] as DbAction | undefined;
@@ -104,24 +95,7 @@ export function prismaArgsForAction(
   }
 }
 
-export function commandForOptions(options: DbCommandCliOptions): string[] {
-  if (options.profile === "prod" && process.env[PROD_CHILD_ENV] !== "1") {
-    return [
-      "./scripts/with-root-env.sh",
-      "--mode",
-      "production",
-      "APP_ENV=production",
-      "NODE_ENV=production",
-      "SCHOOL_CLERK_DB_MODE=prod",
-      PROD_CHILD_ENV + "=1",
-      "bun",
-      "scripts/db-command.ts",
-      options.action,
-      "--prod",
-      ...(options.passthrough.length > 0 ? ["--", ...options.passthrough] : []),
-    ];
-  }
-
+export function prismaCommandForOptions(options: DbCommandCliOptions): string[] {
   return [
     "bunx",
     "--bun",
@@ -130,83 +104,51 @@ export function commandForOptions(options: DbCommandCliOptions): string[] {
   ];
 }
 
-function isLocalDatabaseUrl(value: string | undefined) {
-  if (!value) {
-    return false;
-  }
+export function withEnvCommandForOptions(
+  options: DbCommandCliOptions,
+  workspaceRoot: string,
+): string[] {
+  return [
+    "bun",
+    resolve(workspaceRoot, "../local-infra-kit/bin/with-env.ts"),
+    "--profile",
+    "school-clerk",
+    "--mode",
+    options.profile,
+    "--",
+    ...prismaCommandForOptions(options),
+  ];
+}
 
-  try {
-    return new Set(["localhost", "127.0.0.1", "::1", "0.0.0.0", "postgres"]).has(
-      new URL(value).hostname,
-    );
-  } catch {
-    return false;
+function findWorkspaceRoot(startDir: string): string {
+  let currentDir = resolve(startDir);
+
+  while (true) {
+    const packageJsonPath = resolve(currentDir, "package.json");
+
+    if (existsSync(packageJsonPath)) {
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+        workspaces?: unknown;
+      };
+
+      if (Array.isArray(packageJson.workspaces)) {
+        return currentDir;
+      }
+    }
+
+    const parentDir = resolve(currentDir, "..");
+
+    if (parentDir === currentDir) {
+      throw new Error(`Could not find a workspace root from ${startDir}.`);
+    }
+
+    currentDir = parentDir;
   }
 }
 
-function normalizePgConnectionString(connectionString: string) {
-  const url = new URL(connectionString);
-  const sslMode = url.searchParams.get("sslmode");
-
-  if (
-    sslMode &&
-    ["prefer", "require", "verify-ca"].includes(sslMode) &&
-    !url.searchParams.has("uselibpqcompat")
-  ) {
-    url.searchParams.set("uselibpqcompat", "true");
-  }
-
-  return url.toString();
-}
-
-function normalizeDatabaseEnv<TEnv extends Record<string, string | undefined>>(
-  env: TEnv,
-): TEnv {
-  const next = { ...env };
-  const value = next.DATABASE_URL;
-
-  if (value) {
-    next.DATABASE_URL = normalizePgConnectionString(value);
-  }
-
-  return next;
-}
-
-function productionEnv() {
-  const databaseUrl = process.env.DATABASE_URL;
-
-  if (!databaseUrl) {
-    throw new Error("Missing production DATABASE_URL.");
-  }
-
-  if (isLocalDatabaseUrl(databaseUrl)) {
-    throw new Error(
-      "Refusing to run a production DB command against a local database URL.",
-    );
-  }
-
-  return normalizeDatabaseEnv({
-    ...process.env,
-    DATABASE_URL: databaseUrl,
-  });
-}
-
-function developmentEnv(profile: DevDatabaseMode, workspaceRoot: string) {
-  const fileEnv = loadEnvFiles(envFilesForCwd(workspaceRoot));
-
-  return normalizeDatabaseEnv(resolveDevInfraEnv(
-    {
-      ...fileEnv,
-      ...process.env,
-    },
-    { dbMode: profile },
-  ));
-}
-
-async function run(command: string[], options: { cwd: string; env: typeof process.env }) {
+async function run(command: string[], options: { cwd: string }) {
   const child = Bun.spawn(command, {
     cwd: options.cwd,
-    env: options.env,
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
@@ -222,34 +164,38 @@ async function main() {
   const options = parseArgs(Bun.argv.slice(2));
   const workspaceRoot = findWorkspaceRoot(process.cwd());
   const dbPackageDir = resolve(workspaceRoot, "packages/db");
+  const withEnvPath = resolve(workspaceRoot, "../local-infra-kit/bin/with-env.ts");
 
   if (!existsSync(dbPackageDir)) {
     throw new Error(`Could not find DB package at ${dbPackageDir}.`);
   }
 
-  if (options.profile === "prod" && process.env[PROD_CHILD_ENV] !== "1") {
-    await run(commandForOptions(options), {
-      cwd: workspaceRoot,
-      env: process.env,
-    });
-    return;
+  if (!existsSync(withEnvPath)) {
+    throw new Error(`Could not find local-infra-kit env wrapper at ${withEnvPath}.`);
   }
-
-  const env =
-    options.profile === "prod"
-      ? productionEnv()
-      : developmentEnv(options.profile, workspaceRoot);
 
   if (options.profile === "local" && options.action !== "generate") {
-    await run(["bun", "run", "dev:services:local"], {
-      cwd: workspaceRoot,
-      env,
-    });
+    await run(
+      [
+        "bun",
+        withEnvPath,
+        "--profile",
+        "school-clerk",
+        "--mode",
+        "local",
+        "--",
+        "bun",
+        "run",
+        "dev:services",
+      ],
+      {
+        cwd: workspaceRoot,
+      },
+    );
   }
 
-  await run(commandForOptions(options), {
+  await run(withEnvCommandForOptions(options, workspaceRoot), {
     cwd: dbPackageDir,
-    env,
   });
 }
 
