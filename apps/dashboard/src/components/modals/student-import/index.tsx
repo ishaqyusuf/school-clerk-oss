@@ -23,6 +23,14 @@ import { _trpc } from "@/components/static-trpc";
 import { useQuery } from "@tanstack/react-query";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { parseRawInput } from "./parser";
+import {
+  createEmptyStudentImportDraft,
+  LEGACY_STUDENT_IMPORT_RAW_STORAGE_KEY,
+  normalizeStudentImportDraft,
+  STUDENT_IMPORT_DRAFT_STORAGE_KEY,
+  type StudentImportDraft,
+  type StudentImportReviewDraft,
+} from "./draft-storage";
 
 const studentImportSchema = z.object({
   classRoomId: z.string().optional(),
@@ -35,7 +43,18 @@ export function StudentImportModal() {
   const [, setParams] = useQueryStates({
     action: parseAsString,
   });
-  const [ls, setLs] = useLocalStorage("student-import-data", "");
+  const [legacyRaw, setLegacyRaw] = useLocalStorage(
+    LEGACY_STUDENT_IMPORT_RAW_STORAGE_KEY,
+    "",
+  );
+  const [storedDraft, setStoredDraft] = useLocalStorage<StudentImportDraft>(
+    STUDENT_IMPORT_DRAFT_STORAGE_KEY,
+    createEmptyStudentImportDraft(legacyRaw),
+  );
+  const draft = useMemo(
+    () => normalizeStudentImportDraft(storedDraft, legacyRaw),
+    [legacyRaw, storedDraft],
+  );
   const open = searchParams.get("action") === "student-import";
 
   const { data: classList, isLoading: isClassListLoading } = useQuery(
@@ -49,25 +68,35 @@ export function StudentImportModal() {
 
   const form = useZodForm(studentImportSchema, {
     defaultValues: {
-      classRoomId: "",
-      globalGender: "unset",
-      raw: ls,
+      classRoomId: draft.setup.classRoomId,
+      globalGender: draft.setup.globalGender,
+      raw: draft.setup.raw,
     },
   });
 
-  const [tab, setTab] = useState("main");
-  const [importPhase, setImportPhase] = useState<"review" | "import">("review");
+  const [tab, setTab] = useState(draft.setup.tab);
+  const [importPhase, setImportPhase] = useState<"review" | "import">(
+    draft.setup.importPhase,
+  );
   const onSubmit = () => {
     setImportPhase("review");
     setTab("importing");
   };
-  const startNewImport = () => {
-    form.setValue("raw", "", {
+  const clearDraft = () => {
+    const emptyDraft = createEmptyStudentImportDraft("");
+
+    setStoredDraft(emptyDraft);
+    setLegacyRaw("");
+    form.setValue("classRoomId", emptyDraft.setup.classRoomId);
+    form.setValue("globalGender", emptyDraft.setup.globalGender);
+    form.setValue("raw", emptyDraft.setup.raw, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setLs("");
+  };
+  const startNewImport = () => {
+    clearDraft();
     setImportPhase("review");
     setTab("main");
   };
@@ -115,8 +144,63 @@ export function StudentImportModal() {
         : "review";
 
   useEffect(() => {
-    setLs(raw);
-  }, [raw, setLs]);
+    setLegacyRaw(raw);
+    setStoredDraft((current) => {
+      const normalized = normalizeStudentImportDraft(current, legacyRaw);
+      const nextSetup: StudentImportDraft["setup"] = {
+        classRoomId: classRoomId || "",
+        globalGender:
+          globalGender === "Male" ||
+          globalGender === "Female" ||
+          globalGender === "unset" ||
+          globalGender === ""
+            ? globalGender
+            : "unset",
+        raw,
+        tab: tab === "importing" ? "importing" : "main",
+        importPhase,
+      };
+
+      if (
+        normalized.setup.classRoomId === nextSetup.classRoomId &&
+        normalized.setup.globalGender === nextSetup.globalGender &&
+        normalized.setup.raw === nextSetup.raw &&
+        normalized.setup.tab === nextSetup.tab &&
+        normalized.setup.importPhase === nextSetup.importPhase
+      ) {
+        return current;
+      }
+
+      return {
+        ...normalized,
+        setup: nextSetup,
+      };
+    });
+  }, [
+    classRoomId,
+    globalGender,
+    importPhase,
+    legacyRaw,
+    raw,
+    setLegacyRaw,
+    setStoredDraft,
+    tab,
+  ]);
+
+  const updateReviewDraft = (review: StudentImportReviewDraft | null) => {
+    setStoredDraft((current) => {
+      const normalized = normalizeStudentImportDraft(current, legacyRaw);
+
+      if (normalized.review === review) {
+        return current;
+      }
+
+      return {
+        ...normalized,
+        review,
+      };
+    });
+  };
 
   return (
     <Dialog.Root
@@ -397,14 +481,20 @@ export function StudentImportModal() {
                   []
                 }
                 students={parse?.students || []}
+                savedDraft={
+                  draft.review?.sourceRaw === raw ? draft.review : null
+                }
                 isActive={open && tab === "importing"}
+                sourceRaw={raw}
                 onCancelImport={() => {
                   setImportPhase("review");
                   setTab("main");
                 }}
+                onClearDraft={clearDraft}
                 onStartNewImport={startNewImport}
                 onCloseImport={closeImport}
                 onPhaseChange={setImportPhase}
+                onDraftChange={updateReviewDraft}
               />
             ) : null}
           </Tabs.Content>

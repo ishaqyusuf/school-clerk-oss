@@ -4,7 +4,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { studentDisplayName } from "@/utils/utils";
 import type { RouterOutputs } from "@api/trpc/routers/_app";
 import { Alert, AlertDescription, AlertTitle } from "@school-clerk/ui/alert";
-import { Badge } from "@school-clerk/ui/badge";
+import { Badge, badgeVariants } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { Checkbox } from "@school-clerk/ui/checkbox";
 import { cn } from "@school-clerk/ui/cn";
@@ -43,7 +43,8 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { StudentImportReviewDraft } from "./draft-storage";
 import {
   normalizeStudentImportError,
   type NormalizedStudentImportError,
@@ -73,7 +74,11 @@ interface Props {
     classroomLabel?: string;
     classroomResolutionStatus?: "resolved" | "missing" | "ambiguous";
   }[];
+  savedDraft?: StudentImportReviewDraft | null;
+  sourceRaw: string;
   onCancelImport?: () => void;
+  onClearDraft?: () => void;
+  onDraftChange?: (draft: StudentImportReviewDraft | null) => void;
   onStartNewImport?: () => void;
   onCloseImport?: () => void;
   onPhaseChange?: (phase: "review" | "import") => void;
@@ -155,25 +160,37 @@ const ARABIC_SCRIPT_RE =
 
 export function ImportActivity({
   students,
+  savedDraft,
+  sourceRaw,
   onCancelImport,
+  onClearDraft,
+  onDraftChange,
   onStartNewImport,
   onCloseImport,
   onPhaseChange,
   isActive = true,
 }: Props) {
-  const [classroomDeptId, setClassroomDeptId] = useState<string>("");
+  const [classroomDeptId, setClassroomDeptId] = useState<string>(
+    () => savedDraft?.classroomDeptId || "",
+  );
+  const [activeClassroomFilterId, setActiveClassroomFilterId] =
+    useState<string>(() => savedDraft?.activeClassroomFilterId || "all");
   const [rowDecisions, setRowDecisions] = useState<Record<number, RowDecision>>(
-    {},
+    () => sanitizeRowDecisions(savedDraft?.rowDecisions),
   );
   const [manualGenders, setManualGenders] = useState<
     Record<number, "Male" | "Female">
-  >({});
+  >(() => sanitizeManualGenders(savedDraft?.manualGenders));
   const [manualClassroomDepartmentIds, setManualClassroomDepartmentIds] =
-    useState<Record<number, string>>({});
-  const [checkedRows, setCheckedRows] = useState<Record<number, boolean>>({});
+    useState<Record<number, string>>(
+      () => savedDraft?.manualClassroomDepartmentIds || {},
+    );
+  const [checkedRows, setCheckedRows] = useState<Record<number, boolean>>(
+    () => savedDraft?.checkedRows || {},
+  );
   const [nameOverrides, setNameOverrides] = useState<
     Record<number, NameOverride>
-  >({});
+  >(() => savedDraft?.nameOverrides || {});
   const [manualMatches, setManualMatches] = useState<
     Record<number, MatchCandidate>
   >({});
@@ -206,6 +223,8 @@ export function ImportActivity({
   const [lastInvalidatedImportJobId, setLastInvalidatedImportJobId] = useState<
     string | null
   >(null);
+  const lastPersistedDraftJsonRef = useRef<string | null>(null);
+  const clearedCleanDraftResultKeyRef = useRef<string | null>(null);
 
   const {
     data: records,
@@ -214,10 +233,6 @@ export function ImportActivity({
   } = useQuery(
     _trpc.students.studentsRecentRecord.queryOptions({}, { enabled: isActive }),
   );
-
-  useEffect(() => {
-    setManualClassroomDepartmentIds({});
-  }, [students]);
 
   const manualClassroomRequiredLineNumbers = useMemo(
     () =>
@@ -315,6 +330,48 @@ export function ImportActivity({
     verificationReport ?? lastSuccessfulVerificationReport;
   const verificationRows = activeVerificationReport?.results;
   const baseRows = verificationRows ?? EMPTY_IMPORT_ROWS;
+  useEffect(() => {
+    if (!savedDraft?.manualMatchStudentIds) return;
+    if (!records?.students?.length) return;
+    if (!baseRows.length) return;
+
+    setManualMatches((current) => {
+      let changed = false;
+      const next = { ...current };
+
+      for (const row of baseRows) {
+        const studentId = savedDraft.manualMatchStudentIds[row.lineNumber];
+        if (!studentId) continue;
+        if (next[row.lineNumber]?.id === studentId) continue;
+
+        const student = records.students.find((item) => item.id === studentId);
+        if (!student) continue;
+
+        next[row.lineNumber] = studentToMatchCandidate(
+          student,
+          records.sessionTermId,
+          records.schoolSessionId,
+          getRowClassroomDepartmentId(
+            row,
+            savedDraft.classroomDeptId || classroomDeptId,
+            manualClassroomRequiredLineNumbers,
+          ),
+        );
+        changed = true;
+      }
+
+      return changed ? next : current;
+    });
+  }, [
+    baseRows,
+    classroomDeptId,
+    manualClassroomRequiredLineNumbers,
+    records?.schoolSessionId,
+    records?.sessionTermId,
+    records?.students,
+    savedDraft?.classroomDeptId,
+    savedDraft?.manualMatchStudentIds,
+  ]);
   const rows = useMemo<VerifyResult[]>(
     () =>
       baseRows.map((row): VerifyResult => {
@@ -345,6 +402,21 @@ export function ImportActivity({
       }),
     [baseRows, manualMatches, nameOverrides],
   );
+  const filteredRows = useMemo(
+    () =>
+      filterRowsByClassroom({
+        activeClassroomFilterId,
+        fallbackClassroomDepartmentId: classroomDeptId,
+        manualClassroomRequiredLineNumbers,
+        rows,
+      }),
+    [
+      activeClassroomFilterId,
+      classroomDeptId,
+      manualClassroomRequiredLineNumbers,
+      rows,
+    ],
+  );
 
   const reviewModel = useMemo(
     () =>
@@ -355,16 +427,16 @@ export function ImportActivity({
         manualClassroomRequiredLineNumbers,
         manualGenders,
         rowDecisions,
-        rows,
+        rows: filteredRows,
       }),
     [
       checkedRows,
       classroomDeptId,
+      filteredRows,
       importedLineNumbers,
       manualClassroomRequiredLineNumbers,
       manualGenders,
       rowDecisions,
-      rows,
     ],
   );
   const { readyRows, exactRows, suspectedRows, matchedRows, attentionRows } =
@@ -373,31 +445,20 @@ export function ImportActivity({
   useEffect(() => {
     if (!verificationRows) return;
 
-    const defaults: Record<number, RowDecision> = {};
-
-    for (const row of verificationRows) {
-      if (row.fullMatch) {
-        defaults[row.lineNumber] = {
-          action: "keep_match",
-          existingStudentId: row.fullMatch.id,
-          touched: false,
-        };
-      } else if (row.suspectedMatches.length === 0) {
-        defaults[row.lineNumber] = {
-          action: "import_new",
-          existingStudentId: null,
-          touched: false,
-        };
-      }
-    }
-
-    setRowDecisions(defaults);
-    setManualGenders({});
-    setCheckedRows(
-      Object.fromEntries(verificationRows.map((row) => [row.lineNumber, true])),
+    setRowDecisions((current) =>
+      reconcileRowDecisions(verificationRows, current),
     );
-    setNameOverrides({});
-    setManualMatches({});
+    setManualGenders((current) =>
+      pickLineNumberRecord(current, verificationRows),
+    );
+    setCheckedRows((current) =>
+      reconcileCheckedRows(verificationRows, current),
+    );
+    setManualClassroomDepartmentIds((current) =>
+      pickLineNumberRecord(current, verificationRows),
+    );
+    setNameOverrides((current) => pickLineNumberRecord(current, verificationRows));
+    setManualMatches((current) => pickLineNumberRecord(current, verificationRows));
     setPendingSearchMatches({});
     setPendingNameMatches({});
     setPreSubmitError(null);
@@ -800,7 +861,7 @@ export function ImportActivity({
     const needsDecisionLines: number[] = [];
     let skippedBeforeExecution = 0;
 
-    for (const row of rows) {
+    for (const row of filteredRows) {
       if (importedLineNumbers[row.lineNumber]) continue;
       if (!isRowChecked(checkedRows, row.lineNumber)) continue;
       const result = buildExecuteRow({
@@ -848,7 +909,11 @@ export function ImportActivity({
         return;
       }
 
-      setPreSubmitError("Check at least one row before executing the import.");
+      setPreSubmitError(
+        activeClassroomFilterId === "all"
+          ? "Check at least one row before executing the import."
+          : "Check at least one row in the active classroom filter before executing the import.",
+      );
       return;
     }
 
@@ -899,9 +964,6 @@ export function ImportActivity({
     });
   };
 
-  const selectedClassroom = records?.classDepartments?.find(
-    (classroom) => classroom.id === classroomDeptId,
-  );
   const classroomById = useMemo(
     () =>
       new Map(
@@ -913,7 +975,7 @@ export function ImportActivity({
     [records?.classDepartments],
   );
   const selectedClassroomIds = new Set(
-    rows
+    filteredRows
       .map((row) =>
         getRowClassroomDepartmentId(
           row,
@@ -923,13 +985,18 @@ export function ImportActivity({
       )
       .filter(Boolean),
   );
+  const selectedClassroomId =
+    selectedClassroomIds.size === 1 ? [...selectedClassroomIds][0] : null;
+  const selectedClassroom = selectedClassroomId
+    ? classroomById.get(selectedClassroomId)
+    : null;
   const classroomSummary =
     selectedClassroomIds.size > 1
       ? `${selectedClassroomIds.size} classrooms`
       : selectedClassroom
-        ? `${selectedClassroom.classRoom.name} - ${selectedClassroom.departmentName}`
-        : selectedClassroomIds.size === 1
-          ? rows.find((row) =>
+        ? getClassDepartmentDisplayName(selectedClassroom)
+        : selectedClassroomId
+          ? filteredRows.find((row) =>
               selectedClassroomIds.has(
                 getRowClassroomDepartmentId(
                   row,
@@ -961,6 +1028,16 @@ export function ImportActivity({
     ],
   );
   const showRowClassroom = classroomBreakdown.length > 1;
+  useEffect(() => {
+    if (activeClassroomFilterId === "all") return;
+    if (
+      classroomBreakdown.some((item) => item.id === activeClassroomFilterId)
+    ) {
+      return;
+    }
+
+    setActiveClassroomFilterId("all");
+  }, [activeClassroomFilterId, classroomBreakdown]);
   const displayedImportJob =
     (isActive && activeImportJobId ? activeImportJob : null) ??
     startedImportJob ??
@@ -1095,6 +1172,64 @@ export function ImportActivity({
       })),
     [records?.students],
   );
+  const reviewDraft = useMemo<StudentImportReviewDraft>(
+    () => ({
+      sourceRaw,
+      classroomDeptId,
+      activeClassroomFilterId,
+      rowDecisions,
+      manualGenders,
+      manualClassroomDepartmentIds,
+      checkedRows,
+      nameOverrides,
+      manualMatchStudentIds: Object.fromEntries(
+        Object.entries(manualMatches).map(([lineNumber, candidate]) => [
+          lineNumber,
+          candidate.id,
+        ]),
+      ),
+    }),
+    [
+      activeClassroomFilterId,
+      checkedRows,
+      classroomDeptId,
+      manualClassroomDepartmentIds,
+      manualGenders,
+      manualMatches,
+      nameOverrides,
+      rowDecisions,
+      sourceRaw,
+    ],
+  );
+  const reviewDraftJson = useMemo(
+    () => JSON.stringify(reviewDraft),
+    [reviewDraft],
+  );
+  const cleanImportResultKey = useMemo(
+    () =>
+      activeClassroomFilterId === "all" && !isExecutingBatch
+        ? getCleanImportResultKey(batchResult)
+        : null,
+    [activeClassroomFilterId, batchResult, isExecutingBatch],
+  );
+
+  useEffect(() => {
+    if (!cleanImportResultKey) return;
+    if (clearedCleanDraftResultKeyRef.current === cleanImportResultKey) return;
+
+    clearedCleanDraftResultKeyRef.current = cleanImportResultKey;
+    onClearDraft?.();
+  }, [cleanImportResultKey, onClearDraft]);
+
+  useEffect(() => {
+    if (!onDraftChange) return;
+    if (cleanImportResultKey) return;
+    if (clearedCleanDraftResultKeyRef.current) return;
+    if (lastPersistedDraftJsonRef.current === reviewDraftJson) return;
+
+    lastPersistedDraftJsonRef.current = reviewDraftJson;
+    onDraftChange(reviewDraft);
+  }, [cleanImportResultKey, onDraftChange, reviewDraft, reviewDraftJson]);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
@@ -1216,7 +1351,7 @@ export function ImportActivity({
         <ImportExecutionPanel
           classroomLabel={classroomSummary}
           classroomBreakdown={classroomBreakdown}
-          pastedRowCount={rows.length || students.length}
+          pastedRowCount={filteredRows.length || students.length}
           selectedRowCount={selectedRowCount}
           executableRowCount={executableRowCount}
           skippedBeforeExecution={
@@ -1245,7 +1380,11 @@ export function ImportActivity({
 
           <Separator />
 
-          <ClassroomBreakdownStrip breakdown={classroomBreakdown} />
+          <ClassroomBreakdownStrip
+            activeFilterId={activeClassroomFilterId}
+            breakdown={classroomBreakdown}
+            onFilterChange={setActiveClassroomFilterId}
+          />
 
           {isVerifying ? (
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-md border bg-muted/10 p-12 text-xs">
@@ -1770,7 +1909,7 @@ function ImportExecutionPanel({
 
       {hasResult ? (
         <div className="flex flex-wrap items-center justify-end gap-2 border-t bg-muted/10 p-3">
-          {onStartNewImport ? (
+          {onStartNewImport && !hasFailures && !hasError ? (
             <Button type="button" variant="outline" onClick={onStartNewImport}>
               Start new import
             </Button>
@@ -1787,13 +1926,90 @@ function ImportExecutionPanel({
 }
 
 function ClassroomBreakdownStrip({
+  activeFilterId = "all",
   breakdown,
   compact = false,
+  onFilterChange,
 }: {
+  activeFilterId?: string;
   breakdown: ClassroomBreakdown[];
   compact?: boolean;
+  onFilterChange?: (filterId: string) => void;
 }) {
   if (!breakdown.length) return null;
+
+  const canFilter = Boolean(onFilterChange && breakdown.length > 1 && !compact);
+  const totals = breakdown.reduce(
+    (current, item) => ({
+      totalRows: current.totalRows + item.totalRows,
+      checkedRows: current.checkedRows + item.checkedRows,
+      executableRows: current.executableRows + item.executableRows,
+      attentionRows: current.attentionRows + item.attentionRows,
+    }),
+    {
+      totalRows: 0,
+      checkedRows: 0,
+      executableRows: 0,
+      attentionRows: 0,
+    },
+  );
+  const renderFilterBadge = (
+    item: ClassroomBreakdown | (typeof totals & { id: string; label: string }),
+  ) => {
+    const active = activeFilterId === item.id;
+    const variant: "default" | "outline" | "secondary" = active
+      ? "default"
+      : item.attentionRows > 0
+        ? "outline"
+        : "secondary";
+    const badgeClassName = cn(
+      "h-auto max-w-full justify-start gap-1 px-2 py-1 text-[11px]",
+      active
+        ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+        : "bg-background",
+      !active &&
+        item.attentionRows > 0 &&
+        "border-amber-300 text-amber-700 dark:border-amber-900 dark:text-amber-300",
+    );
+    const content = (
+      <>
+        <Arabic>{item.label}</Arabic>
+        <span
+          className={
+            active ? "text-primary-foreground/80" : "text-muted-foreground"
+          }
+        >
+          {item.totalRows} rows · {item.checkedRows} checked ·{" "}
+          {item.executableRows} executable
+          {item.attentionRows > 0 ? ` · ${item.attentionRows} attention` : ""}
+        </span>
+      </>
+    );
+
+    if (!canFilter) {
+      return (
+        <Badge key={item.id} variant={variant} className={badgeClassName}>
+          {content}
+        </Badge>
+      );
+    }
+
+    return (
+      <button
+        key={item.id}
+        type="button"
+        aria-pressed={active}
+        className={cn(
+          badgeVariants({ variant }),
+          badgeClassName,
+          "cursor-pointer text-left",
+        )}
+        onClick={() => onFilterChange?.(item.id)}
+      >
+        {content}
+      </button>
+    );
+  };
 
   return (
     <div
@@ -1809,26 +2025,10 @@ function ClassroomBreakdownStrip({
         </span>
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {breakdown.map((item) => (
-          <Badge
-            key={item.id}
-            variant={item.attentionRows > 0 ? "outline" : "secondary"}
-            className={cn(
-              "h-auto max-w-full justify-start gap-1 bg-background px-2 py-1 text-[11px]",
-              item.attentionRows > 0 &&
-                "border-amber-300 text-amber-700 dark:border-amber-900 dark:text-amber-300",
-            )}
-          >
-            <Arabic>{item.label}</Arabic>
-            <span className="text-muted-foreground">
-              {item.totalRows} rows · {item.checkedRows} checked ·{" "}
-              {item.executableRows} executable
-              {item.attentionRows > 0
-                ? ` · ${item.attentionRows} attention`
-                : ""}
-            </span>
-          </Badge>
-        ))}
+        {canFilter
+          ? renderFilterBadge({ id: "all", label: "All", ...totals })
+          : null}
+        {breakdown.map((item) => renderFilterBadge(item))}
       </div>
     </div>
   );
@@ -3017,6 +3217,167 @@ function buildExecuteRow({
       existingStudentId,
     },
   };
+}
+
+function sanitizeRowDecisions(
+  decisions: StudentImportReviewDraft["rowDecisions"] | undefined,
+) {
+  if (!decisions) return {};
+
+  return Object.fromEntries(
+    Object.entries(decisions).flatMap(([lineNumber, decision]) => {
+      if (!decision) return [];
+      if (
+        decision.action &&
+        decision.action !== "import_new" &&
+        decision.action !== "keep_match" &&
+        decision.action !== "update_match_with_name" &&
+        decision.action !== "skip"
+      ) {
+        return [];
+      }
+
+      return [
+        [
+          Number(lineNumber),
+          {
+            action: decision.action,
+            existingStudentId: decision.existingStudentId ?? null,
+            touched: Boolean(decision.touched),
+          } satisfies RowDecision,
+        ],
+      ];
+    }),
+  );
+}
+
+function sanitizeManualGenders(
+  genders: StudentImportReviewDraft["manualGenders"] | undefined,
+) {
+  if (!genders) return {};
+
+  return Object.fromEntries(
+    Object.entries(genders).filter(
+      ([, gender]) => gender === "Male" || gender === "Female",
+    ),
+  ) as Record<number, "Male" | "Female">;
+}
+
+function getDefaultRowDecision(row: VerifyResult): RowDecision | undefined {
+  if (row.fullMatch) {
+    return {
+      action: "keep_match",
+      existingStudentId: row.fullMatch.id,
+      touched: false,
+    };
+  }
+
+  if (row.suspectedMatches.length === 0) {
+    return {
+      action: "import_new",
+      existingStudentId: null,
+      touched: false,
+    };
+  }
+
+  return undefined;
+}
+
+function reconcileRowDecisions(
+  rows: VerifyResult[],
+  current: Record<number, RowDecision>,
+) {
+  const next: Record<number, RowDecision> = {};
+
+  for (const row of rows) {
+    const existing = current[row.lineNumber];
+    const defaultDecision = getDefaultRowDecision(row);
+
+    if (row.fullMatch?.isCurrentTermMatch && defaultDecision) {
+      next[row.lineNumber] = defaultDecision;
+      continue;
+    }
+
+    if (row.fullMatch && existing?.action === "import_new" && defaultDecision) {
+      next[row.lineNumber] = defaultDecision;
+      continue;
+    }
+
+    if (existing?.action) {
+      next[row.lineNumber] = existing;
+      continue;
+    }
+
+    if (defaultDecision) {
+      next[row.lineNumber] = defaultDecision;
+    }
+  }
+
+  return next;
+}
+
+function reconcileCheckedRows(
+  rows: VerifyResult[],
+  current: Record<number, boolean>,
+) {
+  const next: Record<number, boolean> = {};
+
+  for (const row of rows) {
+    next[row.lineNumber] = current[row.lineNumber] ?? true;
+  }
+
+  return next;
+}
+
+function pickLineNumberRecord<T>(
+  record: Record<number, T>,
+  rows: Array<Pick<VerifyResult, "lineNumber">>,
+) {
+  const lineNumbers = new Set(rows.map((row) => row.lineNumber));
+  const next: Record<number, T> = {};
+
+  for (const [lineNumber, value] of Object.entries(record)) {
+    const numericLineNumber = Number(lineNumber);
+    if (lineNumbers.has(numericLineNumber)) {
+      next[numericLineNumber] = value;
+    }
+  }
+
+  return next;
+}
+
+function getCleanImportResultKey(result: ImportExecutionResult | undefined) {
+  if (!result || result.failedRows > 0) return null;
+
+  if ("status" in result) {
+    return result.status === "COMPLETED" ? `job:${result.id}` : null;
+  }
+
+  return `direct:${result.createdStudents}:${result.keptMatches}:${result.updatedMatches}:${result.skippedRows}`;
+}
+
+function filterRowsByClassroom({
+  activeClassroomFilterId,
+  fallbackClassroomDepartmentId,
+  manualClassroomRequiredLineNumbers,
+  rows,
+}: {
+  activeClassroomFilterId: string;
+  fallbackClassroomDepartmentId: string;
+  manualClassroomRequiredLineNumbers: Set<number>;
+  rows: VerifyResult[];
+}) {
+  if (activeClassroomFilterId === "all") return rows;
+
+  return rows.filter((row) => {
+    const classroomDepartmentId = getRowClassroomDepartmentId(
+      row,
+      fallbackClassroomDepartmentId,
+      manualClassroomRequiredLineNumbers,
+    );
+
+    return (classroomDepartmentId || "unassigned") === activeClassroomFilterId;
+  });
 }
 
 function buildClassroomBreakdown({
