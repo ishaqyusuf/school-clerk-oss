@@ -1,0 +1,11 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">SchoolClerk modern logo option 2 - Campus Signal</title>
+  <desc id="desc">A modern campus roofline paired with digital signal arcs.</desc>
+  <rect width="128" height="128" rx="30" fill="#F8FAFC"/>
+  <path d="M28 49L64 27L100 49" stroke="#0F172A" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M34 61H94" stroke="#0F172A" stroke-width="9" stroke-linecap="round"/>
+  <path d="M46 78C56 68 72 68 82 78" stroke="#14B8A6" stroke-width="8" stroke-linecap="round"/>
+  <path d="M35 92C51 75 77 75 93 92" stroke="#38BDF8" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="64" cy="93" r="10" fill="#0F172A"/>
+  <circle cx="64" cy="93" r="4" fill="#F8FAFC"/>
+</svg>

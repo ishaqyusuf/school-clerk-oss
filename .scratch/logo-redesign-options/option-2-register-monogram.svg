@@ -1,0 +1,10 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">SchoolClerk logo option 2 - Register Monogram</title>
+  <desc id="desc">A refined ledger book holding an SC monogram for SchoolClerk.</desc>
+  <rect width="128" height="128" rx="28" fill="#F8FAFC"/>
+  <path d="M32 23H85C91.075 23 96 27.925 96 34V105H43C36.925 105 32 100.075 32 94V23Z" fill="#111827"/>
+  <path d="M45 23V105" stroke="#B38623" stroke-width="7"/>
+  <path d="M56 43H82" stroke="#F8FAFC" stroke-width="6" stroke-linecap="round"/>
+  <path d="M56 84H82" stroke="#F8FAFC" stroke-width="6" stroke-linecap="round"/>
+  <text x="70" y="74" text-anchor="middle" fill="#F8FAFC" font-family="Georgia, 'Times New Roman', serif" font-size="29" font-weight="700" letter-spacing="-2">SC</text>
+</svg>

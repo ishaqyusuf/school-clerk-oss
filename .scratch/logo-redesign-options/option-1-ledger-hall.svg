@@ -1,0 +1,11 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">SchoolClerk logo option 1 - Ledger Hall</title>
+  <desc id="desc">A classic school hall roof combined with a clean administrative ledger.</desc>
+  <rect width="128" height="128" rx="28" fill="#F8FAFC"/>
+  <path d="M64 15L20 39V50H108V39L64 15Z" fill="#111827"/>
+  <path d="M31 62C31 58.686 33.686 56 37 56H91C94.314 56 97 58.686 97 62V103C97 106.314 94.314 109 91 109H37C33.686 109 31 106.314 31 103V62Z" fill="#111827"/>
+  <path d="M45 72H83" stroke="#F8FAFC" stroke-width="7" stroke-linecap="round"/>
+  <path d="M45 87H70" stroke="#F8FAFC" stroke-width="7" stroke-linecap="round"/>
+  <path d="M82 87L88 93L99 80" stroke="#B38623" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M28 50H100" stroke="#B38623" stroke-width="6" stroke-linecap="round"/>
+</svg>

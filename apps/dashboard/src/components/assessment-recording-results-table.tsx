@@ -2,9 +2,7 @@
 
 import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
 import { AssessmentPublicLinksPanel } from "@/components/assessment-public-links-panel";
-import { StudentGenderCell } from "@/components/student-gender-cell";
 import { SubjectAssessments } from "@/components/subject-assessments";
-import { useAuth } from "@/hooks/use-auth";
 import {
   buildResultRows,
   filterResultStudents,
@@ -54,6 +52,23 @@ type Props = {
   reportSheetHref?: string | null;
 };
 
+function StudentGenderBadge({ gender }: { gender?: string | null }) {
+  const label =
+    gender === "Male" ? "M" : gender === "Female" ? "F" : null;
+
+  if (!label) return null;
+
+  return (
+    <Badge
+      variant="outline"
+      className="h-5 shrink-0 px-1.5 text-[10px] font-semibold leading-none"
+      aria-label={`Gender ${gender}`}
+    >
+      {label}
+    </Badge>
+  );
+}
+
 export function AssessmentRecordingResultsTable({
   departmentId,
   termId,
@@ -68,9 +83,6 @@ export function AssessmentRecordingResultsTable({
   const [nameSearch, setNameSearch] = useState("");
   const [openSubjectId, setOpenSubjectId] = useState<string | null>(null);
   const deferredNameSearch = useDeferredValue(nameSearch);
-  const auth = useAuth();
-  const canUpdateStudentGender =
-    auth.role === "ADMIN" || auth.role === "Admin" || auth.role === "Registrar";
 
   const classroomReportQuery = useQuery(
     _trpc.assessments.getClassroomReportSheet.queryOptions(
@@ -325,18 +337,10 @@ export function AssessmentRecordingResultsTable({
               <TableRow>
                 <TableHead
                   rowSpan={2}
-                  className="sticky right-0 z-20 w-[180px] min-w-[180px] bg-muted/10"
+                  className="sticky right-0 z-20 w-[200px] min-w-[200px] bg-muted/10"
                 >
                   Student
                 </TableHead>
-                {!publicToken ? (
-                  <TableHead
-                    rowSpan={2}
-                    className="sticky right-[180px] z-20 w-[96px] min-w-[96px] border-r bg-muted/10 text-center"
-                  >
-                    Gender
-                  </TableHead>
-                ) : null}
                 {visibleSubjects.map((subject) => (
                   <TableHead
                     key={subject.id}
@@ -385,20 +389,19 @@ export function AssessmentRecordingResultsTable({
               {resultRows.length ? (
                 resultRows.map((row, index) => (
                   <TableRow key={row.student.id} className="hover:bg-muted/30">
-                    <TableCell className="sticky right-0 z-10 w-[180px] min-w-[180px] whitespace-nowrap bg-background">
-                      {index + 1}. {getStudentDisplayName(row.student.student)}
-                    </TableCell>
-                    {!publicToken ? (
-                      <TableCell className="sticky right-[180px] z-10 w-[96px] min-w-[96px] border-r bg-background text-center">
-                        <StudentGenderCell
-                          studentId={row.student.student?.id}
+                    <TableCell className="sticky right-0 z-10 w-[200px] min-w-[200px] whitespace-nowrap bg-background">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="shrink-0 tabular-nums">
+                          {index + 1}.
+                        </span>
+                        <span className="min-w-0 truncate">
+                          {getStudentDisplayName(row.student.student)}
+                        </span>
+                        <StudentGenderBadge
                           gender={row.student.student?.gender}
-                          disabled={!canUpdateStudentGender}
-                          align="start"
-                          onUpdated={() => classroomReportQuery.refetch()}
                         />
-                      </TableCell>
-                    ) : null}
+                      </div>
+                    </TableCell>
                     {row.subjectTotals.map((subjectTotal) => (
                       <Fragment key={subjectTotal.subject.id}>
                         {subjectTotal.cells.length ? (
@@ -428,7 +431,6 @@ export function AssessmentRecordingResultsTable({
                   <TableCell
                     colSpan={
                       1 +
-                      (publicToken ? 0 : 1) +
                       visibleSubjects.reduce(
                         (total, subject) =>
                           total + Math.max(subject.assessments.length, 1),

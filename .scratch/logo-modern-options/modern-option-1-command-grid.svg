@@ -1,0 +1,12 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">SchoolClerk modern logo option 1 - Command Grid</title>
+  <desc id="desc">A modular dashboard grid with a connected workflow path.</desc>
+  <rect width="128" height="128" rx="30" fill="#F8FAFC"/>
+  <rect x="18" y="18" width="92" height="92" rx="24" fill="#0F172A"/>
+  <rect x="34" y="34" width="24" height="24" rx="7" fill="#F8FAFC"/>
+  <rect x="70" y="34" width="24" height="24" rx="7" fill="#38BDF8"/>
+  <rect x="34" y="70" width="24" height="24" rx="7" fill="#14B8A6"/>
+  <path d="M73 77H82C88.627 77 94 82.373 94 89V94" stroke="#F8FAFC" stroke-width="8" stroke-linecap="round"/>
+  <path d="M52 52C60 60 68 68 78 76" stroke="#F8FAFC" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="94" cy="94" r="8" fill="#F59E0B"/>
+</svg>

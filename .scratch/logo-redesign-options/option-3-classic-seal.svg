@@ -1,0 +1,12 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">SchoolClerk logo option 3 - Classic Seal</title>
+  <desc id="desc">A formal circular seal with an open record book and institutional roofline.</desc>
+  <rect width="128" height="128" rx="28" fill="#F8FAFC"/>
+  <circle cx="64" cy="64" r="46" fill="#111827"/>
+  <circle cx="64" cy="64" r="35" fill="#F8FAFC"/>
+  <path d="M64 30L40 43V50H88V43L64 30Z" fill="#111827"/>
+  <path d="M41 64C41 60.686 43.686 58 47 58H61C62.657 58 64 59.343 64 61V92C64 90.343 62.657 89 61 89H47C43.686 89 41 86.314 41 83V64Z" fill="#111827"/>
+  <path d="M87 64C87 60.686 84.314 58 81 58H67C65.343 58 64 59.343 64 61V92C64 90.343 65.343 89 67 89H81C84.314 89 87 86.314 87 83V64Z" fill="#111827"/>
+  <path d="M50 69H58M70 69H78M50 80H58M70 80H78" stroke="#F8FAFC" stroke-width="4" stroke-linecap="round"/>
+  <path d="M49 50H79" stroke="#B38623" stroke-width="5" stroke-linecap="round"/>
+</svg>

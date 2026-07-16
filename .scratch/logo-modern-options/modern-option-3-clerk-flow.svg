@@ -1,0 +1,9 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">SchoolClerk modern logo option 3 - Clerk Flow</title>
+  <desc id="desc">An abstract SC monogram drawn as a continuous operational flow.</desc>
+  <rect width="128" height="128" rx="30" fill="#F8FAFC"/>
+  <path d="M84 34H54C43.507 34 35 42.507 35 53C35 63.493 43.507 72 54 72H74C84.493 72 93 80.507 93 91C93 101.493 84.493 110 74 110H42" stroke="#0F172A" stroke-width="13" stroke-linecap="round"/>
+  <path d="M86 34C65 34 48 51 48 72C48 93 65 110 86 110" stroke="#14B8A6" stroke-width="13" stroke-linecap="round"/>
+  <circle cx="86" cy="34" r="7" fill="#F59E0B"/>
+  <circle cx="42" cy="110" r="7" fill="#38BDF8"/>
+</svg>

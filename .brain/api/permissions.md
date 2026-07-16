@@ -74,6 +74,7 @@ Defines access control rules for each API surface.
 - Teachers now have a dedicated `/teacher` workspace module and authenticated teacher users are redirected there first instead of to mixed admin/academic navigation.
 - Teacher workspace routes are grouped under `(k-12-teachers)` and guarded so only Teacher-role users can access them directly.
 - Teacher sidebar navigation currently renders as a flat list of permitted links while non-teacher roles keep the module-grouped sidebar.
+- Production teacher workspace navigation exposes only live teacher links: Overview, My Classes, My Students, and Reports. Incomplete teacher pages such as Attendance, Assessments, Grading, and Timetable are marked `upcoming`, remain visible with WIP badges outside production, and redirect to `/teacher` on direct production access.
 
 ## Teacher/Classroom Authorization Status
 

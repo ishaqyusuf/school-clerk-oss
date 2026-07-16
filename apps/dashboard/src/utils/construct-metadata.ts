@@ -10,11 +10,6 @@ const defaultIcons: Metadata["icons"] =
 				},
 				{
 					rel: "icon",
-					type: "image/svg+xml",
-					url: "/favicon-dev.svg",
-				},
-				{
-					rel: "icon",
 					type: "image/png",
 					sizes: "128x128",
 					url: "/favicon-dev.png",
@@ -28,15 +23,15 @@ const defaultIcons: Metadata["icons"] =
 				},
 				{
 					rel: "icon",
-					type: "image/svg+xml",
+					type: "image/png",
 					media: "(prefers-color-scheme: light)",
-					url: "/logo-light.svg",
+					url: "/logo-light.png",
 				},
 				{
 					rel: "icon",
-					type: "image/svg+xml",
+					type: "image/png",
 					media: "(prefers-color-scheme: dark)",
-					url: "/logo-dark.svg",
+					url: "/logo-dark.png",
 				},
 				{
 					rel: "icon",

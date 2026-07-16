@@ -1,0 +1,12 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">SchoolClerk modern logo option 4 - Smart Ledger</title>
+  <desc id="desc">A clean student record card with a modern automation spark.</desc>
+  <rect width="128" height="128" rx="30" fill="#F8FAFC"/>
+  <rect x="28" y="22" width="72" height="86" rx="18" fill="#0F172A"/>
+  <rect x="42" y="40" width="44" height="7" rx="3.5" fill="#F8FAFC"/>
+  <rect x="42" y="58" width="31" height="7" rx="3.5" fill="#64748B"/>
+  <rect x="42" y="76" width="44" height="7" rx="3.5" fill="#F8FAFC"/>
+  <path d="M84 59L89 72L102 77L89 82L84 95L79 82L66 77L79 72L84 59Z" fill="#14B8A6"/>
+  <path d="M34 29H25V45" stroke="#38BDF8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M94 99H103V83" stroke="#F59E0B" stroke-width="6" stroke-linecap="round"/>
+</svg>
