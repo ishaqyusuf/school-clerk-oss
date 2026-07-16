@@ -220,6 +220,8 @@ export function ImportActivity({
   const [activeImportJobId, setActiveImportJobId] = useState<string | null>(
     null,
   );
+  const [lastActiveImportJob, setLastActiveImportJob] =
+    useState<StudentImportJob | null>(null);
   const [lastInvalidatedImportJobId, setLastInvalidatedImportJobId] = useState<
     string | null
   >(null);
@@ -520,6 +522,20 @@ export function ImportActivity({
         refetchInterval: false,
       }),
     );
+
+  useEffect(() => {
+    if (!activeImportJobId) {
+      setLastActiveImportJob(null);
+    }
+  }, [activeImportJobId]);
+
+  useEffect(() => {
+    if (!activeImportJob) return;
+
+    setLastActiveImportJob((current) =>
+      getStableStudentImportJob(activeImportJob, current),
+    );
+  }, [activeImportJob]);
 
   const { mutate: executeSingleRow, reset: resetSingleRowMutation } =
     useMutation(
@@ -1043,7 +1059,9 @@ export function ImportActivity({
     setActiveClassroomFilterId("all");
   }, [activeClassroomFilterId, classroomBreakdown]);
   const displayedImportJob =
-    (isActive && activeImportJobId ? activeImportJob : null) ??
+    (isActive && activeImportJobId
+      ? (activeImportJob ?? lastActiveImportJob ?? startedImportJob)
+      : null) ??
     startedImportJob ??
     (canRecoverImportJob ? recoveredImportJob : null) ??
     null;
@@ -3358,6 +3376,27 @@ function getCleanImportResultKey(result: ImportExecutionResult | undefined) {
   }
 
   return `direct:${result.createdStudents}:${result.keptMatches}:${result.updatedMatches}:${result.skippedRows}`;
+}
+
+function isFinalStudentImportJob(job: StudentImportJob) {
+  return (
+    job.status === "COMPLETED" ||
+    job.status === "COMPLETED_WITH_FAILURES" ||
+    job.status === "FAILED" ||
+    job.status === "CANCELLED"
+  );
+}
+
+function getStableStudentImportJob(
+  next: StudentImportJob,
+  current: StudentImportJob | null,
+) {
+  if (!current || current.id !== next.id) return next;
+  if (isFinalStudentImportJob(current) && !isFinalStudentImportJob(next)) {
+    return current;
+  }
+
+  return next;
 }
 
 function filterRowsByClassroom({
