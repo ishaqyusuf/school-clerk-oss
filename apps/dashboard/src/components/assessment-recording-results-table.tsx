@@ -334,12 +334,12 @@ export function AssessmentRecordingResultsTable({
           </div>
         </div>
         <div className="max-h-[calc(100vh-180px)] overflow-auto">
-          <Table dir="rtl">
+          <Table dir="rtl" className="border-collapse">
             <TableHeader className="sticky top-0 z-10 bg-muted/10">
               <TableRow>
                 <TableHead
                   rowSpan={2}
-                  className="sticky right-0 z-20 w-[200px] min-w-[200px] bg-muted/10"
+                  className="sticky right-0 z-20 w-[200px] min-w-[200px] border-l bg-muted/10"
                 >
                   Student
                 </TableHead>
@@ -347,7 +347,7 @@ export function AssessmentRecordingResultsTable({
                   <TableHead
                     key={subject.id}
                     colSpan={Math.max(subject.assessments.length, 1)}
-                    className="text-center"
+                    className="border-l text-center"
                   >
                     <button
                       type="button"
@@ -370,7 +370,7 @@ export function AssessmentRecordingResultsTable({
                       subject.assessments.map((assessment) => (
                         <TableHead
                           key={`${subject.id}-${assessment.id}`}
-                          className="w-[70px] min-w-[70px] max-w-[70px] text-center text-xs"
+                          className="w-[70px] min-w-[70px] max-w-[70px] border-l px-1 text-center text-xs"
                         >
                           <div>{getAssessmentDisplayTitle(assessment)}</div>
                           <div className="text-muted-foreground">
@@ -379,7 +379,7 @@ export function AssessmentRecordingResultsTable({
                         </TableHead>
                       ))
                     ) : (
-                      <TableHead className="min-w-[90px] text-center text-xs text-muted-foreground">
+                      <TableHead className="min-w-[90px] border-l text-center text-xs text-muted-foreground">
                         No assessments
                       </TableHead>
                     )}
@@ -391,7 +391,7 @@ export function AssessmentRecordingResultsTable({
               {resultRows.length ? (
                 resultRows.map((row, index) => (
                   <TableRow key={row.student.id} className="hover:bg-muted/30">
-                    <TableCell className="sticky right-0 z-10 w-[200px] min-w-[200px] whitespace-nowrap bg-background">
+                    <TableCell className="sticky right-0 z-10 w-[200px] min-w-[200px] whitespace-nowrap border-l bg-background">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span className="shrink-0 tabular-nums">
                           {index + 1}.
@@ -420,7 +420,7 @@ export function AssessmentRecordingResultsTable({
                             />
                           ))
                         ) : (
-                          <TableCell className="text-center text-muted-foreground">
+                          <TableCell className="border-l text-center text-muted-foreground">
                             -
                           </TableCell>
                         )}
@@ -439,7 +439,7 @@ export function AssessmentRecordingResultsTable({
                         0,
                       )
                     }
-                    className="h-24 text-center text-muted-foreground"
+                    className="h-24 border-l text-center text-muted-foreground"
                   >
                     No students match the current filters.
                   </TableCell>

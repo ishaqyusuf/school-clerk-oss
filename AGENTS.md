@@ -11,7 +11,7 @@ Before starting work:
 - For API, auth, permission, database, or migration work, read the matching files under `.brain/api/` and `.brain/database/`.
 - If the repository root defines both `db:migrate` and `db:push` scripts and Prisma schema/database files are changed, run both commands after the Prisma update. Do not manually create migration files.
 
-After code changes:
+After code changes: 
 
 - Run a Brain documentation impact check before finishing.
 - Update `.brain/database/schema.md`, `.brain/database/relationships.md`, or `.brain/database/migrations.md` for database changes.

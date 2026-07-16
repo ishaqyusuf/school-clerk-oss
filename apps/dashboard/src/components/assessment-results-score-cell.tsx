@@ -122,12 +122,12 @@ export function AssessmentResultsScoreCell({
     return (
       <TableCell
         className={cn(
-          "w-[70px] min-w-[70px] max-w-[70px] cursor-pointer p-0 text-center transition-colors hover:bg-accent/50",
+          "w-[70px] min-w-[70px] max-w-[70px] cursor-pointer border-l p-0 text-center transition-colors hover:bg-accent/50",
           dividerClass,
         )}
         onClick={() => setIsEditing(true)}
       >
-        <div className="flex h-full min-h-9 w-[70px] items-center justify-center px-1 py-2">
+        <div className="flex h-full min-h-9 w-full items-center justify-center px-1 py-2">
           <span
             className={cn(
               "text-sm",
@@ -144,17 +144,17 @@ export function AssessmentResultsScoreCell({
   return (
     <TableCell
       className={cn(
-        "w-[70px] min-w-[70px] max-w-[70px] p-0 text-center",
+        "w-[70px] min-w-[70px] max-w-[70px] border-l p-0 text-center",
         dividerClass,
       )}
     >
-      <div className="relative flex min-h-9 w-[70px] items-center">
+      <div className="relative flex min-h-9 w-full items-center">
         <input
           ref={inputRef}
           type="number"
           className={cn(
-            "h-8 w-full min-w-0 bg-transparent px-1 pr-5 text-center text-sm outline-none",
-            "rounded border-0 focus:ring-1 focus:ring-primary",
+            "h-9 w-full min-w-0 bg-transparent px-0 pr-5 text-center text-sm outline-none",
+            "border-0 focus:bg-accent/40 focus:ring-0 focus-visible:ring-0",
             "[appearance:textfield]",
             "[&::-webkit-inner-spin-button]:appearance-none",
             "[&::-webkit-outer-spin-button]:appearance-none",
