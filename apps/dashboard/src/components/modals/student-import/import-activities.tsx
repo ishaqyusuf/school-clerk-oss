@@ -558,7 +558,10 @@ export function ImportActivity({
     setDecision(row.lineNumber, (current) => {
       const needsExisting =
         action === "keep_match" || action === "update_match_with_name";
-      const fallbackMatchId = row.fullMatch?.id || current.existingStudentId;
+      const fallbackMatchId =
+        current.existingStudentId ||
+        row.fullMatch?.id ||
+        getSingleCandidateId(row);
 
       return {
         action,
@@ -607,7 +610,9 @@ export function ImportActivity({
 
         next[row.lineNumber] = {
           action,
-          existingStudentId: needsExisting ? row.fullMatch?.id || null : null,
+          existingStudentId: needsExisting
+            ? row.fullMatch?.id || getSingleCandidateId(row)
+            : null,
           touched: false,
         };
       }
@@ -2043,7 +2048,7 @@ function RowsList({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="divide-y border-y bg-background">
       {rows.map((row) => (
         <RowCard
           key={row.lineNumber}
@@ -2150,30 +2155,33 @@ function RowCard({
   const resolvedGender = resolveGender(row, manualGender);
   const isSkipped =
     action === "skip" || isStudentImportAutoSkippedRow(row, decision);
+  const implicitExistingStudentId = getSingleCandidateId(row);
   const needsExistingMatch =
     (action === "keep_match" || action === "update_match_with_name") &&
-    !decision?.existingStudentId &&
+    !(decision?.existingStudentId || implicitExistingStudentId) &&
     !isSkipped;
   const needsResolution = !action;
   const needsGender = !resolvedGender;
   const needsClassroom = !row.classroomDepartmentId;
+  const showMissingClassroom = needsClassroom && !isSkipped;
   const isBlocked =
     !imported &&
+    !isSkipped &&
     (needsGender || needsClassroom || needsResolution || needsExistingMatch);
-  const matchKind = row.fullMatch
+  const matchStatus = row.fullMatch
     ? "Exact match"
     : row.suspectedMatches.length > 0
       ? "Possible match"
       : "No match";
   const statusLabel = imported
     ? "Imported"
-    : isSkipped
-      ? "Skipped"
-      : isBlocked
-        ? "Action required"
-        : "Ready";
+    : isBlocked
+      ? "Action required"
+      : "Ready";
+  const showStatusBadge = !isSkipped && statusLabel === "Imported";
   const selectedCandidate = candidates.find(
-    (candidate) => candidate.id === decision?.existingStudentId,
+    (candidate) =>
+      candidate.id === (decision?.existingStudentId || implicitExistingStudentId),
   );
   const primaryCandidate = selectedCandidate || candidates[0] || null;
   const extraCandidateCount = Math.max(0, candidates.length - 1);
@@ -2188,7 +2196,7 @@ function RowCard({
       ? getClassDepartmentDisplayName(rowClassroomOption)
       : "") || row.classRoom;
   const showResolutionStrip =
-    needsClassroom ||
+    showMissingClassroom ||
     showSearch ||
     Boolean(pendingNameMatch) ||
     Boolean(singleRowError);
@@ -2196,14 +2204,12 @@ function RowCard({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-md border bg-background text-xs",
-        isBlocked
-          ? "border-amber-200 bg-amber-50/30 dark:border-amber-900/60 dark:bg-amber-950/10"
-          : "border-border",
+        "bg-background text-xs",
+        isBlocked && "bg-amber-50/30 dark:bg-amber-950/10",
       )}
     >
-      <div className="grid gap-3 px-3 py-2 lg:grid-cols-[2rem_2.75rem_minmax(18rem,1.45fr)_minmax(13rem,0.9fr)_12rem_2.5rem] lg:items-center">
-        <div className="flex items-start justify-center pt-1 lg:pt-0">
+      <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-2 gap-y-2 px-3 py-2 lg:grid-cols-[2rem_2.75rem_minmax(18rem,1.45fr)_minmax(13rem,0.9fr)_15rem] lg:items-center lg:gap-3">
+        <div className="col-start-1 row-start-1 flex items-start justify-center pt-1 lg:col-auto lg:row-auto lg:pt-0">
           <Checkbox
             checked={checked}
             onCheckedChange={(value) =>
@@ -2214,13 +2220,13 @@ function RowCard({
           />
         </div>
 
-        <div className="flex items-start justify-center pt-1 lg:pt-0">
+        <div className="col-start-1 row-start-2 flex items-start justify-center lg:col-auto lg:row-auto lg:pt-0">
           <span className="inline-flex h-6 min-w-7 items-center justify-center rounded-md border bg-muted/20 px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground">
             {row.lineNumber}
           </span>
         </div>
 
-        <div className="min-w-0 space-y-3">
+        <div className="col-start-2 row-span-2 row-start-1 min-w-0 space-y-2 lg:col-auto lg:row-auto lg:space-y-3">
           <div
             dir={nameDirection}
             className={cn(
@@ -2259,45 +2265,28 @@ function RowCard({
               value={resolvedGender || undefined}
               onValueChange={(gender) => onGenderChange(row.lineNumber, gender)}
               compact
+              missing={needsGender && !isSkipped}
             />
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-muted-foreground">
-            <Badge
-              variant={
-                row.fullMatch
-                  ? "success"
-                  : row.suspectedMatches.length
-                    ? "warning"
-                    : "secondary"
-              }
-            >
-              {matchKind}
-            </Badge>
-            <Badge
-              variant="outline"
-              className={cn(
-                "bg-background",
-                isBlocked
-                  ? "border-amber-300 text-amber-700 dark:text-amber-300"
-                  : "border-green-200 text-green-700 dark:text-green-300",
-              )}
-            >
-              {imported ? (
-                <CheckCircle2 className="mr-1 size-3.5" />
-              ) : isBlocked ? (
-                <AlertCircle className="mr-1 size-3.5" />
-              ) : (
-                <CheckCircle2 className="mr-1 size-3.5" />
-              )}
-              {statusLabel}
-            </Badge>
-            {!resolvedGender ? (
+            {showStatusBadge ? (
               <Badge
                 variant="outline"
-                className="border-amber-300 bg-background text-amber-700 dark:text-amber-300"
+                className={cn(
+                  "bg-background",
+                  isBlocked
+                    ? "border-amber-300 text-amber-700 dark:text-amber-300"
+                    : "border-green-200 text-green-700 dark:text-green-300",
+                )}
               >
-                <AlertTriangle className="mr-1 size-3.5" />
-                Gender missing
+                {imported ? (
+                  <CheckCircle2 className="mr-1 size-3.5" />
+                ) : isBlocked ? (
+                  <AlertCircle className="mr-1 size-3.5" />
+                ) : (
+                  <CheckCircle2 className="mr-1 size-3.5" />
+                )}
+                {statusLabel}
               </Badge>
             ) : null}
             {showRowClassroom && rowClassroomLabel ? (
@@ -2305,7 +2294,7 @@ function RowCard({
                 <Arabic className="truncate">{rowClassroomLabel}</Arabic>
               </Badge>
             ) : null}
-            {needsClassroom ? (
+            {showMissingClassroom ? (
               <Badge
                 variant="outline"
                 className="border-amber-300 bg-background text-amber-700 dark:text-amber-300"
@@ -2325,104 +2314,121 @@ function RowCard({
           </div>
         </div>
 
-        <MatchSummaryPopover
-          candidates={candidates}
-          decision={decision}
-          extraCandidateCount={extraCandidateCount}
-          needsExistingMatch={needsExistingMatch}
-          onCandidateChange={(candidateId) =>
-            onCandidateChange(row, candidateId)
-          }
-          primaryCandidate={primaryCandidate}
-        />
-
-        <div className="min-w-0">
-          <Select
-            value={action || ""}
-            onValueChange={(value) =>
-              onActionChange(row, value as ImportAction)
+        <div className="col-span-2 row-start-3 min-w-0 lg:col-auto lg:row-auto">
+          <MatchSummaryPopover
+            candidates={candidates}
+            decision={decision}
+            extraCandidateCount={extraCandidateCount}
+            matchStatus={matchStatus}
+            needsExistingMatch={needsExistingMatch}
+            onCandidateChange={(candidateId) =>
+              onCandidateChange(row, candidateId)
             }
-            disabled={imported || importing}
+            primaryCandidate={primaryCandidate}
+          />
+        </div>
+
+        <div
+          className={cn(
+            "col-span-2 row-start-4 grid min-w-0 grid-cols-[minmax(0,1fr)_2rem_2rem] items-start gap-1 rounded-md border bg-muted/20 p-1 lg:col-auto lg:row-auto",
+            getActionSelectorBorderClass(statusLabel, isSkipped),
+          )}
+        >
+          <div className="min-w-0">
+            <Select
+              value={action || ""}
+              onValueChange={(value) =>
+                onActionChange(row, value as ImportAction)
+              }
+              disabled={imported || importing}
+            >
+              <Select.Trigger className="h-8 w-full border-0 bg-background text-xs shadow-none">
+                <Select.Value placeholder="Select action" />
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Item value="import_new">Import new</Select.Item>
+                <Select.Item value="keep_match" disabled={!candidates.length}>
+                  Keep match
+                </Select.Item>
+                <Select.Item
+                  value="update_match_with_name"
+                  disabled={!candidates.length}
+                >
+                  Update match with name
+                </Select.Item>
+                <Select.Item value="skip" disabled={!candidates.length}>
+                  Skip
+                </Select.Item>
+              </Select.Content>
+            </Select>
+          </div>
+          <Button
+            type="button"
+            variant={showSearch ? "secondary" : "ghost"}
+            size="sm"
+            className="h-8 w-8 bg-background px-0"
+            onClick={() => setShowSearch(true)}
+            aria-label={`Search existing students for line ${row.lineNumber}`}
           >
-            <Select.Trigger className="h-8 w-full bg-background text-xs">
-              <Select.Value placeholder="Select action" />
-            </Select.Trigger>
-            <Select.Content>
-              <Select.Item value="import_new">Import new</Select.Item>
-              <Select.Item value="keep_match" disabled={!candidates.length}>
-                Keep match
-              </Select.Item>
-              <Select.Item
-                value="update_match_with_name"
-                disabled={!candidates.length}
+            <Search className="size-4" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 bg-background px-0"
+                aria-label={`More actions for line ${row.lineNumber}`}
               >
-                Update match with name
-              </Select.Item>
-              <Select.Item value="skip" disabled={!candidates.length}>
-                Skip
-              </Select.Item>
-            </Select.Content>
-          </Select>
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem
+                onSelect={() => onNamePartsReset(row.lineNumber)}
+              >
+                <X className="mr-2 size-4" />
+                Reset name structure
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!candidates.length}
+                onSelect={() => onActionChange(row, "skip")}
+              >
+                <MinusCircle className="mr-2 size-4" />
+                Skip row
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={imported || importing}
+                onSelect={() => onImportRow(row)}
+              >
+                {importing ? (
+                  <RefreshCw className="mr-2 size-4 animate-spin" />
+                ) : imported ? (
+                  <CheckCircle2 className="mr-2 size-4" />
+                ) : (
+                  <Import className="mr-2 size-4" />
+                )}
+                {importing
+                  ? "Importing row"
+                  : imported
+                    ? "Imported"
+                    : "Import row"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {needsExistingMatch ? (
-            <p className="mt-1 text-[11px] text-red-600">
+            <p className="col-span-3 text-[11px] text-red-600">
               Select a match first.
             </p>
           ) : null}
         </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 px-0"
-              aria-label={`More actions for line ${row.lineNumber}`}
-            >
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onSelect={() => setShowSearch(true)}>
-              <Search className="mr-2 size-4" />
-              Search existing student
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onNamePartsReset(row.lineNumber)}>
-              <X className="mr-2 size-4" />
-              Reset name structure
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!candidates.length}
-              onSelect={() => onActionChange(row, "skip")}
-            >
-              <MinusCircle className="mr-2 size-4" />
-              Skip row
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={imported || importing}
-              onSelect={() => onImportRow(row)}
-            >
-              {importing ? (
-                <RefreshCw className="mr-2 size-4 animate-spin" />
-              ) : imported ? (
-                <CheckCircle2 className="mr-2 size-4" />
-              ) : (
-                <Import className="mr-2 size-4" />
-              )}
-              {importing
-                ? "Importing row"
-                : imported
-                  ? "Imported"
-                  : "Import row"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       {showResolutionStrip ? (
         <div className="grid gap-2 border-t bg-muted/10 px-3 py-2 lg:grid-cols-[minmax(12rem,18rem)_minmax(0,1fr)]">
-          {needsClassroom ? (
+          {showMissingClassroom ? (
             <ClassroomSelect
               className="w-full"
               options={classroomOptions}
@@ -2468,6 +2474,7 @@ function MatchSummaryPopover({
   candidates,
   decision,
   extraCandidateCount,
+  matchStatus,
   needsExistingMatch,
   onCandidateChange,
   primaryCandidate,
@@ -2475,17 +2482,46 @@ function MatchSummaryPopover({
   candidates: MatchCandidate[];
   decision?: RowDecision;
   extraCandidateCount: number;
+  matchStatus: "Exact match" | "Possible match" | "No match";
   needsExistingMatch: boolean;
   onCandidateChange: (candidateId: string) => void;
   primaryCandidate: MatchCandidate | null;
 }) {
   if (!primaryCandidate) {
     return (
-      <div className="min-w-0 rounded-md border bg-muted/10 px-2.5 py-2">
+      <div
+        className={cn(
+          "min-w-0 rounded-md border bg-muted/10 px-2.5 py-1.5 sm:py-2",
+          getMatchSelectorBorderClass(matchStatus, needsExistingMatch),
+        )}
+      >
         <div className="text-xs font-medium text-foreground">No match</div>
-        <div className="text-[11px] text-muted-foreground">
-          This row will create a new student when its action is Import new.
-        </div>
+      </div>
+    );
+  }
+
+  const summary = (
+    <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground">
+      <Arabic className="min-w-0 truncate">
+        {getCandidateMatchLabel(primaryCandidate)}
+      </Arabic>
+      {extraCandidateCount > 0 ? (
+        <span className="shrink-0 text-[11px] font-normal text-muted-foreground">
+          +{extraCandidateCount} more
+        </span>
+      ) : null}
+    </div>
+  );
+
+  if (candidates.length <= 1) {
+    return (
+      <div
+        className={cn(
+          "min-w-0 rounded-md border bg-background px-2.5 py-2",
+          getMatchSelectorBorderClass(matchStatus, needsExistingMatch),
+        )}
+      >
+        {summary}
       </div>
     );
   }
@@ -2497,18 +2533,10 @@ function MatchSummaryPopover({
           type="button"
           className={cn(
             "min-w-0 rounded-md border bg-background px-2.5 py-2 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            needsExistingMatch && "border-amber-300",
+            getMatchSelectorBorderClass(matchStatus, needsExistingMatch),
           )}
         >
-          <Arabic className="block truncate text-xs font-medium text-foreground">
-            {studentDisplayName(primaryCandidate)}
-          </Arabic>
-          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-            <MatchMetadataBadges candidate={primaryCandidate} />
-            {extraCandidateCount > 0 ? (
-              <span>+{extraCandidateCount} more</span>
-            ) : null}
-          </div>
+          {summary}
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -2546,25 +2574,29 @@ function MatchSummaryPopover({
   );
 }
 
-function MatchMetadataBadges({ candidate }: { candidate: MatchCandidate }) {
-  return (
-    <>
-      <Badge variant={candidate.confidence === 100 ? "success" : "warning"}>
-        {candidate.confidence}%
-      </Badge>
-      {!candidate.isCurrentClassroomMatch && candidate.classRoom ? (
-        <Badge
-          variant="outline"
-          className="border-amber-300 text-amber-700 dark:border-amber-900"
-        >
-          <Arabic>{candidate.classRoom}</Arabic>
-        </Badge>
-      ) : null}
-      {candidate.isCurrentTermMatch ? (
-        <Badge variant="success">Term sheet exists</Badge>
-      ) : null}
-    </>
-  );
+function getMatchSelectorBorderClass(
+  matchStatus: "Exact match" | "Possible match" | "No match",
+  needsExistingMatch: boolean,
+) {
+  if (needsExistingMatch || matchStatus === "Possible match") {
+    return "border-amber-300 dark:border-amber-900";
+  }
+
+  if (matchStatus === "Exact match") {
+    return "border-green-300 dark:border-green-900";
+  }
+
+  return "border-border";
+}
+
+function getActionSelectorBorderClass(statusLabel: string, isSkipped: boolean) {
+  if (isSkipped || statusLabel === "Ready") return "border-border";
+
+  if (statusLabel === "Imported") {
+    return "border-green-300 dark:border-green-900";
+  }
+
+  return "border-amber-300 dark:border-amber-900";
 }
 
 function NamePartControl({
@@ -2681,7 +2713,7 @@ function StudentSearchPanel({
   const displayItems = searchValue.trim() ? items : recommendedItems;
 
   return (
-    <div className="border-t bg-muted/10 px-3 py-3">
+    <div className="rounded-md border bg-background p-2.5">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Search existing students
@@ -2763,10 +2795,12 @@ function GenderToggle({
   value,
   onValueChange,
   compact = false,
+  missing = false,
 }: {
   value?: "Male" | "Female";
   onValueChange: (gender: "Male" | "Female") => void;
   compact?: boolean;
+  missing?: boolean;
 }) {
   return (
     <ToggleGroup
@@ -2781,26 +2815,42 @@ function GenderToggle({
         }
       }}
       className={cn(
-        "grid grid-cols-2 justify-start",
+        "grid grid-cols-2 justify-start rounded-md",
         compact ? "w-[4.25rem]" : "w-full",
+        missing && "ring-1 ring-red-300 dark:ring-red-900",
       )}
     >
       <ToggleGroupItem
         value="Male"
         aria-label="Set row gender to Male"
-        className={cn("min-w-0 bg-background", compact ? "h-6 px-2" : "h-8")}
+        className={cn(
+          "min-w-0 bg-background",
+          compact ? "h-6 px-2" : "h-8",
+          missing &&
+            "border-red-300 text-red-700 dark:border-red-900 dark:text-red-300",
+        )}
       >
         M
       </ToggleGroupItem>
       <ToggleGroupItem
         value="Female"
         aria-label="Set row gender to Female"
-        className={cn("min-w-0 bg-background", compact ? "h-6 px-2" : "h-8")}
+        className={cn(
+          "min-w-0 bg-background",
+          compact ? "h-6 px-2" : "h-8",
+          missing &&
+            "border-red-300 text-red-700 dark:border-red-900 dark:text-red-300",
+        )}
       >
         F
       </ToggleGroupItem>
     </ToggleGroup>
   );
+}
+
+function getCandidateMatchLabel(candidate: MatchCandidate) {
+  const classroom = candidate.classRoom?.trim() || "No classroom";
+  return `${studentDisplayName(candidate)} - ${classroom}`;
 }
 
 function getClassDepartmentDisplayName(classroom: ClassDepartment) {
@@ -2863,13 +2913,10 @@ function CandidateCard({
         <Item.Content className="min-w-0">
           <Item.Title>
             <Arabic className="truncate">
-              {studentDisplayName(candidate)}
+              {getCandidateMatchLabel(candidate)}
             </Arabic>
           </Item.Title>
         </Item.Content>
-        <Item.Actions className="flex-wrap justify-start sm:justify-end">
-          <MatchMetadataBadges candidate={candidate} />
-        </Item.Actions>
       </button>
     </Item>
   );
@@ -2942,7 +2989,11 @@ function buildExecuteRow({
     return { status: "skipped" };
   }
 
-  if (needsExisting && !decision?.existingStudentId) {
+  const existingStudentId = needsExisting
+    ? decision?.existingStudentId || getSingleCandidateId(row)
+    : null;
+
+  if (needsExisting && !existingStudentId) {
     return {
       status: "invalid",
       reason: `Line ${row.lineNumber} needs a selected match before import.`,
@@ -2963,7 +3014,7 @@ function buildExecuteRow({
       gender,
       classroomDepartmentId: rowClassroomDepartmentId,
       action,
-      existingStudentId: decision?.existingStudentId || null,
+      existingStudentId,
     },
   };
 }
@@ -3012,6 +3063,8 @@ function buildClassroomBreakdown({
     const action = decision?.action;
     const needsExisting =
       action === "keep_match" || action === "update_match_with_name";
+    const existingStudentId =
+      decision?.existingStudentId || getSingleCandidateId(row);
     const autoSkipped = isStudentImportAutoSkippedRow(row, decision);
     const checked = isRowChecked(checkedRows, row.lineNumber);
     const hasGender = Boolean(
@@ -3024,12 +3077,12 @@ function buildClassroomBreakdown({
       Boolean(action) &&
       action !== "skip" &&
       !autoSkipped &&
-      (!needsExisting || Boolean(decision?.existingStudentId));
+      (!needsExisting || Boolean(existingStudentId));
     const needsAttention =
       !classroomDepartmentId ||
       !hasGender ||
       !action ||
-      (needsExisting && !decision?.existingStudentId) ||
+      (needsExisting && !existingStudentId) ||
       row.status === "needsAttention";
 
     current.totalRows += 1;
@@ -3379,6 +3432,10 @@ function studentToMatchCandidate(
 }
 
 function getCandidates(row: VerifyResult): MatchCandidate[] {
+  if (row.fullMatch?.confidence === 100) {
+    return [row.fullMatch];
+  }
+
   const candidates = [
     ...(row.fullMatch ? [row.fullMatch] : []),
     ...row.suspectedMatches,
@@ -3390,6 +3447,11 @@ function getCandidates(row: VerifyResult): MatchCandidate[] {
     seen.add(candidate.id);
     return true;
   });
+}
+
+function getSingleCandidateId(row: VerifyResult) {
+  const candidates = getCandidates(row);
+  return candidates.length === 1 ? candidates[0]?.id || null : null;
 }
 
 function resolveGender(
