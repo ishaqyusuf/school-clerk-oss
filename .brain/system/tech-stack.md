@@ -10,8 +10,8 @@ Source of truth for frameworks, runtimes, libraries, and infrastructure choices.
 
 ## Current Stack
 ## Application Stack
-- Dashboard frontend: Next.js 16 (App Router) + React 19
-- Marketing/public frontend: Next.js 16
+- Dashboard frontend: Next.js 16.2.10 (App Router) + React 19
+- Marketing/public frontend: Next.js 16.2.10
 - Styling/UI: Tailwind CSS 4 + shared shadcn/ui-based components in `@school-clerk/ui`
 - API layer: Hono + tRPC
 - Database: PostgreSQL

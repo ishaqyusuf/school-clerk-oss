@@ -120,7 +120,7 @@
 		"@school-clerk/tsconfig": "workspace:*",
 		"@types/react": "^19.2.2",
 		"@types/react-dom": "^19.2.2",
-		"next": "^16.2.0",
+		"next": "^16.2.10",
 		"autoprefixer": "^10.4.21",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",
