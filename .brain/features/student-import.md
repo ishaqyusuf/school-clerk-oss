@@ -92,11 +92,12 @@ Musa Garba, M
 ### Exact Match
 
 - Confidence: 100.
-- Name and surname both match exactly after normalization.
+- Name, surname, and otherName all match exactly after normalization. A missing otherName only matches another missing otherName.
 
 ### Typo / Suspected Match
 
-- Levenshtein edit distance of `<= 2` on either name or surname, with the other field matching exactly.
+- Matching name and surname with a different or missing otherName is treated as a suspected match, not a 100% exact match, so the operator must review the row before execution.
+- Levenshtein edit distance of `<= 2` on either name or surname, with the other field and otherName matching exactly.
 - Confidence ranges: 80% for distance 0 on one field, 70% for distance 1, and 60% for distance 2.
 - When both fields differ by `<= 2`, confidence is `60 - (nameDist + surnameDist) * 5`.
 
@@ -132,7 +133,7 @@ Musa Garba, M
 - Review rows use a flat divided-list layout with a checkbox column, a small line-number column, parsed-name/status column, closest-match column, and a single action cluster containing the selected action dropdown, visible search icon button, and overflow menu. The action cluster border carries action state: amber when action is required, green when imported, and neutral when ready or skipped.
 - On phone-width screens, each review row uses a left checkbox/line rail, keeps the parsed student and status together, then stacks the match summary and grouped action controls full-width so row decisions stay touch-friendly.
 - Review rows show per-row classroom badges only when the current import spans more than one classroom; single-classroom imports keep the row metadata quieter.
-- The closest-match column shows the selected or strongest candidate as `{student name} - {classroom}` with a `+N more` indicator when additional candidates exist. Its border color carries match state: green for exact matches, amber for possible matches or required selection, and neutral for no match. No-match rows show only the short `No match` label without explanatory helper copy. When verification finds a 100% exact name match, lower-score suspected matches are hidden and the exact match is shown alone. If only one candidate remains, it is treated as the implicit selected match and rendered without a popover; opening the match column reveals candidate selection actions only when multiple candidates remain.
+- The closest-match column shows the selected or strongest candidate as `{student name} - {classroom}` with a `+N more` indicator when additional candidates exist. Its border color carries match state: green for exact matches, amber for possible matches or required selection, and neutral for no match. No-match rows show only the short `No match` label without explanatory helper copy. When verification finds a 100% exact full-name match, lower-score suspected matches are hidden and the exact match is shown alone. If only one candidate remains, it is treated as the implicit selected match and rendered without a popover; opening the match column reveals candidate selection actions only when multiple candidates remain.
 - The visible search icon opens existing-student search directly; the overflow menu is reserved for secondary row actions such as resetting the name structure, skipping eligible rows, and importing one row.
 - The import modal uses a fixed viewport height; modal headers, setup defaults, review command center, and footer remain stable while the setup/review body is the only scrollable surface.
 - The review command center presents fallback classroom, refresh/cancel actions, checked/executable/skipped/attention counts, classroom scope badges, and the batch execute action in a responsive toolbar. Batch execution is disabled only when checked rows still have blockers or no checked executable rows remain.

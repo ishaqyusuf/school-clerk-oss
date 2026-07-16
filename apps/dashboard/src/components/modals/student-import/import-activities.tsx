@@ -3110,27 +3110,30 @@ function findEditedNameMatch(
     .map((student, index) => {
       const rowName = normalizeSearchText(row.name);
       const rowSurname = normalizeSearchText(row.surname);
+      const rowOtherName = normalizeSearchText(row.otherName);
       const studentName = normalizeSearchText(student.name);
       const studentSurname = normalizeSearchText(student.surname);
-      const isExactNameSurname =
+      const studentOtherName = normalizeSearchText(student.otherName);
+      const isExactFullName =
         Boolean(rowName) &&
         Boolean(rowSurname) &&
         rowName === studentName &&
-        rowSurname === studentSurname;
+        rowSurname === studentSurname &&
+        rowOtherName === studentOtherName;
 
       return {
         student,
         index,
-        isExactNameSurname,
+        isExactFullName,
         score: scoreStudentRecommendation(row, student),
       };
     })
     .filter(
-      ({ isExactNameSurname, score }) => isExactNameSurname || score >= 70,
+      ({ isExactFullName, score }) => isExactFullName || score >= 70,
     )
     .sort((a, b) => {
-      if (a.isExactNameSurname !== b.isExactNameSurname) {
-        return a.isExactNameSurname ? -1 : 1;
+      if (a.isExactFullName !== b.isExactFullName) {
+        return a.isExactFullName ? -1 : 1;
       }
 
       return b.score - a.score || a.index - b.index;
@@ -3145,9 +3148,9 @@ function findEditedNameMatch(
       schoolSessionId,
       classroomDeptId,
     ),
-    confidence: match.isExactNameSurname ? 100 : 80,
-    reason: match.isExactNameSurname
-      ? "Name edit matches existing student name and surname"
+    confidence: match.isExactFullName ? 100 : 80,
+    reason: match.isExactFullName
+      ? "Name edit matches existing student full name"
       : "Name edit is similar to an existing student",
   };
 }

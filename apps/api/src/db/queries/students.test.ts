@@ -210,6 +210,14 @@ function createImportCtx() {
       gender: "Female",
       termForms: [],
     },
+    {
+      id: "student-3",
+      name: "Aisha",
+      surname: "Bello",
+      otherName: "Fatima",
+      gender: "Female",
+      termForms: [],
+    },
   ];
   const createdStudents: unknown[] = [];
   const createdSessionForms: unknown[] = [];
@@ -380,6 +388,57 @@ describe("verifyStudentImport", () => {
     expect(
       report.results.map((row) => row.fullMatch?.isCurrentClassroomMatch),
     ).toEqual([true, false]);
+  });
+
+  test("requires other name to match before reporting a full 100 percent match", async () => {
+    const { ctx } = createImportCtx();
+
+    const report = await verifyStudentImport(ctx, {
+      rows: [
+        {
+          lineNumber: 1,
+          originalText: "John Doe Junior",
+          name: "John",
+          surname: "Doe",
+          otherName: "Junior",
+          gender: "Male",
+          classroomDepartmentId: "classroom-a",
+        },
+      ],
+    });
+
+    expect(report.results[0]?.fullMatch).toBeNull();
+    expect(report.results[0]?.status).toBe("needsAttention");
+    expect(report.results[0]?.suspectedMatches[0]).toMatchObject({
+      id: "student-1",
+      confidence: 70,
+      reason: "First name and surname match exactly; other name differs",
+    });
+  });
+
+  test("keeps 100 percent matches when name, surname, and other name all match", async () => {
+    const { ctx } = createImportCtx();
+
+    const report = await verifyStudentImport(ctx, {
+      rows: [
+        {
+          lineNumber: 1,
+          originalText: "Aisha Bello Fatima",
+          name: "Aisha",
+          surname: "Bello",
+          otherName: "Fatima",
+          gender: "Female",
+          classroomDepartmentId: "classroom-a",
+        },
+      ],
+    });
+
+    expect(report.results[0]?.fullMatch).toMatchObject({
+      id: "student-3",
+      confidence: 100,
+      reason: "Exact match on first name, surname, and other name",
+    });
+    expect(report.results[0]?.suspectedMatches).toEqual([]);
   });
 });
 

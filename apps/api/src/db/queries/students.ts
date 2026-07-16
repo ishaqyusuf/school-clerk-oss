@@ -1780,19 +1780,32 @@ export async function verifyStudentImport(
     for (const candidate of existingStudents) {
       const normCandName = normalizeName(candidate.name);
       const normCandSurname = normalizeName(candidate.surname ?? "");
+      const normCandOtherName = normalizeName(candidate.otherName ?? "");
       const normRowName = normalizeName(row.name);
       const normRowSurname = normalizeName(row.surname);
+      const normRowOtherName = normalizeName(row.otherName ?? "");
 
-      // Exact match on Name & Surname
+      // Exact match on all parsed name parts.
       const isExactName = normCandName === normRowName;
       const isExactSurname = normCandSurname === normRowSurname;
+      const isExactOtherName = normCandOtherName === normRowOtherName;
 
       let confidence = 0;
       let reason = "";
 
-      if (isExactName && isExactSurname) {
+      if (isExactName && isExactSurname && isExactOtherName) {
         confidence = 100;
-        reason = "Exact match on first name and surname";
+        reason = "Exact match on first name, surname, and other name";
+      } else if (isExactName && isExactSurname) {
+        const otherNameDist = levenshteinDistance(
+          normCandOtherName,
+          normRowOtherName,
+        );
+        confidence = 70;
+        reason =
+          otherNameDist > 0 && otherNameDist <= 2
+            ? `First name and surname match exactly; other name is a suspected typo (edit distance: ${otherNameDist})`
+            : "First name and surname match exactly; other name differs";
       } else {
         // Check edit distance for typos
         const nameDist = levenshteinDistance(normCandName, normRowName);
@@ -1801,13 +1814,13 @@ export async function verifyStudentImport(
           normRowSurname,
         );
 
-        if (nameDist <= 2 && isExactSurname) {
+        if (nameDist <= 2 && isExactSurname && isExactOtherName) {
           confidence = 80 - nameDist * 10;
           reason = `Surname matches exactly; first name is a suspected typo (edit distance: ${nameDist})`;
-        } else if (surnameDist <= 2 && isExactName) {
+        } else if (surnameDist <= 2 && isExactName && isExactOtherName) {
           confidence = 80 - surnameDist * 10;
           reason = `First name matches exactly; surname is a suspected typo (edit distance: ${surnameDist})`;
-        } else if (nameDist <= 2 && surnameDist <= 2) {
+        } else if (nameDist <= 2 && surnameDist <= 2 && isExactOtherName) {
           confidence = 60 - (nameDist + surnameDist) * 5;
           reason = `Suspected typos in both first name and surname`;
         }
