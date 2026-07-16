@@ -44,6 +44,7 @@ function toAssessmentFormPrintMode(printMode?: string | null) {
 
 interface Props {
   overview: RouterOutputs["subjects"]["overview"];
+  showRecordSubmissionAction?: boolean;
 }
 export function SubjectAssessments(props: Props) {
   const assessments = props.overview?.subject?.assessments;
@@ -285,17 +286,19 @@ export function SubjectAssessments(props: Props) {
                         </Button>
                       </Suggestion>
                     </ButtonGroup>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!recordingHref}
-                      onClick={() => {
-                        if (!recordingHref) return;
-                        window.location.assign(tenantHref(recordingHref));
-                      }}
-                    >
-                      Record submission
-                    </Button>
+                    {props.showRecordSubmissionAction !== false ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!recordingHref}
+                        onClick={() => {
+                          if (!recordingHref) return;
+                          window.location.assign(tenantHref(recordingHref));
+                        }}
+                      >
+                        Record submission
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
 

@@ -153,7 +153,6 @@ export function AssessmentRecordingResultsTable({
       }),
     [filteredStudents, visibleSubjects],
   );
-
   const openSubjectOverview = useQuery(
     _trpc.subjects.overview.queryOptions(
       {
@@ -164,6 +163,9 @@ export function AssessmentRecordingResultsTable({
       },
     ),
   );
+  const openSubjectTitle =
+    allSubjects.find((subject) => subject.id === openSubjectId)?.subject
+      .title ?? null;
 
   const subjectFilterLabel = subjectFilterIds.length
     ? `${subjectFilterIds.length} selected`
@@ -455,13 +457,20 @@ export function AssessmentRecordingResultsTable({
       >
         <Dialog.Content className="max-h-[90vh] max-w-5xl overflow-auto rounded-none border-y border-x-0 shadow-none sm:border-x">
           <Dialog.Header>
-            <Dialog.Title>Subject assessments</Dialog.Title>
+            <Dialog.Title>
+              {openSubjectTitle
+                ? `Subject assessments - ${openSubjectTitle}`
+                : "Subject assessments"}
+            </Dialog.Title>
             <Dialog.Description>
               Add or edit the assessment columns shown in this table.
             </Dialog.Description>
           </Dialog.Header>
           {openSubjectOverview.data ? (
-            <SubjectAssessments overview={openSubjectOverview.data} />
+            <SubjectAssessments
+              overview={openSubjectOverview.data}
+              showRecordSubmissionAction={false}
+            />
           ) : (
             <div className="flex h-32 items-center justify-center">
               <Spinner size={16} />
