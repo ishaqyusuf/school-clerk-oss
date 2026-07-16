@@ -457,8 +457,12 @@ export function ImportActivity({
     setManualClassroomDepartmentIds((current) =>
       pickLineNumberRecord(current, verificationRows),
     );
-    setNameOverrides((current) => pickLineNumberRecord(current, verificationRows));
-    setManualMatches((current) => pickLineNumberRecord(current, verificationRows));
+    setNameOverrides((current) =>
+      pickLineNumberRecord(current, verificationRows),
+    );
+    setManualMatches((current) =>
+      pickLineNumberRecord(current, verificationRows),
+    );
     setPendingSearchMatches({});
     setPendingNameMatches({});
     setPreSubmitError(null);
