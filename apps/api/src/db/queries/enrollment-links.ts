@@ -6,7 +6,11 @@ import type {
 } from "@api/trpc/schemas/enrollment-links";
 import { AdmissionApprovalEmail } from "@school-clerk/email";
 import { render } from "@school-clerk/email/render";
-import { formatTenantEmailFrom, getRecipient } from "@school-clerk/utils";
+import {
+  formatTenantEmailFrom,
+  formatTenantEmailSubject,
+  getRecipient,
+} from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 
@@ -236,7 +240,10 @@ async function sendAdmissionApprovalEmail(input: {
     body: JSON.stringify({
       from: getAdmissionEmailFrom(input.schoolName),
       to: [getRecipient(input.parentEmail)],
-      subject: `${input.schoolName}: admission approved`,
+      subject: formatTenantEmailSubject({
+        message: "admission approved",
+        schoolName: input.schoolName,
+      }),
       html,
     }),
   });

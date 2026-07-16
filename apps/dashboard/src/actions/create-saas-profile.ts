@@ -5,7 +5,12 @@ import { headers } from "next/headers";
 
 import { ensureNotificationContact, prisma } from "@school-clerk/db";
 import { createNotificationFromType } from "@school-clerk/notifications";
-import { formatTenantEmailFrom, getRecipient, slugify } from "@school-clerk/utils";
+import {
+  formatTenantEmailFrom,
+  formatTenantEmailSubject,
+  getRecipient,
+  slugify,
+} from "@school-clerk/utils";
 
 import { auth } from "@/auth/server";
 import {
@@ -136,7 +141,10 @@ async function sendSignupSuccessEmail({
     body: JSON.stringify({
       from,
       to: [recipient],
-      subject: `Your ${schoolName} workspace is ready`,
+      subject: formatTenantEmailSubject({
+        message: "workspace is ready",
+        schoolName,
+      }),
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
           <h2 style="margin-bottom: 12px;">Welcome to School Clerk</h2>
@@ -226,7 +234,10 @@ async function sendSignupVerificationEmail({
     body: JSON.stringify({
       from,
       to: [getRecipient(to)],
-      subject: `Verify your ${schoolName} School Clerk account`,
+      subject: formatTenantEmailSubject({
+        message: "verify your account",
+        schoolName,
+      }),
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
           <h2 style="margin-bottom: 12px;">Verify your email address</h2>

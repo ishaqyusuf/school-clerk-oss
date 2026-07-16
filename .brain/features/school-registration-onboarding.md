@@ -22,7 +22,8 @@ Let a new school self-register, reserve its public website and dashboard domains
    - `dashboard.{subdomain}.school-clerk.com` on the dashboard project.
 5. Signup creates a 24-hour `Verification` token for `email-verification:{token}` and sends the owner a Resend verification email.
 6. Signup also sends the existing workspace-ready email with dashboard onboarding and public-site URLs.
-7. The client redirects to the dashboard login with `return_to=/onboarding/welcome`.
+7. Signup and verification email subjects are prefixed with the school name rather than the platform brand.
+8. The client redirects to the dashboard login with `return_to=/onboarding/welcome`.
 
 ## Verification
 - Public route: `/verify-email?token=...` on the tenant dashboard host.

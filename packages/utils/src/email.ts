@@ -41,3 +41,26 @@ export function formatTenantEmailFrom({
 
   return `${displayName} <${emailAddress}>`;
 }
+
+export function formatTenantEmailSubject({
+  fallbackName = "your school",
+  message,
+  schoolName,
+}: {
+  fallbackName?: string;
+  message: string;
+  schoolName?: string | null;
+}) {
+  const subjectOwner =
+    formatEmailDisplayName(schoolName) ??
+    formatEmailDisplayName(fallbackName) ??
+    "your school";
+  const normalizedMessage = message
+    .replace(/[\r\n]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalizedMessage
+    ? `${subjectOwner}: ${normalizedMessage}`
+    : subjectOwner;
+}

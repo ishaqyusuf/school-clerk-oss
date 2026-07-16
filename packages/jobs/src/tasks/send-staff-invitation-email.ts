@@ -1,6 +1,9 @@
 import { sendStaffInvitationEmailSchema } from "../schema.js";
 import { StaffInvitationEmail } from "@school-clerk/email/emails/staff-invitation";
-import { formatTenantEmailFrom } from "@school-clerk/utils/email";
+import {
+  formatTenantEmailFrom,
+  formatTenantEmailSubject,
+} from "@school-clerk/utils/email";
 import { sendStaffInvitationEmailTaskId } from "@school-clerk/utils/task-contracts";
 import { queue, schemaTask } from "@trigger.dev/sdk";
 import React from "react";
@@ -18,7 +21,10 @@ export const sendStaffInvitationEmail = schemaTask({
   queue: sendStaffInvitationEmailQueue,
   run: async (payload) => {
     await sendEmail({
-      subject: `${payload.schoolName}: you're invited to join as ${payload.roleLabel}`,
+      subject: formatTenantEmailSubject({
+        message: `you're invited to join as ${payload.roleLabel}`,
+        schoolName: payload.schoolName,
+      }),
       from: formatTenantEmailFrom({
         fallbackFrom: process.env.RESEND_FROM_EMAIL,
         schoolName: payload.schoolName,

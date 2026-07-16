@@ -1,6 +1,7 @@
 import { prisma } from "@school-clerk/db";
 import {
 	formatTenantEmailFrom,
+	formatTenantEmailSubject,
 	getRecipient,
 	resolveDashboardAppRootDomain,
 } from "@school-clerk/utils";
@@ -291,7 +292,10 @@ export function initAuth(options: {
 					"x-school-clerk-school-name",
 				);
 				const emailUrl = buildPasswordResetEmailUrl(data.url, data.user.email);
-				const subject = `Set or reset your ${schoolName || "School Clerk"} password`;
+				const subject = formatTenantEmailSubject({
+					message: "set or reset your password",
+					schoolName,
+				});
 
 				await sendAuthEmail({
 					to: data.user.email,

@@ -12,6 +12,7 @@ import { render } from "@school-clerk/email/render";
 import {
   createBlobUploadError,
   formatTenantEmailFrom,
+  formatTenantEmailSubject,
   getRecipient,
   resolveDashboardAppRootDomain,
 } from "@school-clerk/utils";
@@ -265,7 +266,10 @@ async function sendAdmissionSubmissionEmail(input: {
     body: JSON.stringify({
       from: getAdmissionEmailFrom(input.schoolName),
       to: [getRecipient(input.parentEmail)],
-      subject: `${input.schoolName}: admission application received`,
+      subject: formatTenantEmailSubject({
+        message: "admission application received",
+        schoolName: input.schoolName,
+      }),
       html,
     }),
   });
