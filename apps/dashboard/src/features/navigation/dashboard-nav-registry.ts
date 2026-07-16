@@ -283,6 +283,16 @@ export const dashboardNavRegistry: NavModuleDefinition[] = [
             workspace: "admin",
           },
           {
+            href: "/assessment-recording",
+            icon: "file-text",
+            key: "academic-assessment-recording",
+            module: "academics",
+            roles: ["Admin"],
+            section: "main",
+            title: "Assessment Recording",
+            workspace: "admin",
+          },
+          {
             href: "/academic/reports",
             icon: "file-text",
             key: "academic-reports",
