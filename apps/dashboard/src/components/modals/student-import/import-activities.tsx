@@ -225,6 +225,7 @@ export function ImportActivity({
   const [lastInvalidatedImportJobId, setLastInvalidatedImportJobId] = useState<
     string | null
   >(null);
+  const lastVerificationInputKeyRef = useRef<string | null>(null);
   const lastPersistedDraftJsonRef = useRef<string | null>(null);
   const clearedCleanDraftResultKeyRef = useRef<string | null>(null);
 
@@ -299,6 +300,10 @@ export function ImportActivity({
       })),
     };
   }, [classroomDeptId, manualClassroomDepartmentIds, students]);
+  const verifyInputKey = useMemo(
+    () => (verifyInput ? JSON.stringify(verifyInput) : null),
+    [verifyInput],
+  );
 
   const {
     data: verificationReport,
@@ -309,12 +314,21 @@ export function ImportActivity({
   } = useMutation(_trpc.students.verifyStudentImportBatch.mutationOptions());
 
   useEffect(() => {
+    if (!isActive) {
+      lastVerificationInputKeyRef.current = null;
+    }
+  }, [isActive]);
+
+  useEffect(() => {
     if (!isActive) return;
     if (!verifyInput) return;
+    if (!verifyInputKey) return;
+    if (lastVerificationInputKeyRef.current === verifyInputKey) return;
 
+    lastVerificationInputKeyRef.current = verifyInputKey;
     resetVerification();
     verifyStudents(verifyInput);
-  }, [isActive, resetVerification, verifyInput, verifyStudents]);
+  }, [isActive, resetVerification, verifyInput, verifyInputKey, verifyStudents]);
 
   const refetchVerification = () => {
     if (!verifyInput) return;
@@ -1058,9 +1072,12 @@ export function ImportActivity({
 
     setActiveClassroomFilterId("all");
   }, [activeClassroomFilterId, classroomBreakdown]);
+  const stableActiveImportJob = activeImportJob
+    ? getStableStudentImportJob(activeImportJob, lastActiveImportJob)
+    : lastActiveImportJob;
   const displayedImportJob =
     (isActive && activeImportJobId
-      ? (activeImportJob ?? lastActiveImportJob ?? startedImportJob)
+      ? (stableActiveImportJob ?? startedImportJob)
       : null) ??
     startedImportJob ??
     (canRecoverImportJob ? recoveredImportJob : null) ??
@@ -3335,7 +3352,9 @@ function reconcileRowDecisions(
     }
   }
 
-  return next;
+  return areLineNumberRecordsEqual(current, next, areRowDecisionsEqual)
+    ? current
+    : next;
 }
 
 function reconcileCheckedRows(
@@ -3348,7 +3367,7 @@ function reconcileCheckedRows(
     next[row.lineNumber] = current[row.lineNumber] ?? true;
   }
 
-  return next;
+  return areLineNumberRecordsEqual(current, next) ? current : next;
 }
 
 function pickLineNumberRecord<T>(
@@ -3365,7 +3384,37 @@ function pickLineNumberRecord<T>(
     }
   }
 
-  return next;
+  return areLineNumberRecordsEqual(record, next) ? record : next;
+}
+
+function areLineNumberRecordsEqual<T>(
+  current: Record<number, T>,
+  next: Record<number, T>,
+  isEqual: (a: T, b: T) => boolean = Object.is,
+) {
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(next);
+
+  if (currentKeys.length !== nextKeys.length) return false;
+
+  for (const key of currentKeys) {
+    const lineNumber = Number(key);
+    if (!(lineNumber in next)) return false;
+    if (!isEqual(current[lineNumber], next[lineNumber])) return false;
+  }
+
+  return true;
+}
+
+function areRowDecisionsEqual(
+  current: RowDecision | undefined,
+  next: RowDecision | undefined,
+) {
+  return (
+    current?.action === next?.action &&
+    current?.existingStudentId === next?.existingStudentId &&
+    current?.touched === next?.touched
+  );
 }
 
 function getCleanImportResultKey(result: ImportExecutionResult | undefined) {
