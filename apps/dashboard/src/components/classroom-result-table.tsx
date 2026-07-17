@@ -2,13 +2,18 @@
 
 import { updateStudentReportCookieByName } from "@/actions/cookies/student-report";
 import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
-import { StudentGenderCell } from "@/components/student-gender-cell";
+import { SearchFilter } from "@/components/midday-search-filter/search-filter-md";
 import { SubjectAssessments } from "@/components/subject-assessments";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useReportPageContext } from "@/hooks/use-report-page";
-import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
+import {
+	studentReportSearchFilterParams,
+	useStudentReportFilterParams,
+} from "@/hooks/use-student-report-filter-params";
+import { SearchFilterProvider } from "@/hooks/use-search-filter";
 import { useAuth } from "@/hooks/use-auth";
 import { configs } from "@/configs";
+import type { PageFilterData } from "@/types";
 import {
 	buildResultRows,
 	filterResultStudents,
@@ -23,8 +28,7 @@ import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { Checkbox } from "@school-clerk/ui/checkbox";
 import { cn } from "@school-clerk/ui/cn";
-import { Card, Dialog, DropdownMenu } from "@school-clerk/ui/composite";
-import { Input } from "@school-clerk/ui/input";
+import { Card, Dialog } from "@school-clerk/ui/composite";
 import { Spinner } from "@school-clerk/ui/spinner";
 import { Switch } from "@school-clerk/ui/switch";
 import {
@@ -43,15 +47,10 @@ import {
 	ArrowUp,
 	ArrowUpDown,
 	AlertTriangle,
-	BookOpenText,
 	FileSpreadsheet,
-	Languages,
 	PanelRightOpen,
 	Printer,
 	RefreshCw,
-	Search,
-	Users,
-	X,
 } from "lucide-react";
 import {
 	Fragment,
@@ -59,10 +58,11 @@ import {
 	useDeferredValue,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
-  useTransition,
+	useTransition,
 } from "react";
-import { _qc, _trpc } from "./static-trpc";
+import { _trpc } from "./static-trpc";
 
 type SortColumn = "student" | "grandTotal";
 type SortDirection = "asc" | "desc";
@@ -87,6 +87,120 @@ function SortIcon({ column, sort }: { column: SortColumn; sort: SortState }) {
 	);
 }
 
+function StudentGenderBadge({ gender }: { gender?: string | null }) {
+	const label = gender === "Male" ? "M" : gender === "Female" ? "F" : null;
+
+	if (!label) return null;
+
+	return (
+		<Badge
+			variant="outline"
+			className="h-5 shrink-0 px-1.5 text-[10px] font-semibold leading-none"
+			aria-label={`Gender ${gender}`}
+		>
+			{label}
+		</Badge>
+	);
+}
+
+const filterKey = (value: string) => value as PageFilterData["value"];
+
+function StudentReportSearchFilter({
+	terms,
+	classrooms,
+	subjects,
+}: {
+	terms?: Array<{
+		id?: string | null;
+		label?: string | null;
+		title?: string | null;
+		sessionTitle?: string | null;
+	}>;
+	classrooms?: Array<{
+		id?: string | null;
+		displayName?: string | null;
+		departmentName?: string | null;
+		classRoom?: { name?: string | null } | null;
+	}>;
+	subjects: Array<{
+		id: string;
+		subject: { title?: string | null };
+	}>;
+}) {
+	const filterList = useMemo<PageFilterData[]>(
+		() => [
+			{
+				value: filterKey("termId"),
+				icon: "Calendar",
+				type: "checkbox",
+				label: "Term",
+				options: (terms ?? [])
+					.map((term) => ({
+						value: term.id ?? undefined,
+						label:
+							term.label ||
+							[term.sessionTitle, term.title].filter(Boolean).join(" • ") ||
+							term.title ||
+							"Term",
+					}))
+					.filter((option): option is { value: string; label: string } =>
+						Boolean(option.value),
+					),
+			},
+			{
+				value: filterKey("departmentId"),
+				icon: "School",
+				type: "checkbox",
+				label: "Classroom",
+				options: (classrooms ?? [])
+					.map((classroom) => ({
+						value: classroom.id ?? undefined,
+						label:
+							classroom.displayName ??
+							classroom.departmentName ??
+							classroom.classRoom?.name ??
+							"Classroom",
+					}))
+					.filter((option): option is { value: string; label: string } =>
+						Boolean(option.value),
+					),
+			},
+			{
+				value: filterKey("subjectIds"),
+				icon: "BookOpenText",
+				type: "checkbox",
+				label: "Subjects",
+				options: subjects.map((subject) => ({
+					value: subject.id,
+					label: subject.subject.title ?? "Subject",
+				})),
+			},
+			{
+				value: filterKey("search"),
+				icon: "Search",
+				type: "input",
+			},
+		],
+		[classrooms, subjects, terms],
+	);
+
+	return (
+		<SearchFilterProvider
+			args={[
+				{
+					filterSchema: studentReportSearchFilterParams,
+				},
+			]}
+		>
+			<SearchFilter
+				defaultSearch={{ search: null }}
+				filterList={filterList}
+				placeholder="Search students"
+			/>
+		</SearchFilterProvider>
+	);
+}
+
 export function ClassroomResultTable({
   defaultClassroomLayout,
 }: {
@@ -99,8 +213,7 @@ export function ClassroomResultTable({
 	const auth = useAuth();
 	const role = auth.role;
 	const isAdmin = role === "ADMIN" || role === "Admin";
-	const canUpdateStudentGender =
-		role === "ADMIN" || role === "Admin" || role === "Registrar";
+	const { data: terms } = useQuery(_trpc.academics.getReportTerms.queryOptions());
   const [, startSavingLayout] = useTransition();
 
 	const allSubjects = reportData?.subjects ?? [];
@@ -108,23 +221,37 @@ export function ClassroomResultTable({
 
 	const [sort, setSort] = useState<SortState>(null);
 	const [totalsOnly, setTotalsOnly] = useState(false);
-	const [subjectFilterIds, setSubjectFilterIds] = useState<string[]>([]);
-	const [nameSearch, setNameSearch] = useState("");
 	const [openSubjectId, setOpenSubjectId] = useState<string | null>(null);
-	const deferredNameSearch = useDeferredValue(nameSearch);
+	const deferredNameSearch = useDeferredValue(filters.search ?? "");
   const [classroomLayout, setClassroomLayout] = useState<"ltr" | "rtl">(
     defaultClassroomLayout,
   );
 	const isRtl = classroomLayout === "rtl";
 	const stickyEdgeClass = isRtl ? "right-0" : "left-0";
-	const stickyIndexClass = isRtl ? "right-[40px]" : "left-[40px]";
-	const stickyNameClass = isRtl ? "right-[80px]" : "left-[80px]";
-	const stickyGenderClass = isRtl ? "right-[240px]" : "left-[240px]";
+	const stickyNameClass = isRtl ? "right-[40px]" : "left-[40px]";
 	const dividerClass = isRtl ? "border-r" : "border-l";
 
-  useEffect(() => {
-    setClassroomLayout(defaultClassroomLayout);
-  }, [defaultClassroomLayout]);
+	useEffect(() => {
+		setClassroomLayout(defaultClassroomLayout);
+	}, [defaultClassroomLayout]);
+
+	const previousTermIdRef = useRef(filters.termId);
+	useEffect(() => {
+		if (previousTermIdRef.current === filters.termId) return;
+
+		const hadPreviousTerm = !!previousTermIdRef.current;
+		previousTermIdRef.current = filters.termId;
+
+		if (!hadPreviousTerm) return;
+
+		setFilters({
+			activeDepts: [],
+			departmentId: null,
+			deptId: null,
+			printOrder: [],
+			subjectIds: [],
+		});
+	}, [filters.termId, setFilters]);
 
 	const toggleSort = useCallback((column: SortColumn) => {
 		setSort((prev) => {
@@ -139,9 +266,9 @@ export function ClassroomResultTable({
 	const visibleSubjects = useMemo(() => {
 		return filterResultSubjects({
 			subjects: allSubjects,
-			selectedSubjectIds: subjectFilterIds,
+			selectedSubjectIds: filters.subjectIds ?? [],
 		});
-	}, [allSubjects, subjectFilterIds]);
+	}, [allSubjects, filters.subjectIds]);
 
 	const filteredStudents = useMemo(() => {
 		return filterResultStudents({
@@ -199,10 +326,6 @@ export function ClassroomResultTable({
 		[visibleSubjects],
 	);
 
-	const subjectFilterLabel = subjectFilterIds.length
-		? `${subjectFilterIds.length} selected`
-		: "All subjects";
-	const hasActiveTableFilters = !!nameSearch.trim() || !!subjectFilterIds.length;
 	const openSubjectOverview = useQuery(
 		_trpc.subjects.overview.queryOptions(
 			{
@@ -527,12 +650,6 @@ export function ClassroomResultTable({
 		[activeDepts, filters.departmentId, printOrder, setFilters],
 	);
 
-	const refetchReportData = useCallback(() => {
-		_qc.invalidateQueries({
-			queryKey: _trpc.assessments.getClassroomReportSheet.queryKey({}),
-		});
-	}, []);
-
 	if (!filters.departmentId) {
 		return (
 			<div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -621,222 +738,92 @@ export function ClassroomResultTable({
 
 	return (
 		<>
-		<div className="space-y-3">
+		<div className="flex flex-col gap-3">
 			<Card className="overflow-hidden border-border/70 shadow-sm">
-				<Card.Header className="gap-5 border-b bg-gradient-to-r from-muted/50 via-background to-muted/20 p-4 sm:p-5">
-					<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-						<div className="space-y-3">
-							<div className="flex flex-wrap items-center gap-2">
-								<Badge variant="secondary" className="rounded-full px-3 py-1">
-									Classroom Results
-								</Badge>
-								{ctx.classroomName ? (
-									<Badge variant="outline" className="rounded-full px-3 py-1">
-										{ctx.classroomName}
-									</Badge>
-								) : null}
-							</div>
-							<div className="space-y-1">
-								<Card.Title className="mb-0 text-xl sm:text-2xl">
-									Review scores, sort quickly, and print with confidence
-								</Card.Title>
-								<Card.Description className="max-w-2xl text-sm leading-6">
-									Review scores, sort, and export the current classroom grid for
-									printing or spreadsheets.
-								</Card.Description>
-							</div>
-							<div className="flex flex-wrap gap-2">
-								<Badge
-									variant="outline"
-									className="gap-1.5 rounded-full px-3 py-1"
-								>
-									<Users className="size-3.5" />
-									{filteredStudents.length === students.length
-										? students.length
-										: `${filteredStudents.length}/${students.length}`}{" "}
-									students
-								</Badge>
-								<Badge
-									variant="outline"
-									className="gap-1.5 rounded-full px-3 py-1"
-								>
-									<BookOpenText className="size-3.5" />
-									{visibleSubjects.length} subjects
-								</Badge>
-								<Badge
-									variant="outline"
-									className="gap-1.5 rounded-full px-3 py-1"
-								>
-									<FileSpreadsheet className="size-3.5" />
-									{totalsOnly
-										? visibleSubjects.length
-										: totalAssessments + visibleSubjects.length}{" "}
-									visible columns
-								</Badge>
-							</div>
+				<Card.Header className="border-b bg-background p-3">
+					<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+						<div className="min-w-0">
+							<Card.Title className="mb-0 truncate text-sm font-medium">
+								{ctx.classroomName ?? "Classroom results"}
+							</Card.Title>
+							<Card.Description className="text-xs">
+								{filteredStudents.length === students.length
+									? students.length
+									: `${filteredStudents.length}/${students.length}`}{" "}
+								students · {visibleSubjects.length} subjects ·{" "}
+								{totalsOnly
+									? visibleSubjects.length
+									: totalAssessments + visibleSubjects.length}{" "}
+								columns
+							</Card.Description>
 						</div>
-						<div className="grid gap-3 sm:min-w-[320px]">
-							<div className="rounded-2xl border bg-background/90 p-3 shadow-sm">
-								<div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-									<Languages className="size-3.5" />
-									Layout Direction
-								</div>
-								<ToggleGroup
-									type="single"
-									value={classroomLayout}
-									onValueChange={(value) => {
-										if (!value) return;
-                    const nextLayout = value as "ltr" | "rtl";
-                    setClassroomLayout(nextLayout);
-                    startSavingLayout(() => {
-                      updateStudentReportCookieByName(
-                        "classroomLayout",
-                        nextLayout,
-                      );
-                    });
-									}}
+						<div className="flex flex-wrap items-center gap-2">
+							<ToggleGroup
+								type="single"
+								value={classroomLayout}
+								onValueChange={(value) => {
+									if (!value) return;
+									const nextLayout = value as "ltr" | "rtl";
+									setClassroomLayout(nextLayout);
+									startSavingLayout(() => {
+										updateStudentReportCookieByName(
+											"classroomLayout",
+											nextLayout,
+										);
+									});
+								}}
+								variant="outline"
+							>
+								<ToggleGroupItem value="ltr">LTR</ToggleGroupItem>
+								<ToggleGroupItem value="rtl">RTL</ToggleGroupItem>
+							</ToggleGroup>
+							<label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
+								<span>Totals</span>
+								<Switch checked={totalsOnly} onCheckedChange={setTotalsOnly} />
+							</label>
+							<Button
+								variant="outline"
+								size="sm"
+								className="gap-2"
+								onClick={openClassroomOverview}
+							>
+								<PanelRightOpen className="size-4" />
+								Classroom
+							</Button>
+							{isAdmin && (
+								<Button
 									variant="outline"
-									className="grid w-full grid-cols-2"
+									size="sm"
+									className="gap-2"
+									onClick={printEmptySpreadsheet}
 								>
-									<ToggleGroupItem value="ltr" className="justify-center">
-										Left to right
-									</ToggleGroupItem>
-									<ToggleGroupItem value="rtl" className="justify-center">
-										Right to left
-									</ToggleGroupItem>
-								</ToggleGroup>
-							</div>
-							<div className="flex flex-col gap-3 rounded-2xl border bg-background/90 p-3 shadow-sm">
-								<div className="flex items-center justify-between gap-3 rounded-xl border border-dashed px-3 py-2">
-									<div className="space-y-0.5">
-										<p className="text-sm font-medium">Totals-only mode</p>
-										<p className="text-xs text-muted-foreground">
-											Hide assessment columns and keep subject totals visible.
-										</p>
-									</div>
-									<Switch
-										checked={totalsOnly}
-										onCheckedChange={setTotalsOnly}
-									/>
-								</div>
-								<div className="flex flex-wrap gap-2">
-									<Button
-										variant="outline"
-										size="sm"
-										className="flex-1 gap-2"
-										onClick={openClassroomOverview}
-									>
-										<PanelRightOpen className="size-4" />
-										Classroom Overview
-									</Button>
-									{isAdmin && (
-										<Button
-											variant="outline"
-											size="sm"
-											className="flex-1 gap-2 border-dashed"
-											onClick={printEmptySpreadsheet}
-										>
-											<Printer className="size-4 text-muted-foreground" />
-											Print Empty Sheet
-										</Button>
-									)}
-									<Button
-										variant="outline"
-										size="sm"
-										className="flex-1 gap-2"
-										onClick={printSpreadsheet}
-									>
-										<Printer className="size-4" />
-										Print Spreadsheet
-									</Button>
-									<Button
-										size="sm"
-										className="flex-1 gap-2"
-										onClick={exportToExcel}
-									>
-										<FileSpreadsheet className="size-4" />
-										Export Excel
-									</Button>
-								</div>
-							</div>
+									<Printer className="size-4" />
+									Empty
+								</Button>
+							)}
+							<Button
+								variant="outline"
+								size="sm"
+								className="gap-2"
+								onClick={printSpreadsheet}
+							>
+								<Printer className="size-4" />
+								Print
+							</Button>
+							<Button size="sm" className="gap-2" onClick={exportToExcel}>
+								<FileSpreadsheet className="size-4" />
+								Export
+							</Button>
 						</div>
 					</div>
 				</Card.Header>
 				<Card.Content className="p-0">
-					<div className="flex flex-col gap-3 border-b bg-background p-3 md:flex-row md:items-center md:justify-between">
-						<div className="relative w-full md:max-w-xs">
-							<Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-							<Input
-								value={nameSearch}
-								onChange={(event) => setNameSearch(event.target.value)}
-								placeholder="Search student name"
-								className="pl-9 pr-9"
-							/>
-							{nameSearch ? (
-								<button
-									type="button"
-									onClick={() => setNameSearch("")}
-									className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-								>
-									<X className="size-4" />
-								</button>
-							) : null}
-						</div>
-						<div className="flex flex-wrap items-center gap-2">
-							<DropdownMenu>
-								<DropdownMenu.Trigger asChild>
-									<Button variant="outline" className="gap-2">
-										<BookOpenText className="size-4" />
-										{subjectFilterLabel}
-									</Button>
-								</DropdownMenu.Trigger>
-								<DropdownMenu.Content align="end" className="w-64">
-									<DropdownMenu.Item
-										onSelect={() =>
-											setSubjectFilterIds(allSubjects.map((subject) => subject.id))
-										}
-									>
-										Select all
-									</DropdownMenu.Item>
-									<DropdownMenu.Item onSelect={() => setSubjectFilterIds([])}>
-										Clear selection
-									</DropdownMenu.Item>
-									<DropdownMenu.Separator />
-									{allSubjects.map((subject) => {
-										const checked = subjectFilterIds.includes(subject.id);
-										return (
-											<DropdownMenu.CheckboxItem
-												key={subject.id}
-												checked={checked}
-												onSelect={(event) => event.preventDefault()}
-												onCheckedChange={(value) => {
-													setSubjectFilterIds((current) =>
-														value
-															? [...current, subject.id]
-															: current.filter((id) => id !== subject.id),
-													);
-												}}
-											>
-												{subject.subject.title}
-											</DropdownMenu.CheckboxItem>
-										);
-									})}
-								</DropdownMenu.Content>
-							</DropdownMenu>
-							{hasActiveTableFilters ? (
-								<Button
-									variant="ghost"
-									className="gap-2"
-									onClick={() => {
-										setNameSearch("");
-										setSubjectFilterIds([]);
-									}}
-								>
-									<X className="size-4" />
-									Clear
-								</Button>
-							) : null}
-						</div>
+					<div className="border-b bg-background p-3">
+						<StudentReportSearchFilter
+							classrooms={ctx.classRooms}
+							subjects={allSubjects}
+							terms={terms}
+						/>
 					</div>
 					<div className="overflow-auto max-h-[calc(100vh-250px)]">
 						<Table dir={isRtl ? "rtl" : "ltr"}>
@@ -845,7 +832,7 @@ export function ClassroomResultTable({
 									<TableHead
 										rowSpan={2}
 										className={cn(
-											"sticky z-30 bg-background min-w-[40px] text-center",
+											"sticky z-30 min-w-[40px] bg-background text-center",
 											stickyEdgeClass,
 											isRtl ? "border-l" : "border-r",
 										)}
@@ -865,17 +852,7 @@ export function ClassroomResultTable({
 									<TableHead
 										rowSpan={2}
 										className={cn(
-											"sticky z-30 bg-background min-w-[40px] text-center",
-											stickyIndexClass,
-											isRtl ? "border-l" : "border-r",
-										)}
-									>
-										#
-									</TableHead>
-									<TableHead
-										rowSpan={2}
-										className={cn(
-											"sticky z-30 w-[160px] min-w-[160px] cursor-pointer select-none whitespace-nowrap bg-background",
+											"sticky z-30 w-[220px] min-w-[220px] cursor-pointer select-none whitespace-nowrap bg-background",
 											stickyNameClass,
 											isRtl ? "border-l text-right" : "border-r text-left",
 										)}
@@ -886,16 +863,6 @@ export function ClassroomResultTable({
 											Student
 											<SortIcon column="student" sort={sort} />
 										</span>
-									</TableHead>
-									<TableHead
-										rowSpan={2}
-										className={cn(
-											"sticky z-30 w-[96px] min-w-[96px] bg-background text-center",
-											stickyGenderClass,
-											isRtl ? "border-l" : "border-r",
-										)}
-									>
-										Gender
 									</TableHead>
 									{visibleSubjects.map((subject) => (
 										<TableHead
@@ -981,19 +948,16 @@ export function ClassroomResultTable({
 											onToggle={toggleStudent}
 											isRtl={isRtl}
 											dividerClass={dividerClass}
-                      isDuplicateName={duplicateNames.has(
-                        getStudentSearchKey(row.student.student),
-                      )}
-											onGenderUpdated={refetchReportData}
-											canUpdateStudentGender={canUpdateStudentGender}
+											isDuplicateName={duplicateNames.has(
+												getStudentSearchKey(row.student.student),
+											)}
 										/>
 									);
 								}) : (
 									<TableRow>
 										<TableCell
 											colSpan={
-												3 +
-												1 +
+												2 +
 												visibleSubjects.reduce(
 													(total, subject) =>
 														total +
@@ -1050,8 +1014,6 @@ interface StudentResultRowProps {
 	isRtl: boolean;
 	dividerClass: string;
 	isDuplicateName: boolean;
-	onGenderUpdated: () => void;
-	canUpdateStudentGender: boolean;
 }
 
 function StudentResultRow({
@@ -1062,9 +1024,7 @@ function StudentResultRow({
 	onToggle,
 	isRtl,
 	dividerClass,
-  isDuplicateName,
-	onGenderUpdated,
-	canUpdateStudentGender,
+	isDuplicateName,
 }: StudentResultRowProps) {
 	const student = row.student;
 
@@ -1087,43 +1047,23 @@ function StudentResultRow({
 			</TableCell>
 			<TableCell
 				className={cn(
-					"sticky z-10 bg-background text-center text-muted-foreground text-sm",
-					isRtl ? "right-[40px] border-l" : "left-[40px] border-r",
-				)}
-			>
-				{index + 1}
-			</TableCell>
-			<TableCell
-				className={cn(
-					"sticky z-10 w-[160px] min-w-[160px] bg-background whitespace-nowrap",
-					isRtl
-						? "right-[80px] border-l text-right"
-						: "left-[80px] border-r text-left",
+					"sticky z-10 w-[220px] min-w-[220px] bg-background whitespace-nowrap",
+					isRtl ? "right-[40px] border-l text-right" : "left-[40px] border-r text-left",
 				)}
 				dir={isRtl ? "rtl" : "ltr"}
 			>
-        <div className="flex items-center gap-2">
-				  <span>{getStudentDisplayName(student.student)}</span>
-          {isDuplicateName ? (
-            <Badge variant="warning" className="text-[10px] uppercase">
-              duplicate
-            </Badge>
-          ) : null}
-        </div>
-			</TableCell>
-			<TableCell
-				className={cn(
-					"sticky z-10 w-[96px] min-w-[96px] bg-background text-center",
-					isRtl ? "right-[240px] border-l" : "left-[240px] border-r",
-				)}
-			>
-				<StudentGenderCell
-					studentId={student.student?.id}
-					gender={student.student?.gender}
-					disabled={!canUpdateStudentGender}
-					align={isRtl ? "start" : "end"}
-					onUpdated={onGenderUpdated}
-				/>
+				<div className="flex min-w-0 items-center gap-2">
+					<span className="shrink-0 text-xs text-muted-foreground">
+						{index + 1}.
+					</span>
+					<span className="truncate">{getStudentDisplayName(student.student)}</span>
+					<StudentGenderBadge gender={student.student?.gender} />
+					{isDuplicateName ? (
+						<Badge variant="warning" className="text-[10px] uppercase">
+							duplicate
+						</Badge>
+					) : null}
+				</div>
 			</TableCell>
 			{row.subjectTotals.map((subjectTotal) => {
 				const subject = subjectTotal.subject;

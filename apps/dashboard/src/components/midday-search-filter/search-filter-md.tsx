@@ -177,7 +177,7 @@ export function SearchFilter({
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <Icon
-                  name={searchIcons[f.value] as any}
+                  name={(f.icon ?? searchIcons[f.value]) as any}
                   className={"mr-2 size-4"}
                 />
                 <span className="capitalize">
@@ -239,16 +239,25 @@ export function SearchFilter({
                       />
                     </>
                   ) : (
-                    f.options?.map(({ label, value }, _i) => (
-                      <DropdownMenuCheckboxItem
-                        onCheckedChange={() => {
-                          optionSelected(f.value, { value, label });
-                        }}
-                        key={_i}
-                      >
-                        {label}
-                      </DropdownMenuCheckboxItem>
-                    ))
+                    f.options?.map(({ label, value }, _i) => {
+                      const selectedValue = filters?.[f.value];
+                      const checked = Array.isArray(selectedValue)
+                        ? selectedValue.includes(value)
+                        : selectedValue === value;
+
+                      return (
+                        <DropdownMenuCheckboxItem
+                          checked={checked}
+                          onSelect={(event) => event.preventDefault()}
+                          onCheckedChange={() => {
+                            optionSelected(f.value, { value, label });
+                          }}
+                          key={_i}
+                        >
+                          {label}
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })
                   )}
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>

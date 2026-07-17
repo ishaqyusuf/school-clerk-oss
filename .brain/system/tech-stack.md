@@ -29,7 +29,7 @@ Source of truth for frameworks, runtimes, libraries, and infrastructure choices.
 - CI/CD: TODO:
 - Storage: PostgreSQL primary store
 - Monitoring: TODO:
-- Local named-host dev: Portless-capable workspace scripts. Website/dashboard QA should use `bun run dev --local --filter dashboard marketing`, then browse `school-clerk.localhost` for marketing/public flows and `<tenant>.school-clerk-dashboard.localhost` for tenant dashboard flows.
+- Local named-host dev: Portless-capable workspace scripts using the shared HTTPS proxy on standard port `443`. Website/dashboard QA should use `bun run dev --local --filter dashboard marketing`, then browse `https://school-clerk.localhost` for marketing/public flows and `https://<tenant>.school-clerk-dashboard.localhost` for tenant dashboard flows without visible port numbers.
 
 ## Security
 - Authentication: Better Auth

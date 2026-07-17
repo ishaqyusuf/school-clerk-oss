@@ -45,9 +45,10 @@ Defines implementation standards for consistency, maintainability, and reliabili
 - Database sync uses explicit mode pairs: `bun run db:sync -- -m prod-local`, `bun run db:sync -- -m remote-local`, or `bun run db:sync -- -m prod-remote`; use `--reset` only to reset sync cursors/state for that pair.
 - Website/dashboard QA should start the local web stack with `bun run dev --local --filter dashboard marketing` when those apps are in scope. Add the school-site filter only when school-site behavior is part of the QA slice.
 - Website QA must use Portless hostnames instead of raw localhost ports:
-  - marketing/public site: `school-clerk.localhost`
-  - tenant dashboard: `<tenant>.school-clerk-dashboard.localhost`
-  - tenant school site: `<tenant>.school-clerk-site.localhost`
+  - marketing/public site: `https://school-clerk.localhost`
+  - tenant dashboard: `https://<tenant>.school-clerk-dashboard.localhost`
+  - tenant school site: `https://<tenant>.school-clerk-site.localhost`
+- Portless local QA URLs should not include visible proxy ports; the shared proxy defaults to HTTPS port `443`.
 - Use raw localhost ports only for low-level debugging when Portless itself is the suspected failure.
 - `bun run kill:ports` discovers numeric env variables ending in `_PORT` and ignores names containing `PORTLESS`. Keep every project-owned dev port declared as an individual `*_PORT` env variable instead of adding aggregate kill lists.
 - For schema readiness checks, use profile-routed DB commands:

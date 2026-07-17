@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 PORTLESS_PORT=${PORTLESS_PORT:-1355} PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-2200} portless school-clerk-dashboard next dev --turbopack",
+    "dev": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- PORTLESS_WILDCARD=1 PORTLESS_PORT=${SCHOOL_CLERK_PORTLESS_PROXY_PORT:-443} PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-${DASHBOARD_PORT:-2200}} portless school-clerk-dashboard next dev --turbopack",
     "dev:prod": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode prod -- next dev --turbopack -p ${SCHOOL_CLERK_DASHBOARD_PROD_PORT:-2205}",
     "build": "bun next build --turbopack",
     "clean": "git clean -xdf .next .turbo node_modules",

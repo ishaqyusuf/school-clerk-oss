@@ -7,6 +7,9 @@ import { createLoader, parseAsString } from "nuqs/server";
 
 export const studentReportFilterParams = {
 	departmentId: parseAsString,
+	deptId: parseAsString,
+	search: parseAsString,
+	subjectIds: parseAsArrayOf(parseAsString),
 	termId: parseAsString,
 	// ordered list of termFormIds across all classrooms (replaces index-based selections)
 	printOrder: parseAsArrayOf(parseAsString),
@@ -15,6 +18,13 @@ export const studentReportFilterParams = {
 	tab: parseAsStringEnum(["print", "classroom-results"]).withDefault(
 		"classroom-results",
 	),
+};
+
+export const studentReportSearchFilterParams = {
+	departmentId: parseAsString,
+	search: parseAsString,
+	subjectIds: parseAsArrayOf(parseAsString),
+	termId: parseAsString,
 };
 
 export function useStudentReportFilterParams() {

@@ -1,7 +1,7 @@
 {
   "name": "@school-clerk/api",
   "scripts": {
-    "dev": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- TZ=UTC PORTLESS_WILDCARD=1 PORTLESS_HTTPS=0 portless api bun run --hot src/index.ts",
+    "dev": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- TZ=UTC PORTLESS_WILDCARD=1 PORTLESS_PORT=${SCHOOL_CLERK_PORTLESS_PROXY_PORT:-443} portless api bun run --hot src/index.ts",
     "dev:node": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- tsx src/node.ts",
     "clean": "git clean -xdf .next .turbo node_modules",
     "--build": "bun-vercel ./src/bun.ts",

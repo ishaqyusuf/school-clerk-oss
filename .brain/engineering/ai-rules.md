@@ -28,6 +28,7 @@ Operational rules for AI agents contributing to this repository.
 - Local Postgres startup is owned by `scripts/start-dev-services.sh`; it starts Docker only when the selected DB mode or URL is local and skips local services for remote development DBs.
 - Keep `packages/db` and `packages/jobs` scripts on the shared dev-infra resolver for development, and keep production commands on `with-root-env --mode production`.
 - Current Portless local app names: dashboard -> `school-clerk-dashboard`, marketing -> `school-clerk`, school-site -> `school-clerk-site`, api -> `api`.
+- Local Portless-backed scripts bind the shared HTTPS proxy through `SCHOOL_CLERK_PORTLESS_PROXY_PORT`, defaulting to standard port `443`; do not force `PORTLESS_HTTPS=0` or a visible development proxy port such as `1355`.
 - School-site local dev runs behind Portless at `school-clerk-site.localhost` with its Next app port set to `2400`.
 - The root `dev:websites` / `websites` workflow runs dashboard, `@school-clerk/marketing`, `@school-clerk/school-site`, and jobs together for website work.
 - Dashboard tenant development hosts resolve as `<tenant>.school-clerk-dashboard.localhost`; keep host parsing and cookie lookup aligned with that format.

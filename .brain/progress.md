@@ -1,5 +1,34 @@
 # Progress
 
+## Student Report Filter Auto-Selection (2026-07-17)
+
+### Completed
+
+- Updated the student report workspace to normalize missing/invalid term filters, accept `deptId` links from assessment recording, and auto-select the first available classroom when no valid classroom filter is present.
+- Preserved valid deep-linked `departmentId` values and existing term-change clearing of classroom, print order, and active department selections.
+- Simplified the classroom result review header into a flat compact control row, removed the separate S/N and Gender table columns, and folded serial number plus `M` / `F` gender badges into the sticky Student column.
+- Replaced the classroom result table's separate student-search and subject-filter controls with the shared Midday-style search filter.
+- Added report filter options for term, classroom, and multi-select subjects inside the same search/filter control, with subject filtering URL-backed through `subjectIds`.
+- Removed the duplicate sticky Term/Classroom filter bar so the Midday-style report filter is the only filter control surface.
+
+### Verification
+
+- `bun --filter @school-clerk/dashboard typecheck`
+
+## Clean Portless Local URLs (2026-07-17)
+
+### Completed
+
+- Updated dashboard, marketing, school-site, API, email preview, and `scripts/dev-dashboard.sh` local dev entrypoints to use the shared HTTPS Portless proxy on `SCHOOL_CLERK_PORTLESS_PROXY_PORT`, defaulting to standard port `443`.
+- Removed forced `PORTLESS_HTTPS=0` and the old visible `:1355` proxy default from active dev scripts.
+- Added `SCHOOL_CLERK_PORTLESS_PROXY_PORT=443` to `.env.example` and refreshed runtime URL coverage to assert clean HTTPS `.localhost` URLs without the old proxy port.
+
+### Verification
+
+- `bun test packages/utils/src/runtime-url.test.ts`
+- Package JSON parse check for dashboard, marketing, school-site, API, and email package manifests.
+- Static scan confirmed no active script references remain for `PORTLESS_HTTPS=0`, `PORTLESS_PORT=${PORTLESS_PORT:-1355}`, `DASHBOARD_PORTLESS_PORT`, `school-clerk.localhost:1355`, or `localhost:1355`.
+
 ## Halaalvest-Style DB Env And Client Pattern (2026-07-12)
 
 ### Completed
