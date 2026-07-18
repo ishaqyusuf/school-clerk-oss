@@ -187,7 +187,7 @@ export function SubjectAssessments(props: Props) {
       id?;
     };
   }) => (
-    <DropdownMenu dir="rtl">
+    <DropdownMenu dir="ltr">
       <DropdownMenu.Trigger disabled={!suggestions?.length}>
         {children}
       </DropdownMenu.Trigger>
@@ -353,7 +353,10 @@ export function SubjectAssessments(props: Props) {
                               </div>
                               <div className="min-w-0 space-y-2">
                                 <div className="space-y-1">
-                                  <h3 className="truncate text-base font-semibold text-foreground">
+                                  <h3
+                                    className="truncate text-base font-semibold text-foreground"
+                                    dir="auto"
+                                  >
                                     {a.title}
                                   </h3>
                                   <p className="text-sm text-muted-foreground">

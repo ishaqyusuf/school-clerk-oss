@@ -6,8 +6,10 @@ import { Button } from "@school-clerk/ui/button";
 import { Icons } from "@school-clerk/ui/custom/icons";
 import { Table, useTableData } from "@school-clerk/ui/data-table";
 import { columns } from "./columns";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 
 export function DataTable() {
+  const academicDataDirection = useAcademicDataDirection();
   const trpc = useTRPC();
   const { filter } = useStudentFilterParams();
   const { data, ref, hasNextPage } = useTableData({
@@ -40,7 +42,7 @@ export function DataTable() {
             New Student
           </Button>
         </div>
-        <Table dir="rtl">
+        <Table dir={academicDataDirection}>
           <Table.Header />
           <Table.Body>
             <Table.Row />

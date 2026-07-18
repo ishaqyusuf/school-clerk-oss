@@ -9,6 +9,9 @@ import {
 import { prisma } from "@school-clerk/db";
 import { Building2, Globe, Hash, Calendar } from "lucide-react";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
+import { getSession } from "@/auth/server";
+import { getDashboardAcademicDataDirectionSettings } from "@/lib/academic-data-direction/server";
+import { AcademicDataDirectionSettingsCard } from "@/components/academic-data-direction/settings-card";
 
 async function getSchoolProfile(schoolId: string) {
   if (!schoolId) return null;
@@ -31,7 +34,7 @@ async function getSchoolProfile(schoolId: string) {
 }
 
 export default async function Page() {
-  const cookie = await getAuthCookie();
+  const [cookie, session] = await Promise.all([getAuthCookie(), getSession()]);
   const school = await getSchoolProfile(cookie?.schoolId ?? "");
 
   if (!school) {
@@ -44,6 +47,13 @@ export default async function Page() {
       </div>
     );
   }
+
+  const academicDataDirection = await getDashboardAcademicDataDirectionSettings(
+    school.id,
+  );
+  const role =
+    (session?.user as { role?: string | null } | undefined)?.role ?? null;
+  const canManage = role === "Admin" || role === "ADMIN";
 
   const fields = [
     { icon: Building2, label: "School Name", value: school.name },
@@ -109,6 +119,11 @@ export default async function Page() {
             <p className="text-3xl font-bold">{school._count.sessions}</p>
           </CardContent>
         </Card>
+
+        <AcademicDataDirectionSettingsCard
+          canManage={canManage}
+          initialSettings={academicDataDirection}
+        />
       </div>
     </div>
   );

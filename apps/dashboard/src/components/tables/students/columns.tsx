@@ -32,8 +32,13 @@ function StudentCell({ item }: { item: Item }) {
 				<Avatar.Fallback>{getInitials(name)}</Avatar.Fallback>
 			</Avatar>
 			<div className="min-w-0 space-y-0.5">
-				<div className="truncate font-semibold uppercase">{name}</div>
-				<div className="truncate text-[11px] text-muted-foreground">
+				<div className="truncate font-semibold uppercase" dir="auto">
+					{name}
+				</div>
+				<div
+					className="truncate text-[11px] text-muted-foreground"
+					dir="auto"
+				>
 					{item.department || "No class assigned"}
 				</div>
 			</div>
@@ -164,7 +169,7 @@ export const columns: Column[] = [
 			skeleton: { type: "avatar-text" },
 			headerLabel: "Student",
 			className:
-				"w-[320px] min-w-[260px] md:sticky md:left-0 bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-secondary z-20",
+				"w-[320px] min-w-[260px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-secondary z-20",
 		},
 		cell: ({ row }) => <StudentCell item={row.original} />,
 	},
@@ -182,7 +187,7 @@ export const columns: Column[] = [
 			className: "w-[220px] min-w-[160px]",
 		},
 		cell: ({ row }) => (
-			<span className="truncate text-muted-foreground">
+			<span className="truncate text-muted-foreground" dir="auto">
 				{row.original.department || "-"}
 			</span>
 		),

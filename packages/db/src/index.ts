@@ -17,3 +17,4 @@ export * from "./staff-academic-access";
 export * from "./staff-academic-access-assignments";
 export * from "./tenants";
 export * from "./website";
+export * from "./academic-data-direction";

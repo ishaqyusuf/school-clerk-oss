@@ -195,7 +195,7 @@ export function AssessmentRecording() {
   return (
     <>
       <div className="flex flex-col gap-4 px-2 py-3 sm:mx-auto sm:max-w-4xl sm:px-0 sm:py-4">
-        <div className="mb-28">
+        <div>
           {!needsSetup ? (
             <AssessmentRecordingResultsTable
               departmentId={effectiveDepartmentId}
@@ -363,7 +363,7 @@ function AssessmentRecordingSetupState({
             <Field>
               <Field.Label>Classroom</Field.Label>
               <Select
-                dir="rtl"
+                dir="ltr"
                 value={effectiveDepartmentId || undefined}
                 onValueChange={onClassroomChange}
                 disabled={!effectiveTermId || !departments.length}
@@ -374,7 +374,9 @@ function AssessmentRecordingSetupState({
                 <Select.Content>
                   {departments.map((department) => (
                     <Select.Item value={department.id} key={department.id}>
-                      {department.displayName ?? department.departmentName}
+                      <span dir="auto">
+                        {department.displayName ?? department.departmentName}
+                      </span>
                     </Select.Item>
                   ))}
                 </Select.Content>

@@ -10,8 +10,10 @@ import { getInitials } from "@school-clerk/utils";
 import { useMutation } from "@tanstack/react-query";
 import { _qc, _trpc } from "@/components/static-trpc";
 import { Spinner } from "@school-clerk/ui/spinner";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 
 export function StudentGridCard({ item: student }: { item: DataItem }) {
+  const academicDataDirection = useAcademicDataDirection();
   const { setParams, ...params } = useStudentParams();
   const { mutate: deleteStudent, isPending: isDeleting } = useMutation(
     _trpc.students.deleteStudent.mutationOptions({
@@ -51,11 +53,12 @@ export function StudentGridCard({ item: student }: { item: DataItem }) {
   );
   return (
     <div
+      dir={academicDataDirection}
       className="group bg-card rounded-xl border border-border p-5 flex flex-col items-center text-center relative hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"
       onClick={() => setParams({ studentViewId: student.id })}
     >
       {/* Action Menu */}
-      <div className="absolute top-3 right-3">
+      <div className="absolute end-3 top-3" dir="ltr">
         <DropdownMenu>
           <DropdownMenu.Trigger asChild>
             <Button
@@ -120,12 +123,12 @@ export function StudentGridCard({ item: student }: { item: DataItem }) {
       </Avatar>
 
       {/* Info */}
-      <h3 className="font-bold text-lg text-foreground mb-0.5">
+      <h3 className="font-bold text-lg text-foreground mb-0.5" dir="auto">
         {student.studentName}
       </h3>
 
       {/* Status Badges */}
-      <div className="flex gap-2 mb-4 mt-2">
+      <div className="flex gap-2 mb-4 mt-2" dir="ltr">
         <Badge
           variant="outline"
           className="text-[10px] font-bold uppercase tracking-wider border-green-200 text-green-700 dark:border-green-800 dark:text-green-400"
@@ -142,15 +145,15 @@ export function StudentGridCard({ item: student }: { item: DataItem }) {
 
       {/* Footer */}
       <div className="w-full pt-4 border-t border-border flex items-center justify-between">
-        <div className="text-left">
+        <div className="text-start">
           <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
             Class
           </p>
-          <p className="text-sm font-semibold text-foreground">
+          <p className="text-sm font-semibold text-foreground" dir="auto">
             {student.department}
           </p>
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1" dir="ltr">
           <button
             className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
             onClick={(e) => {

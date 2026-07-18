@@ -43,18 +43,17 @@ Defines implementation standards for consistency, maintainability, and reliabili
 - The root `bun run dev` router, `dev-run` bridge, kill-port discovery, and root-level env command wrapper are owned by `/Users/M1PRO/Documents/code/local-infra-kit`; invoke the toolkit directly from `package.json` with `--profile school-clerk` and keep dev command behavior aligned with the toolkit's standard monorepo contract.
 - Standard local infra env files are `.env.local`, `.env.remote.local`, and `.env.prod`; use `DATABASE_URL` as the database URL in each mode instead of adding mode-specific database URL names.
 - Database sync uses explicit mode pairs: `bun run db:sync -- -m prod-local`, `bun run db:sync -- -m remote-local`, or `bun run db:sync -- -m prod-remote`; use `--reset` only to reset sync cursors/state for that pair.
-- Website/dashboard QA should start the local web stack with `bun run dev --local --filter dashboard marketing` when those apps are in scope. Add the school-site filter only when school-site behavior is part of the QA slice.
+- Agents must never start a development server in their current shell. Reuse the already-running stack when available.
+- If dev is required and no suitable stack is running, create a new tab in the already-open cmux session and run exactly `jd school-clerk dev --local -f marketing dashboard school-site`. If cmux is unavailable or cannot create the tab, mark the active goal blocked; do not start dev through another terminal or command runner.
 - Website QA must use Portless hostnames instead of raw localhost ports:
   - marketing/public site: `https://school-clerk.localhost`
   - tenant dashboard: `https://<tenant>.school-clerk-dashboard.localhost`
   - tenant school site: `https://<tenant>.school-clerk-site.localhost`
-- Portless local QA URLs should not include visible proxy ports; the shared proxy defaults to HTTPS port `443`.
-- Use raw localhost ports only for low-level debugging when Portless itself is the suspected failure.
+- Portless local QA URLs must not include visible proxy ports. A named host with an appended port, including `school-clerk.localhost:1441`, is a broken configuration; stop website QA, fix the Portless bug, and verify the port-free URL before proceeding.
+- Raw localhost ports may be inspected only while diagnosing Portless itself; they are not valid website QA URLs and do not allow work to proceed past a broken named host.
 - `bun run kill:ports` discovers numeric env variables ending in `_PORT` and ignores names containing `PORTLESS`. Keep every project-owned dev port declared as an individual `*_PORT` env variable instead of adding aggregate kill lists.
-- For schema readiness checks, use profile-routed DB commands:
-  - local validation/push: `bun run db:push --local`
-  - production validation/push: `bun run db:push --prod`
-- Do not run production-profile DB commands unless the task explicitly calls for production validation and the target database is confirmed.
+- After every Prisma schema/database update, run the repository-required migration workflow, `bun run db:push --local`, and `bun run db:push --prod`; also attempt `bun run db:push --remote`, which aliases the remote-development profile.
+- All three DB push profiles must be attempted for Prisma updates. Preserve the repository's destructive-change safeguards, never force data loss without explicit approval, and report any profile that could not be updated.
 
 ## Midday Architecture Standards
 
@@ -76,7 +75,7 @@ Defines implementation standards for consistency, maintainability, and reliabili
   - domain-specific sheet files under `components/sheets/...`
 - Forms must use Midday validation, field error display, submission state, mutation callbacks, toast/error handling, and cache invalidation patterns.
 - Data fetching and mutations must use standard Midday tRPC patterns, including query keys, prefetch/hydration where applicable, invalidation, loading states, error states, and caching behavior.
-- Prisma schema changes must be followed by root `bun db:migrate` and `bun db:push` when those scripts exist. Do not manually create migration files.
+- Prisma schema changes must be followed by root `bun db:migrate`, `bun run db:push --local`, `bun run db:push --prod`, and an attempted `bun run db:push --remote` when those scripts exist. Do not manually create migration files.
 - Use shadcn standard components and composition patterns. Do not directly modify shadcn source components; create project-specific wrapper components when SchoolClerk needs custom behavior.
 - Use `/Users/M1PRO/Documents/code/_turbo/gnd` as the reference for the standard notification package system.
 - Use `/Users/M1PRO/Documents/code/plot-keys` as the reference for local URL handling, portless/proxy support, and generated links.

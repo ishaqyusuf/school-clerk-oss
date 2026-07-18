@@ -12,6 +12,7 @@ import { ExternalLinkIcon } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { _trpc } from "./static-trpc";
 import { Menu } from "@school-clerk/ui/custom/menu";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 
 export function StudentReportFilter({
   controlsOnly = false,
@@ -20,6 +21,7 @@ export function StudentReportFilter({
   controlsOnly?: boolean;
   allowedClassroomIds?: string[];
 }) {
+  const academicDataDirection = useAcademicDataDirection();
   const { setFilters, filters } = useStudentReportFilterParams();
   const ctx = useReportPageContext();
   const trpc = _trpc!;
@@ -126,7 +128,7 @@ export function StudentReportFilter({
         <Field className="min-w-0">
           <Field.Label>Classroom</Field.Label>
           <Select
-            dir="rtl"
+            dir="ltr"
             value={filters.departmentId}
             onValueChange={(e) => {
               setFilters({ departmentId: e });
@@ -141,7 +143,9 @@ export function StudentReportFilter({
                 : ctx?.classRooms
               )?.map((c) => (
                 <Select.Item value={c?.id} key={c?.id}>
-                  {c?.displayName ?? c?.departmentName}
+                  <span dir="auto">
+                    {c?.displayName ?? c?.departmentName}
+                  </span>
                 </Select.Item>
               ))}
             </Select.Content>
@@ -192,14 +196,14 @@ export function StudentReportFilter({
           </button>
         )}
       </div>
-      <Item.Group dir="rtl">
+      <Item.Group dir={academicDataDirection}>
         {ctx?.termForms?.map((tf, tfi) => {
           const r = ctx?.reportsById?.[tf?.id];
           const isSelected = printOrder.includes(tf.id);
           return (
             <Fragment key={tf.id}>
               {tfi > 0 && <Separator />}
-              <Item dir="rtl" variant="muted">
+              <Item dir={academicDataDirection} variant="muted">
                 <Item.Content>
                   <Item.Title>
                     <Checkbox
@@ -207,13 +211,13 @@ export function StudentReportFilter({
                       onCheckedChange={() => toggleStudent(tf.id)}
                       id={`cb-${tf.id}`}
                     />
-                    {studentDisplayName(tf?.student)}
+                    <span dir="auto">{studentDisplayName(tf?.student)}</span>
                   </Item.Title>
                   <Item.Description>
                     {`${r?.summary?.results}/${r?.summary?.subjects} | ${r?.grade?.percentage}% | ${r?.grade?.position}`}
                   </Item.Description>
                 </Item.Content>
-                <Item.Actions>
+                <Item.Actions dir="ltr">
                   <Menu triggerSize="xs" variant="secondary">
                     <Menu.Item
                       onClick={(e) => {

@@ -8,11 +8,12 @@ import {
 } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
 import { useEffect, useMemo, useRef } from "react";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 
 function TeacherReportSheetInner({
 	defaultTermId,
 	allowedClassroomIds,
-	defaultClassroomLayout = "ltr",
+	defaultClassroomLayout,
 }: {
 	defaultTermId: string;
 	allowedClassroomIds?: string[];
@@ -98,18 +99,22 @@ function TeacherReportSheetInner({
 export function TeacherReportSheet({
 	defaultTermId,
 	allowedClassroomIds,
-	defaultClassroomLayout = "ltr",
+	defaultClassroomLayout,
 }: {
 	defaultTermId: string;
 	allowedClassroomIds?: string[];
 	defaultClassroomLayout?: "ltr" | "rtl";
 }) {
+	const academicDataDirection = useAcademicDataDirection();
+
 	return (
 		<ReportPageProvider value={createReportPageContext(defaultTermId)}>
 			<TeacherReportSheetInner
 				defaultTermId={defaultTermId}
 				allowedClassroomIds={allowedClassroomIds}
-				defaultClassroomLayout={defaultClassroomLayout}
+				defaultClassroomLayout={
+					defaultClassroomLayout ?? academicDataDirection
+				}
 			/>
 		</ReportPageProvider>
 	);

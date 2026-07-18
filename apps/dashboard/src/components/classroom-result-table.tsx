@@ -878,6 +878,7 @@ export function ClassroomResultTable({
 												type="button"
 												onClick={() => setOpenSubjectId(subject.id)}
 												className="font-semibold underline-offset-4 hover:underline"
+												dir="auto"
 											>
 												{subject.subject.title}
 											</button>
@@ -1056,7 +1057,9 @@ function StudentResultRow({
 					<span className="shrink-0 text-xs text-muted-foreground">
 						{index + 1}.
 					</span>
-					<span className="truncate">{getStudentDisplayName(student.student)}</span>
+					<span className="truncate" dir="auto">
+						{getStudentDisplayName(student.student)}
+					</span>
 					<StudentGenderBadge gender={student.student?.gender} />
 					{isDuplicateName ? (
 						<Badge variant="warning" className="text-[10px] uppercase">

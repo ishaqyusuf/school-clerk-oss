@@ -21,6 +21,7 @@ import { SkeletonCell } from "./skeleton-cell";
 import { getColumnId, getHeaderLabel, type TableColumnMeta } from "./types";
 
 interface TableSkeletonProps<TData> {
+    direction?: "ltr" | "rtl";
     columns: ColumnDef<TData>[];
     rowCount?: number;
     columnVisibility?: VisibilityState;
@@ -41,6 +42,7 @@ const HEADER_CELL_BACKGROUND_STYLE = {
 };
 
 export function TableSkeleton<TData>({
+    direction = "ltr",
     columns,
     rowCount = 40,
     columnVisibility = {},
@@ -97,7 +99,12 @@ export function TableSkeleton<TData>({
     const getStickyStyle = (columnId: string) => {
         const position = stickyPositions[columnId];
         return position !== undefined
-            ? ({ "--stick-left": `${position}px` } as CSSProperties)
+            ? ({
+                  insetInlineStart: `${position}px`,
+                  ...(direction === "rtl"
+                      ? { right: `${position}px`, left: "auto" }
+                      : { left: `${position}px`, right: "auto" }),
+              } as CSSProperties)
             : {};
     };
 
@@ -105,12 +112,12 @@ export function TableSkeleton<TData>({
         const isSticky = stickyColumnIds.includes(columnId);
         return cn(
             baseClassName,
-            isSticky && "md:sticky md:left-[var(--stick-left)]",
+            isSticky && "md:sticky",
         );
     };
 
     return (
-        <div className={cn("w-full", className)}>
+        <div className={cn("w-full", className)} dir={direction}>
             <div
                 className={cn(
                     "overflow-auto overscroll-x-none scrollbar-hide",
@@ -155,7 +162,7 @@ export function TableSkeleton<TData>({
                                 );
                                 const headerClassName = isActions
                                     ? cn(
-                                          "group/header relative h-full px-4 border-t border-border flex items-center justify-center md:sticky md:right-0 z-10",
+                                          "group/header relative h-full px-4 border-t border-border flex items-center justify-center md:sticky z-10",
                                           HEADER_BACKGROUND_CLASS,
                                       )
                                     : sticky
@@ -185,7 +192,8 @@ export function TableSkeleton<TData>({
                                                         "1px solid hsl(var(--border))",
                                                 }),
                                             ...(isActions && {
-                                                borderLeft:
+                                                insetInlineEnd: 0,
+                                                borderInlineStart:
                                                     "1px solid hsl(var(--border))",
                                                 borderTop:
                                                     "1px solid hsl(var(--border))",
@@ -239,7 +247,7 @@ export function TableSkeleton<TData>({
                                             meta?.className,
                                         ),
                                         isActions &&
-                                            "md:sticky md:right-0 bg-background z-10 justify-center",
+                                            "md:sticky bg-background z-10 justify-center",
                                     );
 
                                     return (
@@ -252,7 +260,8 @@ export function TableSkeleton<TData>({
                                                 maxWidth,
                                                 ...getStickyStyle(columnId),
                                                 ...(isActions && {
-                                                    borderLeft:
+                                                    insetInlineEnd: 0,
+                                                    borderInlineStart:
                                                         "1px solid hsl(var(--border))",
                                                     borderBottom:
                                                         "1px solid hsl(var(--border))",

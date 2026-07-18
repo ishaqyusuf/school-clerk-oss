@@ -23,6 +23,15 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: ACADEMIC-RTL-001
+- Title: Automatic RTL for academic data surfaces
+- Completed: 2026-07-18
+- Outcome: Added tenant-scoped Auto/LTR/RTL academic data direction with bounded weighted script detection, safe LTR fallback, five-minute caching, administrator-only overrides in School Profile, and a scoped dashboard provider. Student, classroom, subject, roster, attendance, assessment, and report data surfaces now mirror their data layout when resolved RTL while English navigation, settings, tabs, toolbars, buttons, dialogs, and global application direction remain LTR. Existing per-report direction cookies continue to override an individual report.
+- Related changes: `packages/db/src/schema/school.prisma`, `packages/db/src/academic-data-direction.ts`, `apps/api/src/db/queries/school-settings.ts`, `apps/api/src/trpc/routers/school-settings.routes.ts`, `apps/dashboard/src/components/academic-data-direction/*`, `apps/dashboard/src/lib/academic-data-direction/server.ts`, academic table/card/report components, `.brain/features/academic-data-direction.md`, `.brain/decisions/ADR-0009-scoped-academic-data-direction.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: STUD-IMP-PROD-ERROR
 - Title: Harden student import production error handling and row-level import
 - Completed: 2026-07-12

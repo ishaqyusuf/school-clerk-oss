@@ -39,10 +39,13 @@ export const columns: Column[] = [
     },
     cell: ({ row: { original: item } }) => (
       <div className="flex flex-col">
-        <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
+        <span
+          className="font-semibold text-foreground group-hover:text-primary transition-colors"
+          dir="auto"
+        >
           {item?.displayName}
         </span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground" dir="auto">
           {item?.classRoom?.name}
         </span>
       </div>
@@ -409,16 +412,18 @@ function ItemCard({ item }: ItemProps) {
     <div className="p-4 flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
-          <span className="font-semibold text-foreground">
+          <span className="font-semibold text-foreground" dir="auto">
             {item?.displayName}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground" dir="auto">
             {item?.classRoom?.name}
           </span>
         </div>
-        <Actions item={item} />
+        <div dir="ltr">
+          <Actions item={item} />
+        </div>
       </div>
-      <div className="flex items-center gap-4 text-sm">
+      <div className="flex items-center gap-4 text-sm" dir="ltr">
         <span className="text-muted-foreground">
           Level <span className="font-medium text-foreground">{classLevel ?? "—"}</span>
         </span>

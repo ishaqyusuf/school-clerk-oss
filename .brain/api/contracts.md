@@ -18,6 +18,20 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Responses include consistent error envelope.
 - Tenant context is required for tenant-scoped routes.
 
+## Academic Data Direction Contracts
+
+- Route: `schoolSettings.getAcademicDataDirection`
+- Request schema: none
+- Response schema: `{ mode: "AUTO" | "LTR" | "RTL", direction: "ltr" | "rtl", analyzedRecords: number, ltrWeight: number, rtlWeight: number, sources }`, where `sources` contains bounded analyzed/LTR/RTL counts for students, classrooms, departments, subjects, school, and language.
+- Error cases: unauthenticated request; missing tenant context. Detector/database failures return a safe LTR fallback rather than failing the dashboard layout.
+- Notes: the school id is derived exclusively from authenticated tenant context. Automatic analysis uses bounded tenant-scoped samples and a five-minute server cache. Missing/tied evidence resolves to LTR.
+
+- Route: `schoolSettings.updateAcademicDataDirection`
+- Request schema: `{ mode: "AUTO" | "LTR" | "RTL" }`
+- Response schema: `{ mode: "AUTO" | "LTR" | "RTL" }`
+- Error cases: unauthenticated request, non-administrator role, missing tenant context, school not found in the active tenant.
+- Notes: the mutation never accepts a school id and constrains the update to the authenticated `schoolProfileId`. Forced LTR/RTL mode is read without the automatic-analysis cache.
+
 ## Endpoint Contract Template
 
 - Route:

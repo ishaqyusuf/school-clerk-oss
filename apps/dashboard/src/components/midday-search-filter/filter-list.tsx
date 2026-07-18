@@ -150,44 +150,40 @@ export function FilterList({ loading, filterList, filters, onRemove }) {
     }
   };
   return (
-    <motion.ul
-      variants={listVariant}
-      initial="hidden"
-      animate="show"
-      // style={{}}
-      // className="flex space-x-2"
-    >
-      {loading && (
-        <div className="flex space-x-2">
-          <motion.li key="1" variants={itemVariant}>
-            <Skeleton className="h-8 w-[100px] rounded-full" />
-          </motion.li>
-          <motion.li key="2" variants={itemVariant}>
-            <Skeleton className="h-8 w-[100px] rounded-full" />
-          </motion.li>
-        </div>
-      )}
-      {!loading &&
-        Object.entries(filters || {})
-          .filter(([key, value]) => value !== null && key !== "end")
-          .map(([key, value]) => {
-            return (
-              <motion.li key={key} variants={itemVariant}>
-                <Button
-                  className="group flex h-8 items-center space-x-1 rounded-full bg-secondary px-3 font-normal text-[#878787] hover:bg-secondary"
-                  onClick={() => handleOnRemove(key)}
-                >
-                  <Icons.Clear className="w-0 scale-0 transition-all group-hover:w-4 group-hover:scale-100" />
-                  <span>
-                    {renderFilter({
-                      key,
-                      value,
-                    })}
-                  </span>
-                </Button>
-              </motion.li>
-            );
-          })}
-    </motion.ul>
+    <div className="min-w-0 [&>ul]:flex [&>ul]:flex-row [&>ul]:flex-wrap [&>ul]:gap-2">
+      <motion.ul variants={listVariant} initial="hidden" animate="show">
+        {loading && (
+          <div className="flex space-x-2">
+            <motion.li key="1" variants={itemVariant}>
+              <Skeleton className="h-8 w-[100px] rounded-full" />
+            </motion.li>
+            <motion.li key="2" variants={itemVariant}>
+              <Skeleton className="h-8 w-[100px] rounded-full" />
+            </motion.li>
+          </div>
+        )}
+        {!loading &&
+          Object.entries(filters || {})
+            .filter(([key, value]) => value !== null && key !== "end")
+            .map(([key, value]) => {
+              return (
+                <motion.li key={key} variants={itemVariant}>
+                  <Button
+                    className="group flex h-8 items-center space-x-1 rounded-full bg-secondary px-3 font-normal text-[#878787] hover:bg-secondary"
+                    onClick={() => handleOnRemove(key)}
+                  >
+                    <Icons.Clear className="w-0 scale-0 transition-all group-hover:w-4 group-hover:scale-100" />
+                    <span>
+                      {renderFilter({
+                        key,
+                        value,
+                      })}
+                    </span>
+                  </Button>
+                </motion.li>
+              );
+            })}
+      </motion.ul>
+    </div>
   );
 }

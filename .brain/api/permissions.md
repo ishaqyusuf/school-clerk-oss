@@ -30,6 +30,14 @@ Defines access control rules for each API surface.
 - Billing and Payments: TBD by role
 - Notifications: TBD by role
 
+## Academic Data Direction Permissions
+
+- Authenticated tenant users may read the configured and resolved academic data direction needed to render authorized academic surfaces.
+- Only `ADMIN` SaaS owners and `Admin` school administrators may update `AcademicDataDirectionMode`.
+- Direction reads and writes derive `schoolProfileId` from authenticated tenant context. Clients cannot provide a tenant or school id.
+- The update query includes the active `schoolProfileId` constraint so a valid record id from another tenant cannot be targeted.
+- This setting affects academic data presentation only and grants no additional access to students, classrooms, subjects, assessments, attendance, or reports.
+
 ## Enrollment Links And Parent Portal Permissions
 
 - Admin and Registrar can create, update, pause/archive, and copy public enrollment links.

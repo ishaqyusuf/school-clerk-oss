@@ -20,6 +20,7 @@ import { AlertCircle, Check, X } from "lucide-react";
 import { Spinner } from "@school-clerk/ui/spinner";
 import { useAssessmentRecordingParams } from "@/hooks/use-assessment-recording-params";
 import { enToAr } from "@school-clerk/utils";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 
 interface Props {
   // overview: RouterOutputs["subjects"]["overview"];
@@ -39,6 +40,7 @@ export function AssessmentSubmissions(props: Props) {
   );
 }
 function Content(props: Props) {
+  const academicDataDirection = useAcademicDataDirection();
   const { filters } = useAssessmentRecordingParams();
   const { data, isPending } = useSuspenseQuery(
     _trpc.assessments.getSubjectAssessmentRecordings.queryOptions({
@@ -59,10 +61,10 @@ function Content(props: Props) {
   const visibleAssessments =
     tableData?.assessments?.filter((a) => !!a?.percentageObtainable) ?? [];
   return (
-    <Table dir="rtl">
-      <TableHeader dir="rtl">
+    <Table dir={academicDataDirection}>
+      <TableHeader>
         <TableRow>
-          <TableHead dir="rtl" className="text-start">
+          <TableHead className="text-start">
             الطالب
           </TableHead>
           {visibleAssessments.map((a) => (
@@ -75,7 +77,7 @@ function Content(props: Props) {
       <TableBody>
         {tableData?.students?.map((student, si) => (
           <TableRow key={student.id}>
-            <TableCell dir="rtl">
+            <TableCell dir="auto">
               {enToAr(si + 1)}. {student.name}
             </TableCell>
             {visibleAssessments.map((a) => (

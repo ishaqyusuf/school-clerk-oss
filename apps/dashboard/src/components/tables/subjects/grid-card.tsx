@@ -6,8 +6,10 @@ import { _qc, _trpc } from "@/components/static-trpc";
 import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
 import { BookOpen, ChevronRight, View } from "lucide-react";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 
 export function GridCard({ item, onClick }: { item: ColumnItem; onClick? }) {
+  const academicDataDirection = useAcademicDataDirection();
   const { mutate: deleteClassSubject, isPending: isDeleting } = useMutation(
     _trpc.subjects.deleteClassSubject.mutationOptions({
       onSuccess(data, variables, onMutateResult, context) {
@@ -30,6 +32,7 @@ export function GridCard({ item, onClick }: { item: ColumnItem; onClick? }) {
   const assessmentCount = item?._count?.assessments ?? 0;
   return (
     <div
+      dir={academicDataDirection}
       role="button"
       tabIndex={0}
       onClick={() => onClick?.(item)}
@@ -51,14 +54,17 @@ export function GridCard({ item, onClick }: { item: ColumnItem; onClick? }) {
           </div>
           <div className="min-w-0 space-y-2">
             <div className="space-y-1">
-              <h3 className="truncate text-base font-semibold text-foreground">
+              <h3
+                className="truncate text-base font-semibold text-foreground"
+                dir="auto"
+              >
                 {item?.subject?.title}
               </h3>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground" dir="ltr">
                 Classroom subject overview and assessment tracking.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2" dir="ltr">
               <Badge variant="outline" className="rounded-full px-3 py-1">
                 {assessmentCount} assessment{assessmentCount === 1 ? "" : "s"}
               </Badge>
@@ -68,10 +74,18 @@ export function GridCard({ item, onClick }: { item: ColumnItem; onClick? }) {
             </div>
           </div>
         </div>
-        <ChevronRight className="mt-1 size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+        <ChevronRight
+          className={cn(
+            "mt-1 size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5",
+            academicDataDirection === "rtl" && "rotate-180",
+          )}
+        />
       </div>
 
-      <div className="mt-5 flex items-center justify-between border-t border-border/70 pt-4">
+      <div
+        className="mt-5 flex items-center justify-between border-t border-border/70 pt-4"
+        dir="ltr"
+      >
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
           Open subject workspace
         </div>

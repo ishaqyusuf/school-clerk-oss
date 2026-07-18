@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 interface UseTableScrollOptions {
+  direction?: "ltr" | "rtl";
   scrollAmount?: number;
   useColumnWidths?: boolean;
   startFromColumn?: number;
@@ -11,6 +12,7 @@ interface UseTableScrollOptions {
 
 export function useTableScroll(options: UseTableScrollOptions = {}) {
   const {
+    direction = "ltr",
     scrollAmount = 120,
     useColumnWidths = false,
     startFromColumn = 0,
@@ -53,7 +55,10 @@ export function useTableScroll(options: UseTableScrollOptions = {}) {
     const allColumnPositions = getColumnPositions();
     if (allColumnPositions.length === 0) return;
 
-    const currentScrollLeft = container.scrollLeft;
+    const currentScrollLeft =
+      direction === "rtl"
+        ? Math.abs(container.scrollLeft)
+        : container.scrollLeft;
     const maxScrollLeft = container.scrollWidth - container.clientWidth;
 
     // Fast edge case detection
@@ -92,7 +97,7 @@ export function useTableScroll(options: UseTableScrollOptions = {}) {
       startFromColumn,
       Math.min(detectedColumn, allColumnPositions.length - 1),
     );
-  }, [useColumnWidths, startFromColumn, getColumnPositions]);
+  }, [direction, useColumnWidths, startFromColumn, getColumnPositions]);
 
   const checkScrollability = useCallback(() => {
     const container = containerRef.current;
@@ -100,6 +105,11 @@ export function useTableScroll(options: UseTableScrollOptions = {}) {
 
     const { scrollWidth, clientWidth } = container;
     const isScrollableTable = scrollWidth > clientWidth;
+    const maxScrollLeft = scrollWidth - clientWidth;
+    const logicalScrollLeft =
+      direction === "rtl"
+        ? Math.abs(container.scrollLeft)
+        : container.scrollLeft;
 
     if (useColumnWidths) {
       syncColumnIndex();
@@ -108,25 +118,51 @@ export function useTableScroll(options: UseTableScrollOptions = {}) {
       const maxColumnIndex = allColumnPositions.length - 1;
 
       const newCanScrollLeft =
-        currentColumnIndex.current > startFromColumn ||
-        container.scrollLeft > 10;
-      const newCanScrollRight = currentColumnIndex.current < maxColumnIndex;
+        direction === "rtl"
+          ? logicalScrollLeft < maxScrollLeft - 1
+          : currentColumnIndex.current > startFromColumn ||
+            logicalScrollLeft > 10;
+      const newCanScrollRight =
+        direction === "rtl"
+          ? logicalScrollLeft > 1
+          : currentColumnIndex.current < maxColumnIndex;
 
       setIsScrollable(isScrollableTable);
       setCanScrollLeft(newCanScrollLeft);
       setCanScrollRight(newCanScrollRight);
     } else {
-      const { scrollLeft } = container;
       setIsScrollable(isScrollableTable);
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+      setCanScrollLeft(
+        direction === "rtl"
+          ? logicalScrollLeft < maxScrollLeft - 1
+          : logicalScrollLeft > 0,
+      );
+      setCanScrollRight(
+        direction === "rtl"
+          ? logicalScrollLeft > 0
+          : logicalScrollLeft < maxScrollLeft - 1,
+      );
     }
-  }, [useColumnWidths, startFromColumn, getColumnPositions, syncColumnIndex]);
+  }, [
+    direction,
+    useColumnWidths,
+    startFromColumn,
+    getColumnPositions,
+    syncColumnIndex,
+  ]);
 
   const scrollLeft = useCallback(
     (smooth = true) => {
       const container = containerRef.current;
       if (!container) return;
+
+      if (direction === "rtl") {
+        container.scrollBy({
+          left: -scrollAmount,
+          behavior: smooth ? "smooth" : "auto",
+        });
+        return;
+      }
 
       if (useColumnWidths) {
         const allColumnPositions = getColumnPositions();
@@ -202,13 +238,29 @@ export function useTableScroll(options: UseTableScrollOptions = {}) {
         });
       }
     },
-    [scrollAmount, useColumnWidths, startFromColumn, getColumnPositions],
+    [
+      direction,
+      scrollAmount,
+      useColumnWidths,
+      startFromColumn,
+      getColumnPositions,
+      syncColumnIndex,
+      checkScrollability,
+    ],
   );
 
   const scrollRight = useCallback(
     (smooth = true) => {
       const container = containerRef.current;
       if (!container) return;
+
+      if (direction === "rtl") {
+        container.scrollBy({
+          left: scrollAmount,
+          behavior: smooth ? "smooth" : "auto",
+        });
+        return;
+      }
 
       if (useColumnWidths) {
         const allColumnPositions = getColumnPositions();
@@ -259,7 +311,15 @@ export function useTableScroll(options: UseTableScrollOptions = {}) {
         });
       }
     },
-    [scrollAmount, useColumnWidths, startFromColumn, getColumnPositions],
+    [
+      direction,
+      scrollAmount,
+      useColumnWidths,
+      startFromColumn,
+      getColumnPositions,
+      syncColumnIndex,
+      checkScrollability,
+    ],
   );
 
   useEffect(() => {

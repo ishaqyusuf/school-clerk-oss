@@ -17,7 +17,9 @@ const column1: Column = {
   header: "#",
   accessorKey: "",
   meta: {},
-  cell: ({ row: { original: item } }) => <>{item.subject?.title}</>,
+  cell: ({ row: { original: item } }) => (
+    <span dir="auto">{item.subject?.title}</span>
+  ),
 };
 
 export const columns: Column[] = [

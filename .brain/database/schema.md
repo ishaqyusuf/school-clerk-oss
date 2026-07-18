@@ -40,6 +40,20 @@ Tracks logical and physical schema for SchoolClerk data entities.
 
 Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.school-clerk.com`
 
+### SchoolProfile Academic Data Direction (added — session 2026-07)
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `academicDataDirectionMode` | `AcademicDataDirectionMode` | Defaults to `AUTO`; controls only academic data surfaces |
+
+`AcademicDataDirectionMode` values:
+
+- `AUTO`: resolve from bounded tenant academic-data samples.
+- `LTR`: force academic data surfaces left-to-right.
+- `RTL`: force academic data surfaces right-to-left.
+
+The setting does not control application language, global document direction, or dashboard chrome.
+
 ### Verification Usage
 
 - Signup owner email verification reuses the existing `Verification` model.

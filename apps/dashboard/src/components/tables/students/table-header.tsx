@@ -14,6 +14,7 @@ import { TableHead, TableHeader, TableRow } from "@school-clerk/ui/table";
 import type { Header, Table } from "@tanstack/react-table";
 
 interface Props<TData> {
+	direction?: "ltr" | "rtl";
 	table?: Table<TData>;
 	loading?: boolean;
 	tableScroll?: TableScrollState;
@@ -29,12 +30,14 @@ const HEADER_CELL_BACKGROUND_STYLE = {
 };
 
 export function DataTableHeader<TData>({
+	direction = "ltr",
 	table,
 	loading,
 	tableScroll,
 	showColumnDividers = false,
 }: Props<TData>) {
 	const { getStickyStyle, getStickyClassName, isVisible } = useStickyColumns({
+		direction,
 		table,
 		loading,
 		stickyColumns: STICKY_COLUMNS.students,
@@ -88,7 +91,7 @@ export function DataTableHeader<TData>({
 							columnId,
 							cn(
 								"group/header relative h-full px-4 border-t border-border flex items-center",
-								showRightDivider && "border-r",
+								showRightDivider && "border-e",
 							),
 						);
 
@@ -119,6 +122,7 @@ function renderHeaderContent<TData>(
 	const isRightAligned = meta?.className?.split(/\s+/).includes("text-right");
 	const content = (
 		<span
+			dir="ltr"
 			className={cn(
 				HEADER_TEXT_CLASS,
 				isRightAligned ? "block w-full truncate text-right" : "truncate",

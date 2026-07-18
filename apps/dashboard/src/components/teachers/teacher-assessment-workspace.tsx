@@ -80,8 +80,8 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 						>
 							<div className="flex items-start justify-between gap-3">
 								<div>
-									<p className="font-medium text-foreground">{subject.title}</p>
-									<p className="mt-1 text-xs text-muted-foreground">
+									<p className="font-medium text-foreground" dir="auto">{subject.title}</p>
+									<p className="mt-1 text-xs text-muted-foreground" dir="auto">
 										{subject.displayName}
 									</p>
 									<div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -119,8 +119,8 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 							{subjects.map((subject) => (
 								<SelectItem key={subject.id} value={subject.id}>
 									<div className="flex flex-col gap-1 py-1 text-left">
-										<span className="font-medium">{subject.title}</span>
-										<span className="text-xs text-muted-foreground">
+										<span className="font-medium" dir="auto">{subject.title}</span>
+										<span className="text-xs text-muted-foreground" dir="auto">
 											{subject.displayName} · {subject.numberOfAssessments}{" "}
 											assessments · {subject.numberOfRecordings} recordings
 										</span>
@@ -134,11 +134,11 @@ export function TeacherAssessmentWorkspace({ subjects }: Props) {
 					<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 						<div>
 							<div className="flex flex-wrap items-center gap-2">
-								<h2 className="text-xl font-semibold">
+								<h2 className="text-xl font-semibold" dir="auto">
 									{selectedSubject?.title ?? "Assessment setup"}
 								</h2>
 								{selectedSubject ? (
-									<Badge variant="outline">{selectedSubject.displayName}</Badge>
+									<Badge variant="outline" dir="auto">{selectedSubject.displayName}</Badge>
 								) : null}
 							</div>
 							<p className="mt-1 text-sm text-muted-foreground">

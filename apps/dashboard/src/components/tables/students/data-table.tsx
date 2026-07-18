@@ -22,6 +22,7 @@ import { EmptyState, NoResults } from "./empty-states";
 import { useStudentsTableStore } from "./store";
 import { StudentGridCard } from "./student-grid-card";
 import { DataTableHeader } from "./table-header";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 
 const NON_CLICKABLE_COLUMNS = new Set(["actions"]);
 const COLUMN_IDS = getColumnIds(columns);
@@ -52,6 +53,7 @@ export function DataTable({
 	onCreate,
 }: Props) {
 	const trpc = useTRPC();
+	const academicDataDirection = useAcademicDataDirection();
 	const { filter, hasFilters, setFilters } = useStudentFilterParams();
 	const deferredSearch = useDeferredValue(filter.q);
 	const { setParams } = useStudentParams();
@@ -122,11 +124,13 @@ export function DataTable({
 	});
 
 	const { getStickyStyle, getStickyClassName } = useStickyColumns({
+		direction: academicDataDirection,
 		columnVisibility,
 		table,
 		stickyColumns: STICKY_COLUMNS.students,
 	});
 	const tableScroll = useTableScroll({
+		direction: academicDataDirection,
 		useColumnWidths: true,
 		startFromColumn: 1,
 	});
@@ -235,7 +239,7 @@ export function DataTable({
 	const virtualItems = rowVirtualizer.getVirtualItems();
 
 	return (
-		<div className="relative">
+		<div className="relative" dir={academicDataDirection}>
 			{viewMode === "grid" ? (
 				<TableGrid
 					rows={rows}
@@ -258,8 +262,12 @@ export function DataTable({
 							height: "calc(100vh - 240px + var(--header-offset, 0px))",
 						}}
 					>
-						<Table className="w-full min-w-full">
+						<Table
+							className="w-full min-w-full"
+							dir={academicDataDirection}
+						>
 							<DataTableHeader
+								direction={academicDataDirection}
 								table={table}
 								tableScroll={tableScroll}
 								showColumnDividers={showColumnDividers}

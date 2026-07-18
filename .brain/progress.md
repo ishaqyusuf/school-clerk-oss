@@ -1,5 +1,22 @@
 # Progress
 
+## Assessment Recording Mobile Scroll Ownership (2026-07-18)
+
+### Completed
+
+- Removed the score table's viewport-derived maximum height and overflow container so assessment recording uses normal document scrolling at mobile and desktop sizes.
+- Kept only the two-row table header sticky; the search field, helper copy, classroom/subject filters, public-link action, and report link now scroll away with the page.
+- Removed the recording page's extra bottom margin and kept the shared dashboard shell on its standard document-flow layout.
+- Applied a fixed shadcn table layout with a narrower mobile Student column so long names truncate without widening the page.
+- Kept the document scrollbar visible as the page's single vertical scrollbar and removed the score table wrapper entirely so it cannot become a competing scroll surface.
+
+### Verification
+
+- Prettier and `git diff --check` pass for the changed assessment-recording components and Brain docs.
+- A scoped source audit confirms the recording table has no viewport height cap or vertical overflow class; the remaining `overflow-auto` belongs only to the subject-editor dialog.
+- In-app browser inspection confirms the deployed page's duplicate scrollbar comes from the old `max-h-[calc(100vh-180px)] overflow-auto` table wrapper; the local implementation removes that wrapper and leaves the document as the single scroll owner.
+- Full dashboard typecheck and local browser QA are currently blocked by an unrelated stale Prisma client for the in-progress `academicDataDirectionMode` schema change. `bun run db:generate` was attempted without database writes but was killed with exit code 137.
+
 ## Student Report Filter Auto-Selection (2026-07-17)
 
 ### Completed
@@ -10,6 +27,7 @@
 - Replaced the classroom result table's separate student-search and subject-filter controls with the shared Midday-style search filter.
 - Added report filter options for term, classroom, and multi-select subjects inside the same search/filter control, with subject filtering URL-backed through `subjectIds`.
 - Removed the duplicate sticky Term/Classroom filter bar so the Midday-style report filter is the only filter control surface.
+- Updated active Midday filter tags to use a wrapping horizontal flex row.
 
 ### Verification
 

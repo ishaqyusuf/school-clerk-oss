@@ -59,7 +59,7 @@ function VirtualRowInner<TData>({
                 "group cursor-pointer select-text",
                 "hover:bg-[#F2F1EF] hover:dark:bg-secondary",
                 "flex items-center border-0",
-                "absolute left-0 top-0 w-full min-w-full",
+                "absolute inset-x-0 top-0 w-full min-w-full",
                 rowClassName?.(row),
             )}
             style={{
@@ -99,7 +99,7 @@ function VirtualRowInner<TData>({
                             "flex h-full items-center border-b border-border",
                             showColumnDividers &&
                                 cells.length - 1 !== cellIndex &&
-                                "border-r",
+                                "border-e",
                             cellClassName,
                             isActions && "justify-center",
                         )}

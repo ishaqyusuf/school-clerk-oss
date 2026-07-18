@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@school-clerk/ui/card";
 import { AlertTriangle } from "lucide-react";
+import { resolveDashboardAcademicDataDirection } from "@/lib/academic-data-direction/server";
 
 export default async function LayoutNew({ children }) {
   const [cookie, session] = await Promise.all([getAuthCookie(), getSession()]);
@@ -57,9 +58,14 @@ export default async function LayoutNew({ children }) {
     );
   }
 
+  const academicDataDirection = await resolveDashboardAcademicDataDirection(
+    cookie.schoolId,
+  );
+
   return (
     <HydrateClient>
       <NavLayoutClient
+        academicDataDirection={academicDataDirection.direction}
         initialRole={
           (session?.user as { role?: string | null } | undefined)?.role ?? null
         }

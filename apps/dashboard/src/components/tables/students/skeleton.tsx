@@ -5,6 +5,7 @@ import { STICKY_COLUMNS } from "@/utils/table-configs";
 import type { TableSettings } from "@/utils/table-settings";
 
 import { columns } from "./columns";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 
 type Props = {
 	initialSettings?: Partial<TableSettings>;
@@ -13,16 +14,21 @@ type Props = {
 };
 
 export function StudentsSkeleton({ initialSettings, rowCount, isEmpty }: Props) {
+	const academicDataDirection = useAcademicDataDirection();
+
 	return (
-		<TableSkeleton
-			columns={columns}
-			rowCount={rowCount}
-			isEmpty={isEmpty}
-			columnVisibility={initialSettings?.columns}
-			columnSizing={initialSettings?.sizing}
-			columnOrder={initialSettings?.order}
-			stickyColumnIds={STICKY_COLUMNS.students.map(({ id }) => id)}
-		/>
+		<div dir={academicDataDirection}>
+			<TableSkeleton
+				direction={academicDataDirection}
+				columns={columns}
+				rowCount={rowCount}
+				isEmpty={isEmpty}
+				columnVisibility={initialSettings?.columns}
+				columnSizing={initialSettings?.sizing}
+				columnOrder={initialSettings?.order}
+				stickyColumnIds={STICKY_COLUMNS.students.map(({ id }) => id)}
+			/>
+		</div>
 	);
 }
 

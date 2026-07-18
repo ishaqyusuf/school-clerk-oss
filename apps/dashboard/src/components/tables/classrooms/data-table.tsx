@@ -13,7 +13,9 @@ import { Actions, columns, mobileColumn } from "./columns";
 import { useClassroomFilterParams } from "@/hooks/use-classroom-filter-params";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useMemo } from "react";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 export function DataTable() {
+  const academicDataDirection = useAcademicDataDirection();
   const trpc = useTRPC();
   // const { rowSelection, setRowSelection } = useClassroomStore();
   const { filters } = useClassroomFilterParams();
@@ -76,13 +78,15 @@ export function DataTable() {
 
   if ((filters as any).view === "class") {
     return (
-      <div className="grid gap-4">
+      <div className="grid gap-4" dir={academicDataDirection}>
         {classViewRows.map((row) => (
           <Card key={row.id} className="p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-base font-semibold">{row.classRoom?.name}</h3>
+                  <h3 className="text-base font-semibold" dir="auto">
+                    {row.classRoom?.name}
+                  </h3>
                   <Badge variant="outline">
                     Level {row.classRoom?.classLevel ?? "—"}
                   </Badge>
@@ -99,7 +103,7 @@ export function DataTable() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {row.rows.map((stream) => (
-                    <Badge key={stream.id} variant="outline">
+                    <Badge key={stream.id} variant="outline" dir="auto">
                       {stream.departmentName}
                       {stream.departmentLevel != null
                         ? ` · ${stream.departmentLevel}`
@@ -108,7 +112,7 @@ export function DataTable() {
                   ))}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2" dir="ltr">
                 <div className="shrink-0">
                   <Actions item={row.rows[0]} />
                 </div>
@@ -158,7 +162,7 @@ export function DataTable() {
         },
       ]}
     >
-      <div className="flex flex-col gap-4 w-full">
+      <div className="flex w-full flex-col gap-4" dir={academicDataDirection}>
         <div
           // ref={tableScroll.containerRef}
           className="overflow-x-auto overscroll-x-none md:border-l md:border-r border-border scrollbar-hide"

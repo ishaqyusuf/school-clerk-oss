@@ -42,6 +42,7 @@ import {
 	Users2,
 	X,
 } from "lucide-react";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 
 type Props = {
 	search?: string | null;
@@ -120,6 +121,7 @@ async function copyTextToClipboard(text: string) {
 }
 
 export function DataTable({ search, status }: Props) {
+	const academicDataDirection = useAcademicDataDirection();
 	const { setParams } = useStaffParams();
 	const router = useRouter();
 	const pathname = usePathname();
@@ -389,7 +391,10 @@ export function DataTable({ search, status }: Props) {
 						</div>
 					) : (
 						<>
-							<div className="hidden overflow-hidden border-y md:block">
+							<div
+								className="hidden overflow-hidden border-y md:block"
+								dir={academicDataDirection}
+							>
 								<Table>
 									<TableHeader>
 										<TableRow>
@@ -414,14 +419,17 @@ export function DataTable({ search, status }: Props) {
 															</AvatarFallback>
 														</Avatar>
 														<div className="space-y-1">
-															<div className="font-medium">
+															<div className="font-medium" dir="auto">
 																{item.name || item.email || "Pending staff"}
 															</div>
 															<div className="text-sm text-muted-foreground">
 																{item.email || "No email"}
 															</div>
 															{item.title ? (
-																<div className="text-xs text-muted-foreground">
+																<div
+																	className="text-xs text-muted-foreground"
+																	dir="auto"
+																>
 																	{item.title}
 																</div>
 															) : null}
@@ -455,7 +463,10 @@ export function DataTable({ search, status }: Props) {
 															{item.subjectCount} subject
 															{item.subjectCount === 1 ? "" : "s"}
 														</div>
-														<div className="max-w-sm text-muted-foreground">
+														<div
+															className="max-w-sm text-muted-foreground"
+															dir="auto"
+														>
 															{item.classroomLabels.slice(0, 2).join(", ") ||
 																"—"}
 														</div>
@@ -465,7 +476,7 @@ export function DataTable({ search, status }: Props) {
 													{formatDate(item.inviteResentAt || item.inviteSentAt)}
 												</TableCell>
 												<TableCell>
-													<div className="flex justify-end gap-2">
+													<div className="flex justify-end gap-2" dir="ltr">
 														<Button
 															size="sm"
 															onClick={() => openOverviewPage(item.id)}
@@ -523,7 +534,10 @@ export function DataTable({ search, status }: Props) {
 								</Table>
 							</div>
 
-							<div className="divide-y border-y md:hidden">
+							<div
+								className="divide-y border-y md:hidden"
+								dir={academicDataDirection}
+							>
 								{data.items.map((item) => (
 									<div key={item.id} className="space-y-4 bg-background p-4">
 										<div className="flex items-start justify-between gap-3">
@@ -534,14 +548,17 @@ export function DataTable({ search, status }: Props) {
 													</AvatarFallback>
 												</Avatar>
 												<div className="space-y-1">
-													<p className="font-medium">
+													<p className="font-medium" dir="auto">
 														{item.name || item.email || "Pending staff"}
 													</p>
 													<p className="text-sm text-muted-foreground">
 														{item.email || "No email"}
 													</p>
 													{item.title ? (
-														<p className="text-xs text-muted-foreground">
+														<p
+															className="text-xs text-muted-foreground"
+															dir="auto"
+														>
 															{item.title}
 														</p>
 													) : null}

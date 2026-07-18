@@ -16,6 +16,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck2, Save } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 
 type TeacherClassroom = {
 	id: string;
@@ -39,6 +40,7 @@ type Props = {
 };
 
 export function TeacherAttendanceWorkspace({ classrooms, students }: Props) {
+	const academicDataDirection = useAcademicDataDirection();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const [selectedClassroomId, setSelectedClassroomId] = useState(
@@ -147,7 +149,7 @@ export function TeacherAttendanceWorkspace({ classrooms, students }: Props) {
 									setCommentMap({});
 								}}
 							>
-								{classroom.displayName}
+								<span dir="auto">{classroom.displayName}</span>
 							</Button>
 						))}
 					</div>
@@ -188,7 +190,10 @@ export function TeacherAttendanceWorkspace({ classrooms, students }: Props) {
 						</div>
 					</div>
 
-					<div className="overflow-hidden border">
+					<div
+						className="overflow-hidden border"
+						dir={academicDataDirection}
+					>
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -202,7 +207,7 @@ export function TeacherAttendanceWorkspace({ classrooms, students }: Props) {
 									const isPresent = Boolean(statusMap[student.id]);
 									return (
 										<TableRow key={student.id}>
-											<TableCell className="font-medium">
+											<TableCell className="font-medium" dir="auto">
 												{student.name}
 											</TableCell>
 											<TableCell>
@@ -237,6 +242,7 @@ export function TeacherAttendanceWorkspace({ classrooms, students }: Props) {
 											</TableCell>
 											<TableCell>
 												<Input
+													dir="auto"
 													value={commentMap[student.id] ?? ""}
 													onChange={(event) =>
 														setCommentMap((current) => ({

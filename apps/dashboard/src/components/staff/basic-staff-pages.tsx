@@ -16,6 +16,7 @@ import {
 } from "@school-clerk/ui/table";
 import { CalendarCheck2, FolderKanban, Users } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
+import { AcademicDataSurface } from "@/components/academic-data-direction/provider";
 
 function SearchForm({
 	placeholder,
@@ -164,7 +165,7 @@ export async function NonTeachingStaffPanel({
 				}
 			>
 				{data.items.length ? (
-					<div className="overflow-hidden border">
+					<AcademicDataSurface className="overflow-hidden border">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -178,8 +179,8 @@ export async function NonTeachingStaffPanel({
 								{data.items.map((item) => (
 									<TableRow key={item.id}>
 										<TableCell>
-											<div className="font-medium">{item.name}</div>
-											<div className="text-xs text-muted-foreground">
+											<div className="font-medium" dir="auto">{item.name}</div>
+											<div className="text-xs text-muted-foreground" dir="auto">
 												{item.title || "No title"}
 											</div>
 										</TableCell>
@@ -200,7 +201,7 @@ export async function NonTeachingStaffPanel({
 								))}
 							</TableBody>
 						</Table>
-					</div>
+					</AcademicDataSurface>
 				) : (
 					<EmptyState
 						title="No non-teaching staff found"
@@ -254,7 +255,7 @@ export async function StaffDepartmentsPanel({
 				}
 			>
 				{data.items.length ? (
-					<div className="overflow-hidden border">
+					<AcademicDataSurface className="overflow-hidden border">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -268,8 +269,8 @@ export async function StaffDepartmentsPanel({
 							<TableBody>
 								{data.items.map((item) => (
 									<TableRow key={item.id}>
-										<TableCell>{item.className}</TableCell>
-										<TableCell>{item.departmentName}</TableCell>
+										<TableCell dir="auto">{item.className}</TableCell>
+										<TableCell dir="auto">{item.departmentName}</TableCell>
 										<TableCell>{item.teacherCount}</TableCell>
 										<TableCell>{item.subjectCount}</TableCell>
 										<TableCell>{item.studentCount}</TableCell>
@@ -277,7 +278,7 @@ export async function StaffDepartmentsPanel({
 								))}
 							</TableBody>
 						</Table>
-					</div>
+					</AcademicDataSurface>
 				) : (
 					<EmptyState
 						title="No class departments found"
@@ -334,7 +335,7 @@ export async function StaffAttendancePanel({
 				}
 			>
 				{data.items.length ? (
-					<div className="overflow-hidden border">
+					<AcademicDataSurface className="overflow-hidden border">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -351,8 +352,8 @@ export async function StaffAttendancePanel({
 									return (
 										<TableRow key={item.id}>
 											<TableCell>
-												<div className="font-medium">{item.name}</div>
-												<div className="text-xs text-muted-foreground">
+												<div className="font-medium" dir="auto">{item.name}</div>
+												<div className="text-xs text-muted-foreground" dir="auto">
 													{item.title || "No title"}
 												</div>
 											</TableCell>
@@ -378,7 +379,7 @@ export async function StaffAttendancePanel({
 								})}
 							</TableBody>
 						</Table>
-					</div>
+					</AcademicDataSurface>
 				) : (
 					<EmptyState
 						title="No staff attendance data yet"

@@ -34,6 +34,8 @@ import {
   useState,
 } from "react";
 import { _trpc } from "./static-trpc";
+import { useAcademicDataDirection } from "./academic-data-direction/provider";
+import { cn } from "@school-clerk/ui/cn";
 
 type ClassroomFilterOption = {
   id: string;
@@ -53,8 +55,7 @@ type Props = {
 };
 
 function StudentGenderBadge({ gender }: { gender?: string | null }) {
-  const label =
-    gender === "Male" ? "M" : gender === "Female" ? "F" : null;
+  const label = gender === "Male" ? "M" : gender === "Female" ? "F" : null;
 
   if (!label) return null;
 
@@ -79,6 +80,8 @@ export function AssessmentRecordingResultsTable({
   publicToken,
   reportSheetHref,
 }: Props) {
+  const academicDataDirection = useAcademicDataDirection();
+  const isRtl = academicDataDirection === "rtl";
   const [subjectFilterIds, setSubjectFilterIds] = useState<string[]>([]);
   const [nameSearch, setNameSearch] = useState("");
   const [openSubjectId, setOpenSubjectId] = useState<string | null>(null);
@@ -252,24 +255,28 @@ export function AssessmentRecordingResultsTable({
               {filteredStudents.length}/{data.studentTermForms.length} students
             </Badge>
             {classrooms.length ? (
-              <DropdownMenu dir="rtl">
+              <DropdownMenu dir="ltr">
                 <DropdownMenu.Trigger asChild>
                   <Button
                     variant="outline"
                     className="min-w-0 max-w-full justify-start gap-2 sm:max-w-56"
                   >
                     <School className="size-4 shrink-0" />
-                    <span className="truncate">{selectedClassroomLabel}</span>
+                    <span className="truncate" dir="auto">
+                      {selectedClassroomLabel}
+                    </span>
                   </Button>
                 </DropdownMenu.Trigger>
                 <DropdownMenu.Content align="end" className="w-64">
                   {classrooms.map((classroom) => (
                     <DropdownMenu.Item
                       key={classroom.id}
-                      dir="rtl"
+                      dir="ltr"
                       onSelect={() => onClassroomChange?.(classroom.id)}
                     >
-                      {classroom.displayName ?? classroom.departmentName}
+                      <span dir="auto">
+                        {classroom.displayName ?? classroom.departmentName}
+                      </span>
                     </DropdownMenu.Item>
                   ))}
                 </DropdownMenu.Content>
@@ -309,7 +316,7 @@ export function AssessmentRecordingResultsTable({
                       );
                     }}
                   >
-                    {subject.subject.title}
+                    <span dir="auto">{subject.subject.title}</span>
                   </DropdownMenu.CheckboxItem>
                 ))}
               </DropdownMenu.Content>
@@ -333,121 +340,130 @@ export function AssessmentRecordingResultsTable({
             ) : null}
           </div>
         </div>
-        <div className="max-h-[calc(100vh-180px)] overflow-auto">
-          <Table dir="rtl" className="border-collapse">
-            <TableHeader className="sticky top-0 z-10 bg-muted/10">
-              <TableRow>
+        <Table
+          dir={academicDataDirection}
+          className="table-fixed border-collapse"
+        >
+          <TableHeader className="sticky top-0 z-30 bg-background shadow-sm [&_th]:bg-background">
+            <TableRow>
+              <TableHead
+                rowSpan={2}
+                className={cn(
+                  "sticky z-20 w-[180px] min-w-[180px] border-e sm:w-[200px] sm:min-w-[200px]",
+                  isRtl ? "right-0" : "left-0",
+                )}
+              >
+                Student
+              </TableHead>
+              {visibleSubjects.map((subject) => (
                 <TableHead
-                  rowSpan={2}
-                  className="sticky right-0 z-20 w-[200px] min-w-[200px] border-l bg-muted/10"
+                  key={subject.id}
+                  colSpan={Math.max(subject.assessments.length, 1)}
+                  className="border-e text-center"
                 >
-                  Student
+                  <button
+                    type="button"
+                    disabled={!!publicToken}
+                    onClick={() => {
+                      if (publicToken) return;
+                      setOpenSubjectId(subject.id);
+                    }}
+                    className="font-semibold underline-offset-4 enabled:hover:underline disabled:cursor-default"
+                  >
+                    {subject.subject.title}
+                  </button>
                 </TableHead>
-                {visibleSubjects.map((subject) => (
-                  <TableHead
-                    key={subject.id}
-                    colSpan={Math.max(subject.assessments.length, 1)}
-                    className="border-l text-center"
-                  >
-                    <button
-                      type="button"
-                      disabled={!!publicToken}
-                      onClick={() => {
-                        if (publicToken) return;
-                        setOpenSubjectId(subject.id);
-                      }}
-                      className="font-semibold underline-offset-4 enabled:hover:underline disabled:cursor-default"
-                    >
-                      {subject.subject.title}
-                    </button>
-                  </TableHead>
-                ))}
-              </TableRow>
-              <TableRow>
-                {visibleSubjects.map((subject) => (
-                  <Fragment key={subject.id}>
-                    {subject.assessments.length ? (
-                      subject.assessments.map((assessment) => (
-                        <TableHead
-                          key={`${subject.id}-${assessment.id}`}
-                          className="w-[70px] min-w-[70px] max-w-[70px] border-l px-1 text-center text-xs"
-                        >
-                          <div>{getAssessmentDisplayTitle(assessment)}</div>
-                          <div className="text-muted-foreground">
-                            ({assessment.obtainable})
-                          </div>
-                        </TableHead>
-                      ))
-                    ) : (
-                      <TableHead className="min-w-[90px] border-l text-center text-xs text-muted-foreground">
-                        No assessments
+              ))}
+            </TableRow>
+            <TableRow>
+              {visibleSubjects.map((subject) => (
+                <Fragment key={subject.id}>
+                  {subject.assessments.length ? (
+                    subject.assessments.map((assessment) => (
+                      <TableHead
+                        key={`${subject.id}-${assessment.id}`}
+                        className="w-[70px] min-w-[70px] max-w-[70px] border-e px-1 text-center text-xs"
+                      >
+                        <div>{getAssessmentDisplayTitle(assessment)}</div>
+                        <div className="text-muted-foreground">
+                          ({assessment.obtainable})
+                        </div>
                       </TableHead>
-                    )}
-                  </Fragment>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {resultRows.length ? (
-                resultRows.map((row, index) => (
-                  <TableRow key={row.student.id} className="hover:bg-muted/30">
-                    <TableCell className="sticky right-0 z-10 w-[200px] min-w-[200px] whitespace-nowrap border-l bg-background">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span className="shrink-0 tabular-nums">
-                          {index + 1}.
-                        </span>
-                        <span className="min-w-0 truncate">
-                          {getStudentDisplayName(row.student.student)}
-                        </span>
-                        <StudentGenderBadge
-                          gender={row.student.student?.gender}
-                        />
-                      </div>
-                    </TableCell>
-                    {row.subjectTotals.map((subjectTotal) => (
-                      <Fragment key={subjectTotal.subject.id}>
-                        {subjectTotal.cells.length ? (
-                          subjectTotal.cells.map((cell) => (
-                            <AssessmentResultsScoreCell
-                              key={`${row.student.id}-${cell.assessment.id}`}
-                              assessmentId={cell.assessment.id}
-                              obtainable={cell.assessment.obtainable}
-                              studentTermFormId={row.student.id}
-                              studentId={row.student.student?.id}
-                              departmentSubjectId={subjectTotal.subject.id}
-                              publicToken={publicToken}
-                              result={cell.result}
-                            />
-                          ))
-                        ) : (
-                          <TableCell className="border-l text-center text-muted-foreground">
-                            -
-                          </TableCell>
-                        )}
-                      </Fragment>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
+                    ))
+                  ) : (
+                    <TableHead className="w-[70px] min-w-[70px] max-w-[70px] border-e text-center text-xs text-muted-foreground">
+                      No assessments
+                    </TableHead>
+                  )}
+                </Fragment>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {resultRows.length ? (
+              resultRows.map((row, index) => (
+                <TableRow key={row.student.id} className="hover:bg-muted/30">
                   <TableCell
-                    colSpan={
-                      1 +
-                      visibleSubjects.reduce(
-                        (total, subject) =>
-                          total + Math.max(subject.assessments.length, 1),
-                        0,
-                      )
-                    }
-                    className="h-24 border-l text-center text-muted-foreground"
+                    className={cn(
+                      "sticky z-10 w-[180px] min-w-[180px] whitespace-nowrap border-e bg-background sm:w-[200px] sm:min-w-[200px]",
+                      isRtl ? "right-0" : "left-0",
+                    )}
                   >
-                    No students match the current filters.
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="shrink-0 tabular-nums">
+                        {index + 1}.
+                      </span>
+                      <span className="min-w-0 truncate" dir="auto">
+                        {getStudentDisplayName(row.student.student)}
+                      </span>
+                      <StudentGenderBadge
+                        gender={row.student.student?.gender}
+                      />
+                    </div>
                   </TableCell>
+                  {row.subjectTotals.map((subjectTotal) => (
+                    <Fragment key={subjectTotal.subject.id}>
+                      {subjectTotal.cells.length ? (
+                        subjectTotal.cells.map((cell) => (
+                          <AssessmentResultsScoreCell
+                            key={`${row.student.id}-${cell.assessment.id}`}
+                            assessmentId={cell.assessment.id}
+                            obtainable={cell.assessment.obtainable}
+                            studentTermFormId={row.student.id}
+                            studentId={row.student.student?.id}
+                            departmentSubjectId={subjectTotal.subject.id}
+                            publicToken={publicToken}
+                            result={cell.result}
+                          />
+                        ))
+                      ) : (
+                        <TableCell className="border-e text-center text-muted-foreground">
+                          -
+                        </TableCell>
+                      )}
+                    </Fragment>
+                  ))}
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={
+                    1 +
+                    visibleSubjects.reduce(
+                      (total, subject) =>
+                        total + Math.max(subject.assessments.length, 1),
+                      0,
+                    )
+                  }
+                  className="h-24 border-e text-center text-muted-foreground"
+                >
+                  No students match the current filters.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
       <Dialog.Root
         open={!!openSubjectId}

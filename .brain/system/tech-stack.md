@@ -29,7 +29,7 @@ Source of truth for frameworks, runtimes, libraries, and infrastructure choices.
 - CI/CD: TODO:
 - Storage: PostgreSQL primary store
 - Monitoring: TODO:
-- Local named-host dev: Portless-capable workspace scripts using the shared HTTPS proxy on standard port `443`. Website/dashboard QA should use `bun run dev --local --filter dashboard marketing`, then browse `https://school-clerk.localhost` for marketing/public flows and `https://<tenant>.school-clerk-dashboard.localhost` for tenant dashboard flows without visible port numbers.
+- Local named-host dev: Portless-capable workspace scripts use the shared HTTPS proxy on standard port `443`. Agents do not launch dev directly; when dev is required and not already running, they create a new tab in the already-open cmux session and run `jd school-clerk dev --local -f marketing dashboard school-site`. Website QA uses `https://school-clerk.localhost`, `https://<tenant>.school-clerk-dashboard.localhost`, and `https://<tenant>.school-clerk-site.localhost` without visible port numbers. An explicit port on a named host is a blocking Portless defect.
 
 ## Security
 - Authentication: Better Auth

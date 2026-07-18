@@ -12,13 +12,19 @@ import { useLocalTenantHref, useTenantUrl } from "@school-clerk/tenant-url/react
 import { ChatWidget } from "./chat/chat-widget";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
+import {
+  AcademicDataDirectionProvider,
+  type DataDirection,
+} from "./academic-data-direction/provider";
 
 export function NavLayoutClient({
   children,
   initialRole,
+  academicDataDirection,
 }: {
   children: React.ReactNode;
   initialRole?: string | null;
+  academicDataDirection: DataDirection;
 }) {
   const auth = useAuth();
   const pathName = usePathname();
@@ -31,7 +37,8 @@ export function NavLayoutClient({
   };
 
   return (
-    <SiteNav.Provider
+    <AcademicDataDirectionProvider direction={academicDataDirection}>
+      <SiteNav.Provider
       value={createSiteNavContext({
         pathName: productPathName,
         linkModules,
@@ -69,7 +76,8 @@ export function NavLayoutClient({
         </SiteNav.Shell>
         {canUseChat ? <ChatWidget /> : null}
       </div>
-    </SiteNav.Provider>
+      </SiteNav.Provider>
+    </AcademicDataDirectionProvider>
   );
 }
 

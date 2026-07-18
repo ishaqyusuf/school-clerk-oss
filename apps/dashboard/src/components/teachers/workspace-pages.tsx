@@ -22,6 +22,7 @@ import {
 	Users,
 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
+import { AcademicDataSurface } from "@/components/academic-data-direction/provider";
 
 function TeacherEmptyState({ email }: { email?: string | null }) {
 	return (
@@ -251,7 +252,7 @@ export async function TeacherClassesPanel() {
 	return (
 		<TeacherSection title="My classes">
 			{data.classrooms.length ? (
-				<div className="overflow-hidden border">
+				<AcademicDataSurface className="overflow-hidden border">
 					<Table>
 						<TableHeader>
 							<TableRow>
@@ -263,7 +264,7 @@ export async function TeacherClassesPanel() {
 						<TableBody>
 							{data.classrooms.map((classroom) => (
 								<TableRow key={classroom.id}>
-									<TableCell className="font-medium">
+									<TableCell className="font-medium" dir="auto">
 										{classroom.displayName}
 									</TableCell>
 									<TableCell>{classroom.studentCount}</TableCell>
@@ -272,7 +273,7 @@ export async function TeacherClassesPanel() {
 							))}
 						</TableBody>
 					</Table>
-				</div>
+				</AcademicDataSurface>
 			) : (
 				<TeacherEmptyState email={data.signedInEmail} />
 			)}
@@ -299,7 +300,7 @@ export async function TeacherStudentsPanel({
 				action={<SearchForm search={search} />}
 			>
 				{data.students.length ? (
-					<div className="overflow-hidden border">
+					<AcademicDataSurface className="overflow-hidden border">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -311,16 +312,16 @@ export async function TeacherStudentsPanel({
 							<TableBody>
 								{data.students.map((student) => (
 									<TableRow key={student.id}>
-										<TableCell className="font-medium">
+										<TableCell className="font-medium" dir="auto">
 											{student.name}
 										</TableCell>
 										<TableCell>{student.gender}</TableCell>
-										<TableCell>{student.classroom}</TableCell>
+										<TableCell dir="auto">{student.classroom}</TableCell>
 									</TableRow>
 								))}
 							</TableBody>
 						</Table>
-					</div>
+					</AcademicDataSurface>
 				) : (
 					<TeacherEmptyState email={data.signedInEmail} />
 				)}

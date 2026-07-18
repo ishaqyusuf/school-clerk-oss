@@ -12,8 +12,10 @@ Change log for database schema migrations and rollout notes.
 
 ## Operational Runbook
 
-- Use `bun run db:push --local` for local schema readiness checks.
-- Use `bun run db:push --prod` only for explicitly requested production validation/push after confirming the target database and risk. Do not force data-loss prompts or destructive changes without approval.
+- After every Prisma schema/database update, use the repository migration workflow and propagate schema readiness across all configured database profiles.
+- Run `bun db:migrate`, `bun run db:push --local`, and `bun run db:push --prod`, then attempt `bun run db:push --remote`. The `--remote` flag aliases the remote-development profile.
+- The local and production pushes are mandatory for every Prisma update; the remote-development push must also be attempted. Report any unavailable profile or failed push rather than silently skipping it.
+- Do not force data-loss prompts or destructive changes without explicit approval.
 - The root `db:push` router must call `scripts/db-command.ts push --<profile>` directly so production pushes keep the production guard and do not fall through to the package-local default push profile.
 
 - Dev database selection follows the GND-style three-layer model: `remote-dev` for shared development databases, `local` for the Docker Postgres database, and `production` for production-only scripts and deploys.
@@ -23,7 +25,7 @@ Change log for database schema migrations and rollout notes.
 - Use `bun run dev` or `bun run dev --local` for the default local Docker workflow, `bun run dev --remote-dev` for remote development, and `bun run dev --prod` for the production-env dashboard/API smoke profile.
 - Use `bun run dev:services` to start only the local services implied by the selected env; it skips Postgres when the DB mode or URL points at remote dev. Use `bun run dev:services:local`, `bun run db:start`, or `bun run db:docker:up` to force local Postgres startup.
 - Prisma maintenance commands are profile-routed. `bun run db:push --local|--remote|--prod` uses the explicit `scripts/db-push.ts` router; migrate/generate/pull/studio still use `scripts/db-command.ts`. No profile flag defaults to local Docker Postgres. Legacy aliases such as `db:push:local`, `db:push:dev`, `db:push:prod`, `db:migrate:local`, `db:migrate:dev`, and `db:migrate:prod` delegate to those routers.
-- If repository root scripts `db:migrate` and `db:push` exist, run `bun db:migrate` and `bun db:push` after Prisma schema/database updates.
+- If repository root scripts `db:migrate` and `db:push` exist, use the explicit migration and three-profile push sequence above after Prisma schema/database updates.
 - Do not manually create migration files; use the repository scripts and Prisma workflow.
 - Keep migration commands aligned with root `package.json` and `packages/db` scripts.
 - `db:migrate --local` and `db:migrate --remote` run `prisma migrate dev`; `db:migrate --prod` runs `prisma migrate deploy`.
@@ -52,6 +54,17 @@ Change log for database schema migrations and rollout notes.
 - Backfill required: Yes/No
 - Rollback plan:
 - Owner:
+
+## Migration Entry
+
+- Date: 2026-07-18
+- ID: schema-push-20260718_academic_data_direction
+- Summary: Added `AcademicDataDirectionMode` and `SchoolProfile.academicDataDirectionMode`, defaulting to `AUTO`, for tenant-scoped academic surface direction.
+- Affected entities: `SchoolProfile`, `AcademicDataDirectionMode`
+- Backfill required: No. PostgreSQL applies the `AUTO` default to existing schools and the detector safely resolves missing evidence to LTR.
+- Rollback plan: Remove direction-mode API/UI use, regenerate Prisma Client, then drop the `academicDataDirectionMode` column and enum.
+- Owner: Codex
+- Note: `bun run db:generate` succeeded. `bun run db:migrate` reached local Postgres but stopped on pre-existing drift and requested a destructive reset, which was not run. `bun run db:push --local` and `bun run db:push --prod` synchronized successfully. `bun run db:push --remote` connected to the configured transaction pooler but did not return and was stopped after two minutes.
 
 ## Migration Entry
 

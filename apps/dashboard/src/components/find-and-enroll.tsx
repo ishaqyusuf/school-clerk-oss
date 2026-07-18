@@ -5,11 +5,13 @@ import { Item } from "@school-clerk/ui/composite";
 import { useDeferredValue, useState } from "react";
 import { Button } from "@school-clerk/ui/button";
 import { useStudentFormContext } from "./students/form-context";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 interface Props {
   onSelect?;
   query?;
 }
 export function FindAndEnroll(props: Props) {
+  const academicDataDirection = useAcademicDataDirection();
   const deferredSearch = useDeferredValue(props?.query);
 
   const { control, getValues } = useStudentFormContext();
@@ -63,14 +65,16 @@ export function FindAndEnroll(props: Props) {
   return (
     <div className="grid grid-cols-2 gap-2 w-full ">
       {result?.data?.map((student) => (
-        <Item dir="rtl" variant="outline" key={student?.id}>
+        <Item dir={academicDataDirection} variant="outline" key={student?.id}>
           <Item.Content>
-            <Item.Title>{student.studentName}</Item.Title>
+            <Item.Title>
+              <span dir="auto">{student.studentName}</span>
+            </Item.Title>
             <Item.Description className="">
-              {student?.department || "-"}
+              <span dir="auto">{student?.department || "-"}</span>
             </Item.Description>
           </Item.Content>
-          <Item.Actions>
+          <Item.Actions dir="ltr">
             <Button
               onClick={(e) => {
                 enroll(student.id);

@@ -12,6 +12,7 @@ import { GetSubjectsSchema } from "@api/trpc/schemas/students";
 import { cn } from "@school-clerk/ui/cn";
 import { AnimatePresence } from "framer-motion";
 import { GridCard } from "./grid-card";
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 
 interface Props {
   defaultFilters?: GetSubjectsSchema;
@@ -21,6 +22,7 @@ interface Props {
   onClick?;
 }
 export function DataTable(props: Props) {
+  const academicDataDirection = useAcademicDataDirection();
   // const { rowSelection, setRowSelection } = useBacklogStore();
   const trpc = useTRPC();
   const { filters, hasFilters, setFilters } = useSubjectFilterParams();
@@ -69,7 +71,7 @@ export function DataTable(props: Props) {
         },
       ]}
     >
-      <div className="flex flex-col gap-4 w-full">
+      <div className="flex w-full flex-col gap-4" dir={academicDataDirection}>
         {props.grid ? (
           <AnimatePresence initial={false}>
             <div

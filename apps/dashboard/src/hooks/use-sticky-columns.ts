@@ -14,6 +14,7 @@ interface TableInterface {
 }
 
 interface UseStickyColumnsProps {
+	direction?: "ltr" | "rtl";
 	columnVisibility?: VisibilityState;
 	table?: TableInterface;
 	loading?: boolean;
@@ -22,6 +23,7 @@ interface UseStickyColumnsProps {
 }
 
 export function useStickyColumns({
+	direction = "ltr",
 	columnVisibility,
 	table,
 	loading,
@@ -73,10 +75,15 @@ export function useStickyColumns({
 		(columnId: string) => {
 			const position = stickyPositions[columnId];
 			return position !== undefined
-				? ({ "--stick-left": `${position}px` } as React.CSSProperties)
+				? ({
+						insetInlineStart: `${position}px`,
+						...(direction === "rtl"
+							? { right: `${position}px`, left: "auto" }
+							: { left: `${position}px`, right: "auto" }),
+					} as React.CSSProperties)
 				: {};
 		},
-		[stickyPositions],
+		[direction, stickyPositions],
 	);
 
 	// Memoize getStickyClassName to return stable function reference
@@ -85,7 +92,7 @@ export function useStickyColumns({
 			const isSticky = stickyColumnIds.has(columnId);
 			return cn(
 				baseClassName,
-				isSticky && "md:sticky md:left-[var(--stick-left)]",
+				isSticky && "md:sticky",
 			);
 		},
 		[stickyColumnIds],
