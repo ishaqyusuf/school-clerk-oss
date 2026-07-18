@@ -15,6 +15,6 @@ describe("resolveReportDataDirection", () => {
 	});
 
 	test("falls back safely when neither direction is available", () => {
-	expect(resolveReportDataDirection(undefined, undefined)).toBe("ltr");
+		expect(resolveReportDataDirection(undefined, undefined)).toBe("ltr");
 	});
 });

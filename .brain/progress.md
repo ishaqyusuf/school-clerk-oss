@@ -1,5 +1,19 @@
 # Progress
 
+## Assessment Recording Subject Filling Progress (2026-07-18)
+
+### Completed
+
+- Removed the redundant filtered-student count badge from the assessment recording toolbar.
+- Added a compact completed/total student count to the selected subject trigger and every subject checkbox item.
+- Defined a completed student row as one with a recorded score for every assessment configured under that subject; subjects without assessments report zero completed.
+
+### Verification
+
+- `bun run --filter @school-clerk/dashboard typecheck`
+- Prettier and `git diff --check`
+- In-app browser QA confirmed the overall `28/28 students` badge is absent, the selected subject trigger shows `0/28`, every subject option shows its own `0/28` progress, and the browser captured no console errors.
+
 ## Assessment Recording Mobile Scroll Ownership (2026-07-18)
 
 ### Completed

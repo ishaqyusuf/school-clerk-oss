@@ -44,6 +44,11 @@ type ClassroomFilterOption = {
   departmentName?: string | null;
 };
 
+type SubjectFillingProgress = {
+  completed: number;
+  total: number;
+};
+
 type Props = {
   departmentId: string;
   termId: string;
@@ -121,6 +126,32 @@ export function AssessmentRecordingResultsTable({
 
   const allSubjects = data?.subjects ?? [];
   const firstSubjectId = allSubjects[0]?.id;
+  const subjectFillingProgress = useMemo(() => {
+    const students = data?.studentTermForms ?? [];
+    const progress = new Map<string, SubjectFillingProgress>();
+
+    for (const subject of allSubjects) {
+      const assessments = subject.assessments ?? [];
+      const completed = assessments.length
+        ? students.filter((student) =>
+            assessments.every((assessment) =>
+              assessment.assessmentResults?.some(
+                (result) =>
+                  result.studentTermFormId === student.id &&
+                  result.obtained != null,
+              ),
+            ),
+          ).length
+        : 0;
+
+      progress.set(subject.id, {
+        completed,
+        total: students.length,
+      });
+    }
+
+    return progress;
+  }, [allSubjects, data?.studentTermForms]);
 
   useEffect(() => {
     if (selectedSubjectId) {
@@ -174,6 +205,10 @@ export function AssessmentRecordingResultsTable({
   const subjectFilterLabel = subjectFilterIds.length
     ? `${subjectFilterIds.length} selected`
     : "All subjects";
+  const selectedSubjectProgress =
+    subjectFilterIds.length === 1
+      ? subjectFillingProgress.get(subjectFilterIds[0] ?? "")
+      : null;
   const selectedClassroom = classrooms.find(
     (classroom) => classroom.id === departmentId,
   );
@@ -252,9 +287,6 @@ export function AssessmentRecordingResultsTable({
             <span className="text-xs text-muted-foreground">
               Click a subject to update assessments.
             </span>
-            <Badge variant="outline" className="gap-1.5 px-3 py-1">
-              {filteredStudents.length}/{data.studentTermForms.length} students
-            </Badge>
             {classrooms.length ? (
               <DropdownMenu dir="ltr">
                 <DropdownMenu.Trigger asChild>
@@ -287,7 +319,13 @@ export function AssessmentRecordingResultsTable({
               <DropdownMenu.Trigger asChild>
                 <Button variant="outline" className="gap-2">
                   <BookOpenText className="size-4" />
-                  {subjectFilterLabel}
+                  <span>{subjectFilterLabel}</span>
+                  {selectedSubjectProgress ? (
+                    <span className="tabular-nums text-xs text-muted-foreground">
+                      {selectedSubjectProgress.completed}/
+                      {selectedSubjectProgress.total}
+                    </span>
+                  ) : null}
                 </Button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Content align="end" className="w-64">
@@ -317,7 +355,15 @@ export function AssessmentRecordingResultsTable({
                       );
                     }}
                   >
-                    <span dir="auto">{subject.subject.title}</span>
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate" dir="auto">
+                        {subject.subject.title}
+                      </span>
+                      <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+                        {subjectFillingProgress.get(subject.id)?.completed ?? 0}
+                        /{subjectFillingProgress.get(subject.id)?.total ?? 0}
+                      </span>
+                    </span>
                   </DropdownMenu.CheckboxItem>
                 ))}
               </DropdownMenu.Content>
