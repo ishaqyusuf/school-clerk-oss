@@ -13,6 +13,7 @@ const { createAssessmentPublicLinkToken } =
 describe("updatePublicAssessmentScore history", () => {
   test("records public-link source without attributing the anonymous editor to the requester", async () => {
     const historyRows: Record<string, unknown>[] = [];
+    let transactionOptions: Record<string, unknown> | undefined;
     const token = await createAssessmentPublicLinkToken("link-1");
     const tx = {
       studentAssessmentRecord: {
@@ -69,8 +70,13 @@ describe("updatePublicAssessmentScore history", () => {
         activity: {
           create: async () => ({ id: "activity-1" }),
         },
-        $transaction: async (callback: (transaction: typeof tx) => unknown) =>
-          callback(tx),
+        $transaction: async (
+          callback: (transaction: typeof tx) => unknown,
+          options: Record<string, unknown>,
+        ) => {
+          transactionOptions = options;
+          return callback(tx);
+        },
       },
     } as unknown as TRPCContext;
 
@@ -85,6 +91,7 @@ describe("updatePublicAssessmentScore history", () => {
     });
 
     expect(result).toEqual({ id: 7, obtained: 13 });
+    expect(transactionOptions).toEqual({ isolationLevel: "Serializable" });
     expect(historyRows).toEqual([
       expect.objectContaining({
         schoolProfileId: "school-1",

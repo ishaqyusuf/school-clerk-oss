@@ -129,6 +129,7 @@ describe("updateAssessmentScore", () => {
 
   test("updates the score and persists its previous and new values in the same transaction", async () => {
     const historyRows: Record<string, unknown>[] = [];
+    let transactionOptions: Record<string, unknown> | undefined;
     const tx = {
       studentAssessmentRecord: {
         findFirst: async () => ({ id: 7, obtained: 4 }),
@@ -165,8 +166,13 @@ describe("updateAssessmentScore", () => {
           classroomDepartmentId: "classroom-a",
         }),
       },
-      $transaction: async (callback: (transaction: typeof tx) => unknown) =>
-        callback(tx),
+      $transaction: async (
+        callback: (transaction: typeof tx) => unknown,
+        options: Record<string, unknown>,
+      ) => {
+        transactionOptions = options;
+        return callback(tx);
+      },
     });
 
     const result = await updateAssessmentScore(ctx, {
@@ -179,6 +185,7 @@ describe("updateAssessmentScore", () => {
     });
 
     expect(result).toEqual({ id: 7, obtained: 9 });
+    expect(transactionOptions).toEqual({ isolationLevel: "Serializable" });
     expect(historyRows).toEqual([
       expect.objectContaining({
         schoolProfileId: "school-1",

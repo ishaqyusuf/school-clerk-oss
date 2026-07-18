@@ -1152,67 +1152,70 @@ export async function updatePublicAssessmentScore(
     });
   }
 
-  const result = await ctx.db.$transaction(async (tx) => {
-    const currentRecord = input.id
-      ? await tx.studentAssessmentRecord.findFirst({
-          where: {
-            classSubjectAssessmentId: input.assessmentId,
-            deletedAt: null,
-            id: input.id,
-            studentId: input.studentId,
-            studentTermFormId: input.studentTermId,
-          },
-          select: {
-            id: true,
-            obtained: true,
-          },
-        })
-      : await tx.studentAssessmentRecord.findUnique({
-          where: {
-            studentId_studentTermFormId_classSubjectAssessmentId: {
+  const result = await ctx.db.$transaction(
+    async (tx) => {
+      const currentRecord = input.id
+        ? await tx.studentAssessmentRecord.findFirst({
+            where: {
+              classSubjectAssessmentId: input.assessmentId,
+              deletedAt: null,
+              id: input.id,
               studentId: input.studentId,
               studentTermFormId: input.studentTermId,
-              classSubjectAssessmentId: input.assessmentId,
             },
-          },
-          select: {
-            id: true,
-            obtained: true,
-          },
+            select: {
+              id: true,
+              obtained: true,
+            },
+          })
+        : await tx.studentAssessmentRecord.findUnique({
+            where: {
+              studentId_studentTermFormId_classSubjectAssessmentId: {
+                studentId: input.studentId,
+                studentTermFormId: input.studentTermId,
+                classSubjectAssessmentId: input.assessmentId,
+              },
+            },
+            select: {
+              id: true,
+              obtained: true,
+            },
+          });
+
+      if (input.id && !currentRecord) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This score record is outside the public link scope.",
         });
+      }
 
-    if (input.id && !currentRecord) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "This score record is outside the public link scope.",
-      });
-    }
-
-    return saveStudentAssessmentScoreWithHistory({
-      db: tx,
-      currentRecord,
-      score: {
-        classSubjectAssessmentId: input.assessmentId,
-        obtained: input.obtained ?? null,
-        studentId: input.studentId,
-        studentTermFormId: input.studentTermId,
-      },
-      history: {
-        schoolProfileId: link.schoolProfileId,
-        source: "PUBLIC_LINK",
-        actorUserId: null,
-        actorName: "Public assessment link",
-        sourceReference: link.id,
-        metadata: {
-          classRoomDepartmentId: link.classRoomDepartmentId,
-          departmentSubjectId: input.departmentSubjectId,
-          linkCreatedByUserId: link.createdByUserId,
-          linkRequesterUserId: link.requesterUserId,
-          sessionTermId: link.sessionTermId,
+      return saveStudentAssessmentScoreWithHistory({
+        db: tx,
+        currentRecord,
+        score: {
+          classSubjectAssessmentId: input.assessmentId,
+          obtained: input.obtained ?? null,
+          studentId: input.studentId,
+          studentTermFormId: input.studentTermId,
         },
-      },
-    });
-  });
+        history: {
+          schoolProfileId: link.schoolProfileId,
+          source: "PUBLIC_LINK",
+          actorUserId: null,
+          actorName: "Public assessment link",
+          sourceReference: link.id,
+          metadata: {
+            classRoomDepartmentId: link.classRoomDepartmentId,
+            departmentSubjectId: input.departmentSubjectId,
+            linkCreatedByUserId: link.createdByUserId,
+            linkRequesterUserId: link.requesterUserId,
+            sessionTermId: link.sessionTermId,
+          },
+        },
+      });
+    },
+    { isolationLevel: "Serializable" },
+  );
 
   await Promise.all([
     ctx.db.assessmentPublicLink.update({

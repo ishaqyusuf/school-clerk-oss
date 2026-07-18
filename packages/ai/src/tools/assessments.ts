@@ -87,6 +87,7 @@ function blockedOutput(params: {
 export function createAssessmentTools(
 	ctx: SchoolAiToolContext,
 	helpers: SchoolAiToolHelpers,
+	database: typeof prisma = prisma,
 ) {
 	const {
 		finishAssistantToolExecution,
@@ -145,7 +146,7 @@ export function createAssessmentTools(
 						return output;
 					}
 
-					const departments = await prisma.classRoomDepartment.findMany({
+					const departments = await database.classRoomDepartment.findMany({
 						where: {
 							deletedAt: null,
 							classRoom: {
@@ -228,7 +229,7 @@ export function createAssessmentTools(
 						departmentName: department.departmentName,
 					});
 
-					const subjects = await prisma.departmentSubject.findMany({
+					const subjects = await database.departmentSubject.findMany({
 						where: {
 							classRoomDepartmentId: department.id,
 							sessionTermId: ctx.termId,
@@ -292,7 +293,7 @@ export function createAssessmentTools(
 						});
 						return output;
 					}
-					const studentTermForms = await prisma.studentTermForm.findMany({
+					const studentTermForms = await database.studentTermForm.findMany({
 						where: {
 							schoolProfileId: ctx.schoolId,
 							sessionTermId: ctx.termId,
@@ -429,7 +430,7 @@ export function createAssessmentTools(
 					}
 
 					const existingAssessments =
-						await prisma.classroomSubjectAssessment.findMany({
+						await database.classroomSubjectAssessment.findMany({
 							where: {
 								departmentSubjectId: departmentSubject.id,
 								parentAssessmentId: null,
@@ -473,7 +474,7 @@ export function createAssessmentTools(
 
 					const existingRecords =
 						existingAssessment && resolvedScores.length
-							? await prisma.studentAssessmentRecord.findMany({
+							? await database.studentAssessmentRecord.findMany({
 									where: {
 										classSubjectAssessmentId: existingAssessment.id,
 										studentTermFormId: {
@@ -585,7 +586,7 @@ export function createAssessmentTools(
 						return output;
 					}
 
-					const result = await prisma.$transaction(async (tx) => {
+					const result = await database.$transaction(async (tx) => {
 						let assessment = existingAssessment;
 
 						if (!assessment) {
@@ -707,7 +708,7 @@ export function createAssessmentTools(
 							scoreCount: writtenScores.length,
 							scores: writtenScores,
 						};
-					});
+					}, { isolationLevel: "Serializable" });
 
 					await recordAssistantActivity({
 						schoolId: ctx.schoolId,

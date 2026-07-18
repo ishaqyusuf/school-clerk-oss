@@ -451,62 +451,65 @@ export async function updateAssessmentScore(
     });
   }
 
-  return ctx.db.$transaction(async (tx) => {
-    const currentRecord = data.id
-      ? await tx.studentAssessmentRecord.findFirst({
-          where: {
-            id: data.id,
-            classSubjectAssessmentId: data.assessmentId,
-            studentId: data.studentId,
-            studentTermFormId: data.studentTermId,
-            deletedAt: null,
-          },
-          select: {
-            id: true,
-            obtained: true,
-          },
-        })
-      : await tx.studentAssessmentRecord.findUnique({
-          where: {
-            studentId_studentTermFormId_classSubjectAssessmentId: {
+  return ctx.db.$transaction(
+    async (tx) => {
+      const currentRecord = data.id
+        ? await tx.studentAssessmentRecord.findFirst({
+            where: {
+              id: data.id,
+              classSubjectAssessmentId: data.assessmentId,
               studentId: data.studentId,
               studentTermFormId: data.studentTermId,
-              classSubjectAssessmentId: data.assessmentId,
+              deletedAt: null,
             },
-          },
-          select: {
-            id: true,
-            obtained: true,
-          },
+            select: {
+              id: true,
+              obtained: true,
+            },
+          })
+        : await tx.studentAssessmentRecord.findUnique({
+            where: {
+              studentId_studentTermFormId_classSubjectAssessmentId: {
+                studentId: data.studentId,
+                studentTermFormId: data.studentTermId,
+                classSubjectAssessmentId: data.assessmentId,
+              },
+            },
+            select: {
+              id: true,
+              obtained: true,
+            },
+          });
+
+      if (data.id && !currentRecord) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This score record does not match the selected student and assessment.",
         });
+      }
 
-    if (data.id && !currentRecord) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "This score record does not match the selected student and assessment.",
-      });
-    }
-
-    return saveStudentAssessmentScoreWithHistory({
-      db: tx,
-      currentRecord,
-      score: {
-        classSubjectAssessmentId: data.assessmentId,
-        obtained: data.obtained ?? null,
-        studentId: data.studentId,
-        studentTermFormId: data.studentTermId,
-      },
-      history: {
-        schoolProfileId,
-        source: "AUTHENTICATED_ENTRY",
-        actorUserId: ctx.currentUser?.id,
-        actorName: ctx.currentUser?.name,
-        metadata: {
-          departmentId: data.departmentId,
+      return saveStudentAssessmentScoreWithHistory({
+        db: tx,
+        currentRecord,
+        score: {
+          classSubjectAssessmentId: data.assessmentId,
+          obtained: data.obtained ?? null,
+          studentId: data.studentId,
+          studentTermFormId: data.studentTermId,
         },
-      },
-    });
-  });
+        history: {
+          schoolProfileId,
+          source: "AUTHENTICATED_ENTRY",
+          actorUserId: ctx.currentUser?.id,
+          actorName: ctx.currentUser?.name,
+          metadata: {
+            departmentId: data.departmentId,
+          },
+        },
+      });
+    },
+    { isolationLevel: "Serializable" },
+  );
 }
 export const getAssessmentSuggestionsSchema = z.object({
   deptSubjectId: z.string().optional().nullable(),

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createRequire } from "node:module";
 
 import type { TRPCContext } from "@api/trpc/init";
 
@@ -7,6 +8,24 @@ import {
   downloadAssessmentWorkbook,
   previewAssessmentWorkbook,
 } from "./assessment-workbooks";
+
+const assessmentWorkbookRequire = createRequire(
+  new URL(
+    "../../../../../packages/assessment-workbooks/package.json",
+    import.meta.url,
+  ),
+);
+const ExcelJS = assessmentWorkbookRequire("exceljs") as {
+  Workbook: new () => {
+    getWorksheet(name: string): {
+      getCell(address: string): { value: unknown };
+    } | undefined;
+    xlsx: {
+      load(input: Buffer): Promise<unknown>;
+      writeBuffer(): Promise<ArrayBuffer>;
+    };
+  };
+};
 
 function createContext(gender: "Male" | "Female" | null, role = "Admin") {
   const createdExports: unknown[] = [];
@@ -160,6 +179,105 @@ describe("downloadAssessmentWorkbook", () => {
         type: "assessment_workbook_downloaded",
       }),
     );
+  });
+
+  test("applies workbook scores with workbook-source value history", async () => {
+    const { ctx } = createContext("Female");
+    const db = ctx.db as unknown as Record<string, any>;
+    db.assessmentWorkbookExport.findFirst = async () => ({ id: "export-1" });
+
+    const downloaded = await downloadAssessmentWorkbook(ctx, {
+      departmentId: "class-1",
+      sessionTermId: "term-1",
+      direction: "rtl",
+      subjects: [
+        {
+          departmentSubjectId: "subject-1",
+          columns: [{ kind: "assessment", assessmentId: 10 }],
+        },
+      ],
+    });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(
+      Buffer.from(downloaded.fileBase64, "base64") as never,
+    );
+    workbook.getWorksheet("Assessment Form")!.getCell("C5").value = 9;
+    const editedFileBase64 = Buffer.from(
+      await workbook.xlsx.writeBuffer(),
+    ).toString("base64");
+    const preview = await previewAssessmentWorkbook(ctx, {
+      fileBase64: editedFileBase64,
+      resolutions: {},
+    });
+
+    const historyRows: Record<string, unknown>[] = [];
+    let importCreateCount = 0;
+    db.assessmentWorkbookImport = {
+      findUnique: async () => null,
+      create: async () => {
+        importCreateCount += 1;
+        return { id: "import-1" };
+      },
+    };
+    db.studentAssessmentRecord = {
+      findUnique: async () => ({ id: 77, obtained: 7 }),
+      update: async ({ data }: { data: { obtained: number | null } }) => ({
+        id: 77,
+        obtained: data.obtained,
+      }),
+    };
+    db.studentAssessmentRecordHistory = {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        historyRows.push(data);
+        return { id: "history-1" };
+      },
+    };
+    db.$transaction = async (
+      callback: (transaction: typeof db) => unknown,
+      options: Record<string, unknown>,
+    ) => {
+      expect(options).toEqual({ isolationLevel: "Serializable" });
+      return callback(db);
+    };
+
+    const result = await applyAssessmentWorkbook(ctx, {
+      fileBase64: editedFileBase64,
+      resolutions: {},
+      idempotencyKey: "import-key-1",
+      previewToken: preview.previewToken,
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        importId: "import-1",
+        alreadyApplied: false,
+      }),
+    );
+    expect(historyRows).toEqual([
+      expect.objectContaining({
+        schoolProfileId: "school-1",
+        previousObtained: 7,
+        newObtained: 9,
+        source: "WORKBOOK_IMPORT",
+        actorUserId: "user-1",
+        actorName: "Admin",
+        sourceReference: "export-1",
+      }),
+    ]);
+    expect(importCreateCount).toBe(1);
+
+    db.studentAssessmentRecordHistory.create = async () => {
+      throw new Error("history write failed");
+    };
+    await expect(
+      applyAssessmentWorkbook(ctx, {
+        fileBase64: editedFileBase64,
+        resolutions: {},
+        idempotencyKey: "import-key-2",
+        previewToken: preview.previewToken,
+      }),
+    ).rejects.toThrow("history write failed");
+    expect(importCreateCount).toBe(1);
   });
 
   test.each([

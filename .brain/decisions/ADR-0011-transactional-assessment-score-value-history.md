@@ -12,6 +12,7 @@ Assessment values can be written through authenticated score entry, approved pub
 - Store an append-only `StudentAssessmentRecordHistory` row for every normal assessment score create or update.
 - Route all supported score writes through one shared database helper.
 - Create the canonical score and its history row inside the same transaction.
+- Use serializable isolation for every history-producing score transaction so a committed row always records the immediately preceding value.
 - Record previous/new values, create/update type, source, available actor provenance, optional source reference, and immutable identity snapshots.
 - Record same-value saves and explicit clears.
 - Keep the current score table canonical; do not derive present results by replaying history.
