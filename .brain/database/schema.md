@@ -42,8 +42,8 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 
 ### SchoolProfile Academic Data Direction (added — session 2026-07)
 
-| Field | Type | Notes |
-| --- | --- | --- |
+| Field                       | Type                        | Notes                                                    |
+| --------------------------- | --------------------------- | -------------------------------------------------------- |
 | `academicDataDirectionMode` | `AcademicDataDirectionMode` | Defaults to `AUTO`; controls only academic data surfaces |
 
 `AcademicDataDirectionMode` values:
@@ -179,8 +179,30 @@ The setting does not control application language, global document direction, or
 ## Attendance and Assessment
 
 - `ClassRoomAttendance`, `StudentAttendance`
-- `ClassroomSubjectAssessment`, `StudentAssessmentRecord`
+- `ClassroomSubjectAssessment`, `StudentAssessmentRecord`, `StudentAssessmentRecordHistory`
 - `AssessmentWorkbookExport`, `AssessmentWorkbookImport`
+
+### Assessment Score Value History (added — session 2026-07)
+
+`StudentAssessmentRecordHistory` is the append-only audit trail for every normal assessment score create or update.
+
+| Field                       | Type     | Notes                                                                                 |
+| --------------------------- | -------- | ------------------------------------------------------------------------------------- |
+| `schoolProfileId`           | String   | Tenant ownership boundary                                                             |
+| `studentAssessmentRecordId` | Int?     | Nullable relation to the current score row; preserved snapshots survive hard deletion |
+| `studentId`                 | String   | Student identity snapshot                                                             |
+| `studentTermFormId`         | String   | Term-form identity snapshot                                                           |
+| `classSubjectAssessmentId`  | Int      | Assessment identity snapshot                                                          |
+| `previousObtained`          | Float?   | Value before the write; null for a new score                                          |
+| `newObtained`               | Float?   | Value after the write, including an explicitly cleared score                          |
+| `changeType`                | Enum     | `CREATE` or `UPDATE`                                                                  |
+| `source`                    | Enum     | `AUTHENTICATED_ENTRY`, `PUBLIC_LINK`, `WORKBOOK_IMPORT`, or `AI_TOOL`                 |
+| `actorUserId`, `actorName`  | String?  | Authenticated or recorded actor provenance when available                             |
+| `sourceReference`           | String?  | Public link, workbook export, or tool execution reference                             |
+| `metadata`                  | Json?    | Source-specific bounded context                                                       |
+| `createdAt`                 | DateTime | Immutable write timestamp                                                             |
+
+The canonical current value remains in `StudentAssessmentRecord`. History creation and the canonical score write occur in the same transaction.
 
 ### Assessment Workbook Audit Models (added — session 2026-07)
 
@@ -195,9 +217,9 @@ The setting does not control application language, global document direction, or
 
 ### ClassroomSubjectAssessment Print Mode (added — session 2026-07)
 
-| Field       | Type                                    | Notes                                                                 |
-| ----------- | --------------------------------------- | --------------------------------------------------------------------- |
-| `printMode` | `ClassroomSubjectAssessmentPrintMode`   | Defaults to `EXPANDED`; meaningful on grouped parent assessments only |
+| Field       | Type                                  | Notes                                                                 |
+| ----------- | ------------------------------------- | --------------------------------------------------------------------- |
+| `printMode` | `ClassroomSubjectAssessmentPrintMode` | Defaults to `EXPANDED`; meaningful on grouped parent assessments only |
 
 `ClassroomSubjectAssessmentPrintMode` values:
 

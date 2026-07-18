@@ -52,6 +52,7 @@ Describes entity relationships and cardinality constraints.
 - `SchoolDocumentTemplatePreference` stores one active tenant default per document type through a partial unique index on `(schoolProfileId, documentType)` where `deletedAt IS NULL`.
 - `CustomDocumentTemplateRequest` stores uploaded source files, quote payment handoff metadata, and custom-build quote/status metadata; when `status=READY`, `builtTemplateId` plus validated `builtTemplateJson` can be exposed in school template selectors and rendered by JSON PDF routes.
 - `StudentTermForm` 1:N `StudentAttendance`, `StudentFee`, `StudentPayment`, `StudentAssessmentRecord`
+- `StudentAssessmentRecord` 1:N `StudentAssessmentRecordHistory`; history keeps scalar student/term-form/assessment identity snapshots without foreign-key relations to those snapshot entities and uses `onDelete: SetNull` for the optional current-record relation.
 - `Wallet` 1:N `WalletTransactions`; `WalletTransactions` links to `StudentPayment` and `BillPayment`
 - `Wallet` 1:N `FeeHistory` (via `walletId` — accounting stream for student fees)
 - `Wallet` 1:N `BillableHistory` (via `walletId` — accounting stream for staff/service billables)
@@ -93,6 +94,7 @@ Describes entity relationships and cardinality constraints.
 - Assessment public link invariant: authenticated creation/request/approval must validate the link tenant, term, classroom, and captured subject filter before a token is issued.
 - Assessment public token invariant: public result-entry routes resolve only by signed token plus stored hash, require `APPROVED` status, enforce `expiresAt`, and must not broaden beyond the stored classroom, term, subject IDs, or optional student-term-form IDs.
 - Assessment public score invariant: public score writes may only target scoreable assessments within the link's captured department subject scope and classroom term sheets.
+- Assessment score history invariant: every normal score create or update must append exactly one `StudentAssessmentRecordHistory` row inside the same transaction, including same-value saves and explicit clears.
 - Legacy models (`school`, `guardian`, `session_class`) use separate relation chains and need consolidation rules.
 - TODO: add DB-level indexes/constraints audit for tenant scoping fields.
 

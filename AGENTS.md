@@ -9,13 +9,13 @@ Before starting work:
 - Read the relevant Brain files for the task. Start with `.brain/BRAIN.md`, `.brain/SYSTEM_OVERVIEW.md`, `.brain/system/overview.md`, `.brain/system/architecture.md`, `.brain/engineering/ai-rules.md`, `.brain/engineering/coding-standards.md`, and `.brain/tasks/in-progress.md`.
 - For feature work, also read the matching file in `.brain/features/` and any related ADR in `.brain/decisions/`.
 - For API, auth, permission, database, or migration work, read the matching files under `.brain/api/` and `.brain/database/`.
-- If the repository root defines both `db:migrate` and `db:push` scripts and Prisma schema/database files are changed, run `bun db:migrate`, `bun run db:push --local`, `bun run db:push --prod`, and attempt `bun run db:push --remote` after the Prisma update. Do not manually create migration files.
+- After Prisma schema/database changes, run only `bun run db:push --local` and `bun run db:push --prod`. Do not run `db:migrate`, create migration files, or push the schema to the remote-development profile unless the user explicitly requests it.
 
-After code changes: 
+After code changes:
 
 - Run a Brain documentation impact check before finishing.
 - Update `.brain/database/schema.md`, `.brain/database/relationships.md`, or `.brain/database/migrations.md` for database changes.
-- For Prisma database updates, if root scripts `db:migrate` and `db:push` exist, run `bun db:migrate`, `bun run db:push --local`, `bun run db:push --prod`, and attempt `bun run db:push --remote` after changing the schema. Do not manually create migration files or force destructive changes without explicit approval.
+- For Prisma database updates, run only `bun run db:push --local` and `bun run db:push --prod`. Do not run `db:migrate`, create migration files, push to the remote-development profile, or force destructive changes without explicit approval.
 - Update `.brain/api/endpoints.md`, `.brain/api/contracts.md`, or `.brain/api/permissions.md` for API, contract, auth, or permission changes.
 - Update or create `.brain/features/<feature>.md` for feature behavior changes.
 - Add an ADR under `.brain/decisions/` for durable architecture, product, integration, or implementation decisions.
@@ -32,7 +32,7 @@ Final responses must include the Brain files updated, or `No Brain documentation
 - Use port-free Portless website URLs: `https://school-clerk.localhost`, `https://<tenant>.school-clerk-dashboard.localhost`, and `https://<tenant>.school-clerk-site.localhost`.
 - Treat any named Portless host with an explicit port as a blocking bug. Fix and reverify the port-free URL before proceeding.
 - Generate Prisma client with `bun run db:generate`.
-- Run migrations with `bun run db:migrate`.
+- Apply Prisma schema changes with `bun run db:push --local` and `bun run db:push --prod`.
 - Validate broad changes with `bun run typecheck` and the narrowest relevant build or lint command.
 
 ## Engineering Rules

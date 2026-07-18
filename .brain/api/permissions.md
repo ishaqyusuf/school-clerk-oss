@@ -169,6 +169,7 @@ Defines access control rules for each API surface.
 - Public assessment link request email CTAs for admins must resolve to the tenant dashboard host, `dashboard.{tenant}.school-clerk.com` in production.
 - Public assessment-recording token users do not authenticate through dashboard auth. Their access is limited to the stored tenant, term, classroom, subject filter, optional student filter, expiry time, and link status.
 - Public score entry must enforce the same score safety rules as authenticated entry: scoreable assessments only, no grouped parent score writes, and obtained scores within the assessment maximum.
+- Assessment value-history rows inherit the authorization and tenant scope of the score mutation that creates them. They do not grant new read or write access, and history creation cannot be bypassed independently of authenticated entry, public-link entry, workbook import, or the authorized AI assessment tool.
 
 ## Website Management Permissions
 

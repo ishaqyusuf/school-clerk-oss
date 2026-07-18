@@ -421,3 +421,12 @@ Record of completed tasks and delivery outcomes.
 - Outcome: Added one-classroom signed `.xlsx` generation with configurable subject/assessment columns, scoped RTL output, literal Arabic/Western digit normalization, missing-assessment link/create resolution, exact token-bound preview, three-way conflict protection, atomic idempotent score and standalone-assessment writes, strict role/teacher access checks, and export/import audit records.
 - Related changes: `packages/assessment-workbooks`, `apps/api/src/db/queries/assessment-workbooks.ts`, `apps/dashboard/src/components/assessment-workbooks-dialog.tsx`, `.brain/features/assessment-workbook-round-trip.md`, `.brain/decisions/ADR-0010-signed-assessment-workbook-round-trip.md`
 - Owner: Codex
+
+## Completed Task
+
+- ID: 2026-07-18-assessment-score-value-history
+- Title: Persist Assessment Score Value History
+- Completed: 2026-07-18
+- Outcome: Added transactional append-only previous/new value history for authenticated assessment entry, public-link entry, workbook imports, and authorized AI assessment writes. Same-value saves and explicit clears are recorded; existing scores remain canonical and are not backfilled.
+- Related changes: `packages/db/src/assessment-score-history.ts`, `apps/api/src/db/queries/assessments.ts`, `apps/api/src/db/queries/assessment-public-links.ts`, `apps/api/src/db/queries/assessment-workbooks.ts`, `packages/ai/src/tools/assessments.ts`, `.brain/features/assessment-score-value-history.md`, `.brain/decisions/ADR-0011-transactional-assessment-score-value-history.md`
+- Owner: Codex

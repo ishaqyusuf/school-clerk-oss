@@ -36,6 +36,7 @@ model SchoolProfile {
   activities                     Activity[]
   reportPrintLogs                ReportPrintLog[]
   assessmentPublicLinks          AssessmentPublicLink[]
+  assessmentRecordHistories     StudentAssessmentRecordHistory[]
   notifications                  Notification[]
   notificationPreferences        NotificationPreference[]
   notificationContacts           NotificationContact[]

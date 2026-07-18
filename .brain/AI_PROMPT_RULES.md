@@ -42,7 +42,7 @@ Prompting guidelines to keep AI outputs consistent, safe, and architecture-align
 - Add `app/[...slug]/page.tsx` as a catch-all route that redirects to `/` unless this repository has an explicit documented reason to diverge.
 - Never start dev in the agent's current shell. Reuse a running stack; otherwise create a new tab in the already-open cmux session and run exactly `jd school-clerk dev --local -f marketing dashboard school-site`. If cmux is unavailable, mark the active goal blocked.
 - Use port-free Portless URLs for website work: `https://school-clerk.localhost`, `https://<tenant>.school-clerk-dashboard.localhost`, and `https://<tenant>.school-clerk-site.localhost`. Any explicit port on a named host is a Portless bug that must be fixed before proceeding.
-- For Prisma database updates, when the repository root has `db:migrate` and `db:push` scripts, run `bun db:migrate`, `bun run db:push --local`, `bun run db:push --prod`, and attempt `bun run db:push --remote` after schema changes; do not manually create migration files or force destructive changes without explicit approval.
+- For Prisma database updates, run only `bun run db:push --local` and `bun run db:push --prod`. Do not run `db:migrate`, create migration files, push to the remote-development profile, or force destructive changes unless the user explicitly requests it.
 
 <!-- personal-coding-rules:start -->
 

@@ -16,6 +16,7 @@ import {
   generateAssessmentWorkbook,
   parseAssessmentWorkbook,
 } from "@school-clerk/assessment-workbooks/server";
+import { saveStudentAssessmentScoreWithHistory } from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 
@@ -687,7 +688,7 @@ export async function applyAssessmentWorkbook(
             message: "The assessment mapping could not be applied.",
           });
         }
-        await tx.studentAssessmentRecord.upsert({
+        const currentRecord = await tx.studentAssessmentRecord.findUnique({
           where: {
             studentId_studentTermFormId_classSubjectAssessmentId: {
               studentId: change.studentId,
@@ -695,15 +696,30 @@ export async function applyAssessmentWorkbook(
               classSubjectAssessmentId: assessmentId,
             },
           },
-          update: {
-            obtained: change.uploaded,
-            deletedAt: null,
+          select: {
+            id: true,
+            obtained: true,
           },
-          create: {
+        });
+        await saveStudentAssessmentScoreWithHistory({
+          db: tx,
+          currentRecord,
+          score: {
             studentId: change.studentId,
             studentTermFormId: change.studentTermFormId,
             classSubjectAssessmentId: assessmentId,
             obtained: change.uploaded,
+          },
+          history: {
+            schoolProfileId: prepared.schoolProfileId,
+            source: "WORKBOOK_IMPORT",
+            actorUserId: ctx.currentUser?.id,
+            actorName: ctx.currentUser?.name,
+            sourceReference: prepared.workbook.identity.exportId,
+            metadata: {
+              columnKey: change.columnKey,
+              idempotencyKey: input.idempotencyKey,
+            },
           },
         });
       }

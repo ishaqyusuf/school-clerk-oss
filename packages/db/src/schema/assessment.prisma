@@ -35,8 +35,46 @@ model StudentAssessmentRecord {
   student                Students?                   @relation(fields: [studentId], references: [id])
   classSubjectAssessment ClassroomSubjectAssessment? @relation(fields: [classSubjectAssessmentId], references: [id])
   studentTermForm        StudentTermForm?            @relation(fields: [studentTermFormId], references: [id])
+  history                StudentAssessmentRecordHistory[]
 
   @@unique([studentId, studentTermFormId, classSubjectAssessmentId])
+}
+
+model StudentAssessmentRecordHistory {
+  id                        String                      @id @default(uuid())
+  schoolProfileId           String
+  studentAssessmentRecordId Int?
+  studentId                 String
+  studentTermFormId         String
+  classSubjectAssessmentId  Int
+  previousObtained          Float?
+  newObtained               Float?
+  changeType                AssessmentScoreChangeType
+  source                    AssessmentScoreChangeSource
+  actorUserId               String?
+  actorName                 String?
+  sourceReference           String?
+  metadata                  Json?
+  createdAt                 DateTime                    @default(now()) @db.Timestamp(0)
+
+  schoolProfile           SchoolProfile            @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+  studentAssessmentRecord StudentAssessmentRecord? @relation(fields: [studentAssessmentRecordId], references: [id], onDelete: SetNull)
+
+  @@index([schoolProfileId, createdAt])
+  @@index([studentAssessmentRecordId, createdAt])
+  @@index([studentId, studentTermFormId, classSubjectAssessmentId])
+}
+
+enum AssessmentScoreChangeType {
+  CREATE
+  UPDATE
+}
+
+enum AssessmentScoreChangeSource {
+  AUTHENTICATED_ENTRY
+  PUBLIC_LINK
+  WORKBOOK_IMPORT
+  AI_TOOL
 }
 
 model ReportPrintLog {

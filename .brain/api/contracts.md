@@ -160,13 +160,17 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: get `{ token: string }`; update `{ token: string, assessmentId: string, studentTermFormId: string, departmentSubjectId: string, obtained: number | null }`
 - Response schema: get returns the token-scoped classroom report sheet payload; update returns the saved score record.
 - Error cases: malformed token, hash mismatch, pending/rejected/revoked/expired link, score target outside captured subject/student scope, grouped parent assessment, score above obtainable, invalid classroom/term ancestry.
-- Notes: Public token routes are intentionally unauthenticated but never broaden beyond the stored classroom, term, subject, and student scope.
+- Notes: Public token routes are intentionally unauthenticated but never broaden beyond the stored classroom, term, subject, and student scope. A successful public score write appends a transactional history row with `PUBLIC_LINK` source and link provenance. Because the token holder is anonymous, the history must not attribute the edit to the staff member who requested or created the link.
 
 - Route: `assessments.updateAssessmentScore`
 - Request schema: `{ assessmentId: number, studentTermId: string, studentId: string, departmentId: string, obtained?: number | null, id?: number | null }`
 - Response schema: saved score record.
 - Error cases: unauthorized assessment scope, grouped parent assessment, score target outside the selected classroom subject, score record mismatch.
-- Notes: authenticated score entry writes only to scoreable, non-group assessment rows.
+- Notes: authenticated score entry writes only to scoreable, non-group assessment rows. Every successful create or update appends a transactional history row with previous/new values, `AUTHENTICATED_ENTRY` source, and the current user identity.
+
+- Route: `assessments.applyAssessmentWorkbook`
+- History side effect: every score applied from a confirmed workbook appends a history row with `WORKBOOK_IMPORT` source, workbook export reference, current actor identity, and previous/new values in the same atomic import transaction.
+- Error behavior: a history-write failure rolls back the associated score write and the complete workbook apply transaction.
 
 ## Staff Management Contracts
 

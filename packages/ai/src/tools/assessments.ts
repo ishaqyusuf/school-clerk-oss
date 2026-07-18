@@ -1,4 +1,7 @@
-import { prisma } from "@school-clerk/db";
+import {
+	prisma,
+	saveStudentAssessmentScoreWithHistory,
+} from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { tool } from "ai";
 import { z } from "zod";
@@ -652,24 +655,27 @@ export function createAssessmentTools(
 								select: { id: true, obtained: true },
 							});
 
-							const record = existingRecord
-								? await tx.studentAssessmentRecord.update({
-										where: { id: existingRecord.id },
-										data: {
-											obtained: score.obtained,
-											deletedAt: null,
-										},
-										select: { id: true },
-									})
-								: await tx.studentAssessmentRecord.create({
-										data: {
-											classSubjectAssessmentId: assessment.id,
-											obtained: score.obtained,
-											studentId: score.studentId,
-											studentTermFormId: score.studentTermFormId,
-										},
-										select: { id: true },
-									});
+							const record = await saveStudentAssessmentScoreWithHistory({
+								db: tx,
+								currentRecord: existingRecord,
+								score: {
+									classSubjectAssessmentId: assessment.id,
+									obtained: score.obtained,
+									studentId: score.studentId,
+									studentTermFormId: score.studentTermFormId,
+								},
+								history: {
+									schoolProfileId: ctx.schoolId,
+									source: "AI_TOOL",
+									actorUserId: ctx.userId,
+									actorName: ctx.userName,
+									sourceReference: guarded.executionId,
+									metadata: {
+										classRoomDepartmentId: department.id,
+										departmentSubjectId: departmentSubject.id,
+									},
+								},
+							});
 
 							writtenScores.push({
 								recordId: record.id,

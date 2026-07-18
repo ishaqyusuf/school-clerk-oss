@@ -12,9 +12,9 @@ Change log for database schema migrations and rollout notes.
 
 ## Operational Runbook
 
-- After every Prisma schema/database update, use the repository migration workflow and propagate schema readiness across all configured database profiles.
-- Run `bun db:migrate`, `bun run db:push --local`, and `bun run db:push --prod`, then attempt `bun run db:push --remote`. The `--remote` flag aliases the remote-development profile.
-- The local and production pushes are mandatory for every Prisma update; the remote-development push must also be attempted. Report any unavailable profile or failed push rather than silently skipping it.
+- After every Prisma schema/database update, propagate schema readiness only to the local and production database profiles.
+- Run `bun run db:push --local` and `bun run db:push --prod`.
+- Do not run `db:migrate`, create migration files, or push the schema to the remote-development profile unless the user explicitly requests it. Report any unavailable or failed required push rather than silently skipping it.
 - Do not force data-loss prompts or destructive changes without explicit approval.
 - The root `db:push` router must call `scripts/db-command.ts push --<profile>` directly so production pushes keep the production guard and do not fall through to the package-local default push profile.
 
@@ -24,12 +24,11 @@ Change log for database schema migrations and rollout notes.
 - Local database runs in Docker and is currently mapped to `localhost:55432`.
 - Use `bun run dev` or `bun run dev --local` for the default local Docker workflow, `bun run dev --remote-dev` for remote development, and `bun run dev --prod` for the production-env dashboard/API smoke profile.
 - Use `bun run dev:services` to start only the local services implied by the selected env; it skips Postgres when the DB mode or URL points at remote dev. Use `bun run dev:services:local`, `bun run db:start`, or `bun run db:docker:up` to force local Postgres startup.
-- Prisma maintenance commands are profile-routed. `bun run db:push --local|--remote|--prod` uses the explicit `scripts/db-push.ts` router; migrate/generate/pull/studio still use `scripts/db-command.ts`. No profile flag defaults to local Docker Postgres. Legacy aliases such as `db:push:local`, `db:push:dev`, `db:push:prod`, `db:migrate:local`, `db:migrate:dev`, and `db:migrate:prod` delegate to those routers.
-- If repository root scripts `db:migrate` and `db:push` exist, use the explicit migration and three-profile push sequence above after Prisma schema/database updates.
-- Do not manually create migration files; use the repository scripts and Prisma workflow.
+- Prisma maintenance commands are profile-routed. `bun run db:push --local|--remote|--prod` uses the explicit `scripts/db-push.ts` router; generate/pull/studio use `scripts/db-command.ts`. No profile flag defaults to local Docker Postgres. Normal schema rollout invokes only `--local` and `--prod`.
+- Use the explicit two-profile push sequence above after Prisma schema/database updates.
+- Do not manually create migration files or run migration commands unless the user explicitly requests them.
 - Keep migration commands aligned with root `package.json` and `packages/db` scripts.
-- `db:migrate --local` and `db:migrate --remote` run `prisma migrate dev`; `db:migrate --prod` runs `prisma migrate deploy`.
-- `db:push --local` and `db:push --remote` run `prisma db push` against the resolved development database. `db:push --prod` loads production env, refuses local database URLs, and requires production `DATABASE_URL`.
+- `db:push --local` runs `prisma db push` against the resolved local development database. `db:push --prod` loads production env, refuses local database URLs, and requires production `DATABASE_URL`.
 - The DB command routers run Prisma directly from `packages/db` with an explicit profile-resolved `DATABASE_URL` and `SCHOOL_CLERK_DB_MODE`; do not reintroduce a separate environment-mode variable for DB maintenance. This prevents Bun-preloaded `.env.local` values from leaking into `--remote` or `--prod` pushes, and targets SchoolClerk's actual Prisma schema directory at `packages/db/src/schema` with migrations under `packages/db/src/schema/migrations`.
 - Local package dev scripts also pass through root env/profile resolution, which forces `DATABASE_URL` to the local Docker profile from `LOCAL_DATABASE_URL` when present. This prevents root `.env.local` remote database URLs from leaking into filtered local `turbo dev` package processes.
 - The `packages/jobs` dev script now uses the same dev-infra resolver as the DB package, while `jobs:deploy` uses production env loading.
@@ -42,6 +41,17 @@ Change log for database schema migrations and rollout notes.
 - Use `bun run db:update:local` to sync production data into the local database. The command reads production source URLs from explicit source env vars first, then `packages/db/.env.production`, then repo root `.env.production`; it reads the local target from local env files and falls back to `postgresql://postgres:postgres@127.0.0.1:55432/school_clerk`.
 - The production-to-local sync refuses to write unless the target database host is local, writes cursor state under `.local-db-sync/`, temporarily disables triggers on all local target tables while importing table-by-table data, casts raw upsert parameters to the target PostgreSQL column types, preserves native PostgreSQL arrays while JSON-stringifying JSON values, re-enables triggers before disconnecting, and normalizes imported tenant domains for local dashboard routing by default.
 - Local domain normalization keeps `SchoolProfile.subDomain`, `TenantDomain.subdomain`, and legacy `school.sub_domain` as slug-only values compatible with `<tenant>.school-clerk-dashboard.localhost`; imported production custom domains are cleared unless `--keep-custom-domains` is passed.
+
+## Migration Entry
+
+- Date: 2026-07-18
+- ID: ASSESSMENT-2026-07-18-score-value-history
+- Summary: Added append-only assessment score value history with previous/new values, change type, write source, actor provenance, source reference, and immutable identity snapshots.
+- Affected entities: `StudentAssessmentRecordHistory`, `StudentAssessmentRecord`, `SchoolProfile`
+- Backfill required: No. Existing canonical scores remain unchanged; history begins with writes performed after deployment.
+- Rollout: `bun run db:generate`, `bun run db:push --local`, and `bun run db:push --prod` succeeded. Both required databases report that they are in sync with the Prisma schema.
+- Rollback plan: Stop all history helper calls before removing the history relation, table, and enums. Canonical values in `StudentAssessmentRecord` are independent of history rows.
+- Owner: Codex
 
 ## Template
 

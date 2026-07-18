@@ -52,8 +52,8 @@ Defines implementation standards for consistency, maintainability, and reliabili
 - Portless local QA URLs must not include visible proxy ports. A named host with an appended port, including `school-clerk.localhost:1441`, is a broken configuration; stop website QA, fix the Portless bug, and verify the port-free URL before proceeding.
 - Raw localhost ports may be inspected only while diagnosing Portless itself; they are not valid website QA URLs and do not allow work to proceed past a broken named host.
 - `bun run kill:ports` discovers numeric env variables ending in `_PORT` and ignores names containing `PORTLESS`. Keep every project-owned dev port declared as an individual `*_PORT` env variable instead of adding aggregate kill lists.
-- After every Prisma schema/database update, run the repository-required migration workflow, `bun run db:push --local`, and `bun run db:push --prod`; also attempt `bun run db:push --remote`, which aliases the remote-development profile.
-- All three DB push profiles must be attempted for Prisma updates. Preserve the repository's destructive-change safeguards, never force data loss without explicit approval, and report any profile that could not be updated.
+- After every Prisma schema/database update, run only `bun run db:push --local` and `bun run db:push --prod`.
+- Do not run `db:migrate`, create migration files, or push Prisma schema changes to the remote-development profile unless the user explicitly requests it. Preserve the repository's destructive-change safeguards, never force data loss without explicit approval, and report any required local or production push that could not be updated.
 
 ## Midday Architecture Standards
 
@@ -75,7 +75,7 @@ Defines implementation standards for consistency, maintainability, and reliabili
   - domain-specific sheet files under `components/sheets/...`
 - Forms must use Midday validation, field error display, submission state, mutation callbacks, toast/error handling, and cache invalidation patterns.
 - Data fetching and mutations must use standard Midday tRPC patterns, including query keys, prefetch/hydration where applicable, invalidation, loading states, error states, and caching behavior.
-- Prisma schema changes must be followed by root `bun db:migrate`, `bun run db:push --local`, `bun run db:push --prod`, and an attempted `bun run db:push --remote` when those scripts exist. Do not manually create migration files.
+- Prisma schema changes must be followed only by root `bun run db:push --local` and `bun run db:push --prod`. Do not run `db:migrate`, create migration files, or push to the remote-development profile unless the user explicitly requests it.
 - Use shadcn standard components and composition patterns. Do not directly modify shadcn source components; create project-specific wrapper components when SchoolClerk needs custom behavior.
 - Use `/Users/M1PRO/Documents/code/_turbo/gnd` as the reference for the standard notification package system.
 - Use `/Users/M1PRO/Documents/code/plot-keys` as the reference for local URL handling, portless/proxy support, and generated links.

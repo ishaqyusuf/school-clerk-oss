@@ -1,4 +1,5 @@
 import type { TRPCContext } from "@api/trpc/init";
+import { saveStudentAssessmentScoreWithHistory } from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -1151,55 +1152,67 @@ export async function updatePublicAssessmentScore(
     });
   }
 
-  let result: { id: number; obtained: number | null };
+  const result = await ctx.db.$transaction(async (tx) => {
+    const currentRecord = input.id
+      ? await tx.studentAssessmentRecord.findFirst({
+          where: {
+            classSubjectAssessmentId: input.assessmentId,
+            deletedAt: null,
+            id: input.id,
+            studentId: input.studentId,
+            studentTermFormId: input.studentTermId,
+          },
+          select: {
+            id: true,
+            obtained: true,
+          },
+        })
+      : await tx.studentAssessmentRecord.findUnique({
+          where: {
+            studentId_studentTermFormId_classSubjectAssessmentId: {
+              studentId: input.studentId,
+              studentTermFormId: input.studentTermId,
+              classSubjectAssessmentId: input.assessmentId,
+            },
+          },
+          select: {
+            id: true,
+            obtained: true,
+          },
+        });
 
-  if (input.id) {
-    const existingRecord = await ctx.db.studentAssessmentRecord.findFirst({
-      where: {
-        classSubjectAssessmentId: input.assessmentId,
-        deletedAt: null,
-        id: input.id,
-        studentId: input.studentId,
-        studentTermFormId: input.studentTermId,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!existingRecord) {
+    if (input.id && !currentRecord) {
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: "This score record is outside the public link scope.",
       });
     }
 
-    result = await ctx.db.studentAssessmentRecord.update({
-      where: {
-        id: existingRecord.id,
-      },
-      data: {
-        obtained: input.obtained,
-      },
-      select: {
-        id: true,
-        obtained: true,
-      },
-    });
-  } else {
-    result = await ctx.db.studentAssessmentRecord.create({
-      data: {
+    return saveStudentAssessmentScoreWithHistory({
+      db: tx,
+      currentRecord,
+      score: {
         classSubjectAssessmentId: input.assessmentId,
-        obtained: input.obtained,
+        obtained: input.obtained ?? null,
         studentId: input.studentId,
         studentTermFormId: input.studentTermId,
       },
-      select: {
-        id: true,
-        obtained: true,
+      history: {
+        schoolProfileId: link.schoolProfileId,
+        source: "PUBLIC_LINK",
+        actorUserId: null,
+        actorName: "Public assessment link",
+        sourceReference: link.id,
+        metadata: {
+          classRoomDepartmentId: link.classRoomDepartmentId,
+          departmentSubjectId: input.departmentSubjectId,
+          linkCreatedByUserId: link.createdByUserId,
+          linkRequesterUserId: link.requesterUserId,
+          sessionTermId: link.sessionTermId,
+        },
       },
     });
-  }
+  });
 
   await Promise.all([
     ctx.db.assessmentPublicLink.update({

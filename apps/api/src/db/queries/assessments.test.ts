@@ -14,6 +14,13 @@ function createAdminContext(overrides: Record<string, unknown> = {}) {
       sessionId: "session-1",
       termId: "term-1",
     },
+    currentUser: {
+      email: "admin@school.test",
+      id: "user-1",
+      name: "Admin One",
+      role: "Admin",
+      saasAccountId: "account-1",
+    },
     db: {
       session: {
         findFirst: async () => ({
@@ -118,5 +125,74 @@ describe("updateAssessmentScore", () => {
       code: "BAD_REQUEST",
       message: "Scores can only be recorded against scoreable assessments.",
     } satisfies Partial<TRPCError>);
+  });
+
+  test("updates the score and persists its previous and new values in the same transaction", async () => {
+    const historyRows: Record<string, unknown>[] = [];
+    const tx = {
+      studentAssessmentRecord: {
+        findFirst: async () => ({ id: 7, obtained: 4 }),
+        update: async ({
+          data,
+          where,
+        }: {
+          data: { obtained: number | null };
+          where: { id: number };
+        }) => ({ id: where.id, obtained: data.obtained }),
+      },
+      studentAssessmentRecordHistory: {
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          historyRows.push(data);
+          return { id: "history-1" };
+        },
+      },
+    };
+    const ctx = createAdminContext({
+      classroomSubjectAssessment: {
+        findFirst: async () => ({
+          departmentSubjectId: "subject-1",
+          departmentSubject: {
+            classRoomDepartmentId: "classroom-a",
+            sessionTermId: "term-1",
+          },
+          isGroup: false,
+        }),
+      },
+      studentAssessmentRecord: tx.studentAssessmentRecord,
+      studentAssessmentRecordHistory: tx.studentAssessmentRecordHistory,
+      studentTermForm: {
+        findFirst: async () => ({
+          classroomDepartmentId: "classroom-a",
+        }),
+      },
+      $transaction: async (callback: (transaction: typeof tx) => unknown) =>
+        callback(tx),
+    });
+
+    const result = await updateAssessmentScore(ctx, {
+      id: 7,
+      assessmentId: 10,
+      departmentId: "subject-1",
+      obtained: 9,
+      studentId: "student-1",
+      studentTermId: "term-form-1",
+    });
+
+    expect(result).toEqual({ id: 7, obtained: 9 });
+    expect(historyRows).toEqual([
+      expect.objectContaining({
+        schoolProfileId: "school-1",
+        studentAssessmentRecordId: 7,
+        studentId: "student-1",
+        studentTermFormId: "term-form-1",
+        classSubjectAssessmentId: 10,
+        previousObtained: 4,
+        newObtained: 9,
+        changeType: "UPDATE",
+        source: "AUTHENTICATED_ENTRY",
+        actorUserId: "user-1",
+        actorName: "Admin One",
+      }),
+    ]);
   });
 });

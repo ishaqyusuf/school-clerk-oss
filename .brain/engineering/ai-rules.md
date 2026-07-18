@@ -26,7 +26,7 @@ Operational rules for AI agents contributing to this repository.
 - Database envs are root-only and canonicalized to `DATABASE_URL`, `LOCAL_DATABASE_URL`, `REMOTE_DEV_DATABASE_URL`, `PROD_DATABASE_URL`, and `SCHOOL_CLERK_DB_MODE`; do not add new `POSTGRES_URL`/`DIRECT_URL` aliases unless a provider explicitly requires them.
 - `scripts/with-root-env.mjs --mode local` and `scripts/with-dev-infra.ts` must resolve package dev scripts to the selected database profile by exporting `DATABASE_URL`, preferring `LOCAL_DATABASE_URL` for local Docker before falling back to `127.0.0.1:55432/school_clerk`.
 - Turbo `dev` tasks must pass through the canonical resolved database environment variables so filtered local dev commands keep package processes on the selected DB profile.
-- Prisma maintenance commands are profile-routed: `bun run db:push --local|--remote|--prod` uses `scripts/db-push.ts`; migrate/generate/pull/studio use `scripts/db-command.ts`. Production migrate uses `prisma migrate deploy`; local and remote-dev migrate use `prisma migrate dev`.
+- Prisma maintenance commands are profile-routed: `bun run db:push --local|--remote|--prod` uses `scripts/db-push.ts`; generate/pull/studio use `scripts/db-command.ts`. Normal schema rollout uses only the local and production push profiles.
 - Local Postgres startup is owned by `scripts/start-dev-services.sh`; it starts Docker only when the selected DB mode or URL is local and skips local services for remote development DBs.
 - Keep `packages/db` and `packages/jobs` scripts on the shared dev-infra resolver for development, and keep production commands on `with-root-env --mode production`.
 - Current Portless local app names: dashboard -> `school-clerk-dashboard`, marketing -> `school-clerk`, school-site -> `school-clerk-site`, api -> `api`.
@@ -35,7 +35,7 @@ Operational rules for AI agents contributing to this repository.
 - Website work uses port-free Portless URLs: `https://school-clerk.localhost`, `https://<tenant>.school-clerk-dashboard.localhost`, and `https://<tenant>.school-clerk-site.localhost`.
 - Treat any named Portless host that gains an explicit port, such as `school-clerk.localhost:1441`, as a blocking bug. Diagnose and fix the Portless setup before proceeding with website work.
 - Dashboard tenant development hosts resolve as `<tenant>.school-clerk-dashboard.localhost`; keep host parsing and cookie lookup aligned with that format.
-- After every Prisma schema/database update, follow the repository migration workflow, run `bun run db:push --local` and `bun run db:push --prod`, and also attempt `bun run db:push --remote`.
+- After every Prisma schema/database update, run only `bun run db:push --local` and `bun run db:push --prod`. Do not run `db:migrate`, create migration files, or push to the remote-development profile unless the user explicitly requests it.
 - Internal dashboard navigation should use proxy-relative product routes such as `/finance`, `/students`, `/academic`, etc. Do not hardcode `/dashboard/...` into hrefs or router pushes, because tenant/domain proxying already handles the dashboard mount.
 
 ## Documentation Rules

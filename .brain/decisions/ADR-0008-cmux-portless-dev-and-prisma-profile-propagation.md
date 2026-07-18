@@ -1,11 +1,11 @@
 # ADR-0008: cmux Dev Runtime, Portless URLs, And Prisma Profile Propagation
 
-- Status: accepted
+- Status: accepted, with Prisma propagation superseded by ADR-0012
 - Date: 2026-07-18
 
 ## Context
 
-Development servers need a stable, visible owner instead of being started in transient agent shells. Website QA depends on Portless named hosts remaining port-free. Prisma changes must be propagated consistently across the configured local, production, and remote-development database profiles.
+Development servers need a stable, visible owner instead of being started in transient agent shells. Website QA depends on Portless named hosts remaining port-free. The original decision also covered Prisma propagation; ADR-0012 now owns that operational policy.
 
 ## Decision
 
@@ -15,7 +15,7 @@ Development servers need a stable, visible owner instead of being started in tra
 - If cmux is unavailable, mark the active goal blocked instead of launching dev elsewhere.
 - Website work uses port-free Portless URLs: `https://school-clerk.localhost`, `https://<tenant>.school-clerk-dashboard.localhost`, and `https://<tenant>.school-clerk-site.localhost`.
 - An explicit port on a named host, such as `school-clerk.localhost:1441`, is a blocking Portless bug and must be fixed before website work proceeds.
-- After every Prisma schema/database update, run the repository migration workflow, `bun run db:push --local`, `bun run db:push --prod`, and attempt `bun run db:push --remote`.
+- Superseded by ADR-0012: the original decision required the repository migration workflow plus local, production, and remote-development propagation.
 - Destructive database changes still require explicit approval and must not be forced.
 
 ## Consequences
@@ -24,7 +24,7 @@ Development servers need a stable, visible owner instead of being started in tra
 - Agents block instead of silently starting an unmanaged dev process when cmux is unavailable.
 - Browser QA and generated local website links use stable named hosts without proxy ports.
 - Portless regressions are repaired at their source rather than bypassed with raw ports.
-- Prisma updates are checked against every configured database profile, with unavailable or failed profiles reported explicitly.
+- Prisma propagation follows ADR-0012.
 
 ## Alternatives Considered
 

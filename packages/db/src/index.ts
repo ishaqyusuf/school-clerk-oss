@@ -18,3 +18,4 @@ export * from "./staff-academic-access-assignments";
 export * from "./tenants";
 export * from "./website";
 export * from "./academic-data-direction";
+export * from "./assessment-score-history";
