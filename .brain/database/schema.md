@@ -180,6 +180,18 @@ The setting does not control application language, global document direction, or
 
 - `ClassRoomAttendance`, `StudentAttendance`
 - `ClassroomSubjectAssessment`, `StudentAssessmentRecord`
+- `AssessmentWorkbookExport`, `AssessmentWorkbookImport`
+
+### Assessment Workbook Audit Models (added — session 2026-07)
+
+`AssessmentWorkbookExport` stores the issued workbook id, tenant, original term/classroom binding, schema version, actor, generation time, optional revocation time, and related imports.
+
+`AssessmentWorkbookImport` stores the export relation, tenant/term/classroom binding, tenant-scoped idempotency key, SHA-256 file digest, JSON outcome summary, created standalone assessment ids, actor, and apply/create/update timestamps.
+
+- `(schoolProfileId, idempotencyKey)` is unique so retry confirmations cannot duplicate score writes.
+- Export deletion is restricted while imports refer to it.
+- Import summary storage is audit metadata; current assessment scores remain canonical in `StudentAssessmentRecord`.
+- Activity types `assessment_workbook_downloaded` and `assessment_workbook_imported` record tenant audit events.
 
 ### ClassroomSubjectAssessment Print Mode (added — session 2026-07)
 

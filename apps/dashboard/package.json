@@ -27,6 +27,7 @@
     "@school-clerk/api": "workspace:*",
     "@school-clerk/ai": "workspace:*",
     "@school-clerk/assessment-results": "workspace:*",
+    "@school-clerk/assessment-workbooks": "workspace:*",
     "@school-clerk/auth": "workspace:*",
     "@school-clerk/db": "workspace:*",
     "@school-clerk/email": "workspace:*",

@@ -25,6 +25,7 @@
     "@hono/zod-validator": "^0.7.0",
     "@scalar/hono-api-reference": "^0.9.1",
     "@school-clerk/assessment-results": "workspace:*",
+    "@school-clerk/assessment-workbooks": "workspace:*",
     "@school-clerk/db": "workspace:*",
     "@school-clerk/email": "workspace:*",
     "@school-clerk/notifications": "workspace:*",

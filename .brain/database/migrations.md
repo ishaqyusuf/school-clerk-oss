@@ -58,6 +58,15 @@ Change log for database schema migrations and rollout notes.
 ## Migration Entry
 
 - Date: 2026-07-18
+- ID: schema-push-20260718_assessment_workbook_round_trip
+- Summary: Added durable signed assessment-workbook export/import audit rows, tenant-scoped import idempotency, created-assessment references, and download/import activity event types.
+- Affected entities: `AssessmentWorkbookExport`, `AssessmentWorkbookImport`, `ActivityType`
+- Backfill required: No. Existing assessments and scores are unchanged; records are created only for new workbook operations.
+- Rollback plan: Disable the workbook tRPC/UI surfaces, revoke operational use of existing exports, regenerate Prisma Client, then drop the two workbook audit tables and activity enum values.
+- Owner: Codex
+- Note: `bun run db:generate` succeeded. `bun run db:migrate` reached local Postgres but stopped on pre-existing schema drift and requested a destructive reset, which was not run. The additive schema was synchronized to local Docker Postgres with Prisma `db push`. The required production push was safety-blocked pending explicit production authorization; the remote-development wrapper resolved to the local profile and therefore did not update a remote database.
+
+- Date: 2026-07-18
 - ID: schema-push-20260718_academic_data_direction
 - Summary: Added `AcademicDataDirectionMode` and `SchoolProfile.academicDataDirectionMode`, defaulting to `AUTO`, for tenant-scoped academic surface direction.
 - Affected entities: `SchoolProfile`, `AcademicDataDirectionMode`

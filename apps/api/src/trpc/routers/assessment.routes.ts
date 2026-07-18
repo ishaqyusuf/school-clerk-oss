@@ -41,6 +41,14 @@ import {
   updatePublicAssessmentScore,
   updatePublicAssessmentScoreSchema,
 } from "@api/db/queries/assessment-public-links";
+import {
+  applyAssessmentWorkbook,
+  assessmentWorkbookApplySchema,
+  assessmentWorkbookDownloadSchema,
+  assessmentWorkbookUploadSchema,
+  downloadAssessmentWorkbook,
+  previewAssessmentWorkbook,
+} from "@api/db/queries/assessment-workbooks";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { resolveStaffAcademicAccess } from "@school-clerk/db";
 import { z } from "zod";
@@ -117,6 +125,15 @@ async function getReportTerms(ctx: Parameters<typeof getClassrooms>[0]) {
 }
 
 export const assessmentRouter = createTRPCRouter({
+  downloadAssessmentWorkbook: authenticatedProcedure
+    .input(assessmentWorkbookDownloadSchema)
+    .mutation(({ ctx, input }) => downloadAssessmentWorkbook(ctx, input)),
+  previewAssessmentWorkbook: authenticatedProcedure
+    .input(assessmentWorkbookUploadSchema)
+    .mutation(({ ctx, input }) => previewAssessmentWorkbook(ctx, input)),
+  applyAssessmentWorkbook: authenticatedProcedure
+    .input(assessmentWorkbookApplySchema)
+    .mutation(({ ctx, input }) => applyAssessmentWorkbook(ctx, input)),
   listPublicAssessmentLinks: authenticatedProcedure
     .input(listAssessmentPublicLinksSchema)
     .query(async ({ ctx, input }) => {

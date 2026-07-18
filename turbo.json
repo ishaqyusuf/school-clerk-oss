@@ -10,6 +10,7 @@
 	"globalEnv": [
 		"APP_ENV",
 		"APP_ROOT_DOMAIN",
+		"ASSESSMENT_WORKBOOK_SIGNING_SECRET",
 		"BETTER_AUTH_SECRET",
 		"BETTER_AUTH_URL",
 		"DASHBOARD_APP_URL",
@@ -33,6 +34,7 @@
 				"APP_ENV",
 				"NODE_ENV",
 				"APP_ROOT_DOMAIN",
+				"ASSESSMENT_WORKBOOK_SIGNING_SECRET",
 				"DASHBOARD_APP_URL",
 				"BETTER_AUTH_URL",
 				"VERCEL",
@@ -87,7 +89,11 @@
 		"dev": {
 			"dependsOn": ["^generate"],
 			"persistent": true,
-			"env": ["DATABASE_URL", "SCHOOL_CLERK_DB_MODE"],
+			"env": [
+				"ASSESSMENT_WORKBOOK_SIGNING_SECRET",
+				"DATABASE_URL",
+				"SCHOOL_CLERK_DB_MODE"
+			],
 			"cache": false
 		},
 		"dev:prod": {

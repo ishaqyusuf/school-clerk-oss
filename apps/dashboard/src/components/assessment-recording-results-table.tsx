@@ -2,6 +2,7 @@
 
 import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
 import { AssessmentPublicLinksPanel } from "@/components/assessment-public-links-panel";
+import { AssessmentWorkbooksDialog } from "@/components/assessment-workbooks-dialog";
 import { SubjectAssessments } from "@/components/subject-assessments";
 import {
   buildResultRows,
@@ -322,12 +323,21 @@ export function AssessmentRecordingResultsTable({
               </DropdownMenu.Content>
             </DropdownMenu>
             {!publicToken ? (
-              <AssessmentPublicLinksPanel
-                allSubjectIds={allSubjects.map((subject) => subject.id)}
-                departmentId={departmentId}
-                selectedSubjectIds={subjectFilterIds}
-                termId={termId}
-              />
+              <>
+                <AssessmentWorkbooksDialog
+                  departmentId={departmentId}
+                  termId={termId}
+                  direction={academicDataDirection}
+                  subjects={allSubjects}
+                  initiallySelectedSubjectIds={subjectFilterIds}
+                />
+                <AssessmentPublicLinksPanel
+                  allSubjectIds={allSubjects.map((subject) => subject.id)}
+                  departmentId={departmentId}
+                  selectedSubjectIds={subjectFilterIds}
+                  termId={termId}
+                />
+              </>
             ) : null}
             {reportSheetHref ? (
               <Link

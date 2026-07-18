@@ -47,4 +47,7 @@ enum ActivityType {
   assessment_public_link_rejected
   assessment_public_link_revoked
   assessment_public_link_score_recorded
+
+  assessment_workbook_downloaded
+  assessment_workbook_imported
 }

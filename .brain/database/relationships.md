@@ -110,3 +110,10 @@ Describes entity relationships and cardinality constraints.
 - Merge execution must block when multiple current-term duplicate copies have non-empty assessment, attendance, or finance records that require manual review, or when assessment records would collide with the `StudentAssessmentRecord` unique key after the move.
 - Student creation, student import, class change, term migration, and batch promotion must reuse the exact duplicate guard before creating or moving a student into a class/term scope.
 - Student import job retry invariant: a row with final `StudentImportJobRow.status` (`CREATED`, `KEPT`, `UPDATED`, `SKIPPED`, or `FAILED`) is not re-executed by the worker. Job aggregate counters are recomputed from persisted row statuses after processing so retries do not double-count completed rows.
+
+# Assessment Workbook Relationships
+
+- One `AssessmentWorkbookExport` has zero or many `AssessmentWorkbookImport` rows.
+- `AssessmentWorkbookImport.exportId` references `AssessmentWorkbookExport.id` with delete restriction.
+- Tenant, term, and classroom ids are captured as immutable scalar audit boundaries rather than cascading relations; the signed workbook and apply service verify the corresponding live tenant-scoped entities before use.
+- `createdAssessmentIds` records standalone assessment rows created in the same transaction, while canonical score rows continue to relate through `StudentAssessmentRecord.classSubjectAssessmentId`.

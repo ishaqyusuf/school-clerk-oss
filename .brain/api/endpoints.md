@@ -76,6 +76,9 @@ Catalog of API routes and responsibilities.
 - `trpc.assessments.revokePublicAssessmentLink`
 - `trpc.assessments.getPublicAssessmentLink` (public token route)
 - `trpc.assessments.updatePublicAssessmentScore` (public token route)
+- `trpc.assessments.downloadAssessmentWorkbook` (authenticated mutation that validates one classroom/term subject-column selection, persists an export identity, and returns a signed `.xlsx`)
+- `trpc.assessments.previewAssessmentWorkbook` (authenticated read-only mutation that verifies a generated workbook, revalidates live access/entities, resolves optional Bare Subject Column mappings, and returns blockers plus a three-way score plan)
+- `trpc.assessments.applyAssessmentWorkbook` (authenticated idempotent mutation that rebuilds the plan and atomically creates reviewed standalone assessments plus safe score updates)
 - `dashboard /assessment-recording/public/[token]` public result-entry page for approved, unexpired assessment links
 
 ### External Examinations

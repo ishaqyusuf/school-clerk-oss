@@ -105,3 +105,42 @@ enum ClassroomSubjectAssessmentPrintMode {
   EXPANDED
   TOTAL
 }
+
+model AssessmentWorkbookExport {
+  id                    String    @id @default(uuid())
+  schoolProfileId       String
+  sessionTermId         String
+  classRoomDepartmentId String
+  schemaVersion         Int       @default(1)
+  createdByUserId       String?
+  createdByName         String?
+  createdAt             DateTime  @default(now()) @db.Timestamp(0)
+  revokedAt             DateTime? @db.Timestamp(0)
+
+  imports AssessmentWorkbookImport[]
+
+  @@index([schoolProfileId, sessionTermId, classRoomDepartmentId])
+}
+
+model AssessmentWorkbookImport {
+  id                    String   @id @default(uuid())
+  exportId              String
+  schoolProfileId       String
+  sessionTermId         String
+  classRoomDepartmentId String
+  idempotencyKey        String
+  fileDigest            String
+  summary               Json
+  createdAssessmentIds  Int[]    @default([])
+  createdByUserId       String?
+  createdByName         String?
+  appliedAt             DateTime @default(now()) @db.Timestamp(0)
+  createdAt             DateTime @default(now()) @db.Timestamp(0)
+  updatedAt             DateTime @updatedAt
+
+  export AssessmentWorkbookExport @relation(fields: [exportId], references: [id], onDelete: Restrict)
+
+  @@unique([schoolProfileId, idempotencyKey])
+  @@index([schoolProfileId, sessionTermId, classRoomDepartmentId])
+  @@index([exportId])
+}
