@@ -24,6 +24,7 @@ import {
   assertTeacherCanAccessClassroomDepartment,
   assertTeacherCanAccessDepartmentSubject,
 } from "../../lib/teacher-authorization";
+import { runAssessmentScoreTransactionWithRetry } from "../../lib/assessment-score-history";
 import { studentDisplayName } from "./enrollment-query";
 
 export {
@@ -595,180 +596,185 @@ export async function applyAssessmentWorkbook(
   const fileDigest = workbookDigest(fileBytes);
   await parseAndAuthorizeWorkbook(ctx, input.fileBase64);
 
-  return ctx.db.$transaction(
-    async (tx) => {
-      const transactionContext = { ...ctx, db: tx } as TRPCContext;
-      const schoolProfileId = requireSchoolId(ctx);
-      const existing = await tx.assessmentWorkbookImport.findUnique({
-        where: {
-          schoolProfileId_idempotencyKey: {
-            schoolProfileId,
-            idempotencyKey: input.idempotencyKey,
-          },
-        },
-      });
-      if (existing) {
-        if (existing.fileDigest !== fileDigest) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message:
-              "This import confirmation was already used for a different file.",
-          });
-        }
-        return {
-          importId: existing.id,
-          alreadyApplied: true,
-          classroomId: existing.classRoomDepartmentId,
-          sessionTermId: existing.sessionTermId,
-          summary: existing.summary as AssessmentWorkbookPreview["summary"],
-          createdAssessmentIds: existing.createdAssessmentIds,
-        };
-      }
-
-      const prepared = await prepareAssessmentWorkbookPreview(
-        transactionContext,
-        input,
-      );
-      if (prepared.preview.blockers.length) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message:
-            "The workbook changed or still has unresolved items. Review it again before applying.",
-          cause: prepared.preview.blockers,
-        });
-      }
-      const expectedPreviewToken = previewConfirmationToken({
-        bytes: prepared.bytes,
-        resolutions: input.resolutions,
-        preview: prepared.preview,
-      });
-      if (!confirmationTokensMatch(input.previewToken, expectedPreviewToken)) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message:
-            "This workbook preview is no longer current. Review the workbook again before applying it.",
-        });
-      }
-
-      const createdAssessmentByColumn = new Map<string, number>();
-      for (const column of prepared.preview.columns) {
-        if (column.resolution?.kind !== "create") continue;
-        const maxIndex = await tx.classroomSubjectAssessment.aggregate({
+  return runAssessmentScoreTransactionWithRetry(() =>
+    ctx.db.$transaction(
+      async (tx) => {
+        const transactionContext = { ...ctx, db: tx } as TRPCContext;
+        const schoolProfileId = requireSchoolId(ctx);
+        const existing = await tx.assessmentWorkbookImport.findUnique({
           where: {
-            departmentSubjectId: column.departmentSubjectId,
-            deletedAt: null,
-            parentAssessmentId: null,
-          },
-          _max: { index: true },
-        });
-        const assessment = await tx.classroomSubjectAssessment.create({
-          data: {
-            title: column.resolution.title,
-            obtainable: column.resolution.obtainable,
-            percentageObtainable: column.resolution.percentageObtainable ?? 0,
-            index: (maxIndex._max.index ?? -1) + 1,
-            departmentSubjectId: column.departmentSubjectId,
-            isGroup: false,
-            printMode: "EXPANDED",
-            parentAssessmentId: null,
-          },
-          select: { id: true },
-        });
-        createdAssessmentByColumn.set(column.key, assessment.id);
-      }
-
-      for (const change of prepared.preview.changes) {
-        if (change.status !== "create" && change.status !== "update") continue;
-        const assessmentId =
-          change.assessmentId ??
-          createdAssessmentByColumn.get(change.columnKey);
-        if (!assessmentId) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "The assessment mapping could not be applied.",
-          });
-        }
-        const currentRecord = await tx.studentAssessmentRecord.findUnique({
-          where: {
-            studentId_studentTermFormId_classSubjectAssessmentId: {
-              studentId: change.studentId,
-              studentTermFormId: change.studentTermFormId,
-              classSubjectAssessmentId: assessmentId,
-            },
-          },
-          select: {
-            id: true,
-            obtained: true,
-          },
-        });
-        await saveStudentAssessmentScoreWithHistory({
-          db: tx,
-          currentRecord,
-          score: {
-            studentId: change.studentId,
-            studentTermFormId: change.studentTermFormId,
-            classSubjectAssessmentId: assessmentId,
-            obtained: change.uploaded,
-          },
-          history: {
-            schoolProfileId: prepared.schoolProfileId,
-            source: "WORKBOOK_IMPORT",
-            actorUserId: ctx.currentUser?.id,
-            actorName: ctx.currentUser?.name,
-            sourceReference: prepared.workbook.identity.exportId,
-            metadata: {
-              columnKey: change.columnKey,
+            schoolProfileId_idempotencyKey: {
+              schoolProfileId,
               idempotencyKey: input.idempotencyKey,
             },
           },
         });
-      }
+        if (existing) {
+          if (existing.fileDigest !== fileDigest) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "This import confirmation was already used for a different file.",
+            });
+          }
+          return {
+            importId: existing.id,
+            alreadyApplied: true,
+            classroomId: existing.classRoomDepartmentId,
+            sessionTermId: existing.sessionTermId,
+            summary: existing.summary as AssessmentWorkbookPreview["summary"],
+            createdAssessmentIds: existing.createdAssessmentIds,
+          };
+        }
 
-      const createdAssessmentIds = Array.from(
-        createdAssessmentByColumn.values(),
-      );
-      const imported = await tx.assessmentWorkbookImport.create({
-        data: {
-          exportId: prepared.workbook.identity.exportId,
-          schoolProfileId: prepared.schoolProfileId,
-          sessionTermId: prepared.workbook.identity.termId,
-          classRoomDepartmentId: prepared.workbook.identity.classroomId,
-          idempotencyKey: input.idempotencyKey,
-          fileDigest,
-          summary: prepared.preview.summary,
-          createdAssessmentIds,
-          createdByUserId: ctx.currentUser?.id,
-          createdByName: ctx.currentUser?.name,
-        },
-        select: { id: true },
-      });
-      await tx.activity.create({
-        data: {
-          userId: ctx.currentUser?.id ?? "system",
-          author: ctx.currentUser?.name ?? "School Clerk",
-          source: "user",
-          type: "assessment_workbook_imported",
-          title: "Assessment workbook imported",
-          description: `${prepared.classroomLabel} • ${prepared.termLabel}`,
-          schoolProfileId: prepared.schoolProfileId,
-          meta: {
-            importId: imported.id,
+        const prepared = await prepareAssessmentWorkbookPreview(
+          transactionContext,
+          input,
+        );
+        if (prepared.preview.blockers.length) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "The workbook changed or still has unresolved items. Review it again before applying.",
+            cause: prepared.preview.blockers,
+          });
+        }
+        const expectedPreviewToken = previewConfirmationToken({
+          bytes: prepared.bytes,
+          resolutions: input.resolutions,
+          preview: prepared.preview,
+        });
+        if (
+          !confirmationTokensMatch(input.previewToken, expectedPreviewToken)
+        ) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "This workbook preview is no longer current. Review the workbook again before applying it.",
+          });
+        }
+
+        const createdAssessmentByColumn = new Map<string, number>();
+        for (const column of prepared.preview.columns) {
+          if (column.resolution?.kind !== "create") continue;
+          const maxIndex = await tx.classroomSubjectAssessment.aggregate({
+            where: {
+              departmentSubjectId: column.departmentSubjectId,
+              deletedAt: null,
+              parentAssessmentId: null,
+            },
+            _max: { index: true },
+          });
+          const assessment = await tx.classroomSubjectAssessment.create({
+            data: {
+              title: column.resolution.title,
+              obtainable: column.resolution.obtainable,
+              percentageObtainable: column.resolution.percentageObtainable ?? 0,
+              index: (maxIndex._max.index ?? -1) + 1,
+              departmentSubjectId: column.departmentSubjectId,
+              isGroup: false,
+              printMode: "EXPANDED",
+              parentAssessmentId: null,
+            },
+            select: { id: true },
+          });
+          createdAssessmentByColumn.set(column.key, assessment.id);
+        }
+
+        for (const change of prepared.preview.changes) {
+          if (change.status !== "create" && change.status !== "update")
+            continue;
+          const assessmentId =
+            change.assessmentId ??
+            createdAssessmentByColumn.get(change.columnKey);
+          if (!assessmentId) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "The assessment mapping could not be applied.",
+            });
+          }
+          const currentRecord = await tx.studentAssessmentRecord.findUnique({
+            where: {
+              studentId_studentTermFormId_classSubjectAssessmentId: {
+                studentId: change.studentId,
+                studentTermFormId: change.studentTermFormId,
+                classSubjectAssessmentId: assessmentId,
+              },
+            },
+            select: {
+              id: true,
+              obtained: true,
+            },
+          });
+          await saveStudentAssessmentScoreWithHistory({
+            db: tx,
+            currentRecord,
+            score: {
+              studentId: change.studentId,
+              studentTermFormId: change.studentTermFormId,
+              classSubjectAssessmentId: assessmentId,
+              obtained: change.uploaded,
+            },
+            history: {
+              schoolProfileId: prepared.schoolProfileId,
+              source: "WORKBOOK_IMPORT",
+              actorUserId: ctx.currentUser?.id,
+              actorName: ctx.currentUser?.name,
+              sourceReference: prepared.workbook.identity.exportId,
+              metadata: {
+                columnKey: change.columnKey,
+                idempotencyKey: input.idempotencyKey,
+              },
+            },
+          });
+        }
+
+        const createdAssessmentIds = Array.from(
+          createdAssessmentByColumn.values(),
+        );
+        const imported = await tx.assessmentWorkbookImport.create({
+          data: {
             exportId: prepared.workbook.identity.exportId,
+            schoolProfileId: prepared.schoolProfileId,
+            sessionTermId: prepared.workbook.identity.termId,
+            classRoomDepartmentId: prepared.workbook.identity.classroomId,
+            idempotencyKey: input.idempotencyKey,
+            fileDigest,
             summary: prepared.preview.summary,
             createdAssessmentIds,
+            createdByUserId: ctx.currentUser?.id,
+            createdByName: ctx.currentUser?.name,
           },
-        },
-      });
+          select: { id: true },
+        });
+        await tx.activity.create({
+          data: {
+            userId: ctx.currentUser?.id ?? "system",
+            author: ctx.currentUser?.name ?? "School Clerk",
+            source: "user",
+            type: "assessment_workbook_imported",
+            title: "Assessment workbook imported",
+            description: `${prepared.classroomLabel} • ${prepared.termLabel}`,
+            schoolProfileId: prepared.schoolProfileId,
+            meta: {
+              importId: imported.id,
+              exportId: prepared.workbook.identity.exportId,
+              summary: prepared.preview.summary,
+              createdAssessmentIds,
+            },
+          },
+        });
 
-      return {
-        importId: imported.id,
-        alreadyApplied: false,
-        classroomId: prepared.workbook.identity.classroomId,
-        sessionTermId: prepared.workbook.identity.termId,
-        summary: prepared.preview.summary,
-        createdAssessmentIds,
-      };
-    },
-    { isolationLevel: "Serializable" },
+        return {
+          importId: imported.id,
+          alreadyApplied: false,
+          classroomId: prepared.workbook.identity.classroomId,
+          sessionTermId: prepared.workbook.identity.termId,
+          summary: prepared.preview.summary,
+          createdAssessmentIds,
+        };
+      },
+      { isolationLevel: "Serializable" },
+    ),
   );
 }

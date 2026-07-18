@@ -202,4 +202,42 @@ describe("updateAssessmentScore", () => {
       }),
     ]);
   });
+
+  test("retries serialization conflicts and returns a clear conflict after exhaustion", async () => {
+    let attempts = 0;
+    const ctx = createAdminContext({
+      classroomSubjectAssessment: {
+        findFirst: async () => ({
+          departmentSubject: {
+            classRoomDepartmentId: "classroom-a",
+          },
+          isGroup: false,
+        }),
+      },
+      studentTermForm: {
+        findFirst: async () => ({
+          classroomDepartmentId: "classroom-a",
+        }),
+      },
+      $transaction: async () => {
+        attempts += 1;
+        throw { code: "P2034" };
+      },
+    });
+
+    await expect(
+      updateAssessmentScore(ctx, {
+        assessmentId: 10,
+        departmentId: "subject-1",
+        obtained: 9,
+        studentId: "student-1",
+        studentTermId: "term-form-1",
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message:
+        "This assessment score changed at the same time. Refresh the results and try again.",
+    });
+    expect(attempts).toBe(3);
+  });
 });

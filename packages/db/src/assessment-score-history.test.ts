@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { saveStudentAssessmentScoreWithHistory } from "./assessment-score-history";
+import {
+  AssessmentScoreWriteConflictError,
+  retryAssessmentScoreHistoryTransaction,
+  saveStudentAssessmentScoreWithHistory,
+} from "./assessment-score-history";
 
 function createDatabase() {
   const scoreCreates: unknown[] = [];
@@ -183,5 +187,45 @@ describe("saveStudentAssessmentScoreWithHistory", () => {
         changeType: "UPDATE",
       }),
     ]);
+  });
+});
+
+describe("retryAssessmentScoreHistoryTransaction", () => {
+  test("retries Prisma serialization conflicts and returns the successful result", async () => {
+    let attempts = 0;
+
+    const result = await retryAssessmentScoreHistoryTransaction(async () => {
+      attempts += 1;
+      if (attempts < 3) throw { code: "P2034" };
+      return "saved";
+    });
+
+    expect(result).toBe("saved");
+    expect(attempts).toBe(3);
+  });
+
+  test("returns a clear conflict after bounded retry exhaustion", async () => {
+    let attempts = 0;
+
+    await expect(
+      retryAssessmentScoreHistoryTransaction(async () => {
+        attempts += 1;
+        throw { code: "P2034" };
+      }),
+    ).rejects.toBeInstanceOf(AssessmentScoreWriteConflictError);
+    expect(attempts).toBe(3);
+  });
+
+  test("does not retry unrelated database errors", async () => {
+    let attempts = 0;
+    const failure = new Error("history write failed");
+
+    await expect(
+      retryAssessmentScoreHistoryTransaction(async () => {
+        attempts += 1;
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+    expect(attempts).toBe(1);
   });
 });

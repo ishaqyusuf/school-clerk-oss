@@ -33,6 +33,7 @@ History is intentionally created for same-value saves so it records the fact tha
 
 - History creation is atomic with the canonical score write; either both succeed or neither succeeds.
 - All history-producing score transactions use serializable isolation so concurrent writes cannot commit a stale previous-value chain.
+- Prisma serialization conflicts are retried up to three times; API callers receive a clear conflict response after bounded exhaustion.
 - Current score reads continue to use `StudentAssessmentRecord`.
 - History rows retain scalar identity snapshots if a canonical score row is later hard-deleted.
 - Existing score rows are not backfilled.

@@ -26,6 +26,42 @@ type AssessmentScoreHistoryContext = {
   metadata?: Prisma.InputJsonValue;
 };
 
+export class AssessmentScoreWriteConflictError extends Error {
+  constructor() {
+    super(
+      "This assessment score changed at the same time. Refresh the results and try again.",
+    );
+    this.name = "AssessmentScoreWriteConflictError";
+  }
+}
+
+function isPrismaWriteConflict(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2034"
+  );
+}
+
+export async function retryAssessmentScoreHistoryTransaction<TResult>(
+  operation: () => Promise<TResult>,
+  maxAttempts = 3,
+) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!isPrismaWriteConflict(error)) throw error;
+      if (attempt === maxAttempts) {
+        throw new AssessmentScoreWriteConflictError();
+      }
+    }
+  }
+
+  throw new AssessmentScoreWriteConflictError();
+}
+
 export async function saveStudentAssessmentScoreWithHistory({
   db,
   currentRecord,

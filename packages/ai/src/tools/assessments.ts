@@ -1,5 +1,6 @@
 import {
 	prisma,
+	retryAssessmentScoreHistoryTransaction,
 	saveStudentAssessmentScoreWithHistory,
 } from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
@@ -586,129 +587,135 @@ export function createAssessmentTools(
 						return output;
 					}
 
-					const result = await database.$transaction(async (tx) => {
-						let assessment = existingAssessment;
+					const result = await retryAssessmentScoreHistoryTransaction(() =>
+						database.$transaction(
+							async (tx) => {
+								let assessment = existingAssessment;
 
-						if (!assessment) {
-							const lastAssessment =
-								await tx.classroomSubjectAssessment.findFirst({
-									where: {
-										departmentSubjectId: departmentSubject.id,
-										parentAssessmentId: null,
-										deletedAt: null,
+								if (!assessment) {
+									const lastAssessment =
+										await tx.classroomSubjectAssessment.findFirst({
+											where: {
+												departmentSubjectId: departmentSubject.id,
+												parentAssessmentId: null,
+												deletedAt: null,
+											},
+											select: { index: true },
+											orderBy: { index: "desc" },
+										});
+									assessment = await tx.classroomSubjectAssessment.create({
+										data: {
+											title: actionInput.assessmentTitle,
+											obtainable: actionInput.obtainable,
+											percentageObtainable: actionInput.percentageObtainable,
+											index: (lastAssessment?.index ?? -1) + 1,
+											departmentSubjectId: departmentSubject.id,
+											isGroup: false,
+											parentAssessmentId: null,
+										},
+										select: {
+											id: true,
+											title: true,
+											obtainable: true,
+											percentageObtainable: true,
+											index: true,
+										},
+									});
+								} else if (metadataWillChange) {
+									assessment = await tx.classroomSubjectAssessment.update({
+										where: { id: assessment.id },
+										data: {
+											title: actionInput.assessmentTitle,
+											obtainable: actionInput.obtainable,
+											percentageObtainable: actionInput.percentageObtainable,
+											deletedAt: null,
+										},
+										select: {
+											id: true,
+											title: true,
+											obtainable: true,
+											percentageObtainable: true,
+											index: true,
+										},
+									});
+								}
+
+								const writtenScores: {
+									recordId: number;
+									studentId: string;
+									studentTermFormId: string;
+									studentName: string;
+									obtained: number;
+									previousObtained: number | null;
+								}[] = [];
+
+								for (const score of previewScores) {
+									const existingRecord =
+										await tx.studentAssessmentRecord.findFirst({
+											where: {
+												studentId: score.studentId,
+												studentTermFormId: score.studentTermFormId,
+												classSubjectAssessmentId: assessment.id,
+											},
+											select: { id: true, obtained: true },
+										});
+
+									const record = await saveStudentAssessmentScoreWithHistory({
+										db: tx,
+										currentRecord: existingRecord,
+										score: {
+											classSubjectAssessmentId: assessment.id,
+											obtained: score.obtained,
+											studentId: score.studentId,
+											studentTermFormId: score.studentTermFormId,
+										},
+										history: {
+											schoolProfileId: ctx.schoolId,
+											source: "AI_TOOL",
+											actorUserId: ctx.userId,
+											actorName: ctx.userName,
+											sourceReference: guarded.executionId,
+											metadata: {
+												classRoomDepartmentId: department.id,
+												departmentSubjectId: departmentSubject.id,
+											},
+										},
+									});
+
+									writtenScores.push({
+										recordId: record.id,
+										studentId: score.studentId,
+										studentTermFormId: score.studentTermFormId,
+										studentName: score.studentName,
+										obtained: score.obtained,
+										previousObtained: existingRecord?.obtained ?? null,
+									});
+								}
+
+								return {
+									success: true,
+									classroom: {
+										id: department.id,
+										displayName: departmentDisplayName,
 									},
-									select: { index: true },
-									orderBy: { index: "desc" },
-								});
-							assessment = await tx.classroomSubjectAssessment.create({
-								data: {
-									title: actionInput.assessmentTitle,
-									obtainable: actionInput.obtainable,
-									percentageObtainable: actionInput.percentageObtainable,
-									index: (lastAssessment?.index ?? -1) + 1,
-									departmentSubjectId: departmentSubject.id,
-									isGroup: false,
-									parentAssessmentId: null,
-								},
-								select: {
-									id: true,
-									title: true,
-									obtainable: true,
-									percentageObtainable: true,
-									index: true,
-								},
-							});
-						} else if (metadataWillChange) {
-							assessment = await tx.classroomSubjectAssessment.update({
-								where: { id: assessment.id },
-								data: {
-									title: actionInput.assessmentTitle,
-									obtainable: actionInput.obtainable,
-									percentageObtainable: actionInput.percentageObtainable,
-									deletedAt: null,
-								},
-								select: {
-									id: true,
-									title: true,
-									obtainable: true,
-									percentageObtainable: true,
-									index: true,
-								},
-							});
-						}
-
-						const writtenScores: {
-							recordId: number;
-							studentId: string;
-							studentTermFormId: string;
-							studentName: string;
-							obtained: number;
-							previousObtained: number | null;
-						}[] = [];
-
-						for (const score of previewScores) {
-							const existingRecord = await tx.studentAssessmentRecord.findFirst({
-								where: {
-									studentId: score.studentId,
-									studentTermFormId: score.studentTermFormId,
-									classSubjectAssessmentId: assessment.id,
-								},
-								select: { id: true, obtained: true },
-							});
-
-							const record = await saveStudentAssessmentScoreWithHistory({
-								db: tx,
-								currentRecord: existingRecord,
-								score: {
-									classSubjectAssessmentId: assessment.id,
-									obtained: score.obtained,
-									studentId: score.studentId,
-									studentTermFormId: score.studentTermFormId,
-								},
-								history: {
-									schoolProfileId: ctx.schoolId,
-									source: "AI_TOOL",
-									actorUserId: ctx.userId,
-									actorName: ctx.userName,
-									sourceReference: guarded.executionId,
-									metadata: {
-										classRoomDepartmentId: department.id,
+									subject: {
 										departmentSubjectId: departmentSubject.id,
+										title: departmentSubject.subject.title,
 									},
-								},
-							});
-
-							writtenScores.push({
-								recordId: record.id,
-								studentId: score.studentId,
-								studentTermFormId: score.studentTermFormId,
-								studentName: score.studentName,
-								obtained: score.obtained,
-								previousObtained: existingRecord?.obtained ?? null,
-							});
-						}
-
-						return {
-							success: true,
-							classroom: {
-								id: department.id,
-								displayName: departmentDisplayName,
+									assessment: {
+										id: assessment.id,
+										title: assessment.title,
+										obtainable: assessment.obtainable,
+										percentageObtainable: assessment.percentageObtainable,
+										status: assessmentStatus,
+									},
+									scoreCount: writtenScores.length,
+									scores: writtenScores,
+								};
 							},
-							subject: {
-								departmentSubjectId: departmentSubject.id,
-								title: departmentSubject.subject.title,
-							},
-							assessment: {
-								id: assessment.id,
-								title: assessment.title,
-								obtainable: assessment.obtainable,
-								percentageObtainable: assessment.percentageObtainable,
-								status: assessmentStatus,
-							},
-							scoreCount: writtenScores.length,
-							scores: writtenScores,
-						};
-					}, { isolationLevel: "Serializable" });
+							{ isolationLevel: "Serializable" },
+						),
+					);
 
 					await recordAssistantActivity({
 						schoolId: ctx.schoolId,
