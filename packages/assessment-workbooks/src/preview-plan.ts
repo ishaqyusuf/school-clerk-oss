@@ -77,9 +77,18 @@ export type AssessmentWorkbookPreview = {
       }>;
     }
   >;
+  assessmentCreations: Array<{
+    columnKey: string;
+    departmentSubjectId: string;
+    subjectTitle: string;
+    title: string;
+    obtainable: number;
+    percentageObtainable: number;
+  }>;
   changes: AssessmentWorkbookPreviewChange[];
   blockers: AssessmentWorkbookPreviewBlocker[];
   summary: {
+    assessmentCreate: number;
     blank: number;
     unchanged: number;
     create: number;
@@ -160,67 +169,71 @@ export function buildAssessmentWorkbookPreview({
           columnKey: column.key,
           message: `${column.subjectTitle} is no longer available in this classroom and term.`,
         });
-      } else if (column.assessmentId != null) {
-        const assessment = subject.assessments.find(
-          (candidate) => candidate.id === column.assessmentId,
-        );
-        if (!assessment) {
-          blockers.push({
-            code: "unavailable-assessment",
-            columnKey: column.key,
-            message: `${column.assessmentTitle ?? "Assessment"} is no longer scoreable for ${subject.subjectTitle}.`,
-          });
-        } else {
+      } else {
+        const originalAssessment =
+          column.assessmentId == null
+            ? null
+            : subject.assessments.find(
+                (candidate) => candidate.id === column.assessmentId,
+              );
+
+        if (originalAssessment) {
           resolved = {
             key: column.key,
             departmentSubjectId: column.departmentSubjectId,
             subjectTitle: subject.subjectTitle,
-            assessmentId: assessment.id,
-            assessmentTitle: assessment.title,
-            obtainable: assessment.obtainable,
+            assessmentId: originalAssessment.id,
+            assessmentTitle: originalAssessment.title,
+            obtainable: originalAssessment.obtainable,
             originalScores: column.originalScores,
             resolution: null,
           };
-        }
-      } else if (!requestedResolution) {
-        blockers.push({
-          code: "unresolved-column",
-          columnKey: column.key,
-          message: `Choose or create an assessment for ${subject.subjectTitle}.`,
-        });
-      } else if (requestedResolution.kind === "existing") {
-        const assessment = subject.assessments.find(
-          (candidate) => candidate.id === requestedResolution.assessmentId,
-        );
-        if (!assessment) {
+        } else if (!requestedResolution) {
           blockers.push({
-            code: "invalid-resolution",
+            code:
+              column.assessmentId == null
+                ? "unresolved-column"
+                : "unavailable-assessment",
             columnKey: column.key,
-            message: `The selected assessment is not scoreable for ${subject.subjectTitle}.`,
+            message:
+              column.assessmentId == null
+                ? `Choose or create an assessment for ${subject.subjectTitle}.`
+                : `${column.assessmentTitle ?? "Assessment"} is no longer scoreable for ${subject.subjectTitle}. Choose or create a replacement.`,
           });
+        } else if (requestedResolution.kind === "existing") {
+          const selectedAssessment = subject.assessments.find(
+            (candidate) => candidate.id === requestedResolution.assessmentId,
+          );
+          if (!selectedAssessment) {
+            blockers.push({
+              code: "invalid-resolution",
+              columnKey: column.key,
+              message: `The selected assessment is not scoreable for ${subject.subjectTitle}.`,
+            });
+          } else {
+            resolved = {
+              key: column.key,
+              departmentSubjectId: column.departmentSubjectId,
+              subjectTitle: subject.subjectTitle,
+              assessmentId: selectedAssessment.id,
+              assessmentTitle: selectedAssessment.title,
+              obtainable: selectedAssessment.obtainable,
+              originalScores: selectedAssessment.currentScores,
+              resolution: requestedResolution,
+            };
+          }
         } else {
           resolved = {
             key: column.key,
             departmentSubjectId: column.departmentSubjectId,
             subjectTitle: subject.subjectTitle,
-            assessmentId: assessment.id,
-            assessmentTitle: assessment.title,
-            obtainable: assessment.obtainable,
-            originalScores: column.originalScores,
+            assessmentId: null,
+            assessmentTitle: requestedResolution.title,
+            obtainable: requestedResolution.obtainable,
+            originalScores: {},
             resolution: requestedResolution,
           };
         }
-      } else {
-        resolved = {
-          key: column.key,
-          departmentSubjectId: column.departmentSubjectId,
-          subjectTitle: subject.subjectTitle,
-          assessmentId: null,
-          assessmentTitle: requestedResolution.title,
-          obtainable: requestedResolution.obtainable,
-          originalScores: column.originalScores,
-          resolution: requestedResolution,
-        };
       }
 
       if (resolved) resolvedColumns.set(column.key, resolved);
@@ -239,7 +252,22 @@ export function buildAssessmentWorkbookPreview({
       };
     });
 
+  const assessmentCreations = columns.flatMap((column) =>
+    resolvedColumns.has(column.key) && column.resolution?.kind === "create"
+      ? [
+          {
+            columnKey: column.key,
+            departmentSubjectId: column.departmentSubjectId,
+            subjectTitle: column.subjectTitle,
+            title: column.resolution.title,
+            obtainable: column.resolution.obtainable,
+            percentageObtainable: column.resolution.percentageObtainable ?? 0,
+          },
+        ]
+      : [],
+  );
   const summary = {
+    assessmentCreate: assessmentCreations.length,
     blank: 0,
     unchanged: 0,
     create: 0,
@@ -321,6 +349,7 @@ export function buildAssessmentWorkbookPreview({
   return {
     identity: workbook.identity,
     columns,
+    assessmentCreations,
     changes,
     blockers,
     summary,

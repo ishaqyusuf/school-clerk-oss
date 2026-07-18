@@ -180,7 +180,28 @@ describe("signed assessment workbook", () => {
 
     await expect(
       parseAssessmentWorkbook(edited, { signingKey }),
-    ).rejects.toThrow("Formula values are not allowed in score cells.");
+    ).rejects.toThrow(
+      "Formula values are not allowed in assessment workbooks.",
+    );
+  });
+
+  test("rejects formulas outside mapped score cells", async () => {
+    const bytes = await generateAssessmentWorkbook(workbookInput, {
+      signingKey,
+    });
+    const workbook = await loadWorkbook(bytes);
+    workbook.getWorksheet("Assessment Form")!.getCell("Z100").value = {
+      formula: 'WEBSERVICE("https://example.invalid")',
+      result: "blocked",
+    };
+
+    const edited = new Uint8Array(await workbook.xlsx.writeBuffer());
+
+    await expect(
+      parseAssessmentWorkbook(edited, { signingKey }),
+    ).rejects.toThrow(
+      "Formula values are not allowed in assessment workbooks.",
+    );
   });
 
   test("rejects workbooks whose protected structure was exposed", async () => {

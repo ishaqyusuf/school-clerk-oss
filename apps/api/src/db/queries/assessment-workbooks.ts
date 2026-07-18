@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import type { TRPCContext } from "@api/trpc/init";
 import {
@@ -41,6 +41,17 @@ function requireSchoolId(ctx: TRPCContext) {
   return ctx.profile.schoolId;
 }
 
+function assertAssessmentWorkbookRole(ctx: TRPCContext) {
+  const role = ctx.currentUser?.role;
+  if (role !== "Admin" && role !== "ADMIN" && role !== "Teacher") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message:
+        "Only administrators and assigned teachers can use assessment workbooks.",
+    });
+  }
+}
+
 function signingKey() {
   const configured = process.env.ASSESSMENT_WORKBOOK_SIGNING_SECRET?.trim();
   if (configured) return configured;
@@ -72,6 +83,46 @@ function decodeWorkbook(fileBase64: string) {
 
 function workbookDigest(bytes: Uint8Array) {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+function previewConfirmationToken({
+  bytes,
+  resolutions,
+  preview,
+}: {
+  bytes: Uint8Array;
+  resolutions: AssessmentWorkbookUploadInput["resolutions"];
+  preview: AssessmentWorkbookPreview;
+}) {
+  const normalizedResolutions = Object.fromEntries(
+    Object.entries(resolutions).sort(([left], [right]) =>
+      left.localeCompare(right),
+    ),
+  );
+  return createHmac("sha256", signingKey())
+    .update(
+      JSON.stringify({
+        fileDigest: workbookDigest(bytes),
+        resolutions: normalizedResolutions,
+        plan: {
+          identity: preview.identity,
+          assessmentCreations: preview.assessmentCreations,
+          changes: preview.changes,
+          blockers: preview.blockers,
+          summary: preview.summary,
+        },
+      }),
+    )
+    .digest("hex");
+}
+
+function confirmationTokensMatch(actual: string, expected: string) {
+  const actualBytes = Buffer.from(actual, "hex");
+  const expectedBytes = Buffer.from(expected, "hex");
+  return (
+    actualBytes.length === expectedBytes.length &&
+    timingSafeEqual(actualBytes, expectedBytes)
+  );
 }
 
 function safeFilePart(value: string) {
@@ -215,6 +266,7 @@ export async function downloadAssessmentWorkbook(
   ctx: TRPCContext,
   rawInput: AssessmentWorkbookDownloadInput,
 ) {
+  assertAssessmentWorkbookRole(ctx);
   const input = assessmentWorkbookDownloadSchema.parse(rawInput);
   const scope = await loadWorkbookScope(
     ctx,
@@ -392,6 +444,7 @@ export async function downloadAssessmentWorkbook(
 }
 
 async function parseAndAuthorizeWorkbook(ctx: TRPCContext, fileBase64: string) {
+  assertAssessmentWorkbookRole(ctx);
   const schoolProfileId = requireSchoolId(ctx);
   const bytes = decodeWorkbook(fileBase64);
   let workbook: ParsedAssessmentWorkbook;
@@ -514,6 +567,7 @@ export async function previewAssessmentWorkbook(
   AssessmentWorkbookPreview & {
     classroomLabel: string;
     termLabel: string;
+    previewToken: string;
   }
 > {
   const input = assessmentWorkbookUploadSchema.parse(rawInput);
@@ -522,6 +576,11 @@ export async function previewAssessmentWorkbook(
     ...prepared.preview,
     classroomLabel: prepared.classroomLabel,
     termLabel: prepared.termLabel,
+    previewToken: previewConfirmationToken({
+      bytes: prepared.bytes,
+      resolutions: input.resolutions,
+      preview: prepared.preview,
+    }),
   };
 }
 
@@ -529,9 +588,11 @@ export async function applyAssessmentWorkbook(
   ctx: TRPCContext,
   rawInput: AssessmentWorkbookApplyInput,
 ) {
+  assertAssessmentWorkbookRole(ctx);
   const input = assessmentWorkbookApplySchema.parse(rawInput);
   const fileBytes = decodeWorkbook(input.fileBase64);
   const fileDigest = workbookDigest(fileBytes);
+  await parseAndAuthorizeWorkbook(ctx, input.fileBase64);
 
   return ctx.db.$transaction(
     async (tx) => {
@@ -571,6 +632,18 @@ export async function applyAssessmentWorkbook(
           message:
             "The workbook changed or still has unresolved items. Review it again before applying.",
           cause: prepared.preview.blockers,
+        });
+      }
+      const expectedPreviewToken = previewConfirmationToken({
+        bytes: prepared.bytes,
+        resolutions: input.resolutions,
+        preview: prepared.preview,
+      });
+      if (!confirmationTokensMatch(input.previewToken, expectedPreviewToken)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "This workbook preview is no longer current. Review the workbook again before applying it.",
         });
       }
 

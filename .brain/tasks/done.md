@@ -412,3 +412,12 @@ Record of completed tasks and delivery outcomes.
 - Plan File: brain/plans/2026-06-19-feature-school-facing-scholaris-redesign-and-dummy-data-support.md
 - Created Date: 2026-06-19
 - Completed Date: 2026-06-19
+
+## Completed Task
+
+- ID: 2026-07-18-assessment-workbook-round-trip
+- Title: Assessment Workbook Download, Review, And Atomic Import
+- Completed: 2026-07-18
+- Outcome: Added one-classroom signed `.xlsx` generation with configurable subject/assessment columns, scoped RTL output, literal Arabic/Western digit normalization, missing-assessment link/create resolution, exact token-bound preview, three-way conflict protection, atomic idempotent score and standalone-assessment writes, strict role/teacher access checks, and export/import audit records.
+- Related changes: `packages/assessment-workbooks`, `apps/api/src/db/queries/assessment-workbooks.ts`, `apps/dashboard/src/components/assessment-workbooks-dialog.tsx`, `.brain/features/assessment-workbook-round-trip.md`, `.brain/decisions/ADR-0010-signed-assessment-workbook-round-trip.md`
+- Owner: Codex

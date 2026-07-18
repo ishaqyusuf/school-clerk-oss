@@ -13,7 +13,7 @@ Use a focused `@school-clerk/assessment-workbooks` package with a browser-safe r
 
 Verification uses stable tenant, term, classroom, student-term-form, department-subject, and assessment ids plus original score snapshots. The API revalidates tenant and current teacher/admin access on download, preview, and apply. Preview performs deterministic literal-number normalization and three-way score comparison without writes.
 
-Apply rebuilds the preview inside a serializable Prisma transaction. It may create reviewed standalone assessments for Bare Subject Columns and upsert safe score changes in that same transaction. Any unresolved column, invalid score, conflict, stale populated row, permission failure, or structural failure aborts all writes. A tenant-scoped idempotency key plus file digest and durable import record protects retries.
+Preview signs a confirmation token over the workbook digest, normalized column resolutions, explicit assessment-creation list, and exact live write plan. Apply rebuilds that plan inside a serializable Prisma transaction and requires the same token. It may create reviewed standalone assessments for Bare Subject Columns or missing original assessments and upsert safe score changes in that same transaction. Any stale preview, unresolved column, invalid score, conflict, stale populated row, permission failure, or structural failure aborts all writes. A tenant-scoped idempotency key plus file digest and durable import record protects retries, while current access is still rechecked before a replay response.
 
 ## Consequences
 

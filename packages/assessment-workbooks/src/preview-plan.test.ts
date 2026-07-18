@@ -134,6 +134,7 @@ describe("buildAssessmentWorkbookPreview", () => {
     });
 
     expect(result.summary).toEqual({
+      assessmentCreate: 0,
       blank: 0,
       unchanged: 0,
       create: 0,
@@ -199,6 +200,15 @@ describe("buildAssessmentWorkbookPreview", () => {
         obtainable: 50,
       },
     });
+    expect(result.summary.assessmentCreate).toBe(1);
+    expect(result.assessmentCreations).toEqual([
+      expect.objectContaining({
+        columnKey: "bare:subject-2",
+        subjectTitle: "English",
+        title: "Imported Exam",
+        obtainable: 50,
+      }),
+    ]);
     expect(result.changes).toContainEqual(
       expect.objectContaining({
         assessmentId: null,
@@ -266,5 +276,100 @@ describe("buildAssessmentWorkbookPreview", () => {
         columnKey: "bare:subject-2",
       }),
     );
+  });
+
+  test("offers link or create resolution when a downloaded assessment is no longer available", () => {
+    const missingAssessmentLive = structuredClone(live);
+    missingAssessmentLive.subjects[0]!.assessments = [
+      {
+        id: 11,
+        title: "Replacement Test",
+        obtainable: 30,
+        currentScores: { "form-1": 3 },
+      },
+    ];
+
+    const unresolved = buildAssessmentWorkbookPreview({
+      workbook: parsedWorkbook(),
+      live: missingAssessmentLive,
+      resolutions: {
+        "bare:subject-2": { kind: "existing", assessmentId: 20 },
+      },
+    });
+    expect(unresolved.blockers).toContainEqual(
+      expect.objectContaining({
+        code: "unavailable-assessment",
+        columnKey: "assessment:10",
+      }),
+    );
+
+    const linked = buildAssessmentWorkbookPreview({
+      workbook: parsedWorkbook(),
+      live: missingAssessmentLive,
+      resolutions: {
+        "assessment:10": { kind: "existing", assessmentId: 11 },
+        "bare:subject-2": { kind: "existing", assessmentId: 20 },
+      },
+    });
+    expect(linked.blockers).toEqual([]);
+    expect(linked.changes).toContainEqual(
+      expect.objectContaining({
+        columnKey: "assessment:10",
+        assessmentId: 11,
+        downloaded: 3,
+        current: 3,
+        uploaded: 12.5,
+        status: "update",
+      }),
+    );
+
+    const created = buildAssessmentWorkbookPreview({
+      workbook: parsedWorkbook(),
+      live: missingAssessmentLive,
+      resolutions: {
+        "assessment:10": {
+          kind: "create",
+          title: "Recreated Test",
+          obtainable: 20,
+          percentageObtainable: 0,
+        },
+        "bare:subject-2": { kind: "existing", assessmentId: 20 },
+      },
+    });
+    expect(created.blockers).toEqual([]);
+    expect(created.summary.assessmentCreate).toBe(1);
+    expect(created.changes).toContainEqual(
+      expect.objectContaining({
+        columnKey: "assessment:10",
+        assessmentId: null,
+        downloaded: null,
+        uploaded: 12.5,
+        status: "create",
+      }),
+    );
+  });
+
+  test("counts standalone assessment creation even when its score cells are blank", () => {
+    const workbook = parsedWorkbook();
+    workbook.scoreCells.find(
+      (cell) => cell.columnKey === "bare:subject-2",
+    )!.uploaded = "";
+
+    const result = buildAssessmentWorkbookPreview({
+      workbook,
+      live,
+      resolutions: {
+        "bare:subject-2": {
+          kind: "create",
+          title: "Empty Imported Assessment",
+          obtainable: 100,
+          percentageObtainable: 0,
+        },
+      },
+    });
+
+    expect(result.summary.assessmentCreate).toBe(1);
+    expect(result.assessmentCreations).toHaveLength(1);
+    expect(result.changes).toHaveLength(1);
   });
 });

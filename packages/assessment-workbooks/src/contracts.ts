@@ -133,6 +133,7 @@ export const assessmentWorkbookUploadSchema = z.object({
 export const assessmentWorkbookApplySchema =
   assessmentWorkbookUploadSchema.extend({
     idempotencyKey: z.string().trim().min(8).max(120),
+    previewToken: z.string().regex(/^[a-f0-9]{64}$/),
   });
 
 export type AssessmentWorkbookDownloadInput = z.infer<

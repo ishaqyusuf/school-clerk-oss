@@ -85,6 +85,25 @@ function visibleCellValue(value: ExcelJS.CellValue) {
   return value;
 }
 
+function rejectFormulaValues(workbook: ExcelJS.Workbook) {
+  for (const worksheet of workbook.worksheets) {
+    worksheet.eachRow({ includeEmpty: false }, (row) => {
+      row.eachCell({ includeEmpty: false }, (cell) => {
+        const value = cell.value;
+        if (
+          value &&
+          typeof value === "object" &&
+          ("formula" in value || "sharedFormula" in value)
+        ) {
+          throw new Error(
+            "Formula values are not allowed in assessment workbooks.",
+          );
+        }
+      });
+    });
+  }
+}
+
 async function preflightWorkbookArchive(bytes: Uint8Array) {
   let archive: JSZip;
   try {
@@ -345,6 +364,7 @@ export async function parseAssessmentWorkbook(
     typeof workbook.xlsx.load
   >[0];
   await workbook.xlsx.load(xlsxInput);
+  rejectFormulaValues(workbook);
   if (
     workbook.worksheets.length !== 2 ||
     !workbook.getWorksheet(ASSESSMENT_WORKBOOK_VISIBLE_SHEET) ||

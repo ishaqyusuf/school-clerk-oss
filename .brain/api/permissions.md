@@ -155,11 +155,11 @@ Defines access control rules for each API surface.
 
 ## Results and Reports Permissions
 
-- Assessment workbook download, preview, and apply require an authenticated tenant session.
+- Assessment workbook download, preview, and apply require an authenticated tenant session and explicitly allow only `ADMIN`/`Admin` or `Teacher`; other authenticated roles are rejected.
 - `ADMIN`/`Admin` users may use any active subject in the tenant-bound classroom and term.
 - Teacher users are restricted by the shared effective academic-access resolver. Classroom and every department subject are checked on generation and rechecked from signed workbook metadata on preview/apply.
 - Signed metadata proves workbook integrity but never grants permission. The current tenant, export record, term, classroom, subjects, assessments, roster, and actor access are reloaded server-side.
-- Workbook apply runs only after a blocker-free review and repeats all validation inside the atomic write boundary.
+- Workbook apply runs only after a blocker-free, token-bound review and repeats all validation inside the atomic write boundary. Idempotent retries recheck current actor access before returning the stored result.
 - Blank manual classroom report sheet print (`Print Empty Sheet`) is restricted to `ADMIN` SaaS owners and `Admin` staff admins.
 - Filled result sheet printing/exporting remains available to all authorized academic/report users.
 - Student gender correction from assessment recording and classroom report review uses the authenticated `students.changeGender` tRPC mutation. The mutation is restricted to `ADMIN`, `Admin`, and `Registrar` roles, and updates only non-deleted students in the active `schoolProfileId` workspace.

@@ -64,6 +64,7 @@ type Props = {
 type Mode = "download" | "upload";
 type DownloadSelection = Record<string, Array<number | "bare">>;
 type Resolutions = Record<string, AssessmentWorkbookColumnResolution>;
+const MAX_WORKBOOK_BYTES = 10 * 1024 * 1024;
 
 function saveBase64File(fileBase64: string, fileName: string) {
   const binary = window.atob(fileBase64);
@@ -161,6 +162,8 @@ export function AssessmentWorkbooksDialog({
   const [fileBase64, setFileBase64] = useState("");
   const [resolutions, setResolutions] = useState<Resolutions>({});
   const [idempotencyKey, setIdempotencyKey] = useState("");
+  const [previewIsCurrent, setPreviewIsCurrent] = useState(false);
+  const resolutionVersionRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -231,7 +234,7 @@ export function AssessmentWorkbooksDialog({
             : "Assessment scores updated",
           description: data.alreadyApplied
             ? "No duplicate scores were created."
-            : `${data.summary.create + data.summary.update} score change(s) saved atomically.`,
+            : `${data.summary.create + data.summary.update} score change(s) and ${data.summary.assessmentCreate} assessment(s) saved atomically.`,
         });
         setOpen(false);
       },
@@ -244,11 +247,13 @@ export function AssessmentWorkbooksDialog({
       preview?.columns.filter(
         (column) =>
           column.assessmentId == null ||
+          column.resolution != null ||
           preview.blockers.some(
             (blocker) =>
               blocker.columnKey === column.key &&
               (blocker.code === "unresolved-column" ||
-                blocker.code === "invalid-resolution"),
+                blocker.code === "invalid-resolution" ||
+                blocker.code === "unavailable-assessment"),
           ),
       ) ?? [],
     [preview],
@@ -294,10 +299,21 @@ export function AssessmentWorkbooksDialog({
 
   function runPreview(nextResolutions = resolutions) {
     if (!fileBase64) return;
-    previewMutation.mutate({
-      fileBase64,
-      resolutions: nextResolutions,
-    });
+    const requestVersion = resolutionVersionRef.current;
+    setPreviewIsCurrent(false);
+    previewMutation.mutate(
+      {
+        fileBase64,
+        resolutions: nextResolutions,
+      },
+      {
+        onSuccess() {
+          if (resolutionVersionRef.current === requestVersion) {
+            setPreviewIsCurrent(true);
+          }
+        },
+      },
+    );
   }
 
   async function selectFile(file?: File) {
@@ -311,19 +327,41 @@ export function AssessmentWorkbooksDialog({
       });
       return;
     }
+    if (file.size > MAX_WORKBOOK_BYTES) {
+      toast({
+        title: "Workbook is too large",
+        description: "Assessment workbooks must be 10 MB or smaller.",
+        variant: "destructive",
+      });
+      return;
+    }
     const base64 = await fileToBase64(file);
     const nextKey = crypto.randomUUID();
+    resolutionVersionRef.current += 1;
+    const requestVersion = resolutionVersionRef.current;
     setFileName(file.name);
     setFileBase64(base64);
     setResolutions({});
     setIdempotencyKey(nextKey);
-    previewMutation.mutate({ fileBase64: base64, resolutions: {} });
+    setPreviewIsCurrent(false);
+    previewMutation.mutate(
+      { fileBase64: base64, resolutions: {} },
+      {
+        onSuccess() {
+          if (resolutionVersionRef.current === requestVersion) {
+            setPreviewIsCurrent(true);
+          }
+        },
+      },
+    );
   }
 
   function setResolution(
     columnKey: string,
     resolution: AssessmentWorkbookColumnResolution,
   ) {
+    resolutionVersionRef.current += 1;
+    setPreviewIsCurrent(false);
     setResolutions((current) => ({ ...current, [columnKey]: resolution }));
   }
 
@@ -340,7 +378,7 @@ export function AssessmentWorkbooksDialog({
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
-          dir={direction}
+          dir="ltr"
           className="flex max-h-[92vh] max-w-6xl flex-col gap-0 overflow-hidden p-0"
         >
           <DialogHeader className="border-b px-5 py-4 text-start">
@@ -538,7 +576,12 @@ export function AssessmentWorkbooksDialog({
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+                      <SummaryCard
+                        label="Assessments"
+                        value={preview.summary.assessmentCreate}
+                        tone="success"
+                      />
                       <SummaryCard
                         label="New scores"
                         value={preview.summary.create}
@@ -578,7 +621,7 @@ export function AssessmentWorkbooksDialog({
                       <div className="space-y-3">
                         <div>
                           <h3 className="font-medium">
-                            Match subject-only columns
+                            Match workbook columns
                           </h3>
                           <p className="text-sm text-muted-foreground">
                             Choose a scoreable assessment or create a standalone
@@ -597,7 +640,9 @@ export function AssessmentWorkbooksDialog({
                                   {column.subjectTitle}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                  Subject-only spreadsheet column
+                                  {column.assessmentId == null
+                                    ? "Subject-only spreadsheet column"
+                                    : "Downloaded assessment is no longer available"}
                                 </div>
                               </div>
                               <Select
@@ -690,6 +735,31 @@ export function AssessmentWorkbooksDialog({
                         >
                           Review mappings and scores again
                         </Button>
+                        {!previewIsCurrent ? (
+                          <p className="text-sm text-amber-700">
+                            Mapping changes must be reviewed again before they
+                            can be applied.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {preview.assessmentCreations.length ? (
+                      <div className="border border-emerald-600/30 bg-emerald-50/50 p-4">
+                        <h3 className="font-medium">Assessments to create</h3>
+                        <ul className="mt-2 space-y-1 text-sm">
+                          {preview.assessmentCreations.map((assessment) => (
+                            <li key={assessment.columnKey} dir="auto">
+                              {assessment.subjectTitle}: {assessment.title} —
+                              maximum{" "}
+                              <span dir="ltr">{assessment.obtainable}</span>,
+                              weight{" "}
+                              <span dir="ltr">
+                                {assessment.percentageObtainable}%
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     ) : null}
 
@@ -738,11 +808,13 @@ export function AssessmentWorkbooksDialog({
                                 <TableCell dir="auto">
                                   {change.assessmentTitle}
                                 </TableCell>
-                                <TableCell>
+                                <TableCell dir="ltr">
                                   {change.downloaded ?? "—"}
                                 </TableCell>
-                                <TableCell>{change.current ?? "—"}</TableCell>
-                                <TableCell className="font-medium">
+                                <TableCell dir="ltr">
+                                  {change.current ?? "—"}
+                                </TableCell>
+                                <TableCell dir="ltr" className="font-medium">
                                   {change.uploaded}
                                 </TableCell>
                                 <TableCell>
@@ -828,6 +900,7 @@ export function AssessmentWorkbooksDialog({
                 type="button"
                 disabled={
                   preview.blockers.length > 0 ||
+                  !previewIsCurrent ||
                   applyMutation.isPending ||
                   previewMutation.isPending ||
                   !idempotencyKey
@@ -837,6 +910,7 @@ export function AssessmentWorkbooksDialog({
                     fileBase64,
                     resolutions,
                     idempotencyKey,
+                    previewToken: preview.previewToken,
                   })
                 }
               >
@@ -845,8 +919,15 @@ export function AssessmentWorkbooksDialog({
                 ) : (
                   <CheckCircle2 className="size-4" />
                 )}
-                Apply {preview.summary.create + preview.summary.update} change
-                {preview.summary.create + preview.summary.update === 1
+                Apply{" "}
+                {preview.summary.assessmentCreate +
+                  preview.summary.create +
+                  preview.summary.update}{" "}
+                write
+                {preview.summary.assessmentCreate +
+                  preview.summary.create +
+                  preview.summary.update ===
+                1
                   ? ""
                   : "s"}
               </Button>

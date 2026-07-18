@@ -25,7 +25,7 @@ Let an authorized academic user download one School Clerk-generated `.xlsx` asse
   - `veryHidden` `__school_clerk` metadata sheet.
 - Signed metadata contains version, export id, tenant, term, classroom, direction, generation time, stable student-term-form rows, stable department-subject/assessment columns, coordinates, and original scores.
 - Visible labels are never used as identity.
-- Upload rejects missing/altered signatures, unknown sheets/structure, exposed metadata, removed protection, formulas, macros, embedded executable content, external workbook links, archives over 10 MB, excessive ZIP entries, and excessive expanded size.
+- Upload rejects missing/altered signatures, unknown sheets/structure, exposed metadata, removed protection, formulas anywhere in either worksheet, macros, embedded executable content, external workbook links, archives over 10 MB, excessive ZIP entries, and excessive expanded size.
 - Production requires `ASSESSMENT_WORKBOOK_SIGNING_SECRET`.
 
 ## Score Rules
@@ -40,23 +40,26 @@ Let an authorized academic user download one School Clerk-generated `.xlsx` asse
 - Newly enrolled students do not invalidate an older workbook.
 - A stale transferred/deleted student row is ignored when all cells are blank and blocks when any cell is populated.
 
-## Bare Subject Columns
+## Missing Assessment Resolution
 
-- Review requires every Bare Subject Column to:
+- Review requires every Bare Subject Column, and every signed assessment column whose original assessment is no longer scoreable, to:
   - link to a currently scoreable assessment on the same department subject; or
   - create a standalone assessment with title, positive maximum obtainable, and weight defaulting to `0%`.
 - Assessment creation is deferred until confirmation and occurs in the same transaction as score writes.
+- The preview lists each standalone assessment creation as an explicit write, including creations whose uploaded score cells are all blank.
 - Import never creates grouped assessments or sub-assessment hierarchies.
 
 ## Apply And Audit
 
-- Preview is read-only and always precedes confirmation.
+- Preview is read-only and always precedes confirmation. It returns an HMAC confirmation token bound to the file digest, normalized resolutions, assessment creations, blockers, summary, and exact score-write plan.
+- Changing a link/create resolution invalidates the dashboard preview. Apply requires the current preview token and rejects a changed file, resolution, or live plan.
 - Apply reparses the signed workbook, rechecks tenant/export binding and current teacher/admin access, reloads live scores, and rebuilds the plan inside a serializable transaction.
 - Any blocker aborts the whole transaction.
 - Safe score writes upsert the unique student + term-form + assessment record.
 - `AssessmentWorkbookExport` persists issued workbook identity.
 - `AssessmentWorkbookImport` persists an idempotency key, file digest, summary, created assessment ids, actor, and timestamps.
 - Repeating the same idempotency key and file returns the stored outcome; using that key with another file is rejected.
+- Idempotent replays still reparse the workbook and recheck the actor's current classroom and subject permissions before returning the stored outcome.
 - Download and successful import create tenant activity events.
 
 ## Out Of Scope

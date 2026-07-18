@@ -2,9 +2,13 @@ import { describe, expect, test } from "bun:test";
 
 import type { TRPCContext } from "@api/trpc/init";
 
-import { downloadAssessmentWorkbook } from "./assessment-workbooks";
+import {
+  applyAssessmentWorkbook,
+  downloadAssessmentWorkbook,
+  previewAssessmentWorkbook,
+} from "./assessment-workbooks";
 
-function createContext(gender: "Male" | "Female" | null) {
+function createContext(gender: "Male" | "Female" | null, role = "Admin") {
   const createdExports: unknown[] = [];
   const activities: unknown[] = [];
   const subject = {
@@ -28,7 +32,7 @@ function createContext(gender: "Male" | "Female" | null) {
           id: "user-1",
           email: "admin@example.test",
           name: "Admin",
-          role: "Admin",
+          role,
         },
       }),
     },
@@ -100,7 +104,7 @@ function createContext(gender: "Male" | "Female" | null) {
       id: "user-1",
       email: "admin@example.test",
       name: "Admin",
-      role: "Admin",
+      role,
       saasAccountId: "account-1",
     },
   } as unknown as TRPCContext;
@@ -157,4 +161,49 @@ describe("downloadAssessmentWorkbook", () => {
       }),
     );
   });
+
+  test.each([
+    [
+      "download",
+      (ctx: TRPCContext) =>
+        downloadAssessmentWorkbook(ctx, {
+          departmentId: "class-1",
+          sessionTermId: "term-1",
+          direction: "ltr",
+          subjects: [
+            {
+              departmentSubjectId: "subject-1",
+              columns: [{ kind: "bare" }],
+            },
+          ],
+        }),
+    ],
+    [
+      "preview",
+      (ctx: TRPCContext) =>
+        previewAssessmentWorkbook(ctx, {
+          fileBase64: "eA==",
+          resolutions: {},
+        }),
+    ],
+    [
+      "apply",
+      (ctx: TRPCContext) =>
+        applyAssessmentWorkbook(ctx, {
+          fileBase64: "eA==",
+          resolutions: {},
+          idempotencyKey: "denied-import-key",
+          previewToken: "0".repeat(64),
+        }),
+    ],
+  ] as const)(
+    "denies non-academic roles before %s workbook access",
+    async (_operation, invoke) => {
+      const { ctx } = createContext("Female", "Parent");
+
+      await expect(invoke(ctx)).rejects.toThrow(
+        "Only administrators and assigned teachers",
+      );
+    },
+  );
 });

@@ -64,7 +64,7 @@ Change log for database schema migrations and rollout notes.
 - Backfill required: No. Existing assessments and scores are unchanged; records are created only for new workbook operations.
 - Rollback plan: Disable the workbook tRPC/UI surfaces, revoke operational use of existing exports, regenerate Prisma Client, then drop the two workbook audit tables and activity enum values.
 - Owner: Codex
-- Note: `bun run db:generate` succeeded. `bun run db:migrate` reached local Postgres but stopped on pre-existing schema drift and requested a destructive reset, which was not run. The additive schema was synchronized to local Docker Postgres with Prisma `db push`. The required production push was safety-blocked pending explicit production authorization; the remote-development wrapper resolved to the local profile and therefore did not update a remote database.
+- Note: `bun run db:generate` succeeded. `bun run db:migrate` reached local Postgres but stopped on pre-existing schema drift and requested a destructive reset, which was not run. The additive schema was synchronized to local Docker Postgres with Prisma `db push`. After explicit user authorization, `bun run db:push --prod` completed against the configured production Supabase database. The required `--remote` attempt reached its configured Supabase pooler but did not return a schema result and was stopped; no separate remote-development sync is claimed.
 
 - Date: 2026-07-18
 - ID: schema-push-20260718_academic_data_direction
