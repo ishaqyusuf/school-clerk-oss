@@ -166,6 +166,21 @@ describe("signed assessment workbook", () => {
     ).rejects.toThrow("Workbook metadata signature is invalid.");
   });
 
+  test("rejects a valid signature with a non-hex suffix", async () => {
+    const bytes = await generateAssessmentWorkbook(workbookInput, {
+      signingKey,
+    });
+    const workbook = await loadWorkbook(bytes);
+    const metadata = workbook.getWorksheet("__school_clerk")!;
+    metadata.getCell("A2").value = `${String(metadata.getCell("A2").value)}zz`;
+
+    const tampered = new Uint8Array(await workbook.xlsx.writeBuffer());
+
+    await expect(
+      parseAssessmentWorkbook(tampered, { signingKey }),
+    ).rejects.toThrow("Workbook metadata signature is invalid.");
+  });
+
   test("rejects formulas in editable score cells", async () => {
     const bytes = await generateAssessmentWorkbook(workbookInput, {
       signingKey,
@@ -202,6 +217,22 @@ describe("signed assessment workbook", () => {
     ).rejects.toThrow(
       "Formula values are not allowed in assessment workbooks.",
     );
+  });
+
+  test("rejects Excel percentage-formatted score values", async () => {
+    const bytes = await generateAssessmentWorkbook(workbookInput, {
+      signingKey,
+    });
+    const workbook = await loadWorkbook(bytes);
+    const scoreCell = workbook.getWorksheet("Assessment Form")!.getCell("C5");
+    scoreCell.value = 0.5;
+    scoreCell.numFmt = "0%";
+
+    const edited = new Uint8Array(await workbook.xlsx.writeBuffer());
+
+    await expect(
+      parseAssessmentWorkbook(edited, { signingKey }),
+    ).rejects.toThrow("Percentage values are not allowed in score cells.");
   });
 
   test("rejects workbooks whose protected structure was exposed", async () => {

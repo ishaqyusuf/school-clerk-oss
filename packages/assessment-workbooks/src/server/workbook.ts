@@ -31,6 +31,9 @@ function signatureFor(metadataJson: string, signingKey: string) {
 }
 
 function signaturesMatch(actual: string, expected: string) {
+  if (!/^[a-f0-9]{64}$/.test(actual) || !/^[a-f0-9]{64}$/.test(expected)) {
+    return false;
+  }
   const actualBuffer = Buffer.from(actual, "hex");
   const expectedBuffer = Buffer.from(expected, "hex");
 
@@ -69,7 +72,11 @@ function styleHeaderCell(cell: ExcelJS.Cell, fill: string) {
   applyBorder(cell);
 }
 
-function visibleCellValue(value: ExcelJS.CellValue) {
+function visibleCellValue(cell: ExcelJS.Cell) {
+  if (cell.numFmt.includes("%")) {
+    throw new Error("Percentage values are not allowed in score cells.");
+  }
+  const value = cell.value;
   if (
     value &&
     typeof value === "object" &&
@@ -425,9 +432,7 @@ export async function parseAssessmentWorkbook(
       scoreCells.push({
         studentTermFormId: student.studentTermFormId,
         columnKey: column.key,
-        uploaded: visibleCellValue(
-          sheet.getCell(student.row, column.column).value,
-        ),
+        uploaded: visibleCellValue(sheet.getCell(student.row, column.column)),
       });
     }
   }

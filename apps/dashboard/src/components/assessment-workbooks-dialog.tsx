@@ -224,8 +224,8 @@ export function AssessmentWorkbooksDialog({
       async onSuccess(data) {
         await queryClient.invalidateQueries({
           queryKey: trpc.assessments.getClassroomReportSheet.queryKey({
-            departmentId,
-            sessionTermId: termId,
+            departmentId: data.classroomId,
+            sessionTermId: data.sessionTermId,
           }),
         });
         toast({
@@ -445,7 +445,7 @@ export function AssessmentWorkbooksDialog({
                   </div>
                 </div>
 
-                <div className="divide-y border">
+                <div className="divide-y border" dir={downloadDirection}>
                   {subjects.map((subject) => {
                     const subjectColumns = selection[subject.id] ?? [];
                     const selected = subjectColumns.length > 0;
@@ -461,7 +461,11 @@ export function AssessmentWorkbooksDialog({
                           <span className="font-medium" dir="auto">
                             {subject.subject.title}
                           </span>
-                          <Badge variant="outline" className="ms-auto">
+                          <Badge
+                            variant="outline"
+                            className="ms-auto"
+                            dir="ltr"
+                          >
                             {subjectColumns.length} column
                             {subjectColumns.length === 1 ? "" : "s"}
                           </Badge>
@@ -479,7 +483,7 @@ export function AssessmentWorkbooksDialog({
                                   )
                                 }
                               />
-                              <span>
+                              <span dir="ltr">
                                 <span className="block text-sm font-medium">
                                   Subject only
                                 </span>
@@ -506,10 +510,16 @@ export function AssessmentWorkbooksDialog({
                                   }
                                 />
                                 <span>
-                                  <span className="block text-sm font-medium">
+                                  <span
+                                    className="block text-sm font-medium"
+                                    dir="auto"
+                                  >
                                     {getAssessmentDisplayTitle(assessment)}
                                   </span>
-                                  <span className="block text-xs text-muted-foreground">
+                                  <span
+                                    className="block text-xs text-muted-foreground"
+                                    dir="ltr"
+                                  >
                                     Maximum {assessment.obtainable}
                                   </span>
                                 </span>
@@ -634,18 +644,23 @@ export function AssessmentWorkbooksDialog({
                             <div
                               key={column.key}
                               className="grid gap-3 border p-4 lg:grid-cols-[minmax(160px,1fr)_minmax(220px,1.2fr)_2fr]"
+                              dir={direction}
                             >
                               <div>
                                 <div className="text-sm font-medium" dir="auto">
                                   {column.subjectTitle}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {column.assessmentId == null
+                                <div
+                                  className="text-xs text-muted-foreground"
+                                  dir="ltr"
+                                >
+                                  {column.key.startsWith("bare:")
                                     ? "Subject-only spreadsheet column"
                                     : "Downloaded assessment is no longer available"}
                                 </div>
                               </div>
                               <Select
+                                dir={direction}
                                 value={
                                   resolution?.kind === "existing"
                                     ? `existing:${resolution.assessmentId}`
@@ -680,21 +695,23 @@ export function AssessmentWorkbooksDialog({
                                       <SelectItem
                                         key={assessment.id}
                                         value={`existing:${assessment.id}`}
+                                        dir="auto"
                                       >
                                         {assessment.title} (
                                         {assessment.obtainable})
                                       </SelectItem>
                                     ),
                                   )}
-                                  <SelectItem value="create">
+                                  <SelectItem value="create" dir="ltr">
                                     Create standalone assessment
                                   </SelectItem>
                                 </SelectContent>
                               </Select>
                               {resolution?.kind === "create" ? (
-                                <div className="grid grid-cols-[1fr_110px_90px] gap-2">
+                                <div className="grid grid-cols-[1fr_110px_110px] gap-2">
                                   <Input
                                     aria-label="Assessment title"
+                                    dir={direction}
                                     value={resolution.title}
                                     onChange={(event) =>
                                       setResolution(column.key, {
@@ -705,6 +722,7 @@ export function AssessmentWorkbooksDialog({
                                   />
                                   <Input
                                     aria-label="Maximum obtainable score"
+                                    dir="ltr"
                                     type="number"
                                     min="0.01"
                                     step="0.01"
@@ -716,9 +734,23 @@ export function AssessmentWorkbooksDialog({
                                       })
                                     }
                                   />
-                                  <div className="flex items-center justify-center border bg-muted/20 text-xs text-muted-foreground">
-                                    Weight 0%
-                                  </div>
+                                  <Input
+                                    aria-label="Assessment weight percentage"
+                                    dir="ltr"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    value={resolution.percentageObtainable ?? 0}
+                                    onChange={(event) =>
+                                      setResolution(column.key, {
+                                        ...resolution,
+                                        percentageObtainable: Number(
+                                          event.target.value,
+                                        ),
+                                      })
+                                    }
+                                  />
                                 </div>
                               ) : (
                                 <div className="flex items-center text-sm text-muted-foreground">
@@ -781,17 +813,17 @@ export function AssessmentWorkbooksDialog({
                     ) : null}
 
                     {preview.changes.length ? (
-                      <div className="overflow-x-auto border">
+                      <div className="overflow-x-auto border" dir={direction}>
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead>Student</TableHead>
-                              <TableHead>Subject</TableHead>
-                              <TableHead>Assessment</TableHead>
-                              <TableHead>Downloaded</TableHead>
-                              <TableHead>Current</TableHead>
-                              <TableHead>Uploaded</TableHead>
-                              <TableHead>Status</TableHead>
+                              <TableHead dir="ltr">Student</TableHead>
+                              <TableHead dir="ltr">Subject</TableHead>
+                              <TableHead dir="ltr">Assessment</TableHead>
+                              <TableHead dir="ltr">Downloaded</TableHead>
+                              <TableHead dir="ltr">Current</TableHead>
+                              <TableHead dir="ltr">Uploaded</TableHead>
+                              <TableHead dir="ltr">Status</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -817,7 +849,7 @@ export function AssessmentWorkbooksDialog({
                                 <TableCell dir="ltr" className="font-medium">
                                   {change.uploaded}
                                 </TableCell>
-                                <TableCell>
+                                <TableCell dir="ltr">
                                   <Badge
                                     variant={
                                       change.status === "conflict"

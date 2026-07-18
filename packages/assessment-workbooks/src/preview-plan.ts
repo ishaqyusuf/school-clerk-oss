@@ -32,6 +32,7 @@ export type AssessmentWorkbookPreviewBlocker = {
     | "invalid-resolution"
     | "unavailable-subject"
     | "unavailable-assessment"
+    | "duplicate-assessment-target"
     | "invalid-score"
     | "score-conflict"
     | "stale-student";
@@ -63,13 +64,14 @@ type ResolvedColumn = {
   assessmentTitle: string;
   obtainable: number;
   originalScores: Record<string, number | null>;
+  comparisonScores: Record<string, number | null>;
   resolution: AssessmentWorkbookColumnResolution | null;
 };
 
 export type AssessmentWorkbookPreview = {
   identity: ParsedAssessmentWorkbook["identity"];
   columns: Array<
-    ResolvedColumn & {
+    Omit<ResolvedColumn, "comparisonScores"> & {
       availableAssessments: Array<{
         id: number;
         title: string;
@@ -186,6 +188,7 @@ export function buildAssessmentWorkbookPreview({
             assessmentTitle: originalAssessment.title,
             obtainable: originalAssessment.obtainable,
             originalScores: column.originalScores,
+            comparisonScores: column.originalScores,
             resolution: null,
           };
         } else if (!requestedResolution) {
@@ -218,7 +221,8 @@ export function buildAssessmentWorkbookPreview({
               assessmentId: selectedAssessment.id,
               assessmentTitle: selectedAssessment.title,
               obtainable: selectedAssessment.obtainable,
-              originalScores: selectedAssessment.currentScores,
+              originalScores: column.originalScores,
+              comparisonScores: selectedAssessment.currentScores,
               resolution: requestedResolution,
             };
           }
@@ -230,27 +234,49 @@ export function buildAssessmentWorkbookPreview({
             assessmentId: null,
             assessmentTitle: requestedResolution.title,
             obtainable: requestedResolution.obtainable,
-            originalScores: {},
+            originalScores: column.originalScores,
+            comparisonScores: {},
             resolution: requestedResolution,
           };
         }
       }
 
       if (resolved) resolvedColumns.set(column.key, resolved);
+      const columnForDisplay = resolved ?? {
+        key: column.key,
+        departmentSubjectId: column.departmentSubjectId,
+        subjectTitle: column.subjectTitle,
+        assessmentId: column.assessmentId,
+        assessmentTitle: column.assessmentTitle ?? "Assessment",
+        obtainable: column.obtainable ?? 0,
+        originalScores: column.originalScores,
+        comparisonScores: column.originalScores,
+        resolution: requestedResolution,
+      };
+      const { comparisonScores: _comparisonScores, ...displayColumn } =
+        columnForDisplay;
       return {
-        ...(resolved ?? {
-          key: column.key,
-          departmentSubjectId: column.departmentSubjectId,
-          subjectTitle: column.subjectTitle,
-          assessmentId: column.assessmentId,
-          assessmentTitle: column.assessmentTitle ?? "Assessment",
-          obtainable: column.obtainable ?? 0,
-          originalScores: column.originalScores,
-          resolution: requestedResolution,
-        }),
+        ...displayColumn,
         availableAssessments,
       };
     });
+
+  const firstColumnByAssessmentId = new Map<number, string>();
+  for (const column of resolvedColumns.values()) {
+    if (column.assessmentId == null) continue;
+    const firstColumnKey = firstColumnByAssessmentId.get(column.assessmentId);
+    if (!firstColumnKey) {
+      firstColumnByAssessmentId.set(column.assessmentId, column.key);
+      continue;
+    }
+    blockers.push({
+      code: "duplicate-assessment-target",
+      columnKey: column.key,
+      message: `${column.assessmentTitle} is targeted by more than one workbook column. Choose a different assessment mapping.`,
+    });
+    resolvedColumns.delete(firstColumnKey);
+    resolvedColumns.delete(column.key);
+  }
 
   const assessmentCreations = columns.flatMap((column) =>
     resolvedColumns.has(column.key) && column.resolution?.kind === "create"
@@ -309,8 +335,10 @@ export function buildAssessmentWorkbookPreview({
     const current =
       liveAssessment?.currentScores[cell.studentTermFormId] ?? null;
     const downloaded = column.originalScores[cell.studentTermFormId] ?? null;
+    const comparisonBaseline =
+      column.comparisonScores[cell.studentTermFormId] ?? null;
     const change = classifyAssessmentScoreChange({
-      downloaded,
+      downloaded: comparisonBaseline,
       uploaded: cell.uploaded,
       current,
       obtainable: column.obtainable,

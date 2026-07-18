@@ -316,7 +316,7 @@ describe("buildAssessmentWorkbookPreview", () => {
       expect.objectContaining({
         columnKey: "assessment:10",
         assessmentId: 11,
-        downloaded: 3,
+        downloaded: 5,
         current: 3,
         uploaded: 12.5,
         status: "update",
@@ -342,7 +342,7 @@ describe("buildAssessmentWorkbookPreview", () => {
       expect.objectContaining({
         columnKey: "assessment:10",
         assessmentId: null,
-        downloaded: null,
+        downloaded: 5,
         uploaded: 12.5,
         status: "create",
       }),
@@ -371,5 +371,122 @@ describe("buildAssessmentWorkbookPreview", () => {
     expect(result.summary.assessmentCreate).toBe(1);
     expect(result.assessmentCreations).toHaveLength(1);
     expect(result.changes).toHaveLength(1);
+  });
+
+  test("blocks mapping a missing column onto an assessment already represented by another column", () => {
+    const workbook = parsedWorkbook();
+    workbook.metadata.columns.push({
+      column: 6,
+      key: "assessment:11",
+      departmentSubjectId: "subject-1",
+      subjectTitle: "Mathematics",
+      assessmentId: 11,
+      assessmentTitle: "Replacement Test",
+      obtainable: 30,
+      originalScores: { "form-1": 3, "form-stale": null },
+    });
+    workbook.scoreCells.push(
+      {
+        studentTermFormId: "form-1",
+        columnKey: "assessment:11",
+        uploaded: 4,
+      },
+      {
+        studentTermFormId: "form-stale",
+        columnKey: "assessment:11",
+        uploaded: "",
+      },
+    );
+    const collisionLive = structuredClone(live);
+    collisionLive.subjects[0]!.assessments = [
+      {
+        id: 11,
+        title: "Replacement Test",
+        obtainable: 30,
+        currentScores: { "form-1": 3 },
+      },
+    ];
+
+    const result = buildAssessmentWorkbookPreview({
+      workbook,
+      live: collisionLive,
+      resolutions: {
+        "assessment:10": { kind: "existing", assessmentId: 11 },
+        "bare:subject-2": { kind: "existing", assessmentId: 20 },
+      },
+    });
+
+    expect(result.blockers).toContainEqual(
+      expect.objectContaining({
+        code: "duplicate-assessment-target",
+        columnKey: "assessment:11",
+      }),
+    );
+    expect(
+      result.changes.some(
+        (change) =>
+          change.columnKey === "assessment:10" ||
+          change.columnKey === "assessment:11",
+      ),
+    ).toBe(false);
+  });
+
+  test("blocks two missing columns from linking to the same replacement assessment", () => {
+    const workbook = parsedWorkbook();
+    workbook.metadata.columns.push({
+      column: 6,
+      key: "assessment:12",
+      departmentSubjectId: "subject-1",
+      subjectTitle: "Mathematics",
+      assessmentId: 12,
+      assessmentTitle: "Second Missing Test",
+      obtainable: 30,
+      originalScores: { "form-1": 2, "form-stale": null },
+    });
+    workbook.scoreCells.push(
+      {
+        studentTermFormId: "form-1",
+        columnKey: "assessment:12",
+        uploaded: 6,
+      },
+      {
+        studentTermFormId: "form-stale",
+        columnKey: "assessment:12",
+        uploaded: "",
+      },
+    );
+    const collisionLive = structuredClone(live);
+    collisionLive.subjects[0]!.assessments = [
+      {
+        id: 11,
+        title: "Replacement Test",
+        obtainable: 30,
+        currentScores: { "form-1": 3 },
+      },
+    ];
+
+    const result = buildAssessmentWorkbookPreview({
+      workbook,
+      live: collisionLive,
+      resolutions: {
+        "assessment:10": { kind: "existing", assessmentId: 11 },
+        "assessment:12": { kind: "existing", assessmentId: 11 },
+        "bare:subject-2": { kind: "existing", assessmentId: 20 },
+      },
+    });
+
+    expect(result.blockers).toContainEqual(
+      expect.objectContaining({
+        code: "duplicate-assessment-target",
+        columnKey: "assessment:12",
+      }),
+    );
+    expect(
+      result.changes.some(
+        (change) =>
+          change.columnKey === "assessment:10" ||
+          change.columnKey === "assessment:12",
+      ),
+    ).toBe(false);
   });
 });

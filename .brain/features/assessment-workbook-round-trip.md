@@ -44,7 +44,9 @@ Let an authorized academic user download one School Clerk-generated `.xlsx` asse
 
 - Review requires every Bare Subject Column, and every signed assessment column whose original assessment is no longer scoreable, to:
   - link to a currently scoreable assessment on the same department subject; or
-  - create a standalone assessment with title, positive maximum obtainable, and weight defaulting to `0%`.
+  - create a standalone assessment with title, positive maximum obtainable, and an editable `0%`–`100%` weight defaulting to `0%`.
+- A scoreable assessment can be the target of only one workbook column; duplicate target mappings block the entire apply.
+- The review always displays the signed source score in `Downloaded`, while target comparison state remains an internal concurrency baseline.
 - Assessment creation is deferred until confirmation and occurs in the same transaction as score writes.
 - The preview lists each standalone assessment creation as an explicit write, including creations whose uploaded score cells are all blank.
 - Import never creates grouped assessments or sub-assessment hierarchies.

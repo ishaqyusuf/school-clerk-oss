@@ -617,6 +617,8 @@ export async function applyAssessmentWorkbook(
         return {
           importId: existing.id,
           alreadyApplied: true,
+          classroomId: existing.classRoomDepartmentId,
+          sessionTermId: existing.sessionTermId,
           summary: existing.summary as AssessmentWorkbookPreview["summary"],
           createdAssessmentIds: existing.createdAssessmentIds,
         };
@@ -745,6 +747,8 @@ export async function applyAssessmentWorkbook(
       return {
         importId: imported.id,
         alreadyApplied: false,
+        classroomId: prepared.workbook.identity.classroomId,
+        sessionTermId: prepared.workbook.identity.termId,
         summary: prepared.preview.summary,
         createdAssessmentIds,
       };
