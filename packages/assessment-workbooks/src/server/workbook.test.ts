@@ -233,6 +233,20 @@ describe("signed assessment workbook", () => {
     await expect(
       parseAssessmentWorkbook(edited, { signingKey }),
     ).rejects.toThrow("Percentage values are not allowed in score cells.");
+
+    const arabicPercentWorkbook = await loadWorkbook(bytes);
+    const arabicPercentCell = arabicPercentWorkbook
+      .getWorksheet("Assessment Form")!
+      .getCell("C5");
+    arabicPercentCell.value = 0.5;
+    arabicPercentCell.numFmt = "0٪";
+    const arabicPercentEdited = new Uint8Array(
+      await arabicPercentWorkbook.xlsx.writeBuffer(),
+    );
+
+    await expect(
+      parseAssessmentWorkbook(arabicPercentEdited, { signingKey }),
+    ).rejects.toThrow("Percentage values are not allowed in score cells.");
   });
 
   test("rejects workbooks whose protected structure was exposed", async () => {

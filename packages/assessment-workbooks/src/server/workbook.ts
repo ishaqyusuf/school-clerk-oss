@@ -73,7 +73,7 @@ function styleHeaderCell(cell: ExcelJS.Cell, fill: string) {
 }
 
 function visibleCellValue(cell: ExcelJS.Cell) {
-  if (cell.numFmt.includes("%")) {
+  if (/[%٪﹪％]/u.test(cell.numFmt)) {
     throw new Error("Percentage values are not allowed in score cells.");
   }
   const value = cell.value;

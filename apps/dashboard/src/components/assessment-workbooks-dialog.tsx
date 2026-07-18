@@ -708,49 +708,74 @@ export function AssessmentWorkbooksDialog({
                                 </SelectContent>
                               </Select>
                               {resolution?.kind === "create" ? (
-                                <div className="grid grid-cols-[1fr_110px_110px] gap-2">
-                                  <Input
-                                    aria-label="Assessment title"
-                                    dir={direction}
-                                    value={resolution.title}
-                                    onChange={(event) =>
-                                      setResolution(column.key, {
-                                        ...resolution,
-                                        title: event.target.value,
-                                      })
-                                    }
-                                  />
-                                  <Input
-                                    aria-label="Maximum obtainable score"
-                                    dir="ltr"
-                                    type="number"
-                                    min="0.01"
-                                    step="0.01"
-                                    value={resolution.obtainable}
-                                    onChange={(event) =>
-                                      setResolution(column.key, {
-                                        ...resolution,
-                                        obtainable: Number(event.target.value),
-                                      })
-                                    }
-                                  />
-                                  <Input
-                                    aria-label="Assessment weight percentage"
-                                    dir="ltr"
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    step="0.01"
-                                    value={resolution.percentageObtainable ?? 0}
-                                    onChange={(event) =>
-                                      setResolution(column.key, {
-                                        ...resolution,
-                                        percentageObtainable: Number(
-                                          event.target.value,
-                                        ),
-                                      })
-                                    }
-                                  />
+                                <div className="grid grid-cols-[1fr_110px_120px] items-end gap-2">
+                                  <label className="space-y-1" dir="ltr">
+                                    <span className="block text-xs font-medium">
+                                      Title
+                                    </span>
+                                    <Input
+                                      aria-label="Assessment title"
+                                      dir={direction}
+                                      value={resolution.title}
+                                      onChange={(event) =>
+                                        setResolution(column.key, {
+                                          ...resolution,
+                                          title: event.target.value,
+                                        })
+                                      }
+                                    />
+                                  </label>
+                                  <label className="space-y-1" dir="ltr">
+                                    <span className="block text-xs font-medium">
+                                      Maximum
+                                    </span>
+                                    <Input
+                                      aria-label="Maximum obtainable score"
+                                      dir="ltr"
+                                      type="number"
+                                      min="0.01"
+                                      step="0.01"
+                                      value={resolution.obtainable}
+                                      onChange={(event) =>
+                                        setResolution(column.key, {
+                                          ...resolution,
+                                          obtainable: Number(
+                                            event.target.value,
+                                          ),
+                                        })
+                                      }
+                                    />
+                                  </label>
+                                  <label className="space-y-1" dir="ltr">
+                                    <span className="block text-xs font-medium">
+                                      Weight
+                                    </span>
+                                    <span className="relative block">
+                                      <Input
+                                        aria-label="Assessment weight percentage"
+                                        className="pe-7"
+                                        dir="ltr"
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value={
+                                          resolution.percentageObtainable ?? 0
+                                        }
+                                        onChange={(event) =>
+                                          setResolution(column.key, {
+                                            ...resolution,
+                                            percentageObtainable: Number(
+                                              event.target.value,
+                                            ),
+                                          })
+                                        }
+                                      />
+                                      <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-sm text-muted-foreground">
+                                        %
+                                      </span>
+                                    </span>
+                                  </label>
                                 </div>
                               ) : (
                                 <div className="flex items-center text-sm text-muted-foreground">
