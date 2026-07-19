@@ -23,6 +23,15 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: ASMT-WB-PROD-ROUNDTRIP-001
+- Title: Complete the signed RTL assessment workbook round trip in production
+- Completed: 2026-07-19
+- Outcome: Configured production workbook signing and completed the real dashboard download, preservation-safe population, preview, mapping, confirmation, apply, and replay flow for Daarul Hadith, 1447/1448 1st Term, الأول الإعدادي. The signed 18-column RTL workbook created eight standalone `الامتحان` assessments at 100 points/100% weight, applied 139 new and 2 updated scores, retained 22 unchanged and 53 blank cells, and reported zero conflicts, invalid values, or stale rows. Production verification confirmed exactly 141 unique `WORKBOOK_IMPORT` history rows, correct Qur'an components and totals (عبد المتين 29; زينب 28), الحديث عبد السلام updated from 6 to 2, المتون فردوس updated from 60 to 70, eight standalone Qur'an assessments with no grouped parent/`الامتحان`/`المجموع`, and one import record after replaying the same idempotency confirmation. Production testing exposed two independent hosting limits; the workbook transaction now has a 10-second acquisition wait and 60-second execution timeout, and the dashboard tRPC route has a 60-second serverless duration.
+- Related changes: `apps/api/src/db/queries/assessment-workbooks.ts`, `apps/api/src/db/queries/assessment-workbooks.test.ts`, `apps/dashboard/src/app/api/trpc/[...trpc]/route.ts`, `.brain/features/assessment-workbook-round-trip.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: ASMT-UNCAPPED-LABEL-001
 - Title: Simplify uncapped assessment table labels
 - Completed: 2026-07-19
