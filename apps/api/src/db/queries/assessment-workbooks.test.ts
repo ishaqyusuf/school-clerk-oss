@@ -251,7 +251,11 @@ describe("downloadAssessmentWorkbook", () => {
       callback: (transaction: typeof db) => unknown,
       options: Record<string, unknown>,
     ) => {
-      expect(options).toEqual({ isolationLevel: "Serializable" });
+      expect(options).toEqual({
+        isolationLevel: "Serializable",
+        maxWait: 10_000,
+        timeout: 60_000,
+      });
       return callback(db);
     };
 

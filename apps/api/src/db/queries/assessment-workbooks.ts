@@ -33,6 +33,9 @@ export {
   assessmentWorkbookUploadSchema,
 };
 
+const WORKBOOK_IMPORT_TRANSACTION_MAX_WAIT_MS = 10_000;
+const WORKBOOK_IMPORT_TRANSACTION_TIMEOUT_MS = 60_000;
+
 function requireSchoolId(ctx: TRPCContext) {
   if (!ctx.profile.schoolId) {
     throw new TRPCError({
@@ -780,7 +783,11 @@ export async function applyAssessmentWorkbook(
           createdAssessmentIds,
         };
       },
-      { isolationLevel: "Serializable" },
+      {
+        isolationLevel: "Serializable",
+        maxWait: WORKBOOK_IMPORT_TRANSACTION_MAX_WAIT_MS,
+        timeout: WORKBOOK_IMPORT_TRANSACTION_TIMEOUT_MS,
+      },
     ),
   );
 }

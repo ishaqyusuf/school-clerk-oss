@@ -59,6 +59,7 @@ Let an authorized academic user download one School Clerk-generated `.xlsx` asse
 - Preview is read-only and always precedes confirmation. It returns an HMAC confirmation token bound to the file digest, normalized resolutions, assessment creations, blockers, summary, and exact score-write plan.
 - Changing a link/create resolution invalidates the dashboard preview. Apply requires the current preview token and rejects a changed file, resolution, or live plan.
 - Apply reparses the signed workbook, rechecks tenant/export binding and current teacher/admin access, reloads live scores, and rebuilds the plan inside a serializable transaction.
+- The interactive import transaction has an explicit 10-second acquisition wait and 60-second execution timeout. This preserves atomic score/history writes for classroom-sized imports without relying on Prisma's 5-second default, which is too short for the production authorization, comparison, assessment-creation, score, and history queries.
 - Export authorization uses a primary-key lookup followed by explicit tenant, term, classroom, and revocation checks. This avoids applying the shared soft-delete filter to workbook export rows, which intentionally use `revokedAt` instead of `deletedAt`.
 - Any blocker aborts the whole transaction.
 - Safe score writes upsert the unique student + term-form + assessment record.
