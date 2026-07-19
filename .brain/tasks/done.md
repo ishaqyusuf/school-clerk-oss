@@ -23,6 +23,15 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: ASMT-RECORDING-WIDTH-001
+- Title: Expand assessment recording content on large screens
+- Completed: 2026-07-19
+- Outcome: Preserved the focused assessment-recording width on mobile and normal desktop screens while releasing the `max-w-4xl` cap at the extra-large breakpoint, allowing dense RTL and multi-subject score tables to use the available dashboard content area.
+- Related changes: `apps/dashboard/src/components/assessment-recording.tsx`, `.brain/features/assessment-results-and-sub-assessments.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: ASMT-UNCAPPED-001
 - Title: Support uncapped informational assessments
 - Completed: 2026-07-19

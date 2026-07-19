@@ -194,7 +194,7 @@ export function AssessmentRecording() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 px-2 py-3 sm:mx-auto sm:max-w-4xl sm:px-0 sm:py-4">
+      <div className="flex w-full flex-col gap-4 px-2 py-3 sm:mx-auto sm:max-w-4xl sm:px-0 sm:py-4 xl:max-w-none">
         <div>
           {!needsSetup ? (
             <AssessmentRecordingResultsTable
