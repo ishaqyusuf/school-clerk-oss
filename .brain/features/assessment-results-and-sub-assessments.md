@@ -29,7 +29,7 @@ Make classroom assessment recording, classroom result review, student result pri
   - `ClassroomSubjectAssessment.isGroup` marks grouped parent rows.
   - `ClassroomSubjectAssessment.parentAssessmentId` links child rows to a parent.
   - `ClassroomSubjectAssessment.percentageObtainable` is the report/print weight.
-  - `ClassroomSubjectAssessment.obtainable` is the raw score maximum.
+  - `ClassroomSubjectAssessment.obtainable` is the nullable raw score maximum. `null` means an uncapped standalone informational numeric field, not a per-student denominator.
   - `ClassroomSubjectAssessment.index` controls display order.
 - `ClassroomSubjectAssessment.printMode` stores the grouped parent result-print behavior as `EXPANDED` or `TOTAL`, defaulting to `EXPANDED`.
 - Optional future field:
@@ -48,6 +48,8 @@ Make classroom assessment recording, classroom result review, student result pri
 - Assessment mutation routes should verify child ownership before updating or deleting child IDs.
 - Public link routes should expose only the classroom report sheet subset captured by the link's current filters.
 - Public score mutation routes should validate the token, status, expiry, classroom, term, subject, student term form, and scoreable assessment before writing.
+- Authenticated, public-link, AI, and workbook score-entry paths accept only finite non-negative numeric values. They enforce the upper bound when `obtainable` is numeric and skip only the upper-bound check when it is `null`.
+- A standalone assessment may have `obtainable = null` only when its weight is `0%`. Positively weighted standalone assessments and grouped-assessment children require a positive obtainable value.
 
 ## UI/UX Notes
 
@@ -58,6 +60,7 @@ Make classroom assessment recording, classroom result review, student result pri
 - Student report unavailable states should offer a CTA into the existing classroom overview sheet, opening the Subjects tab so staff can review classroom setup and assessments without leaving the report page.
 - Classroom result tables should include a Classroom Overview CTA that opens the existing classroom overview side sheet on the Students tab while preserving the current report filters.
 - Standalone assessments with no weight should show a warning: they can be recorded but will not print.
+- Standalone assessments with an empty obtainable value and zero weight should show `Uncapped · 0% weight` and explain that any non-negative numeric value can be recorded without affecting totals or printed results.
 - Grouped assessments whose children have no printable weight should show a warning: the group will not appear on printed results.
 - Assessment list should show badges for:
   - No print
@@ -82,6 +85,7 @@ Make classroom assessment recording, classroom result review, student result pri
 - Authenticated and public score-entry routes must write only to non-group scoreable assessment rows.
 - Assessment setup rejects child assessment IDs that do not already belong to the grouped parent being edited.
 - Recording/classroom review may still show zero-weight scoreable items when they are useful for internal tracking.
+- Uncapped informational assessments remain available in recording and classroom review, but their explicit zero weight excludes them from subject totals and printed/PDF results.
 - Assessment recording defaults to the first loaded subject when no explicit subject is selected, while preserving explicit `deptSubjectId` deep links.
 - Assessment recording score-entry tables show editable assessment cells only; subject total columns are reserved for classroom result review rather than score entry.
 - Assessment recording supports bare `/assessment-recording` links by auto-selecting a default term/classroom when one can be resolved instead of showing an inline context selector.
@@ -135,7 +139,7 @@ Make classroom assessment recording, classroom result review, student result pri
 - Editing weights after scores exist should warn that printed totals will be recalculated.
 - Deleted assessments are soft-deleted; restore support is a future improvement.
 - Empty score means no score, not zero.
-- Obtained score above obtainable should warn or be blocked depending on school policy.
+- A score above a numeric obtainable maximum is blocked. An uncapped assessment has no upper bound, while negative, malformed, or non-finite values remain invalid.
 - Expired, revoked, pending, rejected, malformed, or tampered public links should show a blocked public-recording state and must not allow score writes.
 - Public links with subject filters that no longer resolve should not broaden to all subjects; they should fail closed or show an empty scoped sheet.
 

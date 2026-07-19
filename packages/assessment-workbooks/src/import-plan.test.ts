@@ -105,4 +105,18 @@ describe("assessment workbook three-way score comparison", () => {
       value: 21,
     });
   });
+
+  test("accepts any non-negative literal for an uncapped assessment", () => {
+    expect(
+      classifyAssessmentScoreChange({
+        downloaded: null,
+        uploaded: 750,
+        current: null,
+        obtainable: null,
+      }),
+    ).toEqual({
+      status: "create",
+      value: 750,
+    });
+  });
 });

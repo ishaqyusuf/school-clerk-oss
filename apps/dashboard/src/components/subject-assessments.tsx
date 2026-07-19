@@ -377,14 +377,21 @@ export function SubjectAssessments(props: Props) {
                                   >
                                     {a._count?.assessmentResults ?? 0} submissions
                                   </Badge>
-                                  {a.obtainable ? (
+                                  {a.obtainable != null ? (
                                     <Badge
                                       variant="success"
                                       className="rounded-full px-3 py-1"
                                     >
                                       {a.obtainable} points
                                     </Badge>
-                                  ) : null}
+                                  ) : (
+                                    <Badge
+                                      variant="neutral"
+                                      className="rounded-full px-3 py-1"
+                                    >
+                                      Uncapped
+                                    </Badge>
+                                  )}
                                   {a.childAssessments?.length ? (
                                     <Badge
                                       variant="neutral"
@@ -450,7 +457,7 @@ export function SubjectAssessments(props: Props) {
                                   departmentSubjectId: deptSubjectId,
                                   index: Number(a.index ?? ai),
                                   title: a.title,
-                                  obtainable: a.obtainable ?? 0,
+                                  obtainable: a.obtainable,
                                   percentageObtainable:
                                     a.percentageObtainable ?? 0,
                                   isGroup: !!a.childAssessments?.length,

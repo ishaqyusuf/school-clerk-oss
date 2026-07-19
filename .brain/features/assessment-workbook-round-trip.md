@@ -32,7 +32,8 @@ Let an authorized academic user download one School Clerk-generated `.xlsx` asse
 
 - Blank cells are accepted and mean no change.
 - Accepted literals use Western, Arabic-Indic, or Eastern Arabic-Indic digits with `.` or `٫` as the decimal separator.
-- Percentages, exponent notation, grouping separators, negative values, formulas, words, non-finite values, and scores above the current obtainable maximum block apply.
+- Percentages, exponent notation, grouping separators, negative values, formulas, words, and non-finite values block apply.
+- A numeric obtainable value remains a hard upper bound. When signed metadata and the live assessment both have `obtainable = null`, the column is uncapped and any otherwise valid non-negative literal is accepted.
 - Comparison is three-way:
   - uploaded equals downloaded or current: unchanged;
   - current equals downloaded: create/update is safe;
@@ -44,12 +45,14 @@ Let an authorized academic user download one School Clerk-generated `.xlsx` asse
 
 - Review requires every Bare Subject Column, and every signed assessment column whose original assessment is no longer scoreable, to:
   - link to a currently scoreable assessment on the same department subject; or
-  - create a standalone assessment with title, positive maximum obtainable, and an editable `0%`–`100%` weight defaulting to `0%`.
+  - create a standalone assessment with title, an optional maximum obtainable, and an editable `0%`–`100%` weight defaulting to `0%`.
+- Workbook mapping may create an uncapped assessment only when its weight is exactly `0%`; a positive weight requires a positive maximum.
 - A scoreable assessment can be the target of only one workbook column; duplicate target mappings block the entire apply.
 - The review always displays the signed source score in `Downloaded`, while target comparison state remains an internal concurrency baseline.
 - Assessment creation is deferred until confirmation and occurs in the same transaction as score writes.
 - The preview lists each standalone assessment creation as an explicit write, including creations whose uploaded score cells are all blank.
 - Import never creates grouped assessments or sub-assessment hierarchies.
+- Nullable maximum metadata is part of the existing signed workbook contract, so uncapped assessments do not require a workbook version change.
 
 ## Apply And Audit
 

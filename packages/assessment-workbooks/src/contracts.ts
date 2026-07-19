@@ -77,9 +77,8 @@ export type ParsedAssessmentWorkbook = {
   }>;
 };
 
-export const assessmentWorkbookColumnResolutionSchema = z.discriminatedUnion(
-  "kind",
-  [
+export const assessmentWorkbookColumnResolutionSchema = z
+  .discriminatedUnion("kind", [
     z.object({
       kind: z.literal("existing"),
       assessmentId: z.number().int().positive(),
@@ -87,11 +86,23 @@ export const assessmentWorkbookColumnResolutionSchema = z.discriminatedUnion(
     z.object({
       kind: z.literal("create"),
       title: z.string().trim().min(1).max(120),
-      obtainable: z.number().positive(),
-      percentageObtainable: z.number().min(0).max(100).default(0),
+      obtainable: z.number().finite().positive().nullable(),
+      percentageObtainable: z.number().finite().min(0).max(100).default(0),
     }),
-  ],
-);
+  ])
+  .superRefine((value, ctx) => {
+    if (
+      value.kind === "create" &&
+      value.obtainable == null &&
+      value.percentageObtainable > 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["obtainable"],
+        message: "Weighted assessments require a positive obtainable score.",
+      });
+    }
+  });
 
 export const assessmentWorkbookResolutionsSchema = z.record(
   assessmentWorkbookColumnResolutionSchema,

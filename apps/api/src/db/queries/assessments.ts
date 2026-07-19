@@ -385,7 +385,7 @@ export async function getSubjectAssessmentRecordings(
 }
 export const updateAssessmentScoreSchema = z.object({
   id: z.number().optional().nullable(),
-  obtained: z.number().optional().nullable(),
+  obtained: z.number().finite().min(0).optional().nullable(),
   assessmentId: z.number(),
   studentTermId: z.string(),
   studentId: z.string(),
@@ -415,6 +415,7 @@ export async function updateAssessmentScore(
     },
     select: {
       isGroup: true,
+      obtainable: true,
       departmentSubject: {
         select: {
           classRoomDepartmentId: true,
@@ -427,6 +428,17 @@ export async function updateAssessmentScore(
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "Scores can only be recorded against scoreable assessments.",
+    });
+  }
+
+  if (
+    data.obtained != null &&
+    assessment.obtainable != null &&
+    data.obtained > assessment.obtainable
+  ) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Score cannot be greater than the assessment maximum.",
     });
   }
 

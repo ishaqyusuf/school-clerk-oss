@@ -218,6 +218,31 @@ describe("buildAssessmentWorkbookPreview", () => {
     );
   });
 
+  test("accepts values without an upper bound for an uncapped assessment", () => {
+    const workbook = parsedWorkbook();
+    workbook.metadata.columns[0]!.obtainable = null;
+    workbook.scoreCells[0]!.uploaded = 750;
+    const uncappedLive = structuredClone(live);
+    uncappedLive.subjects[0]!.assessments[0]!.obtainable = null;
+
+    const result = buildAssessmentWorkbookPreview({
+      workbook,
+      live: uncappedLive,
+      resolutions: {
+        "bare:subject-2": { kind: "existing", assessmentId: 20 },
+      },
+    });
+
+    expect(result.blockers).toEqual([]);
+    expect(result.changes).toContainEqual(
+      expect.objectContaining({
+        columnKey: "assessment:10",
+        uploaded: 750,
+        status: "update",
+      }),
+    );
+  });
+
   test("protects an online edit with a three-way conflict", () => {
     const changedLive = structuredClone(live);
     changedLive.subjects[0]!.assessments[0]!.currentScores["form-1"] = 9;

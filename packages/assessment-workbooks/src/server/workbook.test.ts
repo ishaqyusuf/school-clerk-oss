@@ -45,7 +45,7 @@ const workbookInput = {
       subjectTitle: "القرآن",
       assessmentId: 101,
       assessmentTitle: "المراجعة",
-      obtainable: 20,
+      obtainable: null,
       originalScores: {
         "term-form-1": 10,
         "term-form-2": null,
@@ -114,6 +114,7 @@ describe("signed assessment workbook", () => {
       generatedAt: "2026-07-18T12:00:00.000Z",
       direction: "rtl",
     });
+    expect(parsed.metadata.columns[0]?.obtainable).toBeNull();
     expect(parsed.scoreCells).toEqual([
       {
         studentTermFormId: "term-form-1",

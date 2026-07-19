@@ -442,7 +442,7 @@ export function AssessmentRecordingResultsTable({
                       >
                         <div>{getAssessmentDisplayTitle(assessment)}</div>
                         <div className="text-muted-foreground">
-                          ({assessment.obtainable})
+                          ({assessment.obtainable ?? "Uncapped"})
                         </div>
                       </TableHead>
                     ))

@@ -20,7 +20,7 @@ export type AssessmentWorkbookLiveContext = {
     assessments: Array<{
       id: number;
       title: string;
-      obtainable: number;
+      obtainable: number | null;
       currentScores: Record<string, number | null>;
     }>;
   }>;
@@ -62,7 +62,7 @@ type ResolvedColumn = {
   subjectTitle: string;
   assessmentId: number | null;
   assessmentTitle: string;
-  obtainable: number;
+  obtainable: number | null;
   originalScores: Record<string, number | null>;
   comparisonScores: Record<string, number | null>;
   resolution: AssessmentWorkbookColumnResolution | null;
@@ -75,7 +75,7 @@ export type AssessmentWorkbookPreview = {
       availableAssessments: Array<{
         id: number;
         title: string;
-        obtainable: number;
+        obtainable: number | null;
       }>;
     }
   >;
@@ -84,7 +84,7 @@ export type AssessmentWorkbookPreview = {
     departmentSubjectId: string;
     subjectTitle: string;
     title: string;
-    obtainable: number;
+    obtainable: number | null;
     percentageObtainable: number;
   }>;
   changes: AssessmentWorkbookPreviewChange[];
@@ -248,7 +248,7 @@ export function buildAssessmentWorkbookPreview({
         subjectTitle: column.subjectTitle,
         assessmentId: column.assessmentId,
         assessmentTitle: column.assessmentTitle ?? "Assessment",
-        obtainable: column.obtainable ?? 0,
+        obtainable: column.obtainable,
         originalScores: column.originalScores,
         comparisonScores: column.originalScores,
         resolution: requestedResolution,

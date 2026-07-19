@@ -19,7 +19,7 @@ type ScoreResult = {
 
 type Props = {
   assessmentId: number;
-  obtainable: number;
+  obtainable: number | null;
   studentTermFormId: string;
   studentId: string | undefined;
   departmentSubjectId: string;
@@ -158,7 +158,9 @@ export function AssessmentResultsScoreCell({
             "[appearance:textfield]",
             "[&::-webkit-inner-spin-button]:appearance-none",
             "[&::-webkit-outer-spin-button]:appearance-none",
-            +displayValue > obtainable && "text-destructive",
+            obtainable != null &&
+              +displayValue > obtainable &&
+              "text-destructive",
           )}
           defaultValue={displayValue}
           onBlur={() => {

@@ -48,7 +48,7 @@ type WorkbookSubject = {
   assessments: Array<{
     id: number;
     title: string;
-    obtainable: number;
+    obtainable: number | null;
     parentAssessment?: { title?: string | null } | null;
   }>;
 };
@@ -520,7 +520,9 @@ export function AssessmentWorkbooksDialog({
                                     className="block text-xs text-muted-foreground"
                                     dir="ltr"
                                   >
-                                    Maximum {assessment.obtainable}
+                                    {assessment.obtainable == null
+                                      ? "Uncapped"
+                                      : `Maximum ${assessment.obtainable}`}
                                   </span>
                                 </span>
                               </label>
@@ -698,7 +700,10 @@ export function AssessmentWorkbooksDialog({
                                         dir="auto"
                                       >
                                         {assessment.title} (
-                                        {assessment.obtainable})
+                                        {assessment.obtainable == null
+                                          ? "uncapped"
+                                          : assessment.obtainable}
+                                        )
                                       </SelectItem>
                                     ),
                                   )}
@@ -735,13 +740,14 @@ export function AssessmentWorkbooksDialog({
                                       type="number"
                                       min="0.01"
                                       step="0.01"
-                                      value={resolution.obtainable}
+                                      placeholder="Uncapped"
+                                      value={resolution.obtainable ?? ""}
                                       onChange={(event) =>
                                         setResolution(column.key, {
                                           ...resolution,
-                                          obtainable: Number(
-                                            event.target.value,
-                                          ),
+                                          obtainable: event.target.value
+                                            ? Number(event.target.value)
+                                            : null,
                                         })
                                       }
                                     />
@@ -808,8 +814,16 @@ export function AssessmentWorkbooksDialog({
                           {preview.assessmentCreations.map((assessment) => (
                             <li key={assessment.columnKey} dir="auto">
                               {assessment.subjectTitle}: {assessment.title} —
-                              maximum{" "}
-                              <span dir="ltr">{assessment.obtainable}</span>,
+                              {assessment.obtainable == null ? (
+                                " uncapped,"
+                              ) : (
+                                <>
+                                  {" "}
+                                  maximum{" "}
+                                  <span dir="ltr">{assessment.obtainable}</span>
+                                  ,
+                                </>
+                              )}
                               weight{" "}
                               <span dir="ltr">
                                 {assessment.percentageObtainable}%

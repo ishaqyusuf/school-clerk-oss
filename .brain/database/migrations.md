@@ -44,6 +44,17 @@ Change log for database schema migrations and rollout notes.
 
 ## Migration Entry
 
+- Date: 2026-07-19
+- ID: schema-push-20260719_uncapped_informational_assessments
+- Summary: Made `ClassroomSubjectAssessment.obtainable` nullable so standalone zero-weight informational assessments can accept non-negative numeric values without an upper bound.
+- Affected entities: `ClassroomSubjectAssessment`
+- Backfill required: No for production. The nullable schema is backward-compatible and no production assessment or score record was modified. Locally, only the four approved Qur'an page-reference assessments were changed to `NULL`, preserving their IDs, scores, and `0%` weights.
+- Rollout: `bun run db:generate`, `bun run db:push --local`, and `bun run db:push --prod` succeeded. No migration file or remote-development push was created.
+- Rollback plan: Restore numeric maxima for any uncapped local records, require positive maxima in every assessment path, regenerate Prisma Client, then push the non-null schema only after confirming no `NULL` rows remain.
+- Owner: Codex
+
+## Migration Entry
+
 - Date: 2026-07-18
 - ID: ASSESSMENT-2026-07-18-score-value-history
 - Summary: Added append-only assessment score value history with previous/new values, change type, write source, actor provenance, source reference, and immutable identity snapshots.

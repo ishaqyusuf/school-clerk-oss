@@ -4,7 +4,8 @@ import { TRPCError } from "@trpc/server";
 process.env.DATABASE_URL ??=
   "postgresql://postgres:postgres@127.0.0.1:55432/school_clerk";
 
-const { saveAssessement, updateAssessmentScore } = await import("./assessments");
+const { saveAssessement, updateAssessmentScore, updateAssessmentScoreSchema } =
+  await import("./assessments");
 
 function createAdminContext(overrides: Record<string, unknown> = {}) {
   return {
@@ -99,6 +100,22 @@ describe("saveAssessement", () => {
 });
 
 describe("updateAssessmentScore", () => {
+  test("rejects negative, malformed, and non-finite score inputs", () => {
+    const baseInput = {
+      assessmentId: 10,
+      departmentId: "subject-1",
+      studentId: "student-1",
+      studentTermId: "term-form-1",
+    };
+
+    for (const obtained of [-1, Number.NaN, Number.POSITIVE_INFINITY, "ten"]) {
+      expect(
+        updateAssessmentScoreSchema.safeParse({ ...baseInput, obtained })
+          .success,
+      ).toBe(false);
+    }
+  });
+
   test("rejects direct score writes to grouped parent assessments", async () => {
     const ctx = createAdminContext({
       classroomSubjectAssessment: {
@@ -157,6 +174,7 @@ describe("updateAssessmentScore", () => {
             sessionTermId: "term-1",
           },
           isGroup: false,
+          obtainable: null,
         }),
       },
       studentAssessmentRecord: tx.studentAssessmentRecord,
@@ -201,6 +219,35 @@ describe("updateAssessmentScore", () => {
         actorName: "Admin One",
       }),
     ]);
+  });
+
+  test("rejects a score above a capped assessment maximum", async () => {
+    const ctx = createAdminContext({
+      classroomSubjectAssessment: {
+        findFirst: async () => ({
+          departmentSubjectId: "subject-1",
+          departmentSubject: {
+            classRoomDepartmentId: "classroom-a",
+            sessionTermId: "term-1",
+          },
+          isGroup: false,
+          obtainable: 20,
+        }),
+      },
+    });
+
+    await expect(
+      updateAssessmentScore(ctx, {
+        assessmentId: 10,
+        departmentId: "subject-1",
+        obtained: 21,
+        studentId: "student-1",
+        studentTermId: "term-form-1",
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Score cannot be greater than the assessment maximum.",
+    } satisfies Partial<TRPCError>);
   });
 
   test("retries serialization conflicts and returns a clear conflict after exhaustion", async () => {

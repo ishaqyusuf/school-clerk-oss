@@ -21,10 +21,20 @@ type AssessmentActionInput = {
 	classroomName: string;
 	subjectName: string;
 	assessmentTitle: string;
-	obtainable: number;
+	obtainable: number | null;
 	percentageObtainable: number;
 	scores: AssessmentScoreInput[];
 };
+
+function getAssessmentMaximumError(
+	input: Partial<
+		Pick<AssessmentActionInput, "obtainable" | "percentageObtainable">
+	>,
+) {
+	return input.obtainable == null && (input.percentageObtainable ?? 0) > 0
+		? "Weighted assessments require a positive obtainable score."
+		: null;
+}
 
 type ResolvedStudentScore = {
 	studentId: string;
@@ -102,24 +112,37 @@ export function createAssessmentTools(
 		recordAssessmentScores: tool({
 			description:
 				"Create or update a subject assessment and batch-record raw student scores for an active classroom term. Requires explicit confirmation.",
-			inputSchema: z.object({
-				classroomName: z
-					.string()
-					.describe("Classroom display name, for example Primary 1 Emerald"),
-				subjectName: z.string().describe("Subject name, for example Hadith"),
-				assessmentTitle: z.string().describe("Assessment title, for example exam"),
-				obtainable: z.number().positive(),
-				percentageObtainable: z.number().min(0),
-				scores: z
-					.array(
-						z.object({
-							studentName: z.string(),
-							obtained: z.number().min(0),
-						}),
-					)
-					.min(1),
-				confirmationToken: z.string().optional(),
-			}),
+			inputSchema: z
+				.object({
+					classroomName: z
+						.string()
+						.describe("Classroom display name, for example Primary 1 Emerald"),
+					subjectName: z.string().describe("Subject name, for example Hadith"),
+					assessmentTitle: z
+						.string()
+						.describe("Assessment title, for example exam"),
+					obtainable: z.number().finite().positive().nullable(),
+					percentageObtainable: z.number().finite().min(0),
+					scores: z
+						.array(
+							z.object({
+								studentName: z.string(),
+								obtained: z.number().finite().min(0),
+							}),
+						)
+						.min(1),
+					confirmationToken: z.string().optional(),
+				})
+				.superRefine((value, refinementContext) => {
+					const message = getAssessmentMaximumError(value);
+					if (message) {
+						refinementContext.addIssue({
+							code: z.ZodIssueCode.custom,
+							path: ["obtainable"],
+							message,
+						});
+					}
+				}),
 			execute: async ({
 				confirmationToken,
 				...actionInput
@@ -133,6 +156,45 @@ export function createAssessmentTools(
 				if (guarded.blocked) return guarded.blocked;
 
 				try {
+					const maximumError = getAssessmentMaximumError(actionInput);
+					if (maximumError) {
+						const output = blockedOutput({
+							toolName: "recordAssessmentScores",
+							message: maximumError,
+						});
+						await finishAssistantToolExecution({
+							toolExecutionId: guarded.executionId,
+							status: "blocked",
+							output,
+						});
+						return output;
+					}
+
+					const invalidScores = actionInput.scores.filter(
+						(score) =>
+							typeof score.obtained !== "number" ||
+							!Number.isFinite(score.obtained) ||
+							score.obtained < 0 ||
+							(actionInput.obtainable != null &&
+								score.obtained > actionInput.obtainable),
+					);
+					if (invalidScores.length) {
+						const output = blockedOutput({
+							toolName: "recordAssessmentScores",
+							message:
+								actionInput.obtainable == null
+									? "Assessment values must be non-negative."
+									: `Assessment values must be between 0 and the maximum of ${actionInput.obtainable}.`,
+							unmatched: invalidScores,
+						});
+						await finishAssistantToolExecution({
+							toolExecutionId: guarded.executionId,
+							status: "blocked",
+							output,
+						});
+						return output;
+					}
+
 					if (!ctx.sessionId || !ctx.termId) {
 						const output = blockedOutput({
 							toolName: "recordAssessmentScores",

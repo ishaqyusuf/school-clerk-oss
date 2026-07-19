@@ -3,8 +3,8 @@ import { z } from "zod";
 const subAssessmentSchema = z.object({
   id: z.number().optional().nullable(),
   title: z.string().min(1),
-  obtainable: z.number().min(0),
-  percentageObtainable: z.number().min(0),
+  obtainable: z.number().finite().positive(),
+  percentageObtainable: z.number().finite().min(0),
 });
 
 export const assessmentPrintModeSchema = z
@@ -17,9 +17,9 @@ export const saveAssessementSchema = z
   .object({
     id: z.number().optional().nullable(),
     title: z.string().min(1),
-    obtainable: z.number().min(0),
+    obtainable: z.number().finite().min(0).nullable(),
     index: z.number(),
-    percentageObtainable: z.number().min(0),
+    percentageObtainable: z.number().finite().min(0),
     departmentSubjectId: z.string(),
     isGroup: z.boolean().optional().default(false),
     printMode: assessmentPrintModeSchema,
@@ -32,6 +32,18 @@ export const saveAssessementSchema = z
         code: z.ZodIssueCode.custom,
         path: ["childAssessments"],
         message: "Add at least one sub-assessment for grouped items.",
+      });
+    }
+
+    if (
+      !value.isGroup &&
+      value.percentageObtainable > 0 &&
+      (value.obtainable == null || value.obtainable <= 0)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["obtainable"],
+        message: "Weighted assessments require a positive obtainable score.",
       });
     }
   });
@@ -126,7 +138,7 @@ export type AssessmentResultRecord = {
 export type AssessmentRecord = {
   id: number;
   title: string;
-  obtainable: number;
+  obtainable: number | null;
   percentageObtainable?: number | null;
   index?: number | null;
   parentAssessment?: {
@@ -174,13 +186,14 @@ export type ResultSubjectTotal = {
   total: number;
 };
 
-export type ResultRow<TStudent extends StudentTermRecord = StudentTermRecord> = {
-  student: TStudent;
-  studentName: string;
-  subjectTotals: ResultSubjectTotal[];
-  grandTotal: number;
-  percentage: number;
-};
+export type ResultRow<TStudent extends StudentTermRecord = StudentTermRecord> =
+  {
+    student: TStudent;
+    studentName: string;
+    subjectTotals: ResultSubjectTotal[];
+    grandTotal: number;
+    percentage: number;
+  };
 
 export function getAssessmentDisplayTitle(assessment: AssessmentRecord) {
   return assessment.parentAssessment?.title
@@ -336,9 +349,11 @@ export function getResultScore(
   if (obtained === null) return null;
 
   const percentageObtainable = assessment.percentageObtainable;
+  if (percentageObtainable === 0) return 0;
   if (
     percentageObtainable &&
     percentageObtainable !== assessment.obtainable &&
+    assessment.obtainable != null &&
     assessment.obtainable > 0
   ) {
     return (obtained / assessment.obtainable) * percentageObtainable;
@@ -419,7 +434,7 @@ export function buildResultRows<TStudent extends StudentTermRecord>({
       sum(
         subject.assessments.map(
           (assessment) =>
-            assessment.percentageObtainable || assessment.obtainable,
+            assessment.percentageObtainable ?? assessment.obtainable,
         ),
       ),
     0,

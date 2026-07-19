@@ -16,6 +16,10 @@ import FormSwitch from "@school-clerk/ui/controls/form-switch";
 import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
 import { AlertTriangle, Plus, Trash2 } from "lucide-react";
+import {
+  getAssessmentFormValues,
+  isUncappedAssessmentConfiguration,
+} from "./assessment-form-model";
 interface Props {
   defaultValues?: typeof saveAssessementSchema._type;
   children?;
@@ -29,29 +33,10 @@ export function AssessmentForm(props: Props) {
 }
 function Content(props: Props) {
   const form = useZodForm(saveAssessementSchema, {
-    defaultValues: {
-      departmentSubjectId: "",
-      id: undefined,
-      index: undefined,
-      obtainable: 0,
-      percentageObtainable: 0,
-      title: "",
-      isGroup: false,
-      printMode: "expanded",
-      parentAssessmentId: null,
-      childAssessments: [],
-    },
+    defaultValues: getAssessmentFormValues(),
   });
   useEffect(() => {
-    form.reset({
-      obtainable: 0,
-      percentageObtainable: 0,
-      isGroup: false,
-      printMode: "expanded",
-      parentAssessmentId: null,
-      childAssessments: [],
-      ...props.defaultValues,
-    });
+    form.reset(getAssessmentFormValues(props.defaultValues));
   }, [props.defaultValues]);
   const childAssessmentsFieldArray = useFieldArray({
     control: form.control,
@@ -74,6 +59,15 @@ function Content(props: Props) {
     control: form.control,
     name: "percentageObtainable",
   });
+  const obtainable = useWatch({
+    control: form.control,
+    name: "obtainable",
+  });
+  const isUncapped = isUncappedAssessmentConfiguration({
+    isGroup,
+    obtainable,
+    percentageObtainable,
+  });
   const childTotals = useMemo(
     () =>
       (childAssessments ?? []).reduce(
@@ -86,7 +80,7 @@ function Content(props: Props) {
           obtainable: 0,
           percentageObtainable: 0,
         },
-    ),
+      ),
     [childAssessments],
   );
   const printStatus = useMemo(
@@ -224,8 +218,10 @@ function Content(props: Props) {
                           label="Obtainable"
                           control={form.control}
                           name={`childAssessments.${index}.obtainable`}
-                          numericProps={{
-                            type: "tel",
+                          type="number"
+                          inputProps={{
+                            min: 0.01,
+                            step: 0.01,
                           }}
                         />
                         <FormInput
@@ -248,14 +244,23 @@ function Content(props: Props) {
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              <FormInput
-                label="Obtainable"
-                control={form.control}
-                name="obtainable"
-                numericProps={{
-                  type: "tel",
-                }}
-              />
+              <div className="space-y-1">
+                <FormInput
+                  label="Obtainable"
+                  control={form.control}
+                  name="obtainable"
+                  type="number"
+                  placeholder="Leave empty for uncapped"
+                  inputProps={{
+                    min: 0,
+                    step: 0.01,
+                  }}
+                />
+                <p className="px-1 text-xs text-muted-foreground">
+                  Leave empty for an uncapped informational value. Uncapped
+                  assessments must have 0% weight.
+                </p>
+              </div>
               <FormInput
                 label="Weight %"
                 control={form.control}
@@ -269,6 +274,11 @@ function Content(props: Props) {
 
           {!isGroup ? (
             <div className="flex flex-wrap gap-2">
+              {isUncapped ? (
+                <Badge variant="neutral" className="rounded-full px-3 py-1">
+                  Uncapped · 0% weight
+                </Badge>
+              ) : null}
               <Badge
                 variant={printStatus.printable ? "success" : "warning"}
                 className="rounded-full px-3 py-1"

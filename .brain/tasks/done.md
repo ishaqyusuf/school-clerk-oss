@@ -23,6 +23,15 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: ASMT-UNCAPPED-001
+- Title: Support uncapped informational assessments
+- Completed: 2026-07-19
+- Outcome: Added nullable obtainable values for standalone `0%`-weight informational assessments across shared contracts, authenticated/public/AI/workbook score entry, assessment forms, recording screens, signed workbook review/apply, result totals, and printed reports. Locally converted the four approved Qur'an page-reference assessments without changing their IDs or scores. A signed RTL workbook accepted and applied `750` to an uncapped field, produced exactly one `WORKBOOK_IMPORT` history row, and the same idempotency-key replay produced no duplicate write. Production received the nullable schema only; production assessment and score data remained unchanged.
+- Related changes: `packages/db/src/schema/assessment.prisma`, `packages/assessment-results`, `packages/assessment-workbooks`, `packages/ai/src/tools/assessments.ts`, `apps/api/src/db/queries/assessments.ts`, `apps/api/src/db/queries/assessment-public-links.ts`, dashboard assessment components, `.brain/features/assessment-results-and-sub-assessments.md`, `.brain/features/assessment-workbook-round-trip.md`, `.brain/database/schema.md`, `.brain/database/migrations.md`, `.brain/decisions/ADR-0013-uncapped-informational-assessments.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: ASMT-WB-ROUNDTRIP-001
 - Title: Verify the signed RTL assessment workbook round trip with legacy Qur'an scores
 - Completed: 2026-07-19

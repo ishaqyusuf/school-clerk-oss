@@ -158,7 +158,9 @@ function ScoreInput({
         onBlur={() => setFocus(false)}
         className={cn(
           "w-32",
-          value > assessment?.obtainable && "border-red-400",
+          assessment?.obtainable != null &&
+            value > assessment.obtainable &&
+            "border-red-400",
           "border-none focus-within:border-primary group rounded-none ring-0",
         )}
       >
@@ -178,8 +180,9 @@ function ScoreInput({
           className="opacity-0 group-focus-within:opacity-100"
           align="inline-end"
         >
-          {" / "}
-          {enToAr(assessment?.obtainable)}
+          {assessment?.obtainable == null
+            ? "Uncapped"
+            : ` / ${enToAr(assessment.obtainable)}`}
         </InputGroup.Addon>
         <InputGroup.Addon
           className={cn(

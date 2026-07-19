@@ -115,14 +115,14 @@ Defines request/response contracts, validation rules, and versioning expectation
 ## Assessment Contracts
 
 - Route: `assessments.saveAssessement`
-- Request schema: assessment setup payload with `title`, `obtainable`, `percentageObtainable`, `departmentSubjectId`, optional `id`, optional `isGroup`, optional `childAssessments[]`, and grouped `printMode: "expanded" | "total"`.
+- Request schema: assessment setup payload with `title`, `obtainable: number | null`, `percentageObtainable`, `departmentSubjectId`, optional `id`, optional `isGroup`, optional `childAssessments[]`, and grouped `printMode: "expanded" | "total"`.
 - Response schema: saved `ClassroomSubjectAssessment` parent row.
-- Error cases: unauthorized subject/assessment scope, grouped parent with no children, child assessment IDs that do not already belong to the grouped parent being edited.
-- Notes: grouped parent rows store the printable mode; child rows remain the scoreable assessment records.
+- Error cases: unauthorized subject/assessment scope, grouped parent with no children, child assessment IDs that do not already belong to the grouped parent being edited, empty obtainable with positive weight, or a grouped child without a positive obtainable value.
+- Notes: grouped parent rows store the printable mode; child rows remain the scoreable assessment records. `obtainable = null` is reserved for standalone zero-weight informational assessments.
 
 - Route: `assessments.getClassroomReportSheet`
 - Request schema: `{ departmentId: string, sessionTermId: string }`
-- Response schema: classroom report sheet with subjects, scoreable non-group assessments, parent assessment metadata including `id`, `title`, `index`, and `printMode`, assessment results scoped to the selected term, and active student term forms.
+- Response schema: classroom report sheet with subjects, scoreable non-group assessments whose `obtainable` is `number | null`, parent assessment metadata including `id`, `title`, `index`, and `printMode`, assessment results scoped to the selected term, and active student term forms.
 - Error cases: unauthorized classroom access or invalid classroom/term scope.
 - Notes: student result print/PDF uses `parentAssessment.printMode = "TOTAL"` to collapse weighted child scores into one parent column; score-entry/review tables continue to use the scoreable child rows.
 
@@ -159,14 +159,14 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Public routes: `assessments.getPublicAssessmentLink`, `assessments.updatePublicAssessmentScore`
 - Request schema: get `{ token: string }`; update `{ token: string, assessmentId: string, studentTermFormId: string, departmentSubjectId: string, obtained: number | null }`
 - Response schema: get returns the token-scoped classroom report sheet payload; update returns the saved score record.
-- Error cases: malformed token, hash mismatch, pending/rejected/revoked/expired link, score target outside captured subject/student scope, grouped parent assessment, score above obtainable, invalid classroom/term ancestry, or a concurrent score conflict that remains after three retries.
+- Error cases: malformed token, hash mismatch, pending/rejected/revoked/expired link, score target outside captured subject/student scope, grouped parent assessment, negative/non-finite/malformed score, score above a numeric obtainable maximum, invalid classroom/term ancestry, or a concurrent score conflict that remains after three retries.
 - Notes: Public token routes are intentionally unauthenticated but never broaden beyond the stored classroom, term, subject, and student scope. A successful public score write appends a transactional history row with `PUBLIC_LINK` source and link provenance. Because the token holder is anonymous, the history must not attribute the edit to the staff member who requested or created the link.
 
 - Route: `assessments.updateAssessmentScore`
 - Request schema: `{ assessmentId: number, studentTermId: string, studentId: string, departmentId: string, obtained?: number | null, id?: number | null }`
 - Response schema: saved score record.
-- Error cases: unauthorized assessment scope, grouped parent assessment, score target outside the selected classroom subject, score record mismatch, or a concurrent score conflict that remains after three retries.
-- Notes: authenticated score entry writes only to scoreable, non-group assessment rows. Every successful create or update appends a transactional history row with previous/new values, `AUTHENTICATED_ENTRY` source, and the current user identity.
+- Error cases: unauthorized assessment scope, grouped parent assessment, negative/non-finite/malformed score, score above a numeric obtainable maximum, score target outside the selected classroom subject, score record mismatch, or a concurrent score conflict that remains after three retries.
+- Notes: authenticated score entry writes only to scoreable, non-group assessment rows. A `null` obtainable skips only upper-bound validation. Every successful create or update appends a transactional history row with previous/new values, `AUTHENTICATED_ENTRY` source, and the current user identity.
 
 - Route: `assessments.applyAssessmentWorkbook`
 - History side effect: every score applied from a confirmed workbook appends a history row with `WORKBOOK_IMPORT` source, workbook export reference, current actor identity, and previous/new values in the same atomic import transaction.

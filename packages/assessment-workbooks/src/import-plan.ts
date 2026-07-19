@@ -27,7 +27,7 @@ export type AssessmentScoreChangeInput = {
   downloaded: number | null;
   uploaded: unknown;
   current: number | null;
-  obtainable: number;
+  obtainable: number | null;
 };
 
 export function classifyAssessmentScoreChange({
@@ -44,7 +44,7 @@ export function classifyAssessmentScoreChange({
   if (normalized.status === "invalid") {
     return normalized;
   }
-  if (normalized.value > obtainable) {
+  if (obtainable != null && normalized.value > obtainable) {
     return {
       status: "invalid",
       reason: "above-maximum",

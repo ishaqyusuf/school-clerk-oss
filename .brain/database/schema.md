@@ -215,6 +215,17 @@ The canonical current value remains in `StudentAssessmentRecord`. History creati
 - Import summary storage is audit metadata; current assessment scores remain canonical in `StudentAssessmentRecord`.
 - Activity types `assessment_workbook_downloaded` and `assessment_workbook_imported` record tenant audit events.
 
+### ClassroomSubjectAssessment Obtainable (updated — session 2026-07)
+
+| Field        | Type     | Notes                                                                                                    |
+| ------------ | -------- | -------------------------------------------------------------------------------------------------------- |
+| `obtainable` | `Float?` | Nullable raw-score maximum. `null` is allowed only for standalone `0%`-weight informational assessments. |
+
+- A numeric value is enforced as the score upper bound.
+- `null` accepts any finite non-negative score without an upper bound; it does not represent a student-specific denominator.
+- Positively weighted standalone assessments and every grouped-assessment child require a positive value.
+- Grouped parents continue deriving their effective maximum from child assessments.
+
 ### ClassroomSubjectAssessment Print Mode (added — session 2026-07)
 
 | Field       | Type                                  | Notes                                                                 |

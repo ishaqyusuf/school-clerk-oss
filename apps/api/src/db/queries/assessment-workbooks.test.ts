@@ -37,8 +37,8 @@ function createContext(gender: "Male" | "Female" | null, role = "Admin") {
       {
         id: 10,
         title: "Test",
-        obtainable: 20,
-        percentageObtainable: 20,
+        obtainable: null,
+        percentageObtainable: 0,
         parentAssessment: null,
         assessmentResults: [{ obtained: 7, studentTermFormId: "form-1" }],
       },
@@ -218,11 +218,20 @@ describe("downloadAssessmentWorkbook", () => {
 
     const historyRows: Record<string, unknown>[] = [];
     let importCreateCount = 0;
+    let savedImport: Record<string, unknown> | null = null;
     db.assessmentWorkbookImport = {
-      findUnique: async () => null,
-      create: async () => {
+      findUnique: async ({ where }: { where: Record<string, unknown> }) => {
+        const key = (
+          where.schoolProfileId_idempotencyKey as {
+            idempotencyKey: string;
+          }
+        ).idempotencyKey;
+        return savedImport?.idempotencyKey === key ? savedImport : null;
+      },
+      create: async ({ data }: { data: Record<string, unknown> }) => {
         importCreateCount += 1;
-        return { id: "import-1" };
+        savedImport = { ...data, id: "import-1" };
+        return savedImport;
       },
     };
     db.studentAssessmentRecord = {
@@ -270,6 +279,21 @@ describe("downloadAssessmentWorkbook", () => {
         sourceReference: "export-1",
       }),
     ]);
+    expect(importCreateCount).toBe(1);
+
+    const replay = await applyAssessmentWorkbook(ctx, {
+      fileBase64: editedFileBase64,
+      resolutions: {},
+      idempotencyKey: "import-key-1",
+      previewToken: preview.previewToken,
+    });
+    expect(replay).toEqual(
+      expect.objectContaining({
+        importId: "import-1",
+        alreadyApplied: true,
+      }),
+    );
+    expect(historyRows).toHaveLength(1);
     expect(importCreateCount).toBe(1);
 
     db.studentAssessmentRecordHistory.create = async () => {

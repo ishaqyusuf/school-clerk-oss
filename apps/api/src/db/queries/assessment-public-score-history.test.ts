@@ -5,12 +5,29 @@ import type { TRPCContext } from "@api/trpc/init";
 process.env.DATABASE_URL ??=
   "postgresql://postgres:postgres@127.0.0.1:55432/school_clerk";
 
-const { updatePublicAssessmentScore } =
+const { updatePublicAssessmentScore, updatePublicAssessmentScoreSchema } =
   await import("./assessment-public-links");
 const { createAssessmentPublicLinkToken } =
   await import("./assessment-public-links-policy");
 
 describe("updatePublicAssessmentScore history", () => {
+  test("rejects negative, malformed, and non-finite public score inputs", () => {
+    const baseInput = {
+      assessmentId: 41,
+      departmentSubjectId: "subject-1",
+      studentId: "student-1",
+      studentTermId: "term-form-1",
+      token: "token-1",
+    };
+
+    for (const obtained of [-1, Number.NaN, Number.POSITIVE_INFINITY, "ten"]) {
+      expect(
+        updatePublicAssessmentScoreSchema.safeParse({ ...baseInput, obtained })
+          .success,
+      ).toBe(false);
+    }
+  });
+
   test("records public-link source without attributing the anonymous editor to the requester", async () => {
     const historyRows: Record<string, unknown>[] = [];
     let transactionOptions: Record<string, unknown> | undefined;
@@ -60,7 +77,7 @@ describe("updatePublicAssessmentScore history", () => {
           findFirst: async () => ({ id: "subject-1" }),
         },
         classroomSubjectAssessment: {
-          findFirst: async () => ({ id: 41, obtainable: 20 }),
+          findFirst: async () => ({ id: 41, obtainable: null }),
         },
         studentTermForm: {
           findFirst: async () => ({ id: "term-form-1" }),

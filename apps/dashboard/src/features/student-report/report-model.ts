@@ -22,7 +22,7 @@ type Assessment = {
     printMode?: string | null;
   } | null;
   percentageObtainable: number | null;
-  obtainable: number;
+  obtainable: number | null;
   index?: number | null;
   assessmentResults: AssessmentResult[];
 };
@@ -119,7 +119,7 @@ function getWeightedObtained(
     return record.obtained;
   }
 
-  return assessment.percentageObtainable
+  return assessment.percentageObtainable && assessment.obtainable
     ? sum([
         ((record.obtained ?? 0) / assessment.obtainable) *
           assessment.percentageObtainable,

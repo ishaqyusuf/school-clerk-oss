@@ -1,7 +1,7 @@
 model ClassroomSubjectAssessment {
   id                   Int                                  @unique @default(autoincrement())
   title                String
-  obtainable           Float                                @default(0)
+  obtainable           Float?                               @default(0)
   percentageObtainable Float?                               @default(0)
   index                Float?
   isGroup              Boolean                              @default(false)

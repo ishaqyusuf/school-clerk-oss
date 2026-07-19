@@ -5,9 +5,67 @@ import {
   getAssessmentPrintColumns,
   getAssessmentPrintStatus,
   getAssessmentPrintableWeight,
+  getResultScore,
   isPrintableAssessment,
+  saveAssessementSchema,
   sortResultRoster,
 } from "./index";
+
+const baseAssessment = {
+  title: "Pages revised",
+  obtainable: null,
+  index: 0,
+  percentageObtainable: 0,
+  departmentSubjectId: "subject-1",
+  isGroup: false,
+  printMode: "expanded" as const,
+  parentAssessmentId: null,
+  childAssessments: [],
+};
+
+describe("assessment maximum validation", () => {
+  test("accepts an uncapped standalone informational assessment", () => {
+    expect(saveAssessementSchema.safeParse(baseAssessment).success).toBe(true);
+  });
+
+  test("requires a positive maximum for weighted assessments and grouped children", () => {
+    const weighted = saveAssessementSchema.safeParse({
+      ...baseAssessment,
+      percentageObtainable: 10,
+    });
+    const grouped = saveAssessementSchema.safeParse({
+      ...baseAssessment,
+      title: "Exam",
+      isGroup: true,
+      childAssessments: [
+        {
+          title: "Oral",
+          obtainable: 0,
+          percentageObtainable: 0,
+        },
+      ],
+    });
+
+    expect(weighted.success).toBe(false);
+    expect(grouped.success).toBe(false);
+  });
+});
+
+describe("uncapped informational result values", () => {
+  test("keeps a zero-weight uncapped value out of calculated totals", () => {
+    expect(
+      getResultScore(
+        {
+          id: 1,
+          title: "Pages revised",
+          obtainable: null,
+          percentageObtainable: 0,
+        },
+        { obtained: 750 },
+      ),
+    ).toBe(0);
+  });
+});
 
 const roster = [
   {

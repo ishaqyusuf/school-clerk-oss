@@ -91,7 +91,7 @@ export const updatePublicAssessmentScoreSchema = z.object({
   assessmentId: z.number(),
   departmentSubjectId: z.string().min(1),
   id: z.number().optional().nullable(),
-  obtained: z.number().optional().nullable(),
+  obtained: z.number().finite().min(0).optional().nullable(),
   studentId: z.string().min(1),
   studentTermId: z.string().min(1),
   token: z.string().min(1),
@@ -1136,7 +1136,11 @@ export async function updatePublicAssessmentScore(
     });
   }
 
-  if (input.obtained != null && input.obtained > assessment.obtainable) {
+  if (
+    input.obtained != null &&
+    assessment.obtainable != null &&
+    input.obtained > assessment.obtainable
+  ) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "Score cannot be greater than the assessment maximum.",

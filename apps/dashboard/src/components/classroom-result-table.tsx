@@ -921,7 +921,7 @@ export function ClassroomResultTable({
 													>
 														<div>{getAssessmentDisplayTitle(assessment)}</div>
 														<div className="text-muted-foreground">
-															({assessment.obtainable})
+															({assessment.obtainable ?? "Uncapped"})
 														</div>
 													</TableHead>
 												))}

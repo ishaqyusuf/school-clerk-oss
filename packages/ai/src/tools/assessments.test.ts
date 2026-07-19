@@ -36,7 +36,10 @@ function createHelpers() {
 	return { completions, helpers };
 }
 
-function createDatabase({ failHistory = false } = {}) {
+function createDatabase({
+	failHistory = false,
+	assessmentObtainable = 20 as number | null,
+} = {}) {
 	const historyRows: Record<string, unknown>[] = [];
 	let transactionOptions: Record<string, unknown> | undefined;
 	const transaction = {
@@ -100,8 +103,8 @@ function createDatabase({ failHistory = false } = {}) {
 				{
 					id: 10,
 					title: "Exam",
-					obtainable: 20,
-					percentageObtainable: 20,
+					obtainable: assessmentObtainable,
+					percentageObtainable: assessmentObtainable == null ? 0 : 20,
 					index: 0,
 				},
 			],
@@ -193,6 +196,103 @@ describe("recordAssessmentScores history", () => {
 			),
 			true,
 		);
+	});
+
+	it("records an uncapped non-negative informational value", async () => {
+		const { helpers } = createHelpers();
+		const { database, historyRows } = createDatabase({
+			assessmentObtainable: null,
+		});
+		const assessmentTool = createAssessmentTools(
+			context,
+			helpers,
+			database as never,
+		).recordAssessmentScores;
+		const execute = assessmentTool.execute as unknown as (
+			input: Record<string, unknown>,
+			options: Record<string, unknown>,
+		) => Promise<Record<string, unknown>>;
+
+		const result = await execute(
+			{
+				classroomName: "Primary 1 A",
+				subjectName: "Mathematics",
+				assessmentTitle: "Exam",
+				obtainable: null,
+				percentageObtainable: 0,
+				scores: [{ studentName: "Ada One", obtained: 750 }],
+				confirmationToken: "confirmed",
+			},
+			{},
+		);
+
+		assert.equal(result.success, true);
+		assert.equal(historyRows[0]?.newObtained, 750);
+	});
+
+	it("blocks a score above a capped assessment maximum", async () => {
+		const { helpers } = createHelpers();
+		const { database, historyRows } = createDatabase();
+		const assessmentTool = createAssessmentTools(
+			context,
+			helpers,
+			database as never,
+		).recordAssessmentScores;
+		const execute = assessmentTool.execute as unknown as (
+			input: Record<string, unknown>,
+			options: Record<string, unknown>,
+		) => Promise<Record<string, unknown>>;
+
+		const result = await execute(
+			{
+				classroomName: "Primary 1 A",
+				subjectName: "Mathematics",
+				assessmentTitle: "Exam",
+				obtainable: 20,
+				percentageObtainable: 20,
+				scores: [{ studentName: "Ada One", obtained: 21 }],
+				confirmationToken: "confirmed",
+			},
+			{},
+		);
+
+		assert.equal(result.blocked, true);
+		assert.match(String(result.message), /maximum/i);
+		assert.equal(historyRows.length, 0);
+	});
+
+	it("blocks negative, malformed, and non-finite score inputs", async () => {
+		for (const obtained of [-1, Number.NaN, Number.POSITIVE_INFINITY, "ten"]) {
+			const { helpers } = createHelpers();
+			const { database, historyRows } = createDatabase({
+				assessmentObtainable: null,
+			});
+			const assessmentTool = createAssessmentTools(
+				context,
+				helpers,
+				database as never,
+			).recordAssessmentScores;
+			const execute = assessmentTool.execute as unknown as (
+				input: Record<string, unknown>,
+				options: Record<string, unknown>,
+			) => Promise<Record<string, unknown>>;
+
+			const result = await execute(
+				{
+					classroomName: "Primary 1 A",
+					subjectName: "Mathematics",
+					assessmentTitle: "Pages revised",
+					obtainable: null,
+					percentageObtainable: 0,
+					scores: [{ studentName: "Ada One", obtained }],
+					confirmationToken: "confirmed",
+				},
+				{},
+			);
+
+			assert.equal(result.blocked, true);
+			assert.equal(historyRows.length, 0);
+		}
 	});
 
 	it("fails the AI score transaction when history cannot be created", async () => {
