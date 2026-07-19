@@ -23,6 +23,15 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: ASMT-UNCAPPED-LABEL-001
+- Title: Simplify uncapped assessment table labels
+- Completed: 2026-07-19
+- Outcome: Replaced the compact `Uncapped` obtainable label with `(-)` in assessment recording and classroom result table headers while preserving the explanatory wording in assessment setup forms.
+- Related changes: `apps/dashboard/src/components/assessment-recording-results-table.tsx`, `apps/dashboard/src/components/classroom-result-table.tsx`, `.brain/features/assessment-results-and-sub-assessments.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: ASMT-RECORDING-WIDTH-001
 - Title: Expand assessment recording content on large screens
 - Completed: 2026-07-19
