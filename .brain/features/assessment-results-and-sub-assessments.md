@@ -101,6 +101,7 @@ Make classroom assessment recording, classroom result review, student result pri
 - Assessment recording keeps its focused `max-w-4xl` shell below the extra-large breakpoint, then uses the full available dashboard content width on larger screens so multi-subject score tables do not waste horizontal space.
 - Assessment recording score cells keep a fixed column width in display and edit modes so focusing an input does not resize the assessment column.
 - Assessment recording score-entry tables use spreadsheet-style row/column dividers, and the active score input fills the whole assessment cell without its own border so entry feels like editing the table directly.
+- Assessment recording and classroom result score cells keep the most recently entered local value visible after focus moves away while the debounced save is pending. Pending saves do not show a loading spinner, successful saves do not add a border, and failed saves show a destructive cell border.
 - Assessment recording and classroom result review rosters share the same default student ordering: `Male` students first, then `Female` students, then alphabetic display names within each gender group.
 - Assessment recording and classroom result review show gender as a compact `M` / `F` badge beside the student name instead of using a separate Gender column, keeping score and report review focused on marks.
 - Classroom result review uses a flat, compact header and combines serial number, student name, and gender badge in the sticky Student column.

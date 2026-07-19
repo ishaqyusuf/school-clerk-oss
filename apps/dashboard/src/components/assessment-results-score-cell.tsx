@@ -1,11 +1,10 @@
 "use client";
 
 import { cn } from "@school-clerk/ui/cn";
-import { Spinner } from "@school-clerk/ui/spinner";
 import { TableCell } from "@school-clerk/ui/table";
 import { useMutation } from "@tanstack/react-query";
-import { AlertCircle, Check } from "lucide-react";
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { _qc, _trpc } from "./static-trpc";
 
@@ -39,11 +38,12 @@ export function AssessmentResultsScoreCell({
   result,
 }: Props) {
   const [isEditing, setIsEditing] = useState(false);
-  const [localValue, setLocalValue] = useState<string>(
-    result?.obtained != null ? String(result.obtained) : "",
-  );
-  const displayValue = useDeferredValue(localValue);
+  const canonicalValue =
+    result?.obtained != null ? String(result.obtained) : "";
+  const [localValue, setLocalValue] = useState<string>(canonicalValue);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasPendingLocalValueRef = useRef(false);
+  const lastCanonicalValueRef = useRef(canonicalValue);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -51,10 +51,20 @@ export function AssessmentResultsScoreCell({
     inputRef.current?.select();
   }, [isEditing]);
 
+  useEffect(() => {
+    if (canonicalValue === lastCanonicalValueRef.current) return;
+
+    lastCanonicalValueRef.current = canonicalValue;
+    if (!hasPendingLocalValueRef.current) {
+      setLocalValue(canonicalValue);
+    }
+  }, [canonicalValue]);
+
   const handleSuccess = (
     data: { obtained?: number | null },
     resetMutation: () => void,
   ) => {
+    hasPendingLocalValueRef.current = false;
     setLocalValue(data.obtained != null ? String(data.obtained) : "");
     if (publicToken) {
       _qc.invalidateQueries({
@@ -91,7 +101,8 @@ export function AssessmentResultsScoreCell({
   const activeMutation = publicToken
     ? publicScoreMutation
     : authenticatedScoreMutation;
-  const { isPending, isSuccess, error } = activeMutation;
+  const { error, isSuccess } = activeMutation;
+  const errorBorderClassName = error ? "border border-destructive" : undefined;
 
   const handleSave = useDebouncedCallback((value: string) => {
     const numValue = value ? +value : null;
@@ -124,6 +135,7 @@ export function AssessmentResultsScoreCell({
         className={cn(
           "w-[70px] min-w-[70px] max-w-[70px] cursor-pointer border-l p-0 text-center transition-colors hover:bg-accent/50",
           dividerClass,
+          errorBorderClassName,
         )}
         onClick={() => setIsEditing(true)}
       >
@@ -131,10 +143,10 @@ export function AssessmentResultsScoreCell({
           <span
             className={cn(
               "text-sm",
-              result?.obtained == null && "text-muted-foreground",
+              localValue === "" && "text-muted-foreground",
             )}
           >
-            {result?.obtained != null ? result.obtained : "-"}
+            {localValue !== "" ? localValue : "-"}
           </span>
         </div>
       </TableCell>
@@ -146,12 +158,14 @@ export function AssessmentResultsScoreCell({
       className={cn(
         "w-[70px] min-w-[70px] max-w-[70px] border-l p-0 text-center",
         dividerClass,
+        errorBorderClassName,
       )}
     >
       <div className="relative flex min-h-9 w-full items-center">
         <input
           ref={inputRef}
           type="number"
+          aria-invalid={Boolean(error)}
           className={cn(
             "h-9 w-full min-w-0 bg-transparent px-0 pr-5 text-center text-sm outline-none",
             "border-0 focus:bg-accent/40 focus:ring-0 focus-visible:ring-0",
@@ -159,14 +173,15 @@ export function AssessmentResultsScoreCell({
             "[&::-webkit-inner-spin-button]:appearance-none",
             "[&::-webkit-outer-spin-button]:appearance-none",
             obtainable != null &&
-              +displayValue > obtainable &&
+              +localValue > obtainable &&
               "text-destructive",
           )}
-          defaultValue={displayValue}
+          defaultValue={localValue}
           onBlur={() => {
             setTimeout(() => setIsEditing(false), 200);
           }}
           onChange={(event) => {
+            hasPendingLocalValueRef.current = true;
             setLocalValue(event.target.value);
             handleSave(event.target.value);
           }}
@@ -177,15 +192,11 @@ export function AssessmentResultsScoreCell({
           }}
           placeholder="-"
         />
-        <div className="pointer-events-none absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center">
-          {isPending ? (
-            <Spinner size={12} />
-          ) : error ? (
-            <AlertCircle className="text-destructive size-3" />
-          ) : isSuccess ? (
-            <Check className="text-green-500 size-3" />
-          ) : null}
-        </div>
+        {isSuccess ? (
+          <div className="pointer-events-none absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center">
+            <Check className="size-3 text-green-500" />
+          </div>
+        ) : null}
       </div>
     </TableCell>
   );
