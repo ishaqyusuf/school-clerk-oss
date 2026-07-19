@@ -56,6 +56,7 @@ Let an authorized academic user download one School Clerk-generated `.xlsx` asse
 - Preview is read-only and always precedes confirmation. It returns an HMAC confirmation token bound to the file digest, normalized resolutions, assessment creations, blockers, summary, and exact score-write plan.
 - Changing a link/create resolution invalidates the dashboard preview. Apply requires the current preview token and rejects a changed file, resolution, or live plan.
 - Apply reparses the signed workbook, rechecks tenant/export binding and current teacher/admin access, reloads live scores, and rebuilds the plan inside a serializable transaction.
+- Export authorization uses a primary-key lookup followed by explicit tenant, term, classroom, and revocation checks. This avoids applying the shared soft-delete filter to workbook export rows, which intentionally use `revokedAt` instead of `deletedAt`.
 - Any blocker aborts the whole transaction.
 - Safe score writes upsert the unique student + term-form + assessment record.
 - `AssessmentWorkbookExport` persists issued workbook identity.

@@ -1,4 +1,4 @@
-import { PrismaClient } from "./generated/client";
+import { Prisma, PrismaClient } from "./generated/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 function normalizePgConnectionString(connectionString: string) {
@@ -26,6 +26,12 @@ function resolvePrismaConnectionString() {
   return normalizePgConnectionString(configuredUrl);
 }
 
+const softDeletableModels = new Set(
+  Prisma.dmmf.datamodel.models
+    .filter((model) => model.fields.some((field) => field.name === "deletedAt"))
+    .map((model) => model.name),
+);
+
 const prismaClientSingleton = () => {
   const connectionString = resolvePrismaConnectionString();
 
@@ -48,7 +54,8 @@ const prismaClientSingleton = () => {
   }).$extends({
     query: {
       $allModels: {
-        async findFirst({ args, query }) {
+        async findFirst({ args, model, query }) {
+          if (!softDeletableModels.has(model)) return query(args);
           if (!args) args = { where: {} };
           if (!args.where) args.where = {};
 
@@ -58,7 +65,8 @@ const prismaClientSingleton = () => {
 
           return query(args);
         },
-        async findMany({ args, query }) {
+        async findMany({ args, model, query }) {
+          if (!softDeletableModels.has(model)) return query(args);
           if (!args) args = { where: {} };
           if (!args.where) args.where = {};
 

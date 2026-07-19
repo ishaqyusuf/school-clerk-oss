@@ -23,6 +23,15 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: ASMT-WB-ROUNDTRIP-001
+- Title: Verify the signed RTL assessment workbook round trip with legacy Qur'an scores
+- Completed: 2026-07-19
+- Outcome: Completed a local-only dashboard round trip for Daarul Hadith, 1447/1448 1st Term, الأول الإعدادي. Renamed the existing الحديث assessment to الامتحان, retained the existing المتون الامتحان, created four weighted Qur'an score assessments plus four zero-weight page-reference fields, downloaded and preservation-safely populated an 18-column signed RTL workbook from the legacy CSV, mapped eight subject-only columns to new 100-point/100%-weight الامتحان assessments, and applied 139 new plus 2 updated scores. Verification confirmed 22 unchanged and 53 blank cells, zero conflicts/invalid/stale rows, 141 unique WORKBOOK_IMPORT history rows, correct Qur'an totals, and one idempotent import after a repeated Apply. The test exposed and fixed workbook export authorization failing because the shared Prisma soft-delete extension injected `deletedAt` into a model that uses `revokedAt`; export lookup now uses the primary key with explicit scope/revocation checks, and the shared extension only filters models that actually declare `deletedAt`. Production data was not changed.
+- Related changes: `apps/api/src/db/queries/assessment-workbooks.ts`, `apps/api/src/db/queries/assessment-workbooks.test.ts`, `packages/db/src/prisma.ts`, `.brain/features/assessment-workbook-round-trip.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: ACADEMIC-RTL-001
 - Title: Automatic RTL for academic data surfaces
 - Completed: 2026-07-18

@@ -470,17 +470,23 @@ async function parseAndAuthorizeWorkbook(ctx: TRPCContext, fileBase64: string) {
     });
   }
 
-  const exportRecord = await ctx.db.assessmentWorkbookExport.findFirst({
-    where: {
-      id: workbook.identity.exportId,
-      schoolProfileId,
-      sessionTermId: workbook.identity.termId,
-      classRoomDepartmentId: workbook.identity.classroomId,
-      revokedAt: null,
+  const exportRecord = await ctx.db.assessmentWorkbookExport.findUnique({
+    where: { id: workbook.identity.exportId },
+    select: {
+      id: true,
+      schoolProfileId: true,
+      sessionTermId: true,
+      classRoomDepartmentId: true,
+      revokedAt: true,
     },
-    select: { id: true },
   });
-  if (!exportRecord) {
+  if (
+    !exportRecord ||
+    exportRecord.schoolProfileId !== schoolProfileId ||
+    exportRecord.sessionTermId !== workbook.identity.termId ||
+    exportRecord.classRoomDepartmentId !== workbook.identity.classroomId ||
+    exportRecord.revokedAt !== null
+  ) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "This School Clerk workbook is no longer valid.",

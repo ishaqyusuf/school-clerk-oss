@@ -184,7 +184,13 @@ describe("downloadAssessmentWorkbook", () => {
   test("applies workbook scores with workbook-source value history", async () => {
     const { ctx } = createContext("Female");
     const db = ctx.db as unknown as Record<string, any>;
-    db.assessmentWorkbookExport.findFirst = async () => ({ id: "export-1" });
+    db.assessmentWorkbookExport.findUnique = async () => ({
+      id: "export-1",
+      schoolProfileId: "school-1",
+      sessionTermId: "term-1",
+      classRoomDepartmentId: "class-1",
+      revokedAt: null,
+    });
 
     const downloaded = await downloadAssessmentWorkbook(ctx, {
       departmentId: "class-1",
