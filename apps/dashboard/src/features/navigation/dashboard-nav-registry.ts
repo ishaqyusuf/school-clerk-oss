@@ -50,7 +50,6 @@ export const dashboardNavRegistry: NavModuleDefinition[] = [
             module: "teacher-workspace",
             roles: ["Teacher"],
             section: "main",
-            status: "upcoming",
             title: "Attendance",
             workspace: "teacher",
           },

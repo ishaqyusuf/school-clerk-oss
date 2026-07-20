@@ -3,10 +3,12 @@
 import { Suspense } from "react";
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
+import { attendanceRate, downloadAttendanceCsv } from "@/lib/attendance";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
@@ -16,6 +18,7 @@ import {
   Calendar,
   CheckCircle2,
   ChevronRight,
+  Download,
   TrendingUp,
   XCircle,
 } from "lucide-react";
@@ -40,8 +43,14 @@ function Content({ departmentId }: { departmentId?: string | null }) {
   const { data: sessions } = useSuspenseQuery(
     trpc.attendance.getClassroomAttendance.queryOptions(
       { departmentId: departmentId || "-" },
-      { enabled: !!departmentId }
-    )
+      { enabled: !!departmentId },
+    ),
+  );
+  const { data: report } = useQuery(
+    trpc.attendance.getAttendanceReport.queryOptions(
+      { departmentId: departmentId || "-" },
+      { enabled: !!departmentId },
+    ),
   );
   const { mutate: deleteSession, isPending: isDeletingSession } = useMutation(
     trpc.attendance.deleteAttendanceSession.mutationOptions({
@@ -68,6 +77,9 @@ function Content({ departmentId }: { departmentId?: string | null }) {
           queryKey: trpc.attendance.getStudentAttendanceHistory.queryKey(),
         });
         qc.invalidateQueries({
+          queryKey: trpc.attendance.getAttendanceReport.queryKey(),
+        });
+        qc.invalidateQueries({
           queryKey: trpc.attendance.getAttendanceSession.queryKey({
             attendanceId,
           }),
@@ -80,17 +92,36 @@ function Content({ departmentId }: { departmentId?: string | null }) {
           });
         }
       },
-    })
+    }),
   );
 
   const totalSessions = sessions.length;
-  const totalStudents = sessions.reduce((sum, s) => sum + s.total, 0);
-  const totalPresent = sessions.reduce((sum, s) => sum + s.present, 0);
+  const totalStudents = sessions.reduce(
+    (sum, session) => sum + session.total,
+    0,
+  );
+  const totalEligibleStudents = sessions.reduce(
+    (sum, session) =>
+      sum +
+      Math.max(
+        session.total - session.excused - session.sick - session.leave,
+        0,
+      ),
+    0,
+  );
+  const totalPresent = sessions.reduce(
+    (sum, session) => sum + session.present + session.late,
+    0,
+  );
   const totalAbsent = sessions.reduce((sum, s) => sum + s.absent, 0);
   const avgPresent =
-    totalStudents > 0 ? Math.round((totalPresent / totalStudents) * 1000) / 10 : 0;
+    totalEligibleStudents > 0
+      ? Math.round((totalPresent / totalEligibleStudents) * 1000) / 10
+      : 0;
   const avgAbsent =
-    totalStudents > 0 ? Math.round((totalAbsent / totalStudents) * 1000) / 10 : 0;
+    totalEligibleStudents > 0
+      ? Math.round((totalAbsent / totalEligibleStudents) * 1000) / 10
+      : 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -119,7 +150,7 @@ function Content({ departmentId }: { departmentId?: string | null }) {
           <div className="flex items-start justify-between mb-4">
             <div>
               <p className="text-sm font-medium text-muted-foreground">
-                Average Present
+                Average Attended
               </p>
               <h3 className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
                 {avgPresent}%
@@ -131,7 +162,7 @@ function Content({ departmentId }: { departmentId?: string | null }) {
           </div>
           <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center">
             <TrendingUp className="h-3.5 w-3.5 mr-1" /> {totalPresent} total
-            present
+            attended
           </p>
         </div>
 
@@ -160,17 +191,33 @@ function Content({ departmentId }: { departmentId?: string | null }) {
         <h3 className="text-sm font-semibold text-foreground">
           Attendance Sessions
         </h3>
-        <Button
-          size="xs"
-          onClick={() =>
-            setParams({
-              attendanceSessionId: null,
-              secondaryTab: "attendance-form",
-            })
-          }
-        >
-          Take Attendance
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={!report?.rows.length}
+            onClick={() =>
+              downloadAttendanceCsv(
+                (report?.rows ?? []) as Array<Record<string, unknown>>,
+                "classroom-attendance.csv",
+              )
+            }
+          >
+            <Download className="mr-1 h-3.5 w-3.5" />
+            Export CSV
+          </Button>
+          <Button
+            size="xs"
+            onClick={() =>
+              setParams({
+                attendanceSessionId: null,
+                secondaryTab: "attendance-form",
+              })
+            }
+          >
+            Take Attendance
+          </Button>
+        </div>
       </div>
 
       {/* Sessions Table */}
@@ -206,10 +253,7 @@ function Content({ departmentId }: { departmentId?: string | null }) {
             </thead>
             <tbody className="divide-y divide-border">
               {sessions.map((session) => {
-                const rate =
-                  session.total > 0
-                    ? Math.round((session.present / session.total) * 100)
-                    : 0;
+                const rate = Math.round(attendanceRate(session));
                 return (
                   <tr
                     key={session.id}
@@ -226,12 +270,16 @@ function Content({ departmentId }: { departmentId?: string | null }) {
                         {session.attendanceTitle}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {session.createdAt
+                        {session.attendanceDate
                           ? format(
-                              new Date(session.createdAt),
-                              "dd MMM yyyy"
+                              new Date(session.attendanceDate),
+                              "dd MMM yyyy",
                             )
                           : ""}
+                        {session.subjectTitle
+                          ? ` · ${session.subjectTitle}`
+                          : ""}
+                        {session.periodLabel ? ` · ${session.periodLabel}` : ""}
                       </p>
                     </td>
                     <td className="px-4 py-3">
@@ -244,7 +292,7 @@ function Content({ departmentId }: { departmentId?: string | null }) {
                         variant="outline"
                         className="text-emerald-600 border-emerald-200 bg-emerald-50/50 dark:bg-emerald-900/10"
                       >
-                        {session.present}
+                        {session.present + session.late}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-center">

@@ -1,6 +1,27 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { useClassroomParams } from "@/hooks/use-classroom-params";
+import {
+  ATTENDANCE_STATUSES,
+  type AttendanceScope,
+  type AttendanceStatus,
+  attendanceRate,
+  attendanceRevisionSummary,
+  todayAttendanceDate,
+} from "@/lib/attendance";
+import { useTRPC } from "@/trpc/client";
+import { Badge } from "@school-clerk/ui/badge";
+import { Button } from "@school-clerk/ui/button";
+import Sheet from "@school-clerk/ui/custom/sheet";
+import { Input } from "@school-clerk/ui/input";
+import { Label } from "@school-clerk/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@school-clerk/ui/select";
 import {
   useMutation,
   useQuery,
@@ -8,16 +29,15 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Calendar, CheckCircle2, Save, User, XCircle } from "lucide-react";
-
-import { useClassroomParams } from "@/hooks/use-classroom-params";
-import { useTRPC } from "@/trpc/client";
-import { Badge } from "@school-clerk/ui/badge";
-import { Button } from "@school-clerk/ui/button";
-import Sheet from "@school-clerk/ui/custom/sheet";
-import { Input } from "@school-clerk/ui/input";
-import { Label } from "@school-clerk/ui/label";
-
+import {
+  Calendar,
+  CheckCircle2,
+  Pencil,
+  Save,
+  User,
+  XCircle,
+} from "lucide-react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { SubmitButton } from "./submit-button";
 import { TableSkeleton } from "./tables/skeleton";
 
@@ -37,15 +57,19 @@ export function ClassroomAttendanceForm() {
   return (
     <Sheet.SecondaryContent>
       <Sheet.SecondaryHeader>
-        <Sheet.Header className="bg-background flex-row items-start gap-4 space-y-0">
+        <Sheet.Header className="flex-row items-start gap-4 space-y-0 bg-background">
           <div className="grid gap-2">
             <Sheet.Title>
-              {isOverview ? "Attendance Session" : "Take Attendance"}
+              {isOverview
+                ? "Attendance Session"
+                : attendanceSessionId
+                  ? "Correct Attendance"
+                  : "Take Attendance"}
             </Sheet.Title>
             <Sheet.Description>
               {isOverview
                 ? "Review the recorded attendance for this classroom session"
-                : "Mark students as present or absent"}
+                : "Record general class attendance or a subject lesson register"}
             </Sheet.Description>
           </div>
         </Sheet.Header>
@@ -55,7 +79,10 @@ export function ClassroomAttendanceForm() {
           {isOverview ? (
             <AttendanceOverviewContent attendanceId={attendanceSessionId} />
           ) : (
-            <AttendanceFormContent departmentId={viewClassroomId} />
+            <AttendanceFormContent
+              attendanceId={attendanceSessionId}
+              departmentId={viewClassroomId}
+            />
           )}
         </Suspense>
       </Sheet.Content>
@@ -73,15 +100,15 @@ function AttendanceOverviewContent({
   const { data: session } = useSuspenseQuery(
     trpc.attendance.getAttendanceSession.queryOptions(
       { attendanceId: attendanceId || "-" },
-      { enabled: !!attendanceId }
-    )
+      { enabled: !!attendanceId },
+    ),
   );
 
   if (!session) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="rounded-xl border border-dashed border-border bg-card/40 p-6 text-sm text-muted-foreground">
-          This attendance session could not be found.
+        <div className="border border-dashed p-6 text-sm text-muted-foreground">
+          This attendance session could not be found in the active term.
         </div>
         <Sheet.SecondaryFooter>
           <Button
@@ -100,92 +127,103 @@ function AttendanceOverviewContent({
     );
   }
 
-  const attendanceRate =
-    session.total > 0 ? Math.round((session.present / session.total) * 100) : 0;
+  const sessionAttendanceRate = attendanceRate(session);
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <div className="border bg-card p-5">
         <div className="flex flex-col gap-3">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
-              <h3 className="text-lg font-semibold text-foreground">
+              <h3 className="text-lg font-semibold">
                 {session.attendanceTitle}
               </h3>
               <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <Calendar className="h-4 w-4" />
-                  {session.createdAt
-                    ? format(new Date(session.createdAt), "dd MMM yyyy")
+                  {session.attendanceDate
+                    ? format(new Date(session.attendanceDate), "dd MMM yyyy")
                     : "Unknown date"}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <User className="h-4 w-4" />
                   {session.staffName || "Unknown staff"}
                 </span>
+                {session.subjectTitle ? (
+                  <span dir="auto">{session.subjectTitle}</span>
+                ) : null}
+                {session.periodLabel ? (
+                  <span>{session.periodLabel}</span>
+                ) : null}
               </div>
             </div>
-            <Badge variant="outline" className="shrink-0">
-              {attendanceRate}% present
-            </Badge>
+            <Badge variant="outline">{sessionAttendanceRate}% attended</Badge>
           </div>
-
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatCard label="Students" value={session.total} tone="default" />
             <StatCard label="Present" value={session.present} tone="success" />
+            <StatCard label="Late" value={session.late} tone="warning" />
             <StatCard label="Absent" value={session.absent} tone="danger" />
           </div>
+          <div className="flex flex-wrap gap-2">
+            {session.excused ? (
+              <Badge variant="secondary">{session.excused} excused</Badge>
+            ) : null}
+            {session.sick ? (
+              <Badge variant="secondary">{session.sick} sick</Badge>
+            ) : null}
+            {session.leave ? (
+              <Badge variant="secondary">{session.leave} on leave</Badge>
+            ) : null}
+          </div>
+          {session.revisionHistory.length ? (
+            <div className="border-t pt-3">
+              <p className="text-sm font-medium">Revision history</p>
+              <div className="mt-2 space-y-2">
+                {session.revisionHistory.map((revision) => (
+                  <div
+                    key={revision.id}
+                    className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground"
+                  >
+                    <span>
+                      {revision.action.toLowerCase()} by{" "}
+                      {revision.actorName || "School Clerk user"}
+                    </span>
+                    <span>{format(new Date(revision.createdAt), "PPp")}</span>
+                    <p className="w-full">
+                      {attendanceRevisionSummary(revision.snapshot)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+      <div className="overflow-hidden border bg-card">
         <table className="w-full text-left text-sm">
-          <thead className="bg-muted/50 border-b border-border">
+          <thead className="border-b bg-muted/50">
             <tr>
-              <th className="px-4 py-3 font-semibold text-foreground">
-                Student
-              </th>
-              <th className="px-4 py-3 font-semibold text-muted-foreground text-center">
-                Status
-              </th>
-              <th className="px-4 py-3 font-semibold text-muted-foreground">
-                Remarks
-              </th>
+              <th className="px-4 py-3 font-semibold">Student</th>
+              <th className="px-4 py-3 text-center font-semibold">Status</th>
+              <th className="px-4 py-3 font-semibold">Remarks</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="divide-y">
             {session.students.map((student) => (
-              <tr
-                key={student.id}
-                className={
-                  student.isPresent
-                    ? "hover:bg-muted/30 transition-colors"
-                    : "bg-red-50/30 hover:bg-red-50/50 dark:bg-red-900/5 dark:hover:bg-red-900/10 transition-colors"
-                }
-              >
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                      {getInitials(student.studentName)}
-                    </div>
-                    <p className="font-medium text-foreground text-sm truncate">
-                      {student.studentName}
-                    </p>
-                  </div>
+              <tr key={student.id}>
+                <td className="px-4 py-3 font-medium" dir="auto">
+                  {student.studentName}
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <Badge
-                    variant="outline"
-                    className={
-                      student.isPresent
-                        ? "text-emerald-600 border-emerald-200 bg-emerald-50/50 dark:bg-emerald-900/10"
-                        : "text-red-500 border-red-200 bg-red-50/50 dark:bg-red-900/10"
-                    }
-                  >
-                    {student.isPresent ? "Present" : "Absent"}
+                  <Badge variant="outline">
+                    {ATTENDANCE_STATUSES.find(
+                      (status) => status.value === student.status,
+                    )?.label ?? student.status}
                   </Badge>
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">
+                <td className="px-4 py-3 text-muted-foreground" dir="auto">
                   {student.comment || "No remark"}
                 </td>
               </tr>
@@ -206,35 +244,136 @@ function AttendanceOverviewContent({
         >
           Close
         </Button>
+        <Button
+          onClick={() =>
+            setParams({
+              attendanceSessionId: session.id,
+              secondaryTab: "attendance-form",
+            })
+          }
+        >
+          <Pencil className="mr-2 h-4 w-4" />
+          Correct session
+        </Button>
       </Sheet.SecondaryFooter>
     </div>
   );
 }
 
 function AttendanceFormContent({
+  attendanceId,
   departmentId,
 }: {
+  attendanceId?: string | null;
   departmentId?: string | null;
 }) {
   const trpc = useTRPC();
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   const { setParams } = useClassroomParams();
-
-  const defaultTitle = format(new Date(), "dd MMM yyyy");
-  const [title, setTitle] = useState(defaultTitle);
-  const [statusMap, setStatusMap] = useState<Record<string, "P" | "A">>({});
+  const [title, setTitle] = useState("Daily attendance");
+  const [attendanceDate, setAttendanceDate] = useState(todayAttendanceDate);
+  const [scope, setScope] = useState<AttendanceScope>("GENERAL");
+  const [periodLabel, setPeriodLabel] = useState("");
+  const [departmentSubjectId, setDepartmentSubjectId] = useState("");
+  const [statusMap, setStatusMap] = useState<
+    Record<string, AttendanceStatus | undefined>
+  >({});
   const [commentMap, setCommentMap] = useState<Record<string, string>>({});
+  const idempotencyRequestRef = useRef<{
+    fingerprint: string;
+    key: string;
+  } | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const { data: studentsData } = useQuery(
     trpc.students.index.queryOptions(
       { departmentId },
-      { enabled: !!departmentId }
-    )
+      { enabled: !!departmentId },
+    ),
   );
-
+  const { data: options } = useQuery(
+    trpc.attendance.getAttendanceOptions.queryOptions(
+      { departmentId: departmentId || "-" },
+      { enabled: !!departmentId },
+    ),
+  );
+  const { data: editingSession } = useQuery(
+    trpc.attendance.getAttendanceSession.queryOptions(
+      { attendanceId: attendanceId || "-" },
+      { enabled: !!attendanceId },
+    ),
+  );
   const students = studentsData?.data ?? [];
 
-  const { mutate, isPending } = useMutation(
+  useEffect(() => {
+    if (!editingSession) return;
+    setTitle(editingSession.attendanceTitle);
+    setAttendanceDate(
+      editingSession.attendanceDate
+        ? new Date(editingSession.attendanceDate).toISOString().slice(0, 10)
+        : todayAttendanceDate(),
+    );
+    setScope(editingSession.scope as AttendanceScope);
+    setPeriodLabel(editingSession.periodLabel ?? "");
+    setDepartmentSubjectId(editingSession.departmentSubjectId ?? "");
+    setStatusMap(
+      Object.fromEntries(
+        editingSession.students
+          .filter((student) => student.studentTermFormId)
+          .map((student) => [
+            student.studentTermFormId!,
+            student.status as AttendanceStatus,
+          ]),
+      ),
+    );
+    setCommentMap(
+      Object.fromEntries(
+        editingSession.students
+          .filter((student) => student.studentTermFormId)
+          .map((student) => [
+            student.studentTermFormId!,
+            student.comment ?? "",
+          ]),
+      ),
+    );
+  }, [editingSession]);
+
+  const roster = useMemo(
+    () =>
+      students
+        .filter((student) => student.termFormId)
+        .map((student) => ({
+          ...student,
+          attendanceKey: student.termFormId!,
+        })),
+    [students],
+  );
+  const allStudentsMarked =
+    roster.length > 0 &&
+    roster.every((student) => Boolean(statusMap[student.attendanceKey]));
+
+  const onSuccess = async () => {
+    idempotencyRequestRef.current = null;
+    setValidationError(null);
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: trpc.attendance.getClassroomAttendance.queryKey({
+          departmentId: departmentId || "-",
+        }),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: trpc.attendance.getStudentAttendanceHistory.queryKey(),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: trpc.attendance.getAttendanceReport.queryKey(),
+      }),
+    ]);
+    setParams({
+      attendanceSessionId: null,
+      secondaryTab: null,
+    });
+  };
+  const createMutation = useMutation(
     trpc.attendance.takeAttendance.mutationOptions({
       meta: {
         toastTitle: {
@@ -243,178 +382,263 @@ function AttendanceFormContent({
           error: "Failed to save attendance",
         },
       },
-      onSuccess() {
-        qc.invalidateQueries({
-          queryKey: trpc.attendance.getClassroomAttendance.queryKey({
-            departmentId: departmentId || "-",
-          }),
-        });
-        setParams({
-          attendanceSessionId: null,
-          secondaryTab: null,
-        });
+      onSuccess,
+    }),
+  );
+  const updateMutation = useMutation(
+    trpc.attendance.updateAttendanceSession.mutationOptions({
+      meta: {
+        toastTitle: {
+          loading: "Updating attendance...",
+          success: "Attendance updated",
+          error: "Failed to update attendance",
+        },
       },
-    })
+      onSuccess,
+    }),
   );
 
-  const handleStatusToggle = (studentId: string, status: "P" | "A") => {
-    setStatusMap((prev) => ({ ...prev, [studentId]: status }));
-  };
-
-  const handleCommentChange = (studentId: string, comment: string) => {
-    setCommentMap((prev) => ({ ...prev, [studentId]: comment }));
-  };
-
   const handleSubmit = () => {
-    mutate({
-      departmentId: departmentId!,
-      attendanceTitle: title,
-      students: students
-        .filter((student) => student.termFormId)
-        .map((student) => ({
-          studentTermFormId: student.termFormId!,
-          isPresent: statusMap[student.id] === "P",
-          comment: commentMap[student.id] || undefined,
-        })),
+    if (
+      !departmentId ||
+      !title.trim() ||
+      !attendanceDate ||
+      !allStudentsMarked ||
+      (scope === "SUBJECT" && !departmentSubjectId)
+    ) {
+      setValidationError(
+        !departmentId
+          ? "Select a classroom."
+          : scope === "SUBJECT" && !departmentSubjectId
+            ? "Select a subject for subject attendance."
+            : !title.trim()
+              ? "Enter a session title."
+              : !attendanceDate
+                ? "Select an attendance date."
+                : "Select a status for every student.",
+      );
+      return;
+    }
+    setValidationError(null);
+    const payload = {
+      attendanceDate,
+      attendanceTitle: title.trim(),
+      departmentId,
+      departmentSubjectId:
+        scope === "SUBJECT" ? departmentSubjectId : undefined,
+      periodLabel: periodLabel.trim() || undefined,
+      scope,
+      students: roster.map((student) => ({
+        studentTermFormId: student.attendanceKey,
+        status: statusMap[student.attendanceKey]!,
+        comment: commentMap[student.attendanceKey]?.trim() || undefined,
+      })),
+    };
+
+    if (attendanceId) {
+      updateMutation.mutate({
+        ...payload,
+        attendanceId,
+      });
+      return;
+    }
+    const fingerprint = JSON.stringify(payload);
+    if (idempotencyRequestRef.current?.fingerprint !== fingerprint) {
+      idempotencyRequestRef.current = {
+        fingerprint,
+        key: crypto.randomUUID(),
+      };
+    }
+    createMutation.mutate({
+      ...payload,
+      idempotencyKey: idempotencyRequestRef.current.key,
     });
   };
 
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
   return (
     <div className="flex flex-col gap-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-2">
+          <Label>Attendance type</Label>
+          <Select
+            value={scope}
+            onValueChange={(value) => {
+              const nextScope = value as AttendanceScope;
+              setScope(nextScope);
+              if (nextScope === "GENERAL") setDepartmentSubjectId("");
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="GENERAL">General class attendance</SelectItem>
+              <SelectItem value="SUBJECT">Subject attendance</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {scope === "SUBJECT" ? (
+          <div className="grid gap-2">
+            <Label>Subject</Label>
+            <Select
+              value={departmentSubjectId}
+              onValueChange={(value) => {
+                setDepartmentSubjectId(value);
+                const subject = options?.subjects.find(
+                  (item) => item.id === value,
+                );
+                if (subject && !attendanceId) setTitle(subject.title);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a subject" />
+              </SelectTrigger>
+              <SelectContent>
+                {(options?.subjects ?? []).map((subject) => (
+                  <SelectItem key={subject.id} value={subject.id}>
+                    <span dir="auto">{subject.title}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-2">
+          <Label htmlFor="attendance-date">Date</Label>
+          <Input
+            id="attendance-date"
+            type="date"
+            value={attendanceDate}
+            onChange={(event) => setAttendanceDate(event.target.value)}
+          />
+        </div>
+        <div className="grid gap-2 sm:col-span-2">
+          <Label htmlFor="attendance-title">Session title</Label>
+          <Input
+            id="attendance-title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="e.g. Monday morning"
+          />
+        </div>
+      </div>
       <div className="grid gap-2">
-        <Label htmlFor="attendance-title">Session Title</Label>
+        <Label htmlFor="attendance-period">
+          Period or time{" "}
+          <span className="text-muted-foreground">(optional)</span>
+        </Label>
         <Input
-          id="attendance-title"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="e.g. Monday Morning"
+          id="attendance-period"
+          value={periodLabel}
+          onChange={(event) => setPeriodLabel(event.target.value)}
+          placeholder="e.g. Period 1, Morning, 08:00"
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between pb-3 border-b">
-          <Label className="text-sm font-medium">Students</Label>
-          <div className="flex items-center gap-2 bg-card p-1 pr-3 rounded-lg border border-border shadow-sm">
-            <span className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider ml-2 mr-1">
-              Mark All
-            </span>
-            <button
-              type="button"
-              className="px-2.5 py-1.5 text-xs font-medium rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 transition-colors"
-              onClick={() => {
-                const all: Record<string, "P" | "A"> = {};
-                students.forEach((student) => {
-                  all[student.id] = "P";
-                });
-                setStatusMap(all);
-              }}
-            >
-              Present
-            </button>
-            <button
-              type="button"
-              className="px-2.5 py-1.5 text-xs font-medium rounded-md bg-muted text-muted-foreground border border-border hover:bg-muted/80 transition-colors"
-              onClick={() => setStatusMap({})}
-            >
-              Clear
-            </button>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+        <Label className="text-sm font-medium">Students</Label>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              setStatusMap(
+                Object.fromEntries(
+                  roster.map((student) => [student.attendanceKey, "PRESENT"]),
+                ),
+              )
+            }
+          >
+            Mark all present
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setStatusMap({})}
+          >
+            Clear
+          </Button>
         </div>
-
-        {students.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            No students enrolled in this class.
-          </p>
-        ) : (
-          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm mt-2">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 font-semibold text-foreground">
-                    Student
-                  </th>
-                  <th className="px-4 py-3 font-semibold text-muted-foreground text-center">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 font-semibold text-muted-foreground">
-                    Remarks
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {students.map((student) => {
-                  const status = statusMap[student.id];
-
-                  return (
-                    <tr
-                      key={student.id}
-                      className={`hover:bg-muted/30 transition-colors ${
-                        status === "A"
-                          ? "bg-red-50/30 dark:bg-red-900/5"
-                          : ""
-                      }`}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                            {getInitials(student.studentName)}
-                          </div>
-                          <p className="font-medium text-foreground text-sm truncate">
-                            {student.studentName}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-center">
-                          <div className="inline-flex p-1 bg-muted/50 rounded-lg border border-border">
-                            <button
-                              type="button"
-                              className={`w-9 h-8 rounded-md text-xs font-medium transition-all ${
-                                status === "P"
-                                  ? "bg-background shadow-sm text-emerald-600 ring-1 ring-black/5 font-bold"
-                                  : "text-muted-foreground hover:bg-background/50"
-                              }`}
-                              onClick={() =>
-                                handleStatusToggle(student.id, "P")
-                              }
-                            >
-                              P
-                            </button>
-                            <button
-                              type="button"
-                              className={`w-9 h-8 rounded-md text-xs font-medium transition-all ${
-                                status === "A"
-                                  ? "bg-red-500 text-white shadow-sm font-bold"
-                                  : "text-muted-foreground hover:bg-background/50"
-                              }`}
-                              onClick={() =>
-                                handleStatusToggle(student.id, "A")
-                              }
-                            >
-                              A
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          className="w-full bg-transparent border-0 border-b border-border focus:border-primary focus:ring-0 text-sm px-0 py-1 placeholder:text-muted-foreground/50 text-foreground transition-colors outline-none"
-                          placeholder="Add note..."
-                          type="text"
-                          value={commentMap[student.id] || ""}
-                          onChange={(event) =>
-                            handleCommentChange(student.id, event.target.value)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
+
+      {roster.length === 0 ? (
+        <p className="py-4 text-center text-sm text-muted-foreground">
+          No students enrolled in this class for the active term.
+        </p>
+      ) : (
+        <div className="overflow-hidden border bg-card">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b bg-muted/50">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Student</th>
+                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold">Remarks</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {roster.map((student) => (
+                <tr key={student.id}>
+                  <td className="px-4 py-3 font-medium" dir="auto">
+                    {student.studentName}
+                  </td>
+                  <td className="min-w-36 px-4 py-3">
+                    <Select
+                      value={statusMap[student.attendanceKey]}
+                      onValueChange={(value) =>
+                        setStatusMap((current) => ({
+                          ...current,
+                          [student.attendanceKey]: value as AttendanceStatus,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ATTENDANCE_STATUSES.map((status) => (
+                          <SelectItem key={status.value} value={status.value}>
+                            {status.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Input
+                      dir="auto"
+                      placeholder="Add note"
+                      value={commentMap[student.attendanceKey] ?? ""}
+                      onChange={(event) =>
+                        setCommentMap((current) => ({
+                          ...current,
+                          [student.attendanceKey]: event.target.value,
+                        }))
+                      }
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {roster.length > 0 && !allStudentsMarked ? (
+        <p className="text-sm text-amber-700">
+          Select a status for every student before saving.
+        </p>
+      ) : null}
+      {validationError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {validationError}
+        </p>
+      ) : null}
 
       <Sheet.SecondaryFooter>
         <Button
@@ -432,23 +656,14 @@ function AttendanceFormContent({
         <SubmitButton
           isSubmitting={isPending}
           onClick={handleSubmit}
-          disabled={students.length === 0 || !title}
+          disabled={isPending}
         >
-          <Save className="h-4 w-4 mr-1" />
-          Save Attendance
+          <Save className="mr-1 h-4 w-4" />
+          {attendanceId ? "Save Correction" : "Save Attendance"}
         </SubmitButton>
       </Sheet.SecondaryFooter>
     </div>
   );
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
 }
 
 function StatCard({
@@ -458,24 +673,21 @@ function StatCard({
 }: {
   label: string;
   value: number;
-  tone: "default" | "success" | "danger";
+  tone: "default" | "success" | "warning" | "danger";
 }) {
   const toneClassName =
     tone === "success"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : tone === "danger"
-      ? "text-red-500 dark:text-red-400"
-      : "text-foreground";
-
+      ? "text-emerald-600"
+      : tone === "warning"
+        ? "text-amber-600"
+        : tone === "danger"
+          ? "text-red-500"
+          : "text-foreground";
   const Icon =
-    tone === "success"
-      ? CheckCircle2
-      : tone === "danger"
-      ? XCircle
-      : User;
+    tone === "success" ? CheckCircle2 : tone === "danger" ? XCircle : User;
 
   return (
-    <div className="rounded-xl border border-border bg-background px-4 py-3">
+    <div className="border bg-background px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

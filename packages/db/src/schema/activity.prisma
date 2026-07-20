@@ -50,4 +50,12 @@ enum ActivityType {
 
   assessment_workbook_downloaded
   assessment_workbook_imported
+
+  academic_term_setup_completed
+  academic_term_activated
+  academic_term_closed
+
+  attendance_created
+  attendance_updated
+  attendance_deleted
 }

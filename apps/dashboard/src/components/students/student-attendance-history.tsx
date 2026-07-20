@@ -3,11 +3,19 @@
 import { Suspense } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
+import { attendanceRate, attendanceStatusLabel } from "@/lib/attendance";
 import { TableSkeleton } from "../tables/skeleton";
 import { format } from "date-fns";
 import { Card, CardContent } from "@school-clerk/ui/card";
 import { CheckCircle2, XCircle, Clock, TrendingUp, Info } from "lucide-react";
 import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
+
+function attendanceStatus(record: {
+  isPresent?: boolean | null;
+  status?: string | null;
+}) {
+  return record.status ?? (record.isPresent ? "PRESENT" : "ABSENT");
+}
 
 export function StudentAttendanceHistory() {
   return (
@@ -23,8 +31,8 @@ function Content() {
   const { data: records } = useSuspenseQuery(
     trpc.attendance.getStudentAttendanceHistory.queryOptions(
       { studentId: studentId ?? "" },
-      { enabled: !!studentId }
-    )
+      { enabled: !!studentId },
+    ),
   );
 
   if (!records || records.length === 0) {
@@ -36,9 +44,24 @@ function Content() {
   }
 
   const total = records.length;
-  const present = records.filter((r) => r.isPresent).length;
-  const absent = total - present;
-  const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+  const statuses = records.map(attendanceStatus);
+  const present = statuses.filter((status) => status === "PRESENT").length;
+  const late = statuses.filter((status) => status === "LATE").length;
+  const absent = statuses.filter((status) => status === "ABSENT").length;
+  const excluded = statuses.filter((status) =>
+    ["EXCUSED", "SICK", "LEAVE"].includes(status),
+  ).length;
+  const eligible = Math.max(total - excluded, 0);
+  const percentage = Math.round(
+    attendanceRate({
+      excused: statuses.filter((status) => status === "EXCUSED").length,
+      late,
+      leave: statuses.filter((status) => status === "LEAVE").length,
+      present,
+      sick: statuses.filter((status) => status === "SICK").length,
+      total,
+    }),
+  );
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 sm:space-y-6">
@@ -56,7 +79,7 @@ function Content() {
               </p>
               <p className="text-xs text-green-600 mt-2 flex items-center gap-1 font-medium">
                 <TrendingUp className="w-3.5 h-3.5" />
-                {present} of {total} days
+                {present + late} of {eligible} eligible sessions
               </p>
             </div>
             <div className="h-12 w-12 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-primary">
@@ -97,9 +120,7 @@ function Content() {
               </p>
               <p
                 className={`text-xs mt-2 flex items-center gap-1 font-medium ${
-                  percentage >= 75
-                    ? "text-green-600"
-                    : "text-orange-600"
+                  percentage >= 75 ? "text-green-600" : "text-orange-600"
                 }`}
               >
                 {percentage >= 75
@@ -129,11 +150,11 @@ function Content() {
               className && deptName
                 ? `${className} ${deptName}`
                 : deptName || className || "Class";
-            const date = record.classroomAttendance?.createdAt
-              ? format(
-                  new Date(record.classroomAttendance.createdAt),
-                  "MMM dd, yyyy",
-                )
+            const attendanceDate =
+              record.classroomAttendance?.attendanceDate ??
+              record.classroomAttendance?.createdAt;
+            const date = attendanceDate
+              ? format(new Date(attendanceDate), "MMM dd, yyyy")
               : record.createdAt
                 ? format(new Date(record.createdAt), "MMM dd, yyyy")
                 : "";
@@ -149,16 +170,22 @@ function Content() {
                   </div>
                   <span
                     className={`inline-flex shrink-0 items-center rounded border px-2.5 py-0.5 text-xs font-medium ${
-                      record.isPresent
+                      ["PRESENT", "LATE"].includes(attendanceStatus(record))
                         ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
                         : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
                     }`}
                   >
-                    {record.isPresent ? "Present" : "Absent"}
+                    {attendanceStatusLabel(attendanceStatus(record))}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {record.classroomAttendance?.attendanceTitle || "Session"}
+                  {record.classroomAttendance?.departmentSubject?.subject.title
+                    ? ` · ${record.classroomAttendance.departmentSubject.subject.title}`
+                    : ""}
+                  {record.classroomAttendance?.periodLabel
+                    ? ` · ${record.classroomAttendance.periodLabel}`
+                    : ""}
                 </p>
               </article>
             );
@@ -196,10 +223,14 @@ function Content() {
                     className="bg-card hover:bg-muted/20 transition-colors"
                   >
                     <td className="px-5 py-3 font-medium text-foreground">
-                      {record.classroomAttendance?.createdAt
+                      {(record.classroomAttendance?.attendanceDate ??
+                      record.classroomAttendance?.createdAt)
                         ? format(
-                            new Date(record.classroomAttendance.createdAt),
-                            "MMM dd, yyyy"
+                            new Date(
+                              record.classroomAttendance.attendanceDate ??
+                                record.classroomAttendance.createdAt!,
+                            ),
+                            "MMM dd, yyyy",
                           )
                         : record.createdAt
                           ? format(new Date(record.createdAt), "MMM dd, yyyy")
@@ -209,17 +240,23 @@ function Content() {
                     <td className="px-5 py-3">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium border ${
-                          record.isPresent
+                          ["PRESENT", "LATE"].includes(attendanceStatus(record))
                             ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
                             : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
                         }`}
                       >
-                        {record.isPresent ? "Present" : "Absent"}
+                        {attendanceStatusLabel(attendanceStatus(record))}
                       </span>
                     </td>
                     <td className="px-5 py-3 text-muted-foreground">
-                      {record.classroomAttendance?.attendanceTitle ||
-                        "Session"}
+                      {record.classroomAttendance?.attendanceTitle || "Session"}
+                      {record.classroomAttendance?.departmentSubject?.subject
+                        .title
+                        ? ` · ${record.classroomAttendance.departmentSubject.subject.title}`
+                        : ""}
+                      {record.classroomAttendance?.periodLabel
+                        ? ` · ${record.classroomAttendance.periodLabel}`
+                        : ""}
                     </td>
                   </tr>
                 );

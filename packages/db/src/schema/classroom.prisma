@@ -55,6 +55,7 @@ model DepartmentSubject {
   staffSubjects StaffSubject[]
   staffAcademicAccessGrants StaffAcademicAccessGrant[]
   assessments   ClassroomSubjectAssessment[]
+  attendanceSessions ClassRoomAttendance[]
 
   createdAt DateTime? @default(now()) @db.Timestamp(0)
   updatedAt DateTime? @updatedAt

@@ -1,6 +1,34 @@
+enum AttendanceScope {
+    GENERAL
+    SUBJECT
+}
+
+enum AttendanceStatus {
+    PRESENT
+    ABSENT
+    LATE
+    EXCUSED
+    SICK
+    LEAVE
+}
+
+enum AttendanceRevisionAction {
+    CREATED
+    UPDATED
+    DELETED
+}
+
+enum AttendanceSessionGuardKind {
+    IDEMPOTENCY
+    DEDUPE
+}
+
 model ClassRoomAttendance {
     id                    String               @id @default(uuid())
     attendanceTitle       String
+    attendanceDate        DateTime?            @db.Date
+    scope                 AttendanceScope?
+    periodLabel           String?
     studentAttendanceList StudentAttendance[]
     SchoolProfile         SchoolProfile?       @relation(fields: [schoolProfileId], references: [id])
     schoolProfileId       String?
@@ -11,11 +39,25 @@ model ClassRoomAttendance {
     departmentId          String?
     staffProfile          StaffProfile?        @relation(fields: [staffProfileId], references: [id])
     staffProfileId        String?
+    sessionTerm           SessionTerm?         @relation(fields: [sessionTermId], references: [id])
+    sessionTermId         String?
+    departmentSubject     DepartmentSubject?   @relation(fields: [departmentSubjectId], references: [id])
+    departmentSubjectId   String?
+    idempotencyKey        String?
+    idempotencyPayloadHash String?
+    dedupeKey             String?
+    revision              Int                  @default(1)
+    revisions             AttendanceSessionRevision[]
+
+    @@index([schoolProfileId, sessionTermId, deletedAt])
+    @@index([departmentId, sessionTermId, attendanceDate, deletedAt])
+    @@index([departmentSubjectId, attendanceDate, deletedAt])
 }
 
 model StudentAttendance {
     id                    String               @id @default(uuid())
     isPresent             Boolean?             @default(false)
+    status                AttendanceStatus?
     comment               String?
     StudentTermForm       StudentTermForm?     @relation(fields: [studentTermFormId], references: [id])
     schoolProfile         SchoolProfile?       @relation(fields: [schoolProfileId], references: [id])
@@ -28,4 +70,32 @@ model StudentAttendance {
     classroomAttendanceId String?
     department            ClassRoomDepartment? @relation(fields: [departmentId], references: [id])
     departmentId          String?
+
+    @@index([schoolProfileId, studentTermFormId, deletedAt])
+    @@index([classroomAttendanceId, deletedAt])
+}
+
+model AttendanceSessionRevision {
+    id             String                   @id @default(uuid())
+    attendance     ClassRoomAttendance      @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+    attendanceId   String
+    action         AttendanceRevisionAction
+    actorUserId    String?
+    actorName      String?
+    snapshot       Json
+    createdAt      DateTime                 @default(now())
+
+    @@index([attendanceId, createdAt])
+}
+
+model AttendanceSessionGuard {
+    id              String                     @id @default(uuid())
+    schoolProfileId String
+    attendanceId    String
+    kind            AttendanceSessionGuardKind
+    key             String
+    createdAt       DateTime                   @default(now())
+
+    @@unique([schoolProfileId, kind, key])
+    @@index([attendanceId])
 }
