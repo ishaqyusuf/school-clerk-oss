@@ -1,3 +1,8 @@
+import {
+	type StudentNameFormat,
+	type StudentNameParts,
+	formatStudentName,
+} from "@school-clerk/utils/student-name";
 import { FieldPath } from "react-hook-form";
 import { dotObject } from "./dot-utils";
 
@@ -26,16 +31,11 @@ export function sum<T>(array?: T[], key: keyof T | undefined = undefined) {
 export function randomInt(max, min = 5) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-export function studentDisplayName({
-  name,
-  surname,
-  otherName,
-}: {
-  name?: string;
-  surname?: string;
-  otherName?: string;
-} = {}) {
-  return [name, surname, otherName].filter(Boolean).join(" ");
+export function studentDisplayName(
+	student: StudentNameParts = {},
+	format?: StudentNameFormat,
+) {
+	return formatStudentName(student, format);
 }
 export function composeQuery<T>(queries: T[]): T | undefined {
   if (!Array.isArray(queries) || queries.length === 0) {
@@ -78,7 +78,7 @@ export const enToAr = function (v: string | number) {
 export function labelIdOptions<T, L extends FieldPath<T>, I extends keyof T>(
   list: T[],
   label: L,
-  id: I
+	id: I,
 ) {
   if (!list?.length) return [];
   return list?.filter(Boolean).map((l) => {

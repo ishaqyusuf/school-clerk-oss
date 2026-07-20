@@ -46,6 +46,8 @@ model StaffTermProfile {
     sessionTerm   SessionTerm @relation(fields: [sessionTermId], references: [id])
     sessionTermId String
     financeCharges FinanceCharge[]
+
+    @@index([staffProfileId, sessionTermId, deletedAt])
 }
 
 model StaffClassroomDepartmentTermProfiles {

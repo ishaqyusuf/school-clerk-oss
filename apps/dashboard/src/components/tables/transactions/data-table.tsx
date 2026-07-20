@@ -1,13 +1,19 @@
 "use client";
 
+import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 import { useTRPC } from "@/trpc/client";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { studentDisplayName } from "@/utils/utils";
-import { Button } from "@school-clerk/ui/button";
-import { Input } from "@school-clerk/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@school-clerk/ui/card";
 import { Badge } from "@school-clerk/ui/badge";
+import { Button } from "@school-clerk/ui/button";
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from "@school-clerk/ui/card";
+import { cn } from "@school-clerk/ui/cn";
+import { Table } from "@school-clerk/ui/data-table";
+import { Input } from "@school-clerk/ui/input";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -17,11 +23,10 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { Table } from "@school-clerk/ui/data-table";
-import { cn } from "@school-clerk/ui/cn";
-import { columns } from "./columns";
+import { useMemo, useState } from "react";
+import { getColumns } from "./columns";
 
-function TransactionsTable({ data }) {
+function TransactionsTable({ data, columns }) {
   return (
     <Table.Provider
       args={[
@@ -45,7 +50,14 @@ function TransactionsTable({ data }) {
 
 export function DataTable() {
   const trpc = useTRPC();
-  const { data } = useSuspenseQuery(trpc.finance.getTransactions.queryOptions());
+	const formatStudentName = useStudentNameFormatter();
+	const columns = useMemo(
+		() => getColumns(formatStudentName),
+		[formatStudentName],
+	);
+	const { data } = useSuspenseQuery(
+		trpc.finance.getTransactions.queryOptions(),
+	);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
 
@@ -54,7 +66,9 @@ export function DataTable() {
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((t) => {
-        const name = t.student ? studentDisplayName(t.student)?.toLowerCase() : "";
+				const name = t.student
+					? formatStudentName(t.student).toLowerCase()
+					: "";
         const id = t.id?.toLowerCase() ?? "";
         return (name ?? "").includes(q) || id.includes(q);
       });
@@ -63,7 +77,7 @@ export function DataTable() {
       result = result.filter((t) => t.type === typeFilter);
     }
     return result;
-  }, [data, search, typeFilter]);
+	}, [data, formatStudentName, search, typeFilter]);
 
   const stats = useMemo(() => {
     const rows = data ?? [];
@@ -110,8 +124,8 @@ export function DataTable() {
                 Financial transaction management
               </CardTitle>
               <p className="max-w-2xl text-sm text-muted-foreground">
-                View movement across fees and wallet activity, filter by transaction
-                type, and export the current ledger view.
+								View movement across fees and wallet activity, filter by
+								transaction type, and export the current ledger view.
               </p>
             </div>
             <div className="flex gap-2">
@@ -234,7 +248,7 @@ export function DataTable() {
         </CardHeader>
         {filtered.length ? (
           <CardContent className="p-0">
-            <TransactionsTable data={filtered} />
+						<TransactionsTable data={filtered} columns={columns} />
           </CardContent>
         ) : (
           <div className="p-8 text-center text-sm text-muted-foreground">
@@ -243,9 +257,12 @@ export function DataTable() {
         )}
         <div className="flex items-center justify-between border-t border-border p-4">
           <p className="text-xs text-muted-foreground">
-            Showing {filtered.length} transaction{filtered.length === 1 ? "" : "s"}
+						Showing {filtered.length} transaction
+						{filtered.length === 1 ? "" : "s"}
           </p>
-          <div className="text-xs text-muted-foreground">Filtered from {data.length}</div>
+					<div className="text-xs text-muted-foreground">
+						Filtered from {data.length}
+					</div>
         </div>
       </Card>
     </div>
@@ -281,7 +298,9 @@ function StatCard({
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               {label}
             </p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
+						<p className="mt-2 text-2xl font-semibold text-foreground">
+							{value}
+						</p>
             <p className="mt-2 text-sm text-muted-foreground">{helper}</p>
           </div>
           <div

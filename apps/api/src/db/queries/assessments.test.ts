@@ -41,6 +41,12 @@ function createAdminContext(overrides: Record<string, unknown> = {}) {
           subDomain: "school",
         }),
       },
+      sessionTerm: {
+        findFirst: async () => ({
+          id: "term-1",
+          lifecycleStatus: "ACTIVE",
+        }),
+      },
       departmentSubject: {
         findFirst: async () => ({
           classRoomDepartmentId: "classroom-a",
@@ -182,6 +188,8 @@ describe("updateAssessmentScore", () => {
       studentTermForm: {
         findFirst: async () => ({
           classroomDepartmentId: "classroom-a",
+          schoolProfileId: "school-1",
+          sessionTermId: "term-1",
         }),
       },
       $transaction: async (
@@ -257,6 +265,7 @@ describe("updateAssessmentScore", () => {
         findFirst: async () => ({
           departmentSubject: {
             classRoomDepartmentId: "classroom-a",
+            sessionTermId: "term-1",
           },
           isGroup: false,
         }),
@@ -264,6 +273,8 @@ describe("updateAssessmentScore", () => {
       studentTermForm: {
         findFirst: async () => ({
           classroomDepartmentId: "classroom-a",
+          schoolProfileId: "school-1",
+          sessionTermId: "term-1",
         }),
       },
       $transaction: async () => {
@@ -286,5 +297,45 @@ describe("updateAssessmentScore", () => {
         "This assessment score changed at the same time. Refresh the results and try again.",
     });
     expect(attempts).toBe(3);
+  });
+
+  test("rejects score changes after the academic term is closed", async () => {
+    const ctx = createAdminContext({
+      sessionTerm: {
+        findFirst: async () => ({
+          id: "term-1",
+          lifecycleStatus: "CLOSED",
+        }),
+      },
+      classroomSubjectAssessment: {
+        findFirst: async () => ({
+          departmentSubject: {
+            classRoomDepartmentId: "classroom-a",
+            sessionTermId: "term-1",
+          },
+          isGroup: false,
+          obtainable: 20,
+        }),
+      },
+      studentTermForm: {
+        findFirst: async () => ({
+          classroomDepartmentId: "classroom-a",
+          schoolProfileId: "school-1",
+          sessionTermId: "term-1",
+        }),
+      },
+    });
+
+    await expect(
+      updateAssessmentScore(ctx, {
+        assessmentId: 10,
+        departmentId: "subject-1",
+        obtained: 9,
+        studentId: "student-1",
+        studentTermId: "term-form-1",
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+    } satisfies Partial<TRPCError>);
   });
 });

@@ -1,40 +1,41 @@
+import { formatStudentName } from "@school-clerk/utils/student-name";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
-	closeFinanceTermLedger,
 	cancelFinancePurchase,
-	createFinancePayrollObligation,
+	closeFinanceTermLedger,
 	createFinanceCharge,
+	createFinancePayrollObligation,
+	getFinanceOverview,
 	getFinancePayeeHistory,
 	getFinanceProjectAccountSummary,
-	getFinanceOverview,
 	getFinanceStaffHistory,
+	getFinanceStreamDetails,
+	getFinanceTermAccountStatement,
 	getFinanceTermLedger,
 	getReceivePaymentOptions,
-	getFinanceTermAccountStatement,
-	getFinanceStreamDetails,
 	getStudentFinanceStatement,
 	listFinanceCharges,
 	listFinanceItems,
 	listFinanceLedgerEntries,
-	listFinancePayments,
 	listFinancePayees,
+	listFinancePayments,
 	listFinanceStaff,
 	listFinanceStreams,
 	listFinanceTransactions,
 	listFinanceTransfers,
 	previewFinanceTermClose,
-	recordFinancePurchase,
-	recordFinancePayment,
-	requireFinanceReadAccess,
 	receiveStudentPaymentSimple,
+	recordFinancePayment,
+	recordFinancePurchase,
 	reopenFinanceTermLedger,
+	requireFinanceReadAccess,
 	reverseFinancePayment,
 	searchFinanceStudents,
 	transferFinanceFunds,
+	upsertFinanceItem,
 	upsertFinancePayee,
 	upsertFinancePayrollStructure,
-	upsertFinanceItem,
 	upsertFinanceStream,
 } from "../../db/queries/finance";
 import {
@@ -52,12 +53,12 @@ import {
 	financePayrollObligationInputSchema,
 	financePayrollStructureInputSchema,
 	financeProjectAccountSummarySchema,
-	financePurchaseInputSchema,
 	financePurchaseCancellationSchema,
+	financePurchaseInputSchema,
 	financeReceivePaymentOptionsSchema,
+	financeSearchInputSchema,
 	financeSimpleStudentPaymentInputSchema,
 	financeStaffHistorySchema,
-	financeSearchInputSchema,
 	financeStreamDetailsSchema,
 	financeStreamInputSchema,
 	financeStreamQuerySchema,
@@ -268,7 +269,8 @@ function normalizeStudentQuery(
 		studentId,
 		termId,
 		sessionId:
-			parsed.sessionId ?? (parsed.termId ? null : ctx.profile.sessionId ?? null),
+			parsed.sessionId ??
+			(parsed.termId ? null : (ctx.profile.sessionId ?? null)),
 	};
 }
 
@@ -608,7 +610,12 @@ export const financeRouter = createTRPCRouter({
 						collectedSessionTermId: null,
 						charge: { sessionTermId: null },
 					},
-					select: { id: true, sourceType: true, amount: true, occurredAt: true },
+					select: {
+						id: true,
+						sourceType: true,
+						amount: true,
+						occurredAt: true,
+					},
 					take: 50,
 				}),
 				ctx.db.financeTransfer.findMany({
@@ -657,8 +664,7 @@ export const financeRouter = createTRPCRouter({
 					key: "ledger-balance",
 					label: "Ledger balance",
 					status: "ok",
-					message:
-						"Account balances are computed from finance ledger entries.",
+					message: "Account balances are computed from finance ledger entries.",
 				},
 				{
 					key: "missing-ledger-terms",
@@ -745,8 +751,15 @@ export const financeRouter = createTRPCRouter({
 			const schoolProfileId = ctx.profile.schoolId;
 			const termId = ctx.profile.termId ?? null;
 			const sessionId = ctx.profile.sessionId ?? null;
-			const [purchases, arrears, payments, transfers, closes, carryForwards, payees] =
-				await Promise.all([
+			const [
+				purchases,
+				arrears,
+				payments,
+				transfers,
+				closes,
+				carryForwards,
+				payees,
+			] = await Promise.all([
 					ctx.db.financePurchase.findMany({
 						where: {
 							schoolProfileId,
@@ -863,9 +876,10 @@ export const financeRouter = createTRPCRouter({
 				arrears: arrears.map((charge) => ({
 					id: charge.id,
 					title: charge.title,
-					studentName: [charge.student?.surname, charge.student?.name]
-						.filter(Boolean)
-						.join(" "),
+					studentName: formatStudentName(
+						charge.student,
+						ctx.profile.studentNameFormat,
+					),
 					accountName: charge.stream.name,
 					amount: Number(charge.amount),
 					amountPaid: Number(charge.amountPaid),
@@ -911,9 +925,13 @@ export const financeRouter = createTRPCRouter({
 							close.status === "REOPENED"
 								? "term-ledger-reopened"
 								: "term-ledger-closed",
-						actorId: close.status === "REOPENED" ? close.reopenedById : close.closedById,
+						actorId:
+							close.status === "REOPENED"
+								? close.reopenedById
+								: close.closedById,
 						status: close.status,
-						occurredAt: close.status === "REOPENED" ? close.reopenedAt : close.closedAt,
+						occurredAt:
+							close.status === "REOPENED" ? close.reopenedAt : close.closedAt,
 					})),
 					carryForwards: carryForwards.map((carryForward) => ({
 						id: carryForward.id,
@@ -1095,7 +1113,7 @@ export const financeRouter = createTRPCRouter({
 			z.object({
 				paymentId: z.string(),
 				note: z.string().optional(),
-			})
+			}),
 		)
 		.mutation(async ({ ctx, input }) => {
 			if (!input.paymentId) {

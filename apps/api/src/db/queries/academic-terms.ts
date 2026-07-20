@@ -4,6 +4,8 @@ import type {
   GetStudentTermListSchema,
 } from "@api/trpc/schemas/schemas";
 import { classroomDisplayName } from "@school-clerk/utils";
+import { TRPCError } from "@trpc/server";
+import { requireAcademicAdmin } from "./academic-term-setup";
 
 export async function getStudentTermsList(
   ctx: TRPCContext,
@@ -129,6 +131,7 @@ export async function createAcademicSession(
   ctx: TRPCContext,
   data: CreateAcademicSession,
 ) {
+  const { schoolProfileId } = await requireAcademicAdmin(ctx);
   const { endDate, sessionId, startDate, terms, title } = data;
   const { db } = ctx;
   const sessionTitle = title?.trim();
@@ -137,8 +140,22 @@ export async function createAcademicSession(
     let session: { id: string; title: string };
 
     if (sessionId) {
+      const existingSession = await tx.schoolSession.findFirst({
+        where: {
+          id: sessionId,
+          schoolId: schoolProfileId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+      if (!existingSession) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Academic session was not found.",
+        });
+      }
       session = await tx.schoolSession.update({
-        where: { id: sessionId },
+        where: { id: existingSession.id },
         data: {
           startDate,
           endDate,
@@ -148,7 +165,7 @@ export async function createAcademicSession(
     } else {
       const existingSession = await tx.schoolSession.findFirst({
         where: {
-          schoolId: ctx.profile.schoolId,
+          schoolId: schoolProfileId,
           deletedAt: null,
           title: {
             equals: sessionTitle,
@@ -160,7 +177,10 @@ export async function createAcademicSession(
           title: true,
           terms: {
             where: { deletedAt: null },
-            orderBy: { createdAt: "asc" },
+            orderBy: [
+              { startDate: { sort: "asc", nulls: "last" } },
+              { createdAt: "asc" },
+            ],
             select: { id: true, title: true },
           },
         },
@@ -181,7 +201,7 @@ export async function createAcademicSession(
             title: sessionTitle!,
             startDate,
             endDate,
-            school: { connect: { id: ctx.profile.schoolId } },
+            school: { connect: { id: schoolProfileId } },
           },
           select: { id: true, title: true },
         });
@@ -203,16 +223,21 @@ export async function createAcademicSession(
 
     let createdTerms: { id: string; title: string }[] = [];
     if (terms?.length) {
-      createdTerms = await tx.sessionTerm.createManyAndReturn({
-        data: terms.map((d) => ({
-          schoolId: ctx.profile?.schoolId,
-          sessionId: session.id,
-          title: d.title,
-          startDate: d.startDate,
-          endDate: d.endDate,
-        })),
-        select: { id: true, title: true },
-      });
+      for (const term of terms) {
+        createdTerms.push(
+          await tx.sessionTerm.create({
+            data: {
+              schoolId: schoolProfileId,
+              sessionId: session.id,
+              title: term.title,
+              startDate: term.startDate,
+              endDate: term.endDate,
+              lifecycleStatus: "DRAFT",
+            },
+            select: { id: true, title: true },
+          }),
+        );
+      }
     }
 
     return {

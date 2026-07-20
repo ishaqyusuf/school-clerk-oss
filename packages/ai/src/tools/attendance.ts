@@ -2,9 +2,16 @@ import { prisma } from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { tool } from "ai";
 import { z } from "zod";
-import { studentDisplayName, type SchoolAiToolContext, type SchoolAiToolHelpers } from "./context";
+import {
+	type SchoolAiToolContext,
+	type SchoolAiToolHelpers,
+	studentDisplayName,
+} from "./context";
 
-export function createAttendanceTools(ctx: SchoolAiToolContext, helpers: SchoolAiToolHelpers) {
+export function createAttendanceTools(
+	ctx: SchoolAiToolContext,
+	helpers: SchoolAiToolHelpers,
+) {
 	const {
 		finishAssistantToolExecution,
 		getTeacherWorkspaceSummary,
@@ -70,7 +77,9 @@ export function createAttendanceTools(ctx: SchoolAiToolContext, helpers: SchoolA
 					const termForm = student?.termForms[0];
 					const output = {
 						studentId,
-						studentName: student ? studentDisplayName(student) : "Student",
+						studentName: student
+							? studentDisplayName(student, ctx.studentNameFormat)
+							: "Student",
 						records:
 							termForm?.attendanceList.map((record) => ({
 								id: record.id,

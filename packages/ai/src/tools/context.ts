@@ -1,4 +1,9 @@
 import type { SchoolAssistantConfig } from "@school-clerk/db";
+import {
+	type StudentNameFormat,
+	type StudentNameParts,
+	formatStudentName,
+} from "@school-clerk/utils/student-name";
 import type { aiCapabilityMap } from "../capabilities";
 
 export type SchoolAiToolContext = {
@@ -11,6 +16,7 @@ export type SchoolAiToolContext = {
 	userName: string;
 	config: SchoolAssistantConfig;
 	runId: string;
+	studentNameFormat?: StudentNameFormat;
 };
 
 export type SchoolAiToolConfirmationPayload = {
@@ -61,12 +67,11 @@ export type SchoolAiToolRuntimeDeps = {
 	}): Promise<unknown>;
 };
 
-export function studentDisplayName(s: {
-	name?: string | null;
-	otherName?: string | null;
-	surname?: string | null;
-}) {
-	return [s.name, s.otherName, s.surname].filter(Boolean).join(" ");
+export function studentDisplayName(
+	student: StudentNameParts,
+	format?: StudentNameFormat,
+) {
+	return formatStudentName(student, format);
 }
 
 export function createSchoolAiToolHelpers(
@@ -89,11 +94,18 @@ export function createSchoolAiToolHelpers(
 			input,
 		});
 
-		if (!deps.isCapabilityAllowed({ role: ctx.role, config: ctx.config, capability })) {
+		if (
+			!deps.isCapabilityAllowed({
+				role: ctx.role,
+				config: ctx.config,
+				capability,
+			})
+		) {
 			const output = {
 				blocked: true,
 				toolName,
-				message: "This action is not available for your current role or AI settings.",
+				message:
+					"This action is not available for your current role or AI settings.",
 			};
 			await deps.finishAssistantToolExecution({
 				toolExecutionId: execution.id,

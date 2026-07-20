@@ -14,6 +14,13 @@ Catalog of API routes and responsibilities.
 
 ## Domain Endpoints
 
+### School Settings
+
+- `trpc.schoolSettings.getGeneral` (authenticated tenant-scoped school information, counts, and normalized student name format)
+- `trpc.schoolSettings.updateStudentNameFormat` (authenticated Admin-only tenant-scoped student name format update)
+- `trpc.schoolSettings.getAcademicDataDirection`
+- `trpc.schoolSettings.updateAcademicDataDirection`
+
 ### Student Management
 
 - `GET /students`
@@ -58,8 +65,14 @@ Catalog of API routes and responsibilities.
 
 ### Attendance
 
-- `GET /attendance`
-- `POST /attendance`
+- `trpc.attendance.getAttendanceOptions` (active-term subject options for an authorized classroom)
+- `trpc.attendance.getClassroomAttendance` (active-term session summaries for an authorized classroom)
+- `trpc.attendance.getAttendanceSession` (editable session detail with explicit student statuses)
+- `trpc.attendance.getAttendanceReport` (active-term, date-range and optional subject report rows for CSV export)
+- `trpc.attendance.takeAttendance` (general or subject session creation with full-roster validation, atomic duplicate prevention, idempotency, revision snapshot, and activity audit)
+- `trpc.attendance.updateAttendanceSession` (active-term correction that replaces current student marks and appends an audit revision)
+- `trpc.attendance.deleteAttendanceSession` (authorized soft delete with revision snapshot and duplicate-key release)
+- `trpc.attendance.getStudentAttendanceHistory` (active-term student history with scope, subject, period, and explicit status metadata)
 
 ### Exams and Results
 
@@ -180,15 +193,24 @@ Catalog of API routes and responsibilities.
 - `trpc.students.*`: student listing, detail, overview, student-centric workflows, focused basic-profile edits, student overview management actions, and **student import** (`createStudent`, `updateStudentBasicProfile`, `changeStudentClass`, `deleteTermSheet`, `deleteStudent`, `getImportNameGuide`, `executeStudentImport`)
 - `trpc.classrooms.*`: classroom lists, overview, and classroom-scoped actions
 - `trpc.academics.*`: academic session, term, enrollment, and promotion flows (includes `entrollStudentToTerm` used during import workflow)
+- `trpc.academics.createTermDraft`: create a tenant-scoped `DRAFT` term without copying data or switching active context
+- `trpc.academics.saveTermMetaData`: update draft/ready term title, dates, and note
+- `trpc.academics.getTermSetupContext`: load target/source terms and selectable classroom, subject, student, and teacher rollover data
+- `trpc.academics.previewTermSetup`: recompute counts, blockers, warnings, and cross-session progression requirements
+- `trpc.academics.applyTermSetup`: apply an additive, idempotent rollover and mark the term `READY`
+- `trpc.academics.previewTermActivation`: report setup, date, finance-close, and progression blockers
+- `trpc.academics.activateTerm`: close the previous active term, activate the target, and update the canonical school pointer
+- `trpc.academics.closeTerm`: close the active academic term after finance closure
 - `trpc.transactions.*`: fee definitions, fee imports, and other transaction-oriented finance writes
 - `trpc.finance.*`: streams, bills, payroll, receive-payment, and finance reporting workflows (includes fee-application logic triggered by import term-sheet creation)
-- `trpc.attendance.*`: classroom attendance capture and student attendance history
+- `trpc.attendance.*`: active-term general/subject attendance capture, correction, soft deletion, classroom/session reads, student history, and export-ready reporting
 - `trpc.staff.*`: staff list/form data and staff-management APIs
 - `trpc.notifications.*`: notification list/read/count actions
 - `trpc.search.global`: tenant-scoped command palette search across local navigation plus remote student, classroom, and staff records
 - `trpc.subjects.*`, `trpc.enrollments.*`, `trpc.assessments.*`, `trpc.filters.*`, `trpc.auth.*`: domain-specific supporting routers. `trpc.assessments.*` owns authenticated assessment setup/recording plus public assessment-recording link lifecycle and token-scoped score entry.
 - `trpc.enrollmentLinks.*`: authenticated Admin/Registrar management for public enrollment links and pending applications
 - `trpc.parents.*`: authenticated Parent overview data scoped through linked guardian records
+- `trpc.schoolSettings.*`: authenticated tenant-scoped school presentation settings; updates are administrator-only and never accept a school id
 - `app/api/chat/*`: dashboard AI chat execution, single-chat bootstrap, settings, analytics, and feedback surfaces
 
 ### Student Import

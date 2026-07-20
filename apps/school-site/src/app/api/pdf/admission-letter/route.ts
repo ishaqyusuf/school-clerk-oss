@@ -5,6 +5,10 @@ import {
   jsonDocumentTemplateSchema,
   renderJsonDocumentTemplateToPdf,
 } from "@school-clerk/pdf/json-template";
+import {
+	type StudentNameFormat,
+	formatStudentName,
+} from "@school-clerk/utils/student-name";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -13,18 +17,29 @@ export const runtime = "nodejs";
 const paramsSchema = z.object({
   applicationId: z.string().min(1),
   code: z.string().min(1),
-  download: z.preprocess((value) => value === "true", z.boolean().default(false)),
+	download: z.preprocess(
+		(value) => value === "true",
+		z.boolean().default(false),
+	),
   templateId: z.string().trim().min(1).max(120).optional(),
 });
 
-function fullName(input: {
+function fullName(
+	input: {
   studentFirstName?: string | null;
   studentOtherName?: string | null;
   studentSurname?: string | null;
-}) {
-  return [input.studentFirstName, input.studentOtherName, input.studentSurname]
-    .filter(Boolean)
-    .join(" ");
+	},
+	format?: StudentNameFormat,
+) {
+	return formatStudentName(
+		{
+			firstName: input.studentFirstName,
+			otherName: input.studentOtherName,
+			surname: input.studentSurname,
+		},
+		format,
+	);
 }
 
 function classroomLabel(classroomDepartment: any) {
@@ -120,12 +135,17 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const studentName = fullName(application);
+	const studentName = fullName(
+		application,
+		application.schoolProfile.studentNameFormat,
+	);
   const primaryParent = application.parents[0] ?? null;
   const passport = application.documents[0] ?? null;
   const paymentCurrency = application.admissionPaymentCurrency ?? "NGN";
   const preferredTemplateId =
-    parsed.data.templateId ?? application.admissionLetterTemplateId ?? undefined;
+		parsed.data.templateId ??
+		application.admissionLetterTemplateId ??
+		undefined;
   const admissionLetterPayload = {
     applicationReference: application.id.slice(0, 8).toUpperCase(),
     approvedAt: formatDate(application.reviewedAt),
@@ -164,7 +184,9 @@ export async function GET(req: NextRequest) {
       })
     : null;
   const customTemplateResult = customTemplateRequest?.builtTemplateJson
-    ? jsonDocumentTemplateSchema.safeParse(customTemplateRequest.builtTemplateJson)
+		? jsonDocumentTemplateSchema.safeParse(
+				customTemplateRequest.builtTemplateJson,
+			)
     : null;
 
   if (customTemplateResult && !customTemplateResult.success) {

@@ -2,13 +2,17 @@ import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { configs } from "@/configs";
 import { buildStudentReportsById } from "@/features/student-report/report-model";
 import { getClassroomReportSheet } from "@api/db/queries/report-sheet";
+import { prisma } from "@school-clerk/db";
 import { renderToStream } from "@school-clerk/pdf";
 import { renderSchoolDocumentTemplate } from "@school-clerk/pdf/document-templates";
 import {
   jsonDocumentTemplateSchema,
   renderJsonDocumentTemplateToPdf,
 } from "@school-clerk/pdf/json-template";
-import { prisma } from "@school-clerk/db";
+import {
+	type StudentNameFormat,
+	formatStudentName,
+} from "@school-clerk/utils/student-name";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -28,14 +32,20 @@ const paramsSchema = z.object({
     ),
   termId: z.string().optional(),
   templateId: z.string().optional(),
-  download: z.preprocess((value) => value === "true", z.boolean().default(false)),
+	download: z.preprocess(
+		(value) => value === "true",
+		z.boolean().default(false),
+	),
 });
 
-const getStudentName = (student: {
+const getStudentName = (
+	student: {
   name?: string | null;
   surname?: string | null;
   otherName?: string | null;
-}) => [student.name, student.otherName, student.surname].filter(Boolean).join(" ");
+	},
+	format?: StudentNameFormat,
+) => formatStudentName(student, format);
 
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
@@ -44,7 +54,10 @@ export async function GET(req: NextRequest) {
   );
 
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid result PDF request." }, { status: 400 });
+		return NextResponse.json(
+			{ error: "Invalid result PDF request." },
+			{ status: 400 },
+		);
   }
 
   const auth = await getAuthCookie();
@@ -70,10 +83,15 @@ export async function GET(req: NextRequest) {
   }
 
   const departmentIds = Array.from(
-    new Set(selectedTermForms.map((item) => item.classroomDepartmentId).filter(Boolean)),
+		new Set(
+			selectedTermForms
+				.map((item) => item.classroomDepartmentId)
+				.filter(Boolean),
+		),
   ) as string[];
 
-  const [classrooms, sessionTerm, departmentSheets] = await Promise.all([
+	const [classrooms, sessionTerm, departmentSheets, schoolSettings] =
+		await Promise.all([
     prisma.classRoomDepartment.findMany({
       where: {
         id: { in: departmentIds },
@@ -121,6 +139,15 @@ export async function GET(req: NextRequest) {
         ),
       ),
     ),
+			prisma.schoolProfile.findFirst({
+				where: {
+					id: auth.schoolId,
+					deletedAt: null,
+				},
+				select: {
+					studentNameFormat: true,
+				},
+			}),
   ]);
 
   const reportsById = buildStudentReportsById({
@@ -133,7 +160,10 @@ export async function GET(req: NextRequest) {
     .filter(Boolean);
 
   if (!selectedReports.length) {
-    return NextResponse.json({ error: "No printable reports found." }, { status: 404 });
+		return NextResponse.json(
+			{ error: "No printable reports found." },
+			{ status: 404 },
+		);
   }
 
   const termLabel = [sessionTerm?.title, sessionTerm?.session?.title]
@@ -168,7 +198,10 @@ export async function GET(req: NextRequest) {
     teacherSignatureLabel: configs.teacherSignature,
     directorSignatureLabel: configs.directorSignature,
     reports: selectedReports.map((report) => ({
-      studentName: getStudentName(report.student),
+			studentName: getStudentName(
+				report.student,
+				schoolSettings?.studentNameFormat,
+			),
       classroomName: report.departmentName,
       percentage: report.grade.percentage,
       position: report.grade.position,
@@ -195,7 +228,9 @@ export async function GET(req: NextRequest) {
         })
       : null;
   const customTemplateResult = customTemplateRequest?.builtTemplateJson
-    ? jsonDocumentTemplateSchema.safeParse(customTemplateRequest.builtTemplateJson)
+		? jsonDocumentTemplateSchema.safeParse(
+				customTemplateRequest.builtTemplateJson,
+			)
     : null;
 
   if (customTemplateResult && !customTemplateResult.success) {
@@ -221,7 +256,7 @@ export async function GET(req: NextRequest) {
     if (!stream) {
       return NextResponse.json(
         { error: "Failed to render PDF stream" },
-        { status: 500 }
+				{ status: 500 },
       );
     }
 
@@ -233,9 +268,8 @@ export async function GET(req: NextRequest) {
     };
 
     if (parsed.data.download) {
-      headers[
-        "Content-Disposition"
-      ] = `attachment; filename="${safeTitle}.pdf"`;
+			headers["Content-Disposition"] =
+				`attachment; filename="${safeTitle}.pdf"`;
     } else {
       headers["Content-Disposition"] = `inline; filename="${safeTitle}.pdf"`;
     }
@@ -245,9 +279,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Unable to generate result PDF.",
+					error instanceof Error
+						? error.message
+						: "Unable to generate result PDF.",
       },
-      { status: 500 }
+			{ status: 500 },
     );
   }
 }

@@ -1,9 +1,9 @@
 "use server";
 
-import { createElement } from "react";
+import { put } from "@vercel/blob";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { put } from "@vercel/blob";
+import { createElement } from "react";
 
 import { initAuth } from "@school-clerk/auth";
 import { prisma } from "@school-clerk/db";
@@ -11,6 +11,7 @@ import { AdmissionSubmissionEmail } from "@school-clerk/email";
 import { render } from "@school-clerk/email/render";
 import {
   createBlobUploadError,
+	formatStudentName,
   formatTenantEmailFrom,
   formatTenantEmailSubject,
   getRecipient,
@@ -582,15 +583,21 @@ export async function submitEnrollmentApplication(
   });
 
   const requestHeaders = new Headers(await headers());
-  const studentName = [studentFirstName, studentSurname, studentOtherName]
-    .filter(Boolean)
-    .join(" ");
+	const studentName = formatStudentName(
+		{
+			firstName: studentFirstName,
+			surname: studentSurname,
+			otherName: studentOtherName,
+		},
+		link.schoolProfile.studentNameFormat,
+	);
 
   try {
     await sendAdmissionSubmissionEmail({
       applicationReference: application.id.slice(0, 8).toUpperCase(),
       classroomName:
-        classroomLabel(selectedClassroom.classRoomDepartment) || "selected class",
+				classroomLabel(selectedClassroom.classRoomDepartment) ||
+				"selected class",
       ctaHref: getSubmissionUrl({
         applicationId: application.id,
         code,
@@ -652,7 +659,9 @@ export async function setupEnrollmentParentPassword(
       where: { id: primaryParent.id },
       data: { linkedUserId: existingUser.id },
     });
-    redirect(`${getDashboardOrigin(application.schoolProfile.subDomain)}/login`);
+		redirect(
+			`${getDashboardOrigin(application.schoolProfile.subDomain)}/login`,
+		);
   }
 
   if (existingUser) {

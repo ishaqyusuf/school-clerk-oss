@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@school-clerk/utils": "workspace:*",
     "zod": "3.25.64"
   },
   "devDependencies": {

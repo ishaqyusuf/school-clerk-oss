@@ -1,7 +1,7 @@
 "use client";
 
-import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
 import { AssessmentPublicLinksPanel } from "@/components/assessment-public-links-panel";
+import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
 import { AssessmentWorkbooksDialog } from "@/components/assessment-workbooks-dialog";
 import { SubjectAssessments } from "@/components/subject-assessments";
 import {
@@ -9,10 +9,11 @@ import {
   filterResultStudents,
   filterResultSubjects,
   getAssessmentDisplayTitle,
-  getStudentDisplayName,
 } from "@school-clerk/assessment-results";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
+import { cn } from "@school-clerk/ui/cn";
 import { Dialog, DropdownMenu } from "@school-clerk/ui/composite";
 import { Input } from "@school-clerk/ui/input";
 import { Spinner } from "@school-clerk/ui/spinner";
@@ -24,7 +25,6 @@ import {
   TableHeader,
   TableRow,
 } from "@school-clerk/ui/table";
-import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpenText, PanelRightOpen, School, Search, X } from "lucide-react";
 import {
@@ -34,9 +34,9 @@ import {
   useMemo,
   useState,
 } from "react";
-import { _trpc } from "./static-trpc";
 import { useAcademicDataDirection } from "./academic-data-direction/provider";
-import { cn } from "@school-clerk/ui/cn";
+import { _trpc } from "./static-trpc";
+import { useStudentNameFormat } from "./student-name-format/provider";
 
 type ClassroomFilterOption = {
   id: string;
@@ -87,6 +87,7 @@ export function AssessmentRecordingResultsTable({
   reportSheetHref,
 }: Props) {
   const academicDataDirection = useAcademicDataDirection();
+	const studentNameFormat = useStudentNameFormat();
   const isRtl = academicDataDirection === "rtl";
   const [subjectFilterIds, setSubjectFilterIds] = useState<string[]>([]);
   const [nameSearch, setNameSearch] = useState("");
@@ -177,16 +178,18 @@ export function AssessmentRecordingResultsTable({
       filterResultStudents({
         students: data?.studentTermForms ?? [],
         search: deferredNameSearch,
+				nameFormat: studentNameFormat,
       }),
-    [data?.studentTermForms, deferredNameSearch],
+		[data?.studentTermForms, deferredNameSearch, studentNameFormat],
   );
   const resultRows = useMemo(
     () =>
       buildResultRows({
         subjects: visibleSubjects,
         students: filteredStudents,
+				nameFormat: studentNameFormat,
       }),
-    [filteredStudents, visibleSubjects],
+		[filteredStudents, studentNameFormat, visibleSubjects],
   );
   const openSubjectOverview = useQuery(
     _trpc.subjects.overview.queryOptions(
@@ -470,7 +473,7 @@ export function AssessmentRecordingResultsTable({
                         {index + 1}.
                       </span>
                       <span className="min-w-0 truncate" dir="auto">
-                        {getStudentDisplayName(row.student.student)}
+												{row.studentName}
                       </span>
                       <StudentGenderBadge
                         gender={row.student.student?.gender}

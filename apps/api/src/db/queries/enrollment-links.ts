@@ -7,6 +7,7 @@ import type {
 import { AdmissionApprovalEmail } from "@school-clerk/email";
 import { render } from "@school-clerk/email/render";
 import {
+	formatStudentName,
   formatTenantEmailFrom,
   formatTenantEmailSubject,
   getRecipient,
@@ -258,7 +259,12 @@ async function sendAdmissionApprovalEmail(input: {
 }
 
 function normalizeHost(value?: string | null) {
-  return value?.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "") || "";
+	return (
+		value
+			?.trim()
+			.replace(/^https?:\/\//, "")
+			.replace(/\/+$/, "") || ""
+	);
 }
 
 function stripDashboardHostPrefix(host: string) {
@@ -286,7 +292,10 @@ function getSchoolSiteRootDomain() {
     : "school-clerk-site.localhost";
 }
 
-function buildPublicEnrollmentUrl(subDomain?: string | null, code?: string | null) {
+function buildPublicEnrollmentUrl(
+	subDomain?: string | null,
+	code?: string | null,
+) {
   const path = code ? `/enroll/${code}` : "/enroll";
   if (!subDomain) return path;
 
@@ -352,7 +361,8 @@ function getApplicableDocumentRequirements(
 
 function assertClassAgeRequirement(application: any) {
   const classroomConfig = application.enrollmentLink.classrooms.find(
-    (row: any) => row.classRoomDepartmentId === application.classRoomDepartmentId,
+		(row: any) =>
+			row.classRoomDepartmentId === application.classRoomDepartmentId,
   );
 
   if (
@@ -459,7 +469,10 @@ export async function listEnrollmentLinks(ctx: TRPCContext) {
     id: link.id,
     title: link.title,
     code: link.code,
-    publicUrl: buildPublicEnrollmentUrl(link.schoolProfile?.subDomain, link.code),
+		publicUrl: buildPublicEnrollmentUrl(
+			link.schoolProfile?.subDomain,
+			link.code,
+		),
     status: link.status,
     showOnWebsite: link.showOnWebsite,
     capacityMode: link.capacityMode,
@@ -487,10 +500,12 @@ export async function listEnrollmentLinks(ctx: TRPCContext) {
     })),
     counts: {
       applications: link.applications.length,
-      submitted: link.applications.filter((row: any) => row.status === "SUBMITTED")
-        .length,
-      approved: link.applications.filter((row: any) => row.status === "APPROVED")
-        .length,
+			submitted: link.applications.filter(
+				(row: any) => row.status === "SUBMITTED",
+			).length,
+			approved: link.applications.filter(
+				(row: any) => row.status === "APPROVED",
+			).length,
     },
   }));
 }
@@ -501,7 +516,9 @@ export async function createOrUpdateEnrollmentLink(
 ) {
   const { schoolProfileId, userId } = requireEnrollmentAdmin(ctx);
   const db = enrollmentDb(ctx);
-  const classroomIds = input.classrooms.map((classroom) => classroom.classRoomDepartmentId);
+	const classroomIds = input.classrooms.map(
+		(classroom) => classroom.classRoomDepartmentId,
+	);
 
   await assertClassroomsBelongToTenant(ctx, schoolProfileId, classroomIds);
 
@@ -515,7 +532,8 @@ export async function createOrUpdateEnrollmentLink(
   if (invalidRequirementTarget) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Requirement class target must be part of the selected classrooms.",
+			message:
+				"Requirement class target must be part of the selected classrooms.",
     });
   }
 
@@ -623,7 +641,10 @@ export async function setEnrollmentLinkStatus(
   });
 
   if (!link) {
-    throw new TRPCError({ code: "NOT_FOUND", message: "Enrollment link not found." });
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Enrollment link not found.",
+		});
   }
 
   await db.enrollmentLink.update({
@@ -673,7 +694,9 @@ export async function getEnrollmentApplications(
 
   return rows.map((row: any) => {
     const primaryParent =
-      row.parents.find((parent: any) => parent.isPrimary) ?? row.parents[0] ?? null;
+			row.parents.find((parent: any) => parent.isPrimary) ??
+			row.parents[0] ??
+			null;
 
     return {
       id: row.id,
@@ -687,13 +710,19 @@ export async function getEnrollmentApplications(
               code: row.enrollmentLink?.code,
               subDomain: row.enrollmentLink?.schoolProfile?.subDomain,
               templateId:
-                row.admissionLetterTemplateId ?? DEFAULT_ADMISSION_LETTER_TEMPLATE_ID,
+								row.admissionLetterTemplateId ??
+								DEFAULT_ADMISSION_LETTER_TEMPLATE_ID,
             })
           : null,
       status: row.status,
-      studentName: [row.studentFirstName, row.studentSurname, row.studentOtherName]
-        .filter(Boolean)
-        .join(" "),
+			studentName: formatStudentName(
+				{
+					firstName: row.studentFirstName,
+					surname: row.studentSurname,
+					otherName: row.studentOtherName,
+				},
+				ctx.profile.studentNameFormat,
+			),
       studentDob: row.studentDob,
       studentGender: row.studentGender,
       classroomName: classroomLabel(row.classRoomDepartment),
@@ -751,7 +780,8 @@ async function assertCapacity(tx: any, application: any) {
   }
 
   const classroomConfig = application.enrollmentLink.classrooms.find(
-    (row: any) => row.classRoomDepartmentId === application.classRoomDepartmentId,
+		(row: any) =>
+			row.classRoomDepartmentId === application.classRoomDepartmentId,
   );
   const count = await tx.enrollmentApplication.count({
     where: {
@@ -807,15 +837,20 @@ export async function approveEnrollmentApplication(
   const paymentInstructions = paymentRequired
     ? input.paymentInstructions?.trim() || null
     : null;
-  const paymentLink = paymentRequired ? normalizePaymentLink(input.paymentLink) : null;
+	const paymentLink = paymentRequired
+		? normalizePaymentLink(input.paymentLink)
+		: null;
   const paymentLabel = paymentRequired
     ? input.paymentLabel?.trim() || "Admission payment"
     : null;
-  const paymentDueAt = paymentRequired ? input.paymentDueAt ?? null : null;
+	const paymentDueAt = paymentRequired ? (input.paymentDueAt ?? null) : null;
   const requestedAdmissionLetterTemplateId =
     input.admissionLetterTemplateId ?? DEFAULT_ADMISSION_LETTER_TEMPLATE_ID;
 
-  if (paymentRequired && (!paymentAmount || (!paymentInstructions && !paymentLink))) {
+	if (
+		paymentRequired &&
+		(!paymentAmount || (!paymentInstructions && !paymentLink))
+	) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message:
@@ -853,7 +888,10 @@ export async function approveEnrollmentApplication(
     });
 
     if (!application) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Application not found.",
+			});
     }
 
     if (application.status === "APPROVED") {
@@ -865,7 +903,10 @@ export async function approveEnrollmentApplication(
       };
     }
 
-    if (application.status === "REJECTED" || application.status === "WITHDRAWN") {
+		if (
+			application.status === "REJECTED" ||
+			application.status === "WITHDRAWN"
+		) {
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: "This application can no longer be approved.",
@@ -1050,13 +1091,14 @@ export async function approveEnrollmentApplication(
         paymentLink,
         paymentRequired,
         schoolName: application.schoolProfile.name,
-        studentName: [
-          application.studentFirstName,
-          application.studentSurname,
-          application.studentOtherName,
-        ]
-          .filter(Boolean)
-          .join(" "),
+				studentName: formatStudentName(
+					{
+						firstName: application.studentFirstName,
+						surname: application.studentSurname,
+						otherName: application.studentOtherName,
+					},
+					application.schoolProfile.studentNameFormat,
+				),
       },
     };
   });
@@ -1101,7 +1143,10 @@ export async function rejectEnrollmentApplication(
   });
 
   if (!application) {
-    throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Application not found.",
+		});
   }
 
   if (application.status === "APPROVED") {
@@ -1175,25 +1220,30 @@ export async function getParentOverview(ctx: TRPCContext) {
           const termForm = ward.student.termForms[0] ?? null;
           const charges = termForm?.financeCharges ?? [];
           const outstanding = charges.reduce((sum: number, charge: any) => {
-            return sum + Number(charge.amount ?? 0) - Number(charge.amountPaid ?? 0);
+						return (
+							sum + Number(charge.amount ?? 0) - Number(charge.amountPaid ?? 0)
+						);
           }, 0);
 
           return {
             id: ward.student.id,
-            name: [ward.student.name, ward.student.surname, ward.student.otherName]
-              .filter(Boolean)
-              .join(" "),
+						name: formatStudentName(
+							ward.student,
+							ctx.profile.studentNameFormat,
+						),
             guardianName: guardian.name,
             classroomName: classroomLabel(termForm?.classroomDepartment),
             termName: termForm?.sessionTerm?.title ?? null,
             enrollmentStatus: termForm ? "ENROLLED" : "PENDING",
             outstanding,
             collectionStatus:
-              charges.find((charge: any) => charge.collectionStatus === "NOT_COLLECTED")
-                ?.collectionStatus ?? "NOT_REQUIRED",
+							charges.find(
+								(charge: any) => charge.collectionStatus === "NOT_COLLECTED",
+							)?.collectionStatus ?? "NOT_REQUIRED",
             bookStatus:
-              charges.find((charge: any) => charge.title?.toLowerCase().includes("book"))
-                ?.collectionStatus ?? "NOT_REQUIRED",
+							charges.find((charge: any) =>
+								charge.title?.toLowerCase().includes("book"),
+							)?.collectionStatus ?? "NOT_REQUIRED",
             uniformStatus:
               charges.find((charge: any) =>
                 charge.title?.toLowerCase().includes("uniform"),

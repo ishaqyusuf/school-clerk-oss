@@ -1,40 +1,55 @@
-import { useMemo, useState, useEffect } from "react";
 import { Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
-import { studentDisplayName } from "@/utils/utils";
+import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 
 import { Button } from "@school-clerk/ui/button";
 import { Label } from "@school-clerk/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@school-clerk/ui/select";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@school-clerk/ui/select";
 
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { CollapseForm } from "../collapse-form";
 import { useStudentFormContext } from "../students/form-context";
 import { SubmitButton } from "../submit-button";
-import { useTRPC } from "@/trpc/client";
-import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { useStudentParams } from "@/hooks/use-student-params";
+import { QuickFill } from "@/components/quick-fill";
 import { useAuth } from "@/hooks/use-auth";
+import { useStudentParams } from "@/hooks/use-student-params";
+import { ButtonGroup } from "@school-clerk/ui/button-group";
+import { FormDate } from "@school-clerk/ui/controls/form-date";
 import { FormInput } from "@school-clerk/ui/controls/form-input";
 import { FormSelect } from "@school-clerk/ui/controls/form-select";
-import { FormDate } from "@school-clerk/ui/controls/form-date";
-import { ButtonGroup } from "@school-clerk/ui/button-group";
 import Sheet from "@school-clerk/ui/custom/sheet";
 import { FindAndEnroll } from "../find-and-enroll";
-import { QuickFill } from "@/components/quick-fill";
 
 interface Props {}
 export function Form({}) {
   const { control, handleSubmit, watch, setValue } = useStudentFormContext();
+	const formatStudentName = useStudentNameFormatter();
   const trpc = useTRPC();
 
   const { data: classList } = useQuery(
-    trpc.classrooms.getCurrentSessionClassroom.queryOptions()
+		trpc.classrooms.getCurrentSessionClassroom.queryOptions(),
   );
 
   const mainClassrooms = useMemo(() => {
     if (!classList?.data) return [];
-    const map = new Map<string, { id: string; name: string; studentCount: number; departments: typeof classList.data }>();
+		const map = new Map<
+			string,
+			{
+				id: string;
+				name: string;
+				studentCount: number;
+				departments: typeof classList.data;
+			}
+		>();
     for (const dept of classList.data) {
       if (!dept.classRoom) continue;
       if (!map.has(dept.classRoom.id)) {
@@ -47,7 +62,8 @@ export function Form({}) {
       }
       map.get(dept.classRoom.id)!.departments.push(dept);
       // @ts-ignore - _count might not be typed fully in the router response type, but it is returned
-      map.get(dept.classRoom.id)!.studentCount += dept._count?.studentSessionForms || 0;
+			map.get(dept.classRoom.id)!.studentCount +=
+				dept._count?.studentSessionForms || 0;
     }
     return Array.from(map.values());
   }, [classList?.data]);
@@ -58,15 +74,27 @@ export function Form({}) {
     setSelectedMainClassId(mainClassId);
     const mainClass = mainClassrooms.find((c) => c.id === mainClassId);
     if (mainClass?.departments.length === 1) {
-      setValue("classRoomId", mainClass.departments[0].id, { shouldValidate: true, shouldDirty: true });
+			setValue("classRoomId", mainClass.departments[0].id, {
+				shouldValidate: true,
+				shouldDirty: true,
+			});
     } else {
-      setValue("classRoomId", null, { shouldValidate: true, shouldDirty: true });
+			setValue("classRoomId", null, {
+				shouldValidate: true,
+				shouldDirty: true,
+			});
     }
   };
 
-  const selectedMainClass = mainClassrooms.find(c => c.id === selectedMainClassId);
-  const showSubClassSelect = selectedMainClass && selectedMainClass.departments.length > 5;
-  const showSubClassGrid = selectedMainClass && selectedMainClass.departments.length > 1 && selectedMainClass.departments.length <= 5;
+	const selectedMainClass = mainClassrooms.find(
+		(c) => c.id === selectedMainClassId,
+	);
+	const showSubClassSelect =
+		selectedMainClass && selectedMainClass.departments.length > 5;
+	const showSubClassGrid =
+		selectedMainClass &&
+		selectedMainClass.departments.length > 1 &&
+		selectedMainClass.departments.length <= 5;
 
   const { setParams, ...params } = useStudentParams();
   const auth = useAuth();
@@ -75,7 +103,7 @@ export function Form({}) {
 
   useEffect(() => {
     if (classRoomId && classList?.data) {
-      const dept = classList.data.find(d => d.id === classRoomId);
+			const dept = classList.data.find((d) => d.id === classRoomId);
       if (dept?.classRoom?.id && dept.classRoom.id !== selectedMainClassId) {
         setSelectedMainClassId(dept.classRoom.id);
       }
@@ -90,8 +118,8 @@ export function Form({}) {
       },
       {
         enabled: Boolean(auth?.profile?.termId),
-      }
-    )
+			},
+		),
   );
 
   return (
@@ -117,13 +145,18 @@ export function Form({}) {
       </div>
       <div className="space-y-2">
         <Label>Classroom</Label>
-        <Select value={selectedMainClassId} onValueChange={handleMainClassChange}>
+				<Select
+					value={selectedMainClassId}
+					onValueChange={handleMainClassChange}
+				>
           <SelectTrigger>
              <SelectValue placeholder="Select Classroom" />
           </SelectTrigger>
           <SelectContent>
-            {mainClassrooms.map(c => (
-               <SelectItem key={c.id} value={c.id}>{c.name} ({c.studentCount})</SelectItem>
+						{mainClassrooms.map((c) => (
+							<SelectItem key={c.id} value={c.id}>
+								{c.name} ({c.studentCount})
+							</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -137,12 +170,19 @@ export function Form({}) {
                 key={dept.id}
                 type="button"
                 variant={classRoomId === dept.id ? "default" : "outline"}
-                onClick={() => setValue("classRoomId", dept.id, { shouldValidate: true, shouldDirty: true })}
+								onClick={() =>
+									setValue("classRoomId", dept.id, {
+										shouldValidate: true,
+										shouldDirty: true,
+									})
+								}
                 className="h-auto flex-col py-2"
               >
                 <span>{dept.departmentName}</span>
                 {/* @ts-ignore */}
-                <span className="text-xs opacity-70 font-normal mt-1">{dept._count?.studentSessionForms || 0} students</span>
+								<span className="text-xs opacity-70 font-normal mt-1">
+									{dept._count?.studentSessionForms || 0} students
+								</span>
               </Button>
             ))}
           </div>
@@ -153,10 +193,10 @@ export function Form({}) {
         <FormSelect
           control={control}
           name="classRoomId"
-          options={selectedMainClass!.departments.map(d => ({
+					options={selectedMainClass!.departments.map((d) => ({
             ...d,
             // @ts-ignore
-            displayName: `${d.departmentName} (${d._count?.studentSessionForms || 0})`
+						displayName: `${d.departmentName} (${d._count?.studentSessionForms || 0})`,
           }))}
           valueKey="id"
           label="Stream / Sub-class"
@@ -164,7 +204,9 @@ export function Form({}) {
         />
       )}
       <div className="rounded-lg border border-border p-3">
-        <h4 className="text-sm font-medium">Fees that will be applied on save</h4>
+				<h4 className="text-sm font-medium">
+					Fees that will be applied on save
+				</h4>
         {!applicableFeesPreview?.length ? (
           <p className="mt-2 text-sm text-muted-foreground">
             No active term fees match this class selection.
@@ -252,7 +294,7 @@ export function Form({}) {
           {/* {!data || (
             <div className="flex my-4">
               <div className="">
-                <span>{studentDisplayName(data as any)}</span>
+                <span>{formatStudentName(data as any)}</span>
               </div>
               <div className="flex-1"></div>
               <Button

@@ -1,9 +1,11 @@
 import { namePrintFormat } from "@/app/[domain]/(temp)/first-term-1446-1447/utils";
+import { useStudentNameFormat } from "@/components/student-name-format/provider";
 import { configs } from "@/configs";
 import { arabic, moonDance } from "@/fonts";
 import { useReportPageContext } from "@/hooks/use-report-page";
 import { cn } from "@school-clerk/ui/cn";
 import { enToAr } from "@school-clerk/utils";
+import { getStudentNameParts } from "@school-clerk/utils/student-name";
 import Image from "next/image";
 // import signature from "@public/signature.png";
 export function StudentReportPage({ studentId }) {
@@ -156,6 +158,7 @@ function ReportFooter({ studentId }) {
 }
 function ReportHeader({ studentId }) {
   const ctx = useReportPageContext();
+	const studentNameFormat = useStudentNameFormat();
   const data = ctx?.reportsById?.[studentId];
   const classroomName = data?.departmentName ?? ctx.classroomName;
   return (
@@ -187,9 +190,7 @@ function ReportHeader({ studentId }) {
               <div className="inline-flex w-full border-b-2 border-dashed border-muted-foreground px-4 text-xl">
                 {/* {student.fullName} */}
                 {namePrintFormat(
-                  data.student.name,
-                  data.student.surname,
-                  data.student.otherName,
+									...getStudentNameParts(data.student, studentNameFormat),
                 )?.map((p, i) => (
                   <div key={i} className="px-2">
                     {p}

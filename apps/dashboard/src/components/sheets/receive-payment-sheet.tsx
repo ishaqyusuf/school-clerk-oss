@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { format } from "date-fns";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import {
 	AlertTriangle,
 	BookOpen,
@@ -15,19 +14,20 @@ import {
 	UserPlus,
 	Wand2,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
-import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
-import { useAddFeeParams } from "@/hooks/use-add-fee-params";
 import { AddFeeSheet } from "@/components/finance/forms/add-fee-sheet";
+import { useStudentNameFormatter } from "@/components/student-name-format/provider";
+import { useAddFeeParams } from "@/hooks/use-add-fee-params";
+import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { useTRPC } from "@/trpc/client";
-import { studentDisplayName } from "@/utils/utils";
-import { cn } from "@school-clerk/ui/cn";
 import { Alert, AlertDescription, AlertTitle } from "@school-clerk/ui/alert";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { Card, CardContent } from "@school-clerk/ui/card";
 import { Checkbox } from "@school-clerk/ui/checkbox";
+import { cn } from "@school-clerk/ui/cn";
 import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
 import { Input } from "@school-clerk/ui/input";
 import {
@@ -165,15 +165,14 @@ type SimpleDescriptionOption = {
 	isActive: boolean;
 };
 
-type SimplePaymentTypeComboboxItem = SimplePaymentTypeOption & { label: string };
-type SimpleDescriptionComboboxItem = SimpleDescriptionOption & { label: string };
+type SimplePaymentTypeComboboxItem = SimplePaymentTypeOption & {
+	label: string;
+};
+type SimpleDescriptionComboboxItem = SimpleDescriptionOption & {
+	label: string;
+};
 
-const paymentMethods = [
-	"Bank Transfer",
-	"Cash",
-	"POS / Card",
-	"Cheque",
-];
+const paymentMethods = ["Bank Transfer", "Cash", "POS / Card", "Cheque"];
 
 function formatCurrency(amount: number) {
 	return `NGN ${Number(amount || 0).toLocaleString()}`;
@@ -203,7 +202,9 @@ export function ReceivePaymentSheet() {
 		);
 	}
 
-	return <SimpleReceivePaymentSheet onUseAdvanced={() => setAdvancedMode(true)} />;
+	return (
+		<SimpleReceivePaymentSheet onUseAdvanced={() => setAdvancedMode(true)} />
+	);
 }
 
 function SimpleReceivePaymentSheet({
@@ -220,6 +221,7 @@ function SimpleReceivePaymentSheet({
 	const studentSheetParams = useStudentParams();
 	const { setParams: setAddFeeParams } = useAddFeeParams();
 	const trpc = useTRPC();
+	const formatStudentName = useStudentNameFormatter();
 	const qc = useQueryClient();
 	const isOpen = Boolean(receivePaymentOpen);
 	const selectedStudentId = receivePaymentStudentId || "";
@@ -280,7 +282,7 @@ function SimpleReceivePaymentSheet({
 
 	const studentOptions = searchResults.map((student) => ({
 		id: student.id,
-		label: studentDisplayName(student) || student.name,
+		label: formatStudentName(student) || student.name,
 		classroom: student.classroom,
 		term: student.currentTermLabel,
 		hasCurrentTermSheet: student.hasCurrentTermSheet,
@@ -333,7 +335,9 @@ function SimpleReceivePaymentSheet({
 	const canCreateReusableSimpleCollection = Boolean(
 		optionsData?.permissions?.canCreateSimpleCollection,
 	);
-	const canCreateSchoolFee = Boolean(optionsData?.permissions?.canCreateSchoolFee);
+	const canCreateSchoolFee = Boolean(
+		optionsData?.permissions?.canCreateSchoolFee,
+	);
 
 	const paymentTypeItems = useMemo<SimplePaymentTypeComboboxItem[]>(
 		() =>
@@ -594,7 +598,12 @@ function SimpleReceivePaymentSheet({
 				<SheetHeader className="shrink-0 border-b px-6 py-5">
 					<div className="flex items-center justify-between gap-3">
 						<SheetTitle>Receive Student Payment</SheetTitle>
-						<Button type="button" variant="outline" size="sm" onClick={onUseAdvanced}>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onClick={onUseAdvanced}
+							>
 							Advanced
 						</Button>
 					</div>
@@ -637,8 +646,9 @@ function SimpleReceivePaymentSheet({
 										<div className="flex flex-col">
 											<span className="font-medium">{item.label}</span>
 											<span className="text-xs text-muted-foreground">
-												{[item.classroom, item.term].filter(Boolean).join(" • ") ||
-													"No term sheet yet"}
+													{[item.classroom, item.term]
+														.filter(Boolean)
+														.join(" • ") || "No term sheet yet"}
 											</span>
 										</div>
 										{!item.hasCurrentTermSheet ? (
@@ -676,7 +686,8 @@ function SimpleReceivePaymentSheet({
 								</Button>
 							) : null}
 						</div>
-						{!selectedStudent && (studentSearch || receivePaymentStudentName) ? (
+							{!selectedStudent &&
+							(studentSearch || receivePaymentStudentName) ? (
 							<Button
 								type="button"
 								variant="outline"
@@ -684,7 +695,8 @@ function SimpleReceivePaymentSheet({
 								onClick={() => openCreateStudent()}
 							>
 								<UserPlus className="h-4 w-4" />
-								Create student "{(studentSearch || receivePaymentStudentName || "").trim()}"
+									Create student "
+									{(studentSearch || receivePaymentStudentName || "").trim()}"
 							</Button>
 						) : null}
 					</div>
@@ -693,18 +705,25 @@ function SimpleReceivePaymentSheet({
 						<Card>
 							<CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
 								<div>
-									<h3 className="text-base font-semibold">{selectedStudent.label}</h3>
+										<h3 className="text-base font-semibold">
+											{selectedStudent.label}
+										</h3>
 									<p className="text-sm text-muted-foreground">
 										{[
-											optionsData?.student?.currentClassroom || selectedStudent.classroom,
-											optionsData?.student?.currentTerm || selectedStudent.term,
+												optionsData?.student?.currentClassroom ||
+													selectedStudent.classroom,
+												optionsData?.student?.currentTerm ||
+													selectedStudent.term,
 										]
 											.filter(Boolean)
 											.join(" • ") || "No active term sheet"}
 									</p>
 								</div>
 								<div className="text-sm font-medium">
-									{formatCurrency(optionsData?.summary?.totalOutstanding || 0)} outstanding
+										{formatCurrency(
+											optionsData?.summary?.totalOutstanding || 0,
+										)}{" "}
+										outstanding
 								</div>
 							</CardContent>
 						</Card>
@@ -756,7 +775,11 @@ function SimpleReceivePaymentSheet({
 								items={paymentTypeItems}
 								selectedItem={selectedPaymentTypeItem}
 								disabled={!selectedStudentId || isLoading}
-								placeholder={isLoading ? "Loading payment types..." : "Select payment type"}
+									placeholder={
+										isLoading
+											? "Loading payment types..."
+											: "Select payment type"
+									}
 								searchPlaceholder="Search payment types..."
 								onSelect={handlePaymentTypeSelect}
 								onCreate={(value) => {
@@ -826,7 +849,8 @@ function SimpleReceivePaymentSheet({
 									setSelectedDescriptionId("");
 									setCustomDescriptionTitle(trimmed);
 									const defaultAmount =
-										selectedPaymentType?.defaultAmount || Number(amountPaid || 0);
+											selectedPaymentType?.defaultAmount ||
+											Number(amountPaid || 0);
 									setAmountDue(defaultAmount ? String(defaultAmount) : "");
 									setAmountPaid(defaultAmount ? String(defaultAmount) : "");
 									setReceiptState(null);
@@ -842,7 +866,9 @@ function SimpleReceivePaymentSheet({
 										<div className="flex flex-col">
 											<span className="font-medium">{item.title}</span>
 											<span className="text-xs text-muted-foreground">
-												{item.termLabel || item.description || "Current option"}
+													{item.termLabel ||
+														item.description ||
+														"Current option"}
 											</span>
 										</div>
 										<span className="text-sm font-medium">
@@ -882,7 +908,10 @@ function SimpleReceivePaymentSheet({
 						<div className="grid gap-4 sm:grid-cols-2">
 							<div className="space-y-2">
 								<Label>Payment method</Label>
-								<Select value={paymentMethod} onValueChange={setPaymentMethod}>
+									<Select
+										value={paymentMethod}
+										onValueChange={setPaymentMethod}
+									>
 									<SelectTrigger>
 										<SelectValue />
 									</SelectTrigger>
@@ -1003,6 +1032,7 @@ function LegacyReceivePaymentSheet({
 	const selectedStudentId = receivePaymentStudentId || "";
 	const { setParams: setAddFeeParams } = useAddFeeParams();
 	const trpc = useTRPC();
+	const formatStudentName = useStudentNameFormatter();
 	const qc = useQueryClient();
 
 	const [studentSearch, setStudentSearch] = useState("");
@@ -1095,7 +1125,7 @@ function LegacyReceivePaymentSheet({
 
 	const studentOptions = searchResults.map((student) => ({
 		id: student.id,
-		label: studentDisplayName(student) || student.name,
+		label: formatStudentName(student) || student.name,
 		classroomId: student.classroomId || null,
 		classroom: student.classroom,
 		term: student.currentTermLabel,
@@ -1107,7 +1137,7 @@ function LegacyReceivePaymentSheet({
 		(data?.student
 			? {
 					id: data.student.id,
-					label: studentDisplayName(data.student) || data.student.name,
+					label: formatStudentName(data.student) || data.student.name,
 					classroomId:
 						(data.currentTermForm as any)?.classroomDepartment?.id || null,
 					classroom: data.student.currentClassroom,
@@ -1168,7 +1198,8 @@ function LegacyReceivePaymentSheet({
 				})
 				.map((item) => ({
 					id: item.id,
-					label: item.description || item.title || item.streamName || "Fee item",
+					label:
+						item.description || item.title || item.streamName || "Fee item",
 					description:
 						item.description || item.title || item.streamName || "Fee item",
 					amount: item.amount,
@@ -1237,9 +1268,7 @@ function LegacyReceivePaymentSheet({
 					description: row.title,
 					payableAmount: row.pendingAmount,
 					amount,
-					termLabels: [
-						termMap.get(row.studentTermFormId)?.title || "Term",
-					],
+					termLabels: [termMap.get(row.studentTermFormId)?.title || "Term"],
 				});
 				continue;
 			}
@@ -1471,9 +1500,7 @@ function LegacyReceivePaymentSheet({
 		values: Partial<ManualStreamRow>,
 	) => {
 		setManualRows((prev) =>
-			prev.map((row) =>
-				row.id === id ? { ...row, ...values } : row,
-			),
+			prev.map((row) => (row.id === id ? { ...row, ...values } : row)),
 		);
 	};
 
@@ -1483,9 +1510,7 @@ function LegacyReceivePaymentSheet({
 		value: string | null,
 	) => {
 		setManualRows((prev) =>
-			prev.map((row) =>
-				row.id === id ? { ...row, [field]: value } : row,
-			),
+			prev.map((row) => (row.id === id ? { ...row, [field]: value } : row)),
 		);
 	};
 
@@ -1518,10 +1543,7 @@ function LegacyReceivePaymentSheet({
 					billableHistoryId: row.billableHistoryId ?? null,
 					feeHistoryId: row.feeHistoryId ?? null,
 					streamId: override?.streamId ?? row.streamId ?? null,
-					streamName:
-						effectiveStream?.name ??
-						row.streamName ??
-						null,
+					streamName: effectiveStream?.name ?? row.streamName ?? null,
 					title: row.title,
 					description: row.description ?? override?.description ?? row.title,
 					amountDue: row.pendingAmount,
@@ -1560,7 +1582,9 @@ function LegacyReceivePaymentSheet({
 		receivePaymentMutation.mutate({
 			studentId: selectedStudentId,
 			studentTermFormId:
-				currentTerm?.id || data?.currentTermForm?.id || allocations[0].studentTermFormId,
+				currentTerm?.id ||
+				data?.currentTermForm?.id ||
+				allocations[0].studentTermFormId,
 			paymentMethod,
 			paymentDate: paymentDate
 				? new Date(`${paymentDate}T00:00:00`)
@@ -1571,9 +1595,7 @@ function LegacyReceivePaymentSheet({
 		});
 	};
 
-	const canSubmit =
-		Boolean(selectedStudentId) &&
-		totalAllocated > 0;
+	const canSubmit = Boolean(selectedStudentId) && totalAllocated > 0;
 
 	return (
 		<Sheet
@@ -1619,7 +1641,10 @@ function LegacyReceivePaymentSheet({
 									className="pl-2"
 									onSearch={(value) => {
 										setStudentSearch(value);
-										if (receivePaymentStudentName && value !== receivePaymentStudentName) {
+										if (
+											receivePaymentStudentName &&
+											value !== receivePaymentStudentName
+										) {
 											setParams({ receivePaymentStudentName: value || null });
 										}
 									}}
@@ -1652,7 +1677,8 @@ function LegacyReceivePaymentSheet({
 									)}
 								/>
 							</div>
-							{!selectedStudent && (studentSearch || receivePaymentStudentName) ? (
+							{!selectedStudent &&
+							(studentSearch || receivePaymentStudentName) ? (
 								<Button
 									type="button"
 									variant="outline"
@@ -1660,7 +1686,8 @@ function LegacyReceivePaymentSheet({
 									onClick={() => openCreateStudent()}
 								>
 									<UserPlus className="h-4 w-4" />
-									Create student "{(studentSearch || receivePaymentStudentName || "").trim()}"
+									Create student "
+									{(studentSearch || receivePaymentStudentName || "").trim()}"
 								</Button>
 							) : null}
 						</div>
@@ -1711,9 +1738,14 @@ function LegacyReceivePaymentSheet({
 						<Card>
 							<CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
 								<div>
-									<h3 className="text-lg font-semibold">{selectedStudent.label}</h3>
+									<h3 className="text-lg font-semibold">
+										{selectedStudent.label}
+									</h3>
 									<p className="text-sm text-muted-foreground">
-										{[data?.student?.currentClassroom, data?.student?.currentTerm]
+										{[
+											data?.student?.currentClassroom,
+											data?.student?.currentTerm,
+										]
 											.filter(Boolean)
 											.join(" • ") || "No active term sheet"}
 									</p>
@@ -1730,7 +1762,8 @@ function LegacyReceivePaymentSheet({
 										variant="link"
 										className="h-auto px-0 text-sm"
 										onClick={() => {
-											if (!selectedStudentId || !data?.currentTermForm?.id) return;
+											if (!selectedStudentId || !data?.currentTermForm?.id)
+												return;
 											setParams({
 												receivePayment: null,
 												receivePaymentStudentId: null,
@@ -1805,7 +1838,8 @@ function LegacyReceivePaymentSheet({
 							<div>
 								<h3 className="text-sm font-semibold">Term Payables</h3>
 								<p className="text-sm text-muted-foreground">
-									Select a student, expand a term, then choose the lines to collect.
+									Select a student, expand a term, then choose the lines to
+									collect.
 								</p>
 							</div>
 							<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -1861,7 +1895,9 @@ function LegacyReceivePaymentSheet({
 											)}
 										>
 											<div className="flex items-center gap-2">
-												<span className="text-sm font-semibold">{term.title}</span>
+												<span className="text-sm font-semibold">
+													{term.title}
+												</span>
 												{term.isCurrent ? (
 													<Badge variant="secondary">Current</Badge>
 												) : null}
@@ -1871,7 +1907,9 @@ function LegacyReceivePaymentSheet({
 												{formatCurrency(term.totals.totalDue)} paid
 											</p>
 											<p className="mt-1 text-xs text-muted-foreground">
-												{term.sessionTitle || term.classroomName || "Student term"}
+												{term.sessionTitle ||
+													term.classroomName ||
+													"Student term"}
 											</p>
 										</button>
 									);
@@ -1936,8 +1974,12 @@ function LegacyReceivePaymentSheet({
 																<td className="px-4 py-3">
 																	<div className="flex flex-col gap-1">
 																		<div className="flex flex-wrap items-center gap-2">
-																			<span className="font-medium">{row.title}</span>
-																			<Badge variant="outline">{row.status}</Badge>
+																			<span className="font-medium">
+																				{row.title}
+																			</span>
+																			<Badge variant="outline">
+																				{row.status}
+																			</Badge>
 																			{row.streamName ? (
 																				<Badge variant="secondary">
 																					{row.streamName}
@@ -2008,7 +2050,9 @@ function LegacyReceivePaymentSheet({
 															<ItemContent className="min-w-0 gap-3">
 																<ItemHeader>
 																	<ItemTitle className="w-full min-w-0 flex-1">
-																		<span className="truncate">{row.title}</span>
+																		<span className="truncate">
+																			{row.title}
+																		</span>
 																	</ItemTitle>
 																	<Checkbox
 																		checked={Boolean(current?.selected)}
@@ -2032,19 +2076,25 @@ function LegacyReceivePaymentSheet({
 																</div>
 																<div className="grid gap-2 text-xs sm:grid-cols-3">
 																	<div>
-																		<p className="text-muted-foreground">Payable</p>
+																		<p className="text-muted-foreground">
+																			Payable
+																		</p>
 																		<p className="font-medium">
 																			{formatCurrency(row.amount)}
 																		</p>
 																	</div>
 																	<div>
-																		<p className="text-muted-foreground">Paid</p>
+																		<p className="text-muted-foreground">
+																			Paid
+																		</p>
 																		<p className="font-medium">
 																			{formatCurrency(row.paidAmount || 0)}
 																		</p>
 																	</div>
 																	<div>
-																		<p className="text-muted-foreground">Pending</p>
+																		<p className="text-muted-foreground">
+																			Pending
+																		</p>
 																		<p className="font-medium">
 																			{formatCurrency(row.pendingAmount)}
 																		</p>
@@ -2067,14 +2117,20 @@ function LegacyReceivePaymentSheet({
 																	<ItemActions>
 																		<Button
 																			type="button"
-																			variant={current?.selected ? "secondary" : "outline"}
+																			variant={
+																				current?.selected
+																					? "secondary"
+																					: "outline"
+																			}
 																			size="sm"
 																			disabled={isPaid}
 																			onClick={() =>
 																				toggleRow(row, !current?.selected)
 																			}
 																		>
-																			{current?.selected ? "Selected" : "Select"}
+																			{current?.selected
+																				? "Selected"
+																				: "Select"}
 																		</Button>
 																	</ItemActions>
 																</ItemFooter>
@@ -2099,7 +2155,8 @@ function LegacyReceivePaymentSheet({
 							<div>
 								<h3 className="text-sm font-semibold">Stream Allocations</h3>
 								<p className="text-sm text-muted-foreground">
-									Payable selections map into stream rows automatically. Add extra rows when needed.
+									Payable selections map into stream rows automatically. Add
+									extra rows when needed.
 								</p>
 							</div>
 							<Button
@@ -2133,7 +2190,8 @@ function LegacyReceivePaymentSheet({
 														colSpan={5}
 														className="block px-4 py-8 text-center text-muted-foreground md:table-cell"
 													>
-														No allocations yet. Select payable rows above or add a manual stream entry.
+														No allocations yet. Select payable rows above or add
+														a manual stream entry.
 													</td>
 												</tr>
 											) : null}
@@ -2143,7 +2201,9 @@ function LegacyReceivePaymentSheet({
 												const effectiveStreamId =
 													override?.streamId ?? group.defaultStreamId ?? null;
 												const effectiveStream =
-													streamOptions.find((stream) => stream.id === effectiveStreamId) ??
+													streamOptions.find(
+														(stream) => stream.id === effectiveStreamId,
+													) ??
 													(group.defaultStreamName
 														? {
 																id: group.defaultStreamId || group.id,
@@ -2169,7 +2229,10 @@ function LegacyReceivePaymentSheet({
 														: undefined);
 
 												return (
-													<tr key={group.id} className="block bg-primary/5 p-4 md:table-row md:p-0">
+													<tr
+														key={group.id}
+														className="block bg-primary/5 p-4 md:table-row md:p-0"
+													>
 														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
 															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
 																Stream
@@ -2181,7 +2244,8 @@ function LegacyReceivePaymentSheet({
 																	placeholder="Select stream"
 																	searchPlaceholder="Search streams..."
 																	onSelect={(stream) => {
-																		const firstItem = getFirstStreamItem(stream);
+																		const firstItem =
+																			getFirstStreamItem(stream);
 																		setAutoOverrides((prev) => ({
 																			...prev,
 																			[group.id]: {
@@ -2248,7 +2312,9 @@ function LegacyReceivePaymentSheet({
 																				<span>{item.label}</span>
 																			</div>
 																			<span className="text-xs font-medium">
-																				{formatCurrency(Number(item.amount || 0))}
+																				{formatCurrency(
+																					Number(item.amount || 0),
+																				)}
 																			</span>
 																		</div>
 																	)}
@@ -2305,8 +2371,9 @@ function LegacyReceivePaymentSheet({
 
 											{manualRows.map((row) => {
 												const selectedStream =
-													streamOptions.find((stream) => stream.id === row.streamId) ??
-													undefined;
+													streamOptions.find(
+														(stream) => stream.id === row.streamId,
+													) ?? undefined;
 												const descriptionOptions =
 													getStreamItemOptions(selectedStream);
 												const selectedDescription =
@@ -2323,7 +2390,10 @@ function LegacyReceivePaymentSheet({
 														: undefined);
 												const rowTerm = termMap.get(row.studentTermFormId);
 												return (
-													<tr key={row.id} className="block p-4 md:table-row md:p-0">
+													<tr
+														key={row.id}
+														className="block p-4 md:table-row md:p-0"
+													>
 														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
 															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
 																Stream
@@ -2335,7 +2405,8 @@ function LegacyReceivePaymentSheet({
 																	placeholder="Select stream"
 																	searchPlaceholder="Search streams..."
 																	onSelect={(stream) => {
-																		const firstItem = getFirstStreamItem(stream);
+																		const firstItem =
+																			getFirstStreamItem(stream);
 																		const defaultAmount = firstItem
 																			? String(firstItem.amount || 0)
 																			: "";
@@ -2350,7 +2421,9 @@ function LegacyReceivePaymentSheet({
 																	}}
 																/>
 																{rowTerm ? (
-																	<Badge variant="outline">{rowTerm.title}</Badge>
+																	<Badge variant="outline">
+																		{rowTerm.title}
+																	</Badge>
 																) : null}
 															</div>
 														</td>
@@ -2380,7 +2453,9 @@ function LegacyReceivePaymentSheet({
 																				<span>{item.label}</span>
 																			</div>
 																			<span className="text-xs font-medium">
-																				{formatCurrency(Number(item.amount || 0))}
+																				{formatCurrency(
+																					Number(item.amount || 0),
+																				)}
 																			</span>
 																		</div>
 																	)}
@@ -2454,7 +2529,10 @@ function LegacyReceivePaymentSheet({
 										</tbody>
 										<tfoot className="block bg-muted/20 md:table-footer-group">
 											<tr className="flex items-center justify-between gap-3 px-4 py-3 md:table-row md:px-0 md:py-0">
-												<td className="font-semibold md:px-4 md:py-3" colSpan={3}>
+												<td
+													className="font-semibold md:px-4 md:py-3"
+													colSpan={3}
+												>
 													Allocation summary
 												</td>
 												<td className="text-right font-semibold md:px-4 md:py-3">
@@ -2496,7 +2574,6 @@ function LegacyReceivePaymentSheet({
 							</div>
 						) : null}
 					</div>
-
 				</div>
 				<div className="shrink-0 border-t bg-background/95 px-6 py-4 shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.45)] backdrop-blur supports-[backdrop-filter]:bg-background/85">
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

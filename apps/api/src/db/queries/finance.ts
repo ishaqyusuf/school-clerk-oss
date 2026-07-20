@@ -1,4 +1,8 @@
 import { Prisma } from "@school-clerk/db";
+import {
+	type StudentNameFormat,
+	formatStudentName,
+} from "@school-clerk/utils/student-name";
 import { TRPCError } from "@trpc/server";
 import type { TRPCContext } from "../../trpc/init";
 import type {
@@ -16,11 +20,11 @@ import type {
 	FinanceReceivePaymentOptionsInput,
 	FinanceSimpleStudentPaymentInput,
 	FinanceStaffHistoryInput,
-	FinanceTermAccountStatementInput,
-	FinanceTermCloseInput,
 	FinanceStreamDetailsInput,
 	FinanceStreamInput,
 	FinanceStreamQuery,
+	FinanceTermAccountStatementInput,
+	FinanceTermCloseInput,
 	FinanceTermLedgerQuery,
 	FinanceTransferInput,
 } from "../../trpc/schemas/finance";
@@ -85,10 +89,9 @@ function studentDisplayName(
 		surname?: string | null;
 		otherName?: string | null;
 	} | null,
+	format?: StudentNameFormat,
 ) {
-	return [student?.surname, student?.name, student?.otherName]
-		.filter(Boolean)
-		.join(" ");
+	return formatStudentName(student, format);
 }
 
 type StudentTermChargeForm = {
@@ -247,7 +250,8 @@ async function assertTermLedgerWritable(
 	if (closedLedger) {
 		throw new TRPCError({
 			code: "BAD_REQUEST",
-			message: "This term ledger is closed. Reopen it before recording changes.",
+			message:
+				"This term ledger is closed. Reopen it before recording changes.",
 		});
 	}
 }
@@ -297,10 +301,7 @@ async function reconcileStudentTermChargesForForm(
 			deletedAt: null,
 			isActive: true,
 			collectable: true,
-			OR: [
-				{ sessionTermId: termForm.sessionTermId },
-				{ sessionTermId: null },
-			],
+			OR: [{ sessionTermId: termForm.sessionTermId }, { sessionTermId: null }],
 			AND: [
 				{
 					OR: [
@@ -399,7 +400,10 @@ async function reconcileStudentTermChargesForForm(
 		}
 
 		const duplicateIds = charges
-			.filter((charge) => charge.id !== primary.id && toNumber(charge.amountPaid) <= 0)
+			.filter(
+				(charge) =>
+					charge.id !== primary.id && toNumber(charge.amountPaid) <= 0,
+			)
 			.map((charge) => charge.id);
 
 		if (duplicateIds.length) {
@@ -409,7 +413,8 @@ async function reconcileStudentTermChargesForForm(
 					status: "CANCELLED",
 					collectionStatus: "NOT_REQUIRED",
 					cancelledAt: new Date(),
-					cancellationReason: "Duplicate charge removed during fee reconciliation.",
+					cancellationReason:
+						"Duplicate charge removed during fee reconciliation.",
 				},
 			});
 			cancelled += result.count;
@@ -773,7 +778,7 @@ export async function getFinanceStreamDetails(
 			title: charge.title,
 			description: charge.description,
 			partyName:
-				studentDisplayName(charge.student) ||
+				studentDisplayName(charge.student, ctx.profile.studentNameFormat) ||
 				charge.staffProfile?.name ||
 				"School",
 			studentClassroom: [
@@ -904,14 +909,16 @@ export async function upsertFinanceItem(
 
 export async function listFinanceItems(
 	ctx: TRPCContext,
-	input?: { type?: string | null; excludeType?: string | null }
+	input?: { type?: string | null; excludeType?: string | null },
 ) {
 	const schoolProfileId = requireSchoolId(ctx);
 	const items = await ctx.db.financeItem.findMany({
 		where: {
 			schoolProfileId,
 			...(input?.type ? { type: input.type as any } : {}),
-			...(input?.excludeType ? { type: { not: input.excludeType as any } } : {}),
+			...(input?.excludeType
+				? { type: { not: input.excludeType as any } }
+				: {}),
 		},
 		include: {
 			stream: { select: { id: true, name: true, accountType: true } },
@@ -1090,7 +1097,9 @@ export async function listFinanceCharges(
 			...(input?.status || statusFromCollectionFilter
 				? { status: (input?.status ?? statusFromCollectionFilter) as never }
 				: { status: { not: "CANCELLED" } }),
-			...(collectionStatus ? { collectionStatus: collectionStatus as never } : {}),
+			...(collectionStatus
+				? { collectionStatus: collectionStatus as never }
+				: {}),
 			...(input?.payerType ? { payerType: input.payerType as any } : {}),
 			...(!input?.payerType && input?.excludePayerType
 				? { payerType: { not: input.excludePayerType as any } }
@@ -1158,7 +1167,10 @@ export async function listFinanceCharges(
 			totalBilled: amount,
 			totalPaid: amountPaid,
 			totalPending: outstanding,
-			studentName: studentDisplayName(charge.student),
+			studentName: studentDisplayName(
+				charge.student,
+				ctx.profile.studentNameFormat,
+			),
 			classroomId: charge.classroomDepartmentId,
 			classroomName,
 			studentCount: charge.studentId ? 1 : 0,
@@ -1232,10 +1244,13 @@ export async function recordFinancePayment(
 			? "PAID"
 			: "PARTIALLY_PAID";
 		const collectedSessionTermId =
-			input.collectedTermId ?? ctx.profile.termId ?? charge.sessionTermId ?? null;
+			input.collectedTermId ??
+			ctx.profile.termId ??
+			charge.sessionTermId ??
+			null;
 		const collectedSchoolSessionId =
 			input.collectedSessionId ??
-			(input.collectedTermId ? null : ctx.profile.sessionId ?? null) ??
+			(input.collectedTermId ? null : (ctx.profile.sessionId ?? null)) ??
 			charge.schoolSessionId ??
 			null;
 		await assertTermLedgerWritable(tx as any, {
@@ -1296,7 +1311,11 @@ export async function recordFinancePayment(
 							inventoryId: inventoryItem.id,
 							quantity: 1,
 							note: `Issued upon payment of charge ${charge.id}`,
-							issuedTo: charge.studentId ? `studentId:${charge.studentId}` : charge.staffProfileId ? `staffId:${charge.staffProfileId}` : undefined,
+							issuedTo: charge.studentId
+								? `studentId:${charge.studentId}`
+								: charge.staffProfileId
+									? `staffId:${charge.staffProfileId}`
+									: undefined,
 							issuedDate: input.paymentDate ?? new Date(),
 						},
 					});
@@ -1346,7 +1365,7 @@ export async function recordFinancePayment(
 
 export async function reverseFinancePayment(
 	ctx: TRPCContext,
-	input: { paymentId: string; note?: string }
+	input: { paymentId: string; note?: string },
 ) {
 	requireFinanceWriteAccess(ctx);
 	const schoolProfileId = requireSchoolId(ctx);
@@ -1371,8 +1390,13 @@ export async function reverseFinancePayment(
 				const currentPaid = toMoney(charge.amountPaid ?? 0);
 				const newPaid = currentPaid.minus(amountToReverse);
 
-				const nextStatus = newPaid.lessThanOrEqualTo(0) ? "PENDING" : "PARTIALLY_PAID";
-			const nextCollectionStatus = charge.collectionStatus === "COLLECTED" ? "NOT_COLLECTED" : charge.collectionStatus;
+			const nextStatus = newPaid.lessThanOrEqualTo(0)
+				? "PENDING"
+				: "PARTIALLY_PAID";
+			const nextCollectionStatus =
+				charge.collectionStatus === "COLLECTED"
+					? "NOT_COLLECTED"
+					: charge.collectionStatus;
 
 			await tx.financeCharge.update({
 				where: { id: charge.id },
@@ -1404,7 +1428,9 @@ export async function reverseFinancePayment(
 					sourceId: payment.id,
 					amount: ledger.amount,
 					occurredAt: new Date(),
-					note: input.note ?? `Reversal of payment ${payment.reference || payment.id}`,
+					note:
+						input.note ??
+						`Reversal of payment ${payment.reference || payment.id}`,
 					createdById: ctx.currentUser?.id,
 					collectedSessionTermId: ledger.collectedSessionTermId,
 					collectedSchoolSessionId: ledger.collectedSchoolSessionId,
@@ -1569,7 +1595,7 @@ export async function listFinanceTransfers(ctx: TRPCContext) {
 
 export async function listFinancePayments(
 	ctx: TRPCContext,
-	input?: { payerType?: string | null }
+	input?: { payerType?: string | null },
 ) {
 	const schoolProfileId = requireSchoolId(ctx);
 	const payments = await ctx.db.financePayment.findMany({
@@ -2026,7 +2052,7 @@ export async function recordFinancePurchase(
 	const schoolProfileId = requireSchoolId(ctx);
 	const termId = input.termId ?? ctx.profile.termId ?? null;
 	const sessionId =
-		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+		input.sessionId ?? (input.termId ? null : (ctx.profile.sessionId ?? null));
 	const quantity = input.quantity ?? 1;
 	const totalCost = input.totalCost ?? quantity * (input.unitCost ?? 0);
 	const amountPaid = input.amountPaid ?? 0;
@@ -2048,14 +2074,19 @@ export async function recordFinancePurchase(
 			schoolProfileId,
 			streamId: input.streamId,
 			streamName: input.streamName ?? "Purchases",
-			type: input.kind === "LABOR" || input.kind === "SERVICE" ? "SERVICE" : "OTHER",
+			type:
+				input.kind === "LABOR" || input.kind === "SERVICE"
+					? "SERVICE"
+					: "OTHER",
 			accountType: "DEBIT",
 		});
 		const payee = await getOrCreateFinancePayee(tx, {
 			schoolProfileId,
 			payeeId: input.payeeId,
 			name: input.payeeName,
-			type: input.payeeType ?? (input.kind === "LABOR" ? "CASUAL_WORKER" : "VENDOR"),
+			type:
+				input.payeeType ??
+				(input.kind === "LABOR" ? "CASUAL_WORKER" : "VENDOR"),
 			createdById: ctx.currentUser?.id,
 		});
 		const charge = await tx.financeCharge.create({
@@ -2483,7 +2514,7 @@ export async function getStudentFinanceStatement(
 		student: student
 			? {
 					id: student.id,
-					name: studentDisplayName(student),
+					name: studentDisplayName(student, ctx.profile.studentNameFormat),
 					currentClassroom: [
 						currentTermForm?.classroomDepartment?.classRoom?.name,
 						currentTermForm?.classroomDepartment?.departmentName,
@@ -2528,7 +2559,7 @@ export async function getReceivePaymentOptions(
 	const schoolProfileId = requireSchoolId(ctx);
 	const termId = input.termId ?? ctx.profile.termId ?? null;
 	const sessionId =
-		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+		input.sessionId ?? (input.termId ? null : (ctx.profile.sessionId ?? null));
 
 	await reconcileStudentTermCharges(ctx, {
 		studentId: input.studentId,
@@ -2749,8 +2780,7 @@ export async function getReceivePaymentOptions(
 			source: nextSource,
 			itemTypes: [...itemTypes],
 			hasOutstanding:
-				(existing?.hasOutstanding ?? false) ||
-				params.source === "outstanding",
+				(existing?.hasOutstanding ?? false) || params.source === "outstanding",
 			hasConfiguredItems:
 				(existing?.hasConfiguredItems ?? false) ||
 				params.source === "configured",
@@ -2825,7 +2855,9 @@ export async function getReceivePaymentOptions(
 				sessionTermId:
 					charge.sessionTermId ?? charge.studentTermForm?.sessionTermId ?? null,
 				schoolSessionId:
-					charge.schoolSessionId ?? charge.studentTermForm?.schoolSessionId ?? null,
+					charge.schoolSessionId ??
+					charge.studentTermForm?.schoolSessionId ??
+					null,
 				termLabel: charge.studentTermForm?.sessionTerm?.title ?? null,
 				classroomNames: [
 					[
@@ -2856,7 +2888,7 @@ export async function getReceivePaymentOptions(
 	return {
 		student: {
 			id: student.id,
-			name: studentDisplayName(student),
+			name: studentDisplayName(student, ctx.profile.studentNameFormat),
 			currentClassroom: [
 				termForm?.classroomDepartment?.classRoom?.name,
 				termForm?.classroomDepartment?.departmentName,
@@ -2903,7 +2935,7 @@ export async function receiveStudentPaymentSimple(
 	const schoolProfileId = requireSchoolId(ctx);
 	const termId = input.termId ?? ctx.profile.termId ?? null;
 	const sessionId =
-		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+		input.sessionId ?? (input.termId ? null : (ctx.profile.sessionId ?? null));
 	const amountPaid = toNumber(input.amountPaid);
 	const amountDue = input.amountDue == null ? null : toNumber(input.amountDue);
 
@@ -3023,8 +3055,7 @@ export async function receiveStudentPaymentSimple(
 											applicableClasses: {
 												some: {
 													deletedAt: null,
-													classRoomDepartmentId:
-														termForm.classroomDepartmentId,
+													classRoomDepartmentId: termForm.classroomDepartmentId,
 												},
 											},
 										},
@@ -3047,7 +3078,8 @@ export async function receiveStudentPaymentSimple(
 		if (!item) {
 			throw new TRPCError({
 				code: "NOT_FOUND",
-				message: "Payment item was not found or does not apply to this student.",
+				message:
+					"Payment item was not found or does not apply to this student.",
 			});
 		}
 
@@ -3129,7 +3161,7 @@ export async function getFinanceTermLedger(
 	const schoolProfileId = requireSchoolId(ctx);
 	const termId = input?.termId ?? ctx.profile.termId ?? null;
 	const sessionId =
-		input?.sessionId ?? (termId ? null : ctx.profile.sessionId ?? null);
+		input?.sessionId ?? (termId ? null : (ctx.profile.sessionId ?? null));
 
 	if (!termId) {
 		throw new TRPCError({
@@ -3162,14 +3194,16 @@ export async function getFinanceTermLedger(
 			message: "Term ledger was not found.",
 		});
 	}
-	const closeRecord = await (ctx.db as any).financeTermLedgerClose?.findFirst?.({
+	const closeRecord = await (ctx.db as any).financeTermLedgerClose?.findFirst?.(
+		{
 		where: {
 			schoolProfileId,
 			sessionTermId: term.id,
 			deletedAt: null,
 		},
 		orderBy: [{ createdAt: "desc" }],
-	});
+		},
+	);
 
 	const streamAccounts = await listFinanceStreams(ctx, {
 		termId: term.id,
@@ -3245,7 +3279,9 @@ export async function getFinanceTermLedger(
 		(sum, account) => sum + account.outstandingPayablesCount,
 		0,
 	);
-	const needsFundingAccounts = accounts.filter((account) => account.needsFunding);
+	const needsFundingAccounts = accounts.filter(
+		(account) => account.needsFunding,
+	);
 
 	return {
 		id: `term-ledger:${term.id}`,
@@ -3349,7 +3385,9 @@ export async function previewFinanceTermClose(
 
 	const schoolProfileId = requireSchoolId(ctx);
 	const ledger = await getFinanceTermLedger(ctx, input);
-	const existingClose = await (ctx.db as any).financeTermLedgerClose?.findFirst?.({
+	const existingClose = await (
+		ctx.db as any
+	).financeTermLedgerClose?.findFirst?.({
 		where: {
 			schoolProfileId,
 			sessionTermId: ledger.termId,
@@ -3648,7 +3686,7 @@ export async function getFinanceTermAccountStatement(
 	const schoolProfileId = requireSchoolId(ctx);
 	const termId = input.termId ?? ctx.profile.termId ?? null;
 	const sessionId =
-		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+		input.sessionId ?? (input.termId ? null : (ctx.profile.sessionId ?? null));
 
 	if (!termId) {
 		throw new TRPCError({
@@ -3762,7 +3800,10 @@ export async function getFinanceTermAccountStatement(
 		paidForSchoolSessionId: entry.charge?.schoolSessionId ?? null,
 		note: entry.note,
 		payerName:
-			studentDisplayName(entry.charge?.student) ||
+			studentDisplayName(
+				entry.charge?.student,
+				ctx.profile.studentNameFormat,
+			) ||
 			entry.charge?.staffProfile?.name ||
 			null,
 		charge: entry.charge,
@@ -3807,7 +3848,7 @@ export async function getFinanceProjectAccountSummary(
 	const schoolProfileId = requireSchoolId(ctx);
 	const termId = input.termId ?? ctx.profile.termId ?? null;
 	const sessionId =
-		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+		input.sessionId ?? (input.termId ? null : (ctx.profile.sessionId ?? null));
 
 	const purchases = await ctx.db.financePurchase.findMany({
 		where: {
@@ -3918,7 +3959,7 @@ export async function getFinanceStaffHistory(
 
 	const termId = input.termId ?? ctx.profile.termId ?? null;
 	const sessionId =
-		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+		input.sessionId ?? (input.termId ? null : (ctx.profile.sessionId ?? null));
 	const [structures, charges] = await Promise.all([
 		ctx.db.financePayrollStructure.findMany({
 			where: {
@@ -3928,7 +3969,9 @@ export async function getFinanceStaffHistory(
 				...(termId ? { sessionTermId: termId } : {}),
 				...(sessionId ? { schoolSessionId: sessionId } : {}),
 			},
-			include: { stream: { select: { id: true, name: true, accountType: true } } },
+			include: {
+				stream: { select: { id: true, name: true, accountType: true } },
+			},
 			orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
 		}),
 		ctx.db.financeCharge.findMany({
@@ -4004,7 +4047,10 @@ export async function getFinanceStaffHistory(
 		})),
 		charges: normalizedCharges,
 		summary: {
-			totalDue: normalizedCharges.reduce((sum, charge) => sum + charge.amount, 0),
+			totalDue: normalizedCharges.reduce(
+				(sum, charge) => sum + charge.amount,
+				0,
+			),
 			totalPaid: normalizedCharges.reduce(
 				(sum, charge) => sum + charge.amountPaid,
 				0,
@@ -4044,7 +4090,7 @@ export async function getFinancePayeeHistory(
 
 	const termId = input.termId ?? ctx.profile.termId ?? null;
 	const sessionId =
-		input.sessionId ?? (input.termId ? null : ctx.profile.sessionId ?? null);
+		input.sessionId ?? (input.termId ? null : (ctx.profile.sessionId ?? null));
 	const [purchases, charges] = await Promise.all([
 		ctx.db.financePurchase.findMany({
 			where: {

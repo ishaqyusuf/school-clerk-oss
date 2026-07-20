@@ -32,6 +32,20 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: unauthenticated request, non-administrator role, missing tenant context, school not found in the active tenant.
 - Notes: the mutation never accepts a school id and constrains the update to the authenticated `schoolProfileId`. Forced LTR/RTL mode is read without the automatic-analysis cache.
 
+## Student Name Format Contracts
+
+- Route: `schoolSettings.getGeneral`
+- Request schema: none
+- Response schema: `{ id, name, subDomain, slug, createdAt, studentNameFormat, _count: { students, sessions } }`, where `studentNameFormat` is `"FIRST_SURNAME_OTHER" | "SURNAME_FIRST_OTHER" | "FIRST_OTHER_SURNAME"`.
+- Error cases: unauthenticated request, missing tenant context, school not found in the active tenant.
+- Notes: the school id is derived exclusively from authenticated tenant context. Unknown or missing persisted values normalize to `FIRST_SURNAME_OTHER`.
+
+- Route: `schoolSettings.updateStudentNameFormat`
+- Request schema: `{ format: "FIRST_SURNAME_OTHER" | "SURNAME_FIRST_OTHER" | "FIRST_OTHER_SURNAME" }`
+- Response schema: `{ format }`
+- Error cases: unauthenticated request, non-administrator role, missing tenant context, school not found in the active tenant.
+- Notes: the mutation never accepts a school id and constrains the update to the authenticated `schoolProfileId`. It changes presentation only; stored student name fields are not rewritten.
+
 ## Endpoint Contract Template
 
 - Route:
@@ -625,6 +639,85 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Response schema: `{ staffId, completed: true }`
 - Error cases: onboarding link no longer matches a staff record
 - Notes: used after password reset in the onboarding link flow to complete the staff profile and mark onboarding active
+
+## Academic Term Lifecycle Contracts
+
+- Route: `academics.createTermDraft`
+- Request schema: `sessionId`, `title`, nullable `startDate`, nullable `endDate`, optional nullable `note`
+- Response schema: draft term with id, session, metadata, and `lifecycleStatus = DRAFT`
+- Error cases: unauthenticated/non-admin caller, cross-tenant session, invalid date range
+
+- Route: `academics.getTermSetupContext`
+- Request schema: `termId`, optional `previousTermId`
+- Response schema: target/source metadata, `sameSession`, selectable classrooms/subjects/students/teachers, default selection, latest completed run
+- Error cases: unauthenticated/non-admin caller, target/source outside the tenant, source equals target
+
+- Route: `academics.previewTermSetup`
+- Request schema: target/source ids plus `copy-all | selected | empty` options and selected ids for each data domain
+- Response schema: selected counts, blockers, warnings, `promotional`, target/source metadata
+- Error cases: stale or out-of-scope selected ids, direct cross-session student copy, invalid classroom mapping
+
+- Route: `academics.applyTermSetup`
+- Request schema: preview selection plus required `idempotencyKey`
+- Response schema: `{ alreadyApplied, runId, result }`, where result counts classrooms, subjects, assessments, students, teachers, and fees created
+- Error cases: preview blockers, idempotency key reused for another target, concurrent apply, failed transaction
+- Notes: additive; never deletes target academic data. A completed retry returns the stored result.
+
+- Route: `academics.previewTermActivation`
+- Request schema: `termId`
+- Response schema: target, current active term, blockers, `canActivate`
+- Error cases: target outside tenant
+- Notes: blockers include incomplete setup, missing/invalid dates, open outgoing finance ledger, and pending cross-session student progression.
+
+- Route: `academics.activateTerm`
+- Request schema: `termId`
+- Response schema: activated term/session identity
+- Error cases: any activation preview blocker, unauthenticated/non-admin caller
+- Notes: serializable transaction closes the previous active term, activates the target, updates `SchoolProfile.activeSessionTermId`, and records activity.
+
+- Route: `academics.closeTerm`
+- Request schema: `termId`
+- Response schema: `{ success: true }`
+- Error cases: term is not active, finance ledger is not closed, tenant/role mismatch
+
+- Closed-term write contract: assessment setup/scores, workbook import, public-link/AI scores, attendance create/update/delete, and manual term enrollment reject `CLOSED` terms with `CONFLICT`.
+
+## Attendance Contracts
+
+- Route: `attendance.getAttendanceOptions`
+- Request schema: `{ departmentId: string }`
+- Response schema: `{ departmentId, subjects: Array<{ id, title }> }`
+- Error cases: unauthenticated, role not allowed, classroom outside the active tenant/session, teacher not assigned to the classroom.
+- Notes: teacher results include only active-term department subjects in the teacher's effective academic access.
+
+- Route: `attendance.takeAttendance`
+- Request schema: `{ departmentId, attendanceTitle, attendanceDate?, scope: "GENERAL" | "SUBJECT", departmentSubjectId?, periodLabel?, idempotencyKey?, students: Array<{ studentTermFormId, status?, isPresent?, comment? }> }`
+- Response schema: `{ id }`
+- Error cases: unauthenticated, role not allowed, inactive/missing tenant term, closed term, unauthorized classroom/subject, subject outside the classroom term, incomplete or foreign roster, duplicate student, or duplicate classroom/date/scope/subject/period.
+- Notes: `departmentSubjectId` is required only for `SUBJECT` scope and forbidden for `GENERAL`. Every active classroom roster student must have one status. Supported statuses are `PRESENT`, `ABSENT`, `LATE`, `EXCUSED`, `SICK`, and `LEAVE`; legacy `isPresent` input remains compatible. The idempotency and dedupe guards are claimed atomically with session creation, and a payload hash rejects key reuse for different request content.
+
+- Route: `attendance.updateAttendanceSession`
+- Request schema: the create payload plus `{ attendanceId }`
+- Response schema: `{ id, revision }`
+- Error cases: create errors plus missing session, session outside the active term, or correction colliding with another session.
+- Notes: correction soft-deletes the prior student marks, writes the replacement roster, increments the revision, and stores a before/after audit snapshot in one transaction.
+
+- Route: `attendance.deleteAttendanceSession`
+- Request schema: `{ attendanceId }`
+- Response schema: `{ success: true }`
+- Error cases: unauthenticated, role not allowed, unauthorized classroom, or closed term.
+- Notes: deletion is idempotent and soft. It records a deletion revision and releases idempotency/dedupe guards so an authorized replacement session can be recorded.
+
+- Routes: `attendance.getClassroomAttendance`, `attendance.getAttendanceSession`, `attendance.getStudentAttendanceHistory`
+- Response schema: active-term attendance metadata with explicit status counts/rows, scope, optional subject, period, date, recorder, and revision where applicable.
+- Error cases: unauthenticated, role not allowed, tenant mismatch, or teacher outside effective classroom access.
+- Notes: legacy rows without explicit status/date/scope are read compatibly as present/absent, `createdAt`, and general attendance.
+
+- Route: `attendance.getAttendanceReport`
+- Request schema: `{ departmentId, departmentSubjectId?, from?, to? }`
+- Response schema: `{ sessions, summary, rows }`, where rows are student-level export records and summary includes all status counts plus attendance rate.
+- Error cases: unauthenticated, role not allowed, unauthorized classroom/subject, or inverted date range.
+- Notes: attendance rate counts `PRESENT` and `LATE` as attended and excludes `EXCUSED`, `SICK`, and `LEAVE` from the eligible denominator.
 
 ## AI Chat Contracts
 

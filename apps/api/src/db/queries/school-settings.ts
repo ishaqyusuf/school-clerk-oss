@@ -5,6 +5,10 @@ import {
 	applyAcademicDirectionMode,
 	createAcademicDirectionFallback,
 } from "@school-clerk/db";
+import {
+	type StudentNameFormat,
+	normalizeStudentNameFormat,
+} from "@school-clerk/utils/student-name";
 import { TRPCError } from "@trpc/server";
 
 const ADMIN_ROLES = new Set(["Admin", "ADMIN"]);
@@ -29,11 +33,51 @@ function requireSchoolAdmin(ctx: TRPCContext) {
 	if (!role || !ADMIN_ROLES.has(role)) {
 		throw new TRPCError({
 			code: "FORBIDDEN",
-			message: "Only school administrators can update academic data direction.",
+			message: "Only school administrators can update school settings.",
 		});
 	}
 
 	return schoolProfileId;
+}
+
+export async function getGeneralSchoolSettings(ctx: TRPCContext) {
+	const schoolProfileId = requireSchoolId(ctx);
+	const school = await ctx.db.schoolProfile.findFirst({
+		where: {
+			id: schoolProfileId,
+			deletedAt: null,
+		},
+		select: {
+			id: true,
+			name: true,
+			subDomain: true,
+			slug: true,
+			createdAt: true,
+			studentNameFormat: true,
+			_count: {
+				select: {
+					students: true,
+					sessions: {
+						where: {
+							deletedAt: null,
+						},
+					},
+				},
+			},
+		},
+	});
+
+	if (!school) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "School profile was not found.",
+		});
+	}
+
+	return {
+		...school,
+		studentNameFormat: normalizeStudentNameFormat(school.studentNameFormat),
+	};
 }
 
 export async function getAcademicDataDirectionSettings(ctx: TRPCContext) {
@@ -65,6 +109,31 @@ export async function getAcademicDataDirectionSettings(ctx: TRPCContext) {
 		});
 		return createAcademicDirectionFallback(mode);
 	}
+}
+
+export async function updateStudentNameFormat(
+	ctx: TRPCContext,
+	format: StudentNameFormat,
+) {
+	const schoolProfileId = requireSchoolAdmin(ctx);
+	const result = await ctx.db.schoolProfile.updateMany({
+		where: {
+			id: schoolProfileId,
+			deletedAt: null,
+		},
+		data: {
+			studentNameFormat: format,
+		},
+	});
+
+	if (result.count !== 1) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "School profile was not found.",
+		});
+	}
+
+	return { format };
 }
 
 export async function updateAcademicDataDirectionMode(

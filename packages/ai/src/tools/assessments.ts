@@ -7,9 +7,9 @@ import { classroomDisplayName } from "@school-clerk/utils";
 import { tool } from "ai";
 import { z } from "zod";
 import {
-	studentDisplayName,
 	type SchoolAiToolContext,
 	type SchoolAiToolHelpers,
+	studentDisplayName,
 } from "./context";
 
 type AssessmentScoreInput = {
@@ -208,6 +208,28 @@ export function createAssessmentTools(
 						});
 						return output;
 					}
+					const writableTerm = await database.sessionTerm.findFirst({
+						where: {
+							id: ctx.termId,
+							schoolId: ctx.schoolId,
+							deletedAt: null,
+						},
+						select: { lifecycleStatus: true },
+					});
+					if (!writableTerm || writableTerm.lifecycleStatus === "CLOSED") {
+						const output = blockedOutput({
+							toolName: "recordAssessmentScores",
+							message: writableTerm
+								? "This academic term is closed, so assessment scores cannot be changed."
+								: "The selected academic term is no longer available.",
+						});
+						await finishAssistantToolExecution({
+							toolExecutionId: guarded.executionId,
+							status: "blocked",
+							output,
+						});
+						return output;
+					}
 
 					const departments = await database.classRoomDepartment.findMany({
 						where: {
@@ -254,7 +276,10 @@ export function createAssessmentTools(
 								classroomMatches.length > 1
 									? "More than one classroom matches the requested classroom name."
 									: "No classroom matches the requested classroom name.",
-							candidates: (classroomMatches.length ? classroomMatches : departments)
+							candidates: (classroomMatches.length
+								? classroomMatches
+								: departments
+							)
 								.slice(0, 12)
 								.map((department) => ({
 									id: department.id,
@@ -387,7 +412,11 @@ export function createAssessmentTools(
 					const ambiguous: {
 						inputName: string;
 						obtained: number;
-						candidates: { studentId: string; studentTermFormId: string; studentName: string }[];
+						candidates: {
+							studentId: string;
+							studentTermFormId: string;
+							studentName: string;
+						}[];
 					}[] = [];
 					const duplicateInputs: string[] = [];
 					const resolvedScores: Omit<
@@ -404,7 +433,7 @@ export function createAssessmentTools(
 								const student = termForm.student;
 								if (!student) return [];
 								return [
-									studentDisplayName(student),
+									studentDisplayName(student, ctx.studentNameFormat),
 									[student.name, student.surname, student.otherName]
 										.filter(Boolean)
 										.join(" "),
@@ -431,7 +460,7 @@ export function createAssessmentTools(
 									studentId: match.student?.id ?? "",
 									studentTermFormId: match.id,
 									studentName: match.student
-										? studentDisplayName(match.student)
+										? studentDisplayName(match.student, ctx.studentNameFormat)
 										: "Student",
 								})),
 							});
@@ -458,7 +487,7 @@ export function createAssessmentTools(
 						resolvedScores.push({
 							studentId,
 							studentTermFormId: match.id,
-							studentName: studentDisplayName(student),
+							studentName: studentDisplayName(student, ctx.studentNameFormat),
 							inputName: score.studentName,
 							obtained: score.obtained,
 						});
@@ -479,7 +508,10 @@ export function createAssessmentTools(
 										studentId: termForm.student?.id ?? null,
 										studentTermFormId: termForm.id,
 										studentName: termForm.student
-											? studentDisplayName(termForm.student)
+											? studentDisplayName(
+													termForm.student,
+													ctx.studentNameFormat,
+												)
 											: "Student",
 									})),
 							},

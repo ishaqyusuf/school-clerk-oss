@@ -1,9 +1,16 @@
 import { Prisma, prisma } from "@school-clerk/db";
 import { tool } from "ai";
 import { z } from "zod";
-import { studentDisplayName, type SchoolAiToolContext, type SchoolAiToolHelpers } from "./context";
+import {
+	type SchoolAiToolContext,
+	type SchoolAiToolHelpers,
+	studentDisplayName,
+} from "./context";
 
-export function createFinanceTools(ctx: SchoolAiToolContext, helpers: SchoolAiToolHelpers) {
+export function createFinanceTools(
+	ctx: SchoolAiToolContext,
+	helpers: SchoolAiToolHelpers,
+) {
 	const {
 		finishAssistantToolExecution,
 		getTeacherWorkspaceSummary,
@@ -55,7 +62,9 @@ export function createFinanceTools(ctx: SchoolAiToolContext, helpers: SchoolAiTo
 					});
 
 					const output = {
-						studentName: student ? studentDisplayName(student) : "Student",
+						studentName: student
+							? studentDisplayName(student, ctx.studentNameFormat)
+							: "Student",
 						studentId,
 						studentTermFormId,
 						fees: charges.map((charge) => {

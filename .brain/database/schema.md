@@ -54,6 +54,20 @@ Dashboard URL derived in middleware — never stored: `dashboard.{subdomain}.sch
 
 The setting does not control application language, global document direction, or dashboard chrome.
 
+### SchoolProfile Student Name Format (added — session 2026-07)
+
+| Field               | Type                | Notes                                                              |
+| ------------------- | ------------------- | ------------------------------------------------------------------ |
+| `studentNameFormat` | `StudentNameFormat` | Defaults to `FIRST_SURNAME_OTHER`; controls student display order |
+
+`StudentNameFormat` values:
+
+- `FIRST_SURNAME_OTHER`: first name, surname, other name.
+- `SURNAME_FIRST_OTHER`: surname, first name, other name.
+- `FIRST_OTHER_SURNAME`: first name, other name, surname.
+
+The field is a tenant-wide presentation preference. It does not rewrite `Students.name`, `Students.surname`, or `Students.otherName`.
+
 ### Verification Usage
 
 - Signup owner email verification reuses the existing `Verification` model.
@@ -178,9 +192,18 @@ The setting does not control application language, global document direction, or
 
 ## Attendance and Assessment
 
-- `ClassRoomAttendance`, `StudentAttendance`
+- `ClassRoomAttendance`, `StudentAttendance`, `AttendanceSessionRevision`, `AttendanceSessionGuard`
 - `ClassroomSubjectAssessment`, `StudentAssessmentRecord`, `StudentAssessmentRecordHistory`
 - `AssessmentWorkbookExport`, `AssessmentWorkbookImport`
+
+### Attendance Sessions (expanded — session 2026-07)
+
+- `ClassRoomAttendance` stores the explicit attendance date, `GENERAL` or `SUBJECT` scope, optional period label, active `SessionTerm`, optional `DepartmentSubject`, staff recorder, compatibility idempotency/dedupe keys, an idempotency payload hash, and a monotonically increasing revision.
+- `StudentAttendance.status` supports `PRESENT`, `ABSENT`, `LATE`, `EXCUSED`, `SICK`, and `LEAVE`. The legacy nullable `isPresent` flag remains populated and readable for compatibility.
+- `AttendanceSessionRevision` is an append-only session audit record with action (`CREATED`, `UPDATED`, or `DELETED`), actor identity, JSON snapshot, and timestamp.
+- `AttendanceSessionGuard` atomically claims tenant-scoped `IDEMPOTENCY` and `DEDUPE` keys through the unique `(schoolProfileId, kind, key)` constraint. It is intentionally separate from historical attendance rows, avoiding a destructive uniqueness backfill.
+- Attendance indexes cover tenant/term/deletion state, classroom/term/date, subject/date, student-term-form history, session student rows, revisions, and guard ownership.
+- Legacy attendance rows remain readable: null scope resolves to general, null date resolves to creation time, and null explicit status resolves from `isPresent`.
 
 ### Assessment Score Value History (added — session 2026-07)
 
@@ -292,6 +315,15 @@ The composite assessment public-link lookup index on `schoolProfileId`, `session
 
 - `Guardians`, `Activity`, `Posts`
 - `AssistantConversation`, `AssistantMessage`, `AssistantRun`, `AssistantToolExecution`, `SchoolAssistantConfig`, `AssistantFeedback`
+
+## Academic Term Lifecycle
+
+- `SchoolProfile.activeSessionTermId` is the nullable canonical active-term foreign key.
+- `SessionTerm.lifecycleStatus` is nullable for legacy compatibility and uses `DRAFT`, `READY`, `ACTIVE`, or `CLOSED`.
+- `SessionTerm` stores setup completion, activation, closure, actor, and note metadata.
+- `AcademicTermSetupRun` stores tenant/source/target ids, unique tenant idempotency key, status, configuration/result JSON, error, actor, and timestamps.
+- `ClassRoomAttendance.sessionTermId` directly attributes new attendance sessions to a term.
+- `StaffTermProfile` remains the term-specific teacher record; its lookup index covers `staffProfileId`, `sessionTermId`, and `deletedAt`.
 
 ## Admissions And Parent Portal
 

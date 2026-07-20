@@ -1,30 +1,40 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
-import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Users,
-  CheckCircle2,
-  Clock,
-  TrendingUp,
-  Search,
-  Plus,
-  X,
+	AlertTriangle,
   ArrowRight,
-  ChevronUp,
+	CheckCircle2,
   ChevronDown,
+	ChevronUp,
   ChevronsUpDown,
-  Printer,
-  Trash2,
-  AlertTriangle,
+	Clock,
   FileText,
   PanelRightOpen,
+	Plus,
+	Printer,
+	Search,
+	Trash2,
+	TrendingUp,
+	Users,
+	X,
 } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
+import { Button } from "@school-clerk/ui/button";
+import { Card } from "@school-clerk/ui/card";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@school-clerk/ui/dialog";
 import { Input } from "@school-clerk/ui/input";
+import { ScrollArea } from "@school-clerk/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -32,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@school-clerk/ui/select";
+import { Separator } from "@school-clerk/ui/separator";
 import {
   Table,
   TableBody,
@@ -40,20 +51,10 @@ import {
   TableHeader,
   TableRow,
 } from "@school-clerk/ui/table";
-import { Card } from "@school-clerk/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@school-clerk/ui/dialog";
-import { Separator } from "@school-clerk/ui/separator";
-import { ScrollArea } from "@school-clerk/ui/scroll-area";
 
-import { useTRPC } from "@/trpc/client";
+import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 import { useStudentParams } from "@/hooks/use-student-params";
+import { useTRPC } from "@/trpc/client";
 import { toast } from "@school-clerk/ui/use-toast";
 
 interface Props {
@@ -197,7 +198,12 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
   const sourceClassrooms = useMemo(() => {
     const seen = new Map<
       string,
-      { id: string; name: string; classLevel: number | null; departmentLevel: number | null }
+			{
+				id: string;
+				name: string;
+				classLevel: number | null;
+				departmentLevel: number | null;
+			}
     >();
     for (const s of allStudents) {
       if (!seen.has(s.classroomDepartmentId)) {
@@ -218,9 +224,7 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
 
   // Target classrooms = new session's classrooms (filtered by firstTermId's session)
   const { data: targetClassroomsData, refetch: refetchTargetClassrooms } =
-    useQuery(
-      trpc.classrooms.all.queryOptions({ sessionTermId: firstTermId }),
-    );
+		useQuery(trpc.classrooms.all.queryOptions({ sessionTermId: firstTermId }));
   const targetClassrooms = useMemo(() => {
     const raw = targetClassroomsData?.data ?? [];
     return raw
@@ -921,7 +925,10 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
                                 tab: "print",
                                 permission: "all",
                               });
-                              window.open(`/student-report?${params}`, "_blank");
+															window.open(
+																`/student-report?${params}`,
+																"_blank",
+															);
                             }}
                           >
                             <FileText className="h-4 w-4" />
@@ -1075,26 +1082,46 @@ function DeleteConfirmModal({
               </p>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center justify-between rounded bg-background border px-3 py-2">
-                  <span className="text-muted-foreground">Assessment scores</span>
-                  <Badge variant={details.counts.assessmentRecords > 0 ? "warning" : "secondary"}>
+									<span className="text-muted-foreground">
+										Assessment scores
+									</span>
+									<Badge
+										variant={
+											details.counts.assessmentRecords > 0
+												? "warning"
+												: "secondary"
+										}
+									>
                     {details.counts.assessmentRecords}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between rounded bg-background border px-3 py-2">
                   <span className="text-muted-foreground">Fee records</span>
-                  <Badge variant={details.counts.studentFees > 0 ? "warning" : "secondary"}>
+									<Badge
+										variant={
+											details.counts.studentFees > 0 ? "warning" : "secondary"
+										}
+									>
                     {details.counts.studentFees}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between rounded bg-background border px-3 py-2">
                   <span className="text-muted-foreground">Payments</span>
-                  <Badge variant={details.counts.payments > 0 ? "warning" : "secondary"}>
+									<Badge
+										variant={
+											details.counts.payments > 0 ? "warning" : "secondary"
+										}
+									>
                     {details.counts.payments}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between rounded bg-background border px-3 py-2">
                   <span className="text-muted-foreground">Attendance</span>
-                  <Badge variant={details.counts.attendance > 0 ? "warning" : "secondary"}>
+									<Badge
+										variant={
+											details.counts.attendance > 0 ? "warning" : "secondary"
+										}
+									>
                     {details.counts.attendance}
                   </Badge>
                 </div>
@@ -1226,6 +1253,7 @@ function StudentResultModal({
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+	const formatStudentName = useStudentNameFormatter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
 
@@ -1257,13 +1285,7 @@ function StudentResultModal({
     );
     if (!tf) return null;
 
-    const studentName = [
-      tf.student?.name,
-      tf.student?.otherName,
-      tf.student?.surname,
-    ]
-      .filter(Boolean)
-      .join(" ");
+		const studentName = formatStudentName(tf.student);
 
     // Filter out assessments with no valid score across ALL students in the
     // classroom, then drop subjects with no remaining assessments — mirrors
@@ -1395,7 +1417,7 @@ function StudentResultModal({
       grandObtainable,
       grandPct,
     };
-  }, [studentId, reportSheet]);
+	}, [formatStudentName, studentId, reportSheet]);
 
   const openEdit = (rowIdx: number, colIdx: number, cell: any) => {
     if (!cell.asmtId) return; // no assessment mapped here

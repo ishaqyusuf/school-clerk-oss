@@ -26,6 +26,16 @@ Allow each tenant to define and run academic operations across term-based or sem
 3. Student/staff enrollment references configured hierarchy nodes.
 4. Attendance, assessment, billing, and reporting resolve context from hierarchy nodes.
 
+## Implemented Term Lifecycle
+
+- `SessionTerm` supports `DRAFT`, `READY`, `ACTIVE`, and `CLOSED` lifecycle states.
+- `SchoolProfile.activeSessionTermId` is the canonical active-term pointer, with date-based selection retained as a legacy fallback.
+- The new-term setup previews and selectively carries classrooms, subjects and assessment definitions, same-session student term forms and fees, and teacher term assignments.
+- `StaffProfile` remains school-scoped. `StaffTermProfile` and its classroom, subject, and grant records are session-and-term scoped and are included in rollover.
+- Cross-session student movement remains the responsibility of the promotion workflow.
+- Closed terms reject normal assessment, attendance, and enrollment writes.
+- See `academic-term-lifecycle-and-rollover.md` and `ADR-0015-explicit-academic-term-lifecycle-and-idempotent-rollover.md`.
+
 ## Data Model
 - `institutionType` enum on tenant profile (planned).
 - Academic nodes with typed levels and parent-child relationships (planned).

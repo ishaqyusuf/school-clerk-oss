@@ -1,15 +1,15 @@
-import { useClassroomParams } from "@/hooks/use-classroom-params";
-
 import { SheetHeader, SheetTitle } from "@school-clerk/ui/sheet";
 
 import { FormContext } from "../classroom/form-context";
 import { CustomSheet, CustomSheetContent } from "../custom-sheet-content";
 import { AcademicSessionForm } from "../forms/academic-session-form";
+import { AcademicTermForm } from "../forms/academic-term-form";
 import { useAcademicParams } from "@/hooks/use-academic-params";
 
 export function AcademicSessionSheet({}) {
   const { params, setParams } = useAcademicParams();
   const isOpen = Boolean(!!params.academicSessionFormType);
+  const isTermForm = params.academicSessionFormType === "term";
 
   return (
     <FormContext>
@@ -22,10 +22,12 @@ export function AcademicSessionSheet({}) {
         sheetName="create-classroom"
       >
         <SheetHeader>
-          <SheetTitle>Create Academic Term</SheetTitle>
+          <SheetTitle>
+            {isTermForm ? "Create Academic Term" : "Create Academic Session"}
+          </SheetTitle>
         </SheetHeader>
         <CustomSheetContent className="flex flex-col gap-2">
-          <AcademicSessionForm />
+          {isTermForm ? <AcademicTermForm /> : <AcademicSessionForm />}
         </CustomSheetContent>
       </CustomSheet>
     </FormContext>

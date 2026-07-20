@@ -1,18 +1,18 @@
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
+import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 import { useReportPageContext } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
-import { studentDisplayName } from "@/utils/utils";
-import { Checkbox } from "@school-clerk/ui/checkbox";
 import { Button } from "@school-clerk/ui/button";
+import { Checkbox } from "@school-clerk/ui/checkbox";
 import { Field, Item, Select } from "@school-clerk/ui/composite";
+import { Menu } from "@school-clerk/ui/custom/menu";
 import { Label } from "@school-clerk/ui/label";
 import { Separator } from "@school-clerk/ui/separator";
-import { Fragment } from "react";
-import { ThemeSwitch } from "./theme-switch";
-import { ExternalLinkIcon } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ExternalLinkIcon } from "lucide-react";
+import { Fragment } from "react";
 import { _trpc } from "./static-trpc";
-import { Menu } from "@school-clerk/ui/custom/menu";
-import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
+import { ThemeSwitch } from "./theme-switch";
 
 export function StudentReportFilter({
   controlsOnly = false,
@@ -22,10 +22,13 @@ export function StudentReportFilter({
   allowedClassroomIds?: string[];
 }) {
   const academicDataDirection = useAcademicDataDirection();
+	const formatStudentName = useStudentNameFormatter();
   const { setFilters, filters } = useStudentReportFilterParams();
   const ctx = useReportPageContext();
   const trpc = _trpc!;
-  const { data: terms } = useQuery(trpc.academics.getReportTerms.queryOptions());
+	const { data: terms } = useQuery(
+		trpc.academics.getReportTerms.queryOptions(),
+	);
   const { mutate: deleteTermForm, isPending: isDeleting } = useMutation(
     trpc.students.deleteTermSheet.mutationOptions({
       onSuccess(data, variables, onMutateResult, context) {},
@@ -37,7 +40,7 @@ export function StudentReportFilter({
           success: "Done!.",
         },
       },
-    })
+		}),
   );
 
   const printOrder = filters.printOrder ?? [];
@@ -54,7 +57,11 @@ export function StudentReportFilter({
     // Ensure current department is in activeDepts when selecting
     const activeDepts = filters.activeDepts ?? [];
     let newActiveDepts = activeDepts;
-    if (!isSelected && filters.departmentId && !activeDepts.includes(filters.departmentId)) {
+		if (
+			!isSelected &&
+			filters.departmentId &&
+			!activeDepts.includes(filters.departmentId)
+		) {
       newActiveDepts = [...activeDepts, filters.departmentId];
     }
 
@@ -75,12 +82,13 @@ export function StudentReportFilter({
 
   function deselectAll() {
     const currentIds = ctx?.termForms?.map((tf) => tf.id) ?? [];
-    setFilters({ printOrder: printOrder.filter((id) => !currentIds.includes(id)) });
+		setFilters({
+			printOrder: printOrder.filter((id) => !currentIds.includes(id)),
+		});
   }
 
-  const currentClassSelected = ctx?.termForms?.filter((tf) =>
-    printOrder.includes(tf.id)
-  ).length ?? 0;
+	const currentClassSelected =
+		ctx?.termForms?.filter((tf) => printOrder.includes(tf.id)).length ?? 0;
   const allSelected =
     !!ctx?.termForms?.length && currentClassSelected === ctx.termForms.length;
 
@@ -139,13 +147,13 @@ export function StudentReportFilter({
             </Select.Trigger>
             <Select.Content>
               {(allowedClassroomIds
-                ? ctx?.classRooms?.filter((c) => allowedClassroomIds.includes(c?.id ?? ""))
+								? ctx?.classRooms?.filter((c) =>
+										allowedClassroomIds.includes(c?.id ?? ""),
+									)
                 : ctx?.classRooms
               )?.map((c) => (
                 <Select.Item value={c?.id} key={c?.id}>
-                  <span dir="auto">
-                    {c?.displayName ?? c?.departmentName}
-                  </span>
+									<span dir="auto">{c?.displayName ?? c?.departmentName}</span>
                 </Select.Item>
               ))}
             </Select.Content>
@@ -159,7 +167,11 @@ export function StudentReportFilter({
                 : undefined
             }
           >
-            <Button asChild variant="outline" className="w-full gap-2 md:w-auto">
+						<Button
+							asChild
+							variant="outline"
+							className="w-full gap-2 md:w-auto"
+						>
               <a
                 href={`/assessment-recording?deptId=${filters.departmentId}&permission=all&termId=${filters.termId}`}
                 target="_blank"
@@ -211,7 +223,7 @@ export function StudentReportFilter({
                       onCheckedChange={() => toggleStudent(tf.id)}
                       id={`cb-${tf.id}`}
                     />
-                    <span dir="auto">{studentDisplayName(tf?.student)}</span>
+										<span dir="auto">{formatStudentName(tf?.student)}</span>
                   </Item.Title>
                   <Item.Description>
                     {`${r?.summary?.results}/${r?.summary?.subjects} | ${r?.grade?.percentage}% | ${r?.grade?.position}`}

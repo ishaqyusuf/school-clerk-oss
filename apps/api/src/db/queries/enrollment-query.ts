@@ -4,17 +4,23 @@ import type { EnrollmentQuery } from "@api/trpc/schemas/schemas";
 import type { PageFilterData } from "@api/type";
 import { composeQuery } from "@api/utils";
 import {
-  entrollStudentToTermSchema,
   type EntrollStudentToTerm,
+	entrollStudentToTermSchema,
 } from "@school-clerk/assessment-results";
 import type { Prisma } from "@school-clerk/db";
+import {
+	type StudentNameFormat,
+	type StudentNameParts,
+	formatStudentName,
+} from "@school-clerk/utils/student-name";
+import { assertAcademicTermWritable } from "./academic-term-setup";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 
 export { entrollStudentToTermSchema } from "@school-clerk/assessment-results";
 
 export async function enrollmentsIndex(
   ctx: TRPCContext,
-  input: EnrollmentQuery
+	input: EnrollmentQuery,
 ) {
   const model = ctx.db.students;
   if (!input.currentSessionId && !input.currentTermId) {
@@ -67,7 +73,7 @@ export async function enrollmentsIndex(
   });
   return await response(
     list.map((item) => {
-      const fullName = studentDisplayName(item);
+			const fullName = studentDisplayName(item, ctx.profile.studentNameFormat);
       const terms = item.termForms.map((tf) => {
         return {
           title: `${tf.sessionTerm?.session?.title} ${tf.sessionTerm?.title}`,
@@ -84,11 +90,14 @@ export async function enrollmentsIndex(
         termHistory: terms, //.filter((t) => t.termId != input.currentTermId),
         currentTerm,
       };
-    })
+		}),
   );
 }
-export function studentDisplayName({ name, surname, otherName }) {
-  return [name, surname, otherName].filter(Boolean).join(" ");
+export function studentDisplayName(
+	student: StudentNameParts,
+	format?: StudentNameFormat,
+) {
+	return formatStudentName(student, format);
 }
 function whereTermForm(input: EnrollmentQuery) {
   const where: Prisma.StudentTermFormWhereInput[] = [];
@@ -203,7 +212,7 @@ export async function getEnrollmentQueryParams(ctx: TRPCContext) {
             label: t.title,
             subLabel: s.title,
             value: t.id,
-          }))
+					})),
         )
         .flat(),
       type: "checkbox",
@@ -220,9 +229,11 @@ entrollStudentToTerm: publicProcedure
       }),
 */
 export async function entrollStudentToTerm(
-  { db, profile }: TRPCContext,
-  data: EntrollStudentToTerm
+  ctx: TRPCContext,
+	data: EntrollStudentToTerm,
 ) {
+  const { db, profile } = ctx;
+  await assertAcademicTermWritable(ctx, data.sessionTermId);
   return db.$transaction(async (tx) => {
     // return { profile };
     if (!data.studentSessionFormId) {

@@ -25,7 +25,7 @@ Defines access control rules for each API surface.
 
 - Student Management: `ADMIN`, `Admin`, and `Registrar` can perform administrative student overview actions including changing a selected term sheet class, deleting the selected term sheet, deleting the student, previewing duplicate student merges, and executing duplicate student merges. Student import execution and import job status are tenant-scoped through active `schoolProfileId`, active session, active term, and job ownership metadata. Other authenticated roles may read student surfaces and duplicate warnings only where their route/module access allows.
 - Admissions: TBD by role
-- Attendance: TBD by role
+- Attendance: `ADMIN`/`Admin` and assigned `Teacher` can create, correct, and soft-delete attendance; `ADMIN`/`Admin`, assigned `Teacher`, and `Registrar` can read attendance and exports.
 - Results: TBD by role
 - Billing and Payments: TBD by role
 - Notifications: TBD by role
@@ -34,9 +34,26 @@ Defines access control rules for each API surface.
 
 - Authenticated tenant users may read the configured and resolved academic data direction needed to render authorized academic surfaces.
 - Only `ADMIN` SaaS owners and `Admin` school administrators may update `AcademicDataDirectionMode`.
+
+## Academic Term Lifecycle Permissions
+
+- New-term draft creation, setup context, preview, apply, activation preview, activation, and closure require an authenticated `Admin`/`ADMIN` actor whose account owns the active school.
+- Term, source term, session, and active-pointer reads are always scoped to `ctx.profile.schoolId`; clients never submit a trusted school id.
+- Teachers are copied only as tenant-owned `StaffProfile` identities into target `StaffTermProfile` assignment scope. Rollover does not grant access outside mapped classrooms, subjects, and academic grants.
+- Attendance and authenticated assessment mutations require an authenticated session and retain existing teacher classroom/subject authorization checks.
+- Public assessment links remain token-authorized, but score writes also reject a closed captured term.
+- Academic activation and closure require a durable `CLOSED` `FinanceTermLedgerClose` for the outgoing/current term.
 - Direction reads and writes derive `schoolProfileId` from authenticated tenant context. Clients cannot provide a tenant or school id.
 - The update query includes the active `schoolProfileId` constraint so a valid record id from another tenant cannot be targeted.
 - This setting affects academic data presentation only and grants no additional access to students, classrooms, subjects, assessments, attendance, or reports.
+
+## Student Name Format Permissions
+
+- Authenticated tenant users may read the configured student name format needed by otherwise-authorized surfaces.
+- Only `ADMIN` SaaS owners and `Admin` school administrators may update `StudentNameFormat`.
+- Reads and writes derive `schoolProfileId` from authenticated tenant context; clients cannot provide a tenant or school id.
+- The update is constrained to the active, non-deleted school profile.
+- The setting changes presentation only and grants no additional record access or mutation capability.
 
 ## Enrollment Links And Parent Portal Permissions
 
@@ -82,7 +99,19 @@ Defines access control rules for each API surface.
 - Teachers now have a dedicated `/teacher` workspace module and authenticated teacher users are redirected there first instead of to mixed admin/academic navigation.
 - Teacher workspace routes are grouped under `(k-12-teachers)` and guarded so only Teacher-role users can access them directly.
 - Teacher sidebar navigation currently renders as a flat list of permitted links while non-teacher roles keep the module-grouped sidebar.
-- Production teacher workspace navigation exposes only live teacher links: Overview, My Classes, My Students, and Reports. Incomplete teacher pages such as Attendance, Assessments, Grading, and Timetable are marked `upcoming`, remain visible with WIP badges outside production, and redirect to `/teacher` on direct production access.
+- Production teacher workspace navigation exposes the live Attendance page alongside Overview, My Classes, My Students, and Reports. Incomplete teacher pages such as Assessments, Grading, and Timetable remain marked `upcoming`, remain visible with WIP badges outside production, and redirect to `/teacher` on direct production access.
+
+## Attendance Permissions
+
+- Every attendance route requires an authenticated tenant session and derives school, session, and active term from server context.
+- `ADMIN` SaaS owners and `Admin` school administrators may read and write attendance for any active-session classroom in their tenant.
+- `Teacher` users may read and write only classrooms and department subjects included in their effective active-term academic access.
+- `Registrar` may read classroom sessions, student history, and report/export rows, but cannot create, correct, or delete attendance.
+- Accountant, HR, Parent, Staff, and other authenticated roles are rejected by the attendance router.
+- Writes validate the complete active classroom roster and reject closed academic terms.
+- Subject attendance validates that the selected `DepartmentSubject` belongs to the classroom and active term before applying teacher subject authorization.
+- Tenant filters apply to every attendance/session/student lookup. A client-supplied record id never grants cross-tenant or cross-term access.
+- Create, correction, and deletion produce activity records; immutable revision snapshots preserve session-level audit history.
 
 ## Teacher/Classroom Authorization Status
 

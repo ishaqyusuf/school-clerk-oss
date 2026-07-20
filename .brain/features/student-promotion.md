@@ -15,7 +15,7 @@ Academic Dashboard
   Enhanced Session Form
       • Prefilled title (2024/2025 → 2025/2026)
       • "Initialize with Terms" toggle → auto-populates 3 terms with +1 year dates
-      ↓ on success → auto-switches active session cookie
+      ↓ on success → opens first-term setup without switching active context
   /academic/promotion/[lastTermId]/[firstNewTermId]
   Promotion Page
       • Stats row: Total / Promoted / Pending / Avg Score
@@ -63,8 +63,11 @@ Academic Dashboard
 - `StudentSessionForm` → links student to session (parent of term forms)
 - `StudentAssessmentRecord` → assessment scores per student per term
 
-## Session Auto-Switch
-On successful session creation, the active session cookie is immediately updated via `switchSessionTerm()` (server action from `auth-cookie.ts`). This ensures the new session context is active before reaching the promotion page.
+## Session And Term Activation
+
+Creating a session no longer switches the active cookie immediately. The first term is created as a draft and opens the new-term setup workflow. Cross-session setup does not copy students directly; it hands the administrator to this promotion flow.
+
+After progression is complete and the outgoing finance ledger is closed, `academics.activateTerm` atomically updates `SchoolProfile.activeSessionTermId`. The dashboard switches its session/term cookie only after that server activation succeeds.
 
 ## Promotion Logic
 - `batchPromote`: For each student, first blocks exact normalized `name + surname + otherName` duplicates in the target class/term. Non-conflicting rows find or create `StudentSessionForm` for the new session, then create or update `StudentTermForm` for the first term. Idempotent (skips if already promoted) and reports `skippedDuplicates` for duplicate-name rows.

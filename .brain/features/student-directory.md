@@ -27,8 +27,10 @@ The directory supports both grid and table views. The grid/table mode, column si
 - Table rows open the existing student overview sheet through `studentViewId`.
 - The table and grid cards consume the tenant's resolved academic data direction. RTL mode mirrors table flow, sticky identity edges, dividers, scroll controls, and record alignment without mirroring the English directory toolbar or actions.
 - Student and classroom values use `dir="auto"` so mixed-script records retain their natural inline direction.
+- Student display names use the tenant's configured `StudentNameFormat`; blank optional name parts are omitted.
 
 ## Data Behavior
 - The directory continues to read from `trpc.students.index` with the existing student filter query params.
 - Infinite loading still follows the existing `{ data, meta.cursor }` API contract.
 - Student listing data and permissions are unchanged. Direction resolution comes from the separate tenant-scoped school settings contract.
+- Name formatting is presentation-only and does not rewrite stored name parts or alter duplicate identity matching.

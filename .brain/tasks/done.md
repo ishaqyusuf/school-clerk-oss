@@ -23,6 +23,15 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: SCHOOL-SETTINGS-NAME-FORMAT-001
+- Title: Add tenant-wide student name format and Midday-style settings shell
+- Completed: 2026-07-19
+- Outcome: Added an administrator-controlled school preference for first/surname/other-name ordering, a shared formatter with safe fallback, tenant-context propagation across dashboard/API/AI/enrollment/finance/reports/PDF surfaces, and a Midday-style settings shell with hydrated cards and explicit Save behavior. Local and production schemas were synchronized successfully. Focused tests and all affected package typechecks pass; website/browser testing was skipped at the user's request.
+- Related changes: `packages/db/src/schema/school.prisma`, `packages/utils/src/student-name.ts`, `apps/api/src/db/queries/school-settings.ts`, `apps/dashboard/src/components/settings/settings-shell.tsx`, `apps/dashboard/src/components/student-name-format/*`, `.brain/features/student-name-format.md`, `.brain/decisions/ADR-0014-tenant-student-name-format.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: ASMT-WB-PROD-ROUNDTRIP-001
 - Title: Complete the signed RTL assessment workbook round trip in production
 - Completed: 2026-07-19
@@ -64,6 +73,16 @@ Record of completed tasks and delivery outcomes.
 - Completed: 2026-07-19
 - Outcome: Completed a local-only dashboard round trip for Daarul Hadith, 1447/1448 1st Term, الأول الإعدادي. Renamed the existing الحديث assessment to الامتحان, retained the existing المتون الامتحان, created four weighted Qur'an score assessments plus four zero-weight page-reference fields, downloaded and preservation-safely populated an 18-column signed RTL workbook from the legacy CSV, mapped eight subject-only columns to new 100-point/100%-weight الامتحان assessments, and applied 139 new plus 2 updated scores. Verification confirmed 22 unchanged and 53 blank cells, zero conflicts/invalid/stale rows, 141 unique WORKBOOK_IMPORT history rows, correct Qur'an totals, and one idempotent import after a repeated Apply. The test exposed and fixed workbook export authorization failing because the shared Prisma soft-delete extension injected `deletedAt` into a model that uses `revokedAt`; export lookup now uses the primary key with explicit scope/revocation checks, and the shared extension only filters models that actually declare `deletedAt`. Production data was not changed.
 - Related changes: `apps/api/src/db/queries/assessment-workbooks.ts`, `apps/api/src/db/queries/assessment-workbooks.test.ts`, `packages/db/src/prisma.ts`, `.brain/features/assessment-workbook-round-trip.md`
+- Owner: Codex
+
+## Completed Task
+
+- ID: ATTENDANCE-001
+- Title: Production-ready general and subject attendance
+- Completed: 2026-07-20
+- Outcome: Enabled the production teacher attendance workspace and expanded administrator attendance with general/subject modes, explicit date/period and six-state roster marking, complete-roster validation, active-term and teacher-assignment authorization, atomic duplicate/idempotency guards, editable corrections, soft deletion, revision/activity audit records, student history, classroom summaries, and CSV reporting.
+- Validation: 25 focused attendance/teacher-access tests pass; API, dashboard, and database package typechecks pass; Prisma generation plus required local and production schema pushes succeeded without destructive flags. Broader validation found only pre-existing unrelated finance expectation failures and jobs-package TypeScript configuration errors.
+- Related changes: `apps/api/src/trpc/routers/attendance.routes.ts`, `apps/dashboard/src/components/classroom-attendance-form.tsx`, `apps/dashboard/src/components/teachers/teacher-attendance-workspace.tsx`, `packages/db/src/schema/student-activity.prisma`, `.brain/features/attendance.md`, `.brain/decisions/ADR-0016-unified-attendance-sessions-and-atomic-guards.md`
 - Owner: Codex
 
 ## Completed Task
@@ -457,6 +476,16 @@ Record of completed tasks and delivery outcomes.
 - Plan File: brain/plans/2026-06-19-feature-school-facing-scholaris-redesign-and-dummy-data-support.md
 - Created Date: 2026-06-19
 - Completed Date: 2026-06-19
+
+## Completed Task
+
+- ID: ACADEMIC-TERM-001
+- Title: Explicit New-Term Setup, Rollover, Activation, And Closure
+- Completed: 2026-07-20
+- Outcome: Added tenant-safe `DRAFT`/`READY`/`ACTIVE`/`CLOSED` lifecycle management, canonical active-term selection, idempotent additive rollover runs, finance and progression activation gates, closed-term write protection, onboarding activation, term-based teacher profiles and access remapping, review/receipt UI, and authenticated browser verification. Browser QA also fixed visible date validation, locked date controls, current-session defaulting, dashboard invalidation, and create-to-setup navigation; all temporary QA records were removed.
+- Validation: Prisma generation plus local/production schema pushes, API/UI/dashboard/database/AI typechecks, 25 focused tests with 68 assertions, dashboard production build, read-only real-database probe, and authenticated Portless browser flow.
+- Related changes: `packages/db/src/schema/school.prisma`, `packages/db/src/schema/staffs.prisma`, `packages/db/src/schema/student-activity.prisma`, `apps/api/src/db/queries/academic-term-setup.ts`, `apps/api/src/trpc/routers/academics.routes.ts`, `apps/dashboard/src/components/configure-term.tsx`, `apps/dashboard/src/components/configure-term-import.tsx`, `.brain/features/academic-term-lifecycle-and-rollover.md`, `.brain/decisions/ADR-0015-explicit-academic-term-lifecycle-and-idempotent-rollover.md`
+- Owner: Codex
 
 ## Completed Task
 

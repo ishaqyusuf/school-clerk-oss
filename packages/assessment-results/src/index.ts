@@ -1,3 +1,7 @@
+import {
+	type StudentNameFormat,
+	formatStudentName,
+} from "@school-clerk/utils/student-name";
 import { z } from "zod";
 
 const subAssessmentSchema = z.object({
@@ -330,15 +334,18 @@ export function getAssessmentPrintColumns(
   });
 }
 
-export function getStudentDisplayName(student?: StudentTermRecord["student"]) {
-  return [student?.surname, student?.name, student?.otherName]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
+export function getStudentDisplayName(
+	student?: StudentTermRecord["student"],
+	nameFormat?: StudentNameFormat,
+) {
+	return formatStudentName(student, nameFormat);
 }
 
-export function getStudentSearchKey(student?: StudentTermRecord["student"]) {
-  return getStudentDisplayName(student).toLowerCase();
+export function getStudentSearchKey(
+	student?: StudentTermRecord["student"],
+	nameFormat?: StudentNameFormat,
+) {
+	return getStudentDisplayName(student, nameFormat).toLowerCase();
 }
 
 export function getResultScore(
@@ -385,16 +392,18 @@ export function filterResultSubjects<TSubject extends SubjectRecord>({
 export function filterResultStudents<TStudent extends StudentTermRecord>({
   students,
   search,
+	nameFormat,
 }: {
   students: TStudent[];
   search?: string | null;
+	nameFormat?: StudentNameFormat;
 }) {
   const query = search?.trim().toLowerCase();
-  const orderedStudents = sortResultRoster(students);
+	const orderedStudents = sortResultRoster(students, nameFormat);
   if (!query) return orderedStudents;
 
   return orderedStudents.filter((student) =>
-    getStudentSearchKey(student.student).includes(query),
+		getStudentSearchKey(student.student, nameFormat).includes(query),
   );
 }
 
@@ -406,6 +415,7 @@ function getRosterGenderRank(gender?: string | null) {
 
 export function sortResultRoster<TStudent extends StudentTermRecord>(
   students: TStudent[],
+	nameFormat?: StudentNameFormat,
 ) {
   return [...students].sort((left, right) => {
     const genderDiff =
@@ -413,8 +423,8 @@ export function sortResultRoster<TStudent extends StudentTermRecord>(
       getRosterGenderRank(right.student?.gender);
     if (genderDiff !== 0) return genderDiff;
 
-    return getStudentDisplayName(left.student).localeCompare(
-      getStudentDisplayName(right.student),
+		return getStudentDisplayName(left.student, nameFormat).localeCompare(
+			getStudentDisplayName(right.student, nameFormat),
       undefined,
       { sensitivity: "base" },
     );
@@ -424,9 +434,11 @@ export function sortResultRoster<TStudent extends StudentTermRecord>(
 export function buildResultRows<TStudent extends StudentTermRecord>({
   subjects,
   students,
+	nameFormat,
 }: {
   subjects: ResultSubject[];
   students: TStudent[];
+	nameFormat?: StudentNameFormat;
 }) {
   const totalObtainable = subjects.reduce<number>(
     (total, subject) =>
@@ -472,7 +484,7 @@ export function buildResultRows<TStudent extends StudentTermRecord>({
 
     return {
       student,
-      studentName: getStudentDisplayName(student.student),
+			studentName: getStudentDisplayName(student.student, nameFormat),
       subjectTotals,
       grandTotal,
       percentage,
@@ -480,11 +492,14 @@ export function buildResultRows<TStudent extends StudentTermRecord>({
   });
 }
 
-export function getDuplicateStudentNameKeys(students: StudentTermRecord[]) {
+export function getDuplicateStudentNameKeys(
+	students: StudentTermRecord[],
+	nameFormat?: StudentNameFormat,
+) {
   const counts = new Map<string, number>();
 
   for (const student of students) {
-    const key = getStudentSearchKey(student.student);
+		const key = getStudentSearchKey(student.student, nameFormat);
     if (!key) continue;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }

@@ -1,11 +1,13 @@
-import { Suspense } from "react";
-import { TenantLink as Link } from "@school-clerk/tenant-url/next";
-import { GlobalSheets } from "@/components/sheets/global-sheets";
-import { HydrateClient } from "@/trpc/server";
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { getSession } from "@/auth/server";
-import { NavLayoutClient } from "@/components/nav-layout-client";
 import { GlobalModals } from "@/components/modals/global-modals";
+import { NavLayoutClient } from "@/components/nav-layout-client";
+import { GlobalSheets } from "@/components/sheets/global-sheets";
+import { StudentNameFormatProvider } from "@/components/student-name-format/provider";
+import { resolveDashboardAcademicDataDirection } from "@/lib/academic-data-direction/server";
+import { getDashboardStudentNameFormat } from "@/lib/student-name-format/server";
+import { HydrateClient } from "@/trpc/server";
+import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { Button } from "@school-clerk/ui/button";
 import {
   Card,
@@ -15,7 +17,7 @@ import {
   CardTitle,
 } from "@school-clerk/ui/card";
 import { AlertTriangle } from "lucide-react";
-import { resolveDashboardAcademicDataDirection } from "@/lib/academic-data-direction/server";
+import { Suspense } from "react";
 
 export default async function LayoutNew({ children }) {
   const [cookie, session] = await Promise.all([getAuthCookie(), getSession()]);
@@ -58,25 +60,29 @@ export default async function LayoutNew({ children }) {
     );
   }
 
-  const academicDataDirection = await resolveDashboardAcademicDataDirection(
-    cookie.schoolId,
-  );
+  const [academicDataDirection, studentNameFormat] = await Promise.all([
+    resolveDashboardAcademicDataDirection(cookie.schoolId),
+    getDashboardStudentNameFormat(cookie.schoolId),
+  ]);
 
   return (
     <HydrateClient>
-      <NavLayoutClient
-        academicDataDirection={academicDataDirection.direction}
-        initialRole={
-          (session?.user as { role?: string | null } | undefined)?.role ?? null
-        }
-      >
-        {children}
-      </NavLayoutClient>
+      <StudentNameFormatProvider format={studentNameFormat}>
+        <NavLayoutClient
+          academicDataDirection={academicDataDirection.direction}
+          initialRole={
+            (session?.user as { role?: string | null } | undefined)?.role ??
+            null
+          }
+        >
+          {children}
+        </NavLayoutClient>
 
-      <Suspense>
-        <GlobalSheets />
-        <GlobalModals />
-      </Suspense>
+        <Suspense>
+          <GlobalSheets />
+          <GlobalModals />
+        </Suspense>
+      </StudentNameFormatProvider>
     </HydrateClient>
   );
 }

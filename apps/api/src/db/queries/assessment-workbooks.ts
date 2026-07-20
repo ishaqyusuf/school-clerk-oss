@@ -2,15 +2,15 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import type { TRPCContext } from "@api/trpc/init";
 import {
-  assessmentWorkbookApplySchema,
-  assessmentWorkbookDownloadSchema,
-  assessmentWorkbookUploadSchema,
-  buildAssessmentWorkbookPreview,
   type AssessmentWorkbookApplyInput,
   type AssessmentWorkbookDownloadInput,
   type AssessmentWorkbookPreview,
   type AssessmentWorkbookUploadInput,
   type ParsedAssessmentWorkbook,
+	assessmentWorkbookApplySchema,
+	assessmentWorkbookDownloadSchema,
+	assessmentWorkbookUploadSchema,
+	buildAssessmentWorkbookPreview,
 } from "@school-clerk/assessment-workbooks";
 import {
   generateAssessmentWorkbook,
@@ -20,11 +20,12 @@ import { saveStudentAssessmentScoreWithHistory } from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 
+import { runAssessmentScoreTransactionWithRetry } from "../../lib/assessment-score-history";
+import { assertAcademicTermWritable } from "./academic-term-setup";
 import {
   assertTeacherCanAccessClassroomDepartment,
   assertTeacherCanAccessDepartmentSubject,
 } from "../../lib/teacher-authorization";
-import { runAssessmentScoreTransactionWithRetry } from "../../lib/assessment-score-history";
 import { studentDisplayName } from "./enrollment-query";
 
 export {
@@ -341,7 +342,10 @@ export async function downloadAssessmentWorkbook(
     return {
       studentId: form.student.id,
       studentTermFormId: form.id,
-      displayName: studentDisplayName(form.student),
+			displayName: studentDisplayName(
+				form.student,
+				ctx.profile.studentNameFormat,
+			),
       gender: form.student.gender,
     };
   });
@@ -536,7 +540,10 @@ async function prepareAssessmentWorkbookPreview(
               {
                 studentId: form.student.id,
                 studentTermFormId: form.id,
-                displayName: studentDisplayName(form.student),
+								displayName: studentDisplayName(
+									form.student,
+									ctx.profile.studentNameFormat,
+								),
               },
             ]
           : [],
@@ -603,7 +610,14 @@ export async function applyAssessmentWorkbook(
   const input = assessmentWorkbookApplySchema.parse(rawInput);
   const fileBytes = decodeWorkbook(input.fileBase64);
   const fileDigest = workbookDigest(fileBytes);
-  await parseAndAuthorizeWorkbook(ctx, input.fileBase64);
+  const authorizedWorkbook = await parseAndAuthorizeWorkbook(
+    ctx,
+    input.fileBase64,
+  );
+  await assertAcademicTermWritable(
+    ctx,
+    authorizedWorkbook.workbook.identity.termId,
+  );
 
   return runAssessmentScoreTransactionWithRetry(() =>
     ctx.db.$transaction(

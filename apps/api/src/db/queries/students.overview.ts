@@ -73,7 +73,10 @@ export async function studentsOverview(
     dob: studentRecord.dob,
     gender: studentRecord.gender,
     guardian: studentRecord.guardians[0]?.guardian ?? null,
-    studentName: studentDisplayName(studentRecord),
+		studentName: studentDisplayName(
+			studentRecord,
+			ctx.profile.studentNameFormat,
+		),
   };
 
   return {

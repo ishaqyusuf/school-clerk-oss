@@ -1,3 +1,4 @@
+import * as util from "util";
 // import dayjs from "./dayjs";
 import {
   addDays,
@@ -12,12 +13,12 @@ import {
   subDays,
   subWeeks,
 } from "date-fns";
-import * as util from "util";
 export * from "./classroom-name";
 export * from "./blob";
 export * from "./email";
 export * from "./envs";
 export * from "./runtime-url";
+export * from "./student-name";
 export function stripSpecialCharacters(inputString: string) {
   // Remove special characters and spaces, keep alphanumeric, hyphens/underscores, and dots
   return inputString

@@ -4,14 +4,14 @@ import type { GetStudentsSchema } from "@api/trpc/schemas/schemas";
 import type { PageFilterData } from "@api/type";
 import { composeQuery, txContext } from "@api/utils";
 import { Prisma } from "@school-clerk/db";
-import { studentDisplayName } from "./enrollment-query";
-import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
-import { assertNoExactDuplicateStudentInClassTerm } from "./student-duplicates";
 import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
 import { processStudentImportJobTaskId } from "@school-clerk/utils/task-contracts";
 import { auth, tasks } from "@trigger.dev/sdk";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { studentDisplayName } from "./enrollment-query";
+import { assertNoExactDuplicateStudentInClassTerm } from "./student-duplicates";
+import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 
 import { subDays } from "date-fns";
 
@@ -177,7 +177,7 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
       return {
         id: student.id,
         gender: student.gender,
-        studentName: studentDisplayName(student),
+				studentName: studentDisplayName(student, ctx.profile.studentNameFormat),
         department: Array.from(new Set([className, departmentName])).join(" "),
         departmentId,
         classId: classRoom?.id,

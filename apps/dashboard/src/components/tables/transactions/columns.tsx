@@ -2,16 +2,18 @@
 
 import { PageItem } from "@/actions/get-transactions";
 import { AnimatedNumber } from "@/components/animated-number";
-import { studentDisplayName } from "@/utils/utils";
-import { format } from "date-fns";
 import { ColumnDef } from "@tanstack/react-table";
+import { format } from "date-fns";
 
 import { Badge } from "@school-clerk/ui/badge";
 import { cn } from "@school-clerk/ui/cn";
 import { ArrowDownLeft, ArrowUpRight, CalendarDays } from "lucide-react";
 
 export type Item = PageItem;
-export const columns: ColumnDef<Item>[] = [
+export function getColumns(
+	formatStudentName: (student: Item["student"]) => string,
+): ColumnDef<Item>[] {
+	return [
   {
     header: "Transaction details",
     accessorKey: "billable",
@@ -34,13 +36,12 @@ export const columns: ColumnDef<Item>[] = [
           </div>
           <div className="min-w-0">
             <div className="font-semibold text-foreground">
-              {studentDisplayName(item.student) || "System"}
+								{formatStudentName(item.student) || "System"}
             </div>
             <div className="truncate text-sm text-muted-foreground">
               {[item.billTerm?.title, item.billTerm?.session?.title]
                 .filter(Boolean)
-                .join(" ")
-                || "General transaction"}
+									.join(" ") || "General transaction"}
             </div>
           </div>
         </div>
@@ -93,7 +94,9 @@ export const columns: ColumnDef<Item>[] = [
       <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
         <CalendarDays className="h-4 w-4" />
         <span>
-          {item.createdAt ? format(new Date(item.createdAt), "MMM dd, yyyy") : "-"}
+						{item.createdAt
+							? format(new Date(item.createdAt), "MMM dd, yyyy")
+							: "-"}
         </span>
       </div>
     ),
@@ -116,3 +119,4 @@ export const columns: ColumnDef<Item>[] = [
     ),
   },
 ];
+}

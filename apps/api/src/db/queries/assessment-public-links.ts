@@ -8,6 +8,7 @@ import {
   assertTeacherCanAccessDepartmentSubject,
 } from "../../lib/teacher-authorization";
 import { runAssessmentScoreTransactionWithRetry } from "../../lib/assessment-score-history";
+import { assertAcademicTermWritable } from "./academic-term-setup";
 import {
   dispatchSchoolNotification,
   dispatchUserNotification,
@@ -925,6 +926,7 @@ export async function getPublicAssessmentLink(
       status: effectiveStatus,
     };
   }
+  await assertAcademicTermWritable(ctx, link.sessionTermId, link.schoolProfileId);
 
   await ctx.db.assessmentPublicLink.update({
     where: {

@@ -1,5 +1,12 @@
 "use client";
 
+import {
+	CustomSheet,
+	CustomSheetContent,
+} from "@/components/custom-sheet-content";
+import { useStudentNameFormatter } from "@/components/student-name-format/provider";
+import { useFinanceSheetParams } from "@/hooks/use-finance-sheet-params";
+import { useTRPC } from "@/trpc/client";
 import { Button } from "@school-clerk/ui/button";
 import { Input } from "@school-clerk/ui/input";
 import { Label } from "@school-clerk/ui/label";
@@ -12,10 +19,7 @@ import {
 } from "@school-clerk/ui/select";
 import { SheetHeader, SheetTitle } from "@school-clerk/ui/sheet";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { CustomSheet, CustomSheetContent } from "@/components/custom-sheet-content";
-import { useFinanceSheetParams } from "@/hooks/use-finance-sheet-params";
-import { useTRPC } from "@/trpc/client";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 export function FinancePaymentSheet() {
 	const {
@@ -61,6 +65,7 @@ function FinancePaymentForm({
 	onSuccess: () => void;
 }) {
 	const trpc = useTRPC();
+	const formatStudentName = useStudentNameFormatter();
 	const queryClient = useQueryClient();
 	const [chargeId, setChargeId] = useState(initialChargeId);
 	const [amount, setAmount] = useState("");
@@ -150,8 +155,7 @@ function FinancePaymentForm({
 		const payableType = isPayableContext ? payerContext : null;
 		if (payableType) {
 			return charges.filter(
-				(charge) =>
-					charge.payerType === payableType && charge.outstanding > 0,
+				(charge) => charge.payerType === payableType && charge.outstanding > 0,
 			);
 		}
 
@@ -176,7 +180,7 @@ function FinancePaymentForm({
 							<SelectItem value="none">All Students</SelectItem>
 							{students.map((student) => (
 								<SelectItem key={student.id} value={student.id}>
-									{student.name} {student.surname}
+									{formatStudentName(student)}
 								</SelectItem>
 							))}
 						</SelectContent>

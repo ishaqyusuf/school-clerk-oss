@@ -7,15 +7,23 @@ const { schoolSettingsRouter } = await import("./school-settings.routes");
 type CallerContext = Parameters<typeof schoolSettingsRouter.createCaller>[0];
 type FindSchoolQuery = {
 	where: { id: string };
-	select?: { academicDataDirectionMode?: boolean };
+	select?: {
+		academicDataDirectionMode?: boolean;
+		studentNameFormat?: boolean;
+	};
 };
 
 function createContext({
 	role = "Admin",
 	mode = "AUTO",
+	nameFormat = "FIRST_SURNAME_OTHER",
 }: {
 	role?: string;
 	mode?: "AUTO" | "LTR" | "RTL";
+	nameFormat?:
+		| "FIRST_SURNAME_OTHER"
+		| "SURNAME_FIRST_OTHER"
+		| "FIRST_OTHER_SURNAME";
 } = {}) {
 	const updateCalls: unknown[] = [];
 	const ctx = {
@@ -42,6 +50,21 @@ function createContext({
 					expect(query.where.id).toBe("school-1");
 					if (query.select?.academicDataDirectionMode) {
 						return { academicDataDirectionMode: mode };
+					}
+
+					if (query.select?.studentNameFormat) {
+						return {
+							id: "school-1",
+							name: "مدرسة النور",
+							subDomain: "al-noor",
+							slug: "al-noor",
+							createdAt: new Date("2026-01-01"),
+							studentNameFormat: nameFormat,
+							_count: {
+								students: 2,
+								sessions: 1,
+							},
+						};
 					}
 
 					return {
@@ -76,6 +99,20 @@ function createContext({
 }
 
 describe("schoolSettingsRouter", () => {
+	test("reads the current tenant general settings", async () => {
+		const { ctx } = createContext({
+			nameFormat: "SURNAME_FIRST_OTHER",
+		});
+		const caller = schoolSettingsRouter.createCaller(
+			ctx as unknown as CallerContext,
+		);
+
+		const result = await caller.getGeneral();
+
+		expect(result.studentNameFormat).toBe("SURNAME_FIRST_OTHER");
+		expect(result.name).toBe("مدرسة النور");
+	});
+
 	test("reads the current tenant direction and detection summary", async () => {
 		const { ctx } = createContext();
 		const caller = schoolSettingsRouter.createCaller(
@@ -110,6 +147,29 @@ describe("schoolSettingsRouter", () => {
 		]);
 	});
 
+	test("updates the student name format for the authenticated tenant", async () => {
+		const { ctx, updateCalls } = createContext();
+		const caller = schoolSettingsRouter.createCaller(
+			ctx as unknown as CallerContext,
+		);
+
+		await caller.updateStudentNameFormat({
+			format: "FIRST_OTHER_SURNAME",
+		});
+
+		expect(updateCalls).toEqual([
+			{
+				where: {
+					id: "school-1",
+					deletedAt: null,
+				},
+				data: {
+					studentNameFormat: "FIRST_OTHER_SURNAME",
+				},
+			},
+		]);
+	});
+
 	test("rejects non-admin updates", async () => {
 		const { ctx, updateCalls } = createContext({ role: "Teacher" });
 		const caller = schoolSettingsRouter.createCaller(
@@ -118,6 +178,9 @@ describe("schoolSettingsRouter", () => {
 
 		await expect(
 			caller.updateAcademicDataDirection({ mode: "RTL" }),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		await expect(
+			caller.updateStudentNameFormat({ format: "SURNAME_FIRST_OTHER" }),
 		).rejects.toMatchObject({ code: "FORBIDDEN" });
 		expect(updateCalls).toHaveLength(0);
 	});

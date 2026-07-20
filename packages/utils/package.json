@@ -32,6 +32,7 @@
     "./email": "./src/email.ts",
     "./envs": "./src/envs.ts",
     "./runtime-url": "./src/runtime-url.ts",
+    "./student-name": "./src/student-name.ts",
     "./task-contracts": "./src/task-contracts.ts",
     "./constants": "./src/constants.ts",
     "./responsive": "./src/responsive.ts",

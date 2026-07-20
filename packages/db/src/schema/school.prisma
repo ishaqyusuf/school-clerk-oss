@@ -4,6 +4,7 @@ model SchoolProfile {
   slug                    String
   subDomain               String                @unique
   academicDataDirectionMode AcademicDataDirectionMode @default(AUTO)
+  studentNameFormat       StudentNameFormat     @default(FIRST_SURNAME_OTHER)
   institutionType         String?
   studentCountEstimate    Int?
   country                 String?
@@ -25,6 +26,9 @@ model SchoolProfile {
   termForms               StudentTermForm[]
   studentAttendanceList   StudentAttendance[]
   staffProfiles           StaffProfile[]
+  activeSessionTermId     String?
+  activeSessionTerm       SessionTerm?             @relation("SchoolActiveSessionTerm", fields: [activeSessionTermId], references: [id])
+  academicTermSetupRuns   AcademicTermSetupRun[]
 
   subjects                       Subject[]
   account                        SaasAccount                        @relation(fields: [accountId], references: [id])
@@ -71,6 +75,12 @@ enum AcademicDataDirectionMode {
   AUTO
   LTR
   RTL
+}
+
+enum StudentNameFormat {
+  FIRST_SURNAME_OTHER
+  SURNAME_FIRST_OTHER
+  FIRST_OTHER_SURNAME
 }
 
 model TenantDomain {
@@ -121,6 +131,13 @@ model SessionTerm {
   title                 String
   startDate             DateTime?              @db.Timestamp(0)
   endDate               DateTime?              @db.Timestamp(0)
+  lifecycleStatus       AcademicTermLifecycleStatus?
+  note                  String?
+  setupCompletedAt      DateTime?              @db.Timestamp(0)
+  activatedAt           DateTime?              @db.Timestamp(0)
+  activatedByUserId     String?
+  closedAt              DateTime?              @db.Timestamp(0)
+  closedByUserId        String?
   createdAt             DateTime?              @default(now()) @db.Timestamp(0)
   updatedAt             DateTime?              @updatedAt
   deletedAt             DateTime?              @db.Timestamp(0)
@@ -130,9 +147,49 @@ model SessionTerm {
   departmentSubjects    DepartmentSubject[]
   staffTermProfiles     StaffTermProfile[]
   reportPrintLogs       ReportPrintLog[]
+  classRoomAttendances  ClassRoomAttendance[]
   assessmentPublicLinks AssessmentPublicLink[]
   financeItems          FinanceItem[]
   financeCharges        FinanceCharge[]
   collectedFinancePayments      FinancePayment[]     @relation("FinancePaymentCollectedSessionTerm")
   collectedFinanceLedgerEntries FinanceLedgerEntry[] @relation("FinanceLedgerEntryCollectedSessionTerm")
+  activeForSchools               SchoolProfile[]      @relation("SchoolActiveSessionTerm")
+  sourceSetupRuns                AcademicTermSetupRun[] @relation("AcademicTermSetupSource")
+  targetSetupRuns                AcademicTermSetupRun[] @relation("AcademicTermSetupTarget")
+}
+
+model AcademicTermSetupRun {
+  id              String                      @id @default(uuid())
+  schoolProfileId String
+  sourceTermId    String?
+  targetTermId    String
+  idempotencyKey  String
+  status          AcademicTermSetupRunStatus @default(APPLYING)
+  configuration   Json
+  result          Json?
+  errorMessage    String?
+  createdByUserId String?
+  completedAt     DateTime?                   @db.Timestamp(0)
+  createdAt       DateTime                    @default(now()) @db.Timestamp(0)
+  updatedAt       DateTime                    @updatedAt
+
+  schoolProfile SchoolProfile @relation(fields: [schoolProfileId], references: [id])
+  sourceTerm    SessionTerm?  @relation("AcademicTermSetupSource", fields: [sourceTermId], references: [id])
+  targetTerm    SessionTerm   @relation("AcademicTermSetupTarget", fields: [targetTermId], references: [id])
+
+  @@unique([schoolProfileId, idempotencyKey])
+  @@index([schoolProfileId, targetTermId, status])
+}
+
+enum AcademicTermLifecycleStatus {
+  DRAFT
+  READY
+  ACTIVE
+  CLOSED
+}
+
+enum AcademicTermSetupRunStatus {
+  APPLYING
+  COMPLETED
+  FAILED
 }

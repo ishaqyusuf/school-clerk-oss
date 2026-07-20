@@ -2,8 +2,9 @@
 
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { getSession } from "@/auth/server";
+import { getDashboardStudentNameFormat } from "@/lib/student-name-format/server";
 import { prisma, resolveStaffAcademicAccess } from "@school-clerk/db";
-import { classroomDisplayName } from "@school-clerk/utils";
+import { classroomDisplayName, formatStudentName } from "@school-clerk/utils";
 
 export async function getTeacherWorkspaceAction({
 	search,
@@ -19,6 +20,7 @@ export async function getTeacherWorkspaceAction({
 	if (!schoolId || !sessionId || !termId || !userEmail) {
 		return emptyTeacherWorkspace(userEmail ?? null);
 	}
+	const studentNameFormat = await getDashboardStudentNameFormat(schoolId);
 
 	const staffProfile = await prisma.staffProfile.findFirst({
 		where: {
@@ -325,8 +327,11 @@ export async function getTeacherWorkspaceAction({
 		assignedSubjectMap.set(subject.id, mapAssignedSubject(subject));
 	}
 
-	const assignedSubjects = Array.from(assignedSubjectMap.values()).sort((a, b) =>
-		`${a.displayName} ${a.title}`.localeCompare(`${b.displayName} ${b.title}`),
+	const assignedSubjects = Array.from(assignedSubjectMap.values()).sort(
+		(a, b) =>
+			`${a.displayName} ${a.title}`.localeCompare(
+				`${b.displayName} ${b.title}`,
+			),
 	);
 
 	return {
@@ -349,13 +354,7 @@ export async function getTeacherWorkspaceAction({
 			id: studentForm.id,
 			studentId: studentForm.student?.id ?? "",
 			classroomDepartmentId: studentForm.classroomDepartmentId ?? "",
-			name: [
-				studentForm.student?.name,
-				studentForm.student?.surname,
-				studentForm.student?.otherName,
-			]
-				.filter(Boolean)
-				.join(" "),
+			name: formatStudentName(studentForm.student, studentNameFormat),
 			gender: studentForm.student?.gender ?? "—",
 			classroom: [
 				classroomDisplayName({

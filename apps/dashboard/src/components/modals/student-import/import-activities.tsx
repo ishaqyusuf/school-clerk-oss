@@ -1,7 +1,7 @@
-import { _qc, _trpc } from "@/components/static-trpc";
 import { Arabic } from "@/components/arabic";
+import { _qc, _trpc } from "@/components/static-trpc";
+import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 import { SubmitButton } from "@/components/submit-button";
-import { studentDisplayName } from "@/utils/utils";
 import type { RouterOutputs } from "@api/trpc/routers/_app";
 import { Alert, AlertDescription, AlertTitle } from "@school-clerk/ui/alert";
 import { Badge, badgeVariants } from "@school-clerk/ui/badge";
@@ -33,8 +33,8 @@ import {
   CheckCircle2,
   FileCheck2,
   Import,
-  MoreHorizontal,
   MinusCircle,
+	MoreHorizontal,
   PencilLine,
   RefreshCw,
   Search,
@@ -43,11 +43,11 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { StudentImportReviewDraft } from "./draft-storage";
 import {
-  normalizeStudentImportError,
   type NormalizedStudentImportError,
+	normalizeStudentImportError,
 } from "./import-errors";
 import {
   buildStudentImportReviewModel,
@@ -108,7 +108,10 @@ type ExecuteRow = {
   existingStudentId: string | null;
 };
 type ImportAction =
-  "import_new" | "keep_match" | "update_match_with_name" | "skip";
+	| "import_new"
+	| "keep_match"
+	| "update_match_with_name"
+	| "skip";
 
 type RowDecision = {
   action?: ImportAction;
@@ -170,6 +173,7 @@ export function ImportActivity({
   onPhaseChange,
   isActive = true,
 }: Props) {
+	const formatStudentName = useStudentNameFormatter();
   const [classroomDeptId, setClassroomDeptId] = useState<string>(
     () => savedDraft?.classroomDeptId || "",
   );
@@ -328,7 +332,13 @@ export function ImportActivity({
     lastVerificationInputKeyRef.current = verifyInputKey;
     resetVerification();
     verifyStudents(verifyInput);
-  }, [isActive, resetVerification, verifyInput, verifyInputKey, verifyStudents]);
+	}, [
+		isActive,
+		resetVerification,
+		verifyInput,
+		verifyInputKey,
+		verifyStudents,
+	]);
 
   const refetchVerification = () => {
     if (!verifyInput) return;
@@ -1200,16 +1210,12 @@ export function ImportActivity({
     () =>
       (records?.students || []).map((student) => ({
         id: student.id,
-        label: [
-          studentDisplayName(student),
-          student.classRoom,
-          student.termName,
-        ]
+				label: [formatStudentName(student), student.classRoom, student.termName]
           .filter(Boolean)
           .join(" "),
         student,
       })),
-    [records?.students],
+		[formatStudentName, records?.students],
   );
   const reviewDraft = useMemo<StudentImportReviewDraft>(
     () => ({
@@ -2420,7 +2426,8 @@ function RowCard({
   const showStatusBadge = !isSkipped && statusLabel === "Imported";
   const selectedCandidate = candidates.find(
     (candidate) =>
-      candidate.id === (decision?.existingStudentId || implicitExistingStudentId),
+			candidate.id ===
+			(decision?.existingStudentId || implicitExistingStudentId),
   );
   const primaryCandidate = selectedCandidate || candidates[0] || null;
   const extraCandidateCount = Math.max(0, candidates.length - 1);
@@ -2726,6 +2733,7 @@ function MatchSummaryPopover({
   onCandidateChange: (candidateId: string) => void;
   primaryCandidate: MatchCandidate | null;
 }) {
+	const formatStudentName = useStudentNameFormatter();
   if (!primaryCandidate) {
     return (
       <div
@@ -2742,7 +2750,7 @@ function MatchSummaryPopover({
   const summary = (
     <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground">
       <Arabic className="min-w-0 truncate">
-        {getCandidateMatchLabel(primaryCandidate)}
+				{getCandidateMatchLabel(primaryCandidate, formatStudentName)}
       </Arabic>
       {extraCandidateCount > 0 ? (
         <span className="shrink-0 text-[11px] font-normal text-muted-foreground">
@@ -2941,6 +2949,7 @@ function StudentSearchPanel({
   onSelect: (student: ExistingStudent) => void;
   onPromote: () => void;
 }) {
+	const formatStudentName = useStudentNameFormatter();
   const [searchValue, setSearchValue] = useState("");
   const selectedItem = pendingMatch
     ? items.find((item) => item.id === pendingMatch.id)
@@ -2972,14 +2981,14 @@ function StudentSearchPanel({
           onSearch={setSearchValue}
           renderSelectedItem={(item) => (
             <Arabic className="truncate">
-              {studentDisplayName(item.student)}
+							{formatStudentName(item.student)}
             </Arabic>
           )}
           renderListItem={({ item, isChecked }) => (
             <div className="flex w-full items-center justify-between gap-3">
               <div className="min-w-0">
                 <Arabic className="block truncate font-medium">
-                  {studentDisplayName(item.student)}
+									{formatStudentName(item.student)}
                 </Arabic>
                 <Arabic className="block truncate text-[11px] text-muted-foreground">
                   {item.student.classRoom || "No classroom"} ·{" "}
@@ -3087,9 +3096,12 @@ function GenderToggle({
   );
 }
 
-function getCandidateMatchLabel(candidate: MatchCandidate) {
+function getCandidateMatchLabel(
+	candidate: MatchCandidate,
+	formatStudentName: (student: MatchCandidate) => string,
+) {
   const classroom = candidate.classRoom?.trim() || "No classroom";
-  return `${studentDisplayName(candidate)} - ${classroom}`;
+	return `${formatStudentName(candidate)} - ${classroom}`;
 }
 
 function getClassDepartmentDisplayName(classroom: ClassDepartment) {
@@ -3124,6 +3136,7 @@ function CandidateCard({
   selected: boolean;
   onSelect: () => void;
 }) {
+	const formatStudentName = useStudentNameFormatter();
   return (
     <Item
       asChild
@@ -3152,7 +3165,7 @@ function CandidateCard({
         <Item.Content className="min-w-0">
           <Item.Title>
             <Arabic className="truncate">
-              {getCandidateMatchLabel(candidate)}
+							{getCandidateMatchLabel(candidate, formatStudentName)}
             </Arabic>
           </Item.Title>
         </Item.Content>
@@ -3581,9 +3594,7 @@ function findEditedNameMatch(
         score: scoreStudentRecommendation(row, student),
       };
     })
-    .filter(
-      ({ isExactFullName, score }) => isExactFullName || score >= 70,
-    )
+		.filter(({ isExactFullName, score }) => isExactFullName || score >= 70)
     .sort((a, b) => {
       if (a.isExactFullName !== b.isExactFullName) {
         return a.isExactFullName ? -1 : 1;

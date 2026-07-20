@@ -1,12 +1,16 @@
 "use client";
 
+import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 import { useReportPageContext } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
-import { studentDisplayName } from "@/utils/utils";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
-import { Popover, PopoverContent, PopoverTrigger } from "@school-clerk/ui/popover";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@school-clerk/ui/popover";
 import {
   Sortable,
   SortableDragHandle,
@@ -27,6 +31,7 @@ export function PrintSelectionFooter() {
   const { filters, setFilters } = useStudentReportFilterParams();
   const ctx = useReportPageContext();
   const [popoverOpen, setPopoverOpen] = useState(false);
+	const formatStudentName = useStudentNameFormatter();
 
   const { mutate: savePrintLog, isPending: isSaving } = useMutation(
     _trpc.assessments.savePrintLog.mutationOptions({
@@ -50,7 +55,7 @@ export function PrintSelectionFooter() {
         ? {
             id: termFormId,
             termFormId,
-            name: studentDisplayName(report.student),
+						name: formatStudentName(report.student),
             departmentName: report.departmentName ?? "",
           }
         : null;

@@ -1,295 +1,256 @@
 "use client";
-import React, { useEffect, useMemo } from "react";
-import {
-	ArrowLeft,
-	Lock,
-	Info,
-	ArrowRight,
-	Database,
-	CheckCircle,
-	HelpCircle,
-} from "lucide-react";
-import { Card } from "@school-clerk/ui/composite";
-import { Badge } from "@school-clerk/ui/badge";
-import { Input } from "@school-clerk/ui/input";
-import { Button } from "@school-clerk/ui/button";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { _trpc } from "@/components/static-trpc";
-import { z } from "zod";
+
 import { useZodForm } from "@/hooks/use-zod-form";
+import { useTRPC } from "@/trpc/client";
+import { useTenantRouter } from "@school-clerk/tenant-url/next";
+import { Alert, AlertDescription, AlertTitle } from "@school-clerk/ui/alert";
+import { Badge } from "@school-clerk/ui/badge";
+import { Button } from "@school-clerk/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@school-clerk/ui/card";
 import { FormDate } from "@school-clerk/ui/controls/form-date";
 import { FormInput } from "@school-clerk/ui/controls/form-input";
-import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
-export const ConfigureTerm = ({ termId }) => {
-	const router = useRouter();
-	const { mutate: saveAndProceed, isPending: isSaving } = useMutation(
-		_trpc.academics.saveTermMetaData.mutationOptions({
-			onSuccess(data, variables, onMutateResult, context) {
-				router.push(`/academic/term-getting-started/${termId}/data-migration`);
-			},
-			onError(error, variables, onMutateResult, context) {},
-			meta: {
-				toastTitle: {
-					error: "Unable to complete",
-					loading: "Processing...",
-					success: "Done!.",
-				},
-			},
-		}),
-	);
+import { Form } from "@school-clerk/ui/form";
+import { Skeleton } from "@school-clerk/ui/skeleton";
+import { Spinner } from "@school-clerk/ui/spinner";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpenCheck,
+  Info,
+  Save,
+  Users,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { z } from "zod";
 
-	const { data: dashboardData } = useQuery(
-		_trpc.academics.dashboard.queryOptions({}),
-	);
-	const schema = z.object({
-		id: z.string(),
-		startDate: z.date(),
-		title: z.string().optional().nullable(),
-		endDate: z.date().optional().nullable(),
-		note: z.string().optional().nullable(),
-	});
-	const form = useZodForm(schema, {
-		defaultValues: {
-			id: undefined,
-			startDate: undefined as any,
-			endDate: undefined as any,
-			title: "",
-			note: "",
-		},
-	});
-	useEffect(() => {
-		if (dashboardData && termId) {
-			const term = dashboardData?.sessions
-				?.map((a) =>
-					a.terms.map((t) => ({
-						...t,
-					})),
-				)
-				.flat()
-				.find((t) => t.id === termId);
-				if (!term) return;
-				form.reset({
-					id: term.id,
-					startDate: term.startDate ? new Date(term.startDate) : undefined,
-					endDate: term.endDate ? new Date(term.endDate) : null,
-					title: term.title,
-				});
-		}
-	}, [dashboardData, termId]);
-	const formData = form.watch();
-	return (
-		<form
-			onSubmit={form.handleSubmit(
-				(data) => {
-					saveAndProceed({
-						termId: data.id,
-						startDate: new Date(data.startDate),
-						endDate: data.endDate ? new Date(data.endDate) : null,
-					});
-				},
-				(arg) => {
-					console.log("Form errors:", arg);
-				},
-			)}
-		>
-			<div className="animate-in fade-in slide-in-from-right-4 duration-500 max-w-5xl mx-auto space-y-8">
-				{/* Breadcrumb */}
-				<div className="flex items-center gap-2 text-sm text-muted-foreground">
-					<button
-						//   onClick={onBack}
-						className="hover:text-primary transition-colors"
-					>
-						Academic Management - {termId}
-					</button>
-					<span>/</span>
-					<span className="font-semibold text-foreground">
-						Configure Next Term
-					</span>
-				</div>
+const termDetailsSchema = z
+  .object({
+    startDate: z.date({
+      required_error: "Term start date is required",
+    }),
+    endDate: z.date().optional().nullable(),
+    note: z.string().trim().max(2_000).optional().nullable(),
+  })
+  .refine(
+    (value) =>
+      !value.endDate || value.endDate.getTime() >= value.startDate.getTime(),
+    {
+      message: "End date must be on or after the start date",
+      path: ["endDate"],
+    },
+  );
 
-				{/* Header */}
-				<div>
-					<h1 className="text-3xl font-black tracking-tight text-foreground">
-						Configure {formData.title || "Next Term"}
-					</h1>
-					<p className="text-muted-foreground mt-2">
-						Prepare the upcoming academic period for the 2023/2024 session.
-					</p>
-				</div>
+export function ConfigureTerm({ termId }: { termId: string }) {
+  const trpc = useTRPC();
+  const router = useTenantRouter();
+  const [proceedAfterSave, setProceedAfterSave] = useState(false);
+  const contextQuery = useQuery(
+    trpc.academics.getTermSetupContext.queryOptions({ termId }),
+  );
+  const context = contextQuery.data;
+  const form = useZodForm(termDetailsSchema, {
+    defaultValues: {
+      startDate: undefined as unknown as Date,
+      endDate: null,
+      note: "",
+    },
+  });
 
-				{/* Info Alert Box */}
-				<div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl p-6 flex flex-col md:flex-row gap-6">
-					<div className="flex gap-4 flex-1">
-						<div className="h-10 w-10 shrink-0 bg-blue-100 dark:bg-blue-800 rounded-lg flex items-center justify-center text-blue-600 dark:text-blue-300">
-							<Info className="h-6 w-6" />
-						</div>
-						<div>
-							<h3 className="text-lg font-bold text-blue-900 dark:text-blue-200">
-								Current Term in Progress: 2nd Term
-							</h3>
-							<p className="text-sm text-blue-800 dark:text-blue-300 mt-1 leading-relaxed">
-								The current term must be completed and closed before the 3rd
-								Term can be officially activated. You can still configure the
-								next term settings as a draft.
-							</p>
-						</div>
-					</div>
+  useEffect(() => {
+    if (!context?.target) return;
+    form.reset({
+      startDate: context.target.startDate
+        ? new Date(context.target.startDate)
+        : (undefined as unknown as Date),
+      endDate: context.target.endDate ? new Date(context.target.endDate) : null,
+      note: context.target.note ?? "",
+    });
+  }, [context?.target, form]);
 
-					<div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-						<div className="bg-white/60 dark:bg-slate-900/40 rounded-lg p-4 border border-blue-100 dark:border-blue-800 min-w-[160px]">
-							<p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2">
-								Term Countdown
-							</p>
-							<div className="flex items-baseline gap-2">
-								<span className="text-2xl font-bold text-blue-900 dark:text-white">
-									12
-								</span>
-								<span className="text-sm text-blue-800 dark:text-blue-300">
-									days remaining
-								</span>
-							</div>
-						</div>
-						<div className="bg-white/60 dark:bg-slate-900/40 rounded-lg p-4 border border-blue-100 dark:border-blue-800 min-w-[180px]">
-							<p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2">
-								Pending Tasks
-							</p>
-							<div className="flex items-center gap-3">
-								<div className="flex -space-x-2">
-									<span className="h-6 w-6 rounded-full bg-green-500 border-2 border-white dark:border-slate-800 flex items-center justify-center text-[10px] text-white">
-										<CheckCircle className="h-3 w-3" />
-									</span>
-									<span className="h-6 w-6 rounded-full bg-yellow-500 border-2 border-white dark:border-slate-800 flex items-center justify-center text-[10px] text-white font-bold">
-										!
-									</span>
-									<span className="h-6 w-6 rounded-full bg-slate-300 dark:bg-slate-600 border-2 border-white dark:border-slate-800 flex items-center justify-center text-[10px] text-slate-600 dark:text-slate-300 font-bold">
-										3
-									</span>
-								</div>
-								<span className="text-xs font-medium text-blue-800 dark:text-blue-300">
-									Grades pending
-								</span>
-							</div>
-						</div>
-					</div>
-				</div>
+  const save = useMutation(
+    trpc.academics.saveTermMetaData.mutationOptions({
+      onSuccess() {
+        if (proceedAfterSave) {
+          router.push(
+            `/academic/term-getting-started/${termId}/data-migration`,
+          );
+        }
+      },
+    }),
+  );
 
-				{/* Main Configuration Card */}
-				<Card className="overflow-hidden border-border">
-					<div className="px-6 py-4 border-b border-border bg-card flex items-center justify-between">
-						<h2 className="font-bold text-lg">Term Configuration</h2>
-						<Badge
-							variant="neutral"
-							className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 uppercase tracking-wider text-[10px]"
-						>
-							Draft Mode
-						</Badge>
-					</div>
+  if (contextQuery.isLoading) {
+    return (
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+        <Skeleton className="h-10 w-72" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-80 w-full" />
+      </div>
+    );
+  }
 
-					<div className="p-8 space-y-8">
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-							<FormDate
-								control={form.control}
-								name="startDate"
-								label="Term Start Date"
-								// disabled
-								description="Students will be able to log in from this date."
-							/>
-							<FormDate
-								control={form.control}
-								name="endDate"
-								label="Term End Date"
-								// disabled
-								description="End of academic activities for this term."
-							/>
-							<FormInput
-								control={form.control}
-								name="note"
-								type="textarea"
-								placeholder="e.g. Focus on external examinations and final projects..."
-								label={"Term Objective/Notes"}
-							/>
-						</div>
+  if (contextQuery.error || !context) {
+    return (
+      <Alert variant="destructive">
+        <Info />
+        <AlertTitle>Unable to load term setup</AlertTitle>
+        <AlertDescription>
+          {contextQuery.error?.message ?? "The selected term was not found."}
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
-						<div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-lg p-4 flex items-center gap-3">
-							<Lock className="text-amber-600 dark:text-amber-500 h-5 w-5" />
-							<p className="text-xs font-medium text-amber-800 dark:text-amber-400">
-								Fields are locked while the current term is active.
-								Configuration will unlock once 2nd Term is closed.
-							</p>
-						</div>
+  const isLocked =
+    context.target.lifecycleStatus === "ACTIVE" ||
+    context.target.lifecycleStatus === "CLOSED";
 
-						<div className="flex items-center justify-between pt-6 border-t border-border">
-							<button
-								//   onClick={onBack}
-								className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
-							>
-								<ArrowLeft className="h-4 w-4" />
-								Back to Dashboard
-							</button>
-							<div className="flex gap-3">
-								<Button
-									type="button"
-									variant="outline"
-									className="bg-background"
-								>
-									Save as Draft
-								</Button>
-								<Button
-									// disabled
-									className="gap-2 bg-primary/50 text-primary-foreground hover:bg-primary/50"
-								>
-									Next: Data Migration
-									<ArrowRight className="h-4 w-4" />
-								</Button>
-							</div>
-						</div>
-					</div>
-				</Card>
+  const submit = form.handleSubmit((values) => {
+    save.mutate({
+      termId,
+      startDate: values.startDate,
+      endDate: values.endDate,
+      note: values.note,
+    });
+  });
 
-				{/* Footer Grid */}
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<Card className="p-6">
-						<h4 className="font-bold mb-3 flex items-center gap-2 text-foreground">
-							<Database className="text-primary h-5 w-5" />
-							Data Migration Preview
-						</h4>
-						<p className="text-xs text-muted-foreground leading-relaxed mb-4">
-							When you proceed to the next step, the system will automatically
-							prepare to roll over the following data:
-						</p>
-						<ul className="space-y-3">
-							<li className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-								<CheckCircle className="text-green-500 h-4 w-4" />
-								Student Enrollment Records
-							</li>
-							<li className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-								<CheckCircle className="text-green-500 h-4 w-4" />
-								Staff Course Allocations
-							</li>
-							<li className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-								<CheckCircle className="text-green-500 h-4 w-4" />
-								Timetable Templates
-							</li>
-						</ul>
-					</Card>
+  return (
+    <Form {...form}>
+      <form
+        className="mx-auto flex w-full max-w-5xl flex-col gap-6"
+        onSubmit={submit}
+      >
+        <div className="flex flex-col gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-fit px-0"
+            onClick={() => router.push("/academic")}
+          >
+            <ArrowLeft data-icon="inline-start" />
+            Academic management
+          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-semibold">
+              Configure {context.target.title}
+            </h1>
+            <Badge variant="outline">
+              {context.target.lifecycleStatus ?? "LEGACY"}
+            </Badge>
+          </div>
+          <p className="text-muted-foreground">
+            {context.target.session.title}
+          </p>
+        </div>
 
-					<Card className="p-6 flex flex-col justify-center items-center text-center">
-						<div className="h-10 w-10 bg-secondary rounded-full flex items-center justify-center mb-3 text-foreground">
-							<HelpCircle className="h-5 w-5" />
-						</div>
-						<h4 className="font-bold mb-1 text-foreground">Need assistance?</h4>
-						<p className="text-xs text-muted-foreground mb-4">
-							Our support team can help you with the term transition process.
-						</p>
-						<Button variant="secondary" className="w-full">
-							Contact Support
-						</Button>
-					</Card>
-				</div>
+        <Alert>
+          <Info />
+          <AlertTitle>
+            {context.source
+              ? `Preparing from ${context.source.sessionTitle} ${context.source.title}`
+              : "First academic term"}
+          </AlertTitle>
+          <AlertDescription>
+            Save the calendar first. The next step previews every classroom,
+            subject, student, fee, and teacher assignment before anything is
+            copied.
+          </AlertDescription>
+        </Alert>
 
-				{/* Spacer */}
-				<div className="h-8"></div>
-			</div>
-		</form>
-	);
-};
+        <Card>
+          <CardHeader>
+            <CardTitle>Term details</CardTitle>
+            <CardDescription>
+              Dates and planning notes remain editable while this term is a
+              draft or ready for activation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
+            <div className="grid gap-5 md:grid-cols-2">
+              <FormDate
+                control={form.control}
+                name="startDate"
+                label="Term start date"
+                description="Academic activity begins on this date."
+                disabled={isLocked}
+              />
+              <FormDate
+                control={form.control}
+                name="endDate"
+                label="Term end date"
+                description="Academic activity ends on this date."
+                disabled={isLocked}
+              />
+            </div>
+            <FormInput
+              control={form.control}
+              name="note"
+              type="textarea"
+              label="Objective or notes"
+              placeholder="Focus areas, examinations, or operational notes"
+              disabled={isLocked}
+            />
+          </CardContent>
+          <CardFooter className="flex flex-wrap justify-end gap-3">
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={isLocked || save.isPending}
+              onClick={() => setProceedAfterSave(false)}
+            >
+              {save.isPending && !proceedAfterSave ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <Save data-icon="inline-start" />
+              )}
+              Save draft
+            </Button>
+            <Button
+              type="submit"
+              disabled={isLocked || save.isPending}
+              onClick={() => setProceedAfterSave(true)}
+            >
+              {save.isPending && proceedAfterSave ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <ArrowRight data-icon="inline-end" />
+              )}
+              Continue to rollover
+            </Button>
+          </CardFooter>
+        </Card>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <BookOpenCheck />
+              <CardTitle>Academic structure</CardTitle>
+              <CardDescription>
+                Subjects include their assessment templates. Results and
+                attendance are never copied.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader>
+              <Users />
+              <CardTitle>People and access</CardTitle>
+              <CardDescription>
+                Same-session enrolments can carry forward with fees. Teacher
+                term profiles and assignments are remapped explicitly.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </form>
+    </Form>
+  );
+}

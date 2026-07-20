@@ -52,6 +52,16 @@ Describes entity relationships and cardinality constraints.
 - `SchoolDocumentTemplatePreference` stores one active tenant default per document type through a partial unique index on `(schoolProfileId, documentType)` where `deletedAt IS NULL`.
 - `CustomDocumentTemplateRequest` stores uploaded source files, quote payment handoff metadata, and custom-build quote/status metadata; when `status=READY`, `builtTemplateId` plus validated `builtTemplateJson` can be exposed in school template selectors and rendered by JSON PDF routes.
 - `StudentTermForm` 1:N `StudentAttendance`, `StudentFee`, `StudentPayment`, `StudentAssessmentRecord`
+- `SchoolProfile` N:1 active `SessionTerm` through `activeSessionTermId`; one term may be the active pointer for its owning school.
+- `SchoolProfile` 1:N `AcademicTermSetupRun`.
+- `AcademicTermSetupRun` N:1 source `SessionTerm` and N:1 target `SessionTerm`; source is nullable for an empty setup.
+- `SessionTerm` 1:N `ClassRoomAttendance` for direct term attribution.
+- `ClassRoomDepartment` 1:N `ClassRoomAttendance`; each attendance session belongs to one authorized classroom department.
+- `DepartmentSubject` 1:N `ClassRoomAttendance`; the relation is nullable for general attendance and required by the application contract for subject attendance.
+- `ClassRoomAttendance` 1:N `StudentAttendance`; active rows represent the current roster marks while corrected rows are soft-deleted for historical preservation.
+- `ClassRoomAttendance` 1:N `AttendanceSessionRevision`; immutable snapshots record create, correction, and soft-delete actions.
+- `AttendanceSessionGuard` stores scalar `attendanceId` ownership rather than a foreign key so guard deletion/release is explicit and legacy attendance rows require no backfill. Tenant/kind/key uniqueness serializes concurrent duplicate and idempotent requests.
+- `StaffProfile` 1:N `StaffTermProfile`; permanent teacher identity is reused while term-specific assignment rows are created or matched during rollover.
 - `StudentAssessmentRecord` 1:N `StudentAssessmentRecordHistory`; history keeps scalar student/term-form/assessment identity snapshots without foreign-key relations to those snapshot entities and uses `onDelete: SetNull` for the optional current-record relation.
 - `Wallet` 1:N `WalletTransactions`; `WalletTransactions` links to `StudentPayment` and `BillPayment`
 - `Wallet` 1:N `FeeHistory` (via `walletId` — accounting stream for student fees)
@@ -95,6 +105,9 @@ Describes entity relationships and cardinality constraints.
 - Assessment public token invariant: public result-entry routes resolve only by signed token plus stored hash, require `APPROVED` status, enforce `expiresAt`, and must not broaden beyond the stored classroom, term, subject IDs, or optional student-term-form IDs.
 - Assessment public score invariant: public score writes may only target scoreable assessments within the link's captured department subject scope and classroom term sheets.
 - Assessment score history invariant: every normal score create or update must append exactly one `StudentAssessmentRecordHistory` row inside the same transaction, including same-value saves and explicit clears.
+- Academic setup invariant: `(schoolProfileId, idempotencyKey)` identifies one durable setup apply; completed retries return the stored result and apply never deletes target academic data.
+- Active term invariant: explicit activation updates the target lifecycle and `SchoolProfile.activeSessionTermId` in one transaction while closing the previous active term.
+- Closed term invariant: normal academic record mutations reject terms with `lifecycleStatus = CLOSED`.
 - Legacy models (`school`, `guardian`, `session_class`) use separate relation chains and need consolidation rules.
 - TODO: add DB-level indexes/constraints audit for tenant scoping fields.
 

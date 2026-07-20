@@ -4,25 +4,24 @@ import { updateStudentReportCookieByName } from "@/actions/cookies/student-repor
 import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
 import { SearchFilter } from "@/components/midday-search-filter/search-filter-md";
 import { SubjectAssessments } from "@/components/subject-assessments";
+import { configs } from "@/configs";
+import { useAuth } from "@/hooks/use-auth";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useReportPageContext } from "@/hooks/use-report-page";
+import { SearchFilterProvider } from "@/hooks/use-search-filter";
 import {
 	studentReportSearchFilterParams,
 	useStudentReportFilterParams,
 } from "@/hooks/use-student-report-filter-params";
-import { SearchFilterProvider } from "@/hooks/use-search-filter";
-import { useAuth } from "@/hooks/use-auth";
-import { configs } from "@/configs";
 import type { PageFilterData } from "@/types";
 import {
+	type ResultRow,
 	buildResultRows,
 	filterResultStudents,
 	filterResultSubjects,
 	getAssessmentDisplayTitle,
 	getDuplicateStudentNameKeys,
-	getStudentDisplayName,
 	getStudentSearchKey,
-	type ResultRow,
 } from "@school-clerk/assessment-results";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
@@ -43,10 +42,10 @@ import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
 import { toast } from "@school-clerk/ui/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import {
+	AlertTriangle,
 	ArrowDown,
 	ArrowUp,
 	ArrowUpDown,
-	AlertTriangle,
 	FileSpreadsheet,
 	PanelRightOpen,
 	Printer,
@@ -63,6 +62,7 @@ import {
 	useTransition,
 } from "react";
 import { _trpc } from "./static-trpc";
+import { useStudentNameFormat } from "./student-name-format/provider";
 
 type SortColumn = "student" | "grandTotal";
 type SortDirection = "asc" | "desc";
@@ -211,9 +211,12 @@ export function ClassroomResultTable({
 	const { filters, setFilters } = useStudentReportFilterParams();
 	const { setParams: setClassroomParams } = useClassroomParams();
 	const auth = useAuth();
+	const studentNameFormat = useStudentNameFormat();
 	const role = auth.role;
 	const isAdmin = role === "ADMIN" || role === "Admin";
-	const { data: terms } = useQuery(_trpc.academics.getReportTerms.queryOptions());
+	const { data: terms } = useQuery(
+		_trpc.academics.getReportTerms.queryOptions(),
+	);
   const [, startSavingLayout] = useTransition();
 
 	const allSubjects = reportData?.subjects ?? [];
@@ -274,22 +277,24 @@ export function ClassroomResultTable({
 		return filterResultStudents({
 			students,
 			search: deferredNameSearch,
+			nameFormat: studentNameFormat,
 		});
-	}, [deferredNameSearch, students]);
+	}, [deferredNameSearch, studentNameFormat, students]);
 
 	const resultRows = useMemo(() => {
 		const rows = buildResultRows({
 			subjects: visibleSubjects,
 			students: filteredStudents,
+			nameFormat: studentNameFormat,
 		});
 
 		if (!sort) return rows;
 
 		const sorted = [...rows].sort((a, b) => {
 			if (sort.column === "student") {
-				return a.studentName.toLowerCase().localeCompare(
-					b.studentName.toLowerCase(),
-				);
+				return a.studentName
+					.toLowerCase()
+					.localeCompare(b.studentName.toLowerCase());
 			}
 
 			return a.grandTotal - b.grandTotal;
@@ -297,11 +302,11 @@ export function ClassroomResultTable({
 
 		if (sort.direction === "desc") sorted.reverse();
 		return sorted;
-	}, [filteredStudents, sort, visibleSubjects]);
+	}, [filteredStudents, sort, studentNameFormat, visibleSubjects]);
 
   const duplicateNames = useMemo(() => {
-		return getDuplicateStudentNameKeys(filteredStudents);
-  }, [filteredStudents]);
+		return getDuplicateStudentNameKeys(filteredStudents, studentNameFormat);
+	}, [filteredStudents, studentNameFormat]);
 
 	const reportRows = useMemo(() => {
 		return resultRows.map((row, index) => ({
@@ -519,9 +524,7 @@ export function ClassroomResultTable({
 				];
 				for (const subjectRow of row.subjectTotals) {
 					if (!totalsOnly) {
-						cells.push(
-							...subjectRow.assessmentScores.map(() => `<td>-</td>`),
-						);
+						cells.push(...subjectRow.assessmentScores.map(() => `<td>-</td>`));
 					}
 					cells.push(`<td>-</td>`);
 				}
@@ -600,7 +603,15 @@ export function ClassroomResultTable({
 		printWindow.document.close();
 		printWindow.focus();
 		printWindow.print();
-	}, [ctx.classroomName, isRtl, reportRows, totalsOnly, visibleSubjects, auth.profile?.sessionTitle, auth.profile?.termTitle]);
+	}, [
+		ctx.classroomName,
+		isRtl,
+		reportRows,
+		totalsOnly,
+		visibleSubjects,
+		auth.profile?.sessionTitle,
+		auth.profile?.termTitle,
+	]);
 
 	const printOrder = filters.printOrder ?? [];
 	const activeDepts = filters.activeDepts ?? [];
@@ -609,30 +620,44 @@ export function ClassroomResultTable({
 		[resultRows],
 	);
 	const allSelected =
-		tableStudents.length > 0 && tableStudents.every((student) => printOrder.includes(student.id));
+		tableStudents.length > 0 &&
+		tableStudents.every((student) => printOrder.includes(student.id));
 	const someSelected =
-		!allSelected && tableStudents.some((student) => printOrder.includes(student.id));
+		!allSelected &&
+		tableStudents.some((student) => printOrder.includes(student.id));
 
 	const toggleAll = useCallback(() => {
 		if (allSelected) {
 			setFilters({
 				printOrder: printOrder.filter(
-					(termFormId) => !tableStudents.some((student) => student.id === termFormId),
+					(termFormId) =>
+						!tableStudents.some((student) => student.id === termFormId),
 				),
 			});
 		} else {
 			const otherSelections = printOrder.filter(
-				(termFormId) => !tableStudents.some((student) => student.id === termFormId),
+				(termFormId) =>
+					!tableStudents.some((student) => student.id === termFormId),
 			);
 			setFilters({
-				printOrder: [...otherSelections, ...tableStudents.map((student) => student.id)],
+				printOrder: [
+					...otherSelections,
+					...tableStudents.map((student) => student.id),
+				],
 				activeDepts:
 					filters.departmentId && !activeDepts.includes(filters.departmentId)
 						? [...activeDepts, filters.departmentId]
 						: activeDepts,
 			});
 		}
-	}, [activeDepts, allSelected, filters.departmentId, printOrder, setFilters, tableStudents]);
+	}, [
+		activeDepts,
+		allSelected,
+		filters.departmentId,
+		printOrder,
+		setFilters,
+		tableStudents,
+	]);
 
 	const toggleStudent = useCallback(
 		(termFormId: string) => {
@@ -642,7 +667,9 @@ export function ClassroomResultTable({
 					? printOrder.filter((id) => id !== termFormId)
 					: [...printOrder, termFormId],
 				activeDepts:
-					!isSelected && filters.departmentId && !activeDepts.includes(filters.departmentId)
+					!isSelected &&
+					filters.departmentId &&
+					!activeDepts.includes(filters.departmentId)
 						? [...activeDepts, filters.departmentId]
 						: activeDepts,
 			});
@@ -779,7 +806,10 @@ export function ClassroomResultTable({
 							</ToggleGroup>
 							<label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
 								<span>Totals</span>
-								<Switch checked={totalsOnly} onCheckedChange={setTotalsOnly} />
+									<Switch
+										checked={totalsOnly}
+										onCheckedChange={setTotalsOnly}
+									/>
 							</label>
 							<Button
 								variant="outline"
@@ -867,7 +897,9 @@ export function ClassroomResultTable({
 									{visibleSubjects.map((subject) => (
 										<TableHead
 											key={subject.id}
-											colSpan={totalsOnly ? 1 : subject.assessments.length + 1}
+												colSpan={
+													totalsOnly ? 1 : subject.assessments.length + 1
+												}
 											className={cn(
 												"text-center font-semibold bg-background",
 												dividerClass,
@@ -938,7 +970,8 @@ export function ClassroomResultTable({
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{resultRows.length ? resultRows.map((row, si) => {
+									{resultRows.length ? (
+										resultRows.map((row, si) => {
 									return (
 										<StudentResultRow
 											key={row.student.id}
@@ -950,11 +983,15 @@ export function ClassroomResultTable({
 											isRtl={isRtl}
 											dividerClass={dividerClass}
 											isDuplicateName={duplicateNames.has(
-												getStudentSearchKey(row.student.student),
+														getStudentSearchKey(
+															row.student.student,
+															studentNameFormat,
+														),
 											)}
 										/>
 									);
-								}) : (
+										})
+									) : (
 									<TableRow>
 										<TableCell
 											colSpan={
@@ -1049,7 +1086,9 @@ function StudentResultRow({
 			<TableCell
 				className={cn(
 					"sticky z-10 w-[220px] min-w-[220px] bg-background whitespace-nowrap",
-					isRtl ? "right-[40px] border-l text-right" : "left-[40px] border-r text-left",
+					isRtl
+						? "right-[40px] border-l text-right"
+						: "left-[40px] border-r text-left",
 				)}
 				dir={isRtl ? "rtl" : "ltr"}
 			>
@@ -1058,7 +1097,7 @@ function StudentResultRow({
 						{index + 1}.
 					</span>
 					<span className="truncate" dir="auto">
-						{getStudentDisplayName(student.student)}
+						{row.studentName}
 					</span>
 					<StudentGenderBadge gender={student.student?.gender} />
 					{isDuplicateName ? (

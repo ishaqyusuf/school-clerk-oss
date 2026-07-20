@@ -89,11 +89,16 @@ const roster = [
 describe("result roster ordering", () => {
   test("sorts male students first, then names alphabetically within gender", () => {
     expect(sortResultRoster(roster).map((student) => student.id)).toEqual([
-      "male-adam",
       "male-umar",
-      "female-aisha",
+			"male-adam",
       "female-zainab",
+			"female-aisha",
     ]);
+		expect(
+			sortResultRoster(roster, "SURNAME_FIRST_OTHER").map(
+				(student) => student.id,
+			),
+		).toEqual(["male-adam", "male-umar", "female-aisha", "female-zainab"]);
   });
 
   test("keeps shared roster ordering after name filtering", () => {
@@ -101,6 +106,7 @@ describe("result roster ordering", () => {
       filterResultStudents({
         students: roster,
         search: "a",
+				nameFormat: "SURNAME_FIRST_OTHER",
       }).map((student) => student.id),
     ).toEqual(["male-adam", "male-umar", "female-aisha", "female-zainab"]);
   });

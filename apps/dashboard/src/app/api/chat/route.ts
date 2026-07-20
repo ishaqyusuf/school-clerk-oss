@@ -17,11 +17,12 @@ import {
 	recordAssistantActivity,
 	saveAssistantMessage,
 } from "@/lib/assistant/server";
+import { getDashboardStudentNameFormat } from "@/lib/student-name-format/server";
 import {
+	type SchoolAiToolContext,
 	buildSchoolAiSystemPrompt,
 	createSchoolAiTools,
 	getAiModelSelection,
-	type SchoolAiToolContext,
 } from "@school-clerk/ai";
 import { convertToModelMessages, streamText } from "ai";
 import { NextResponse } from "next/server";
@@ -32,7 +33,10 @@ export async function POST(req: Request) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 
-	const config = await ensureAssistantConfig(context.schoolId);
+	const [config, studentNameFormat] = await Promise.all([
+		ensureAssistantConfig(context.schoolId),
+		getDashboardStudentNameFormat(context.schoolId),
+	]);
 	const allowedCapabilities = getAllowedCapabilities({
 		role: context.role,
 		config,
@@ -133,6 +137,7 @@ export async function POST(req: Request) {
 		userName: context.userName,
 		config,
 		runId: run.id,
+		studentNameFormat,
 	};
 
 	const tools = createSchoolAiTools(routeContext, {

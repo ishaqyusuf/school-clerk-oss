@@ -5,15 +5,14 @@ import {
   Calendar,
   TrendingUp,
   History,
-  Edit2,
   CheckCircle2,
   Settings,
-  ExternalLink,
-  Filter,
-  Download,
   ArrowUpCircle,
+  ArrowRight,
   ChevronDown,
   ChevronRight,
+  Archive,
+  Info,
 } from "lucide-react";
 import { Card, Field } from "@school-clerk/ui/composite";
 import { Button } from "@school-clerk/ui/button";
@@ -27,6 +26,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@school-clerk/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@school-clerk/ui/alert-dialog";
 import { Form, FormField } from "@school-clerk/ui/form";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -34,7 +43,6 @@ import { _qc, _trpc } from "@/components/static-trpc";
 import { differenceInCalendarDays, formatDate } from "date-fns";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useAcademicParams } from "@/hooks/use-academic-params";
-import { AcademicSessionSheet } from "@/components/sheets/academic-session-sheet";
 import type { RouterOutputs } from "@api/trpc/routers/_app";
 import { z } from "zod";
 import { useZodForm } from "@/hooks/use-zod-form";
@@ -57,13 +65,10 @@ const termDateFormSchema = z
     startDate: z.string().min(1, "Start date is required"),
     endDate: z.string().optional(),
   })
-  .refine(
-    (value) => !value.endDate || value.endDate >= value.startDate,
-    {
-      message: "End date must be after the start date",
-      path: ["endDate"],
-    },
-  );
+  .refine((value) => !value.endDate || value.endDate >= value.startDate, {
+    message: "End date must be after the start date",
+    path: ["endDate"],
+  });
 
 const Dashboard = () => {
   const { setParams } = useAcademicParams();
@@ -71,6 +76,8 @@ const Dashboard = () => {
     string | null
   >(null);
   const [termDateModal, setTermDateModal] =
+    React.useState<DashboardTerm | null>(null);
+  const [closeTermModal, setCloseTermModal] =
     React.useState<DashboardTerm | null>(null);
   const termDateForm = useZodForm(termDateFormSchema, {
     defaultValues: {
@@ -137,6 +144,23 @@ const Dashboard = () => {
       },
     }),
   );
+  const { mutate: closeTerm, isPending: isClosingTerm } = useMutation(
+    _trpc.academics.closeTerm.mutationOptions({
+      onSuccess() {
+        setCloseTermModal(null);
+        _qc?.invalidateQueries({
+          queryKey: _trpc.academics.dashboard.queryKey({}),
+        });
+      },
+      meta: {
+        toastTitle: {
+          error: "Unable to close term",
+          loading: "Closing academic term...",
+          success: "Academic term closed.",
+        },
+      },
+    }),
+  );
 
   const openTermDateModal = (term: DashboardTerm) => {
     setTermDateModal(term);
@@ -174,7 +198,13 @@ const Dashboard = () => {
           <Button
             variant="outline"
             className="gap-2 font-bold"
-            onClick={() => setParams({ academicSessionFormType: "term" })}
+            disabled={!sessions.length}
+            onClick={() =>
+              setParams({
+                academicSessionFormType: "term",
+                sessionId: currentSession?.id ?? sessions[0]?.id ?? null,
+              })
+            }
           >
             <Plus className="h-5 w-5" />
             Create New Term
@@ -251,15 +281,6 @@ const Dashboard = () => {
       <Card className="overflow-hidden border-border">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
           <h3 className="font-bold text-lg">Academic Sessions History</h3>
-          <div className="flex items-center gap-3">
-            <button className="text-xs font-medium text-muted-foreground hover:text-primary flex items-center gap-1">
-              <Filter className="h-3 w-3" /> Filter
-            </button>
-            <span className="text-border">|</span>
-            <button className="text-xs font-medium text-muted-foreground hover:text-primary flex items-center gap-1">
-              <Download className="h-3 w-3" /> Export CSV
-            </button>
-          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -343,43 +364,21 @@ const Dashboard = () => {
                     </td>
                     <td className="px-6 py-5 text-right">
                       <div className="flex justify-end gap-2">
-                        {session.status === "archived" ? (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground"
+                        {session.status === "current" && promotionIds ? (
+                          <Link
+                            href={`/academic/progression/${promotionIds.lastTermId}/${session.currentTerm?.id}`}
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <>
                             <Button
                               variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
+                              size="sm"
+                              className="h-8 gap-1.5 text-primary font-semibold px-2"
                             >
-                              <Edit2 className="h-4 w-4" />
+                              <ArrowUpCircle className="h-4 w-4" />
+                              Progress
                             </Button>
-                            {session.status === "current" && promotionIds && (
-                              <Link
-                                href={`/academic/progression/${promotionIds.lastTermId}/${session.currentTerm?.id}`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 gap-1.5 text-primary font-semibold px-2"
-                                >
-                                  <ArrowUpCircle className="h-4 w-4" />
-                                  Progress
-                                </Button>
-                              </Link>
-                            )}
-                          </>
-                        )}
+                          </Link>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -425,22 +424,37 @@ const Dashboard = () => {
                                     </span>
                                   </div>
                                   <div className="mt-4 flex items-center gap-3">
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 px-0 text-[11px] text-primary font-bold hover:bg-transparent hover:underline"
-                                      onClick={() => openTermDateModal(term)}
-                                    >
-                                      <Calendar className="h-3 w-3" />
-                                      Dates
-                                    </Button>
+                                    {term.status !== "active" &&
+                                    term.status !== "closed" ? (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-0 text-[11px] text-primary font-bold hover:bg-transparent hover:underline"
+                                        onClick={() => openTermDateModal(term)}
+                                      >
+                                        <Calendar data-icon="inline-start" />
+                                        Dates
+                                      </Button>
+                                    ) : null}
                                     <Link
                                       href={`/academic/term-getting-started/${term.id}`}
                                       className="text-[11px] text-primary font-bold flex items-center gap-1 hover:underline"
                                     >
-                                      <Settings className="h-3 w-3" /> Configure
+                                      <Settings /> Configure
                                     </Link>
+                                    {term.status === "active" ? (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-0 text-[11px] text-destructive font-bold hover:bg-transparent hover:underline"
+                                        onClick={() => setCloseTermModal(term)}
+                                      >
+                                        <Archive data-icon="inline-start" />
+                                        Close
+                                      </Button>
+                                    ) : null}
                                   </div>
                                 </Card>
                               ))}
@@ -460,27 +474,19 @@ const Dashboard = () => {
           </table>
         </div>
 
-        <div className="px-6 py-4 bg-muted/20 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+        <div className="px-6 py-4 bg-muted/20 border-t border-border text-xs text-muted-foreground">
           <p>
             Showing {sessions.length} academic{" "}
             {sessions.length === 1 ? "session" : "sessions"}
           </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="h-8">
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" className="h-8">
-              Next
-            </Button>
-          </div>
         </div>
       </Card>
 
       {/* Info Cards */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-blue-50 dark:bg-blue-950/20 p-6 rounded-xl border border-blue-100 dark:border-blue-900/30">
+        <div className="bg-blue-50 dark:bg-blue-950/20 p-6 rounded-lg border border-blue-100 dark:border-blue-900/30">
           <div className="flex items-center gap-3 mb-3">
-            <div className="h-5 w-5 text-primary">ℹ️</div>
+            <Info className="h-5 w-5 text-primary" />
             <h4 className="font-bold text-blue-900 dark:text-blue-300">
               Quick Configuration Tip
             </h4>
@@ -502,12 +508,12 @@ const Dashboard = () => {
             className="text-primary hover:text-primary font-bold hover:bg-transparent hover:underline px-0"
             onClick={() => setParams({ academicSessionFormType: "session" })}
           >
-            Start Roll-over Wizard →
+            Start Roll-over Wizard
+            <ArrowRight data-icon="inline-end" />
           </Button>
         </Card>
       </div>
 
-      <AcademicSessionSheet />
       <Dialog
         open={!!termDateModal}
         onOpenChange={(open) => {
@@ -583,6 +589,37 @@ const Dashboard = () => {
           </Form>
         </DialogContent>
       </Dialog>
+      <AlertDialog
+        open={!!closeTermModal}
+        onOpenChange={(open) => {
+          if (!open) setCloseTermModal(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close {closeTermModal?.title}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Academic writes will stop for this term. Its finance ledger must
+              already be closed, and the action is recorded in the activity log.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isClosingTerm}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isClosingTerm}
+              onClick={() => {
+                if (closeTermModal) {
+                  closeTerm({ termId: closeTermModal.id });
+                }
+              }}
+            >
+              {isClosingTerm ? "Closing..." : "Close term"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

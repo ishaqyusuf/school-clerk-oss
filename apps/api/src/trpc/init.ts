@@ -1,7 +1,11 @@
-import type { Context } from "hono";
-import { prisma, type Database } from "@school-clerk/db";
-import { resolveDashboardAppRootDomain } from "@school-clerk/utils";
+import { type Database, prisma } from "@school-clerk/db";
+import {
+	type StudentNameFormat,
+	normalizeStudentNameFormat,
+	resolveDashboardAppRootDomain,
+} from "@school-clerk/utils";
 import { TRPCError, initTRPC } from "@trpc/server";
+import type { Context } from "hono";
 import superjson from "superjson";
 import { withPrimaryReadAfterWrite } from "./middleware/primary-read-after-write";
 
@@ -15,6 +19,7 @@ export type TRPCContext = {
     termId?;
     authSessionId?;
     domain?;
+    studentNameFormat?: StudentNameFormat;
   };
   currentUser?: {
     id: string;
@@ -28,10 +33,12 @@ export type TRPCContext = {
 };
 export const createTRPCContext = async (
   _: unknown,
-  c: Context
+  c: Context,
 ): Promise<TRPCContext> => {
   const authSessionId = c.req.header("Authorization")?.split(" ")[1];
-  const appRootDomain = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
+  const appRootDomain = resolveDashboardAppRootDomain(
+    process.env.APP_ROOT_DOMAIN,
+  );
   let host = decodeURIComponent(c.req.header()["host"] || "");
   if (process.env.NODE_ENV == "development") {
     host = host?.replaceAll(`.${appRootDomain}`, ".vercel.app");
@@ -40,12 +47,26 @@ export const createTRPCContext = async (
     c.req.header()["x-ttss-id"] ?? ""
   )?.split("|");
   const db = prisma;
+  const schoolSettings = schoolId
+    ? await db.schoolProfile.findFirst({
+        where: {
+          id: schoolId,
+          deletedAt: null,
+        },
+        select: {
+          studentNameFormat: true,
+        },
+      })
+    : null;
   const profile = {
     termId,
     sessionId,
     schoolId,
     authSessionId,
     domain: host?.replace(`.${appRootDomain}`, ""),
+    studentNameFormat: normalizeStudentNameFormat(
+      schoolSettings?.studentNameFormat,
+    ),
   };
 
   return {
@@ -133,4 +154,6 @@ const requireAuthMiddleware = t.middleware(async (opts) => {
 // });
 
 export const publicProcedure = t.procedure.use(withPrimaryDbMiddleware);
-export const authenticatedProcedure = publicProcedure.use(requireAuthMiddleware);
+export const authenticatedProcedure = publicProcedure.use(
+  requireAuthMiddleware,
+);

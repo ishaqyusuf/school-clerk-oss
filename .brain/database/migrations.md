@@ -44,6 +44,39 @@ Change log for database schema migrations and rollout notes.
 
 ## Migration Entry
 
+- Date: 2026-07-20
+- ID: SCHEMA-2026-07-20-attendance-sessions
+- Summary: Expanded classroom attendance with general/subject scope, explicit date/period/statuses, department-subject attribution, correction revision history, and atomic idempotency/dedupe guards.
+- Affected entities: `ClassRoomAttendance`, `StudentAttendance`, `AttendanceSessionRevision`, `AttendanceSessionGuard`, `DepartmentSubject`, `ActivityType`, and attendance enums.
+- Backfill required: No. New session/date/scope/status fields are nullable where legacy compatibility requires it; reads derive legacy status from `isPresent`, date from `createdAt`, and scope as general.
+- Applied: `bun run db:push --local` and `bun run db:push --prod` both succeeded on 2026-07-20. No migration files or destructive acceptance flags were used.
+- Rollback plan: Remove new attendance UI/API contracts first, retain compatibility reads while exporting any revision history, then remove guard/revision tables, new relations/fields/indexes, and attendance activity/enum values.
+- Owner: Codex
+
+## Migration Entry
+
+- Date: 2026-07-19
+- ID: SCHEMA-2026-07-19-academic-term-lifecycle-rollover
+- Summary: Added explicit academic term lifecycle metadata, the canonical school active-term pointer, durable idempotent setup runs, direct attendance term attribution, teacher term-profile lookup indexing, and academic lifecycle activity types.
+- Affected entities: `SchoolProfile`, `SessionTerm`, `AcademicTermSetupRun`, `ClassRoomAttendance`, `StaffTermProfile`, `ActivityType`, `AcademicTermLifecycleStatus`, `AcademicTermSetupRunStatus`
+- Backfill required: No. Legacy `SessionTerm.lifecycleStatus` remains nullable and dashboard reads retain date fallback until explicit activation.
+- Applied: `bun run db:push --local` and `bun run db:push --prod` both succeeded on 2026-07-19.
+- Rollback plan: Remove lifecycle enforcement/UI first, restore date-only active selection, then drop the setup-run table, active pointer, lifecycle/attendance fields, indexes, and enums.
+- Owner: Codex
+
+## Migration Entry
+
+- Date: 2026-07-19
+- ID: schema-push-20260719_student_name_format
+- Summary: Added `StudentNameFormat` and `SchoolProfile.studentNameFormat`, defaulting to `FIRST_SURNAME_OTHER`, for tenant-wide student display-name ordering.
+- Affected entities: `SchoolProfile`, `StudentNameFormat`
+- Backfill required: No. PostgreSQL applies the default to existing schools, and runtime normalization also falls back safely for missing or unknown values.
+- Rollout: `bun run db:generate`, `bun run db:push --local`, and `bun run db:push --prod` succeeded. No migration file or remote-development push was created.
+- Rollback plan: Remove settings/runtime formatter use, restore the fixed first-name-first display convention, regenerate Prisma Client, then drop the column and enum.
+- Owner: Codex
+
+## Migration Entry
+
 - Date: 2026-07-19
 - ID: schema-push-20260719_uncapped_informational_assessments
 - Summary: Made `ClassroomSubjectAssessment.obtainable` nullable so standalone zero-weight informational assessments can accept non-negative numeric values without an upper bound.

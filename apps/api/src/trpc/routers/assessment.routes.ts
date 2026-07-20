@@ -414,17 +414,17 @@ export const assessmentRouter = createTRPCRouter({
         defaultDepartmentId: classrooms[0]?.id ?? null,
       };
     }),
-  saveAssessement: publicProcedure
+  saveAssessement: authenticatedProcedure
     .input(saveAssessementSchema)
     .mutation(async (props) => {
       return saveAssessement(props.ctx, props.input);
     }),
-  deleteAssessment: publicProcedure
+  deleteAssessment: authenticatedProcedure
     .input(deleteAssessmentSchema)
     .mutation(async (props) => {
       return deleteAssessment(props.ctx, props.input);
     }),
-  reorderAssessments: publicProcedure
+  reorderAssessments: authenticatedProcedure
     .input(reorderAssessmentsSchema)
     .mutation(async (props) => {
       return reorderAssessments(props.ctx, props.input);
@@ -439,7 +439,7 @@ export const assessmentRouter = createTRPCRouter({
     .query(async (props) => {
       return getSubjectAssessmentRecordings(props.ctx, props.input);
     }),
-  updateAssessmentScore: publicProcedure
+  updateAssessmentScore: authenticatedProcedure
     .input(updateAssessmentScoreSchema)
     .mutation(async (props) => {
       return updateAssessmentScore(props.ctx, props.input);

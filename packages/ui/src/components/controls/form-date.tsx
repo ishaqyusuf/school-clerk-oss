@@ -69,6 +69,7 @@ export function FormDate<
       {...(props as any)}
       render={({ field, fieldState }) => (
         <Field
+          data-invalid={fieldState.invalid}
           className={cn(
             className,
             props.disabled && "text-muted-foreground",
@@ -88,7 +89,10 @@ export function FormDate<
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
                 <Button
+                  type="button"
                   variant={"outline"}
+                  aria-invalid={fieldState.invalid}
+                  disabled={field.disabled || props.disabled}
                   className={cn(
                     "pl-3 text-left font-normal",
                     !field.value && "text-muted-foreground",
@@ -119,6 +123,9 @@ export function FormDate<
             </Popover>
           )}
           {description && <Field.Description>{description}</Field.Description>}
+          {fieldState.error ? (
+            <Field.Error errors={[fieldState.error]} />
+          ) : null}
           {/* </FormControl> */}
         </Field>
       )}

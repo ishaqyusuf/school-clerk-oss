@@ -1,22 +1,20 @@
 import type { TRPCContext } from "@api/trpc/init";
 import {
+	type SaveAssessementSchema,
   getScoreKey,
   saveAssessementSchema,
-  type SaveAssessementSchema,
 } from "@school-clerk/assessment-results";
 import { saveStudentAssessmentScoreWithHistory } from "@school-clerk/db";
-import { z } from "zod";
-import { studentDisplayName } from "./enrollment-query";
-import {
-  generateRandomString,
-  uniqueList,
-} from "@school-clerk/utils";
+import { generateRandomString, uniqueList } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
+import { runAssessmentScoreTransactionWithRetry } from "../../lib/assessment-score-history";
 import {
   assertTeacherCanAccessAssessment,
   assertTeacherCanAccessDepartmentSubject,
 } from "../../lib/teacher-authorization";
-import { runAssessmentScoreTransactionWithRetry } from "../../lib/assessment-score-history";
+import { assertAcademicTermWritable } from "./academic-term-setup";
+import { studentDisplayName } from "./enrollment-query";
 
 export { saveAssessementSchema } from "@school-clerk/assessment-results";
 
@@ -26,6 +24,17 @@ export async function saveAssessement(
 ) {
   await assertTeacherCanAccessDepartmentSubject(ctx, data.departmentSubjectId);
   await assertTeacherCanAccessAssessment(ctx, data.id);
+  const writableSubject = await ctx.db.departmentSubject.findFirst({
+    where: {
+      id: data.departmentSubjectId,
+      deletedAt: null,
+      classRoomDepartment: {
+        schoolProfileId: ctx.profile.schoolId,
+      },
+    },
+    select: { sessionTermId: true },
+  });
+  await assertAcademicTermWritable(ctx, writableSubject?.sessionTermId);
 
   const { db } = ctx;
   const {
@@ -45,7 +54,10 @@ export async function saveAssessement(
   const assessmentPrintMode =
     groupedAssessment && printMode === "total" ? "TOTAL" : "EXPANDED";
   const summaryObtainable = groupedAssessment
-    ? normalizedChildren.reduce((sum, child) => sum + (child.obtainable ?? 0), 0)
+		? normalizedChildren.reduce(
+				(sum, child) => sum + (child.obtainable ?? 0),
+				0,
+			)
     : obtainable;
   const summaryPercentage = groupedAssessment
     ? normalizedChildren.reduce(
@@ -177,6 +189,27 @@ export async function deleteAssessment(
   data: DeleteAssessmentSchema,
 ) {
   await assertTeacherCanAccessAssessment(ctx, data.id);
+  const writableAssessment =
+    await ctx.db.classroomSubjectAssessment.findFirst({
+      where: {
+        id: data.id,
+        deletedAt: null,
+        departmentSubject: {
+          classRoomDepartment: {
+            schoolProfileId: ctx.profile.schoolId,
+          },
+        },
+      },
+      select: {
+        departmentSubject: {
+          select: { sessionTermId: true },
+        },
+      },
+    });
+  await assertAcademicTermWritable(
+    ctx,
+    writableAssessment?.departmentSubject?.sessionTermId,
+  );
 
   const deletedAt = new Date();
   return ctx.db.$transaction(async (tx) => {
@@ -204,15 +237,24 @@ export const reorderAssessmentsSchema = z.object({
   departmentSubjectId: z.string(),
   assessmentIds: z.array(z.number()),
 });
-export type ReorderAssessmentsSchema = z.infer<
-  typeof reorderAssessmentsSchema
->;
+export type ReorderAssessmentsSchema = z.infer<typeof reorderAssessmentsSchema>;
 
 export async function reorderAssessments(
   ctx: TRPCContext,
   data: ReorderAssessmentsSchema,
 ) {
   await assertTeacherCanAccessDepartmentSubject(ctx, data.departmentSubjectId);
+  const writableSubject = await ctx.db.departmentSubject.findFirst({
+    where: {
+      id: data.departmentSubjectId,
+      deletedAt: null,
+      classRoomDepartment: {
+        schoolProfileId: ctx.profile.schoolId,
+      },
+    },
+    select: { sessionTermId: true },
+  });
+  await assertAcademicTermWritable(ctx, writableSubject?.sessionTermId);
 
   return ctx.db.$transaction(
     data.assessmentIds.map((id, index) =>
@@ -343,7 +385,7 @@ export async function getSubjectAssessmentRecordings(
     students: studentTermForms.map((s) => ({
       termId: s.id,
       id: s.student?.id,
-      name: studentDisplayName(s.student as any),
+			name: studentDisplayName(s.student as any, ctx.profile.studentNameFormat),
       assessments: ds.assessments.map((a) => {
         const result = a.assessmentResults.find(
           (r) => r.studentTermFormId === s.id,
@@ -419,6 +461,7 @@ export async function updateAssessmentScore(
       departmentSubject: {
         select: {
           classRoomDepartmentId: true,
+          sessionTermId: true,
         },
       },
     },
@@ -449,6 +492,8 @@ export async function updateAssessmentScore(
     },
     select: {
       classroomDepartmentId: true,
+      sessionTermId: true,
+      schoolProfileId: true,
     },
   });
 
@@ -463,6 +508,18 @@ export async function updateAssessmentScore(
       message: "This score does not belong to the selected classroom subject.",
     });
   }
+  if (
+    !assessment.departmentSubject.sessionTermId ||
+    assessment.departmentSubject.sessionTermId !==
+      studentTermForm.sessionTermId ||
+    studentTermForm.schoolProfileId !== schoolProfileId
+  ) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "This score does not belong to the selected academic term.",
+    });
+  }
+  await assertAcademicTermWritable(ctx, studentTermForm.sessionTermId);
 
   return runAssessmentScoreTransactionWithRetry(() =>
     ctx.db.$transaction(
@@ -498,7 +555,8 @@ export async function updateAssessmentScore(
         if (data.id && !currentRecord) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "This score record does not match the selected student and assessment.",
+						message:
+							"This score record does not match the selected student and assessment.",
           });
         }
 

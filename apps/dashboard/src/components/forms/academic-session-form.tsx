@@ -6,7 +6,15 @@ import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { ArrowRight } from "lucide-react";
 
 import { Button } from "@school-clerk/ui/button";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+} from "@school-clerk/ui/field";
 import { Icons } from "@school-clerk/ui/icons";
+import { Switch } from "@school-clerk/ui/switch";
 import {
   Table,
   TableBody,
@@ -23,9 +31,15 @@ import { useZodForm } from "@/hooks/use-zod-form";
 import { useAcademicParams } from "@/hooks/use-academic-params";
 import { createAcademicSessionSchema } from "@api/trpc/schemas/schemas";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@school-clerk/ui/use-toast";
 import { switchSessionTerm } from "@/actions/cookies/auth-cookie";
+
+const DEFAULT_TERMS = [
+  { title: "First Term", startDate: undefined, endDate: undefined },
+  { title: "Second Term", startDate: undefined, endDate: undefined },
+  { title: "Third Term", startDate: undefined, endDate: undefined },
+];
 
 function toFormDate(value?: Date | string | null) {
   return value ? new Date(value) : undefined;
@@ -55,6 +69,7 @@ export function AcademicSessionForm({
       sessionId: params?.sessionId,
       startDate: null,
       endDate: null,
+      terms: params?.sessionId ? [] : DEFAULT_TERMS,
     },
   });
   const terms = useFieldArray({
@@ -64,6 +79,13 @@ export function AcademicSessionForm({
   });
 
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const setupFirstTerm = useMutation(
+    trpc.academics.applyTermSetup.mutationOptions(),
+  );
+  const activateFirstTerm = useMutation(
+    trpc.academics.activateTerm.mutationOptions(),
+  );
 
   // Only fetch prefill when creating a new session (no sessionId in params)
   const { data: prefill } = useQuery(
@@ -111,6 +133,9 @@ export function AcademicSessionForm({
   const save = useMutation(
     trpc.academics.createAcademicSession.mutationOptions({
       async onSuccess(data) {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.academics.dashboard.queryKey({}),
+        });
         toast({
           title: data.alreadyExists
             ? "Session already exists"
@@ -122,45 +147,70 @@ export function AcademicSessionForm({
 
         if (mode === "onboarding") {
           const firstTerm = data?.terms?.[0];
-          await switchSessionTerm({
-            sessionId: data.sessionId,
-            sessionTitle: data.sessionTitle,
-            termId: firstTerm?.id,
-            termTitle: firstTerm?.title,
+          if (!firstTerm) {
+            throw new Error(
+              "Create at least one academic term before continuing onboarding.",
+            );
+          }
+          await setupFirstTerm.mutateAsync({
+            termId: firstTerm.id,
+            previousTermId: null,
+            classroomOption: "empty",
+            subjectOption: "empty",
+            studentOption: "empty",
+            teacherOption: "empty",
+            selectedClassroomIds: [],
+            selectedSubjectIds: [],
+            selectedStudentIds: [],
+            selectedTeacherIds: [],
+            idempotencyKey: `onboarding-${firstTerm.id}`,
           });
+          const activeTerm = await activateFirstTerm.mutateAsync({
+            termId: firstTerm.id,
+          });
+          await switchSessionTerm(activeTerm);
 
           router.push("/onboarding/setup-classrooms");
           return;
         }
 
         const firstTerm = data?.terms?.[0];
-        const lastTermId = prefill?.lastTermId;
-
-        if (firstTerm && lastTermId) {
-          // Auto-switch the active session/term cookie to the new session
-          await switchSessionTerm({
-            sessionId: data.sessionId,
-            sessionTitle: data.sessionTitle,
-            termId: firstTerm.id,
-            termTitle: firstTerm.title,
-          });
-          setParams(null);
-          router.push(`/academic/progression/${lastTermId}/${firstTerm.id}`);
+        if (firstTerm) {
+          router.push(`/academic/term-getting-started/${firstTerm.id}`);
         } else {
           setParams(null);
         }
       },
       onError(error) {
-        console.log(error);
         toast({
-          title: "Error",
+          title: "Unable to save academic session",
           description:
             error.message || "Something went wrong. Please try again later.",
+          variant: "destructive",
         });
       },
     }),
   );
   const onSubmit = form.handleSubmit((data) => {
+    if (mode === "onboarding") {
+      const firstTerm = data.terms?.[0];
+      if (!firstTerm) {
+        toast({
+          title: "Add an academic term",
+          description:
+            "Create at least one term before continuing school onboarding.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!firstTerm.startDate) {
+        form.setError("terms.0.startDate", {
+          type: "manual",
+          message: "The first term start date is required for activation.",
+        });
+        return;
+      }
+    }
     save.mutate(data);
   });
   const watch = form.watch();
@@ -230,29 +280,21 @@ export function AcademicSessionForm({
 
           {/* Initialize with Terms toggle */}
           {!watch.sessionId && (
-            <label className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 cursor-pointer select-none">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={initWithTerms}
-                  onChange={(e) => handleInitToggle(e.target.checked)}
-                  className="peer sr-only"
-                />
-                <div
-                  className={`w-9 h-5 rounded-full transition-colors ${initWithTerms ? "bg-primary" : "bg-muted-foreground/30"}`}
-                >
-                  <div
-                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${initWithTerms ? "translate-x-4" : "translate-x-0"}`}
-                  />
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-semibold">Initialize with Terms</p>
-                <p className="text-xs text-muted-foreground">
-                  Auto-populate terms based on previous session
-                </p>
-              </div>
-            </label>
+            <Field orientation="horizontal">
+              <FieldLabel htmlFor="initialize-session-terms">
+                <FieldContent>
+                  <FieldTitle>Initialize with terms</FieldTitle>
+                  <FieldDescription>
+                    Auto-populate terms based on the previous session
+                  </FieldDescription>
+                </FieldContent>
+              </FieldLabel>
+              <Switch
+                id="initialize-session-terms"
+                checked={initWithTerms}
+                onCheckedChange={handleInitToggle}
+              />
+            </Field>
           )}
 
           <div className="h-auto">
@@ -293,10 +335,10 @@ export function AcademicSessionForm({
               </TableBody>
             </Table>
             <Button
-              variant={"outline"}
+              variant="outline"
               type="button"
               className="w-full"
-              onClick={(e) => {
+              onClick={() => {
                 terms.append({
                   endDate: undefined,
                   startDate:
@@ -305,19 +347,25 @@ export function AcademicSessionForm({
                 });
               }}
             >
-              <Icons.Add className="size-4" />
-              <span>Add</span>
+              <Icons.Add data-icon="inline-start" />
+              Add term
             </Button>
           </div>
           <div className="flex justify-end">
-            <SubmitButton isSubmitting={save?.isPending}>
+            <SubmitButton
+              isSubmitting={
+                save.isPending ||
+                setupFirstTerm.isPending ||
+                activateFirstTerm.isPending
+              }
+            >
               {mode === "onboarding" ? (
                 <>
                   Next
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               ) : (
-                "Submit"
+                "Create session"
               )}
             </SubmitButton>
           </div>

@@ -1,25 +1,45 @@
-import { createTRPCRouter, publicProcedure } from "../init";
+import { authenticatedProcedure, createTRPCRouter } from "../init";
 import {
   createAcademicSessionSchema,
   getStudentTermsListSchema,
 } from "../schemas/schemas";
+import {
+  academicTermIdSchema,
+  academicTermSetupApplySchema,
+  academicTermSetupSelectionSchema,
+  createAcademicTermDraftSchema,
+  saveAcademicTermDraftSchema,
+} from "../schemas/academic-term-setup";
 
 import {
   createAcademicSession,
   getStudentTermsList,
 } from "@api/db/queries/academic-terms";
 import {
-  entrollStudentToTerm,
-  entrollStudentToTermSchema,
-  studentDisplayName,
-} from "@api/db/queries/enrollment-query";
+  activateAcademicTerm,
+  applyAcademicTermSetup,
+  assertAcademicTermWritable,
+  closeAcademicTerm,
+  createAcademicTermDraft,
+  getAcademicTermSetupContext,
+  previewAcademicTermActivation,
+  previewAcademicTermSetup,
+  requireAcademicAdmin,
+  saveAcademicTermDraft,
+} from "@api/db/queries/academic-term-setup";
 import {
   getClassroomDepartments,
   getClassroomsSchema,
 } from "@api/db/queries/classroom";
-import { z } from "zod";
-import { applyFeeHistoriesToStudentTermForm } from "@api/db/queries/student-fee-application";
+import {
+  entrollStudentToTerm,
+  entrollStudentToTermSchema,
+  studentDisplayName,
+} from "@api/db/queries/enrollment-query";
 import { assertNoExactDuplicateStudentInClassTerm } from "@api/db/queries/student-duplicates";
+import { applyFeeHistoriesToStudentTermForm } from "@api/db/queries/student-fee-application";
+import { classroomDisplayName, consoleLog } from "@school-clerk/utils";
+import { TRPCError } from "@trpc/server";
 import {
   addYears,
   constructNow,
@@ -28,8 +48,7 @@ import {
   sub,
   subDays,
 } from "date-fns";
-import { classroomDisplayName, consoleLog } from "@school-clerk/utils";
-import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 
 const previewApplicableFeeHistoriesSchema = z.object({
   sessionTermId: z.string(),
@@ -61,7 +80,7 @@ function findCurrentDatedTerm<
 }
 
 export const academicsRouter = createTRPCRouter({
-  getReportTerms: publicProcedure
+  getReportTerms: authenticatedProcedure
     .input(z.object({}).optional())
     .query(async ({ ctx }) => {
       const terms = await ctx.db.sessionTerm.findMany({
@@ -106,59 +125,77 @@ export const academicsRouter = createTRPCRouter({
         endDate: term.endDate,
       }));
     }),
-  dashboard: publicProcedure.input(z.object({})).query(async (props) => {
+  dashboard: authenticatedProcedure.input(z.object({})).query(async (props) => {
     const { ctx, input } = props;
     const db = ctx.db;
     // return dashboard(props.ctx, props.input);
-    const sessions = await db.schoolSession.findMany({
-      where: {
-        schoolId: ctx.profile.schoolId,
-      },
-      orderBy: {
-        createdAt: {
-          sort: "desc",
+    const [sessions, school] = await Promise.all([
+      db.schoolSession.findMany({
+        where: {
+          schoolId: ctx.profile.schoolId,
         },
-      },
-      select: {
-        id: true,
-        title: true,
-        startDate: true,
-        endDate: true,
-        terms: {
-          where: {
-            deletedAt: null,
+        orderBy: {
+          createdAt: {
+            sort: "desc",
           },
-          select: {
-            id: true,
-            sessionId: true,
-            title: true,
-            startDate: true,
-            endDate: true,
-            createdAt: true,
-          },
-          orderBy: {
-            startDate: {
-              sort: "asc",
-              nulls: "first",
+        },
+        select: {
+          id: true,
+          title: true,
+          startDate: true,
+          endDate: true,
+          terms: {
+            where: {
+              deletedAt: null,
+            },
+            select: {
+              id: true,
+              sessionId: true,
+              title: true,
+              startDate: true,
+              endDate: true,
+              createdAt: true,
+              lifecycleStatus: true,
+              setupCompletedAt: true,
+              note: true,
+            },
+            orderBy: {
+              startDate: {
+                sort: "asc",
+                nulls: "first",
+              },
             },
           },
         },
-      },
-    });
+      }),
+      db.schoolProfile.findFirst({
+        where: {
+          id: ctx.profile.schoolId,
+          deletedAt: null,
+        },
+        select: {
+          activeSessionTermId: true,
+        },
+      }),
+    ]);
     const now = new Date();
-    const currentTerm = findCurrentDatedTerm(
-      sessions.flatMap((session) => session.terms),
-      now,
-    );
+    const allTerms = sessions.flatMap((session) => session.terms);
+    const currentTerm =
+      allTerms.find((term) => term.id === school?.activeSessionTermId) ??
+      findCurrentDatedTerm(
+        allTerms.filter(
+          (term) =>
+            term.lifecycleStatus === null || term.lifecycleStatus === "ACTIVE",
+        ),
+        now,
+      );
     const currentSessionId = currentTerm?.sessionId ?? ctx.profile.sessionId;
     const currentSessionIdx = sessions.findIndex(
       (s) => s.id === currentSessionId,
     );
     const currentSession = sessions[currentSessionIdx];
     const previousSession = sessions[currentSessionIdx + 1];
-    const getFirstScheduledTerm = (
-      terms: (typeof sessions)[number]["terms"],
-    ) =>
+    const getFirstScheduledTerm = (terms: (typeof sessions)[number]["terms"]) =>
       terms
         .filter((term) => term.startDate !== null)
         .sort((a, b) => a.startDate!.getTime() - b.startDate!.getTime())[0] ??
@@ -166,9 +203,7 @@ export const academicsRouter = createTRPCRouter({
         (a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0),
       )[0] ??
       null;
-    const getLastScheduledTerm = (
-      terms: (typeof sessions)[number]["terms"],
-    ) =>
+    const getLastScheduledTerm = (terms: (typeof sessions)[number]["terms"]) =>
       terms
         .filter((term) => term.startDate !== null)
         .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0] ??
@@ -194,6 +229,12 @@ export const academicsRouter = createTRPCRouter({
           : null,
       sessions: sessions.map((session) => {
         const isCurrent = session.id === currentSessionId;
+        const hasPlanningTerm = session.terms.some(
+          (term) =>
+            term.lifecycleStatus === "DRAFT" ||
+            term.lifecycleStatus === "READY" ||
+            (!!term.startDate && term.startDate > now),
+        );
         const duration =
           session.startDate && session.endDate
             ? `${format(session.startDate, "MMM yyyy")} - ${format(session.endDate, "MMM yyyy")}`
@@ -205,7 +246,7 @@ export const academicsRouter = createTRPCRouter({
           currentTerm: isCurrent ? currentTerm : null,
           status: isCurrent
             ? "current"
-            : !session.startDate
+            : !session.startDate || hasPlanningTerm
               ? "planning"
               : "archived",
           name: session.title,
@@ -217,212 +258,39 @@ export const academicsRouter = createTRPCRouter({
               !!term.endDate && differenceInDays(now, term.endDate) > 0;
             return {
               id: term.id,
-              status: isCurrentTerm
-                ? "current"
-                : isCompleted
-                  ? "completed"
-                  : "upcoming",
+              status:
+                term.lifecycleStatus?.toLowerCase() ??
+                (isCurrentTerm
+                  ? "current"
+                  : isCompleted
+                    ? "completed"
+                    : "upcoming"),
               title: term.title,
               startDate: term.startDate,
               endDate: term.endDate,
+              lifecycleStatus: term.lifecycleStatus,
+              setupCompletedAt: term.setupCompletedAt,
+              note: term.note,
             };
           }),
         };
       }),
     };
   }),
-  getTermImportStat: publicProcedure
-    .input(
-      z.object({
-        termId: z.string(),
-      }),
-    )
-    .query(async (props) => {
-      const { ctx, input } = props;
-      const db = ctx.db;
-      // get previous term data
-      const terms = await db.sessionTerm.findMany({
-        where: {
-          schoolId: ctx.profile.schoolId,
-        },
-        select: {
-          id: true,
-          sessionId: true,
-          title: true,
-          session: {
-            select: {
-              title: true,
-            },
-          },
-        },
-        orderBy: {
-          startDate: "desc",
-        },
-      });
-      const currentTermIndex = terms.findIndex((t) => t.id === input.termId);
-      const prevTermIndex = currentTermIndex + 1;
-      const previousTermId = terms[prevTermIndex]!?.id;
-      const promotional =
-        terms[prevTermIndex]!?.sessionId !== terms[currentTermIndex]?.sessionId;
-
-      // get previouse term data statistics
-      const previousTerm = await db.sessionTerm.findFirstOrThrow({
-        where: {
-          id: previousTermId,
-        },
-        select: {
-          id: true,
-          // departmentSubjects: {},
-          _count: {
-            select: {
-              departmentSubjects: {
-                where: { deletedAt: null },
-              },
-              termForms: {
-                where: { deletedAt: null },
-              },
-            },
-          },
-          session: {
-            select: {
-              _count: {
-                select: {
-                  classRooms: {
-                    where: { deletedAt: null },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-      if (!previousTermId || !previousTerm) {
-        return { promotional, subjects: 0, students: 0, classrooms: 0 };
-      }
-      return {
-        promotional,
-        subjects: previousTerm._count.departmentSubjects,
-        students: previousTerm._count.termForms,
-        classrooms: previousTerm.session!._count.classRooms,
-        previousTerm: terms?.[prevTermIndex || 0],
-        sessionId: terms?.[currentTermIndex || 0]?.sessionId,
-      };
-      // return getTermImportData(props.ctx, props.input);
-      // const term = await db.sessionTerm.findFirstOrThrow({
-      //   where: {
-      //     id: input.termId,
-      //   },
-      //   select: {
-      //     id: true,
-      //     title: true,
-      //     departmentSubjects: {
-      //       where: { deletedAt: null },
-      //       select: {
-      //         id: true,
-      //         subject: {
-      //           select: {
-      //             id: true,
-      //             name: true,
-      //           },
-      //         },
-      //       },
-      //     },
-      //     termForms: {
-      //       where: { deletedAt: null },
-      //       select: {
-      //         id: true,
-      //         student: {
-      //           select: {
-      //             id: true,
-      //             firstName: true,
-      //             lastName: true,
-      //             admissionNumber: true,
-      //           },
-      //         },
-      //       },
-      //     },
-      //   },
-      // });
-      // return term;
-    }),
-  patchCreateMissingTermSession: publicProcedure
-    .input(
-      z.object({
-        sessionId: z.string(),
-      }),
-    )
-    .mutation(async (props) => {
-      const { ctx, input } = props;
-      const db = ctx.db;
-      // return patchCreateMissingTermSession(props.ctx, props.input);
-      return db.$transaction(async (tx) => {
-        await tx.schoolSession.update({
-          where: {
-            id: input.sessionId,
-          },
-          data: {
-            startDate: new Date(2025, 4, 2),
-            terms: {
-              create: {
-                school: {
-                  connect: {
-                    id: ctx.profile.schoolId,
-                  },
-                },
-                title: "3rd term",
-                startDate: new Date(2025, 11, 22),
-                // endDate: new Date(2026, )
-              },
-            },
-          },
-        });
-      });
-    }),
-  getTermConfiguration: publicProcedure
-    .input(
-      z.object({
-        termId: z.string(),
-      }),
-    )
-    .query(async (props) => {
-      const { ctx, input } = props;
-      const db = ctx.db;
-    }),
-  saveTermMetaData: publicProcedure
-    .input(
-      z.object({
-        termId: z.string(),
-        startDate: z.date(),
-        endDate: z.date().optional().nullable(),
-      }),
-    )
-    .mutation(async (props) => {
-      const { ctx, input } = props;
-      const db = ctx.db;
-      // return patchCreateMissingTermSession(props.ctx, props.input);
-      return db.$transaction(async (tx) => {
-        await tx.sessionTerm.update({
-          where: {
-            id: input.termId,
-          },
-          data: {
-            startDate: input.startDate,
-            endDate: input.endDate,
-          },
-        });
-      });
-    }),
-  getStudentTermsList: publicProcedure
+  saveTermMetaData: authenticatedProcedure
+    .input(saveAcademicTermDraftSchema)
+    .mutation(({ ctx, input }) => saveAcademicTermDraft(ctx, input)),
+  getStudentTermsList: authenticatedProcedure
     .input(getStudentTermsListSchema)
     .query(async (props) => {
       return getStudentTermsList(props.ctx, props.input);
     }),
-  createAcademicSession: publicProcedure
+  createAcademicSession: authenticatedProcedure
     .input(createAcademicSessionSchema)
     .mutation(async (props) => {
       return createAcademicSession(props.ctx, props.input);
     }),
-  createAcademicTerm: publicProcedure
+  createAcademicTerm: authenticatedProcedure
     .input(
       z.object({
         currentTermId: z.string(),
@@ -432,156 +300,61 @@ export const academicsRouter = createTRPCRouter({
         endDate: z.string().optional().nullable(),
       }),
     )
-    .mutation(async (props) => {
-      const { ctx, input } = props;
-      const db = ctx.db;
-      // return createAcademicTerm(props.ctx, props.input);
-      const currentTerm = await db.sessionTerm.findFirstOrThrow({
-        where: {
-          id: input.currentTermId,
-        },
-        select: {
-          departmentSubjects: {
-            where: { deletedAt: null },
-            select: {
-              description: true,
-              subjectId: true,
-              classRoomDepartmentId: true,
-              assessments: {
-                where: { deletedAt: null },
-                select: {
-                  id: true,
-                  title: true,
-                  index: true,
-                  obtainable: true,
-                  percentageObtainable: true,
-                  isGroup: true,
-                  parentAssessmentId: true,
-                },
-              },
-            },
-          },
-          termForms: {
-            where: { deletedAt: null },
-            select: {
-              studentId: true,
-              studentSessionFormId: true,
-              classroomDepartmentId: true,
-              student: {
-                select: {
-                  id: true,
-                  name: true,
-                  surname: true,
-                  otherName: true,
-                },
-              },
-            },
-          },
-        },
-      });
-      return db.$transaction(async (tx) => {
-        const term = await tx.sessionTerm.create({
-          data: {
-            session: { connect: { id: input.currentSessionId } },
-            school: { connect: { id: ctx.profile.schoolId } },
-            title: input.title,
-            startDate: input.startDate,
-            endDate: input.endDate,
-          },
-        });
-        const deptTermSubjects = await tx.departmentSubject.createManyAndReturn(
-          {
-            data: currentTerm?.departmentSubjects.map((ds) => ({
-              subjectId: ds.subjectId,
-              classRoomDepartmentId: ds.classRoomDepartmentId,
-              description: ds.description,
-              sessionTermId: term.id,
-            })),
-          },
-        );
-        for (const departmentSubject of currentTerm.departmentSubjects) {
-          const newDeptSubj = deptTermSubjects.find(
-            (item) =>
-              item.subjectId === departmentSubject.subjectId &&
-              item.classRoomDepartmentId === departmentSubject.classRoomDepartmentId,
-          );
-
-          if (!newDeptSubj) continue;
-
-          const sortedAssessments = [...(departmentSubject.assessments ?? [])].sort(
-            (a, b) => {
-              if (a.parentAssessmentId == null && b.parentAssessmentId != null) {
-                return -1;
-              }
-              if (a.parentAssessmentId != null && b.parentAssessmentId == null) {
-                return 1;
-              }
-              return (a.index ?? 0) - (b.index ?? 0);
-            },
-          );
-
-          const assessmentIdMap = new Map<number, number>();
-
-          for (const assessment of sortedAssessments) {
-            const created = await tx.classroomSubjectAssessment.create({
-              data: {
-                obtainable: assessment.obtainable,
-                percentageObtainable: assessment.percentageObtainable,
-                index: assessment.index,
-                title: assessment.title,
-                isGroup: assessment.isGroup,
-                departmentSubjectId: newDeptSubj.id,
-                parentAssessmentId: assessment.parentAssessmentId
-                  ? assessmentIdMap.get(assessment.parentAssessmentId) ?? null
-                  : null,
-              },
-            });
-
-            assessmentIdMap.set(assessment.id, created.id);
-          }
-        }
-        for (const {
-          studentId,
-          studentSessionFormId,
-          classroomDepartmentId,
-          student,
-        } of currentTerm.termForms) {
-          if (student && classroomDepartmentId) {
-            await assertNoExactDuplicateStudentInClassTerm(tx, {
-              schoolProfileId: term.schoolId,
-              sessionTermId: term.id,
-              classroomDepartmentId,
-              name: student.name,
-              surname: student.surname,
-              otherName: student.otherName,
-              excludeStudentIds: student.id ? [student.id] : [],
-            });
-          }
-
-          await tx.studentTermForm.create({
-            data: {
-              studentId,
-              studentSessionFormId,
-              classroomDepartmentId,
-              schoolSessionId: term.sessionId,
-              schoolProfileId: term.schoolId,
-              sessionTermId: term.id,
-            },
-          });
-        }
-      });
-    }),
-  entrollStudentToTerm: publicProcedure
+    .mutation(({ ctx, input }) =>
+      createAcademicTermDraft(ctx, {
+        sessionId: input.currentSessionId,
+        title: input.title,
+        startDate: input.startDate ? new Date(input.startDate) : null,
+        endDate: input.endDate ? new Date(input.endDate) : null,
+      }),
+    ),
+  createTermDraft: authenticatedProcedure
+    .input(createAcademicTermDraftSchema)
+    .mutation(({ ctx, input }) => createAcademicTermDraft(ctx, input)),
+  getTermSetupContext: authenticatedProcedure
+    .input(
+      academicTermIdSchema.extend({
+        previousTermId: z.string().optional().nullable(),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      getAcademicTermSetupContext(ctx, {
+        termId: input.termId!,
+        previousTermId: input.previousTermId,
+      }),
+    ),
+  previewTermSetup: authenticatedProcedure
+    .input(academicTermSetupSelectionSchema)
+    .query(({ ctx, input }) => previewAcademicTermSetup(ctx, input)),
+  applyTermSetup: authenticatedProcedure
+    .input(academicTermSetupApplySchema)
+    .mutation(({ ctx, input }) => applyAcademicTermSetup(ctx, input)),
+  previewTermActivation: authenticatedProcedure
+    .input(academicTermIdSchema)
+    .query(({ ctx, input }) =>
+      previewAcademicTermActivation(ctx, { termId: input.termId! }),
+    ),
+  activateTerm: authenticatedProcedure
+    .input(academicTermIdSchema)
+    .mutation(({ ctx, input }) =>
+      activateAcademicTerm(ctx, { termId: input.termId! }),
+    ),
+  closeTerm: authenticatedProcedure
+    .input(academicTermIdSchema)
+    .mutation(({ ctx, input }) =>
+      closeAcademicTerm(ctx, { termId: input.termId! }),
+    ),
+  entrollStudentToTerm: authenticatedProcedure
     .input(entrollStudentToTermSchema)
     .mutation(async (props) => {
       return entrollStudentToTerm(props.ctx, props.input);
     }),
-  getClassrooms: publicProcedure
+  getClassrooms: authenticatedProcedure
     .input(getClassroomsSchema)
     .query(async (props) => {
       return getClassroomDepartments(props.ctx, props.input);
     }),
-  previewApplicableFeeHistories: publicProcedure
+  previewApplicableFeeHistories: authenticatedProcedure
     .input(previewApplicableFeeHistoriesSchema)
     .query(async ({ ctx, input }) => {
       if (!input.classroomDepartmentId) return [];
@@ -604,7 +377,7 @@ export const academicsRouter = createTRPCRouter({
         streamName: item.stream.name,
       }));
     }),
-  migrateTermData: publicProcedure
+  migrateTermData: authenticatedProcedure
     .input(
       z.object({
         termId: z.string(),
@@ -617,118 +390,22 @@ export const academicsRouter = createTRPCRouter({
         selectedSubjectIds: z.array(z.string()).optional().nullable(),
       }),
     )
-    .mutation(async (props) => {
-      const { ctx, input } = props;
-      const db = ctx.db;
-      // return migrateTermData(props.ctx, props.input);
-      return db.$transaction(async (tx) => {
-        // Migrate Subjects
-        await Promise.all([
-          tx.departmentSubject.deleteMany({
-            where: {
-              sessionTermId: input.termId,
-            },
-          }),
-          tx.studentTermForm.deleteMany({
-            where: {
-              sessionTermId: input.termId,
-            },
-          }),
-        ]);
-
-        const previousTermId = props.input.previousTermId;
-        if (
-          input.subjectOption === "copy-all" ||
-          input.subjectOption === "select"
-        ) {
-          const previousTermSubjects = await tx.departmentSubject.findMany({
-            where: {
-              sessionTermId: previousTermId,
-              // ...(input.subjectOption === "select" && {
-              //   subjectId: { in: input.selectedSubjectIds || [] },
-              // }),
-            },
-            select: {
-              subjectId: true,
-              classRoomDepartmentId: true,
-              description: true,
-              // assessments: {
-              //   where: { deletedAt: null },
-              //   select: {
-              //     title: true,
-              //     index: true,
-              //     obtainable: true,
-              //     percentageObtainable: true,
-              //   },
-              // },
-            },
-          });
-          // const newDeptSubjects =
-          const subjects = await tx.departmentSubject.createManyAndReturn({
-            data: previousTermSubjects.map((ds) => ({
-              subjectId: ds.subjectId,
-              classRoomDepartmentId: ds.classRoomDepartmentId,
-              description: ds.description,
-              sessionTermId: input.termId,
-            })),
-          });
-          // consoleLog("DEPARTMENT SUBJECTs", previousTermSubjects.length);
-        }
-        // Migrate Students
-        if (input.studentOption === "copy-all") {
-          // get previous term
-          const previousTermForms = await tx.studentTermForm.findMany({
-            where: {
-              sessionTermId: previousTermId,
-            },
-            select: {
-              studentId: true,
-              studentSessionFormId: true,
-              classroomDepartmentId: true,
-              student: {
-                select: {
-                  id: true,
-                  name: true,
-                  surname: true,
-                  otherName: true,
-                },
-              },
-            },
-          });
-          for (const {
-            studentId,
-            studentSessionFormId,
-            classroomDepartmentId,
-            student,
-          } of previousTermForms) {
-            if (student && classroomDepartmentId) {
-              await assertNoExactDuplicateStudentInClassTerm(tx, {
-                schoolProfileId: ctx.profile.schoolId,
-                sessionTermId: input.termId,
-                classroomDepartmentId,
-                name: student.name,
-                surname: student.surname,
-                otherName: student.otherName,
-                excludeStudentIds: student.id ? [student.id] : [],
-              });
-            }
-
-            await tx.studentTermForm.create({
-              data: {
-                studentId,
-                studentSessionFormId,
-                classroomDepartmentId,
-                schoolSessionId: input.sessionId,
-                schoolProfileId: ctx.profile.schoolId,
-                sessionTermId: input.termId,
-              },
-            });
-          }
-        }
-        // throw new Error("Not implemented yet");
-      });
-    }),
-  getSessionPrefill: publicProcedure
+    .mutation(({ ctx, input }) =>
+      applyAcademicTermSetup(ctx, {
+        termId: input.termId,
+        previousTermId: input.previousTermId,
+        classroomOption: input.classroomOption,
+        subjectOption: input.subjectOption,
+        studentOption: input.studentOption,
+        teacherOption: "copy-all",
+        selectedClassroomIds: [],
+        selectedSubjectIds: input.selectedSubjectIds ?? [],
+        selectedStudentIds: [],
+        selectedTeacherIds: [],
+        idempotencyKey: `legacy-${input.termId}-${input.previousTermId}`,
+      }),
+    ),
+  getSessionPrefill: authenticatedProcedure
     .input(z.object({}))
     .query(async ({ ctx }) => {
       const db = ctx.db;
@@ -750,11 +427,12 @@ export const academicsRouter = createTRPCRouter({
       if (!latestSession) return null;
 
       const titleMatch = latestSession.title?.match(/^(\d{4})\/(\d{4})$/);
-      const suggestedTitle = titleMatch?.[1] && titleMatch[2]
-        ? `${parseInt(titleMatch[1]) + 1}/${parseInt(titleMatch[2]) + 1}`
-        : latestSession.title
-          ? `${latestSession.title} (New)`
-          : "";
+      const suggestedTitle =
+        titleMatch?.[1] && titleMatch[2]
+          ? `${parseInt(titleMatch[1]) + 1}/${parseInt(titleMatch[2]) + 1}`
+          : latestSession.title
+            ? `${latestSession.title} (New)`
+            : "";
 
       const lastTerm =
         latestSession.terms[latestSession.terms.length - 1] ?? null;
@@ -776,7 +454,7 @@ export const academicsRouter = createTRPCRouter({
         })),
       };
     }),
-  getPromotionStudents: publicProcedure
+  getPromotionStudents: authenticatedProcedure
     .input(
       z.object({
         lastTermId: z.string(),
@@ -785,18 +463,33 @@ export const academicsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
+      await requireAcademicAdmin(ctx);
       const db = ctx.db;
 
       const [lastTerm, firstTerm] = await Promise.all([
         db.sessionTerm.findFirst({
-          where: { id: input.lastTermId },
+          where: {
+            id: input.lastTermId,
+            schoolId: ctx.profile.schoolId,
+            deletedAt: null,
+          },
           select: { title: true, session: { select: { title: true } } },
         }),
         db.sessionTerm.findFirst({
-          where: { id: input.firstTermId },
+          where: {
+            id: input.firstTermId,
+            schoolId: ctx.profile.schoolId,
+            deletedAt: null,
+          },
           select: { title: true, session: { select: { title: true } } },
         }),
       ]);
+      if (!lastTerm || !firstTerm) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "The selected progression terms were not found.",
+        });
+      }
 
       const lastTermForms = await db.studentTermForm.findMany({
         where: {
@@ -864,10 +557,8 @@ export const academicsRouter = createTRPCRouter({
           promotedFormMap.set(form.studentId, form);
           continue;
         }
-        const formRelations =
-          form._count.assessmentRecords;
-        const existingRelations =
-          existing._count.assessmentRecords;
+        const formRelations = form._count.assessmentRecords;
+        const existingRelations = existing._count.assessmentRecords;
         if (
           formRelations > existingRelations ||
           (formRelations === existingRelations &&
@@ -917,17 +608,18 @@ export const academicsRouter = createTRPCRouter({
               (targetClassRoomName !== null &&
                 targetClassRoomName === sourceClassRoomName)) &&
             targetDepartmentName === sourceDepartmentName);
-        const progressionStatus =
-          !targetForm
-            ? "undecided"
-            : isRepeatedTarget
-              ? "repeated"
-              : "promoted";
+        const progressionStatus = !targetForm
+          ? "undecided"
+          : isRepeatedTarget
+            ? "repeated"
+            : "promoted";
 
         return {
           termFormId: form.id,
           studentId: form.studentId!,
-          name: form.student ? studentDisplayName(form.student) : "Student",
+          name: form.student
+            ? studentDisplayName(form.student, ctx.profile.studentNameFormat)
+            : "Student",
           className: form.classroomDepartment?.departmentName ?? null,
           classRoomId: form.classroomDepartment?.classRoom?.id ?? null,
           classRoomName: form.classroomDepartment?.classRoom?.name ?? null,
@@ -938,8 +630,10 @@ export const academicsRouter = createTRPCRouter({
           isPromoted: !!targetForm,
           progressionStatus,
           firstTermFormId: targetForm?.id ?? null,
-          targetClassroomDepartmentId: targetForm?.classroomDepartmentId ?? null,
-          targetClassName: targetForm?.classroomDepartment?.departmentName ?? null,
+          targetClassroomDepartmentId:
+            targetForm?.classroomDepartmentId ?? null,
+          targetClassName:
+            targetForm?.classroomDepartment?.departmentName ?? null,
           targetClassLevel,
           targetDepartmentLevel,
         };
@@ -955,7 +649,7 @@ export const academicsRouter = createTRPCRouter({
         },
       };
     }),
-  getPromotionClassrooms: publicProcedure
+  getPromotionClassrooms: authenticatedProcedure
     .input(
       z.object({
         lastTermId: z.string(),
@@ -963,15 +657,24 @@ export const academicsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
+      await requireAcademicAdmin(ctx);
       const db = ctx.db;
 
       const [lastTerm, firstTerm, classroomForms] = await Promise.all([
         db.sessionTerm.findFirst({
-          where: { id: input.lastTermId },
+          where: {
+            id: input.lastTermId,
+            schoolId: ctx.profile.schoolId,
+            deletedAt: null,
+          },
           select: { title: true, session: { select: { title: true } } },
         }),
         db.sessionTerm.findFirst({
-          where: { id: input.firstTermId },
+          where: {
+            id: input.firstTermId,
+            schoolId: ctx.profile.schoolId,
+            deletedAt: null,
+          },
           select: { title: true, session: { select: { title: true } } },
         }),
         db.studentTermForm.findMany({
@@ -987,13 +690,21 @@ export const academicsRouter = createTRPCRouter({
                 classRoomsId: true,
                 departmentName: true,
                 departmentLevel: true,
-                classRoom: { select: { id: true, name: true, classLevel: true } },
+                classRoom: {
+                  select: { id: true, name: true, classLevel: true },
+                },
               },
             },
           },
           distinct: ["classroomDepartmentId"],
         }),
       ]);
+      if (!lastTerm || !firstTerm) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "The selected progression terms were not found.",
+        });
+      }
 
       const classrooms = classroomForms
         .filter((form) => form.classroomDepartmentId)
@@ -1020,7 +731,8 @@ export const academicsRouter = createTRPCRouter({
           departmentLevel: form.classroomDepartment?.departmentLevel ?? null,
         }))
         .sort((a, b) => {
-          const classLevelOrder = (a.classLevel ?? 9999) - (b.classLevel ?? 9999);
+          const classLevelOrder =
+            (a.classLevel ?? 9999) - (b.classLevel ?? 9999);
           if (classLevelOrder !== 0) return classLevelOrder;
           return (a.departmentLevel ?? 9999) - (b.departmentLevel ?? 9999);
         });
@@ -1035,7 +747,7 @@ export const academicsRouter = createTRPCRouter({
         },
       };
     }),
-  getStudentTermPerformance: publicProcedure
+  getStudentTermPerformance: authenticatedProcedure
     .input(z.object({ studentId: z.string(), termId: z.string() }))
     .query(async ({ ctx, input }) => {
       const db = ctx.db;
@@ -1080,7 +792,7 @@ export const academicsRouter = createTRPCRouter({
       });
       return termForm;
     }),
-  batchPromote: publicProcedure
+  batchPromote: authenticatedProcedure
     .input(
       z.object({
         studentIds: z.array(z.string()),
@@ -1091,11 +803,65 @@ export const academicsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await requireAcademicAdmin(ctx);
       const db = ctx.db;
-      const toTerm = await db.sessionTerm.findFirstOrThrow({
-        where: { id: input.toTermId },
-        select: { id: true, sessionId: true, schoolId: true },
-      });
+      const [fromTerm, toTerm] = await Promise.all([
+        db.sessionTerm.findFirst({
+          where: {
+            id: input.fromTermId,
+            schoolId: ctx.profile.schoolId,
+            deletedAt: null,
+          },
+          select: { id: true, sessionId: true },
+        }),
+        db.sessionTerm.findFirst({
+          where: {
+            id: input.toTermId,
+            schoolId: ctx.profile.schoolId,
+            deletedAt: null,
+          },
+          select: { id: true, sessionId: true, schoolId: true },
+        }),
+      ]);
+      if (!fromTerm || !toTerm) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "The selected progression terms were not found.",
+        });
+      }
+      await assertAcademicTermWritable(ctx, toTerm.id);
+      if (
+        fromTerm.sessionId !== toTerm.sessionId &&
+        !input.toClassroomDepartmentId
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Select a target classroom before progressing students into a new session.",
+        });
+      }
+      const requestedTargetDepartment = input.toClassroomDepartmentId
+        ? await db.classRoomDepartment.findFirst({
+            where: {
+              id: input.toClassroomDepartmentId,
+              schoolProfileId: ctx.profile.schoolId,
+              deletedAt: null,
+              classRoom: {
+                schoolProfileId: ctx.profile.schoolId,
+                schoolSessionId: toTerm.sessionId,
+                deletedAt: null,
+              },
+            },
+            select: { id: true },
+          })
+        : null;
+      if (input.toClassroomDepartmentId && !requestedTargetDepartment) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "The selected target classroom does not belong to the new academic session.",
+        });
+      }
       const sourceTermForms = await db.studentTermForm.findMany({
         where: {
           sessionTermId: input.fromTermId,
@@ -1191,12 +957,12 @@ export const academicsRouter = createTRPCRouter({
             },
           });
           const [existing, ...duplicates] = existingForms.sort((a, b) => {
-            const aRelations =
-              a._count.assessmentRecords;
-            const bRelations =
-              b._count.assessmentRecords;
+            const aRelations = a._count.assessmentRecords;
+            const bRelations = b._count.assessmentRecords;
             if (aRelations !== bRelations) return bRelations - aRelations;
-            return (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0);
+            return (
+              (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0)
+            );
           });
           if (duplicates.length) {
             await tx.studentTermForm.updateMany({
@@ -1248,9 +1014,11 @@ export const academicsRouter = createTRPCRouter({
         };
       });
     }),
-  reversePromotion: publicProcedure
+  reversePromotion: authenticatedProcedure
     .input(z.object({ studentIds: z.array(z.string()), termId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await requireAcademicAdmin(ctx);
+      await assertAcademicTermWritable(ctx, input.termId);
       const db = ctx.db;
       const result = await db.studentTermForm.updateMany({
         where: {
