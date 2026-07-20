@@ -875,3 +875,26 @@
 
 - `bun --filter @school-clerk/dashboard typecheck` still fails on existing baseline errors outside the touched import UI, including finance transaction-client types, missing `toMoney` imports, nav `LinkItem` shape mismatches, and unrelated finance/classroom form issues.
 - The rerun produced no errors for `apps/dashboard/src/components/modals/student-import/import-activities.tsx`.
+
+## Student Result Comment Typography And Development Chat FAB (2026-07-20)
+
+### Completed
+
+- Reduced Arabic and English browser-printed student-result comment bodies from `text-4xl` to `text-2xl` while leaving labels and generated PDF templates unchanged.
+- Restricted the Admin chat FAB to local development builds without changing chat APIs or server capability gates.
+- Hid the complete chat widget, including an open panel or mobile backdrop, from browser print output.
+
+### Changed Files
+
+- `apps/dashboard/src/components/student-report-page.tsx`
+- `apps/dashboard/src/components/nav-layout-client.tsx`
+- `apps/dashboard/src/components/chat/chat-widget.tsx`
+- `.brain/features/assessment-results-and-sub-assessments.md`
+- `.brain/features/ai-chat-assistant.md`
+- `.brain/progress.md`
+
+### Verification
+
+- `bun --filter @school-clerk/dashboard typecheck` passed.
+- `git diff --check` passed.
+- Targeted Prettier validation passed for the chat widget and Brain/plan documents, while reporting existing file-level formatting drift in `student-report-page.tsx` and `nav-layout-client.tsx`; no broad formatting rewrite was applied.

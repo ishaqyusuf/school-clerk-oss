@@ -57,6 +57,7 @@ Make classroom assessment recording, classroom result review, student result pri
   - Print sub-assessments
   - Print group total only
 - Student result print/PDF headers should show the full classroom display name for each student, including the main classroom and department/arm when both are available.
+- Browser-printed student results render both Arabic and English comment bodies at `text-2xl` (24px); comment labels and generated PDF template typography remain unchanged.
 - Student report unavailable states should offer a CTA into the existing classroom overview sheet, opening the Subjects tab so staff can review classroom setup and assessments without leaving the report page.
 - Classroom result tables should include a Classroom Overview CTA that opens the existing classroom overview side sheet on the Students tab while preserving the current report filters.
 - Standalone assessments with no weight should show a warning: they can be recorded but will not print.

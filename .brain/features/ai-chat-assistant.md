@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress: the AI chat now has a single persistent FAB chat, durable message history, typed workflow confirmations, run/tool logging, role-aware capability gating, analytics/feedback endpoints, and a Caltext-style `packages/ai` layer for shared AI schemas, capabilities, prompts, provider selection, and executable tool modules. Database migration rollout, full end-to-end validation, and automated eval coverage still remain.
+In progress: the AI chat now has a single persistent development-only FAB chat, durable message history, typed workflow confirmations, run/tool logging, role-aware capability gating, analytics/feedback endpoints, and a Caltext-style `packages/ai` layer for shared AI schemas, capabilities, prompts, provider selection, and executable tool modules. Database migration rollout, full end-to-end validation, and automated eval coverage still remain.
 
 ## Goal
 
@@ -17,7 +17,7 @@ Provide tenant-aware dashboard AI that helps school staff complete real operatio
 
 ## Current Scope
 
-- Dashboard widget entry point via `apps/dashboard/src/components/chat/chat-widget.tsx`
+- Development-only Admin dashboard widget entry point via `apps/dashboard/src/components/chat/chat-widget.tsx`
 - Chat-only sliding panel UI via `apps/dashboard/src/components/chat/chat-panel.tsx`
 - Client-side streaming/message state via `apps/dashboard/src/components/chat/use-school-chat.ts`
 - Tool-aware message rendering via `apps/dashboard/src/components/chat/chat-message.tsx`
@@ -54,7 +54,7 @@ Provide tenant-aware dashboard AI that helps school staff complete real operatio
 ## Current Constraints
 
 - Prisma schema changes require migration rollout before the new AI persistence layer can work outside codegen/type-check level
-- The dashboard chat entry point and server capability gate are temporarily Admin-only while the assistant remains unreleased for staff-facing roles.
+- The dashboard chat entry point is available only to Admin users in local development while the assistant remains unreleased; production-mode builds do not render the FAB. The server capability gate remains Admin-only.
 - The route now enforces confirmation for risky mutations, but undo/reversal workflows are still domain-specific and not yet generalized
 - There is no automated eval harness yet; validation is currently based on isolated type-check coverage and runtime instrumentation design
 - Provider/model selection is configurable per tenant AI config; DeepSeek is the default preferred provider with `deepseek-chat` as the fallback model, but cost/performance routing is still static rather than intent-aware
@@ -63,6 +63,7 @@ Provide tenant-aware dashboard AI that helps school staff complete real operatio
 ## UX Notes
 
 - AI chat is embedded into the dashboard shell rather than exposed as a standalone page
+- Browser printing hides the complete chat widget, including an open mobile backdrop or chat panel.
 - The FAB opens directly to the single chat screen; there are no user-facing history, insights, settings, or new-chat controls in the FAB
 - Empty-state suggestions focus on enrollment, fee collection, inventory issuance, and student balance checks
 - Tool outputs are converted into structured cards, which is the right pattern to expand instead of relying only on free-text assistant replies

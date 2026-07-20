@@ -112,7 +112,7 @@ function ReportFooter({ studentId }) {
             dir="rtl"
           >
             <span className="font-bold text-xl"> {configs.comment}:</span>
-            <span className="px-4 text-4xl">{data?.comment?.arabic}</span>
+            <span className="px-4 text-2xl">{data?.comment?.arabic}</span>
           </div>
           <div
             className="border-b-2 border-dashed border-muted-foreground"
@@ -120,7 +120,7 @@ function ReportFooter({ studentId }) {
           >
             <span className="font-bold text-xl"> Comment:</span>
 
-            <span className="px-4 text-4xl">{data?.comment?.english}</span>
+            <span className="px-4 text-2xl">{data?.comment?.english}</span>
           </div>
         </div>
       </div>

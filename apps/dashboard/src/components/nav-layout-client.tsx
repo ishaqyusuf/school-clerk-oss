@@ -31,7 +31,8 @@ export function NavLayoutClient({
   const tenantUrl = useTenantUrl();
   const tenantHref = useLocalTenantHref();
   const productPathName = tenantUrl?.context.productPath ?? pathName;
-  const canUseChat = initialRole === "Admin";
+  const canUseChat =
+    process.env.NODE_ENV !== "production" && initialRole === "Admin";
   const onLogout = () => {
     window.location.href = tenantHref("/signout");
   };
