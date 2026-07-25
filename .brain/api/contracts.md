@@ -685,7 +685,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: preview selection plus required `idempotencyKey`
 - Response schema: `{ alreadyApplied, runId, result }`, where result counts classrooms, subjects, assessments, students, teachers, and fees created
 - Error cases: preview blockers, idempotency key reused for another target, concurrent apply, failed transaction
-- Notes: additive; never deletes target academic data. A completed retry returns the stored result.
+- Notes: additive; never deletes target academic data. A completed retry returns the stored result. Same-session student term sheets and their applicable finance charges are constructed from pre-generated UUIDs and inserted in bulk after one existing-enrollment lookup and one fee-definition lookup.
 
 - Route: `academics.previewTermActivation`
 - Request schema: `termId`

@@ -92,6 +92,8 @@ term's setup route. Calendar validation is visible and accessible.
 - `(schoolProfileId, idempotencyKey)` is unique.
 - A completed retry returns the stored result.
 - Apply is additive. It matches existing target rows and never hard-deletes the target term's academic data.
+- Same-session student rollover pre-generates target `StudentTermForm` UUIDs, loads existing target enrollments once, inserts all missing term sheets with one `createMany`, loads applicable fee definitions once, and inserts the resulting student finance charges with one `createMany`.
+- The serializable apply transaction performs a lightweight source/target lifecycle recheck instead of rebuilding the complete preview. Its explicit 5-second acquisition and 50-second execution limits leave response time below Vercel's 60-second request deadline.
 - Setup completion, activation, and closure emit dedicated `ActivityType` records.
 
 ## Write Protection

@@ -18,6 +18,7 @@ process.env.DATABASE_URL ??=
 function createSetupContext({
   targetSessionId = "session-1",
   legacySubjectClassroom = false,
+  studentCount = 1,
 } = {}) {
   const now = new Date("2026-01-01T00:00:00.000Z");
   const terms = [
@@ -103,15 +104,16 @@ function createSetupContext({
         ],
       },
     ],
-    termForms: [
-      {
-        id: "source-form-1",
-        studentId: "student-1",
-        studentSessionFormId: "student-session-1",
+    termForms: Array.from({ length: studentCount }, (_, index) => {
+      const number = index + 1;
+      return {
+        id: `source-form-${number}`,
+        studentId: `student-${number}`,
+        studentSessionFormId: `student-session-${number}`,
         classroomDepartmentId: "department-1",
         student: {
-          id: "student-1",
-          name: "Amina",
+          id: `student-${number}`,
+          name: `Student ${number}`,
           surname: "Bello",
           otherName: null,
         },
@@ -121,8 +123,8 @@ function createSetupContext({
           departmentLevel: 1,
           classRoom: { id: "class-1", name: "JSS 1", classLevel: 1 },
         },
-      },
-    ],
+      };
+    }),
     staffTermProfiles: [
       {
         id: "staff-term-source",
@@ -174,6 +176,10 @@ function createSetupContext({
     grants: [] as any[],
     staffSubjects: [] as any[],
     activities: [] as any[],
+    bulkCalls: {
+      studentTermForms: 0,
+      financeCharges: 0,
+    },
   };
 
   const db: any = {
@@ -271,26 +277,23 @@ function createSetupContext({
       },
     },
     studentTermForm: {
-      findFirst: async ({ where }: any) =>
-        state.studentForms.find(
+      findMany: async ({ where }: any) =>
+        state.studentForms.filter(
           (item) =>
             item.sessionTermId === where.sessionTermId &&
-            item.studentId === where.studentId,
-        ) ?? null,
-      create: async ({ data }: any) => {
-        const item = { id: "target-form-1", ...data };
-        state.studentForms.push(item);
-        return item;
+            where.studentId.in.includes(item.studentId),
+        ),
+      createMany: async ({ data }: any) => {
+        state.bulkCalls.studentTermForms += 1;
+        state.studentForms.push(...data);
+        return { count: data.length };
       },
     },
     financeCharge: {
-      create: async ({ data }: any) => {
-        const charge = {
-          id: `charge-${state.financeCharges.length + 1}`,
-          ...data,
-        };
-        state.financeCharges.push(charge);
-        return charge;
+      createMany: async ({ data }: any) => {
+        state.bulkCalls.financeCharges += 1;
+        state.financeCharges.push(...data);
+        return { count: data.length };
       },
     },
     staffTermProfile: {
@@ -598,11 +601,29 @@ describe("academic term setup", () => {
     expect(state.assessments).toHaveLength(1);
     expect(state.studentForms).toHaveLength(1);
     expect(state.financeCharges).toHaveLength(1);
+    expect(state.bulkCalls.studentTermForms).toBe(1);
+    expect(state.bulkCalls.financeCharges).toBe(1);
     expect(state.staffTermProfiles).toHaveLength(1);
     expect(state.classroomAssignments).toHaveLength(1);
     expect(state.grants).toHaveLength(1);
     expect(state.staffSubjects).toHaveLength(1);
     expect(state.activities).toHaveLength(1);
+  });
+
+  test("bulk inserts a large student rollover and its charges in one call each", async () => {
+    const { ctx, state } = createSetupContext({ studentCount: 250 });
+
+    const result = await applyAcademicTermSetup(ctx, {
+      ...setupInput,
+      idempotencyKey: "term-target-bulk-student-rollover",
+    });
+
+    expect(result.result.students).toBe(250);
+    expect(result.result.fees).toBe(250);
+    expect(state.studentForms).toHaveLength(250);
+    expect(state.financeCharges).toHaveLength(250);
+    expect(state.bulkCalls.studentTermForms).toBe(1);
+    expect(state.bulkCalls.financeCharges).toBe(1);
   });
 
   test("rejects an idempotency key reused with different rollover settings", async () => {

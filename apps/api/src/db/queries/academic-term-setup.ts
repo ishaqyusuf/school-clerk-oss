@@ -5,8 +5,8 @@ import type {
   CreateAcademicTermDraft,
   SaveAcademicTermDraft,
 } from "@api/trpc/schemas/academic-term-setup";
-import { applyFeeHistoriesToStudentTermForm } from "@api/db/queries/student-fee-application";
 import { TRPCError } from "@trpc/server";
+import { randomUUID } from "node:crypto";
 
 const ACADEMIC_ADMIN_ROLES = new Set(["Admin", "ADMIN"]);
 
@@ -965,8 +965,12 @@ async function buildTermSetupPreview(
           where: {
             schoolProfileId,
             isActive: true,
+            deletedAt: null,
             applicableClasses: {
-              some: { classRoomDepartmentId: { in: selectedDepartments } },
+              some: {
+                classRoomDepartmentId: { in: selectedDepartments },
+                deletedAt: null,
+              },
             },
           },
           select: {
@@ -1266,6 +1270,35 @@ async function applySetupTransaction(
     });
   }
   const selections = setupSelections(source, input);
+  const selectionBlockers: { key: string; message: string }[] = [];
+  validateSelectedIds(
+    "subject",
+    selections.subjectIds,
+    source.departmentSubjects.map((item) => item.id),
+    selectionBlockers,
+  );
+  validateSelectedIds(
+    "student",
+    selections.studentIds,
+    source.termForms
+      .map((item) => item.studentId)
+      .filter((id): id is string => Boolean(id)),
+    selectionBlockers,
+  );
+  validateSelectedIds(
+    "teacher",
+    selections.teacherIds,
+    source.staffTermProfiles.map((item) => item.staffProfileId),
+    selectionBlockers,
+  );
+  if (selectionBlockers.length) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message:
+        selectionBlockers[0]?.message ??
+        "The selected setup records are no longer available.",
+    });
+  }
   const mappings = await createClassroomMappings(
     tx,
     schoolProfileId,
@@ -1281,7 +1314,16 @@ async function applySetupTransaction(
     const targetDepartmentId = sourceSubject.classRoomDepartmentId
       ? mappings.departmentMap.get(sourceSubject.classRoomDepartmentId)
       : null;
-    if (!targetDepartmentId) continue;
+    if (!targetDepartmentId) {
+      if (selectedSubjectSet.has(sourceSubject.id)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "A selected subject classroom can no longer be mapped. Review the rollover preview again.",
+        });
+      }
+      continue;
+    }
     const existingTargetSubject = await tx.departmentSubject.findFirst({
       where: {
         sessionTermId: input.termId,
@@ -1319,6 +1361,18 @@ async function applySetupTransaction(
 
   if (!preview.promotional) {
     const selectedStudentSet = new Set(selections.studentIds);
+    const enrollmentCandidates = new Map<
+      string,
+      {
+        id: string;
+        schoolProfileId: string;
+        schoolSessionId: string;
+        sessionTermId: string;
+        studentId: string;
+        studentSessionFormId: string;
+        classroomDepartmentId: string;
+      }
+    >();
     for (const sourceForm of source.termForms) {
       if (
         !sourceForm.studentId ||
@@ -1330,38 +1384,125 @@ async function applySetupTransaction(
       const targetDepartmentId = mappings.departmentMap.get(
         sourceForm.classroomDepartmentId,
       );
-      if (!targetDepartmentId) continue;
-      const existingForm = await tx.studentTermForm.findFirst({
-        where: {
-          schoolProfileId,
-          sessionTermId: input.termId,
-          studentId: sourceForm.studentId,
-          deletedAt: null,
-        },
-        select: { id: true },
-      });
-      if (existingForm) continue;
-      const createdForm = await tx.studentTermForm.create({
-        data: {
-          schoolProfileId,
-          schoolSessionId: preview.target.sessionId,
-          sessionTermId: input.termId,
-          studentId: sourceForm.studentId,
-          studentSessionFormId: sourceForm.studentSessionFormId,
-          classroomDepartmentId: targetDepartmentId,
-        },
-        select: { id: true },
-      });
-      result.students += 1;
-      const feeResult = await applyFeeHistoriesToStudentTermForm(tx, {
+      if (!targetDepartmentId) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "A selected student classroom can no longer be mapped. Review the rollover preview again.",
+        });
+      }
+      enrollmentCandidates.set(sourceForm.studentId, {
+        id: randomUUID(),
         schoolProfileId,
-        studentId: sourceForm.studentId,
-        studentTermFormId: createdForm.id,
         schoolSessionId: preview.target.sessionId,
         sessionTermId: input.termId,
+        studentId: sourceForm.studentId,
+        studentSessionFormId: sourceForm.studentSessionFormId,
         classroomDepartmentId: targetDepartmentId,
       });
-      result.fees += feeResult.applied;
+    }
+
+    const candidates = [...enrollmentCandidates.values()];
+    const existingForms = candidates.length
+      ? await tx.studentTermForm.findMany({
+          where: {
+            schoolProfileId,
+            sessionTermId: input.termId,
+            studentId: {
+              in: candidates.map((candidate) => candidate.studentId),
+            },
+            deletedAt: null,
+          },
+          select: { studentId: true },
+        })
+      : [];
+    const existingStudentIds = new Set(
+      existingForms
+        .map((form: { studentId: string | null }) => form.studentId)
+        .filter((studentId: string | null): studentId is string =>
+          Boolean(studentId),
+        ),
+    );
+    const newEnrollments = candidates.filter(
+      (candidate) => !existingStudentIds.has(candidate.studentId),
+    );
+
+    if (newEnrollments.length) {
+      const inserted = await tx.studentTermForm.createMany({
+        data: newEnrollments,
+      });
+      result.students = inserted.count;
+
+      const departmentIds = unique(
+        newEnrollments.map((enrollment) => enrollment.classroomDepartmentId),
+      );
+      const feeItems = await tx.financeItem.findMany({
+        where: {
+          schoolProfileId,
+          isActive: true,
+          deletedAt: null,
+          applicableClasses: {
+            some: {
+              classRoomDepartmentId: { in: departmentIds },
+              deletedAt: null,
+            },
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          amount: true,
+          streamId: true,
+          collectable: true,
+          applicableClasses: {
+            where: {
+              classRoomDepartmentId: { in: departmentIds },
+              deletedAt: null,
+            },
+            select: { classRoomDepartmentId: true },
+          },
+        },
+      });
+      const feeItemsByDepartment = new Map<string, typeof feeItems>();
+      for (const feeItem of feeItems) {
+        for (const applicability of feeItem.applicableClasses) {
+          const departmentItems =
+            feeItemsByDepartment.get(applicability.classRoomDepartmentId) ?? [];
+          departmentItems.push(feeItem);
+          feeItemsByDepartment.set(
+            applicability.classRoomDepartmentId,
+            departmentItems,
+          );
+        }
+      }
+      const chargeRows = newEnrollments.flatMap((enrollment) =>
+        (feeItemsByDepartment.get(enrollment.classroomDepartmentId) ?? []).map(
+          (item) => ({
+            schoolProfileId,
+            streamId: item.streamId,
+            itemId: item.id,
+            payerType: "STUDENT" as const,
+            studentId: enrollment.studentId,
+            studentTermFormId: enrollment.id,
+            classroomDepartmentId: enrollment.classroomDepartmentId,
+            schoolSessionId: preview.target.sessionId,
+            sessionTermId: input.termId,
+            title: item.name,
+            description: item.description,
+            amount: item.amount,
+            collectionStatus: item.collectable
+              ? ("NOT_COLLECTED" as const)
+              : ("NOT_REQUIRED" as const),
+          }),
+        ),
+      );
+      if (chargeRows.length) {
+        const insertedCharges = await tx.financeCharge.createMany({
+          data: chargeRows,
+        });
+        result.fees = insertedCharges.count;
+      }
     }
   }
 
@@ -1565,19 +1706,46 @@ export async function applyAcademicTermSetup(
   try {
     const result = await ctx.db.$transaction(
       async (tx: AcademicDb) => {
-        const transactionPreview = await buildTermSetupPreview(
+        const transactionTerms = await resolveSetupTerms(
           tx,
           schoolProfileId,
-          input,
+          input.termId,
+          input.previousTermId,
         );
-        if (transactionPreview.blockers.length) {
+        if (
+          transactionTerms.target.lifecycleStatus === "ACTIVE" ||
+          transactionTerms.target.lifecycleStatus === "CLOSED"
+        ) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `A ${transactionTerms.target.lifecycleStatus.toLowerCase()} term cannot be configured.`,
+          });
+        }
+        if (
+          (transactionTerms.source?.id ?? null) !== (preview.source?.id ?? null)
+        ) {
           throw new TRPCError({
             code: "CONFLICT",
             message:
-              transactionPreview.blockers[0]?.message ??
-              "Term setup can no longer continue.",
+              "The source academic term changed after preview. Review the setup again.",
           });
         }
+        const transactionPreview = {
+          ...preview,
+          target: transactionTerms.target,
+          source: transactionTerms.source
+            ? {
+                id: transactionTerms.source.id,
+                title: transactionTerms.source.title,
+                sessionId: transactionTerms.source.sessionId,
+                sessionTitle: transactionTerms.source.session.title,
+              }
+            : null,
+          promotional:
+            transactionTerms.source !== null &&
+            transactionTerms.source.sessionId !==
+              transactionTerms.target.sessionId,
+        };
         const applied = await applySetupTransaction(
           tx,
           schoolProfileId,
@@ -1611,7 +1779,7 @@ export async function applyAcademicTermSetup(
         });
         return applied;
       },
-      { isolationLevel: "Serializable", timeout: 60_000 },
+      { isolationLevel: "Serializable", maxWait: 5_000, timeout: 50_000 },
     );
     return { runId: run.id, result, alreadyApplied: false };
   } catch (error) {
