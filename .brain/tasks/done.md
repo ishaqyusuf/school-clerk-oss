@@ -451,6 +451,16 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: 2026-07-25-student-report-print-history
+- Title: Term-Scoped Student Report Print History
+- Completed: 2026-07-25
+- Outcome: Replaced automatic pre-print logging with explicit post-print confirmation for browser Print and Print v2/PDF, secured and tenant-validated print-history APIs, added latest confirmed print dates to report roster rows, and added All/Printed/Pending page filtering whose bulk selection follows the visible roster.
+- Validation: Focused API and shared report workflow/filter tests plus dashboard typecheck. Browser QA was blocked because no School Clerk stack was running and `cmux` was unavailable; project rules prohibited starting dev in the agent shell.
+- Related changes: `apps/api/src/trpc/routers/assessment.routes.ts`, `apps/dashboard/src/components/print-selection-footer.tsx`, `apps/dashboard/src/components/classroom-result-table.tsx`, `packages/assessment-results/src/index.ts`, `.brain/features/assessment-results-and-sub-assessments.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: ACADEMIC-TERM-RESET-001
 - Title: Confirmed Academic Term Reset
 - Completed: 2026-07-25

@@ -106,6 +106,8 @@ Make classroom assessment recording, classroom result review, student result pri
 - Assessment recording and classroom result review rosters share the same default student ordering: `Male` students first, then `Female` students, then alphabetic display names within each gender group.
 - Assessment recording and classroom result review show gender as a compact `M` / `F` badge beside the student name instead of using a separate Gender column, keeping score and report review focused on marks.
 - Classroom result review uses a flat, compact header and combines serial number, student name, and gender badge in the sticky Student column.
+- Classroom result review shows each student's term-scoped report print status as `Pending print` or the latest confirmed print date. The shared page filter can show all, printed, or pending students, and bulk selection applies to the visible filtered roster.
+- Browser Print and Print v2/PDF do not record history automatically. After the print action starts or the native print dialog closes, staff explicitly confirm whether the selected term forms should be appended to `ReportPrintLog`; declining records nothing.
 - Classroom result review uses the shared Midday-style search filter as its single control surface for student-name search, term selection, classroom selection, and subject multi-select; active filter tags flow in a wrapping horizontal row while report-specific print-selection state remains preserved.
 - Classroom result review surfaces report-sheet query failures as a visible error state with retry and classroom-overview recovery actions instead of leaving users on an indefinite loading spinner. Report filters stack on the narrowest mobile viewports to prevent label/control collisions, then render side by side from the small-screen breakpoint upward.
 - Student report opens with usable filters when possible: the page normalizes invalid or missing `termId` to the active/default report term, preserves valid deep-linked classrooms, accepts `deptId` as a compatibility alias for `departmentId`, and otherwise auto-selects the first classroom returned for the term.
@@ -154,6 +156,7 @@ Make classroom assessment recording, classroom result review, student result pri
 - Count of zero-weight/no-print items.
 - Total printable weight per subject.
 - Number of result printouts generated after assessment structure changes.
+- Latest confirmed report-print date per student term form, derived from append-only print batches.
 
 ## Open Questions
 

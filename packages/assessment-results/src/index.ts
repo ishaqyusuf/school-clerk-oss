@@ -407,6 +407,91 @@ export function filterResultStudents<TStudent extends StudentTermRecord>({
   );
 }
 
+export type ReportPrintStatus = "all" | "printed" | "pending";
+
+export type ReportPrintSource = "browser" | "pdf";
+
+export type PendingReportPrint = {
+  source: ReportPrintSource;
+  termId: string;
+  termFormIds: string[];
+};
+
+export type ReportPrintConfirmationState = {
+  pendingPrint: PendingReportPrint | null;
+  saveFailed: boolean;
+};
+
+export type ReportPrintConfirmationAction =
+  | {
+      type: "print-completed";
+      payload: PendingReportPrint;
+    }
+  | { type: "save-failed" }
+  | { type: "save-succeeded" }
+  | { type: "dismissed" };
+
+export const initialReportPrintConfirmationState: ReportPrintConfirmationState = {
+  pendingPrint: null,
+  saveFailed: false,
+};
+
+export function createPendingReportPrint({
+  source,
+  termId,
+  termFormIds,
+}: PendingReportPrint): PendingReportPrint {
+  return {
+    source,
+    termId,
+    termFormIds: [...termFormIds],
+  };
+}
+
+export function createSaveReportPrintInput(pendingPrint: PendingReportPrint) {
+  return {
+    termId: pendingPrint.termId,
+    termFormIds: [...pendingPrint.termFormIds],
+  };
+}
+
+export function reportPrintConfirmationReducer(
+  state: ReportPrintConfirmationState,
+  action: ReportPrintConfirmationAction,
+): ReportPrintConfirmationState {
+  switch (action.type) {
+    case "print-completed":
+      return {
+        pendingPrint: createPendingReportPrint(action.payload),
+        saveFailed: false,
+      };
+    case "save-failed":
+      return state.pendingPrint ? { ...state, saveFailed: true } : state;
+    case "save-succeeded":
+    case "dismissed":
+      return initialReportPrintConfirmationState;
+  }
+}
+
+export function filterStudentsByPrintStatus<
+  TStudent extends { id: string },
+>({
+  students,
+  printStatus,
+  printedAtByTermFormId,
+}: {
+  students: TStudent[];
+  printStatus?: ReportPrintStatus | null;
+  printedAtByTermFormId?: Record<string, Date | string | null | undefined>;
+}) {
+  if (!printStatus || printStatus === "all") return students;
+
+  return students.filter((student) => {
+    const isPrinted = Boolean(printedAtByTermFormId?.[student.id]);
+    return printStatus === "printed" ? isPrinted : !isPrinted;
+  });
+}
+
 function getRosterGenderRank(gender?: string | null) {
   if (gender === "Male") return 0;
   if (gender === "Female") return 1;

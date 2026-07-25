@@ -80,6 +80,9 @@ Catalog of API routes and responsibilities.
 - `POST /results`
 - `trpc.assessments.saveAssessement`
 - `trpc.assessments.getClassroomReportSheet`
+- `trpc.assessments.savePrintLog` (authenticated tenant- and term-validated report print-batch recording; classroom IDs are derived server-side)
+- `trpc.assessments.getPrintStatus` (authenticated tenant- and term-scoped latest confirmed print timestamp per requested student term form)
+- `trpc.assessments.getPrintLogs` (authenticated tenant-scoped recent report print batches)
 - `trpc.assessments.updateAssessmentScore` (atomically saves the canonical score and appends authenticated-entry value history)
 - `trpc.assessments.listPublicAssessmentLinks`
 - `trpc.assessments.createPublicAssessmentLink`

@@ -9,6 +9,9 @@ export const studentReportFilterParams = {
 	departmentId: parseAsString,
 	deptId: parseAsString,
 	search: parseAsString,
+	printStatus: parseAsStringEnum(["all", "printed", "pending"]).withDefault(
+		"all",
+	),
 	subjectIds: parseAsArrayOf(parseAsString),
 	termId: parseAsString,
 	// ordered list of termFormIds across all classrooms (replaces index-based selections)
@@ -23,6 +26,9 @@ export const studentReportFilterParams = {
 export const studentReportSearchFilterParams = {
 	departmentId: parseAsString,
 	search: parseAsString,
+	printStatus: parseAsStringEnum(["all", "printed", "pending"]).withDefault(
+		"all",
+	),
 	subjectIds: parseAsArrayOf(parseAsString),
 	termId: parseAsString,
 };

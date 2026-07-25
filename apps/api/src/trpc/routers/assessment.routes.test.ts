@@ -176,3 +176,172 @@ describe("assessment recording context teacher access", () => {
     ]);
   });
 });
+
+function createPrintHistoryContext({
+  termForms = [
+    {
+      id: "term-form-1",
+      classroomDepartmentId: "classroom-1",
+    },
+  ],
+  logs = [],
+}: {
+  termForms?: Array<{
+    id: string;
+    classroomDepartmentId: string | null;
+  }>;
+  logs?: Array<{
+    printedAt: Date;
+    termFormIds: string[];
+  }>;
+} = {}) {
+  const termFormQueries: unknown[] = [];
+  const printLogQueries: unknown[] = [];
+  const createdPrintLogs: unknown[] = [];
+
+  return {
+    termFormQueries,
+    printLogQueries,
+    createdPrintLogs,
+    context: {
+      profile: {
+        authSessionId: "session-token",
+        schoolId: "school-1",
+        sessionId: "session-1",
+        termId: "term-1",
+      },
+      db: {
+        session: {
+          findFirst: async () => ({
+            id: "session-token",
+            token: "session-token",
+            user: {
+              email: "admin@school.test",
+              id: "user-1",
+              name: "Admin One",
+              role: "Admin",
+              saasAccountId: "account-1",
+            },
+          }),
+        },
+        studentTermForm: {
+          findMany: async (query: unknown) => {
+            termFormQueries.push(query);
+            return termForms;
+          },
+        },
+        reportPrintLog: {
+          create: async (query: unknown) => {
+            createdPrintLogs.push(query);
+            return { id: "print-log-1" };
+          },
+          findMany: async (query: unknown) => {
+            printLogQueries.push(query);
+            return logs;
+          },
+        },
+      },
+    },
+  };
+}
+
+describe("assessment report print history", () => {
+  test("validates tenant and term ownership and derives departments", async () => {
+    const testContext = createPrintHistoryContext();
+    const caller = assessmentRouter.createCaller(testContext.context as any);
+
+    await caller.savePrintLog({
+      termId: "term-1",
+      termFormIds: ["term-form-1"],
+    });
+
+    expect(testContext.termFormQueries[0]).toMatchObject({
+      where: {
+        id: { in: ["term-form-1"] },
+        schoolProfileId: "school-1",
+        sessionTermId: "term-1",
+        deletedAt: null,
+      },
+    });
+    expect(testContext.createdPrintLogs[0]).toEqual({
+      data: {
+        schoolProfileId: "school-1",
+        termId: "term-1",
+        termFormIds: ["term-form-1"],
+        departmentIds: ["classroom-1"],
+      },
+    });
+  });
+
+  test("rejects a selected term form from another tenant", async () => {
+    const testContext = createPrintHistoryContext({ termForms: [] });
+    const caller = assessmentRouter.createCaller(testContext.context as any);
+
+    await expect(
+      caller.savePrintLog({
+        termId: "term-1",
+        termFormIds: ["other-school-term-form"],
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(testContext.createdPrintLogs).toHaveLength(0);
+  });
+
+  test("rejects a selected term form from another term", async () => {
+    const testContext = createPrintHistoryContext({ termForms: [] });
+    const caller = assessmentRouter.createCaller(testContext.context as any);
+
+    await expect(
+      caller.savePrintLog({
+        termId: "term-2",
+        termFormIds: ["term-form-1"],
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(testContext.termFormQueries[0]).toMatchObject({
+      where: {
+        schoolProfileId: "school-1",
+        sessionTermId: "term-2",
+      },
+    });
+    expect(testContext.createdPrintLogs).toHaveLength(0);
+  });
+
+  test("keeps repeated confirmed prints as separate history batches", async () => {
+    const testContext = createPrintHistoryContext();
+    const caller = assessmentRouter.createCaller(testContext.context as any);
+    const input = {
+      termId: "term-1",
+      termFormIds: ["term-form-1"],
+    };
+
+    await caller.savePrintLog(input);
+    await caller.savePrintLog(input);
+
+    expect(testContext.createdPrintLogs).toHaveLength(2);
+  });
+
+  test("returns latest print dates from tenant- and term-scoped logs", async () => {
+    const older = new Date("2026-07-24T08:00:00.000Z");
+    const latest = new Date("2026-07-25T08:00:00.000Z");
+    const testContext = createPrintHistoryContext({
+      logs: [
+        { printedAt: older, termFormIds: ["term-form-1"] },
+        { printedAt: latest, termFormIds: ["term-form-1"] },
+      ],
+    });
+    const caller = assessmentRouter.createCaller(testContext.context as any);
+
+    const result = await caller.getPrintStatus({
+      termId: "term-1",
+      termFormIds: ["term-form-1"],
+    });
+
+    expect(result).toEqual({ "term-form-1": latest });
+    expect(testContext.printLogQueries[0]).toMatchObject({
+      where: {
+        schoolProfileId: "school-1",
+        termId: "term-1",
+        termFormIds: { hasSome: ["term-form-1"] },
+      },
+    });
+  });
+});

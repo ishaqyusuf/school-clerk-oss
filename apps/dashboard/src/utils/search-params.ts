@@ -68,6 +68,7 @@ export const searchParamsParser: {
   termId: parseAsString,
   studentId: parseAsString,
   departmentId: parseAsString,
+  printStatus: parseAsStringEnum(["all", "printed", "pending"]),
   title: parseAsString,
 };
 export const searchSchema = z.object({
@@ -80,6 +81,7 @@ export const searchSchema = z.object({
   schoolProfileId: z.string().optional(),
   studentId: z.string().optional(),
   departmentId: z.string().optional(),
+  printStatus: z.enum(["all", "printed", "pending"]).optional(),
   "with.trashed": z.boolean().optional(),
   "trashed.only": z.boolean().optional(),
   className: z.string().optional(),

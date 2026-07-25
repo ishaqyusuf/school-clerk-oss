@@ -49,8 +49,10 @@ import {
   downloadAssessmentWorkbook,
   previewAssessmentWorkbook,
 } from "@api/db/queries/assessment-workbooks";
+import { getLatestReportPrintStatus } from "@api/db/queries/report-print-history";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { resolveStaffAcademicAccess } from "@school-clerk/db";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 const recordingContextOptionsSchema = z
@@ -455,30 +457,113 @@ export const assessmentRouter = createTRPCRouter({
     .query(async (props) => {
       return getClassroomReportSheet(props.ctx, props.input);
     }),
-  savePrintLog: publicProcedure
+  savePrintLog: authenticatedProcedure
     .input(
       z.object({
-        termFormIds: z.array(z.string()),
-        departmentIds: z.array(z.string()),
-        termId: z.string().optional(),
+        termFormIds: z.array(z.string().min(1)).min(1),
+        termId: z.string().min(1),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const schoolProfileId = ctx.profile.schoolId;
+      if (!schoolProfileId) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "An active school is required to record report printing.",
+        });
+      }
+
+      const termFormIds = [...new Set(input.termFormIds)];
+      const termForms = await ctx.db.studentTermForm.findMany({
+        where: {
+          id: { in: termFormIds },
+          schoolProfileId,
+          sessionTermId: input.termId,
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          classroomDepartmentId: true,
+        },
+      });
+
+      if (termForms.length !== termFormIds.length) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "One or more selected students do not belong to this school and term.",
+        });
+      }
+
       return ctx.db.reportPrintLog.create({
         data: {
-          schoolProfileId: ctx.profile.schoolId,
-          termId: input.termId ?? ctx.profile.termId,
-          termFormIds: input.termFormIds,
-          departmentIds: input.departmentIds,
+          schoolProfileId,
+          termId: input.termId,
+          termFormIds,
+          departmentIds: [
+            ...new Set(
+              termForms
+                .map((termForm) => termForm.classroomDepartmentId)
+                .filter((departmentId): departmentId is string =>
+                  Boolean(departmentId),
+                ),
+            ),
+          ],
         },
       });
     }),
-  getPrintLogs: publicProcedure
+  getPrintStatus: authenticatedProcedure
+    .input(
+      z.object({
+        termFormIds: z.array(z.string().min(1)).max(500),
+        termId: z.string().min(1),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const schoolProfileId = ctx.profile.schoolId;
+      if (!schoolProfileId) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "An active school is required to view report print status.",
+        });
+      }
+      if (input.termFormIds.length === 0) {
+        return {};
+      }
+
+      const termFormIds = [...new Set(input.termFormIds)];
+      const logs = await ctx.db.reportPrintLog.findMany({
+        where: {
+          schoolProfileId,
+          termId: input.termId,
+          termFormIds: { hasSome: termFormIds },
+        },
+        select: {
+          printedAt: true,
+          termFormIds: true,
+        },
+        orderBy: { printedAt: "desc" },
+      });
+
+      return getLatestReportPrintStatus({
+        logs,
+        requestedTermFormIds: termFormIds,
+      });
+    }),
+  getPrintLogs: authenticatedProcedure
     .input(z.object({ termId: z.string().optional() }))
     .query(async ({ ctx, input }) => {
+      const schoolProfileId = ctx.profile.schoolId;
+      if (!schoolProfileId) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "An active school is required to view report print history.",
+        });
+      }
+
       return ctx.db.reportPrintLog.findMany({
         where: {
-          schoolProfileId: ctx.profile.schoolId,
+          schoolProfileId,
           termId: input.termId ?? ctx.profile.termId ?? undefined,
         },
         orderBy: { printedAt: "desc" },

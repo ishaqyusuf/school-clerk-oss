@@ -3,6 +3,15 @@
 import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 import { useReportPageContext } from "@/hooks/use-report-page";
 import { useStudentReportFilterParams } from "@/hooks/use-student-report-filter-params";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@school-clerk/ui/alert-dialog";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
@@ -16,7 +25,13 @@ import {
   SortableDragHandle,
   SortableItem,
 } from "@school-clerk/ui/sortable";
-import { useMutation } from "@tanstack/react-query";
+import { toast } from "@school-clerk/ui/use-toast";
+import {
+  createSaveReportPrintInput,
+  initialReportPrintConfirmationState,
+  reportPrintConfirmationReducer,
+} from "@school-clerk/assessment-results";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronUpIcon,
   FileTextIcon,
@@ -24,17 +39,36 @@ import {
   PrinterIcon,
   XIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useReducer, useState } from "react";
 import { _trpc } from "./static-trpc";
 
 export function PrintSelectionFooter() {
   const { filters, setFilters } = useStudentReportFilterParams();
   const ctx = useReportPageContext();
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [confirmationState, dispatchConfirmation] = useReducer(
+    reportPrintConfirmationReducer,
+    initialReportPrintConfirmationState,
+  );
+  const { pendingPrint, saveFailed } = confirmationState;
+  const queryClient = useQueryClient();
 	const formatStudentName = useStudentNameFormatter();
 
-  const { mutate: savePrintLog, isPending: isSaving } = useMutation(
+  const {
+    mutate: savePrintLog,
+    isPending: isSaving,
+    reset: resetSavePrintLog,
+  } = useMutation(
     _trpc.assessments.savePrintLog.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: _trpc.assessments.getPrintStatus.queryKey(),
+        });
+        dispatchConfirmation({ type: "save-succeeded" });
+      },
+      onError: () => {
+        dispatchConfirmation({ type: "save-failed" });
+      },
       meta: {
         toastTitle: {
           error: "Failed to save print log",
@@ -70,55 +104,58 @@ export function PrintSelectionFooter() {
   if (printOrder.length === 0) return null;
 
   function handlePrint() {
-    // Collect unique department IDs for the print log
-    const departmentIds = [
-      ...new Set(
-        selectedStudents.map((s) => {
-          const report = ctx.reportsById?.[s.termFormId];
-          return report?.departmentId ?? "";
-        }),
-      ),
-    ].filter(Boolean);
-
-    savePrintLog({
-      termFormIds: printOrder,
-      departmentIds,
-      termId: filters.termId ?? undefined,
-    });
-
+    if (!filters.termId) return;
+    resetSavePrintLog();
+    const termFormIds = [...printOrder];
     window.print();
+    dispatchConfirmation({
+      type: "print-completed",
+      payload: {
+        source: "browser",
+        termFormIds,
+        termId: filters.termId,
+      },
+    });
   }
 
   function handlePrintV2() {
-    const departmentIds = [
-      ...new Set(
-        selectedStudents.map((s) => {
-          const report = ctx.reportsById?.[s.termFormId];
-          return report?.departmentId ?? "";
-        }),
-      ),
-    ].filter(Boolean);
-
-    savePrintLog({
-      termFormIds: printOrder,
-      departmentIds,
-      termId: filters.termId ?? undefined,
-    });
-
+    if (!filters.termId) return;
+    resetSavePrintLog();
+    const termFormIds = [...printOrder];
     const params = new URLSearchParams({
-      termFormIds: printOrder.join(","),
+      termFormIds: termFormIds.join(","),
     });
 
-    if (filters.termId) {
-      params.set("termId", filters.termId);
-    }
+    params.set("termId", filters.termId);
 
     const url = `/api/pdf/result?${params.toString()}`;
-    const popup = window.open(url, "_blank", "noopener,noreferrer");
+    const popup = window.open(url, "_blank");
 
     if (!popup) {
-      window.location.href = url;
+      toast({
+        title: "Unable to open report PDF",
+        description:
+          "Allow pop-ups for this site, then try Print v2 again. No print history was recorded.",
+        variant: "destructive",
+      });
+      return;
     }
+    popup.opener = null;
+
+    dispatchConfirmation({
+      type: "print-completed",
+      payload: {
+        source: "pdf",
+        termFormIds,
+        termId: filters.termId,
+      },
+    });
+  }
+
+  function recordPrint() {
+    if (!pendingPrint) return;
+
+    savePrintLog(createSaveReportPrintInput(pendingPrint));
   }
 
   function removeStudent(termFormId: string) {
@@ -137,6 +174,7 @@ export function PrintSelectionFooter() {
   }
 
   return (
+    <>
     <div className="print:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.12)]">
       <div className="flex items-center gap-3 px-4 py-3 max-w-5xl mx-auto">
         {/* Selection summary */}
@@ -186,6 +224,7 @@ export function PrintSelectionFooter() {
                 Print order ({selectedStudents.length})
               </span>
               <button
+                type="button"
                 className="text-xs text-muted-foreground hover:text-destructive transition-colors"
                 onClick={clearAll}
               >
@@ -226,6 +265,7 @@ export function PrintSelectionFooter() {
                       </SortableDragHandle>
                       {/* Remove */}
                       <button
+                        type="button"
                         className="size-6 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors rounded shrink-0"
                         onClick={() => removeStudent(student.termFormId)}
                       >
@@ -245,7 +285,7 @@ export function PrintSelectionFooter() {
           variant="outline"
           className="gap-2 shrink-0"
           onClick={handlePrintV2}
-          disabled={isSaving}
+          disabled={isSaving || !filters.termId}
         >
           <FileTextIcon className="size-4" />
           Print v2
@@ -255,12 +295,57 @@ export function PrintSelectionFooter() {
           size="sm"
           className="gap-2 shrink-0"
           onClick={handlePrint}
-          disabled={isSaving}
+          disabled={isSaving || !filters.termId}
         >
           <PrinterIcon className="size-4" />
           Print
         </Button>
       </div>
     </div>
+    <AlertDialog
+      open={Boolean(pendingPrint)}
+      onOpenChange={(open) => {
+        if (!open && !isSaving) {
+          dispatchConfirmation({ type: "dismissed" });
+        }
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Record this report print?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Mark {pendingPrint?.termFormIds.length ?? 0}{" "}
+            {(pendingPrint?.termFormIds.length ?? 0) === 1
+              ? "student"
+              : "students"}{" "}
+            as printed now. This will update their print history for the selected
+            term.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {saveFailed ? (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            The print could not be recorded. Check your connection and choose
+            Record print to try again.
+          </div>
+        ) : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isSaving}>
+            Don&apos;t record
+          </AlertDialogCancel>
+          <Button
+            type="button"
+            onClick={recordPrint}
+            disabled={isSaving}
+          >
+            {isSaving
+              ? "Recording..."
+              : saveFailed
+                ? "Try again"
+                : "Record print"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

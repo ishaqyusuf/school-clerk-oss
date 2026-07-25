@@ -18,6 +18,7 @@ import {
 	type ResultRow,
 	buildResultRows,
 	filterResultStudents,
+	filterStudentsByPrintStatus,
 	filterResultSubjects,
 	getAssessmentDisplayTitle,
 	getDuplicateStudentNameKeys,
@@ -180,6 +181,17 @@ function StudentReportSearchFilter({
 				icon: "Search",
 				type: "input",
 			},
+			{
+				value: filterKey("printStatus"),
+				icon: "Printer",
+				type: "checkbox",
+				label: "Print status",
+				options: [
+					{ value: "all", label: "All students" },
+					{ value: "printed", label: "Printed" },
+					{ value: "pending", label: "Pending" },
+				],
+			},
 		],
 		[classrooms, subjects, terms],
 	);
@@ -274,12 +286,29 @@ export function ClassroomResultTable({
 	}, [allSubjects, filters.subjectIds]);
 
 	const filteredStudents = useMemo(() => {
-		return filterResultStudents({
+		const nameFilteredStudents = filterResultStudents({
 			students,
 			search: deferredNameSearch,
 			nameFormat: studentNameFormat,
 		});
-	}, [deferredNameSearch, studentNameFormat, students]);
+
+		if (filters.printStatus !== "all" && ctx.isPrintStatusLoading) {
+			return [];
+		}
+
+		return filterStudentsByPrintStatus({
+			students: nameFilteredStudents,
+			printStatus: filters.printStatus,
+			printedAtByTermFormId: ctx.printedAtByTermFormId,
+		});
+	}, [
+		ctx.printedAtByTermFormId,
+		ctx.isPrintStatusLoading,
+		deferredNameSearch,
+		filters.printStatus,
+		studentNameFormat,
+		students,
+	]);
 
 	const resultRows = useMemo(() => {
 		const rows = buildResultRows({
@@ -988,6 +1017,8 @@ export function ClassroomResultTable({
 															studentNameFormat,
 														),
 											)}
+											printedAt={ctx.printedAtByTermFormId[row.student.id]}
+											isPrintStatusLoading={ctx.isPrintStatusLoading}
 										/>
 									);
 										})
@@ -1006,7 +1037,10 @@ export function ClassroomResultTable({
 											}
 											className="h-24 text-center text-muted-foreground"
 										>
-											No students match the current filters.
+											{ctx.isPrintStatusLoading &&
+											filters.printStatus !== "all"
+												? "Loading print history..."
+												: "No students match the current filters."}
 										</TableCell>
 									</TableRow>
 								)}
@@ -1052,6 +1086,8 @@ interface StudentResultRowProps {
 	isRtl: boolean;
 	dividerClass: string;
 	isDuplicateName: boolean;
+	printedAt?: Date | string | null;
+	isPrintStatusLoading: boolean;
 }
 
 function StudentResultRow({
@@ -1063,6 +1099,8 @@ function StudentResultRow({
 	isRtl,
 	dividerClass,
 	isDuplicateName,
+	printedAt,
+	isPrintStatusLoading,
 }: StudentResultRowProps) {
 	const student = row.student;
 
@@ -1092,19 +1130,30 @@ function StudentResultRow({
 				)}
 				dir={isRtl ? "rtl" : "ltr"}
 			>
-				<div className="flex min-w-0 items-center gap-2">
-					<span className="shrink-0 text-xs text-muted-foreground">
-						{index + 1}.
-					</span>
-					<span className="truncate" dir="auto">
-						{row.studentName}
-					</span>
-					<StudentGenderBadge gender={student.student?.gender} />
-					{isDuplicateName ? (
-						<Badge variant="warning" className="text-[10px] uppercase">
-							duplicate
-						</Badge>
-					) : null}
+				<div className="min-w-0 space-y-1">
+					<div className="flex min-w-0 items-center gap-2">
+						<span className="shrink-0 text-xs text-muted-foreground">
+							{index + 1}.
+						</span>
+						<span className="truncate" dir="auto">
+							{row.studentName}
+						</span>
+						<StudentGenderBadge gender={student.student?.gender} />
+						{isDuplicateName ? (
+							<Badge variant="warning" className="text-[10px] uppercase">
+								duplicate
+							</Badge>
+						) : null}
+					</div>
+					<div className="ps-5 text-[11px] text-muted-foreground">
+						{isPrintStatusLoading
+							? "Loading print status..."
+							: printedAt
+							? `Printed ${new Intl.DateTimeFormat(undefined, {
+									dateStyle: "medium",
+								}).format(new Date(printedAt))}`
+							: "Pending print"}
+					</div>
 				</div>
 			</TableCell>
 			{row.subjectTotals.map((subjectTotal) => {

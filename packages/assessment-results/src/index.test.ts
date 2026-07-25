@@ -1,12 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  createPendingReportPrint,
+  createSaveReportPrintInput,
   filterResultStudents,
+  filterStudentsByPrintStatus,
   getAssessmentPrintColumns,
   getAssessmentPrintStatus,
   getAssessmentPrintableWeight,
   getResultScore,
+  initialReportPrintConfirmationState,
   isPrintableAssessment,
+  reportPrintConfirmationReducer,
   saveAssessementSchema,
   sortResultRoster,
 } from "./index";
@@ -109,6 +114,112 @@ describe("result roster ordering", () => {
 				nameFormat: "SURNAME_FIRST_OTHER",
       }).map((student) => student.id),
     ).toEqual(["male-adam", "male-umar", "female-aisha", "female-zainab"]);
+  });
+
+  test("filters students by term-scoped report print status", () => {
+    const printedAtByTermFormId = {
+      "male-adam": new Date("2026-07-25T10:00:00.000Z"),
+      "female-aisha": null,
+    };
+
+    expect(
+      filterStudentsByPrintStatus({
+        students: roster,
+        printStatus: "printed",
+        printedAtByTermFormId,
+      }).map((student) => student.id),
+    ).toEqual(["male-adam"]);
+
+    expect(
+      filterStudentsByPrintStatus({
+        students: roster,
+        printStatus: "pending",
+        printedAtByTermFormId,
+      }).map((student) => student.id),
+    ).toEqual(["female-zainab", "male-umar", "female-aisha"]);
+
+    expect(
+      filterStudentsByPrintStatus({
+        students: roster,
+        printStatus: "all",
+        printedAtByTermFormId,
+      }),
+    ).toEqual(roster);
+  });
+});
+
+describe("report print confirmation workflow", () => {
+  test.each(["browser", "pdf"] as const)(
+    "captures the exact %s print selection before confirmation",
+    (source) => {
+      const selectedIds = ["term-form-1", "term-form-2"];
+      const pendingPrint = createPendingReportPrint({
+        source,
+        termId: "term-1",
+        termFormIds: selectedIds,
+      });
+      selectedIds.push("term-form-3");
+
+      expect(pendingPrint).toEqual({
+        source,
+        termId: "term-1",
+        termFormIds: ["term-form-1", "term-form-2"],
+      });
+    },
+  );
+
+  test("declining or dismissing clears the pending print without recording", () => {
+    const pending = reportPrintConfirmationReducer(
+      initialReportPrintConfirmationState,
+      {
+        type: "print-completed",
+        payload: {
+          source: "browser",
+          termId: "term-1",
+          termFormIds: ["term-form-1"],
+        },
+      },
+    );
+
+    expect(
+      reportPrintConfirmationReducer(pending, { type: "dismissed" }),
+    ).toEqual(initialReportPrintConfirmationState);
+  });
+
+  test("a failed save retains the selection for an explicit retry", () => {
+    const pending = reportPrintConfirmationReducer(
+      initialReportPrintConfirmationState,
+      {
+        type: "print-completed",
+        payload: {
+          source: "pdf",
+          termId: "term-1",
+          termFormIds: ["term-form-1"],
+        },
+      },
+    );
+    const failed = reportPrintConfirmationReducer(pending, {
+      type: "save-failed",
+    });
+
+    expect(failed.saveFailed).toBe(true);
+    expect(failed.pendingPrint).toEqual(pending.pendingPrint);
+    expect(
+      reportPrintConfirmationReducer(failed, { type: "save-succeeded" }),
+    ).toEqual(initialReportPrintConfirmationState);
+  });
+
+  test("confirmation submits the frozen term and complete selected roster", () => {
+    expect(
+      createSaveReportPrintInput({
+        source: "browser",
+        termId: "term-1",
+        termFormIds: ["term-form-1", "term-form-2"],
+      }),
+    ).toEqual({
+      termId: "term-1",
+      termFormIds: ["term-form-1", "term-form-2"],
+    });
   });
 });
 

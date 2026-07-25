@@ -140,6 +140,18 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: unauthorized classroom access or invalid classroom/term scope.
 - Notes: student result print/PDF uses `parentAssessment.printMode = "TOTAL"` to collapse weighted child scores into one parent column; score-entry/review tables continue to use the scoreable child rows.
 
+- Route: `assessments.savePrintLog`
+- Auth: authenticated dashboard user with an active tenant context.
+- Request schema: `{ termId: string, termFormIds: string[] }`, with one or more selected term forms.
+- Response schema: created append-only `ReportPrintLog` batch.
+- Notes: every term form must be active and belong to the current tenant and requested term. Classroom/department IDs are derived from canonical term forms; browser-provided classroom IDs are not accepted.
+
+- Route: `assessments.getPrintStatus`
+- Auth: authenticated dashboard user with an active tenant context.
+- Request schema: `{ termId: string, termFormIds: string[] }`, with at most 500 requested term forms.
+- Response schema: `Record<studentTermFormId, Date>` containing only students with confirmed history; omitted IDs are pending.
+- Notes: repeated confirmed prints remain separate log batches, while this read model returns the latest timestamp for each requested term form in the selected term.
+
 - Route: `assessments.getRecordingContextOptions`
 - Request schema: `{ termId?: string | null }`
 - Response schema: `{ scoped: boolean, terms, classrooms, defaultTermId: string | null, defaultDepartmentId: string | null }`, where each term includes `id`, `title`, `sessionId`, `sessionTitle`, `label`, `startDate`, and `endDate`.
