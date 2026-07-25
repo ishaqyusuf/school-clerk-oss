@@ -717,10 +717,16 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Notes: runs in a serializable transaction; soft-deletes term-scoped academic records, removes disposable setup/workbook identity records, returns the term to `DRAFT`, clears both calendar dates and setup/lifecycle timestamps, and records an activity audit with impact counts.
 
 - Route: `academics.saveTermMetaData`
-- Request schema: `{ termId, startDate: Date | null, endDate?: Date | null, note? }`
+- Request schema: `{ termId, title?, startDate: Date | null, endDate?: Date | null, note? }`
 - Response schema: updated draft/ready term metadata.
 - Error cases: tenant/role mismatch, missing term, active/closed term, or an end date before a present start date.
-- Notes: draft and ready terms may remain unscheduled. Clearing either date persists `null`; activation continues to require a start date.
+- Notes: draft and ready terms may be renamed and remain unscheduled. Term titles stay unique within their academic session. Clearing either date persists `null`; activation continues to require a start date.
+
+- Route: `academics.updateSessionMetadata`
+- Request schema: `{ sessionId, title, startDate: Date | null, endDate?: Date | null }`
+- Response schema: updated tenant-owned academic session metadata.
+- Error cases: tenant/role mismatch, missing session, duplicate session name, or an end date before a present start date.
+- Notes: session names remain unique within the school and either calendar date may be cleared.
 
 - Closed-term write contract: assessment setup/scores, workbook import, public-link/AI scores, attendance create/update/delete, and manual term enrollment reject `CLOSED` terms with `CONFLICT`.
 

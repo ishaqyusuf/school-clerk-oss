@@ -37,7 +37,7 @@ Defines access control rules for each API surface.
 
 ## Academic Term Lifecycle Permissions
 
-- New-term draft creation, setup context, preview, apply, activation preview, activation, closure, reset preview, and reset require an authenticated `Admin`/`ADMIN` actor whose account owns the active school.
+- New-term draft creation, term/session metadata editing, setup context, preview, apply, activation preview, activation, closure, reset preview, and reset require an authenticated `Admin`/`ADMIN` actor whose account owns the active school.
 - Reset accepts only tenant-owned `DRAFT`/`READY` terms, requires the exact server-validated phrase `I APPROVE RESET`, and rejects terms with finance records. `ACTIVE` and `CLOSED` terms cannot be reset.
 - Term, source term, session, and active-pointer reads are always scoped to `ctx.profile.schoolId`; clients never submit a trusted school id.
 - Teachers are copied only as tenant-owned `StaffProfile` identities into target `StaffTermProfile` assignment scope. Rollover does not grant access outside mapped classrooms, subjects, and academic grants.

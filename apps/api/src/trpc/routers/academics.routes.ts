@@ -10,6 +10,7 @@ import {
 import {
 	createAcademicSessionSchema,
 	getStudentTermsListSchema,
+  updateAcademicSessionMetadataSchema,
 } from "../schemas/schemas";
 
 import {
@@ -31,6 +32,7 @@ import {
 import {
 	createAcademicSession,
 	getStudentTermsList,
+  updateAcademicSessionMetadata,
 } from "@api/db/queries/academic-terms";
 import {
   getClassroomDepartments,
@@ -248,6 +250,8 @@ export const academicsRouter = createTRPCRouter({
               : "Not scheduled";
         return {
           id: session.id,
+          startDate: session.startDate,
+          endDate: session.endDate,
           currentTerm: isCurrent ? currentTerm : null,
           status: isCurrent
             ? "current"
@@ -295,6 +299,9 @@ export const academicsRouter = createTRPCRouter({
     .mutation(async (props) => {
       return createAcademicSession(props.ctx, props.input);
     }),
+  updateSessionMetadata: authenticatedProcedure
+    .input(updateAcademicSessionMetadataSchema)
+    .mutation(({ ctx, input }) => updateAcademicSessionMetadata(ctx, input)),
   createAcademicTerm: authenticatedProcedure
     .input(
       z.object({

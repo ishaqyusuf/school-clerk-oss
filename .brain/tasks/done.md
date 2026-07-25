@@ -450,6 +450,16 @@ Record of completed tasks and delivery outcomes.
 - Related changes: `apps/api/src/db/queries/academic-term-reset.ts`, `apps/api/src/trpc/routers/academics.routes.ts`, `apps/dashboard/src/app/[domain]/(sidebar)/academic/(dashboard)/page.tsx`, `.brain/features/academic-term-lifecycle-and-rollover.md`
 - Owner: Codex
 
+## Completed Task
+
+- ID: ACADEMIC-METADATA-EDIT-001
+- Title: Midday-Style Academic Session And Term Editing
+- Completed: 2026-07-25
+- Outcome: Removed session/term date presentation from academic history, replaced the term Dates action with Edit, added a session-row Edit action, and introduced one focused Midday-style modal for renaming sessions or draft/ready terms while updating or clearing their optional shadcn calendar dates.
+- Validation: Static scoped diff checks completed; focused schema tests and package typechecks are recommended after the final combined worktree changes.
+- Related changes: `apps/dashboard/src/components/modals/edit-academic-metadata-modal.tsx`, `apps/dashboard/src/app/[domain]/(sidebar)/academic/(dashboard)/page.tsx`, `apps/api/src/db/queries/academic-terms.ts`, `apps/api/src/db/queries/academic-term-setup.ts`
+- Owner: Codex
+
 - ID: 2026-06-12-school-clerk-empty-report-spreadsheet-print
 - Title: Admin Empty Classroom Report Spreadsheet Print
 - Completed: 2026-06-15

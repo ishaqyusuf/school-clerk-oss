@@ -13,21 +13,13 @@ import {
   ChevronRight,
   Archive,
   RotateCcw,
+  Pencil,
   Info,
 } from "lucide-react";
 import { Card } from "@school-clerk/ui/composite";
-import { FormDate } from "@school-clerk/ui/controls/form-date";
 import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
 import { Input } from "@school-clerk/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@school-clerk/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,54 +30,33 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@school-clerk/ui/alert-dialog";
-import { Form } from "@school-clerk/ui/form";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { _qc, _trpc } from "@/components/static-trpc";
-import { differenceInCalendarDays, formatDate } from "date-fns";
+import { differenceInCalendarDays } from "date-fns";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useAcademicParams } from "@/hooks/use-academic-params";
 import type { RouterOutputs } from "@api/trpc/routers/_app";
-import { z } from "zod";
-import { useZodForm } from "@/hooks/use-zod-form";
+import {
+  EditAcademicMetadataModal,
+  type AcademicMetadataTarget,
+} from "@/components/modals/edit-academic-metadata-modal";
 
 type DashboardTerm =
   RouterOutputs["academics"]["dashboard"]["sessions"][number]["terms"][number];
-
-const termDateFormSchema = z
-  .object({
-    startDate: z.date().nullable(),
-    endDate: z.date().optional().nullable(),
-  })
-  .refine(
-    (value) =>
-      !value.startDate ||
-      !value.endDate ||
-      value.endDate.getTime() >= value.startDate.getTime(),
-    {
-      message: "End date must be on or after the start date",
-      path: ["endDate"],
-    },
-  );
 
 const Dashboard = () => {
   const { setParams } = useAcademicParams();
   const [expandedSessionId, setExpandedSessionId] = React.useState<
     string | null
   >(null);
-  const [termDateModal, setTermDateModal] =
-    React.useState<DashboardTerm | null>(null);
+  const [metadataTarget, setMetadataTarget] =
+    React.useState<AcademicMetadataTarget | null>(null);
   const [closeTermModal, setCloseTermModal] =
     React.useState<DashboardTerm | null>(null);
   const [resetTermModal, setResetTermModal] =
     React.useState<DashboardTerm | null>(null);
   const [resetConfirmation, setResetConfirmation] = React.useState("");
-  const termDateForm = useZodForm(termDateFormSchema, {
-    defaultValues: {
-      startDate: null,
-      endDate: null,
-    },
-  });
   const { data: dashboard } = useQuery(
     _trpc.academics.dashboard.queryOptions({}),
   );
@@ -128,23 +99,6 @@ const Dashboard = () => {
           ),
         )
       : null;
-  const { mutate: saveTermDates, isPending: isSavingTermDates } = useMutation(
-    _trpc.academics.saveTermMetaData.mutationOptions({
-      onSuccess() {
-        setTermDateModal(null);
-        _qc?.invalidateQueries({
-          queryKey: _trpc.academics.dashboard.queryKey({}),
-        });
-      },
-      meta: {
-        toastTitle: {
-          error: "Unable to update term",
-          loading: "Updating term...",
-          success: "Term updated.",
-        },
-      },
-    }),
-  );
   const { mutate: closeTerm, isPending: isClosingTerm } = useMutation(
     _trpc.academics.closeTerm.mutationOptions({
       onSuccess() {
@@ -186,24 +140,6 @@ const Dashboard = () => {
       },
     }),
   );
-
-  const openTermDateModal = (term: DashboardTerm) => {
-    setTermDateModal(term);
-    termDateForm.reset({
-      startDate: term.startDate ? new Date(term.startDate) : null,
-      endDate: term.endDate ? new Date(term.endDate) : null,
-    });
-  };
-
-  const submitTermDates = termDateForm.handleSubmit((data) => {
-    if (!termDateModal) return;
-
-    saveTermDates({
-      termId: termDateModal.id,
-      startDate: data.startDate,
-      endDate: data.endDate,
-    });
-  });
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -321,9 +257,6 @@ const Dashboard = () => {
                 <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Active Term
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Duration
-                </th>
                 <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
                   Actions
                 </th>
@@ -384,11 +317,27 @@ const Dashboard = () => {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-5 text-sm text-muted-foreground">
-                      {session.duration}
-                    </td>
                     <td className="px-6 py-5 text-right">
                       <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 gap-1.5 px-2 font-semibold"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setMetadataTarget({
+                              kind: "session",
+                              id: session.id,
+                              title: session.name,
+                              startDate: session.startDate,
+                              endDate: session.endDate,
+                            });
+                          }}
+                        >
+                          <Pencil data-icon="inline-start" />
+                          Edit
+                        </Button>
                         {session.status === "current" && promotionIds ? (
                           <Link
                             href={`/academic/progression/${promotionIds.lastTermId}/${session.currentTerm?.id}`}
@@ -411,7 +360,7 @@ const Dashboard = () => {
                   {expandedSessionId === session.id && (
                     <>
                       <tr className="bg-muted/20">
-                        <td colSpan={5} className="px-6 py-6 lg:px-10">
+                        <td colSpan={4} className="px-6 py-6 lg:px-10">
                           {session.terms.length ? (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-top-2 duration-200">
                               {session.terms.map((term) => (
@@ -425,29 +374,9 @@ const Dashboard = () => {
                                   <p className="text-xs font-bold text-muted-foreground uppercase mb-2">
                                     {term.title}
                                   </p>
-                                  <div className="space-y-1">
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                      <Calendar className="h-3 w-3" />
-                                      <span>
-                                        {!term.startDate
-                                          ? ""
-                                          : formatDate(
-                                              term.startDate || new Date(),
-                                              "MMM dd, yyyy",
-                                            )}
-                                        {" - "}
-                                        {!term.endDate
-                                          ? ""
-                                          : formatDate(
-                                              term.endDate,
-                                              "MMM dd, yyyy",
-                                            )}
-                                      </span>
-                                    </div>
-                                    <span className="text-[10px] text-muted-foreground font-bold mt-1 uppercase tracking-wide">
-                                      {term.status}
-                                    </span>
-                                  </div>
+                                  <span className="text-[10px] text-muted-foreground font-bold mt-1 uppercase tracking-wide">
+                                    {term.status}
+                                  </span>
                                   <div className="mt-4 flex items-center gap-3">
                                     {term.status !== "active" &&
                                     term.status !== "closed" ? (
@@ -456,10 +385,18 @@ const Dashboard = () => {
                                         variant="ghost"
                                         size="sm"
                                         className="h-7 px-0 text-[11px] text-primary font-bold hover:bg-transparent hover:underline"
-                                        onClick={() => openTermDateModal(term)}
+                                        onClick={() =>
+                                          setMetadataTarget({
+                                            kind: "term",
+                                            id: term.id,
+                                            title: term.title,
+                                            startDate: term.startDate,
+                                            endDate: term.endDate,
+                                          })
+                                        }
                                       >
-                                        <Calendar data-icon="inline-start" />
-                                        Dates
+                                        <Pencil data-icon="inline-start" />
+                                        Edit
                                       </Button>
                                     ) : null}
                                     <Link
@@ -555,62 +492,12 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      <Dialog
-        open={!!termDateModal}
+      <EditAcademicMetadataModal
+        target={metadataTarget}
         onOpenChange={(open) => {
-          if (!open) setTermDateModal(null);
+          if (!open) setMetadataTarget(null);
         }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <Form {...termDateForm}>
-            <form onSubmit={submitTermDates} className="flex flex-col gap-5">
-              <DialogHeader>
-                <DialogTitle>Quick Term Update</DialogTitle>
-                <DialogDescription>
-                  Update the start and end dates for {termDateModal?.title}.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormDate
-                  control={termDateForm.control}
-                  name="startDate"
-                  label="Start date"
-                  clearable
-                  showToday
-                />
-                <FormDate
-                  control={termDateForm.control}
-                  name="endDate"
-                  label="End date"
-                  clearable
-                  showToday
-                  calendarProps={{
-                    disabled: (date) => {
-                      const startDate = termDateForm.watch("startDate");
-                      return !!startDate && date < startDate;
-                    },
-                  }}
-                />
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setTermDateModal(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSavingTermDates}
-                >
-                  {isSavingTermDates ? "Saving..." : "Save dates"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      />
       <AlertDialog
         open={!!closeTermModal}
         onOpenChange={(open) => {

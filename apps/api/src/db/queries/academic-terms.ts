@@ -2,6 +2,7 @@ import type { TRPCContext } from "@api/trpc/init";
 import type {
   CreateAcademicSession,
   GetStudentTermListSchema,
+  UpdateAcademicSessionMetadata,
 } from "@api/trpc/schemas/schemas";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
@@ -245,5 +246,58 @@ export async function createAcademicSession(
       sessionTitle: session.title,
       terms: createdTerms,
     };
+  });
+}
+
+export async function updateAcademicSessionMetadata(
+  ctx: TRPCContext,
+  input: UpdateAcademicSessionMetadata,
+) {
+  const { schoolProfileId } = await requireAcademicAdmin(ctx);
+  const session = await ctx.db.schoolSession.findFirst({
+    where: {
+      id: input.sessionId,
+      schoolId: schoolProfileId,
+      deletedAt: null,
+    },
+    select: { id: true, title: true },
+  });
+  if (!session) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Academic session was not found.",
+    });
+  }
+  if (input.title.toLocaleLowerCase() !== session.title.toLocaleLowerCase()) {
+    const duplicate = await ctx.db.schoolSession.findFirst({
+      where: {
+        id: { not: session.id },
+        schoolId: schoolProfileId,
+        deletedAt: null,
+        title: { equals: input.title, mode: "insensitive" },
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "An academic session with this name already exists.",
+      });
+    }
+  }
+
+  return ctx.db.schoolSession.update({
+    where: { id: session.id },
+    data: {
+      title: input.title,
+      startDate: input.startDate,
+      endDate: input.endDate,
+    },
+    select: {
+      id: true,
+      title: true,
+      startDate: true,
+      endDate: true,
+    },
   });
 }

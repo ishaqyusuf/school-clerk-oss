@@ -1691,7 +1691,7 @@ export async function saveAcademicTermDraft(
       schoolId: schoolProfileId,
       deletedAt: null,
     },
-    select: { id: true, lifecycleStatus: true },
+    select: { id: true, lifecycleStatus: true, sessionId: true, title: true },
   });
   if (!term) {
     throw new TRPCError({
@@ -1705,9 +1705,29 @@ export async function saveAcademicTermDraft(
       message: `A ${term.lifecycleStatus.toLowerCase()} term cannot be edited.`,
     });
   }
+  const title = input.title?.trim();
+  if (title && title.toLocaleLowerCase() !== term.title.toLocaleLowerCase()) {
+    const duplicate = await ctx.db.sessionTerm.findFirst({
+      where: {
+        id: { not: term.id },
+        schoolId: schoolProfileId,
+        sessionId: term.sessionId,
+        deletedAt: null,
+        title: { equals: title, mode: "insensitive" },
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "A term with this title already exists in this session.",
+      });
+    }
+  }
   return ctx.db.sessionTerm.update({
     where: { id: term.id },
     data: {
+      title,
       startDate: input.startDate,
       endDate: input.endDate,
       note: input.note || null,

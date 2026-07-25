@@ -42,6 +42,7 @@ export const createAcademicTermDraftSchema = z
 export const saveAcademicTermDraftSchema = z
 	.object({
 		termId: z.string().min(1),
+		title: z.string().trim().min(1, "Term title is required").optional(),
 		startDate: z.date().nullable(),
 		endDate: z.date().optional().nullable(),
 		note: z.string().trim().max(2_000).optional().nullable(),

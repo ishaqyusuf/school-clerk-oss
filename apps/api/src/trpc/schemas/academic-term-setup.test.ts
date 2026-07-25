@@ -5,12 +5,14 @@ describe("saveAcademicTermDraftSchema", () => {
 	test("accepts an unscheduled term draft", () => {
 		const result = saveAcademicTermDraftSchema.parse({
 			termId: "term-1",
+			title: "Second Term",
 			startDate: null,
 			endDate: null,
 		});
 
 		expect(result.startDate).toBeNull();
 		expect(result.endDate).toBeNull();
+		expect(result.title).toBe("Second Term");
 	});
 
 	test("accepts either date being cleared independently", () => {

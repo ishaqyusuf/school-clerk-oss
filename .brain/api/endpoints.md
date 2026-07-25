@@ -201,6 +201,7 @@ Catalog of API routes and responsibilities.
 - `trpc.academics.previewTermActivation`: report setup, date, finance-close, and progression blockers
 - `trpc.academics.activateTerm`: close the previous active term, activate the target, and update the canonical school pointer
 - `trpc.academics.closeTerm`: close the active academic term after finance closure
+- `trpc.academics.updateSessionMetadata`: rename a tenant-owned academic session and update or clear its optional dates
 - `trpc.academics.previewTermReset`: return affected-record counts and blockers for resetting a tenant-owned draft/ready term
 - `trpc.academics.resetTerm`: reset a draft/ready term to an empty draft after exact typed confirmation; active, closed, and financially-used terms are protected
 - `trpc.transactions.*`: fee definitions, fee imports, and other transaction-oriented finance writes
