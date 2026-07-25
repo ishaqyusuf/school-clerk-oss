@@ -13,7 +13,8 @@ Implemented and available for administrators and assigned teachers as of 2026-07
 - Every student in the active classroom roster receives one recording status: Present, Absent, Late, or Sick. Existing Excused and Leave records remain readable for historical compatibility.
 - “Mark all present” accelerates the common case, but submission is blocked until the complete roster is marked.
 - The inline recorder combines date navigation, session details, per-student shadcn Toggle Group status controls (`P`, `A`, `L`, `S`), remarks, bulk marking, and save actions in one surface above attendance history. Selecting a status immediately shows its full title in a toast.
-- Administrator and teacher attendance rosters consume the tenant's resolved academic data direction, so AUTO mode mirrors the table when the school's sampled student records resolve to RTL while student names and remarks retain their own natural inline direction.
+- Present, Absent, Late, and Sick use distinct green, red, amber, and blue selected states, and the selected status applies a matching low-contrast tint to the student's row.
+- Administrator attendance resolves table direction from the currently displayed student roster, falling back to the tenant's resolved academic direction when the list is empty or tied. Teacher attendance consumes the tenant direction. Student names and remarks retain their own natural inline direction, while the English P/A/L/S control remains LTR.
 - Recent sessions can be opened and corrected. Corrections replace the current active marks and increment the session revision.
 - Authorized users can soft-delete a session.
 - Classroom and teacher surfaces can export student-level attendance rows as CSV. Student profiles show active-term attendance history.

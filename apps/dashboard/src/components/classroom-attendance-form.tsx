@@ -1,6 +1,9 @@
 "use client";
 
-import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
+import {
+  resolveRosterDataDirection,
+  useAcademicDataDirection,
+} from "@/components/academic-data-direction/provider";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import {
   ATTENDANCE_STATUSES,
@@ -13,6 +16,7 @@ import {
 import { useTRPC } from "@/trpc/client";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
+import { cn } from "@school-clerk/ui/cn";
 import Sheet from "@school-clerk/ui/custom/sheet";
 import { Input } from "@school-clerk/ui/input";
 import { Label } from "@school-clerk/ui/label";
@@ -116,6 +120,31 @@ const ATTENDANCE_STATUS_CODES: Partial<Record<AttendanceStatus, string>> = {
   ABSENT: "A",
   LATE: "L",
   SICK: "S",
+};
+
+const ATTENDANCE_STATUS_STYLES: Partial<
+  Record<AttendanceStatus, { row: string; toggle: string }>
+> = {
+  PRESENT: {
+    row: "bg-emerald-50/40 dark:bg-emerald-950/10",
+    toggle:
+      "data-[state=on]:border-emerald-500 data-[state=on]:bg-emerald-500 data-[state=on]:text-white",
+  },
+  ABSENT: {
+    row: "bg-red-50/50 dark:bg-red-950/10",
+    toggle:
+      "data-[state=on]:border-red-500 data-[state=on]:bg-red-500 data-[state=on]:text-white",
+  },
+  LATE: {
+    row: "bg-amber-50/50 dark:bg-amber-950/10",
+    toggle:
+      "data-[state=on]:border-amber-500 data-[state=on]:bg-amber-400 data-[state=on]:text-amber-950",
+  },
+  SICK: {
+    row: "bg-blue-50/50 dark:bg-blue-950/10",
+    toggle:
+      "data-[state=on]:border-blue-500 data-[state=on]:bg-blue-500 data-[state=on]:text-white",
+  },
 };
 
 function AttendanceOverviewContent({
@@ -378,6 +407,14 @@ function AttendanceFormContent({
           attendanceKey: student.termFormId!,
         })),
     [students],
+  );
+  const rosterDirection = useMemo(
+    () =>
+      resolveRosterDataDirection(
+        roster.map((student) => student.studentName),
+        academicDataDirection,
+      ),
+    [academicDataDirection, roster],
   );
   const allStudentsMarked =
     roster.length > 0 &&
@@ -645,10 +682,7 @@ function AttendanceFormContent({
           No students enrolled in this class for the active term.
         </p>
       ) : (
-        <div
-          className="overflow-x-auto border bg-card"
-          dir={academicDataDirection}
-        >
+        <div className="overflow-x-auto border bg-card" dir={rosterDirection}>
           <table className="w-full text-start text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
@@ -658,58 +692,72 @@ function AttendanceFormContent({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {roster.map((student) => (
-                <tr key={student.id}>
-                  <td className="px-4 py-3 font-medium" dir="auto">
-                    {student.studentName}
-                  </td>
-                  <td className="min-w-72 px-4 py-3">
-                    <ToggleGroup
-                      type="single"
-                      variant="outline"
-                      size="sm"
-                      value={statusMap[student.attendanceKey]}
-                      aria-label={`Attendance status for ${student.studentName}`}
-                      onValueChange={(value) => {
-                        if (!value) return;
-                        const status = RECORDABLE_ATTENDANCE_STATUSES.find(
-                          (item) => item.value === value,
-                        );
-                        setStatusMap((current) => ({
-                          ...current,
-                          [student.attendanceKey]: value as AttendanceStatus,
-                        }));
-                        if (status) toast({ title: status.label });
-                      }}
-                    >
-                      {RECORDABLE_ATTENDANCE_STATUSES.map((status) => (
-                        <ToggleGroupItem
-                          key={status.value}
-                          value={status.value}
-                          aria-label={status.label}
-                          title={status.label}
-                          className="min-w-9 px-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                        >
-                          {ATTENDANCE_STATUS_CODES[status.value]}
-                        </ToggleGroupItem>
-                      ))}
-                    </ToggleGroup>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Input
-                      dir="auto"
-                      placeholder="Add note"
-                      value={commentMap[student.attendanceKey] ?? ""}
-                      onChange={(event) =>
-                        setCommentMap((current) => ({
-                          ...current,
-                          [student.attendanceKey]: event.target.value,
-                        }))
-                      }
-                    />
-                  </td>
-                </tr>
-              ))}
+              {roster.map((student) => {
+                const selectedStatus = statusMap[student.attendanceKey];
+                return (
+                  <tr
+                    key={student.id}
+                    className={cn(
+                      "transition-colors hover:bg-muted/30",
+                      selectedStatus &&
+                        ATTENDANCE_STATUS_STYLES[selectedStatus]?.row,
+                    )}
+                  >
+                    <td className="px-4 py-3 font-medium" dir="auto">
+                      {student.studentName}
+                    </td>
+                    <td className="min-w-72 px-4 py-3">
+                      <ToggleGroup
+                        type="single"
+                        variant="outline"
+                        size="sm"
+                        dir="ltr"
+                        value={statusMap[student.attendanceKey]}
+                        aria-label={`Attendance status for ${student.studentName}`}
+                        onValueChange={(value) => {
+                          if (!value) return;
+                          const status = RECORDABLE_ATTENDANCE_STATUSES.find(
+                            (item) => item.value === value,
+                          );
+                          setStatusMap((current) => ({
+                            ...current,
+                            [student.attendanceKey]: value as AttendanceStatus,
+                          }));
+                          if (status) toast({ title: status.label });
+                        }}
+                      >
+                        {RECORDABLE_ATTENDANCE_STATUSES.map((status) => (
+                          <ToggleGroupItem
+                            key={status.value}
+                            value={status.value}
+                            aria-label={status.label}
+                            title={status.label}
+                            className={cn(
+                              "min-w-9 px-2",
+                              ATTENDANCE_STATUS_STYLES[status.value]?.toggle,
+                            )}
+                          >
+                            {ATTENDANCE_STATUS_CODES[status.value]}
+                          </ToggleGroupItem>
+                        ))}
+                      </ToggleGroup>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Input
+                        dir="auto"
+                        placeholder="Add note"
+                        value={commentMap[student.attendanceKey] ?? ""}
+                        onChange={(event) =>
+                          setCommentMap((current) => ({
+                            ...current,
+                            [student.attendanceKey]: event.target.value,
+                          }))
+                        }
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
