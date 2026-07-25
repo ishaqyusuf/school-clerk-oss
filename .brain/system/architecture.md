@@ -74,6 +74,12 @@ Tracks architectural patterns, boundaries, and major design choices.
 - `packages/template-registry`: website template registry, manifests, preview/editor engine, shared website blocks, hooks, guards, and production/preview render utilities
 - `packages/jobs`: Trigger.dev background jobs; deployment flattens the modular `packages/db/src/schema/*.prisma` files into `packages/jobs/src/schema.prisma` and preserves `url = env("DATABASE_URL")` so Trigger's Docker build can run Prisma generate.
 - `packages/jobs` owns the `process-student-import-job` worker boundary for durable student batch imports. The dashboard/API creates tenant-scoped `StudentImportJob` rows, and the worker processes persisted `StudentImportJobRow` payloads with the captured school/session/term context.
+- `packages/jobs` also owns `process-finance-payment-import-job`. The finance
+  API persists globally term-scoped `FinancePaymentImportJob` rows after review,
+  and the worker converts each row into canonical charge, payment, allocation,
+  and ledger records with row-level transactions, database row locks, and
+  replay-safe references. Failed rows are retryable without replaying imported
+  rows.
 
 ## Tenant Domain Topology
 

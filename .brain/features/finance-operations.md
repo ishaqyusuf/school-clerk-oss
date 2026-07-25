@@ -8,10 +8,30 @@ This layer covers:
 - finance integrity checks
 - canonical reporting snapshots
 - CSV exports for major finance surfaces
+- reviewed CSV imports for student collections and staff wages
 - service billable to payable generation
 - settlement backfill for legacy payable rows
 - audit-style finance activity records
 - admin approval thresholds for large discretionary finance actions
+
+## Payment Imports
+
+- Student collection imports are available from `/finance/students`; staff wage
+  imports are available from `/finance/payables/payroll`.
+- CSV input is intentionally minimal:
+  `date,student_name,payment_type,amount,source_note` or
+  `date,staff_name,payment_type,amount,source_note`.
+- `source_note` is optional and term is selected once for the complete batch.
+- Verification resolves people, selected-term student sheets, finance
+  streams/items, missing dates, skip decisions, and duplicate decisions before
+  durable execution. Review requires explicit global-term acknowledgement.
+- Successful rows write the standard `FinanceCharge`, `FinancePayment`,
+  `FinancePaymentAllocation`, and `FinanceLedgerEntry` records.
+- Configured student items reconcile partial receipts against an existing
+  outstanding charge where possible. Imports expose durable progress,
+  refresh-resume, failed-row retry, and result CSV export.
+- See `.brain/features/payment-import.md` for the complete contract and
+  execution rules.
 
 ## Reconciliation Workspace
 

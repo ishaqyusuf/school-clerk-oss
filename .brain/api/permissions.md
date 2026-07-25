@@ -37,7 +37,8 @@ Defines access control rules for each API surface.
 
 ## Academic Term Lifecycle Permissions
 
-- New-term draft creation, setup context, preview, apply, activation preview, activation, and closure require an authenticated `Admin`/`ADMIN` actor whose account owns the active school.
+- New-term draft creation, setup context, preview, apply, activation preview, activation, closure, reset preview, and reset require an authenticated `Admin`/`ADMIN` actor whose account owns the active school.
+- Reset accepts only tenant-owned `DRAFT`/`READY` terms, requires the exact server-validated phrase `I APPROVE RESET`, and rejects terms with finance records. `ACTIVE` and `CLOSED` terms cannot be reset.
 - Term, source term, session, and active-pointer reads are always scoped to `ctx.profile.schoolId`; clients never submit a trusted school id.
 - Teachers are copied only as tenant-owned `StaffProfile` identities into target `StaffTermProfile` assignment scope. Rollover does not grant access outside mapped classrooms, subjects, and academic grants.
 - Attendance and authenticated assessment mutations require an authenticated session and retain existing teacher classroom/subject authorization checks.
@@ -167,6 +168,7 @@ Defines access control rules for each API surface.
 - Finance tRPC routes now require an authenticated session before execution.
 - Finance read routes are enforced server-side for `Admin` and `Accountant` roles.
 - Finance write routes are enforced server-side for `Admin` and `Accountant` roles.
+- `finance.verifyPaymentImport`, `finance.startPaymentImportJob`, `finance.getPaymentImportJob`, and `finance.retryPaymentImportJob` require finance write access for `Admin` and `Accountant`. Every term, person, stream/item, job, and row lookup remains tenant-scoped; student items are also checked against selected-term classroom applicability.
 - This enforcement now covers streams, payroll, service payments, student payment receipt/reversal, billables, bills, collections, and stream-funding operations.
 - `finance.getReceivePaymentOptions`, `finance.getTermLedger`, and `finance.getTermAccountStatement` enforce finance read access for `Admin` and `Accountant`.
 - `finance.getFinanceIntegrityReport` and `finance.getFinanceReports` enforce finance read access for `Admin` and `Accountant`; these report routes are read-only but still finance-gated.

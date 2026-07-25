@@ -45,11 +45,8 @@ Defines implementation standards for consistency, maintainability, and reliabili
 - Database sync uses explicit mode pairs: `bun run db:sync -- -m prod-local`, `bun run db:sync -- -m remote-local`, or `bun run db:sync -- -m prod-remote`; use `--reset` only to reset sync cursors/state for that pair.
 - Agents must never start a development server in their current shell. Reuse the already-running stack when available.
 - If dev is required and no suitable stack is running, create a new tab in the already-open cmux session and run exactly `jd school-clerk dev --local -f marketing dashboard school-site`. If cmux is unavailable or cannot create the tab, mark the active goal blocked; do not start dev through another terminal or command runner.
-- Website QA must use Portless hostnames instead of raw localhost ports:
-  - marketing/public site: `https://school-clerk.localhost`
-  - tenant dashboard: `https://<tenant>.school-clerk-dashboard.localhost`
-  - tenant school site: `https://<tenant>.school-clerk-site.localhost`
-- Portless local QA URLs must not include visible proxy ports. A named host with an appended port, including `school-clerk.localhost:1441`, is a broken configuration; stop website QA, fix the Portless bug, and verify the port-free URL before proceeding.
+- Website QA must use the HTTPS URLs reported by the active Portless proxy for the `school-clerk`, `<tenant>.school-clerk-dashboard`, and `<tenant>.school-clerk-site` hostnames instead of raw app ports.
+- Workspace dev scripts must not set `PORTLESS_PORT` or `PORTLESS_HTTPS`; the active shared proxy owns those settings.
 - Raw localhost ports may be inspected only while diagnosing Portless itself; they are not valid website QA URLs and do not allow work to proceed past a broken named host.
 - `bun run kill:ports` discovers numeric env variables ending in `_PORT` and ignores names containing `PORTLESS`. Keep every project-owned dev port declared as an individual `*_PORT` env variable instead of adding aggregate kill lists.
 - After every Prisma schema/database update, run only `bun run db:push --local` and `bun run db:push --prod`.

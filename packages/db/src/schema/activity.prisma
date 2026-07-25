@@ -32,6 +32,10 @@ enum ActivityType {
 
   student_payment_transaction_cancelled
   student_payment_transaction_created
+  finance_payment_import_created
+  finance_payment_import_completed
+  finance_payment_import_retried
+  finance_payment_import_row_failed
 
   student_term_created
   student_term_cancelled

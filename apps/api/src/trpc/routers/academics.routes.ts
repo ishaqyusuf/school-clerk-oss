@@ -1,20 +1,17 @@
 import { authenticatedProcedure, createTRPCRouter } from "../init";
 import {
-  createAcademicSessionSchema,
-  getStudentTermsListSchema,
-} from "../schemas/schemas";
-import {
   academicTermIdSchema,
+  academicTermResetSchema,
   academicTermSetupApplySchema,
   academicTermSetupSelectionSchema,
   createAcademicTermDraftSchema,
   saveAcademicTermDraftSchema,
 } from "../schemas/academic-term-setup";
-
 import {
-  createAcademicSession,
-  getStudentTermsList,
-} from "@api/db/queries/academic-terms";
+	createAcademicSessionSchema,
+	getStudentTermsListSchema,
+} from "../schemas/schemas";
+
 import {
   activateAcademicTerm,
   applyAcademicTermSetup,
@@ -27,6 +24,14 @@ import {
   requireAcademicAdmin,
   saveAcademicTermDraft,
 } from "@api/db/queries/academic-term-setup";
+import {
+  previewAcademicTermReset,
+  resetAcademicTerm,
+} from "@api/db/queries/academic-term-reset";
+import {
+	createAcademicSession,
+	getStudentTermsList,
+} from "@api/db/queries/academic-terms";
 import {
   getClassroomDepartments,
   getClassroomsSchema,
@@ -116,10 +121,10 @@ export const academicsRouter = createTRPCRouter({
         ],
       });
 
-      return terms.map((term) => ({
-        id: term.id,
-        title: term.title,
-        sessionTitle: term.session?.title ?? null,
+			return terms.map((term) => ({
+				id: term.id,
+				title: term.title,
+				sessionTitle: term.session?.title ?? null,
         label: [term.session?.title, term.title].filter(Boolean).join(" • "),
         startDate: term.startDate,
         endDate: term.endDate,
@@ -344,6 +349,19 @@ export const academicsRouter = createTRPCRouter({
     .mutation(({ ctx, input }) =>
       closeAcademicTerm(ctx, { termId: input.termId! }),
     ),
+  previewTermReset: authenticatedProcedure
+    .input(academicTermIdSchema)
+    .query(({ ctx, input }) =>
+      previewAcademicTermReset(ctx, { termId: input.termId! }),
+    ),
+  resetTerm: authenticatedProcedure
+    .input(academicTermResetSchema)
+    .mutation(({ ctx, input }) =>
+      resetAcademicTerm(ctx, {
+        termId: input.termId!,
+        confirmation: input.confirmation!,
+      }),
+    ),
   entrollStudentToTerm: authenticatedProcedure
     .input(entrollStudentToTermSchema)
     .mutation(async (props) => {
@@ -429,7 +447,7 @@ export const academicsRouter = createTRPCRouter({
       const titleMatch = latestSession.title?.match(/^(\d{4})\/(\d{4})$/);
       const suggestedTitle =
         titleMatch?.[1] && titleMatch[2]
-          ? `${parseInt(titleMatch[1]) + 1}/${parseInt(titleMatch[2]) + 1}`
+					? `${Number.parseInt(titleMatch[1]) + 1}/${Number.parseInt(titleMatch[2]) + 1}`
           : latestSession.title
             ? `${latestSession.title} (New)`
             : "";

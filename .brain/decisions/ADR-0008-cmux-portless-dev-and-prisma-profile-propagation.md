@@ -1,6 +1,6 @@
 # ADR-0008: cmux Dev Runtime, Portless URLs, And Prisma Profile Propagation
 
-- Status: accepted, with Prisma propagation superseded by ADR-0012
+- Status: accepted, with Prisma propagation superseded by ADR-0012 and proxy configuration ownership superseded by ADR-0013
 - Date: 2026-07-18
 
 ## Context

@@ -201,6 +201,8 @@ Catalog of API routes and responsibilities.
 - `trpc.academics.previewTermActivation`: report setup, date, finance-close, and progression blockers
 - `trpc.academics.activateTerm`: close the previous active term, activate the target, and update the canonical school pointer
 - `trpc.academics.closeTerm`: close the active academic term after finance closure
+- `trpc.academics.previewTermReset`: return affected-record counts and blockers for resetting a tenant-owned draft/ready term
+- `trpc.academics.resetTerm`: reset a draft/ready term to an empty draft after exact typed confirmation; active, closed, and financially-used terms are protected
 - `trpc.transactions.*`: fee definitions, fee imports, and other transaction-oriented finance writes
 - `trpc.finance.*`: streams, bills, payroll, receive-payment, and finance reporting workflows (includes fee-application logic triggered by import term-sheet creation)
 - `trpc.attendance.*`: active-term general/subject attendance capture, correction, soft deletion, classroom/session reads, student history, and export-ready reporting
@@ -219,4 +221,8 @@ Catalog of API routes and responsibilities.
 - `trpc.students.executeStudentImport`: batch mutation applying import-new, keep-match, and update-match-with-name actions. Creates students and term sheets idempotently, validates each row's classroom/session ancestry, applies fee histories.
 - `trpc.students.startStudentImportJob`: creates a durable tenant-scoped import job from reviewed execution rows, triggers the Trigger.dev `process-student-import-job` task through the Trigger SDK, stores the run id, and returns a scoped public token for dashboard realtime hooks.
 - `trpc.students.getStudentImportJob`: reads the active/recent or explicit tenant-owned student import job with progress counters and row-level results.
+- `trpc.finance.verifyPaymentImport`: verifies a tenant-scoped student-payment or staff-wage batch against one globally selected term, matches counterparties, validates stream/item scope and term sheets, and reports skip/duplicate decisions.
+- `trpc.finance.startPaymentImportJob`: persists a reviewed payment batch and queues the Trigger.dev `process-finance-payment-import-job` task.
+- `trpc.finance.getPaymentImportJob`: reads the latest or explicit tenant-owned payment import job with aggregate progress and row results.
+- `trpc.finance.retryPaymentImportJob`: resets and queues only failed, pending, or interrupted rows from a tenant-owned failed/partially failed payment import.
 - Trigger runs that remain in `PENDING_VERSION` indicate the SDK trigger succeeded but Trigger.dev has no matching worker version for that environment. In local development, use a development Trigger secret key with `trigger.dev dev`; production keys need a deployed production worker.

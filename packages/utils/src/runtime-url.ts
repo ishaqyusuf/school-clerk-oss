@@ -81,6 +81,13 @@ function withConfiguredPort(host: string, config: RuntimeUrlConfig) {
   return port ? `${host}:${port}` : host;
 }
 
+function withInheritedPort(host: string, ...sourceHosts: string[]) {
+  if (!host || getPort(host)) return host;
+
+  const port = sourceHosts.map(getPort).find(Boolean);
+  return port ? `${host}:${port}` : host;
+}
+
 function getHostFromOptions(options: ResolveAppUrlOptions) {
   return normalizeRuntimeHost(options.currentHost ?? options.currentUrl);
 }
@@ -174,9 +181,16 @@ export function resolveRootHostFromCurrentHost(
     return normalizedHost;
   }
 
+  const configuredPortlessRoot = normalizeRuntimeHost(
+    config.portlessRootDomain,
+  );
   const portlessRoot = normalizePortlessRootDomain(config.portlessRootDomain);
   if (portlessRoot && hostMatchesRoot(normalizedHost, portlessRoot)) {
-    return portlessRoot;
+    return withInheritedPort(
+      portlessRoot,
+      normalizedHost,
+      configuredPortlessRoot,
+    );
   }
 
   if (isLocalhostHost(normalizedHost)) {

@@ -29,8 +29,8 @@ Final responses must include the Brain files updated, or `No Brain documentation
 - Package manager: `bun`.
 - Never start a development server in the agent's current shell. Reuse an already-running stack when available.
 - If dev is required and no suitable stack is running, create a new tab in the already-open cmux session and run exactly `jd school-clerk dev --local -f marketing dashboard school-site`. If cmux is unavailable, mark the active goal blocked instead of starting dev elsewhere.
-- Use port-free Portless website URLs: `https://school-clerk.localhost`, `https://<tenant>.school-clerk-dashboard.localhost`, and `https://<tenant>.school-clerk-site.localhost`.
-- Treat any named Portless host with an explicit port as a blocking bug. Fix and reverify the port-free URL before proceeding.
+- Use the HTTPS URLs reported by the active shared Portless proxy for `school-clerk`, `school-clerk-dashboard`, and `school-clerk-site`; do not hardcode a proxy port in commands or links.
+- Reuse the active shared proxy configuration. Do not stop or reconfigure it merely to force port-free URLs.
 - Generate Prisma client with `bun run db:generate`.
 - Apply Prisma schema changes with `bun run db:push --local` and `bun run db:push --prod`.
 - Validate broad changes with `bun run typecheck` and the narrowest relevant build or lint command.

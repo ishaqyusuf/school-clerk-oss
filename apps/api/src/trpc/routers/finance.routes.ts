@@ -39,6 +39,12 @@ import {
 	upsertFinanceStream,
 } from "../../db/queries/finance";
 import {
+	getPaymentImportJob,
+	retryPaymentImportJob,
+	startPaymentImportJob,
+	verifyPaymentImport,
+} from "../../db/queries/payment-import";
+import {
 	type TRPCContext,
 	authenticatedProcedure,
 	createTRPCRouter,
@@ -69,6 +75,12 @@ import {
 	financeTermLedgerQuerySchema,
 	financeTransferInputSchema,
 } from "../schemas/finance";
+import {
+	getPaymentImportJobSchema,
+	retryPaymentImportJobSchema,
+	startPaymentImportJobSchema,
+	verifyPaymentImportSchema,
+} from "../schemas/payment-import";
 
 const resetPayload = {
 	success: false,
@@ -436,6 +448,30 @@ function normalizeLegacyChargeInput(
 
 export const financeRouter = createTRPCRouter({
 	overview: authenticatedProcedure.query(({ ctx }) => getFinanceOverview(ctx)),
+
+	verifyPaymentImport: authenticatedProcedure
+		.input(verifyPaymentImportSchema)
+		.mutation(({ ctx, input }) => verifyPaymentImport(ctx, input)),
+
+	startPaymentImportJob: authenticatedProcedure
+		.input(startPaymentImportJobSchema)
+		.mutation(({ ctx, input }) => startPaymentImportJob(ctx, input)),
+
+	getPaymentImportJob: authenticatedProcedure
+		.input(getPaymentImportJobSchema)
+		.query(({ ctx, input }) => getPaymentImportJob(ctx, input)),
+
+	retryPaymentImportJob: authenticatedProcedure
+		.input(retryPaymentImportJobSchema)
+		.mutation(({ ctx, input }) => {
+			if (!input.jobId) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Payment import job is required.",
+				});
+			}
+			return retryPaymentImportJob(ctx, { jobId: input.jobId });
+		}),
 
 	getTermLedger: authenticatedProcedure
 		.input(financeTermLedgerQuerySchema)

@@ -298,6 +298,12 @@ The composite assessment public-link lookup index on `schoolProfileId`, `session
 - `FinancePayee` stores reusable vendors, casual workers, service providers, staff-like external payees, and other non-student/non-staff recipients. Payees link to finance charges, payments, and purchases so vendor/casual-worker history can be reused across finance workflows.
 - `FinancePayrollStructure` stores reusable salary/wage structures for staff, including cadence (`MONTHLY`, `TERM`, `DAILY`, `HOURLY`, `TASK`, `ONE_OFF`), base amount, allowances, deductions, advances, bonuses, computed net amount, role label, and linked salary/wages stream.
 - `FinancePurchase` stores purchase/service/expense/labor/reimbursement records funded from finance streams. Purchases link to the canonical `FinanceCharge` payable and optional `FinancePayment` when paid immediately, so the account statement remains the source of truth while the purchase record explains vendor, item/service, quantity, cost, receipt/reference, and status.
+- `FinancePaymentImportJob` stores the tenant/session/term, import mode, payment
+  method, source filename, creator, Trigger run id, durable status, row counters,
+  and amount totals for one reviewed historical payment batch.
+- `FinancePaymentImportJobRow` stores one persisted normalized row, semantic
+  fingerprint, counterparty/term-sheet/stream/item decisions, execution status,
+  canonical charge/payment/allocation/ledger result ids, and failure details.
 
 ### FeeHistory (updated — session 2025-04)
 

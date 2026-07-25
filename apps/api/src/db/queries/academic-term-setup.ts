@@ -40,16 +40,24 @@ type SourceClassroom = {
   }[];
 };
 
+type SourceClassroomDepartmentReference = {
+  id: string;
+  departmentName: string | null;
+  departmentLevel: number | null;
+  classRoom: {
+    id: string;
+    name: string | null;
+    classLevel: number | null;
+  } | null;
+};
+
 type SourceDepartmentSubject = {
   id: string;
   subjectId: string;
   classRoomDepartmentId: string | null;
   description: string | null;
   subject: { title: string };
-  classRoomDepartment: {
-    departmentName: string | null;
-    classRoom: { id: string; name: string | null } | null;
-  } | null;
+  classRoomDepartment: SourceClassroomDepartmentReference | null;
   assessments: {
     id: number;
     title: string;
@@ -83,10 +91,7 @@ type SourceData = {
       surname: string | null;
       otherName: string | null;
     } | null;
-    classroomDepartment: {
-      departmentName: string | null;
-      classRoom: { id: string; name: string | null } | null;
-    } | null;
+    classroomDepartment: SourceClassroomDepartmentReference | null;
   }[];
   staffTermProfiles: {
     id: string;
@@ -101,6 +106,7 @@ type SourceData = {
     classroomsProfiles: {
       classRoomDepartmentId: string | null;
       subjectAccessMode: "SELECTED" | "ALL";
+      classRoomDepartment: SourceClassroomDepartmentReference | null;
     }[];
     academicAccessGrants: {
       scope: "CLASS" | "DEPARTMENT" | "CLASS_SUBJECT" | "DEPARTMENT_SUBJECT";
@@ -108,6 +114,12 @@ type SourceData = {
       classRoomDepartmentId: string | null;
       subjectId: string | null;
       departmentSubjectId: string | null;
+      classRoom: {
+        id: string;
+        name: string | null;
+        classLevel: number | null;
+      } | null;
+      classRoomDepartment: SourceClassroomDepartmentReference | null;
     }[];
   }[];
 };
@@ -400,8 +412,12 @@ async function loadSourceData(
           subject: { select: { title: true } },
           classRoomDepartment: {
             select: {
+              id: true,
               departmentName: true,
-              classRoom: { select: { id: true, name: true } },
+              departmentLevel: true,
+              classRoom: {
+                select: { id: true, name: true, classLevel: true },
+              },
             },
           },
           assessments: {
@@ -437,8 +453,12 @@ async function loadSourceData(
           },
           classroomDepartment: {
             select: {
+              id: true,
               departmentName: true,
-              classRoom: { select: { id: true, name: true } },
+              departmentLevel: true,
+              classRoom: {
+                select: { id: true, name: true, classLevel: true },
+              },
             },
           },
         },
@@ -474,6 +494,16 @@ async function loadSourceData(
             select: {
               classRoomDepartmentId: true,
               subjectAccessMode: true,
+              classRoomDepartment: {
+                select: {
+                  id: true,
+                  departmentName: true,
+                  departmentLevel: true,
+                  classRoom: {
+                    select: { id: true, name: true, classLevel: true },
+                  },
+                },
+              },
             },
           },
           academicAccessGrants: {
@@ -484,6 +514,19 @@ async function loadSourceData(
               classRoomDepartmentId: true,
               subjectId: true,
               departmentSubjectId: true,
+              classRoom: {
+                select: { id: true, name: true, classLevel: true },
+              },
+              classRoomDepartment: {
+                select: {
+                  id: true,
+                  departmentName: true,
+                  departmentLevel: true,
+                  classRoom: {
+                    select: { id: true, name: true, classLevel: true },
+                  },
+                },
+              },
             },
           },
         },
@@ -555,16 +598,73 @@ function buildExistingClassroomMaps(
   return { classMap, departmentMap };
 }
 
-function sourceClassroomIdByDepartment(
+function collectReferencedClassrooms(
   source: NonNullable<Awaited<ReturnType<typeof loadSourceData>>>,
 ) {
-  const map = new Map<string, string>();
+  const classrooms = new Map<string, SourceClassroom>();
+  const ensureClassroom = (classroom: {
+    id: string;
+    name: string | null;
+    classLevel: number | null;
+  }) => {
+    const existing = classrooms.get(classroom.id);
+    if (existing) return existing;
+    const created = { ...classroom, classRoomDepartments: [] };
+    classrooms.set(classroom.id, created);
+    return created;
+  };
+  const addDepartment = (
+    department: SourceClassroomDepartmentReference | null,
+  ) => {
+    if (!department?.classRoom) return;
+    const classroom = ensureClassroom(department.classRoom);
+    if (
+      !classroom.classRoomDepartments.some((item) => item.id === department.id)
+    ) {
+      classroom.classRoomDepartments.push({
+        id: department.id,
+        departmentName: department.departmentName,
+        departmentLevel: department.departmentLevel,
+      });
+    }
+  };
+
   for (const classroom of source.session.classRooms) {
-    for (const department of classroom.classRoomDepartments) {
-      map.set(department.id, classroom.id);
+    classrooms.set(classroom.id, {
+      ...classroom,
+      classRoomDepartments: [...classroom.classRoomDepartments],
+    });
+  }
+  for (const subject of source.departmentSubjects) {
+    addDepartment(subject.classRoomDepartment);
+  }
+  for (const termForm of source.termForms) {
+    addDepartment(termForm.classroomDepartment);
+  }
+  for (const profile of source.staffTermProfiles) {
+    for (const assignment of profile.classroomsProfiles) {
+      addDepartment(assignment.classRoomDepartment);
+    }
+    for (const grant of profile.academicAccessGrants) {
+      if (grant.classRoom) ensureClassroom(grant.classRoom);
+      addDepartment(grant.classRoomDepartment);
     }
   }
-  return map;
+
+  return [...classrooms.values()];
+}
+
+function addSameSessionIdentityMappings(
+  maps: ReturnType<typeof buildExistingClassroomMaps>,
+  sourceClasses: SourceClassroom[],
+) {
+  for (const classroom of sourceClasses) {
+    maps.classMap.set(classroom.id, classroom.id);
+    for (const department of classroom.classRoomDepartments) {
+      maps.departmentMap.set(department.id, department.id);
+    }
+  }
+  return maps;
 }
 
 function setupSelections(
@@ -720,32 +820,31 @@ async function buildTermSetupPreview(
     schoolProfileId,
     target.sessionId,
   );
-  const existingMaps = promotional
-    ? buildExistingClassroomMaps(source.session.classRooms, targetClassrooms)
-    : {
-        classMap: new Map(
-          source.session.classRooms.map((item) => [item.id, item.id]),
-        ),
-        departmentMap: new Map(
-          source.session.classRooms.flatMap((item) =>
-            item.classRoomDepartments.map((department) => [
-              department.id,
-              department.id,
-            ]),
-          ),
-        ),
-      };
+  const referencedClassrooms = collectReferencedClassrooms(source);
+  const existingMaps = buildExistingClassroomMaps(
+    referencedClassrooms,
+    targetClassrooms,
+  );
+  if (!promotional) {
+    addSameSessionIdentityMappings(existingMaps, source.session.classRooms);
+  }
   const selectedClassroomSet = new Set(selections.classroomIds);
-  const sourceClassByDepartment = sourceClassroomIdByDepartment(source);
+  const selectedStructureMaps = buildExistingClassroomMaps(
+    referencedClassrooms,
+    source.session.classRooms.filter((item) =>
+      selectedClassroomSet.has(item.id),
+    ),
+  );
   const selectedSubjectSet = new Set(selections.subjectIds);
   const requiredDepartmentSubjectIds = new Set<string>();
   const canMapClassroom = (classroomId: string) =>
     existingMaps.classMap.has(classroomId) ||
-    selectedClassroomSet.has(classroomId);
+    selectedStructureMaps.classMap.has(classroomId);
   const canMapDepartment = (departmentId: string) => {
-    if (existingMaps.departmentMap.has(departmentId)) return true;
-    const classroomId = sourceClassByDepartment.get(departmentId);
-    return Boolean(classroomId && selectedClassroomSet.has(classroomId));
+    return (
+      existingMaps.departmentMap.has(departmentId) ||
+      selectedStructureMaps.departmentMap.has(departmentId)
+    );
   };
   for (const profile of source.staffTermProfiles) {
     if (!selections.teacherIds.includes(profile.staffProfileId)) continue;
@@ -806,11 +905,7 @@ async function buildTermSetupPreview(
     if (!selectedSubjectSet.has(sourceSubject.id)) continue;
     const sourceDepartmentId = sourceSubject.classRoomDepartmentId;
     if (!sourceDepartmentId) continue;
-    const sourceClassroomId = sourceClassByDepartment.get(sourceDepartmentId);
-    const canMap =
-      existingMaps.departmentMap.has(sourceDepartmentId) ||
-      (sourceClassroomId && selectedClassroomSet.has(sourceClassroomId));
-    if (!canMap) {
+    if (!canMapDepartment(sourceDepartmentId)) {
       blockers.push({
         key: "subject-classroom-not-mapped",
         message:
@@ -1017,23 +1112,13 @@ async function createClassroomMappings(
     schoolProfileId,
     targetSessionId,
   );
-  const maps =
-    source.sessionId === targetSessionId
-      ? {
-          classMap: new Map(
-            source.session.classRooms.map((item) => [item.id, item.id]),
-          ),
-          departmentMap: new Map(
-            source.session.classRooms.flatMap((item) =>
-              item.classRoomDepartments.map((department) => [
-                department.id,
-                department.id,
-              ]),
-            ),
-          ),
-        }
-      : buildExistingClassroomMaps(source.session.classRooms, targetClasses);
+  const referencedClassrooms = collectReferencedClassrooms(source);
+  let maps = buildExistingClassroomMaps(referencedClassrooms, targetClasses);
+  if (source.sessionId === targetSessionId) {
+    maps = addSameSessionIdentityMappings(maps, source.session.classRooms);
+  }
   const selectedSet = new Set(selectedClassroomIds);
+  const resolvedTargetClasses = [...targetClasses];
   let created = 0;
   for (const sourceClass of source.session.classRooms) {
     if (maps.classMap.has(sourceClass.id) || !selectedSet.has(sourceClass.id)) {
@@ -1056,6 +1141,7 @@ async function createClassroomMappings(
     });
     created += 1;
     maps.classMap.set(sourceClass.id, targetClass.id);
+    const createdDepartments: SourceClassroom["classRoomDepartments"] = [];
     for (const sourceDepartment of sourceClass.classRoomDepartments) {
       const targetDepartment = await tx.classRoomDepartment.create({
         data: {
@@ -1067,7 +1153,25 @@ async function createClassroomMappings(
         select: { id: true },
       });
       maps.departmentMap.set(sourceDepartment.id, targetDepartment.id);
+      createdDepartments.push({
+        id: targetDepartment.id,
+        departmentName: sourceDepartment.departmentName,
+        departmentLevel: sourceDepartment.departmentLevel,
+      });
     }
+    resolvedTargetClasses.push({
+      id: targetClass.id,
+      name: sourceClass.name,
+      classLevel: sourceClass.classLevel,
+      classRoomDepartments: createdDepartments,
+    });
+  }
+  maps = buildExistingClassroomMaps(
+    referencedClassrooms,
+    resolvedTargetClasses,
+  );
+  if (source.sessionId === targetSessionId) {
+    maps = addSameSessionIdentityMappings(maps, source.session.classRooms);
   }
   return { ...maps, created };
 }

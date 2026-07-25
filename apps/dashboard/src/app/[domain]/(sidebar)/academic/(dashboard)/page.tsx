@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   Archive,
+  RotateCcw,
   Info,
 } from "lucide-react";
 import { Card, Field } from "@school-clerk/ui/composite";
@@ -79,6 +80,9 @@ const Dashboard = () => {
     React.useState<DashboardTerm | null>(null);
   const [closeTermModal, setCloseTermModal] =
     React.useState<DashboardTerm | null>(null);
+  const [resetTermModal, setResetTermModal] =
+    React.useState<DashboardTerm | null>(null);
+  const [resetConfirmation, setResetConfirmation] = React.useState("");
   const termDateForm = useZodForm(termDateFormSchema, {
     defaultValues: {
       startDate: "",
@@ -157,6 +161,30 @@ const Dashboard = () => {
           error: "Unable to close term",
           loading: "Closing academic term...",
           success: "Academic term closed.",
+        },
+      },
+    }),
+  );
+  const { data: resetPreview, isLoading: isLoadingResetPreview } = useQuery(
+    _trpc.academics.previewTermReset.queryOptions(
+      { termId: resetTermModal?.id ?? "" },
+      { enabled: !!resetTermModal },
+    ),
+  );
+  const { mutate: resetTerm, isPending: isResettingTerm } = useMutation(
+    _trpc.academics.resetTerm.mutationOptions({
+      onSuccess() {
+        setResetTermModal(null);
+        setResetConfirmation("");
+        _qc?.invalidateQueries({
+          queryKey: _trpc.academics.dashboard.queryKey({}),
+        });
+      },
+      meta: {
+        toastTitle: {
+          error: "Unable to reset term",
+          loading: "Resetting academic term...",
+          success: "Academic term reset.",
         },
       },
     }),
@@ -455,6 +483,22 @@ const Dashboard = () => {
                                         Close
                                       </Button>
                                     ) : null}
+                                    {term.status !== "active" &&
+                                    term.status !== "closed" ? (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-0 text-[11px] text-destructive font-bold hover:bg-transparent hover:underline"
+                                        onClick={() => {
+                                          setResetConfirmation("");
+                                          setResetTermModal(term);
+                                        }}
+                                      >
+                                        <RotateCcw data-icon="inline-start" />
+                                        Reset
+                                      </Button>
+                                    ) : null}
                                   </div>
                                 </Card>
                               ))}
@@ -616,6 +660,116 @@ const Dashboard = () => {
               }}
             >
               {isClosingTerm ? "Closing..." : "Close term"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={!!resetTermModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            setResetTermModal(null);
+            setResetConfirmation("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset {resetTermModal?.title}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently clears this term&apos;s setup data and returns it
+              to an empty draft. Active, closed, and financially-used terms
+              cannot be reset.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {isLoadingResetPreview ? (
+            <p className="text-sm text-muted-foreground">
+              Calculating affected records...
+            </p>
+          ) : resetPreview ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 rounded-md border p-3 text-sm">
+                <span>Subjects</span>
+                <strong className="text-right">
+                  {resetPreview.counts.subjects}
+                </strong>
+                <span>Student term sheets</span>
+                <strong className="text-right">
+                  {resetPreview.counts.students}
+                </strong>
+                <span>Teacher assignments</span>
+                <strong className="text-right">
+                  {resetPreview.counts.teachers}
+                </strong>
+                <span>Attendance sessions</span>
+                <strong className="text-right">
+                  {resetPreview.counts.attendanceSessions}
+                </strong>
+                <span>Assessment links/imports</span>
+                <strong className="text-right">
+                  {resetPreview.counts.assessmentLinks +
+                    resetPreview.counts.workbookExports +
+                    resetPreview.counts.workbookImports}
+                </strong>
+              </div>
+
+              {resetPreview.blockers.map((blocker) => (
+                <p
+                  key={blocker.code}
+                  className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+                >
+                  {blocker.message}
+                </p>
+              ))}
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="term-reset-confirmation"
+                  className="text-sm font-medium"
+                >
+                  Type{" "}
+                  <span className="font-mono font-bold">
+                    {resetPreview.confirmationText}
+                  </span>{" "}
+                  to continue
+                </label>
+                <Input
+                  id="term-reset-confirmation"
+                  value={resetConfirmation}
+                  autoComplete="off"
+                  onChange={(event) =>
+                    setResetConfirmation(event.target.value)
+                  }
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResettingTerm}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={
+                isResettingTerm ||
+                !resetPreview?.canReset ||
+                resetConfirmation !== resetPreview?.confirmationText
+              }
+              onClick={() => {
+                if (
+                  resetTermModal &&
+                  resetConfirmation === "I APPROVE RESET"
+                ) {
+                  resetTerm({
+                    termId: resetTermModal.id,
+                    confirmation: resetConfirmation,
+                  });
+                }
+              }}
+            >
+              {isResettingTerm ? "Resetting..." : "Reset term"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

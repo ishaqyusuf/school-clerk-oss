@@ -59,6 +59,10 @@ export const academicTermIdSchema = z.object({
 	termId: z.string().min(1),
 });
 
+export const academicTermResetSchema = academicTermIdSchema.extend({
+	confirmation: z.literal("I APPROVE RESET"),
+});
+
 export type AcademicTermSetupSelection = z.infer<
 	typeof academicTermSetupSelectionSchema
 >;

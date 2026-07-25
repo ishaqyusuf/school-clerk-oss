@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { buildRuntimeAppUrl } from "./runtime-url";
 
 describe("buildRuntimeAppUrl", () => {
-  test("constructs portless local URLs without the configured app port", () => {
+  test("constructs portless local URLs without adding the app port", () => {
     const url = buildRuntimeAppUrl({
       config: {
         appPort: 2200,
@@ -18,6 +18,23 @@ describe("buildRuntimeAppUrl", () => {
     });
 
     expect(url).toBe("https://school-clerk.localhost/sign-up");
+  });
+
+  test("preserves the active shared proxy port for portless URLs", () => {
+    const url = buildRuntimeAppUrl({
+      config: {
+        appPort: 2200,
+        appRootDomain: "school-clerk.localhost",
+        defaultProtocol: "https",
+        portlessRootDomain: "school-clerk.localhost",
+        productionRootDomain: "app.school-clerk.com",
+      },
+      currentHost: "tenant.school-clerk.localhost:1355",
+      currentProtocol: "https",
+      path: "/sign-up",
+    });
+
+    expect(url).toBe("https://school-clerk.localhost:1355/sign-up");
   });
 
   test("keeps the configured app port for bare localhost URLs", () => {

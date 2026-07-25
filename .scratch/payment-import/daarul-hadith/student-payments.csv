@@ -1,0 +1,90 @@
+date,student_name,payment_type,amount,source_note
+,"عبد الرحمن عبد الله",ENTRANCE_FORM,1000,"Date not stated; later confirmed paid"
+,"مريم عبد الله",ENTRANCE_FORM,1000,"Date not stated; later confirmed paid"
+,"عائشة يونس",SCHOOL_FEE,3000,"Date not stated"
+,"أحمد مفتاح",SCHOOL_FEE,3000,"Date not stated; school-fee part of ق، ر"
+,"أحمد مفتاح",ENTRANCE_FORM,1000,"Date not stated; entrance-form part of ق، ر"
+,"أنس مفتاح",SCHOOL_FEE,3000,"Date not stated; school-fee part of ق، ر"
+,"أنس مفتاح",ENTRANCE_FORM,1000,"Date not stated; entrance-form part of ق، ر"
+,"أرميزة مفتاح",SCHOOL_FEE,3000,"Date not stated; school-fee part of ق، ر"
+,"أرميزة مفتاح",ENTRANCE_FORM,1000,"Date not stated; entrance-form part of ق، ر"
+,"أمة الله مفتاح",SCHOOL_FEE,3000,"Date not stated; school-fee part of ق، ر"
+,"أمة الله مفتاح",ENTRANCE_FORM,1000,"Date not stated; entrance-form part of ق، ر"
+,"حمزة محمد الأول",SCHOOL_FEE,3000,"Date not stated"
+,"عبد الرحمن محمد الأول",SCHOOL_FEE,3000,"Date not stated"
+,"أولاييوولى فردوس",SCHOOL_FEE,3000,"Date not stated"
+,"أولاييوولى أنس",SCHOOL_FEE,3000,"Date not stated"
+,"أبو بكر رشيد",SCHOOL_FEE,3000,"Date not stated"
+,"أحمد مفتاح",UNIFORM,6000,"Date not stated"
+,"أنس مفتاح",UNIFORM,5500,"Date not stated"
+,"عبد المؤمن مصباح",UNIFORM,3500,"Date not stated"
+,"مصطفى",UNIFORM,5500,"Date not stated"
+,"Baba soja",BOOK,1700,"Date not stated"
+,"Baba soja",SCHOOL_FEE,3000,"Date not stated"
+,"Baba soja",ENTRANCE_FORM,1000,"Date not stated"
+,"مريم موسى",SCHOOL_FEE,3000,"Date not stated; amount later confirmed"
+,"عائشة عبد القادر",SCHOOL_FEE,3000,"Date not stated; amount later confirmed"
+2026-04-14,"صلاح الدين",SCHOOL_FEE,3000,"Conversation date corrected from an earlier incorrect April date"
+2026-04-14,"صلاح الدين",ENTRANCE_FORM,1000,"Conversation date corrected from an earlier incorrect April date"
+2026-04-14,"عائشة رشيد",SCHOOL_FEE,3000,"Conversation date corrected from an earlier incorrect April date"
+2026-04-14,"عائشة رشيد",ENTRANCE_FORM,1000,"Conversation date corrected from an earlier incorrect April date"
+2026-04-14,"فريدة إسماعيل",ENTRANCE_FORM,1000,
+2026-04-15,"إبراهيم أبو بكر",UNIFORM,5000,
+2026-04-19,"هاجر دنميرومو",SCHOOL_FEE,3000,"Dan Maironmo fee batch"
+2026-04-19,"مجيبة",SCHOOL_FEE,3000,"Dan Maironmo fee batch"
+2026-04-19,"مريم دنميرومو",SCHOOL_FEE,3000,"Dan Maironmo fee batch"
+2026-04-19,"فاطمة دنميرومو",SCHOOL_FEE,3000,"Dan Maironmo fee batch"
+2026-04-19,"عبد السلام دنميرومو",SCHOOL_FEE,3000,"Dan Maironmo fee batch"
+2026-04-19,"محمد دنميرومو",SCHOOL_FEE,3000,"Dan Maironmo fee batch"
+2026-04-25,"أنس إبراهيم",SCHOOL_FEE,3000,
+2026-04-25,"بلقيس إبراهيم",SCHOOL_FEE,2000,"Partial school fee"
+2026-04-28,"مؤمنة عبد الكبير",SCHOOL_FEE,3000,
+2026-04-28,"عبد الملك عبد الكبير",SCHOOL_FEE,2000,"First partial payment"
+2026-04-28,"أسماء جامع",SCHOOL_FEE,3000,
+2026-04-28,"عبد القادر جامع",SCHOOL_FEE,3000,
+2026-05-02,"عبد السلام إسماعيل",ENTRANCE_FORM,1000,
+2026-05-02,"عبد الملك محمد",ENTRANCE_FORM,1000,
+2026-05-02,"جامع مرتضى",ENTRANCE_FORM,1000,
+2026-05-09,"عبد السلام إسماعيل",SCHOOL_FEE,3000,
+2026-05-09,"عبد الملك محمد",SCHOOL_FEE,3000,
+2026-05-10,"مريم محمد",ENTRANCE_FORM,1000,
+2026-05-15,"مختار إيشولا",SCHOOL_FEE,3000,"Family spelling corrected from إيشولى to إيشولا"
+2026-05-15,"عبد الله إيشولا",SCHOOL_FEE,3000,"Family spelling corrected from إيشولى to إيشولا"
+2026-05-19,"عبد الخالق معروف",SCHOOL_FEE,3000,
+2026-06-09,"حليمة",SCHOOL_FEE,3000,"Short name; manual matching required"
+2026-06-09,"محمد",SCHOOL_FEE,3000,"Short name; manual matching required"
+2026-06-09,"حسينة",SCHOOL_FEE,3000,"Short name; manual matching required"
+2026-06-12,"زينب حسن",SCHOOL_FEE,3000,
+2026-06-12,"رقية حسن",SCHOOL_FEE,3000,
+2026-06-13,"توفيقة عبد الأول",SCHOOL_FEE,2000,"Partial school fee"
+2026-06-13,"عائشة عبد الأول",SCHOOL_FEE,3000,
+2026-06-13,"آدم إلياس",SCHOOL_FEE,3000,
+2026-06-13,"زينب عبد القادر",SCHOOL_FEE,3000,
+2026-06-13,"محمد ناصر عبد القادر",SCHOOL_FEE,3000,
+2026-06-13,"عبد الملك عبد الكبير",SCHOOL_FEE,1000,"Second partial payment; cumulative fee is 3000"
+2026-06-13,"مريم عبد الكبير",SCHOOL_FEE,3000,
+2026-06-13,"أمير مبارك سعد",SCHOOL_FEE,3000,
+2026-06-13,"رشيد مبارك سعد",SCHOOL_FEE,3000,
+2026-06-13,"عبد القادر علي سعد",SCHOOL_FEE,3000,
+2026-06-13,"حنيفة سليمان",SCHOOL_FEE,3000,
+2026-06-13,"عثمان سليمان",SCHOOL_FEE,3000,
+2026-06-13,"ريحانة سليمان",SCHOOL_FEE,2000,"Partial school fee"
+2026-06-13,"يوسف آدم",SCHOOL_FEE,3000,
+2026-06-13,"إبراهيم آدم",SCHOOL_FEE,3000,
+2026-06-13,"حليمة محمد",SCHOOL_FEE,3000,
+2026-06-13,"بللو محمد",SCHOOL_FEE,3000,
+2026-06-13,"ناصر محمد",SCHOOL_FEE,3000,
+2026-06-13,"نفيسة عيسى",SCHOOL_FEE,3000,
+2026-06-13,"رقيبة يحيى",SCHOOL_FEE,3000,
+2026-06-13,"مريم عبد القادر",SCHOOL_FEE,3000,
+2026-06-13,"عبد المتين يحيى",SCHOOL_FEE,3000,
+2026-06-13,"مرزوقة يحيى",SCHOOL_FEE,3000,
+2026-06-13,"عمر فاروق سعيد",SCHOOL_FEE,3000,
+2026-06-14,"مريم إيشولا",SCHOOL_FEE,3000,"Uses corrected family spelling إيشولا"
+2026-06-14,"عبد الرحمان محمد",SCHOOL_FEE,3000,"Preserves user-entered spelling"
+2026-06-14,"إسماعيل محمد",SCHOOL_FEE,3000,
+2026-06-16,"حسن ميماسا",SCHOOL_FEE,3000,
+2026-06-16,"حسين ميماسا",SCHOOL_FEE,3000,
+2026-06-16,"عبد القادر ميماسا",SCHOOL_FEE,3000,
+2026-06-16,"أسماء ميماسا",SCHOOL_FEE,3000,
+2026-06-22,"صفية مصلح الدين",SCHOOL_FEE,3000,"Date corrected by user to 22 Jun"

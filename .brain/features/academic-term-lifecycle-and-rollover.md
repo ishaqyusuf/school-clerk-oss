@@ -33,6 +33,14 @@ The lifecycle field remains nullable for legacy terms. When no canonical active 
 8. Activation atomically closes the previous active term, activates the target, updates the school pointer, and records an activity.
 9. An active term may also be closed explicitly after its finance ledger is closed.
 
+## Term Reset
+
+- An Admin may preview and reset a `DRAFT` or `READY` term from the academic dashboard.
+- The preview shows affected subjects, student term sheets, teacher assignments, attendance sessions, assessment access/workbook artifacts, and finance blockers.
+- Reset requires the exact typed phrase `I APPROVE RESET`; the API validates the phrase independently of the modal.
+- `ACTIVE` and `CLOSED` terms are protected. Any term-scoped finance record blocks reset, and accounting history is never removed.
+- The reset transaction soft-deletes term-scoped academic working data, clears setup-run/workbook replay identities, returns the term to `DRAFT`, clears lifecycle completion timestamps, and writes an activity audit containing the affected counts.
+
 During first-school onboarding, the standard three-term structure is prefilled.
 The first term is prepared with an explicit empty source and activated before
 the workflow advances to classroom setup.
@@ -54,6 +62,12 @@ term's setup route. Required calendar validation is visible and accessible.
 - Same-session rollover may create target `StudentTermForm` rows and apply active fee histories once.
 - Cross-session direct student copying is blocked because progression may change class placement.
 - Cross-session setup hands the administrator to the promotion workflow; activation remains blocked when the source has students and the target has none.
+
+## Legacy Classroom References
+
+- Rollover resolves every classroom and department referenced by selected subjects, students, and teacher assignments, including legacy records that still point to a classroom structure from an older session.
+- Referenced legacy classrooms are matched to the target session by normalized classroom and department names. The target term always writes against the target session's canonical classroom departments instead of preserving stale cross-session references.
+- Same-session setup continues to reuse classroom structure without duplication, while cross-session setup can map legacy dependencies onto matching or newly copied target classrooms.
 
 ## Idempotency And Audit
 
@@ -79,11 +93,13 @@ New attendance sessions store `sessionTermId` directly so closure checks and his
 ## Key Files
 
 - `apps/api/src/db/queries/academic-term-setup.ts`
+- `apps/api/src/db/queries/academic-term-reset.ts`
 - `apps/api/src/db/queries/academic-term-setup.test.ts`
 - `apps/api/src/trpc/schemas/academic-term-setup.ts`
 - `apps/api/src/trpc/routers/academics.routes.ts`
 - `apps/dashboard/src/components/configure-term.tsx`
 - `apps/dashboard/src/components/configure-term-import.tsx`
+- `apps/dashboard/src/app/[domain]/(sidebar)/academic/(dashboard)/page.tsx`
 - `apps/dashboard/src/components/forms/academic-term-form.tsx`
 - `apps/dashboard/src/components/forms/academic-session-form.tsx`
 - `packages/ui/src/components/controls/form-date.tsx`
@@ -110,3 +126,8 @@ New attendance sessions store `sessionTermId` directly so closure checks and his
   setup receipt.
 - Browser QA removed both temporary terms, their setup run, and its audit event;
   the tenant returned to its original three sessions and nine terms.
+- A 2026-07-21 regression probe against the real Daarul Hadith draft mapped 39
+  legacy subject classroom references onto the current session structure. The
+  preview returned zero blockers for 77 subjects, 46 assessment templates, 183
+  students, and 3 teachers, and authenticated browser QA showed an enabled
+  `Apply rollover` action without mutating the draft.

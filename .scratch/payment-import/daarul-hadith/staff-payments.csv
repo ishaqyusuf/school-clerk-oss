@@ -1,0 +1,32 @@
+date,staff_name,payment_type,amount,source_note
+,"أ. محمد",WAGE,5000,"Date not stated; initial wage batch 1"
+,"أ. مبارك",WAGE,5000,"Date not stated; initial wage batch 1"
+,"أ. إبراهيم",WAGE,4000,"Date not stated; initial wage batch 1"
+,"أ. إصلاح",WAGE,5000,"Date not stated; initial wage batch 1"
+,"أ. محمد",WAGE,5000,"Date not stated; initial wage batch 2"
+,"أ. مبارك",WAGE,5000,"Date not stated; initial wage batch 2"
+,"أ. إبراهيم",WAGE,4000,"Date not stated; initial wage batch 2"
+,"أ. إصلاح",WAGE,4000,"Date not stated; initial wage batch 2"
+2026-04-14,"أ. محمد",WAGE,5000,"Explicitly marked paid"
+2026-04-17,"أ. مبارك",WAGE,6000,"Allocated from 14500 Ustaadh group payment"
+2026-04-17,"أ. إبراهيم",WAGE,4500,"Allocated from 14500 Ustaadh group payment"
+2026-04-17,"أ. إصلاح",WAGE,4000,"Allocated from 14500 Ustaadh group payment"
+2026-04-26,"أ. محمد",WAGE,10000,"Full payable settlement after a mistaken 2500 entry was cancelled"
+,"أ. محمد",WAGE,10000,"Exact date not stated; entered between 2026-05-02 and 2026-05-09"
+,"أ. إصلاح",WAGE,10000,"Exact date not stated; entered between 2026-05-02 and 2026-05-09"
+,"أ. إبراهيم",WAGE,10000,"Exact date not stated; entered between 2026-05-02 and 2026-05-09"
+,"أ. مبارك",WAGE,15000,"Exact date not stated; entered between 2026-05-02 and 2026-05-09"
+2026-05-14,"أ. محمد",WAGE,10000,"Date corrected by user to 14 May"
+2026-05-14,"أ. مبارك",WAGE,15000,"Date corrected by user to 14 May"
+2026-05-14,"أ. إصلاح",WAGE,12000,"Date corrected by user to 14 May"
+2026-05-14,"أ. إبراهيم",WAGE,10000,"Date corrected by user to 14 May"
+2026-05-25,"أ. محمد",WAGE,10000,
+2026-05-25,"أ. مبارك",WAGE,15000,
+2026-05-25,"أ. إصلاح",WAGE,10000,
+2026-05-25,"أ. إبراهيم",WAGE,10000,
+2026-06-15,"أ. محمد",WAGE,10000,
+2026-06-18,"أ. مبارك",WAGE,17000,
+2026-06-18,"أ. إصلاح",WAGE,15000,
+2026-06-23,"أ. محمد",WAGE,5000,"Repeated message on same date deduplicated as one payment"
+2026-06-25,"أ. إصلاح",WAGE,15000,
+2026-06-25,"أ. مبارك",WAGE,15000,

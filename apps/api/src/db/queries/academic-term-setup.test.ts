@@ -15,7 +15,10 @@ import {
 process.env.DATABASE_URL ??=
   "postgresql://postgres:postgres@127.0.0.1:55432/school_clerk";
 
-function createSetupContext({ targetSessionId = "session-1" } = {}) {
+function createSetupContext({
+  targetSessionId = "session-1",
+  legacySubjectClassroom = false,
+} = {}) {
   const now = new Date("2026-01-01T00:00:00.000Z");
   const terms = [
     {
@@ -69,12 +72,22 @@ function createSetupContext({ targetSessionId = "session-1" } = {}) {
       {
         id: "department-subject-source",
         subjectId: "subject-1",
-        classRoomDepartmentId: "department-1",
+        classRoomDepartmentId: legacySubjectClassroom
+          ? "legacy-department-1"
+          : "department-1",
         description: "Mathematics",
         subject: { title: "Mathematics" },
         classRoomDepartment: {
+          id: legacySubjectClassroom
+            ? "legacy-department-1"
+            : "department-1",
           departmentName: "A",
-          classRoom: { id: "class-1", name: "JSS 1" },
+          departmentLevel: 1,
+          classRoom: {
+            id: legacySubjectClassroom ? "legacy-class-1" : "class-1",
+            name: "JSS 1",
+            classLevel: 1,
+          },
         },
         assessments: [
           {
@@ -103,8 +116,10 @@ function createSetupContext({ targetSessionId = "session-1" } = {}) {
           otherName: null,
         },
         classroomDepartment: {
+          id: "department-1",
           departmentName: "A",
-          classRoom: { id: "class-1", name: "JSS 1" },
+          departmentLevel: 1,
+          classRoom: { id: "class-1", name: "JSS 1", classLevel: 1 },
         },
       },
     ],
@@ -121,6 +136,12 @@ function createSetupContext({ targetSessionId = "session-1" } = {}) {
           {
             classRoomDepartmentId: "department-1",
             subjectAccessMode: "SELECTED",
+            classRoomDepartment: {
+              id: "department-1",
+              departmentName: "A",
+              departmentLevel: 1,
+              classRoom: { id: "class-1", name: "JSS 1", classLevel: 1 },
+            },
           },
         ],
         academicAccessGrants: [
@@ -130,6 +151,13 @@ function createSetupContext({ targetSessionId = "session-1" } = {}) {
             classRoomDepartmentId: "department-1",
             subjectId: "subject-1",
             departmentSubjectId: "department-subject-source",
+            classRoom: null,
+            classRoomDepartment: {
+              id: "department-1",
+              departmentName: "A",
+              departmentLevel: 1,
+              classRoom: { id: "class-1", name: "JSS 1", classLevel: 1 },
+            },
           },
         ],
       },
@@ -524,6 +552,25 @@ describe("academic term setup", () => {
 
     expect(preview.blockers).toContainEqual(
       expect.objectContaining({ key: "teacher-classroom-not-mapped" }),
+    );
+  });
+
+  test("maps legacy classroom dependencies onto the current session structure", async () => {
+    const { ctx, state } = createSetupContext({
+      legacySubjectClassroom: true,
+    });
+
+    const preview = await previewAcademicTermSetup(ctx, setupInput);
+
+    expect(preview.blockers).toEqual([]);
+
+    await applyAcademicTermSetup(ctx, {
+      ...setupInput,
+      idempotencyKey: "legacy-classroom-rollover",
+    });
+
+    expect(state.targetSubjects).toContainEqual(
+      expect.objectContaining({ classRoomDepartmentId: "department-1" }),
     );
   });
 

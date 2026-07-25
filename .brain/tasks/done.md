@@ -405,6 +405,16 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: FIN-PAY-IMPORT-001
+- Title: Durable Student And Staff Payment Import
+- Completed: 2026-07-23
+- Outcome: Added strict minimal student/staff CSV parsing with optional source notes, global term confirmation, Arabic-aware matching with full tenant-scoped manual selection, stream/item and term-sheet verification, grouped review/skip/duplicate decisions, durable Trigger.dev execution, configured-charge partial-payment reconciliation, row locking, refresh recovery, failed-row retry, result CSV export, canonical finance writes, and role-gated finance-page entry points. Extracted Daarul Hadith sources remain under `.scratch/payment-import/daarul-hadith` as two term-specific student files and one staff file for reviewed import.
+- Validation: Reconciled 91 student rows totaling NGN 248,200 and 31 staff rows totaling NGN 280,500; Prisma generation and local/production schema pushes; API/dashboard typechecks; 13 focused tests with 49 assertions; dashboard production build; and clean diff whitespace check. The jobs package still reports its pre-existing package-wide NodeNext/shared-source typing baseline, and authenticated browser QA was not run because no reusable cmux development stack was available.
+- Related changes: `packages/db/src/schema/finance-payment-import.prisma`, `apps/api/src/db/queries/payment-import.ts`, `apps/dashboard/src/components/modals/payment-import`, `packages/jobs/src/tasks/process-finance-payment-import-job.ts`, `.brain/features/payment-import.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: STUD-IMP-002
 - Title: Student Import Verification And Matching Service
 - Completed: 2026-06-13
@@ -431,6 +441,14 @@ Record of completed tasks and delivery outcomes.
 - Owner: Antigravity/OpenCode, landed by Codex
 
 ## Completed Task
+
+- ID: ACADEMIC-TERM-RESET-001
+- Title: Confirmed Academic Term Reset
+- Completed: 2026-07-25
+- Outcome: Added an Admin-only impact preview and exact typed-confirmation reset for draft/ready terms. The serializable reset clears term-scoped academic setup data, returns the term to `DRAFT`, records an audit, protects active/closed terms, and blocks any term with finance records.
+- Validation: Focused reset/setup tests and API/dashboard typechecks.
+- Related changes: `apps/api/src/db/queries/academic-term-reset.ts`, `apps/api/src/trpc/routers/academics.routes.ts`, `apps/dashboard/src/app/[domain]/(sidebar)/academic/(dashboard)/page.tsx`, `.brain/features/academic-term-lifecycle-and-rollover.md`
+- Owner: Codex
 
 - ID: 2026-06-12-school-clerk-empty-report-spreadsheet-print
 - Title: Admin Empty Classroom Report Spreadsheet Print

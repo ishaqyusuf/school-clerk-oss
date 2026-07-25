@@ -1,5 +1,6 @@
 import { FinanceChargesPage } from "@/components/finance/finance-charges-page";
 import { ReceivePaymentAction } from "@/components/finance/finance-page-actions";
+import { PaymentImportAction } from "@/components/finance/payment-import-action";
 
 export default async function Page() {
 	return (
@@ -7,7 +8,12 @@ export default async function Page() {
 			title="Student Balances"
 			subtitle="Review student receivables and outstanding balances before collection."
 			filter={{ payerType: "STUDENT" }}
-			headerAction={<ReceivePaymentAction />}
+			headerAction={
+				<div className="flex flex-wrap gap-2">
+					<PaymentImportAction mode="STUDENT" />
+					<ReceivePaymentAction />
+				</div>
+			}
 			tableTitle="Student Receivables"
 			tableDescription="Student charges and outstanding balances ready for collection."
 			searchPlaceholder="Search students or balances"

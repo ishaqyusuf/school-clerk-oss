@@ -30,10 +30,10 @@ Operational rules for AI agents contributing to this repository.
 - Local Postgres startup is owned by `scripts/start-dev-services.sh`; it starts Docker only when the selected DB mode or URL is local and skips local services for remote development DBs.
 - Keep `packages/db` and `packages/jobs` scripts on the shared dev-infra resolver for development, and keep production commands on `with-root-env --mode production`.
 - Current Portless local app names: dashboard -> `school-clerk-dashboard`, marketing -> `school-clerk`, school-site -> `school-clerk-site`, api -> `api`.
-- Local Portless-backed scripts bind the shared HTTPS proxy through `SCHOOL_CLERK_PORTLESS_PROXY_PORT`, defaulting to standard port `443`; do not force `PORTLESS_HTTPS=0` or a visible development proxy port such as `1355`.
+- Local Portless-backed scripts reuse the active shared HTTPS wildcard proxy; do not set `PORTLESS_PORT` or `PORTLESS_HTTPS` in workspace dev scripts.
 - School-site local dev runs behind Portless at `school-clerk-site.localhost` with its Next app port set to `2400`.
-- Website work uses port-free Portless URLs: `https://school-clerk.localhost`, `https://<tenant>.school-clerk-dashboard.localhost`, and `https://<tenant>.school-clerk-site.localhost`.
-- Treat any named Portless host that gains an explicit port, such as `school-clerk.localhost:1441`, as a blocking bug. Diagnose and fix the Portless setup before proceeding with website work.
+- Website work uses the HTTPS URLs reported by the active Portless proxy for `school-clerk`, `<tenant>.school-clerk-dashboard`, and `<tenant>.school-clerk-site`.
+- Reuse the active shared proxy configuration, including its selected proxy port. Do not stop or reconfigure it solely to change how the URL is displayed.
 - Dashboard tenant development hosts resolve as `<tenant>.school-clerk-dashboard.localhost`; keep host parsing and cookie lookup aligned with that format.
 - After every Prisma schema/database update, run only `bun run db:push --local` and `bun run db:push --prod`. Do not run `db:migrate`, create migration files, or push to the remote-development profile unless the user explicitly requests it.
 - Internal dashboard navigation should use proxy-relative product routes such as `/finance`, `/students`, `/academic`, etc. Do not hardcode `/dashboard/...` into hrefs or router pushes, because tenant/domain proxying already handles the dashboard mount.

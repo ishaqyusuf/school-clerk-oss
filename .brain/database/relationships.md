@@ -83,6 +83,14 @@ Describes entity relationships and cardinality constraints.
 - `StaffProfile` 1:N `FinancePayrollStructure`; each payroll structure can generate or guide `FinanceCharge` salary/wage obligations through `FinanceCharge.payrollStructureId`.
 - `FinanceStream` 1:N `FinancePayrollStructure` and `FinancePurchase`; salary/wage and purchase/project activity is always attributed to a stream/account for term ledger and account statement reporting.
 - `FinancePurchase` may link 1:1 to `FinanceCharge` and 1:1 to `FinancePayment`; unpaid purchases have a charge without a payment, while immediately paid purchases link both.
+- `FinancePaymentImportJob` 1:N `FinancePaymentImportJobRow`; the job owns the
+  global tenant/session/term context and each row owns its review decisions and
+  execution result ids. Result ids intentionally remain scalar audit links so
+  canonical finance record lifecycle does not cascade into import history.
+- One imported job row creates one `FinancePayment`, allocation, and ledger
+  entry. Multiple configured-item rows may allocate to the same
+  `FinanceCharge`, which preserves partial receipt history while settling one
+  student obligation.
 
 ## Integrity Rules
 

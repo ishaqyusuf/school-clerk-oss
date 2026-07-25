@@ -342,3 +342,13 @@ Change log for database schema migrations and rollout notes.
 - Backfill required: No; existing imported URL assets continue to work without storage metadata.
 - Rollback plan: Revert blob upload flows, remove storage metadata columns, and keep legacy URL-based media selection for website templates.
 - Owner: Codex
+## Migration Entry
+
+- Date: 2026-07-23
+- ID: schema-push-20260723_finance_payment_import_jobs
+- Summary: Added durable student-payment and staff-wage import job/row models plus finance payment import activity types.
+- Affected entities: `FinancePaymentImportJob`, `FinancePaymentImportJobRow`, `ActivityType`
+- Backfill required: No. Existing finance records remain canonical and unchanged; job rows are created only for new imports.
+- Rollback plan: Remove dashboard/API/Trigger use of payment imports, regenerate Prisma Client, then drop the payment import tables and enums/activity values.
+- Owner: Codex
+- Note: `bun run db:generate`, `bun run db:push --local`, and `bun run db:push --prod` completed successfully after the final activity-enum audit. No migration files were created.

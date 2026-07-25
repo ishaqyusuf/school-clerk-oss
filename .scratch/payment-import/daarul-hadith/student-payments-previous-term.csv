@@ -1,0 +1,3 @@
+date,student_name,payment_type,amount,source_note
+2026-04-15,"إبراهيم أبو بكر",SCHOOL_FEE,3000,"Collected on this date for the previous term"
+2026-04-15,"مؤمنة أبو بكر",SCHOOL_FEE,3000,"Collected on this date for the previous term"

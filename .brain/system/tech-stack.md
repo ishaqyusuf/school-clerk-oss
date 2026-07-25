@@ -29,7 +29,7 @@ Source of truth for frameworks, runtimes, libraries, and infrastructure choices.
 - CI/CD: TODO:
 - Storage: PostgreSQL primary store
 - Monitoring: TODO:
-- Local named-host dev: Portless-capable workspace scripts use the shared HTTPS proxy on standard port `443`. Agents do not launch dev directly; when dev is required and not already running, they create a new tab in the already-open cmux session and run `jd school-clerk dev --local -f marketing dashboard school-site`. Website QA uses `https://school-clerk.localhost`, `https://<tenant>.school-clerk-dashboard.localhost`, and `https://<tenant>.school-clerk-site.localhost` without visible port numbers. An explicit port on a named host is a blocking Portless defect.
+- Local named-host dev: Portless-capable workspace scripts reuse the active shared HTTPS wildcard proxy without forcing a proxy port or TLS mode. Agents do not launch dev directly; when dev is required and not already running, they create a new tab in the already-open cmux session and run `jd school-clerk dev --local -f marketing dashboard school-site`. Website QA uses the URLs reported by Portless for `school-clerk`, tenant dashboard hosts, and tenant school-site hosts.
 
 ## Security
 - Authentication: Better Auth

@@ -1,0 +1,77 @@
+enum FinancePaymentImportMode {
+  STUDENT
+  STAFF
+}
+
+enum FinancePaymentImportJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  COMPLETED_WITH_FAILURES
+  FAILED
+  CANCELLED
+}
+
+enum FinancePaymentImportJobRowStatus {
+  PENDING
+  RUNNING
+  IMPORTED
+  SKIPPED
+  FAILED
+}
+
+model FinancePaymentImportJob {
+  id                String                        @id @default(uuid())
+  schoolProfileId   String
+  schoolSessionId   String
+  sessionTermId     String
+  createdByUserId   String?
+  mode              FinancePaymentImportMode
+  method            String?
+  sourceFileName    String?
+  status            FinancePaymentImportJobStatus @default(PENDING)
+  totalRows         Int                           @default(0)
+  processedRows     Int                           @default(0)
+  importedRows      Int                           @default(0)
+  skippedRows       Int                           @default(0)
+  failedRows        Int                           @default(0)
+  totalAmount       Decimal                       @default(0) @db.Decimal(14, 2)
+  importedAmount    Decimal                       @default(0) @db.Decimal(14, 2)
+  errorMessage      String?
+  triggerRunId      String?
+  createdAt         DateTime?                     @default(now()) @db.Timestamp(0)
+  updatedAt         DateTime?                     @updatedAt
+  deletedAt         DateTime?                     @db.Timestamp(0)
+  rows              FinancePaymentImportJobRow[]
+
+  @@index([schoolProfileId, createdByUserId, status, createdAt])
+  @@index([schoolProfileId, createdAt])
+}
+
+model FinancePaymentImportJobRow {
+  id                String                           @id @default(uuid())
+  jobId             String
+  job               FinancePaymentImportJob          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  lineNumber        Int
+  status            FinancePaymentImportJobRowStatus @default(PENDING)
+  payload           Json
+  fingerprint       String
+  counterpartyId    String?
+  studentTermFormId String?
+  streamId          String?
+  itemId            String?
+  chargeId          String?
+  paymentId         String?
+  allocationId      String?
+  ledgerEntryId     String?
+  reason            String?
+  completedAt       DateTime?                        @db.Timestamp(0)
+  createdAt         DateTime?                        @default(now()) @db.Timestamp(0)
+  updatedAt         DateTime?                        @updatedAt
+  deletedAt         DateTime?                        @db.Timestamp(0)
+
+  @@unique([jobId, lineNumber])
+  @@index([jobId, status, lineNumber])
+  @@index([jobId, fingerprint])
+  @@index([paymentId])
+}

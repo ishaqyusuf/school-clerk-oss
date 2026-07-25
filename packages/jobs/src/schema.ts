@@ -1,15 +1,17 @@
-import { z } from "zod";
 import {
+  processFinancePaymentImportJobTaskId,
   processStudentImportJobTaskId,
   sendStaffInvitationEmailTaskId,
 } from "@school-clerk/utils/task-contracts";
+import { z } from "zod";
 
 // import { salesQueryParamsSchema } from "@api/schemas/sales";
 
 export const taskNames = [
   "create-sales-dispatch",
-  "send-staff-invitation-email",
-  "process-student-import-job",
+  sendStaffInvitationEmailTaskId,
+  processStudentImportJobTaskId,
+  processFinancePaymentImportJobTaskId,
   "create-sales-history",
   "mark-sales-as-completed",
   "sales-online-payment-action-notification",
@@ -45,6 +47,12 @@ export const processStudentImportJobSchema = z.object({
 });
 export type ProcessStudentImportJobPayload = z.infer<
   typeof processStudentImportJobSchema
+>;
+export const processFinancePaymentImportJobSchema = z.object({
+  jobId: z.string().min(1),
+});
+export type ProcessFinancePaymentImportJobPayload = z.infer<
+  typeof processFinancePaymentImportJobSchema
 >;
 export const createSalesDispatchSchemaTask = z.object({});
 export type CreateSalesDispatchSchemaTask = z.infer<

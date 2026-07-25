@@ -452,6 +452,30 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: missing tenant context, unauthorized finance write access, missing/invalid student or term sheet, payment amount not positive, amount paid greater than amount due, overpayment against an existing charge, configured item not active/collectable/applicable to the student.
 - Notes: simplified cashier submit adapter. It can pay an existing outstanding charge, create a charge from a configured collectable finance item, or quick-create a one-off/simple collection charge under an existing or newly named finance stream before recording the payment. `termId` / `sessionId` are treated as the collected-in term/session for the payment and ledger entry, while the charge keeps the paid-for term.
 
+- Route: `finance.verifyPaymentImport`
+- Request schema: `{ mode: "STUDENT" | "STAFF", termId, rows[] }`; normalized rows contain `lineNumber`, `paymentDate?`, `counterpartyName`, `paymentType`, `amount`, optional `sourceNote`, optional reviewed `counterpartyId` / `streamId` / `itemId`, and internal `allowDuplicate` / `skip` decisions.
+- Response schema: selected session/term context, tenant-scoped counterparties, eligible finance streams/items, verified rows with ranked candidates, selected term-sheet id, blockers, duplicate flag/fingerprint, status, and aggregate ready/attention/skipped totals.
+- Error cases: missing tenant context, unauthorized finance write access, invalid term, unsupported mode/payment-type combination.
+- Notes: verification is read-only. It normalizes Arabic name variants, requires selected-term student sheets, enforces CREDIT streams for student collections and DEBIT streams for staff wages, scopes optional items to the tenant/account/term and student classroom applicability, and requires explicit duplicate confirmation for matching included rows in the file or prior imported jobs.
+
+- Route: `finance.startPaymentImportJob`
+- Request schema: `{ mode, termId, method?, sourceFileName?, rows[] }`; every execution row requires an exact date, matched counterparty, and finance stream.
+- Response schema: persisted payment-import job with progress counters, amounts, source metadata, and row-level status/result ids.
+- Error cases: all verification errors plus unresolved rows, duplicate line numbers, missing student term sheet, and Trigger queue failures.
+- Notes: the selected term applies globally to every row. Skipped rows may remain unresolved and are persisted as skipped; all included rows are re-verified server-side. The procedure creates `FinancePaymentImportJob` / `FinancePaymentImportJobRow`, records creation activity, and queues `process-finance-payment-import-job`.
+
+- Route: `finance.getPaymentImportJob`
+- Request schema: optional `{ jobId?: string }`; omission returns the current user's latest tenant job.
+- Response schema: job context/status, progress and amount totals, Trigger run id, error message, and ordered rows with payload, result ids, and failure reason.
+- Error cases: missing tenant context, unauthorized finance write access, or an explicit job not owned by the active tenant.
+- Notes: the durable worker writes a payment, allocation, ledger entry, and created/updated charge per row in one transaction. Configured student items use an existing applicable outstanding charge where available, preserving separate partial-payment rows. A job-row database lock plus `payment-import:<job-row-id>` reference makes replay safe. The latest active/failed job supports refresh recovery, and terminal results include ids needed for CSV export.
+
+- Route: `finance.retryPaymentImportJob`
+- Request schema: `{ jobId }`
+- Response schema: the updated payment-import job and ordered row results.
+- Error cases: unauthorized finance write access, foreign/non-retryable job, or no failed/pending/interrupted rows.
+- Notes: imported and skipped rows remain terminal. Only failed, pending, or interrupted rows are reset and re-queued; retry and row failures create finance import activity records.
+
 - Route: `finance.getTermLedger`
 - Request schema: `{ termId?, sessionId? }`
 - Response schema: derived term-ledger payload with term/session identity, status label, account/stream summaries, money in/out, available balance, deficit count/amount, outstanding payable count/amount, needs-funding account count, lifecycle metadata, and permission flags.
@@ -679,6 +703,18 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `termId`
 - Response schema: `{ success: true }`
 - Error cases: term is not active, finance ledger is not closed, tenant/role mismatch
+
+- Route: `academics.previewTermReset`
+- Request schema: `{ termId }`
+- Response schema: `{ term, counts, blockers, canReset, confirmationText }`, where counts cover subjects, student term sheets, teacher assignments, attendance sessions, assessment links/workbooks, and finance records.
+- Error cases: tenant/role mismatch, missing term, or an `ACTIVE`/`CLOSED` target.
+- Notes: finance data is reported as a blocker and is never deleted by term reset.
+
+- Route: `academics.resetTerm`
+- Request schema: `{ termId, confirmation: "I APPROVE RESET" }`
+- Response schema: `{ success: true, counts }`
+- Error cases: preview errors, finance records, or an incorrect confirmation phrase.
+- Notes: runs in a serializable transaction; soft-deletes term-scoped academic records, removes disposable setup/workbook identity records, returns the term to `DRAFT`, clears setup/lifecycle timestamps, and records an activity audit with impact counts.
 
 - Closed-term write contract: assessment setup/scores, workbook import, public-link/AI scores, attendance create/update/delete, and manual term enrollment reject `CLOSED` terms with `CONFLICT`.
 
