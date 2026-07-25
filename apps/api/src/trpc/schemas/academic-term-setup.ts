@@ -42,13 +42,15 @@ export const createAcademicTermDraftSchema = z
 export const saveAcademicTermDraftSchema = z
 	.object({
 		termId: z.string().min(1),
-		startDate: z.date(),
+		startDate: z.date().nullable(),
 		endDate: z.date().optional().nullable(),
 		note: z.string().trim().max(2_000).optional().nullable(),
 	})
 	.refine(
 		(value) =>
-			!value.endDate || value.endDate.getTime() >= value.startDate.getTime(),
+			!value.startDate ||
+			!value.endDate ||
+			value.endDate.getTime() >= value.startDate.getTime(),
 		{
 			message: "End date must be on or after the start date.",
 			path: ["endDate"],

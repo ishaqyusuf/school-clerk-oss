@@ -14,6 +14,7 @@ function createContext({
 	financeRecords?: number;
 } = {}) {
 	const calls: string[] = [];
+	const termUpdates: Array<Record<string, unknown>> = [];
 	const count = async () => 0;
 	const updateMany = async () => ({ count: 0 });
 	const deleteMany = async () => ({ count: 0 });
@@ -44,8 +45,9 @@ function createContext({
 				lifecycleStatus,
 				session: { title: "2025/2026" },
 			}),
-			update: async () => {
+			update: async ({ data }: { data: Record<string, unknown> }) => {
 				calls.push("term-reset");
+				termUpdates.push(data);
 				return {};
 			},
 		},
@@ -91,6 +93,7 @@ function createContext({
 	};
 	return {
 		calls,
+		termUpdates,
 		ctx: {
 			db,
 			currentUser: { id: "admin-1", name: "Admin", role: "Admin" },
@@ -125,7 +128,7 @@ describe("academic term reset", () => {
 	});
 
 	test("requires typed confirmation and records the reset audit", async () => {
-		const { ctx, calls } = createContext();
+		const { ctx, calls, termUpdates } = createContext();
 
 		await expect(
 			resetAcademicTerm(ctx, {
@@ -141,5 +144,10 @@ describe("academic term reset", () => {
 		expect(result.success).toBe(true);
 		expect(calls).toContain("term-reset");
 		expect(calls).toContain("academic_term_reset");
+		expect(termUpdates[0]).toMatchObject({
+			startDate: null,
+			endDate: null,
+			lifecycleStatus: "DRAFT",
+		});
 	});
 });

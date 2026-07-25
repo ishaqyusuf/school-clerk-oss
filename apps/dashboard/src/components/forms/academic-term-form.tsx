@@ -144,12 +144,22 @@ export function AcademicTermForm() {
             name="startDate"
             label="Start date"
             placeholder="Start date"
+            clearable
+            showToday
           />
           <FormDate
             control={form.control}
             name="endDate"
             label="End date"
             placeholder="End date"
+            clearable
+            showToday
+            calendarProps={{
+              disabled: (date) => {
+                const startDate = form.watch("startDate");
+                return !!startDate && date < startDate;
+              },
+            }}
           />
         </div>
 

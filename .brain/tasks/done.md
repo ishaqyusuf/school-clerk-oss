@@ -445,8 +445,8 @@ Record of completed tasks and delivery outcomes.
 - ID: ACADEMIC-TERM-RESET-001
 - Title: Confirmed Academic Term Reset
 - Completed: 2026-07-25
-- Outcome: Added an Admin-only impact preview and exact typed-confirmation reset for draft/ready terms. The serializable reset clears term-scoped academic setup data, returns the term to `DRAFT`, records an audit, protects active/closed terms, and blocks any term with finance records.
-- Validation: Focused reset/setup tests and API/dashboard typechecks.
+- Outcome: Added an Admin-only impact preview and exact typed-confirmation reset for draft/ready terms. The serializable reset clears term-scoped academic setup data and both calendar dates, returns the term to `DRAFT`, records an audit, protects active/closed terms, and blocks any term with finance records. Draft/ready term dates are independently clearable through the standardized shadcn calendar in creation, setup, and quick-edit flows.
+- Validation: Focused reset/setup/schema tests plus API/dashboard/UI typechecks.
 - Related changes: `apps/api/src/db/queries/academic-term-reset.ts`, `apps/api/src/trpc/routers/academics.routes.ts`, `apps/dashboard/src/app/[domain]/(sidebar)/academic/(dashboard)/page.tsx`, `.brain/features/academic-term-lifecycle-and-rollover.md`
 - Owner: Codex
 

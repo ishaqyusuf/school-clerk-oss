@@ -33,15 +33,15 @@ import { z } from "zod";
 
 const termDetailsSchema = z
   .object({
-    startDate: z.date({
-      required_error: "Term start date is required",
-    }),
+    startDate: z.date().nullable(),
     endDate: z.date().optional().nullable(),
     note: z.string().trim().max(2_000).optional().nullable(),
   })
   .refine(
     (value) =>
-      !value.endDate || value.endDate.getTime() >= value.startDate.getTime(),
+      !value.startDate ||
+      !value.endDate ||
+      value.endDate.getTime() >= value.startDate.getTime(),
     {
       message: "End date must be on or after the start date",
       path: ["endDate"],
@@ -58,7 +58,7 @@ export function ConfigureTerm({ termId }: { termId: string }) {
   const context = contextQuery.data;
   const form = useZodForm(termDetailsSchema, {
     defaultValues: {
-      startDate: undefined as unknown as Date,
+      startDate: null,
       endDate: null,
       note: "",
     },
@@ -69,7 +69,7 @@ export function ConfigureTerm({ termId }: { termId: string }) {
     form.reset({
       startDate: context.target.startDate
         ? new Date(context.target.startDate)
-        : (undefined as unknown as Date),
+        : null,
       endDate: context.target.endDate ? new Date(context.target.endDate) : null,
       note: context.target.note ?? "",
     });
@@ -181,6 +181,8 @@ export function ConfigureTerm({ termId }: { termId: string }) {
                 label="Term start date"
                 description="Academic activity begins on this date."
                 disabled={isLocked}
+                clearable
+                showToday
               />
               <FormDate
                 control={form.control}
@@ -188,6 +190,14 @@ export function ConfigureTerm({ termId }: { termId: string }) {
                 label="Term end date"
                 description="Academic activity ends on this date."
                 disabled={isLocked}
+                clearable
+                showToday
+                calendarProps={{
+                  disabled: (date) => {
+                    const startDate = form.watch("startDate");
+                    return !!startDate && date < startDate;
+                  },
+                }}
               />
             </div>
             <FormInput

@@ -15,7 +15,8 @@ import {
   RotateCcw,
   Info,
 } from "lucide-react";
-import { Card, Field } from "@school-clerk/ui/composite";
+import { Card } from "@school-clerk/ui/composite";
+import { FormDate } from "@school-clerk/ui/controls/form-date";
 import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
 import { Input } from "@school-clerk/ui/input";
@@ -37,7 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@school-clerk/ui/alert-dialog";
-import { Form, FormField } from "@school-clerk/ui/form";
+import { Form } from "@school-clerk/ui/form";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { _qc, _trpc } from "@/components/static-trpc";
@@ -51,25 +52,21 @@ import { useZodForm } from "@/hooks/use-zod-form";
 type DashboardTerm =
   RouterOutputs["academics"]["dashboard"]["sessions"][number]["terms"][number];
 
-const toDateInputValue = (value?: Date | string | null) => {
-  if (!value) return "";
-  return formatDate(new Date(value), "yyyy-MM-dd");
-};
-
-const fromDateInputValue = (value: string) => {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-};
-
 const termDateFormSchema = z
   .object({
-    startDate: z.string().min(1, "Start date is required"),
-    endDate: z.string().optional(),
+    startDate: z.date().nullable(),
+    endDate: z.date().optional().nullable(),
   })
-  .refine((value) => !value.endDate || value.endDate >= value.startDate, {
-    message: "End date must be after the start date",
-    path: ["endDate"],
-  });
+  .refine(
+    (value) =>
+      !value.startDate ||
+      !value.endDate ||
+      value.endDate.getTime() >= value.startDate.getTime(),
+    {
+      message: "End date must be on or after the start date",
+      path: ["endDate"],
+    },
+  );
 
 const Dashboard = () => {
   const { setParams } = useAcademicParams();
@@ -85,8 +82,8 @@ const Dashboard = () => {
   const [resetConfirmation, setResetConfirmation] = React.useState("");
   const termDateForm = useZodForm(termDateFormSchema, {
     defaultValues: {
-      startDate: "",
-      endDate: "",
+      startDate: null,
+      endDate: null,
     },
   });
   const { data: dashboard } = useQuery(
@@ -193,8 +190,8 @@ const Dashboard = () => {
   const openTermDateModal = (term: DashboardTerm) => {
     setTermDateModal(term);
     termDateForm.reset({
-      startDate: toDateInputValue(term.startDate),
-      endDate: toDateInputValue(term.endDate),
+      startDate: term.startDate ? new Date(term.startDate) : null,
+      endDate: term.endDate ? new Date(term.endDate) : null,
     });
   };
 
@@ -203,8 +200,8 @@ const Dashboard = () => {
 
     saveTermDates({
       termId: termDateModal.id,
-      startDate: fromDateInputValue(data.startDate),
-      endDate: data.endDate ? fromDateInputValue(data.endDate) : null,
+      startDate: data.startDate,
+      endDate: data.endDate,
     });
   });
 
@@ -573,45 +570,28 @@ const Dashboard = () => {
                   Update the start and end dates for {termDateModal?.title}.
                 </DialogDescription>
               </DialogHeader>
-              <Field.Group className="gap-4">
-                <FormField
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormDate
                   control={termDateForm.control}
                   name="startDate"
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={!!fieldState.error}>
-                      <Field.Label htmlFor="term-start-date">
-                        Start date
-                      </Field.Label>
-                      <Input
-                        id="term-start-date"
-                        type="date"
-                        aria-invalid={!!fieldState.error}
-                        {...field}
-                      />
-                      <Field.Error errors={[fieldState.error]} />
-                    </Field>
-                  )}
+                  label="Start date"
+                  clearable
+                  showToday
                 />
-                <FormField
+                <FormDate
                   control={termDateForm.control}
                   name="endDate"
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={!!fieldState.error}>
-                      <Field.Label htmlFor="term-end-date">
-                        End date
-                      </Field.Label>
-                      <Input
-                        id="term-end-date"
-                        type="date"
-                        min={termDateForm.watch("startDate") || undefined}
-                        aria-invalid={!!fieldState.error}
-                        {...field}
-                      />
-                      <Field.Error errors={[fieldState.error]} />
-                    </Field>
-                  )}
+                  label="End date"
+                  clearable
+                  showToday
+                  calendarProps={{
+                    disabled: (date) => {
+                      const startDate = termDateForm.watch("startDate");
+                      return !!startDate && date < startDate;
+                    },
+                  }}
                 />
-              </Field.Group>
+              </div>
               <DialogFooter>
                 <Button
                   type="button"
@@ -622,9 +602,7 @@ const Dashboard = () => {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={
-                    isSavingTermDates || !termDateForm.watch("startDate")
-                  }
+                  disabled={isSavingTermDates}
                 >
                   {isSavingTermDates ? "Saving..." : "Save dates"}
                 </Button>
@@ -678,8 +656,8 @@ const Dashboard = () => {
             <AlertDialogTitle>Reset {resetTermModal?.title}?</AlertDialogTitle>
             <AlertDialogDescription>
               This permanently clears this term&apos;s setup data and returns it
-              to an empty draft. Active, closed, and financially-used terms
-              cannot be reset.
+              to an empty draft. Its start and end dates are also removed.
+              Active, closed, and financially-used terms cannot be reset.
             </AlertDialogDescription>
           </AlertDialogHeader>
 

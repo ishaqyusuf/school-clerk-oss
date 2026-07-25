@@ -40,6 +40,14 @@ The lifecycle field remains nullable for legacy terms. When no canonical active 
 - Reset requires the exact typed phrase `I APPROVE RESET`; the API validates the phrase independently of the modal.
 - `ACTIVE` and `CLOSED` terms are protected. Any term-scoped finance record blocks reset, and accounting history is never removed.
 - The reset transaction soft-deletes term-scoped academic working data, clears setup-run/workbook replay identities, returns the term to `DRAFT`, clears lifecycle completion timestamps, and writes an activity audit containing the affected counts.
+- Reset also clears both the term start and end dates so the draft returns to a fully unscheduled state.
+
+## Term Calendar Editing
+
+- Draft and ready terms may be saved with no start date, no end date, or either date cleared independently.
+- Term creation, setup, and dashboard quick editing use the shared shadcn-style calendar with month/year dropdowns plus explicit Clear date and Today actions.
+- When a start date exists, the calendar disables earlier end dates and the API rejects an end date before the start date.
+- Rollover preparation may continue while a draft is unscheduled; activation still blocks until a start date is present.
 
 During first-school onboarding, the standard three-term structure is prefilled.
 The first term is prepared with an explicit empty source and activated before
@@ -47,7 +55,7 @@ the workflow advances to classroom setup.
 
 Term creation passes the current session explicitly into the create sheet,
 refreshes the academic dashboard cache, and navigates directly to the new
-term's setup route. Required calendar validation is visible and accessible.
+term's setup route. Calendar validation is visible and accessible.
 
 ## Teacher Semantics
 

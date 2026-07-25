@@ -304,6 +304,8 @@ export async function resetAcademicTerm(
 				where: { id: term.id },
 				data: {
 					lifecycleStatus: "DRAFT",
+					startDate: null,
+					endDate: null,
 					setupCompletedAt: null,
 					activatedAt: null,
 					activatedByUserId: null,
