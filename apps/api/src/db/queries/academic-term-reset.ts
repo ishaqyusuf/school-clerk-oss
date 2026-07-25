@@ -43,55 +43,57 @@ async function getFinanceRecordCount(
 	ctx: TRPCContext,
 	schoolProfileId: string,
 	termId: string,
+	options: { serial?: boolean } = {},
 ) {
-	const [
-		items,
-		charges,
-		collectedPayments,
-		ledgerEntries,
-		ledgerCloses,
-		payrollStructures,
-		purchases,
-	] = await Promise.all([
-		ctx.db.financeItem.count({
+	const countQueries = [
+		() =>
+			ctx.db.financeItem.count({
 			where: { schoolProfileId, sessionTermId: termId, deletedAt: null },
 		}),
-		ctx.db.financeCharge.count({
+		() =>
+			ctx.db.financeCharge.count({
 			where: { schoolProfileId, sessionTermId: termId, deletedAt: null },
 		}),
-		ctx.db.financePayment.count({
+		() =>
+			ctx.db.financePayment.count({
 			where: {
 				schoolProfileId,
 				collectedSessionTermId: termId,
 				deletedAt: null,
 			},
 		}),
-		ctx.db.financeLedgerEntry.count({
+		() =>
+			ctx.db.financeLedgerEntry.count({
 			where: {
 				schoolProfileId,
 				collectedSessionTermId: termId,
 				deletedAt: null,
 			},
 		}),
-		ctx.db.financeTermLedgerClose.count({
+		() =>
+			ctx.db.financeTermLedgerClose.count({
 			where: { schoolProfileId, sessionTermId: termId, deletedAt: null },
 		}),
-		ctx.db.financePayrollStructure.count({
+		() =>
+			ctx.db.financePayrollStructure.count({
 			where: { schoolProfileId, sessionTermId: termId, deletedAt: null },
 		}),
-		ctx.db.financePurchase.count({
+		() =>
+			ctx.db.financePurchase.count({
 			where: { schoolProfileId, sessionTermId: termId, deletedAt: null },
 		}),
-	]);
-	return (
-		items +
-		charges +
-		collectedPayments +
-		ledgerEntries +
-		ledgerCloses +
-		payrollStructures +
-		purchases
-	);
+	] as const;
+
+	if (options.serial) {
+		let total = 0;
+		for (const countQuery of countQueries) {
+			total += await countQuery();
+		}
+		return total;
+	}
+
+	const counts = await Promise.all(countQueries.map((countQuery) => countQuery()));
+	return counts.reduce((total, count) => total + count, 0);
 }
 
 export async function previewAcademicTermReset(
@@ -183,45 +185,43 @@ export async function resetAcademicTerm(
 			message: preview.blockers[0]?.message ?? "This term cannot be reset.",
 		});
 	}
-	const { schoolProfileId, term, user } = await loadResetTarget(
-		ctx,
-		input.termId,
-	);
 	const now = new Date();
 
 	const result = await ctx.db.$transaction(
 		async (tx) => {
-			const transactionPreview = await previewAcademicTermReset(
-				{ ...ctx, db: tx } as TRPCContext,
-				input,
+			const transactionContext = { ...ctx, db: tx } as TRPCContext;
+			const { schoolProfileId, term, user } = await loadResetTarget(
+				transactionContext,
+				input.termId,
 			);
-			if (transactionPreview.blockers.length) {
+			const financeRecords = await getFinanceRecordCount(
+				transactionContext,
+				schoolProfileId,
+				term.id,
+				{ serial: true },
+			);
+			if (financeRecords > 0) {
 				throw new TRPCError({
 					code: "CONFLICT",
-					message:
-						transactionPreview.blockers[0]?.message ??
-						"This term can no longer be reset.",
+					message: `${financeRecords} finance record${financeRecords === 1 ? "" : "s"} must be resolved before this term can be reset.`,
 				});
 			}
-			const [attendance, termForms, staffProfiles, subjects] =
-				await Promise.all([
-					tx.classRoomAttendance.findMany({
-						where: { schoolProfileId, sessionTermId: term.id, deletedAt: null },
-						select: { id: true },
-					}),
-					tx.studentTermForm.findMany({
-						where: { schoolProfileId, sessionTermId: term.id, deletedAt: null },
-						select: { id: true },
-					}),
-					tx.staffTermProfile.findMany({
-						where: { sessionTermId: term.id, deletedAt: null },
-						select: { id: true },
-					}),
-					tx.departmentSubject.findMany({
-						where: { sessionTermId: term.id, deletedAt: null },
-						select: { id: true },
-					}),
-				]);
+			const attendance = await tx.classRoomAttendance.findMany({
+				where: { schoolProfileId, sessionTermId: term.id, deletedAt: null },
+				select: { id: true },
+			});
+			const termForms = await tx.studentTermForm.findMany({
+				where: { schoolProfileId, sessionTermId: term.id, deletedAt: null },
+				select: { id: true },
+			});
+			const staffProfiles = await tx.staffTermProfile.findMany({
+				where: { sessionTermId: term.id, deletedAt: null },
+				select: { id: true },
+			});
+			const subjects = await tx.departmentSubject.findMany({
+				where: { sessionTermId: term.id, deletedAt: null },
+				select: { id: true },
+			});
 			const attendanceIds = attendance.map(({ id }) => id);
 			const termFormIds = termForms.map(({ id }) => id);
 			const staffTermProfileIds = staffProfiles.map(({ id }) => id);
@@ -325,13 +325,13 @@ export async function resetAcademicTerm(
 					meta: {
 						action: "academic_term_reset",
 						targetTermId: term.id,
-						counts: transactionPreview.counts,
+						counts: preview.counts,
 					},
 				},
 			});
-			return transactionPreview.counts;
+			return preview.counts;
 		},
-		{ isolationLevel: "Serializable", timeout: 60_000 },
+		{ isolationLevel: "Serializable", maxWait: 5_000, timeout: 50_000 },
 	);
 
 	return { success: true as const, counts: result };

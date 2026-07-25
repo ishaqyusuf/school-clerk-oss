@@ -12,6 +12,8 @@ export async function getTermListAction() {
   const sessions = await prisma.schoolSession.findMany({
     where: {
       schoolId: profile?.schoolId,
+      id: profile?.sessionId,
+      deletedAt: null,
     },
     select: {
       id: true,

@@ -23,6 +23,15 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: ACADEMIC-SESSION-SCOPED-TERM-SELECTORS-001
+- Title: Scope academic term selectors to the selected session
+- Completed: 2026-07-25
+- Outcome: Academic history now places unscheduled term drafts last, the header and shared report/assessment filters exclude unscheduled terms and show only the selected session's terms, and Academic Management can switch the workspace into another session through its earliest scheduled term.
+- Related changes: `apps/api/src/trpc/routers/academics.routes.ts`, `apps/api/src/trpc/routers/assessment.routes.ts`, `apps/dashboard/src/components/sidebar/term-switcher.tsx`, `apps/dashboard/src/actions/get-term-list.tsx`, `apps/dashboard/src/actions/cookies/auth-cookie.ts`, `apps/dashboard/src/app/[domain]/(sidebar)/academic/(dashboard)/page.tsx`, `.brain/features/academic-term-lifecycle-and-rollover.md`, `.brain/api/contracts.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: SCHOOL-SETTINGS-NAME-FORMAT-001
 - Title: Add tenant-wide student name format and Midday-style settings shell
 - Completed: 2026-07-19
@@ -445,8 +454,8 @@ Record of completed tasks and delivery outcomes.
 - ID: ACADEMIC-TERM-RESET-001
 - Title: Confirmed Academic Term Reset
 - Completed: 2026-07-25
-- Outcome: Added an Admin-only impact preview and exact typed-confirmation reset for draft/ready terms. The serializable reset clears term-scoped academic setup data and both calendar dates, returns the term to `DRAFT`, records an audit, protects active/closed terms, and blocks any term with finance records. Draft/ready term dates are independently clearable through the standardized shadcn calendar in creation, setup, and quick-edit flows.
-- Validation: Focused reset/setup/schema tests plus API/dashboard/UI typechecks.
+- Outcome: Added an Admin-only impact preview and exact typed-confirmation reset for draft/ready terms. The serializable reset clears term-scoped academic setup data and both calendar dates, returns the term to `DRAFT`, records an audit, protects active/closed terms, and blocks any term with finance records. Draft/ready term dates are independently clearable through the standardized shadcn calendar in creation, setup, and quick-edit flows. Follow-up production hardening removed concurrent queries from the single transaction connection, eliminated the `pg` client-query deprecation path, avoided repeating the full impact preview inside the transaction, and reserved response time beneath Vercel's 60-second deadline.
+- Validation: Focused reset/setup/schema tests plus API/dashboard/UI typechecks; the transaction-concurrency regression test passes.
 - Related changes: `apps/api/src/db/queries/academic-term-reset.ts`, `apps/api/src/trpc/routers/academics.routes.ts`, `apps/dashboard/src/app/[domain]/(sidebar)/academic/(dashboard)/page.tsx`, `.brain/features/academic-term-lifecycle-and-rollover.md`
 - Owner: Codex
 

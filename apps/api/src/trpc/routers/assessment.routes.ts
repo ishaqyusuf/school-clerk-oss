@@ -83,10 +83,16 @@ function findCurrentDatedTerm<
 }
 
 async function getReportTerms(ctx: Parameters<typeof getClassrooms>[0]) {
+  if (!ctx.profile.sessionId) return [];
+
   const terms = await ctx.db.sessionTerm.findMany({
     where: {
       schoolId: ctx.profile.schoolId,
+      sessionId: ctx.profile.sessionId,
       deletedAt: null,
+      startDate: {
+        not: null,
+      },
     },
     select: {
       id: true,

@@ -41,6 +41,7 @@ The lifecycle field remains nullable for legacy terms. When no canonical active 
 - `ACTIVE` and `CLOSED` terms are protected. Any term-scoped finance record blocks reset, and accounting history is never removed.
 - The reset transaction soft-deletes term-scoped academic working data, clears setup-run/workbook replay identities, returns the term to `DRAFT`, clears lifecycle completion timestamps, and writes an activity audit containing the affected counts.
 - Reset also clears both the term start and end dates so the draft returns to a fully unscheduled state.
+- Reset queries execute serially on Prisma's single interactive-transaction connection. The impact preview is captured before the transaction, while finance blockers are rechecked inside it without repeating the full preview. Explicit acquisition/execution limits leave time for the API to return a structured error before the Vercel request deadline.
 
 ## Term Calendar Editing
 
@@ -49,6 +50,13 @@ The lifecycle field remains nullable for legacy terms. When no canonical active 
 - Academic history keeps dates out of the table/card presentation. Midday-style Edit actions open one focused modal for renaming a draft/ready term or any tenant-owned session and updating or clearing its optional dates.
 - When a start date exists, the calendar disables earlier end dates and the API rejects an end date before the start date.
 - Rollover preparation may continue while a draft is unscheduled; activation still blocks until a start date is present.
+
+## Academic Context Selection
+
+- Academic session history sorts scheduled terms by start date and places unscheduled drafts at the end of each session.
+- The shared header term selector lists only scheduled terms belonging to the currently selected academic session.
+- Report, payment-import, and assessment term options use the same selected-session scope and exclude unscheduled drafts.
+- Academic Management provides an explicit session switch action. Switching selects that session's earliest scheduled term and refreshes the workspace context; sessions without a scheduled term remain editable but cannot become the working context.
 
 During first-school onboarding, the standard three-term structure is prefilled.
 The first term is prepared with an explicit empty source and activated before

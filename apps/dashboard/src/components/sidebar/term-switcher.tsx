@@ -15,17 +15,14 @@ export function TermSwitcher() {
 		_trpc.academics.dashboard.queryOptions({}),
 	);
 	const auth = useAuth();
-	const currentTerm = dashboardData?.sessions
-		?.flatMap((session) =>
-			session.terms
-				.map((term) => ({
-					...term,
-					sessionId: session.id,
-					sessionName: session.name,
-					sessionStatus: session.status,
-				})),
-		)
-		.find((term) => term.id === auth.profile?.termId);
+	const selectedSession = dashboardData?.sessions?.find(
+		(session) => session.id === auth.profile?.sessionId,
+	);
+	const scheduledTerms =
+		selectedSession?.terms.filter((term) => term.startDate !== null) ?? [];
+	const currentTerm = scheduledTerms.find(
+		(term) => term.id === auth.profile?.termId,
+	);
 
 	return (
 		<DropdownMenu>
@@ -41,9 +38,9 @@ export function TermSwitcher() {
 						<span className="truncate text-sm font-medium text-foreground">
 							{currentTerm?.title ?? "Select"}
 						</span>
-						{currentTerm?.sessionName ? (
+						{selectedSession?.name ? (
 							<span className="hidden truncate text-xs text-muted-foreground xl:inline">
-								{currentTerm.sessionName}
+								{selectedSession.name}
 							</span>
 						) : null}
 					</div>
@@ -54,57 +51,70 @@ export function TermSwitcher() {
 				align="end"
 				className="w-[min(92vw,22rem)] rounded-lg p-1.5"
 			>
-				{dashboardData?.sessions?.map((session) => (
-					<DropdownMenu.Group key={session.id}>
+				{selectedSession ? (
+					<DropdownMenu.Group>
 						<div className="flex items-center justify-between px-2 py-1">
 							<DropdownMenu.Label className="px-0 py-0 text-xs font-semibold">
-								{session.name}
+								{selectedSession.name}
 							</DropdownMenu.Label>
 							<Badge
-								variant={session.status === "current" ? "default" : "outline"}
+								variant={
+									selectedSession.status === "current" ? "default" : "outline"
+								}
 								className="h-5 rounded px-1.5 text-[10px] capitalize"
 							>
-								{session.status}
+								{selectedSession.status}
 							</Badge>
 						</div>
 						<div className="space-y-0.5 pb-1">
-							{session.terms
-								?.map((term) => {
-								const isActive = term.id === auth.profile?.termId;
-								return (
-									<DropdownMenu.Item
-										key={term.id}
-										className={cn(
-											"flex items-center justify-between rounded-md px-2 py-2",
-											isActive &&
-												"bg-primary/5 text-primary focus:bg-primary/10",
-										)}
-										onSelect={() => {
-											switchSessionTerm({
-												termId: term.id,
-												sessionId: session.id,
-												termTitle: term.title,
-												sessionTitle: session.name,
-											}).then(() => {
-												window.location.reload();
-											});
-										}}
-									>
-										<div className="flex min-w-0 flex-col">
-											<span className="text-sm font-medium">{term.title}</span>
-											<span className="text-[11px] text-muted-foreground capitalize">
-												{term.status}
-											</span>
-										</div>
-										{isActive ? (
-											<Check className="h-3.5 w-3.5 shrink-0" />
-										) : null}
-									</DropdownMenu.Item>
-								);
-							})}
+							{scheduledTerms.length ? (
+								scheduledTerms.map((term) => {
+									const isActive = term.id === auth.profile?.termId;
+									return (
+										<DropdownMenu.Item
+											key={term.id}
+											className={cn(
+												"flex items-center justify-between rounded-md px-2 py-2",
+												isActive &&
+													"bg-primary/5 text-primary focus:bg-primary/10",
+											)}
+											onSelect={() => {
+												switchSessionTerm({
+													termId: term.id,
+													sessionId: selectedSession.id,
+													termTitle: term.title,
+													sessionTitle: selectedSession.name,
+												}).then(() => {
+													window.location.reload();
+												});
+											}}
+										>
+											<div className="flex min-w-0 flex-col">
+												<span className="text-sm font-medium">
+													{term.title}
+												</span>
+												<span className="text-[11px] text-muted-foreground capitalize">
+													{term.status}
+												</span>
+											</div>
+											{isActive ? (
+												<Check className="h-3.5 w-3.5 shrink-0" />
+											) : null}
+										</DropdownMenu.Item>
+									);
+								})
+							) : (
+								<p className="px-2 py-3 text-sm text-muted-foreground">
+									No scheduled terms in this session.
+								</p>
+							)}
 						</div>
 					</DropdownMenu.Group>
-				))}
+				) : (
+					<p className="px-2 py-3 text-sm text-muted-foreground">
+						Select a session in Academic Management.
+					</p>
+				)}
 			</DropdownMenu.Content>
 		</DropdownMenu>
 	);

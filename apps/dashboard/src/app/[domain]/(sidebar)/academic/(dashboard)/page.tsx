@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Pencil,
   Info,
+  Check,
 } from "lucide-react";
 import { Card } from "@school-clerk/ui/composite";
 import { Button } from "@school-clerk/ui/button";
@@ -41,11 +42,14 @@ import {
   EditAcademicMetadataModal,
   type AcademicMetadataTarget,
 } from "@/components/modals/edit-academic-metadata-modal";
+import { switchSessionTerm } from "@/actions/cookies/auth-cookie";
+import { useAuth } from "@/hooks/use-auth";
 
 type DashboardTerm =
   RouterOutputs["academics"]["dashboard"]["sessions"][number]["terms"][number];
 
 const Dashboard = () => {
+  const auth = useAuth();
   const { setParams } = useAcademicParams();
   const [expandedSessionId, setExpandedSessionId] = React.useState<
     string | null
@@ -319,6 +323,33 @@ const Dashboard = () => {
                     </td>
                     <td className="px-6 py-5 text-right">
                       <div className="flex justify-end gap-2">
+                        {session.id !== auth.profile?.sessionId ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={
+                              !session.terms.some((term) => term.startDate)
+                            }
+                            className="h-8 gap-1.5 px-2 font-semibold"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              const term = session.terms.find(
+                                (candidate) => candidate.startDate !== null,
+                              );
+                              if (!term) return;
+                              switchSessionTerm({
+                                termId: term.id,
+                                sessionId: session.id,
+                                termTitle: term.title,
+                                sessionTitle: session.name,
+                              }).then(() => window.location.reload());
+                            }}
+                          >
+                            <Check data-icon="inline-start" />
+                            Switch
+                          </Button>
+                        ) : null}
                         <Button
                           type="button"
                           variant="ghost"

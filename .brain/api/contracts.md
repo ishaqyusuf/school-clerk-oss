@@ -728,6 +728,12 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: tenant/role mismatch, missing session, duplicate session name, or an end date before a present start date.
 - Notes: session names remain unique within the school and either calendar date may be cleared.
 
+- Route: `academics.getReportTerms`
+- Request schema: optional empty object.
+- Response schema: scheduled terms for the authenticated workspace session, with term/session labels and dates.
+- Error cases: standard authentication and tenant-context errors.
+- Notes: the authenticated session context is authoritative; unscheduled terms and terms from other sessions are intentionally excluded from report and filter selectors.
+
 - Closed-term write contract: assessment setup/scores, workbook import, public-link/AI scores, attendance create/update/delete, and manual term enrollment reject `CLOSED` terms with `CONFLICT`.
 
 ## Attendance Contracts

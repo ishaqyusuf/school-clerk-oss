@@ -9,9 +9,11 @@ import {
 function createContext({
 	lifecycleStatus = "READY",
 	financeRecords = 0,
+	rejectConcurrentTransactionQueries = false,
 }: {
 	lifecycleStatus?: "DRAFT" | "READY" | "ACTIVE" | "CLOSED";
 	financeRecords?: number;
+	rejectConcurrentTransactionQueries?: boolean;
 } = {}) {
 	const calls: string[] = [];
 	const termUpdates: Array<Record<string, unknown>> = [];
@@ -88,8 +90,43 @@ function createContext({
 		financeTermLedgerClose: { count },
 		financePayrollStructure: { count },
 		financePurchase: { count },
-		$transaction: async (callback: (transaction: typeof tx) => unknown) =>
-			callback({ ...db, ...tx } as typeof tx),
+		$transaction: async (callback: (transaction: typeof tx) => unknown) => {
+			const transaction = { ...db, ...tx };
+			if (!rejectConcurrentTransactionQueries) {
+				return callback(transaction as typeof tx);
+			}
+
+			let queryInFlight = false;
+			const guardedTransaction = Object.fromEntries(
+				Object.entries(transaction).map(([modelName, model]) => {
+					if (!model || typeof model !== "object") return [modelName, model];
+					return [
+						modelName,
+						Object.fromEntries(
+							Object.entries(model).map(([methodName, method]) => {
+								if (typeof method !== "function") return [methodName, method];
+								return [
+									methodName,
+									async (...args: unknown[]) => {
+										if (queryInFlight) {
+											throw new Error("Concurrent transaction query");
+										}
+										queryInFlight = true;
+										await Promise.resolve();
+										try {
+											return await method(...args);
+										} finally {
+											queryInFlight = false;
+										}
+									},
+								];
+							}),
+						),
+					];
+				}),
+			);
+			return callback(guardedTransaction as typeof tx);
+		},
 	};
 	return {
 		calls,
@@ -149,5 +186,18 @@ describe("academic term reset", () => {
 			endDate: null,
 			lifecycleStatus: "DRAFT",
 		});
+	});
+
+	test("does not issue concurrent queries through the transaction client", async () => {
+		const { ctx } = createContext({
+			rejectConcurrentTransactionQueries: true,
+		});
+
+		const result = await resetAcademicTerm(ctx, {
+			termId: "term-1",
+			confirmation: "I APPROVE RESET",
+		});
+
+		expect(result.success).toBe(true);
 	});
 });

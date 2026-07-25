@@ -90,9 +90,12 @@ export const academicsRouter = createTRPCRouter({
   getReportTerms: authenticatedProcedure
     .input(z.object({}).optional())
     .query(async ({ ctx }) => {
+      if (!ctx.profile.sessionId) return [];
+
       const terms = await ctx.db.sessionTerm.findMany({
         where: {
           schoolId: ctx.profile.schoolId,
+          sessionId: ctx.profile.sessionId,
           deletedAt: null,
           startDate: {
             not: null,
@@ -166,12 +169,17 @@ export const academicsRouter = createTRPCRouter({
               setupCompletedAt: true,
               note: true,
             },
-            orderBy: {
-              startDate: {
-                sort: "asc",
-                nulls: "first",
+            orderBy: [
+              {
+                startDate: {
+                  sort: "asc",
+                  nulls: "last",
+                },
               },
-            },
+              {
+                createdAt: "asc",
+              },
+            ],
           },
         },
       }),

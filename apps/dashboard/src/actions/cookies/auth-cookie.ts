@@ -205,6 +205,9 @@ async function resolveTenantAuthCookie({
               // take: 1,
               where: {
                 deletedAt: null,
+                startDate: {
+                  not: null,
+                },
               },
               select: {
                 id: true,
@@ -248,23 +251,21 @@ async function resolveTenantAuthCookie({
     } as AuthCookie;
   }
 
+  const selectedSession =
+    school?.sessions.find((session) => session.id === authCookie?.sessionId) ??
+    school?.sessions[0];
   const termProfiles =
-    school?.sessions.flatMap((session) =>
-      session.terms.map((term) => ({
-        ...term,
-        sessionId: session.id,
-        sessionTitle: session.title,
-      })),
-    ) ?? [];
+    selectedSession?.terms.map((term) => ({
+      ...term,
+      sessionId: selectedSession.id,
+      sessionTitle: selectedSession.title,
+    })) ?? [];
   const selectedTerm = termProfiles.find(
     (term) => term.id === authCookie?.termId,
   );
   const term =
     selectedTerm ?? findCurrentDatedTerm(termProfiles) ?? termProfiles[0];
-  const session =
-    school?.sessions?.find((s) => s.id === term?.sessionId) ||
-    school?.sessions?.find((s) => s.id === authCookie?.sessionId) ||
-    school?.sessions?.[0];
+  const session = selectedSession;
 
   authCookie = {
     ...authCookie,
