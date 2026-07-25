@@ -6,12 +6,13 @@ Implemented and available for administrators and assigned teachers as of 2026-07
 
 ## User Workflows
 
-- Administrators open a classroom attendance sheet and choose General or Subject attendance.
+- Administrators record General or Subject attendance directly inside the classroom Attendance tab without opening a secondary recording panel.
 - Teachers open the live `/teacher/attendance` workspace and select one of their assigned classrooms.
 - Subject attendance requires an active-term subject assigned to that classroom and, for teachers, included in effective academic access.
 - The recorder chooses an attendance date, title, and optional period/lesson label.
 - Every student in the active classroom roster receives one status: Present, Absent, Late, Excused, Sick, or Leave.
 - “Mark all present” accelerates the common case, but submission is blocked until the complete roster is marked.
+- The inline recorder combines date navigation, session details, per-student shadcn Toggle Group status controls, remarks, bulk marking, and save actions in one surface above attendance history.
 - Administrator and teacher attendance rosters consume the tenant's resolved academic data direction, so AUTO mode mirrors the table when the school's sampled student records resolve to RTL while student names and remarks retain their own natural inline direction.
 - Recent sessions can be opened and corrected. Corrections replace the current active marks and increment the session revision.
 - Authorized users can soft-delete a session.

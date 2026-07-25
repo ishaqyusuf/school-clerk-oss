@@ -23,6 +23,7 @@ import {
   XCircle,
 } from "lucide-react";
 import ConfirmBtn from "./confirm-button";
+import { ClassroomAttendanceRecorder } from "./classroom-attendance-form";
 
 export function ClassroomAttendance({
   departmentId,
@@ -186,6 +187,8 @@ function Content({ departmentId }: { departmentId?: string | null }) {
         </div>
       </div>
 
+      <ClassroomAttendanceRecorder departmentId={departmentId} />
+
       {/* Action Bar */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">
@@ -206,17 +209,6 @@ function Content({ departmentId }: { departmentId?: string | null }) {
             <Download className="mr-1 h-3.5 w-3.5" />
             Export CSV
           </Button>
-          <Button
-            size="xs"
-            onClick={() =>
-              setParams({
-                attendanceSessionId: null,
-                secondaryTab: "attendance-form",
-              })
-            }
-          >
-            Take Attendance
-          </Button>
         </div>
       </div>
 
@@ -224,7 +216,7 @@ function Content({ departmentId }: { departmentId?: string | null }) {
       {sessions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm gap-2">
           <span>No attendance records yet.</span>
-          <span>Click &quot;Take Attendance&quot; to record a session.</span>
+          <span>Use the recorder above to create the first session.</span>
         </div>
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">

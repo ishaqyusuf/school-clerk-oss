@@ -23,15 +23,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@school-clerk/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
 import {
   useMutation,
   useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 import {
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   Pencil,
   Save,
@@ -90,6 +93,27 @@ export function ClassroomAttendanceForm() {
     </Sheet.SecondaryContent>
   );
 }
+
+export function ClassroomAttendanceRecorder({
+  departmentId,
+}: {
+  departmentId?: string | null;
+}) {
+  return (
+    <Suspense fallback={<TableSkeleton />}>
+      <AttendanceFormContent departmentId={departmentId} inline />
+    </Suspense>
+  );
+}
+
+const ATTENDANCE_STATUS_CODES: Record<AttendanceStatus, string> = {
+  PRESENT: "P",
+  ABSENT: "A",
+  LATE: "L",
+  EXCUSED: "E",
+  SICK: "S",
+  LEAVE: "LV",
+};
 
 function AttendanceOverviewContent({
   attendanceId,
@@ -264,9 +288,11 @@ function AttendanceOverviewContent({
 function AttendanceFormContent({
   attendanceId,
   departmentId,
+  inline = false,
 }: {
   attendanceId?: string | null;
   departmentId?: string | null;
+  inline?: boolean;
 }) {
   const academicDataDirection = useAcademicDataDirection();
   const trpc = useTRPC();
@@ -357,6 +383,10 @@ function AttendanceFormContent({
   const onSuccess = async () => {
     idempotencyRequestRef.current = null;
     setValidationError(null);
+    if (inline) {
+      setStatusMap({});
+      setCommentMap({});
+    }
     await Promise.all([
       queryClient.invalidateQueries({
         queryKey: trpc.attendance.getClassroomAttendance.queryKey({
@@ -458,6 +488,10 @@ function AttendanceFormContent({
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const shiftAttendanceDate = (days: number) => {
+    const currentDate = new Date(`${attendanceDate}T12:00:00`);
+    setAttendanceDate(format(addDays(currentDate, days), "yyyy-MM-dd"));
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -508,17 +542,8 @@ function AttendanceFormContent({
           </div>
         ) : null}
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2">
-          <Label htmlFor="attendance-date">Date</Label>
-          <Input
-            id="attendance-date"
-            type="date"
-            value={attendanceDate}
-            onChange={(event) => setAttendanceDate(event.target.value)}
-          />
-        </div>
-        <div className="grid gap-2 sm:col-span-2">
           <Label htmlFor="attendance-title">Session title</Label>
           <Input
             id="attendance-title"
@@ -541,9 +566,41 @@ function AttendanceFormContent({
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
-        <Label className="text-sm font-medium">Students</Label>
-        <div className="flex gap-2">
+      <div className="sticky top-0 z-10 flex flex-col gap-3 border-y bg-background/95 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center">
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className="rounded-r-none"
+            aria-label="Previous attendance date"
+            onClick={() => shiftAttendanceDate(-1)}
+          >
+            <ChevronLeft className="size-4" />
+          </Button>
+          <Input
+            id="attendance-date"
+            aria-label="Attendance date"
+            type="date"
+            value={attendanceDate}
+            onChange={(event) => setAttendanceDate(event.target.value)}
+            className="w-40 rounded-none border-x-0 text-center"
+          />
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className="rounded-l-none"
+            aria-label="Next attendance date"
+            onClick={() => shiftAttendanceDate(1)}
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Mark all
+          </span>
           <Button
             type="button"
             size="sm"
@@ -556,16 +613,26 @@ function AttendanceFormContent({
               )
             }
           >
-            Mark all present
+            Present
           </Button>
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="ghost"
             onClick={() => setStatusMap({})}
           >
             Clear
           </Button>
+          {inline ? (
+            <SubmitButton
+              isSubmitting={isPending}
+              onClick={handleSubmit}
+              disabled={isPending}
+            >
+              <Save className="mr-1 size-4" />
+              Save attendance
+            </SubmitButton>
+          ) : null}
         </div>
       </div>
 
@@ -575,7 +642,7 @@ function AttendanceFormContent({
         </p>
       ) : (
         <div
-          className="overflow-hidden border bg-card"
+          className="overflow-x-auto border bg-card"
           dir={academicDataDirection}
         >
           <table className="w-full text-start text-sm">
@@ -592,27 +659,33 @@ function AttendanceFormContent({
                   <td className="px-4 py-3 font-medium" dir="auto">
                     {student.studentName}
                   </td>
-                  <td className="min-w-36 px-4 py-3">
-                    <Select
+                  <td className="min-w-72 px-4 py-3">
+                    <ToggleGroup
+                      type="single"
+                      variant="outline"
+                      size="sm"
                       value={statusMap[student.attendanceKey]}
-                      onValueChange={(value) =>
+                      aria-label={`Attendance status for ${student.studentName}`}
+                      onValueChange={(value) => {
+                        if (!value) return;
                         setStatusMap((current) => ({
                           ...current,
                           [student.attendanceKey]: value as AttendanceStatus,
-                        }))
-                      }
+                        }));
+                      }}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ATTENDANCE_STATUSES.map((status) => (
-                          <SelectItem key={status.value} value={status.value}>
-                            {status.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      {ATTENDANCE_STATUSES.map((status) => (
+                        <ToggleGroupItem
+                          key={status.value}
+                          value={status.value}
+                          aria-label={status.label}
+                          title={status.label}
+                          className="min-w-9 px-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                        >
+                          {ATTENDANCE_STATUS_CODES[status.value]}
+                        </ToggleGroupItem>
+                      ))}
+                    </ToggleGroup>
                   </td>
                   <td className="px-4 py-3">
                     <Input
@@ -645,28 +718,30 @@ function AttendanceFormContent({
         </p>
       ) : null}
 
-      <Sheet.SecondaryFooter>
-        <Button
-          variant="outline"
-          type="button"
-          onClick={() =>
-            setParams({
-              attendanceSessionId: null,
-              secondaryTab: null,
-            })
-          }
-        >
-          Cancel
-        </Button>
-        <SubmitButton
-          isSubmitting={isPending}
-          onClick={handleSubmit}
-          disabled={isPending}
-        >
-          <Save className="mr-1 h-4 w-4" />
-          {attendanceId ? "Save Correction" : "Save Attendance"}
-        </SubmitButton>
-      </Sheet.SecondaryFooter>
+      {!inline ? (
+        <Sheet.SecondaryFooter>
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() =>
+              setParams({
+                attendanceSessionId: null,
+                secondaryTab: null,
+              })
+            }
+          >
+            Cancel
+          </Button>
+          <SubmitButton
+            isSubmitting={isPending}
+            onClick={handleSubmit}
+            disabled={isPending}
+          >
+            <Save className="mr-1 h-4 w-4" />
+            {attendanceId ? "Save Correction" : "Save Attendance"}
+          </SubmitButton>
+        </Sheet.SecondaryFooter>
+      ) : null}
     </div>
   );
 }
