@@ -12,6 +12,7 @@ Implemented and available for administrators and assigned teachers as of 2026-07
 - The recorder chooses an attendance date, title, and optional period/lesson label.
 - Every student in the active classroom roster receives one status: Present, Absent, Late, Excused, Sick, or Leave.
 - “Mark all present” accelerates the common case, but submission is blocked until the complete roster is marked.
+- Administrator and teacher attendance rosters consume the tenant's resolved academic data direction, so AUTO mode mirrors the table when the school's sampled student records resolve to RTL while student names and remarks retain their own natural inline direction.
 - Recent sessions can be opened and corrected. Corrections replace the current active marks and increment the session revision.
 - Authorized users can soft-delete a session.
 - Classroom and teacher surfaces can export student-level attendance rows as CSV. Student profiles show active-term attendance history.

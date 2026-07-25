@@ -1,5 +1,6 @@
 "use client";
 
+import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import {
   ATTENDANCE_STATUSES,
@@ -267,6 +268,7 @@ function AttendanceFormContent({
   attendanceId?: string | null;
   departmentId?: string | null;
 }) {
+  const academicDataDirection = useAcademicDataDirection();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const { setParams } = useClassroomParams();
@@ -572,8 +574,11 @@ function AttendanceFormContent({
           No students enrolled in this class for the active term.
         </p>
       ) : (
-        <div className="overflow-hidden border bg-card">
-          <table className="w-full text-left text-sm">
+        <div
+          className="overflow-hidden border bg-card"
+          dir={academicDataDirection}
+        >
+          <table className="w-full text-start text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
                 <th className="px-4 py-3 font-semibold">Student</th>
