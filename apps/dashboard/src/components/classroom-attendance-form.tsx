@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@school-clerk/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
+import { toast } from "@school-clerk/ui/use-toast";
 import {
   useMutation,
   useQuery,
@@ -106,13 +107,15 @@ export function ClassroomAttendanceRecorder({
   );
 }
 
-const ATTENDANCE_STATUS_CODES: Record<AttendanceStatus, string> = {
+const RECORDABLE_ATTENDANCE_STATUSES = ATTENDANCE_STATUSES.filter((status) =>
+  ["PRESENT", "ABSENT", "LATE", "SICK"].includes(status.value),
+);
+
+const ATTENDANCE_STATUS_CODES: Partial<Record<AttendanceStatus, string>> = {
   PRESENT: "P",
   ABSENT: "A",
   LATE: "L",
-  EXCUSED: "E",
   SICK: "S",
-  LEAVE: "LV",
 };
 
 function AttendanceOverviewContent({
@@ -605,13 +608,14 @@ function AttendanceFormContent({
             type="button"
             size="sm"
             variant="outline"
-            onClick={() =>
+            onClick={() => {
               setStatusMap(
                 Object.fromEntries(
                   roster.map((student) => [student.attendanceKey, "PRESENT"]),
                 ),
-              )
-            }
+              );
+              toast({ title: "Present" });
+            }}
           >
             Present
           </Button>
@@ -668,13 +672,17 @@ function AttendanceFormContent({
                       aria-label={`Attendance status for ${student.studentName}`}
                       onValueChange={(value) => {
                         if (!value) return;
+                        const status = RECORDABLE_ATTENDANCE_STATUSES.find(
+                          (item) => item.value === value,
+                        );
                         setStatusMap((current) => ({
                           ...current,
                           [student.attendanceKey]: value as AttendanceStatus,
                         }));
+                        if (status) toast({ title: status.label });
                       }}
                     >
-                      {ATTENDANCE_STATUSES.map((status) => (
+                      {RECORDABLE_ATTENDANCE_STATUSES.map((status) => (
                         <ToggleGroupItem
                           key={status.value}
                           value={status.value}
