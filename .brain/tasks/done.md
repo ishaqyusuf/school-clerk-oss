@@ -571,3 +571,13 @@ Record of completed tasks and delivery outcomes.
 - Validation: Focused shared filter-label regression test, dashboard and shared UI package typechecks, plus authenticated live browser verification at desktop and 768 × 900 responsive sizes.
 - Related changes: `apps/dashboard/src/components/classroom-header.tsx`, `apps/dashboard/src/hooks/use-classroom-filter-params.ts`, `packages/ui/src/components/custom/search-filter/filter-list.tsx`, `packages/ui/src/components/custom/search-filter/filter-label.ts`, `.brain/features/academic-structure-engine.md`, `.brain/bugs/2026-07-26-classroom-filter-list-and-responsive-actions.md`
 - Owner: Codex
+
+## Completed Task
+
+- ID: 2026-07-26-attendance-mobile-responsive-ui
+- Title: Mobile-Responsive Classroom Attendance
+- Completed: 2026-07-26
+- Outcome: Replaced the phone-sized attendance table with touch-friendly student cards, made date and attendance actions fit narrow screens, and added responsive mobile cards for saved sessions and recorded-session details while preserving desktop tables.
+- Validation: Focused attendance and populated responsive-session fixture tests plus dashboard typecheck passed; authenticated browser QA at 320 × 800, 390 × 844, and 1280 × 900 confirmed no document or classroom-dialog horizontal overflow and exercised mobile status selection and remark entry without saving.
+- Related changes: `apps/dashboard/src/components/classroom-attendance-roster.tsx`, `apps/dashboard/src/components/classroom-attendance-form.tsx`, `apps/dashboard/src/components/classroom-attendance-session-lists.tsx`, `apps/dashboard/src/components/classroom-attendance-session-lists.test.tsx`, `apps/dashboard/src/components/classroom-attendance.tsx`, `.brain/features/attendance.md`, `.brain/bugs/2026-07-26-attendance-mobile-overflow.md`
+- Owner: Codex

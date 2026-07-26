@@ -102,85 +102,68 @@ export function ClassroomAttendanceRoster({
   }
 
   return (
-    <div className="overflow-x-auto border bg-card" dir={direction}>
-      <table className="w-full text-start text-sm">
-        <thead className="border-b bg-muted/50">
-          <tr>
-            <th className="px-4 py-3 font-semibold">Student</th>
-            <th className="px-4 py-3 font-semibold">Status</th>
-            <th className="px-4 py-3 font-semibold">Remarks</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {students.map((student) => {
-            const selectedStatus = statusMap[student.attendanceKey];
-            return (
-              <tr
-                key={student.id}
-                className={cn(
-                  "transition-colors hover:bg-muted/30",
-                  selectedStatus &&
-                    ATTENDANCE_STATUS_STYLES[selectedStatus]?.row,
-                )}
-              >
-                <td className="px-4 py-3 font-medium" dir="auto">
-                  {student.studentName}
-                </td>
-                <td className="min-w-72 px-4 py-3">
-                  <ToggleGroup
-                    type="single"
-                    variant="outline"
-                    size="sm"
-                    dir="ltr"
-                    value={selectedStatus}
-                    aria-label={`Attendance status for ${student.studentName}`}
-                    onValueChange={(value) => {
-                      if (!value) return;
-                      const status = RECORDABLE_ATTENDANCE_STATUSES.find(
-                        (item) => item.value === value,
-                      );
-                      onStatusChange(
-                        student.attendanceKey,
-                        value as AttendanceStatus,
-                      );
-                      if (status) toast({ title: status.label });
-                    }}
-                  >
-                    {RECORDABLE_ATTENDANCE_STATUSES.map((status) => (
-                      <ToggleGroupItem
-                        key={status.value}
-                        value={status.value}
-                        aria-label={status.label}
-                        title={status.label}
-                        className={cn(
-                          "min-w-9 px-2",
-                          ATTENDANCE_STATUS_STYLES[status.value]?.toggle,
-                        )}
-                      >
-                        {ATTENDANCE_STATUS_CODES[status.value]}
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
-                </td>
-                <td className="px-4 py-3">
-                  <Input
+    <div
+      className="min-w-0 overflow-hidden rounded-lg border bg-card"
+      dir={direction}
+    >
+      <div className="overflow-x-auto">
+        <table className="block w-full text-start text-sm md:table">
+          <thead className="hidden border-b bg-muted/50 md:table-header-group">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Student</th>
+              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 font-semibold">Remarks</th>
+            </tr>
+          </thead>
+          <tbody className="block divide-y md:table-row-group">
+            {students.map((student) => {
+              const selectedStatus = statusMap[student.attendanceKey];
+              return (
+                <tr
+                  key={student.id}
+                  className={cn(
+                    "block space-y-3 p-4 transition-colors md:table-row md:space-y-0 md:p-0 md:hover:bg-muted/30",
+                    selectedStatus &&
+                      ATTENDANCE_STATUS_STYLES[selectedStatus]?.row,
+                  )}
+                >
+                  <td
+                    className="block p-0 font-medium md:table-cell md:px-4 md:py-3"
                     dir="auto"
-                    placeholder="Add note"
-                    value={commentMap[student.attendanceKey] ?? ""}
-                    onChange={(event) =>
-                      onCommentChange(student.attendanceKey, event.target.value)
-                    }
-                  />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  >
+                    {student.studentName}
+                  </td>
+                  <td className="block p-0 md:table-cell md:min-w-72 md:px-4 md:py-3">
+                    <AttendanceStatusPicker
+                      selectedStatus={selectedStatus}
+                      student={student}
+                      onStatusChange={onStatusChange}
+                    />
+                  </td>
+                  <td className="block p-0 md:table-cell md:px-4 md:py-3">
+                    <Input
+                      dir="auto"
+                      aria-label={`Remarks for ${student.studentName}`}
+                      placeholder="Optional remark"
+                      value={commentMap[student.attendanceKey] ?? ""}
+                      onChange={(event) =>
+                        onCommentChange(
+                          student.attendanceKey,
+                          event.target.value,
+                        )
+                      }
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       {hasMore ? (
         <div
           ref={loadMoreRef}
-          className="flex items-center justify-center gap-2 border-t py-4 text-sm text-muted-foreground"
+          className="flex items-center justify-center gap-2 border-t px-4 py-4 text-center text-sm text-muted-foreground"
         >
           <Spinner />
           Loading more students… {students.length} of {total}
@@ -191,5 +174,53 @@ export function ClassroomAttendanceRoster({
         </p>
       )}
     </div>
+  );
+}
+
+function AttendanceStatusPicker({
+  onStatusChange,
+  selectedStatus,
+  student,
+}: {
+  onStatusChange: (attendanceKey: string, status: AttendanceStatus) => void;
+  selectedStatus?: AttendanceStatus;
+  student: AttendanceRosterStudent;
+}) {
+  return (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      dir="ltr"
+      value={selectedStatus}
+      aria-label={`Attendance status for ${student.studentName}`}
+      className="grid w-full grid-cols-4 md:flex md:w-auto"
+      onValueChange={(value) => {
+        if (!value) return;
+        const status = RECORDABLE_ATTENDANCE_STATUSES.find(
+          (item) => item.value === value,
+        );
+        onStatusChange(student.attendanceKey, value as AttendanceStatus);
+        if (status) toast({ title: status.label });
+      }}
+    >
+      {RECORDABLE_ATTENDANCE_STATUSES.map((status) => (
+        <ToggleGroupItem
+          key={status.value}
+          value={status.value}
+          aria-label={status.label}
+          title={status.label}
+          className={cn(
+            "w-full px-1 text-xs md:min-w-9 md:w-auto md:px-2",
+            ATTENDANCE_STATUS_STYLES[status.value]?.toggle,
+          )}
+        >
+          <span className="md:hidden">{status.label}</span>
+          <span className="hidden md:inline">
+            {ATTENDANCE_STATUS_CODES[status.value]}
+          </span>
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   );
 }

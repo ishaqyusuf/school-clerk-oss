@@ -13,7 +13,9 @@ Implemented and available for administrators and assigned teachers as of 2026-07
 - The recorder chooses an attendance date, title, and optional period/lesson label.
 - Every student in the active classroom roster receives one recording status: Present, Absent, Late, or Sick. Existing Excused and Leave records remain readable for historical compatibility.
 - “Mark all present” accelerates the common case, but submission is blocked until the complete roster is marked.
-- The inline recorder combines date navigation, session details, per-student shadcn Toggle Group status controls (`P`, `A`, `L`, `S`), remarks, bulk marking, and save actions in one focused surface. Attendance type and session title share a two-column row on wider screens, while subject and optional period remain separate fields.
+- The inline recorder combines date navigation, session details, per-student shadcn Toggle Group status controls, remarks, bulk marking, and save actions in one focused surface. Attendance type and session title share a two-column row on wider screens, while subject and optional period remain separate fields.
+- On mobile, each roster entry is a touch-friendly student card with full Present, Absent, Late, and Sick labels plus a full-width optional remark. Medium and larger screens retain the compact table with `P`, `A`, `L`, and `S` controls.
+- Date navigation, bulk actions, and save controls stack and fill the available width on narrow screens. Saved sessions and recorded-session details use cards on mobile and tables on medium and larger screens, avoiding horizontal page or dialog overflow.
 - The administrator recorder fetches the complete active classroom roster through the attendance API before enabling save, then progressively renders the roster in 25-student chunks as the user approaches the end. The full fetched roster—not only currently rendered rows—is retained for complete-roster validation and submission.
 - Selecting a status immediately shows its full title in a toast. Invalid date, title, subject, and roster state use schema-backed field errors; save failures also surface the server message inline instead of appearing as a silent no-op.
 - Present, Absent, Late, and Sick use distinct green, red, amber, and blue selected states, and the selected status applies a matching low-contrast tint to the student's row.
@@ -50,10 +52,10 @@ Implemented and available for administrators and assigned teachers as of 2026-07
 
 ## Validation
 
-- Eighteen focused API/UI attendance tests cover schema field errors, roles, active-term/legacy scoping, complete-roster loading and enforcement, subject metadata, atomic duplicate prevention, payload-bound idempotent replay, status summaries, student history, corrections, revisions, export rows, and deletion.
+- Twenty focused API/UI attendance tests cover schema field errors, roles, active-term/legacy scoping, complete-roster loading and enforcement, subject metadata, atomic duplicate prevention, payload-bound idempotent replay, status summaries, student history, corrections, revisions, export rows, deletion, and populated responsive session rendering.
 - Dashboard and database package typechecks pass. The broader API typecheck remains blocked by pre-existing academic-term reset/setup errors outside attendance.
 - The dashboard production build compiles successfully, then page-data collection fails because the verification environment does not provide `DATABASE_URL` or a non-default `BETTER_AUTH_SECRET`.
-- Browser QA for the 2026-07-26 classroom attendance repair was blocked because no School Clerk stack was running and the required cmux launcher was unavailable.
+- Initial browser QA for the 2026-07-26 classroom attendance repair was blocked because no School Clerk stack was running and the required cmux launcher was unavailable. Follow-up responsive QA completed against the authenticated shared stack at 320 × 800, 390 × 844, and 1280 × 900: the recorder, responsive session summary, empty sessions state, desktop table, status selection, and remark entry were verified with no document or classroom-dialog horizontal overflow. Because all active classrooms had zero saved sessions, populated saved-session and recorded-session layouts were covered with focused server-rendered component fixtures instead of creating school attendance data.
 
 ## Known Follow-Ups
 

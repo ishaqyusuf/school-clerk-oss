@@ -6,7 +6,6 @@ import {
 } from "@/components/academic-data-direction/provider";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import {
-  ATTENDANCE_STATUSES,
   type AttendanceScope,
   type AttendanceStatus,
   attendanceFormDetailsSchema,
@@ -48,6 +47,7 @@ import {
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import { ClassroomAttendanceRoster } from "./classroom-attendance-roster";
+import { AttendanceSessionStudentList } from "./classroom-attendance-session-lists";
 import { SubmitButton } from "./submit-button";
 import { TableSkeleton } from "./tables/skeleton";
 
@@ -161,12 +161,12 @@ function AttendanceOverviewContent({
   const sessionAttendanceRate = attendanceRate(session);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="border bg-card p-5">
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
+      <div className="min-w-0 border bg-card p-4 sm:p-5">
         <div className="flex flex-col gap-3">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <h3 className="text-lg font-semibold">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0 space-y-1">
+              <h3 className="break-words text-lg font-semibold">
                 {session.attendanceTitle}
               </h3>
               <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -188,7 +188,9 @@ function AttendanceOverviewContent({
                 ) : null}
               </div>
             </div>
-            <Badge variant="outline">{sessionAttendanceRate}% attended</Badge>
+            <Badge variant="outline" className="w-fit shrink-0">
+              {sessionAttendanceRate}% attended
+            </Badge>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatCard label="Students" value={session.total} tone="default" />
@@ -232,36 +234,7 @@ function AttendanceOverviewContent({
         </div>
       </div>
 
-      <div className="overflow-hidden border bg-card">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b bg-muted/50">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Student</th>
-              <th className="px-4 py-3 text-center font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Remarks</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {session.students.map((student) => (
-              <tr key={student.id}>
-                <td className="px-4 py-3 font-medium" dir="auto">
-                  {student.studentName}
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <Badge variant="outline">
-                    {ATTENDANCE_STATUSES.find(
-                      (status) => status.value === student.status,
-                    )?.label ?? student.status}
-                  </Badge>
-                </td>
-                <td className="px-4 py-3 text-muted-foreground" dir="auto">
-                  {student.comment || "No remark"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AttendanceSessionStudentList students={session.students} />
 
       <Sheet.SecondaryFooter>
         <Button
@@ -577,7 +550,7 @@ function AttendanceFormContent({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2">
           <Label>Attendance type</Label>
@@ -676,13 +649,13 @@ function AttendanceFormContent({
         />
       </div>
 
-      <div className="sticky top-0 z-10 flex flex-col gap-3 border-y bg-background/95 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center">
+      <div className="sticky top-0 z-10 flex min-w-0 flex-col gap-3 border-y bg-background/95 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex w-full min-w-0 items-center sm:w-auto">
           <Button
             type="button"
             size="icon"
             variant="outline"
-            className="rounded-r-none"
+            className="shrink-0 rounded-r-none"
             aria-label="Previous attendance date"
             onClick={() => shiftAttendanceDate(-1)}
           >
@@ -701,27 +674,28 @@ function AttendanceFormContent({
                 attendanceDate: undefined,
               }));
             }}
-            className="w-40 rounded-none border-x-0 text-center"
+            className="min-w-0 flex-1 rounded-none border-x-0 text-center sm:w-40 sm:flex-none"
           />
           <Button
             type="button"
             size="icon"
             variant="outline"
-            className="rounded-l-none"
+            className="shrink-0 rounded-l-none"
             aria-label="Next attendance date"
             onClick={() => shiftAttendanceDate(1)}
           >
             <ChevronRight className="size-4" />
           </Button>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="grid w-full grid-cols-2 items-center gap-2 sm:flex sm:w-auto sm:flex-wrap">
+          <span className="col-span-2 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:col-auto">
             Mark all
           </span>
           <Button
             type="button"
             size="sm"
             variant="outline"
+            className="w-full sm:w-auto"
             disabled={isRosterLoading || isRosterError || roster.length === 0}
             onClick={() => {
               setStatusMap(
@@ -742,6 +716,7 @@ function AttendanceFormContent({
             type="button"
             size="sm"
             variant="ghost"
+            className="w-full sm:w-auto"
             onClick={() => setStatusMap({})}
           >
             Clear
@@ -751,6 +726,7 @@ function AttendanceFormContent({
               isSubmitting={isPending}
               onClick={handleSubmit}
               disabled={isSaveDisabled}
+              className="col-span-2 w-full sm:w-auto"
             >
               <Save className="mr-1 size-4" />
               Save attendance
