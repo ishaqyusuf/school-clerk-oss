@@ -574,6 +574,16 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: 2026-07-26-classroom-and-cross-session-term-switchers
+- Title: Classroom And Cross-Session Term Switchers
+- Completed: 2026-07-26
+- Outcome: Added an explicit classroom-specific chevron-down affordance so the overview title clearly opens classroom selection, and upgraded the administrator header switcher to display session plus term while grouping every scheduled term across all academic sessions.
+- Validation: Focused classroom-trigger and term-switcher model tests, dashboard typecheck, plus authenticated browser QA confirming both chevrons, the classroom list, and multi-session term groups.
+- Related changes: `apps/dashboard/src/components/classroom-select-trigger.tsx`, `apps/dashboard/src/components/sheets/classroom-overview-sheet.tsx`, `apps/dashboard/src/components/sidebar/term-switcher.tsx`, `apps/dashboard/src/components/sidebar/term-switcher-model.ts`, `.brain/features/attendance.md`, `.brain/features/academic-term-lifecycle-and-rollover.md`, `.brain/bugs/2026-07-26-classroom-and-term-switcher-affordances.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: 2026-07-26-classroom-filter-list-and-responsive-actions
 - Title: Classroom View Filter And Responsive Action Menu
 - Completed: 2026-07-26

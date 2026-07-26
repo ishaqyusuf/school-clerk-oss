@@ -7,7 +7,7 @@ Implemented and available for administrators and assigned teachers as of 2026-07
 ## User Workflows
 
 - Administrators record General or Subject attendance in the `Mark attendance` sub-tab inside the classroom Attendance tab. Saved history, summaries, correction, deletion, and export are grouped in the adjacent `Sessions` sub-tab.
-- The classroom overview title is a current-session classroom selector. Switching it refreshes the open overview in place, preserves the selected primary classroom tab, and closes stale secondary classroom/session details.
+- The classroom overview title is a current-session classroom selector with a visible chevron-down affordance. Opening it lists the available classrooms; switching refreshes the open overview in place, preserves the selected primary classroom tab, and closes stale secondary classroom/session details.
 - Teachers open the live `/teacher/attendance` workspace and select one of their assigned classrooms. The classroom and teacher recorders share the same shadcn calendar and Mark all/Mark rest bulk-action controls.
 - Subject attendance requires an active-term subject assigned to that classroom and, for teachers, included in effective academic access.
 - The recorder chooses an attendance date through the standard shadcn calendar, with adjacent previous/next-day controls, plus a title and optional period/lesson label.

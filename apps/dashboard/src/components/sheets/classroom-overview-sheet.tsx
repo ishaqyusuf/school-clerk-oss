@@ -39,9 +39,9 @@ import {
   Select,
   SelectContent,
   SelectItem,
-  SelectTrigger,
   SelectValue,
 } from "@school-clerk/ui/select";
+import { ClassroomSelectTrigger } from "../classroom-select-trigger";
 
 export function ClassroomOverviewSheet({}) {
   const { setParams, ...params } = useClassroomParams();
@@ -117,12 +117,12 @@ export function Content({}) {
                     })
                   }
                 >
-                  <SelectTrigger
+                  <ClassroomSelectTrigger
                     aria-label="Switch classroom"
                     className="h-auto min-w-0 max-w-[min(70vw,28rem)] gap-2 rounded-none border-0 bg-transparent p-0 text-xl font-bold tracking-tight shadow-none focus:ring-0"
                   >
                     <SelectValue placeholder="Select a classroom" />
-                  </SelectTrigger>
+                  </ClassroomSelectTrigger>
                   <SelectContent className="max-h-80">
                     {classroomOptions.map((classroom) => (
                       <SelectItem key={classroom.id} value={classroom.id}>

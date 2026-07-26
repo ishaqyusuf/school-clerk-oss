@@ -54,7 +54,7 @@ The lifecycle field remains nullable for legacy terms. When no canonical active 
 ## Academic Context Selection
 
 - Academic session history sorts scheduled terms by start date and places unscheduled drafts at the end of each session.
-- The shared header term selector lists only scheduled terms belonging to the currently selected academic session.
+- For administrators, the shared header term selector always presents the current session and term together with an explicit chevron-down affordance. Its menu groups scheduled terms across every academic session, and selecting a term switches both the working session and working term.
 - The dashboard overview renders its current-term label as a mobile-friendly switcher trigger, reusing the header term menu so staff can change terms when the desktop-only selector is hidden.
 - Report, payment-import, and assessment term options use the same selected-session scope and exclude unscheduled drafts.
 - Academic Management provides an explicit session switch action. Switching selects that session's earliest scheduled term and refreshes the workspace context; sessions without a scheduled term remain editable but cannot become the working context.
@@ -122,6 +122,8 @@ New attendance sessions store `sessionTermId` directly so closure checks and his
 - `apps/dashboard/src/app/[domain]/(sidebar)/academic/(dashboard)/page.tsx`
 - `apps/dashboard/src/components/forms/academic-term-form.tsx`
 - `apps/dashboard/src/components/forms/academic-session-form.tsx`
+- `apps/dashboard/src/components/sidebar/term-switcher.tsx`
+- `apps/dashboard/src/components/sidebar/term-switcher-model.ts`
 - `packages/ui/src/components/controls/form-date.tsx`
 - `packages/db/src/schema/school.prisma`
 - `packages/db/src/schema/staffs.prisma`
