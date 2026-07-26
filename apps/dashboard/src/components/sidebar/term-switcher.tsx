@@ -10,7 +10,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronDown } from "lucide-react";
 import { _trpc } from "../static-trpc";
 
-export function TermSwitcher() {
+export function TermSwitcher({
+	display = "header",
+	fallbackTermTitle,
+}: {
+	display?: "header" | "dashboard";
+	fallbackTermTitle?: string;
+}) {
 	const { data: dashboardData } = useQuery(
 		_trpc.academics.dashboard.queryOptions({}),
 	);
@@ -23,29 +29,45 @@ export function TermSwitcher() {
 	const currentTerm = scheduledTerms.find(
 		(term) => term.id === auth.profile?.termId,
 	);
+	const currentTermTitle =
+		currentTerm?.title ??
+		fallbackTermTitle ??
+		auth.profile?.termTitle ??
+		"Select";
 
 	return (
 		<DropdownMenu>
 			<DropdownMenu.Trigger asChild>
-				<Button
-					variant="outline"
-					className="h-9 w-full max-w-[240px] justify-between gap-2 rounded-md border-border/70 bg-background/40 px-2.5 text-left shadow-none hover:bg-muted/50 md:w-[220px]"
-				>
-					<div className="flex min-w-0 items-center gap-1.5">
-						<span className="shrink-0 text-xs font-medium text-muted-foreground">
-							Term
-						</span>
-						<span className="truncate text-sm font-medium text-foreground">
-							{currentTerm?.title ?? "Select"}
-						</span>
-						{selectedSession?.name ? (
-							<span className="hidden truncate text-xs text-muted-foreground xl:inline">
-								{selectedSession.name}
+				{display === "dashboard" ? (
+					<Button
+						variant="link"
+						className="h-auto min-h-11 max-w-full gap-1 px-0 py-1 text-sm font-medium text-foreground underline-offset-4"
+						aria-label={`Switch current term. Currently ${currentTermTitle}`}
+					>
+						<span className="truncate">{currentTermTitle}</span>
+						<ChevronDown className="h-3.5 w-3.5 shrink-0" />
+					</Button>
+				) : (
+					<Button
+						variant="outline"
+						className="h-9 w-full max-w-[240px] justify-between gap-2 rounded-md border-border/70 bg-background/40 px-2.5 text-left shadow-none hover:bg-muted/50 md:w-[220px]"
+					>
+						<div className="flex min-w-0 items-center gap-1.5">
+							<span className="shrink-0 text-xs font-medium text-muted-foreground">
+								Term
 							</span>
-						) : null}
-					</div>
-					<ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-				</Button>
+							<span className="truncate text-sm font-medium text-foreground">
+								{currentTermTitle}
+							</span>
+							{selectedSession?.name ? (
+								<span className="hidden truncate text-xs text-muted-foreground xl:inline">
+									{selectedSession.name}
+								</span>
+							) : null}
+						</div>
+						<ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+					</Button>
+				)}
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content
 				align="end"

@@ -55,6 +55,7 @@ The lifecycle field remains nullable for legacy terms. When no canonical active 
 
 - Academic session history sorts scheduled terms by start date and places unscheduled drafts at the end of each session.
 - The shared header term selector lists only scheduled terms belonging to the currently selected academic session.
+- The dashboard overview renders its current-term label as a mobile-friendly switcher trigger, reusing the header term menu so staff can change terms when the desktop-only selector is hidden.
 - Report, payment-import, and assessment term options use the same selected-session scope and exclude unscheduled drafts.
 - Academic Management provides an explicit session switch action. Switching selects that session's earliest scheduled term and refreshes the workspace context; sessions without a scheduled term remain editable but cannot become the working context.
 

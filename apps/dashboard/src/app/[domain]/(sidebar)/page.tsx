@@ -2,6 +2,7 @@ import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { AddStudentQuickLink } from "@/components/dashboard/add-student-quick-link";
 import { PromotionQuickLink } from "@/components/dashboard/promotion-quick-link";
 import { ReceiveFeeButton } from "@/components/dashboard/receive-fee-button";
+import { TermSwitcher } from "@/components/sidebar/term-switcher";
 import { prisma } from "@school-clerk/db";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
@@ -120,10 +121,10 @@ export default async function Page({ params }) {
             </Badge>
           )}
         </div>
-        <p className="text-sm text-muted-foreground">
-          Current term:{" "}
-          <span className="font-medium text-foreground">{termTitle}</span>
-        </p>
+        <div className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
+          <span className="shrink-0">Current term:</span>
+          <TermSwitcher display="dashboard" fallbackTermTitle={termTitle} />
+        </div>
       </div>
 
       {/* Stat cards */}
