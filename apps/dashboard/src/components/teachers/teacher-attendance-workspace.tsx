@@ -2,10 +2,17 @@
 
 import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 import {
-  ATTENDANCE_STATUSES,
+  AttendanceBulkActions,
+  AttendanceDatePicker,
+} from "@/components/attendance-recorder-controls";
+import {
+  RECORDABLE_ATTENDANCE_STATUSES,
   type AttendanceScope,
   type AttendanceStatus,
+  type RecordableAttendanceStatus,
+  applyBulkAttendanceStatus,
   attendanceRevisionSummary,
+  attendanceStatusLabel,
   downloadAttendanceCsv,
   todayAttendanceDate,
 } from "@/lib/attendance";
@@ -29,6 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from "@school-clerk/ui/table";
+import { toast } from "@school-clerk/ui/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck2, Download, Pencil, Save, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -404,17 +412,16 @@ export function TeacherAttendanceWorkspace({
         </div>
 
         <div className="space-y-5 p-4 sm:p-5">
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
             <div className="grid gap-2">
               <Label htmlFor="teacher-attendance-date">Date</Label>
-              <Input
+              <AttendanceDatePicker
                 id="teacher-attendance-date"
-                type="date"
                 value={attendanceDate}
-                onChange={(event) => setAttendanceDate(event.target.value)}
+                onChange={setAttendanceDate}
               />
             </div>
-            <div className="grid gap-2 sm:col-span-2">
+            <div className="grid gap-2 lg:col-span-2 xl:col-span-1 2xl:col-span-2">
               <Label htmlFor="teacher-attendance-title">Session title</Label>
               <Input
                 id="teacher-attendance-title"
@@ -442,33 +449,26 @@ export function TeacherAttendanceWorkspace({
               {selectedClassroom?.displayName} · {selectedStudents.length}{" "}
               students
             </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setStatusMap(
-                    Object.fromEntries(
-                      selectedStudents.map((student) => [
-                        student.id,
-                        "PRESENT" as const,
-                      ]),
-                    ),
-                  )
-                }
-              >
-                Mark all present
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setStatusMap({})}
-              >
-                Clear
-              </Button>
-            </div>
+            <AttendanceBulkActions
+              disabled={selectedStudents.length === 0}
+              onApply={(
+                status: RecordableAttendanceStatus,
+                mode: "all" | "rest",
+              ) => {
+                setStatusMap((current) =>
+                  applyBulkAttendanceStatus(
+                    current,
+                    selectedStudents.map((student) => student.id),
+                    status,
+                    mode,
+                  ),
+                );
+                toast({
+                  title: `${mode === "all" ? "All" : "Remaining"} students marked ${attendanceStatusLabel(status).toLowerCase()}`,
+                });
+              }}
+              onClear={() => setStatusMap({})}
+            />
           </div>
 
           <div className="overflow-hidden border" dir={academicDataDirection}>
@@ -500,7 +500,7 @@ export function TeacherAttendanceWorkspace({
                           <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
-                          {ATTENDANCE_STATUSES.map((status) => (
+                          {RECORDABLE_ATTENDANCE_STATUSES.map((status) => (
                             <SelectItem key={status.value} value={status.value}>
                               {status.label}
                             </SelectItem>
@@ -567,9 +567,19 @@ export function TeacherAttendanceWorkspace({
               </div>
             </div>
           ) : null}
-          <Button type="button" disabled={isPending} onClick={handleSubmit}>
-            <Save className="mr-2 size-4" />
-            {editingSessionId ? "Save correction" : "Save attendance"}
+          <Button
+            type="button"
+            aria-label={
+              editingSessionId ? "Save correction" : "Save attendance"
+            }
+            disabled={isPending}
+            onClick={handleSubmit}
+            className="size-9 px-0 lg:w-auto lg:px-3"
+          >
+            <Save className="size-4" />
+            <span className="hidden lg:inline">
+              {editingSessionId ? "Save correction" : "Save attendance"}
+            </span>
           </Button>
         </div>
       </section>

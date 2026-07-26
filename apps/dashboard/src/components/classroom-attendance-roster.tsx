@@ -1,7 +1,11 @@
 "use client";
 
 import type { DataDirection } from "@/components/academic-data-direction/provider";
-import { ATTENDANCE_STATUSES, type AttendanceStatus } from "@/lib/attendance";
+import {
+  RECORDABLE_ATTENDANCE_STATUSES,
+  type AttendanceStatus,
+  type RecordableAttendanceStatus,
+} from "@/lib/attendance";
 import { cn } from "@school-clerk/ui/cn";
 import { Input } from "@school-clerk/ui/input";
 import { Spinner } from "@school-clerk/ui/spinner";
@@ -15,15 +19,10 @@ type AttendanceRosterStudent = {
   studentName: string;
 };
 
-const RECORDABLE_ATTENDANCE_STATUSES = ATTENDANCE_STATUSES.filter((status) =>
-  ["PRESENT", "ABSENT", "LATE", "SICK"].includes(status.value),
-);
-
 const ATTENDANCE_STATUS_CODES: Partial<Record<AttendanceStatus, string>> = {
   PRESENT: "P",
   ABSENT: "A",
   LATE: "L",
-  SICK: "S",
 };
 
 const ATTENDANCE_STATUS_STYLES: Partial<
@@ -43,11 +42,6 @@ const ATTENDANCE_STATUS_STYLES: Partial<
     row: "bg-amber-50/50 dark:bg-amber-950/10",
     toggle:
       "data-[state=on]:border-amber-500 data-[state=on]:bg-amber-400 data-[state=on]:text-amber-950",
-  },
-  SICK: {
-    row: "bg-blue-50/50 dark:bg-blue-950/10",
-    toggle:
-      "data-[state=on]:border-blue-500 data-[state=on]:bg-blue-500 data-[state=on]:text-white",
   },
 };
 
@@ -71,7 +65,10 @@ export function ClassroomAttendanceRoster({
   isLoading: boolean;
   loadMoreRef: RefCallback<HTMLDivElement>;
   onCommentChange: (attendanceKey: string, comment: string) => void;
-  onStatusChange: (attendanceKey: string, status: AttendanceStatus) => void;
+  onStatusChange: (
+    attendanceKey: string,
+    status: RecordableAttendanceStatus,
+  ) => void;
   statusMap: Record<string, AttendanceStatus | undefined>;
   students: AttendanceRosterStudent[];
   total: number;
@@ -144,7 +141,7 @@ export function ClassroomAttendanceRoster({
                     <Input
                       dir="auto"
                       aria-label={`Remarks for ${student.studentName}`}
-                      placeholder="Optional remark"
+                      placeholder="Remark (e.g. Sick)"
                       value={commentMap[student.attendanceKey] ?? ""}
                       onChange={(event) =>
                         onCommentChange(
@@ -182,7 +179,10 @@ function AttendanceStatusPicker({
   selectedStatus,
   student,
 }: {
-  onStatusChange: (attendanceKey: string, status: AttendanceStatus) => void;
+  onStatusChange: (
+    attendanceKey: string,
+    status: RecordableAttendanceStatus,
+  ) => void;
   selectedStatus?: AttendanceStatus;
   student: AttendanceRosterStudent;
 }) {
@@ -194,13 +194,15 @@ function AttendanceStatusPicker({
       dir="ltr"
       value={selectedStatus}
       aria-label={`Attendance status for ${student.studentName}`}
-      className="grid w-full grid-cols-4 md:flex md:w-auto"
+      className="grid w-full grid-cols-3 md:flex md:w-auto"
       onValueChange={(value) => {
         if (!value) return;
         const status = RECORDABLE_ATTENDANCE_STATUSES.find(
           (item) => item.value === value,
         );
-        onStatusChange(student.attendanceKey, value as AttendanceStatus);
+        if (status) {
+          onStatusChange(student.attendanceKey, status.value);
+        }
         if (status) toast({ title: status.label });
       }}
     >

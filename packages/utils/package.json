@@ -24,6 +24,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./blob": "./src/blob.ts",
+    "./attendance": "./src/attendance.ts",
     "./classroom-name": "./src/classroom-name.ts",
     "./colors": "./src/colors.ts",
     "./construct-metadata": "./src/construct-metadata.ts",

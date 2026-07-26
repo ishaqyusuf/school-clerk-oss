@@ -107,11 +107,7 @@ function Content({ departmentId }: { departmentId?: string | null }) {
   );
   const totalEligibleStudents = sessions.reduce(
     (sum, session) =>
-      sum +
-      Math.max(
-        session.total - session.excused - session.sick - session.leave,
-        0,
-      ),
+      sum + Math.max(session.total - session.excused - session.leave, 0),
     0,
   );
   const totalPresent = sessions.reduce(
@@ -252,8 +248,16 @@ function Content({ departmentId }: { departmentId?: string | null }) {
           ) : (
             <AttendanceSessionList
               sessions={sessions.map((session) => ({
-                ...session,
+                absent: session.absent,
+                attendanceDate: session.attendanceDate,
+                attendanceTitle: session.attendanceTitle,
+                id: session.id,
+                late: session.late,
+                periodLabel: session.periodLabel,
+                present: session.present,
                 rate: Math.round(attendanceRate(session)),
+                staffName: session.staffName,
+                subjectTitle: session.subjectTitle,
               }))}
               isDeleting={isDeletingSession}
               onDelete={(attendanceId) => deleteSession({ attendanceId })}

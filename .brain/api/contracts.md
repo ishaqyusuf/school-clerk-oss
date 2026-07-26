@@ -766,7 +766,7 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Request schema: `{ departmentId, attendanceTitle, attendanceDate?, scope: "GENERAL" | "SUBJECT", departmentSubjectId?, periodLabel?, idempotencyKey?, students: Array<{ studentTermFormId, status?, isPresent?, comment? }> }`
 - Response schema: `{ id }`
 - Error cases: unauthenticated, role not allowed, inactive/missing tenant term, closed term, unauthorized classroom/subject, subject outside the classroom term, incomplete or foreign roster, duplicate student, or duplicate classroom/date/scope/subject/period.
-- Notes: `departmentSubjectId` is required only for `SUBJECT` scope and forbidden for `GENERAL`. Every active classroom roster student must have one status. Supported statuses are `PRESENT`, `ABSENT`, `LATE`, `EXCUSED`, `SICK`, and `LEAVE`; legacy `isPresent` input remains compatible. The idempotency and dedupe guards are claimed atomically with session creation, and a payload hash rejects key reuse for different request content.
+- Notes: `departmentSubjectId` is required only for `SUBJECT` scope and forbidden for `GENERAL`. Every active classroom roster student must have one status. Supported statuses are `PRESENT`, `ABSENT`, `LATE`, `EXCUSED`, and `LEAVE`; illness is submitted as `ABSENT` with a remark, and `SICK` is rejected as a new recording status. Legacy `isPresent` input remains compatible. The idempotency and dedupe guards are claimed atomically with session creation, and a payload hash rejects key reuse for different request content.
 
 - Route: `attendance.updateAttendanceSession`
 - Request schema: the create payload plus `{ attendanceId }`
@@ -783,13 +783,13 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Routes: `attendance.getClassroomAttendance`, `attendance.getAttendanceSession`, `attendance.getStudentAttendanceHistory`
 - Response schema: active-term attendance metadata with explicit status counts/rows, scope, optional subject, period, date, recorder, and revision where applicable.
 - Error cases: unauthenticated, role not allowed, tenant mismatch, or teacher outside effective classroom access.
-- Notes: legacy rows without explicit status/date/scope are read compatibly as present/absent, `createdAt`, and general attendance.
+- Notes: legacy rows without explicit status/date/scope are read compatibly as present/absent, `createdAt`, and general attendance. Stored legacy `SICK` values are normalized to `ABSENT` and are not returned as a distinct status.
 
 - Route: `attendance.getAttendanceReport`
 - Request schema: `{ departmentId, departmentSubjectId?, from?, to? }`
-- Response schema: `{ sessions, summary, rows }`, where rows are student-level export records and summary includes all status counts plus attendance rate.
+- Response schema: `{ sessions, summary, rows }`, where rows are student-level export records and summary includes supported status counts plus attendance rate.
 - Error cases: unauthenticated, role not allowed, unauthorized classroom/subject, or inverted date range.
-- Notes: attendance rate counts `PRESENT` and `LATE` as attended and excludes `EXCUSED`, `SICK`, and `LEAVE` from the eligible denominator.
+- Notes: attendance rate counts `PRESENT` and `LATE` as attended and excludes `EXCUSED` and `LEAVE` from the eligible denominator.
 
 ## AI Chat Contracts
 

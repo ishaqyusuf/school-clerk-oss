@@ -360,6 +360,26 @@ describe("attendanceRouter permissions", () => {
 		]);
 	});
 
+	test("rejects sick as a separate recording status", async () => {
+		const caller = attendanceRouter.createCaller(
+			createAttendanceContext({ role: "Admin" })
+				.ctx as unknown as CallerContext,
+		);
+
+		await expect(
+			caller.takeAttendance({
+				...subjectAttendanceInput(),
+				students: [
+					{
+						comment: "Sick",
+						status: "SICK",
+						studentTermFormId: "term-form-1",
+					},
+				],
+			} as never),
+		).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	});
+
 	test("lets an assigned teacher record subject attendance", async () => {
 		const { createdAttendance, ctx } = createAttendanceContext({
 			role: "Teacher",
@@ -452,7 +472,7 @@ describe("attendanceRouter permissions", () => {
 		).rejects.toMatchObject({ code: "CONFLICT" });
 	});
 
-	test("summarizes all supported statuses for the active-term session list", async () => {
+	test("normalizes legacy sick records to absent in the active-term session list", async () => {
 		const { ctx } = createAttendanceContext({
 			attendanceRows: [
 				{
@@ -490,17 +510,17 @@ describe("attendanceRouter permissions", () => {
 
 		expect(result).toEqual([
 			expect.objectContaining({
-				absent: 1,
+				absent: 2,
 				excused: 1,
 				late: 1,
 				leave: 1,
 				present: 1,
 				scope: "SUBJECT",
-				sick: 1,
 				subjectTitle: "Mathematics",
 				total: 6,
 			}),
 		]);
+		expect(result[0]).not.toHaveProperty("sick");
 	});
 
 	test("scopes student attendance history to the active academic term", async () => {

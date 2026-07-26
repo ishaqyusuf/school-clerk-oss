@@ -44,9 +44,9 @@ describe("responsive attendance session lists", () => {
       createElement(AttendanceSessionStudentList, {
         students: [
           {
-            comment: null,
+            comment: "Sick",
             id: "student-1",
-            status: "SICK",
+            status: "ABSENT",
             studentName: "فاطمة أحمد",
           },
         ],
@@ -54,8 +54,8 @@ describe("responsive attendance session lists", () => {
     );
 
     expect(html).toContain("فاطمة أحمد");
+    expect(html).toContain("Absent");
     expect(html).toContain("Sick");
-    expect(html).toContain("No remark");
     expect(html).toContain("block w-full text-left text-sm md:table");
     expect(html).toContain("md:table-row");
   });

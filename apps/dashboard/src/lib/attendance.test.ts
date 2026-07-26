@@ -1,6 +1,12 @@
 // @ts-expect-error Bun test types are not included by this app tsconfig.
 import { describe, expect, test } from "bun:test";
-import { attendanceFormDetailsSchema } from "./attendance";
+import {
+  ATTENDANCE_STATUSES,
+  RECORDABLE_ATTENDANCE_STATUSES,
+  applyBulkAttendanceStatus,
+  attendanceFormDetailsSchema,
+  attendanceStatusLabel,
+} from "./attendance";
 
 describe("attendanceFormDetailsSchema", () => {
   test("accepts complete general attendance details", () => {
@@ -33,5 +39,52 @@ describe("attendanceFormDetailsSchema", () => {
         path: ["departmentSubjectId"],
       }),
     ]);
+  });
+});
+
+describe("recordable attendance statuses", () => {
+  test("uses absence remarks instead of a separate sick recording control", () => {
+    expect(
+      RECORDABLE_ATTENDANCE_STATUSES.map((status) => status.value),
+    ).toEqual(["PRESENT", "ABSENT", "LATE"]);
+    expect(
+      ATTENDANCE_STATUSES.some((status) => String(status.value) === "SICK"),
+    ).toBe(false);
+    expect(attendanceStatusLabel("SICK")).toBe("Absent");
+  });
+
+  test("marks only the unmarked students when applying a rest status", () => {
+    expect(
+      applyBulkAttendanceStatus(
+        {
+          studentA: "LATE",
+          studentB: undefined,
+        },
+        ["studentA", "studentB", "studentC"],
+        "ABSENT",
+        "rest",
+      ),
+    ).toEqual({
+      studentA: "LATE",
+      studentB: "ABSENT",
+      studentC: "ABSENT",
+    });
+  });
+
+  test("overwrites every roster status when applying an all status", () => {
+    expect(
+      applyBulkAttendanceStatus(
+        {
+          studentA: "LATE",
+          studentB: "ABSENT",
+        },
+        ["studentA", "studentB"],
+        "PRESENT",
+        "all",
+      ),
+    ).toEqual({
+      studentA: "PRESENT",
+      studentB: "PRESENT",
+    });
   });
 });

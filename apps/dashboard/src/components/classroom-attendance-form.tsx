@@ -8,9 +8,12 @@ import { useClassroomParams } from "@/hooks/use-classroom-params";
 import {
   type AttendanceScope,
   type AttendanceStatus,
+  type RecordableAttendanceStatus,
+  applyBulkAttendanceStatus,
   attendanceFormDetailsSchema,
   attendanceRate,
   attendanceRevisionSummary,
+  attendanceStatusLabel,
   todayAttendanceDate,
 } from "@/lib/attendance";
 import { useTRPC } from "@/trpc/client";
@@ -33,11 +36,9 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-import { addDays, format } from "date-fns";
+import { format } from "date-fns";
 import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
+  Calendar as CalendarIcon,
   CheckCircle2,
   Pencil,
   Save,
@@ -46,6 +47,10 @@ import {
 } from "lucide-react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useInView } from "react-intersection-observer";
+import {
+  AttendanceBulkActions,
+  AttendanceDatePicker,
+} from "./attendance-recorder-controls";
 import { ClassroomAttendanceRoster } from "./classroom-attendance-roster";
 import { AttendanceSessionStudentList } from "./classroom-attendance-session-lists";
 import { SubmitButton } from "./submit-button";
@@ -171,7 +176,7 @@ function AttendanceOverviewContent({
               </h3>
               <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="h-4 w-4" />
+                  <CalendarIcon className="h-4 w-4" />
                   {session.attendanceDate
                     ? format(new Date(session.attendanceDate), "dd MMM yyyy")
                     : "Unknown date"}
@@ -201,9 +206,6 @@ function AttendanceOverviewContent({
           <div className="flex flex-wrap gap-2">
             {session.excused ? (
               <Badge variant="secondary">{session.excused} excused</Badge>
-            ) : null}
-            {session.sick ? (
-              <Badge variant="secondary">{session.sick} sick</Badge>
             ) : null}
             {session.leave ? (
               <Badge variant="secondary">{session.leave} on leave</Badge>
@@ -540,13 +542,25 @@ function AttendanceFormContent({
 
   const isPending = createMutation.isPending || updateMutation.isPending;
   const isSaveDisabled = isPending || isRosterLoading || isRosterError;
-  const shiftAttendanceDate = (days: number) => {
-    const currentDate = new Date(`${attendanceDate}T12:00:00`);
-    setAttendanceDate(format(addDays(currentDate, days), "yyyy-MM-dd"));
+  const applyBulkStatus = (
+    status: RecordableAttendanceStatus,
+    mode: "all" | "rest",
+  ) => {
+    setStatusMap((current) =>
+      applyBulkAttendanceStatus(
+        current,
+        roster.map((student) => student.attendanceKey),
+        status,
+        mode,
+      ),
+    );
     setFieldErrors((current) => ({
       ...current,
-      attendanceDate: undefined,
+      roster: undefined,
     }));
+    toast({
+      title: `${mode === "all" ? "All" : "Remaining"} students marked ${attendanceStatusLabel(status).toLowerCase()}`,
+    });
   };
 
   return (
@@ -650,86 +664,34 @@ function AttendanceFormContent({
       </div>
 
       <div className="sticky top-0 z-10 flex min-w-0 flex-col gap-3 border-y bg-background/95 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex w-full min-w-0 items-center sm:w-auto">
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className="shrink-0 rounded-r-none"
-            aria-label="Previous attendance date"
-            onClick={() => shiftAttendanceDate(-1)}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <Input
-            id="attendance-date"
-            aria-label="Attendance date"
-            type="date"
-            value={attendanceDate}
-            aria-invalid={Boolean(fieldErrors.attendanceDate)}
-            onChange={(event) => {
-              setAttendanceDate(event.target.value);
-              setFieldErrors((current) => ({
-                ...current,
-                attendanceDate: undefined,
-              }));
-            }}
-            className="min-w-0 flex-1 rounded-none border-x-0 text-center sm:w-40 sm:flex-none"
-          />
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className="shrink-0 rounded-l-none"
-            aria-label="Next attendance date"
-            onClick={() => shiftAttendanceDate(1)}
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-        <div className="grid w-full grid-cols-2 items-center gap-2 sm:flex sm:w-auto sm:flex-wrap">
-          <span className="col-span-2 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:col-auto">
-            Mark all
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="w-full sm:w-auto"
+        <AttendanceDatePicker
+          id="attendance-date"
+          value={attendanceDate}
+          hasError={Boolean(fieldErrors.attendanceDate)}
+          onChange={(value) => {
+            setAttendanceDate(value);
+            setFieldErrors((current) => ({
+              ...current,
+              attendanceDate: undefined,
+            }));
+          }}
+        />
+        <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+          <AttendanceBulkActions
             disabled={isRosterLoading || isRosterError || roster.length === 0}
-            onClick={() => {
-              setStatusMap(
-                Object.fromEntries(
-                  roster.map((student) => [student.attendanceKey, "PRESENT"]),
-                ),
-              );
-              setFieldErrors((current) => ({
-                ...current,
-                roster: undefined,
-              }));
-              toast({ title: "Present" });
-            }}
-          >
-            Present
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="w-full sm:w-auto"
-            onClick={() => setStatusMap({})}
-          >
-            Clear
-          </Button>
+            onApply={applyBulkStatus}
+            onClear={() => setStatusMap({})}
+          />
           {inline ? (
             <SubmitButton
+              aria-label="Save attendance"
               isSubmitting={isPending}
               onClick={handleSubmit}
               disabled={isSaveDisabled}
-              className="col-span-2 w-full sm:w-auto"
+              className="size-9 px-0 lg:w-auto lg:px-3"
             >
-              <Save className="mr-1 size-4" />
-              Save attendance
+              <Save className="size-4" />
+              <span className="hidden lg:inline">Save attendance</span>
             </SubmitButton>
           ) : null}
         </div>

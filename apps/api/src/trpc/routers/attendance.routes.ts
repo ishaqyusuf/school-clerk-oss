@@ -7,6 +7,10 @@ import {
 } from "@api/lib/teacher-authorization";
 import { z } from "@hono/zod-openapi";
 import { getActiveAttendanceRoster } from "@school-clerk/db";
+import {
+	ATTENDANCE_STATUS_VALUES,
+	normalizeAttendanceStatus,
+} from "@school-clerk/utils/attendance";
 import { classroomDisplayName, formatStudentName } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 import {
@@ -23,14 +27,7 @@ const ATTENDANCE_READ_ROLES = new Set([
 ]);
 const ATTENDANCE_WRITE_ROLES = new Set(["ADMIN", "Admin", "Teacher"]);
 const attendanceScopeSchema = z.enum(["GENERAL", "SUBJECT"]);
-const attendanceStatusSchema = z.enum([
-	"PRESENT",
-	"ABSENT",
-	"LATE",
-	"EXCUSED",
-	"SICK",
-	"LEAVE",
-]);
+const attendanceStatusSchema = z.enum(ATTENDANCE_STATUS_VALUES);
 
 function assertAttendanceRole(ctx: TRPCContext, access: "read" | "write") {
 	const role = ctx.currentUser?.role;
@@ -112,9 +109,9 @@ function isPresentStatus(status: z.infer<typeof attendanceStatusSchema>) {
 
 function attendanceStatusFromRecord(record: {
 	isPresent?: boolean | null;
-	status?: z.infer<typeof attendanceStatusSchema> | null;
+	status?: string | null;
 }) {
-	return record.status ?? (record.isPresent ? "PRESENT" : "ABSENT");
+	return normalizeAttendanceStatus(record.status, record.isPresent);
 }
 
 function attendanceDateFromInput(value?: string) {
@@ -418,9 +415,8 @@ function summarizeAttendanceStatuses(
 	const present = count("PRESENT");
 	const late = count("LATE");
 	const excused = count("EXCUSED");
-	const sick = count("SICK");
 	const leave = count("LEAVE");
-	const eligible = Math.max(statuses.length - excused - sick - leave, 0);
+	const eligible = Math.max(statuses.length - excused - leave, 0);
 
 	return {
 		total: statuses.length,
@@ -428,7 +424,6 @@ function summarizeAttendanceStatuses(
 		absent: count("ABSENT"),
 		late,
 		excused,
-		sick,
 		leave,
 		attendanceRate:
 			eligible > 0 ? Math.round(((present + late) / eligible) * 1000) / 10 : 0,
@@ -644,7 +639,6 @@ export const attendanceRouter = createTRPCRouter({
 					absent: count("ABSENT"),
 					late: count("LATE"),
 					excused: count("EXCUSED"),
-					sick: count("SICK"),
 					leave: count("LEAVE"),
 				};
 			});
@@ -900,7 +894,6 @@ export const attendanceRouter = createTRPCRouter({
 				absent: count("ABSENT"),
 				late: count("LATE"),
 				excused: count("EXCUSED"),
-				sick: count("SICK"),
 				leave: count("LEAVE"),
 				students,
 			};

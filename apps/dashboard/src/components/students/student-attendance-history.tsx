@@ -3,7 +3,11 @@
 import { Suspense } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
-import { attendanceRate, attendanceStatusLabel } from "@/lib/attendance";
+import {
+  attendanceRate,
+  attendanceStatusLabel,
+  normalizeAttendanceStatus,
+} from "@/lib/attendance";
 import { TableSkeleton } from "../tables/skeleton";
 import { format } from "date-fns";
 import { Card, CardContent } from "@school-clerk/ui/card";
@@ -14,7 +18,7 @@ function attendanceStatus(record: {
   isPresent?: boolean | null;
   status?: string | null;
 }) {
-  return record.status ?? (record.isPresent ? "PRESENT" : "ABSENT");
+  return normalizeAttendanceStatus(record.status, record.isPresent);
 }
 
 export function StudentAttendanceHistory() {
@@ -49,7 +53,7 @@ function Content() {
   const late = statuses.filter((status) => status === "LATE").length;
   const absent = statuses.filter((status) => status === "ABSENT").length;
   const excluded = statuses.filter((status) =>
-    ["EXCUSED", "SICK", "LEAVE"].includes(status),
+    ["EXCUSED", "LEAVE"].includes(status),
   ).length;
   const eligible = Math.max(total - excluded, 0);
   const percentage = Math.round(
@@ -58,7 +62,6 @@ function Content() {
       late,
       leave: statuses.filter((status) => status === "LEAVE").length,
       present,
-      sick: statuses.filter((status) => status === "SICK").length,
       total,
     }),
   );

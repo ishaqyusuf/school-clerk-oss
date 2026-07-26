@@ -33,6 +33,16 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: 2026-07-26-attendance-remove-sick-status
+- Title: Simplify Attendance Statuses And Recorder Controls
+- Completed: 2026-07-26
+- Outcome: Removed Sick from the attendance picker and API write contract, changed the mobile selector to three equal controls, clarified the remark field for illness notes, and normalized stored legacy Sick values to Absent instead of exposing a separate Sick status. Replaced native date inputs with one shared standard shadcn calendar, consolidated classroom and teacher attendance-wide actions into shared Mark all/Mark rest submenus for Present, Absent, and Late, retained Clear all in that menu, and made Save icon-only through medium screens. Browser-safe attendance status and bulk-update rules now live in the shared utilities package.
+- Validation: Twenty-four focused attendance tests plus dashboard and shared-utils typechecks passed; authenticated browser QA at 320 × 800 and 1280 × 900 verified three controls per student, no Sick control, the shadcn calendar open/select flow, Absent plus a Sick remark, Mark rest preserving a Late mark while filling six Absent marks, responsive Save labeling, and no dialog overflow. The repository-wide suite completed with 333 passes and its existing six failures/one Playwright configuration error; the broad Turbo typecheck remains blocked by pre-existing Jobs/shared strictness failures.
+- Related changes: `packages/utils/src/attendance.ts`, `apps/dashboard/src/lib/attendance.ts`, `apps/dashboard/src/components/attendance-recorder-controls.tsx`, `apps/dashboard/src/components/classroom-attendance-form.tsx`, `apps/dashboard/src/components/classroom-attendance-roster.tsx`, `apps/dashboard/src/components/teachers/teacher-attendance-workspace.tsx`, `apps/dashboard/src/components/students/student-attendance-history.tsx`, `apps/api/src/trpc/routers/attendance.routes.ts`, `.brain/features/attendance.md`, `.brain/api/contracts.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: ACADEMIC-SESSION-SCOPED-TERM-SELECTORS-001
 - Title: Scope academic term selectors to the selected session
 - Completed: 2026-07-25

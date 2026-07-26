@@ -1,20 +1,15 @@
 import { z } from "zod";
+export {
+  ATTENDANCE_STATUSES,
+  RECORDABLE_ATTENDANCE_STATUSES,
+  applyBulkAttendanceStatus,
+  attendanceStatusLabel,
+  normalizeAttendanceStatus,
+  type AttendanceStatus,
+  type RecordableAttendanceStatus,
+} from "@school-clerk/utils/attendance";
 
 export type AttendanceScope = "GENERAL" | "SUBJECT";
-export type AttendanceStatus =
-  "PRESENT" | "ABSENT" | "LATE" | "EXCUSED" | "SICK" | "LEAVE";
-
-export const ATTENDANCE_STATUSES: Array<{
-  label: string;
-  value: AttendanceStatus;
-}> = [
-  { label: "Present", value: "PRESENT" },
-  { label: "Absent", value: "ABSENT" },
-  { label: "Late", value: "LATE" },
-  { label: "Excused", value: "EXCUSED" },
-  { label: "Sick", value: "SICK" },
-  { label: "Leave", value: "LEAVE" },
-];
 
 export const attendanceFormDetailsSchema = z
   .object({
@@ -34,12 +29,6 @@ export const attendanceFormDetailsSchema = z
     }
   });
 
-export function attendanceStatusLabel(status: string) {
-  return (
-    ATTENDANCE_STATUSES.find((item) => item.value === status)?.label ?? status
-  );
-}
-
 export function todayAttendanceDate() {
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60_000;
@@ -52,14 +41,10 @@ export function attendanceRate(summary: {
   late?: number;
   leave?: number;
   present?: number;
-  sick?: number;
   total?: number;
 }) {
   const eligible = Math.max(
-    (summary.total ?? 0) -
-      (summary.excused ?? 0) -
-      (summary.sick ?? 0) -
-      (summary.leave ?? 0),
+    (summary.total ?? 0) - (summary.excused ?? 0) - (summary.leave ?? 0),
     0,
   );
   return eligible > 0
