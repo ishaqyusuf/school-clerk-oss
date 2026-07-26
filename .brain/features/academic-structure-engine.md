@@ -52,6 +52,8 @@ Allow each tenant to define and run academic operations across term-based or sem
 - Use institution-aware labels (for example, `Term` vs `Semester`, `Subject` vs `Course`).
 - Show only hierarchy controls relevant to tenant configuration.
 - Prevent invalid combinations at form level.
+- The classroom index keeps search and view mode in one shared filter control. `View by` offers Stream and Class choices, with Stream used when no explicit view filter is set.
+- Classroom index actions remain directly visible on large screens. At the medium breakpoint and below, `Add Classroom` and `Import from Session` move into a single `More` menu without changing their existing workflows.
 
 ## Permissions
 - Only privileged admin roles can modify hierarchy definitions.

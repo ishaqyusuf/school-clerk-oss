@@ -1,14 +1,16 @@
 import { useQueryStates } from "nuqs";
-import { createLoader, parseAsString, parseAsInteger } from "nuqs/server";
+import { createLoader, parseAsString, parseAsStringLiteral } from "nuqs/server";
 import { RouterInputs } from "@api/trpc/routers/_app";
 type FilterKeys = keyof Exclude<
   RouterInputs["academics"]["getClassrooms"],
   void
 >;
 
+const classroomViews = ["stream", "class"] as const;
+
 export const classroomFilterParams = {
   q: parseAsString,
-  view: parseAsString.withDefault("stream"),
+  view: parseAsStringLiteral(classroomViews),
 } satisfies Partial<Record<FilterKeys | "view", any>>;
 
 export function useClassroomFilterParams() {

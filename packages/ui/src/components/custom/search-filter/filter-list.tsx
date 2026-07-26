@@ -7,6 +7,7 @@ import { Icons } from "@school-clerk/ui/icons";
 import { Skeleton } from "@school-clerk/ui/skeleton";
 import { isSearchKey } from "./search-utils";
 import { PageFilterData } from "@school-clerk/utils/types";
+import { getFilterOptionLabel } from "./filter-label";
 
 const listVariant = {
   hidden: { y: 10, opacity: 0 },
@@ -146,13 +147,15 @@ export function FilterList({ loading, filterList, filters, onRemove }: Props) {
       default:
         if (isSearchKey(key)) return value;
         //  return null;
-        const opts = filterList?.find((f) => f?.value === key)?.options;
-        if (!opts) return null;
+        const options = filterList?.find(
+          (filter) => filter?.value === key,
+        )?.options;
+        if (!options) return null;
         if (!Array.isArray(value)) {
-          return value;
+          return getFilterOptionLabel(options, value);
         }
         return (value || [])
-          ?.map((v) => opts?.find((a) => a?.value == v)?.label || v)
+          ?.map((filterValue) => getFilterOptionLabel(options, filterValue))
           ?.join(", ");
     }
   };

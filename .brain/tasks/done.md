@@ -561,3 +561,13 @@ Record of completed tasks and delivery outcomes.
 - Outcome: Added transactional append-only previous/new value history for authenticated assessment entry, public-link entry, workbook imports, and authorized AI assessment writes. Same-value saves and explicit clears are recorded; existing scores remain canonical and are not backfilled.
 - Related changes: `packages/db/src/assessment-score-history.ts`, `apps/api/src/db/queries/assessments.ts`, `apps/api/src/db/queries/assessment-public-links.ts`, `apps/api/src/db/queries/assessment-workbooks.ts`, `packages/ai/src/tools/assessments.ts`, `.brain/features/assessment-score-value-history.md`, `.brain/decisions/ADR-0011-transactional-assessment-score-value-history.md`
 - Owner: Codex
+
+## Completed Task
+
+- ID: 2026-07-26-classroom-filter-list-and-responsive-actions
+- Title: Classroom View Filter And Responsive Action Menu
+- Completed: 2026-07-26
+- Outcome: Moved Stream/Class view selection into the classroom search-filter menu, restored a usable classroom filter list, rendered human-readable active filter tags, and collapsed Add Classroom plus Import from Session into a More menu at the medium breakpoint and below.
+- Validation: Focused shared filter-label regression test, dashboard and shared UI package typechecks, plus authenticated live browser verification at desktop and 768 × 900 responsive sizes.
+- Related changes: `apps/dashboard/src/components/classroom-header.tsx`, `apps/dashboard/src/hooks/use-classroom-filter-params.ts`, `packages/ui/src/components/custom/search-filter/filter-list.tsx`, `packages/ui/src/components/custom/search-filter/filter-label.ts`, `.brain/features/academic-structure-engine.md`, `.brain/bugs/2026-07-26-classroom-filter-list-and-responsive-actions.md`
+- Owner: Codex

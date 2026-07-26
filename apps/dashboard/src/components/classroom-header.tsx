@@ -10,7 +10,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { toast } from "@school-clerk/ui/use-toast";
-import { Download } from "lucide-react";
+import type { PageFilterData } from "@school-clerk/utils/types";
+import { Download, MoreHorizontal } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,11 +27,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@school-clerk/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@school-clerk/ui/dropdown-menu";
+
+const classroomFilterList = [
+  {
+    label: "Search",
+    type: "input",
+    value: "q",
+  },
+  {
+    label: "View by",
+    type: "checkbox",
+    value: "view",
+    options: [
+      { label: "Stream", value: "stream" },
+      { label: "Class", value: "class" },
+    ],
+  },
+] satisfies PageFilterData<keyof typeof classroomFilterParams>[];
 
 export function ClassroomHeader({}) {
   const [filters, setFilters] = useQueryStates(classroomFilterParams);
   const { setParams } = useClassroomParams();
   const [importOpen, setImportOpen] = useState(false);
+
+  const openAddClassroom = () => setParams({ createClassroom: true });
+  const openImport = () => setImportOpen(true);
 
   return (
     <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between">
@@ -39,40 +66,43 @@ export function ClassroomHeader({}) {
           filterSchema={classroomFilterParams}
           placeholder="Search classrooms..."
           trpcRoute={_trpc.filters.classroom}
-          filterList={[]}
+          filterList={classroomFilterList}
           trpQueryOptions={{}}
           {...{ filters, setFilters }}
         />
       </div>
-      <div className="flex gap-2 shrink-0">
-        <Select
-          value={filters.view ?? "stream"}
-          onValueChange={(value) => setFilters({ view: value as any })}
-        >
-          <SelectTrigger className="w-[170px]">
-            <SelectValue placeholder="View mode" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="stream">View by Stream</SelectItem>
-            <SelectItem value="class">View by Class</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button
-          variant="outline"
-          className="gap-2"
-          onClick={() => setImportOpen(true)}
-        >
+      <div className="hidden gap-2 shrink-0 lg:flex">
+        <Button variant="outline" className="gap-2" onClick={openImport}>
           <Download className="h-4 w-4" />
           Import from Session
         </Button>
-        <Button
-          className="gap-2 shadow-sm"
-          onClick={() => setParams({ createClassroom: true })}
-        >
+        <Button className="gap-2 shadow-sm" onClick={openAddClassroom}>
           <Icons.Add className="h-4 w-4" />
           Add Classroom
         </Button>
       </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            className="shrink-0 gap-2 lg:hidden"
+            aria-label="Open classroom actions"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+            More
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem onClick={openAddClassroom} className="gap-2">
+            <Icons.Add className="h-4 w-4" />
+            Add Classroom
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={openImport} className="gap-2">
+            <Download className="h-4 w-4" />
+            Import from Session
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <ImportClassroomsDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
