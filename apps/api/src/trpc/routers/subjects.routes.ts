@@ -9,19 +9,29 @@ import {
   importSubjectsSchema,
   getQuickAddSubjects,
   getQuickAddSubjectsSchema,
+  getSubjectCatalog,
   getSubjects,
   overview,
   saveSubject,
   saveSubjectSchema,
   subjectOverviewSchema,
 } from "../../db/queries/subjects";
-import { createTRPCRouter, publicProcedure } from "../init";
+import {
+  authenticatedProcedure,
+  createTRPCRouter,
+  publicProcedure,
+} from "../init";
 import {
   getAllSubjectsSchema,
   getClassroomSubjectsSchema,
   getSubjectsSchema,
 } from "../schemas/students";
 export const subjectsRouter = createTRPCRouter({
+  getSubjectCatalog: authenticatedProcedure
+    .input(getSubjectsSchema)
+    .query(async (props) => {
+      return getSubjectCatalog(props.ctx, props.input);
+    }),
   getSubjects: publicProcedure.input(getSubjectsSchema).query(async (props) => {
     await props.ctx.db.subject.updateMany({
       where: {

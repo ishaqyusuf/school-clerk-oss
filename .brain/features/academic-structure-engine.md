@@ -56,6 +56,7 @@ Allow each tenant to define and run academic operations across term-based or sem
 - Use institution-aware labels (for example, `Term` vs `Semester`, `Subject` vs `Course`).
 - Show only hierarchy controls relevant to tenant configuration.
 - Prevent invalid combinations at form level.
+- The global Subjects page lists one canonical tenant `Subject` per row rather than repeating each active-term `DepartmentSubject` assignment. A Classes column shows the distinct number of canonical classes using that subject in the active term, without counting separate streams or duplicate assignments more than once. On mobile, each canonical subject renders as a compact card with its class usage count, matching the responsive Classroom list pattern; medium and larger screens use the two-column table. Classroom subject workspaces continue to use `DepartmentSubject` because their assessment and assignment actions require the classroom-specific record.
 - The classroom index keeps search and view mode in one shared filter control. `View by` offers Stream and Class choices, with Stream used when no explicit view filter is set.
 - Classroom index actions remain directly visible on large screens. At the medium breakpoint and below, `Add Classroom` and `Import from Session` move into a single `More` menu without changing their existing workflows.
 

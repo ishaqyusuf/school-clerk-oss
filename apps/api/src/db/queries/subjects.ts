@@ -11,6 +11,7 @@ import {
   type SaveSubjectSchema,
 } from "@school-clerk/assessment-results";
 import { Prisma } from "@school-clerk/db";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { getClassroomDepartments } from "./classroom";
 import { percent, sum, uniqueList } from "@school-clerk/utils";
@@ -19,8 +20,107 @@ import {
   assertTeacherCanAccessDepartmentSubject,
   getTeacherAcademicAccess,
 } from "../../lib/teacher-authorization";
+import {
+  buildSubjectCatalogAssignmentWhere,
+  buildSubjectCatalogWhere,
+  countSubjectClassrooms,
+} from "./subject-catalog";
 
 export { saveSubjectSchema } from "@school-clerk/assessment-results";
+
+export async function getSubjectCatalog(
+  ctx: TRPCContext,
+  query: GetSubjectsSchema,
+) {
+  const { db, profile } = ctx;
+  if (!profile.schoolId) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Missing active school context.",
+    });
+  }
+
+  const effectiveTermId = query.termId ?? profile.termId;
+  if (!effectiveTermId) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Select an active term to view subject class usage.",
+    });
+  }
+
+  const accountId = ctx.currentUser?.saasAccountId;
+  if (!accountId) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "You must be signed in to view the subject catalog.",
+    });
+  }
+
+  const tenant = await db.schoolProfile.findFirst({
+    where: {
+      accountId,
+      deletedAt: null,
+      id: profile.schoolId,
+    },
+    select: {
+      id: true,
+    },
+  });
+  if (!tenant) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You do not have access to this school.",
+    });
+  }
+
+  const teacherAccess = await getTeacherAcademicAccess(ctx, effectiveTermId);
+  const scope = {
+    accessibleDepartmentSubjectIds:
+      teacherAccess?.departmentSubjectIds ?? undefined,
+    schoolProfileId: profile.schoolId,
+    sessionTermId: effectiveTermId,
+  };
+  const assignmentWhere = buildSubjectCatalogAssignmentWhere(scope);
+  const where = buildSubjectCatalogWhere(query, scope);
+  const { response, searchMeta } = await composeQueryData(
+    query,
+    where,
+    db.subject,
+  );
+  const subjects = await db.subject.findMany({
+    where,
+    ...searchMeta,
+    select: {
+      id: true,
+      title: true,
+      departmentSubjects: {
+        where: assignmentWhere,
+        select: {
+          classRoomDepartment: {
+            select: {
+              classRoomsId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const result = response(
+    subjects.map(({ departmentSubjects, ...subject }) => ({
+      ...subject,
+      classroomCount: countSubjectClassrooms(departmentSubjects),
+    })),
+  );
+
+  return {
+    ...result,
+    meta: {
+      ...result.meta,
+      hasPreviousePage: Number(query.cursor ?? 0) > 0,
+    },
+  };
+}
 
 export async function getSubjects(ctx: TRPCContext, query: GetSubjectsSchema) {
   const { db } = ctx;

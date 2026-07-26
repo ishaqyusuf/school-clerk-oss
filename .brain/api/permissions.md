@@ -111,6 +111,7 @@ Defines access control rules for each API surface.
 - Accountant, HR, Parent, Staff, and other authenticated roles are rejected by the attendance router.
 - Writes validate the complete active classroom roster and reject closed academic terms.
 - Subject attendance validates that the selected `DepartmentSubject` belongs to the classroom and active term before applying teacher subject authorization.
+- The global subject catalog requires an authenticated dashboard session, verifies that the selected school belongs to the signed-in SaaS account, and restricts teacher rows and class counts to the teacher's effective academic access.
 - Tenant filters apply to every attendance/session/student lookup. A client-supplied record id never grants cross-tenant or cross-term access.
 - Create, correction, and deletion produce activity records; immutable revision snapshots preserve session-level audit history.
 

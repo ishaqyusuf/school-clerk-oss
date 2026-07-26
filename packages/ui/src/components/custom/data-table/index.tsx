@@ -13,10 +13,10 @@ import { PageFilterData } from "@school-clerk/utils/types";
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 // import { useTableScroll } from "@/hooks/use-table-scroll";
 // import { screens } from "@/lib/responsive";
-import { useMediaQuery } from "react-responsive";
 import { PageDataMeta } from "@school-clerk/utils/query-response";
 import { screens } from "@school-clerk/utils/responsive";
 import { useTableScroll } from "../../../hooks/use-table-scroll";
+import { useMediaQuery } from "../../../hooks/use-media-query";
 import { TableRow } from "./table-row";
 import { TableHeader } from "./table-header";
 import { Table as BaseTable, TableBody as Body } from "../../table";
@@ -88,7 +88,7 @@ export const { useContext: useTable, Provider: TableProvider } =
     // const [from, setFrom] = useState(pageSize);
     const { ref, inView } = useInView();
     const [nextMeta, setNextMeta] = useState(nextPageMeta);
-    const isMobile = useMediaQuery(screens.xs);
+    const isMobile = useMediaQuery(screens.xs.query);
     const loadMoreData = async () => {
       // const formatedFrom = from;
       // const to = formatedFrom + pageSize * 2;

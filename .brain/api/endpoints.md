@@ -50,6 +50,14 @@ Catalog of API routes and responsibilities.
 - Dashboard classroom cache/actions and AI classroom tools use the same shared ordering contract.
 - Classroom-department lists are ordered by class level, department level, class name, department name, and id; class-only and nested-department responses use their corresponding level-first variants. Missing levels appear last.
 
+### Subject Management
+
+- `trpc.subjects.getSubjectCatalog` (authenticated, account-owned tenant `Subject` catalog with active-term distinct classroom usage counts and teacher-access filtering)
+- `trpc.subjects.getSubjects` (classroom-specific `DepartmentSubject` list retained for classroom subject workspaces)
+- `trpc.subjects.byClassroom`
+- `trpc.subjects.saveSubject`
+- `trpc.subjects.importSubjects`
+
 ### Admissions
 
 - `GET /admissions`

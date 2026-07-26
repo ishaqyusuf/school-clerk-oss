@@ -62,6 +62,14 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Nested department order: `ClassRoomDepartment.departmentLevel ASC NULLS LAST`, then department name, then id.
 - Notes: the contract is centralized in `@school-clerk/db`. In-memory response shaping must use its equivalent comparator so nested applicability lists do not revert to database insertion order.
 
+## Subject Catalog Contracts
+
+- Route: `subjects.getSubjectCatalog`
+- Request schema: paginated `{ q?, departmentId?, termId?, cursor?, size?, sort? }`
+- Response schema: `{ data: Array<{ id, title, classroomCount }>, meta }`
+- Error cases: missing tenant context or teacher academic access that cannot be resolved for the requested term.
+- Notes: this is an authenticated dashboard route and verifies that the selected school belongs to the signed-in user's SaaS account. Rows come from the canonical tenant-scoped `Subject` model. `classroomCount` is the number of distinct canonical classes with a non-deleted assignment in the requested or active term, so separate streams and duplicate `DepartmentSubject` rows do not inflate the count. The request fails when the school context or requested/active term is missing instead of widening the query to other tenants or historical terms. Teachers only receive subjects and counts covered by their effective academic access. Classroom subject workspaces continue to use `subjects.getSubjects`, whose rows represent classroom-specific `DepartmentSubject` records.
+
 ## Enrollment Link Contracts
 
 - Route: `enrollmentLinks.listLinks`

@@ -1,7 +1,7 @@
 import { ErrorFallback } from "@/components/error-fallback";
 import { SubjectHeader } from "@/components/subject-header";
 import { TableSkeleton } from "@/components/tables/skeleton";
-import { DataTable } from "@/components/tables/subjects/data-table";
+import { SubjectCatalogDataTable } from "@/components/tables/subjects/catalog-data-table";
 import { loadSubjectFilterParams } from "@/hooks/use-subject-filter-params";
 import { batchPrefetch, trpc } from "@/trpc/server";
 import { buildTenantPageMetadata } from "@/utils/tenant-page-metadata";
@@ -25,17 +25,22 @@ export default async function Page(props) {
 	const searchParams = await props.searchParams;
 	const filter = loadSubjectFilterParams(searchParams);
 	await batchPrefetch([
-		trpc.subjects.getSubjects.infiniteQueryOptions({
+		trpc.subjects.getSubjectCatalog.infiniteQueryOptions({
 			...filter,
 		}),
 	]);
 	return (
-		<div>
-			<PageTitle>Subject</PageTitle>
+		<div className="space-y-6 py-4">
+			<div>
+				<PageTitle>Subjects</PageTitle>
+				<p className="mt-1 text-sm text-muted-foreground">
+					Manage the subject catalog and see how many classes use each subject.
+				</p>
+			</div>
 			<SubjectHeader />
 			<ErrorBoundary errorComponent={ErrorFallback}>
 				<Suspense fallback={<TableSkeleton />}>
-					<DataTable />
+					<SubjectCatalogDataTable />
 				</Suspense>
 			</ErrorBoundary>
 		</div>
