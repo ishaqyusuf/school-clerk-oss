@@ -38,6 +38,18 @@ Catalog of API routes and responsibilities.
 - `trpc.students.previewDuplicateMerge` (authenticated Admin/Registrar duplicate merge preview with records-to-move counts and blocking conflicts)
 - `trpc.students.mergeDuplicates` (authenticated Admin/Registrar transaction that moves safe duplicate references to the survivor and soft-deletes duplicate student copies)
 
+### Classroom Management
+
+- `trpc.classrooms.all`
+- `trpc.classrooms.getCurrentSessionClassroom`
+- `trpc.classrooms.getClassroomsForSession`
+- `trpc.classrooms.getSchoolClassNames`
+- `trpc.classrooms.getSchoolStreamStructures`
+- `trpc.classrooms.getClassroomStructure`
+- `trpc.academics.getClassrooms`
+- Dashboard classroom cache/actions and AI classroom tools use the same shared ordering contract.
+- Classroom-department lists are ordered by class level, department level, class name, department name, and id; class-only and nested-department responses use their corresponding level-first variants. Missing levels appear last.
+
 ### Admissions
 
 - `GET /admissions`

@@ -1,5 +1,7 @@
 import { z } from "@hono/zod-openapi";
 import {
+	classroomDepartmentListOrderBy,
+	classroomListOrderBy,
 	mapStaffAcademicAccessGrantsToAssignments,
 	resolveStaffAcademicAccess,
 } from "@school-clerk/db";
@@ -128,9 +130,7 @@ export const staffRouter = createTRPCRouter({
 						id: true,
 						name: true,
 					},
-					orderBy: {
-						name: "asc",
-					},
+					orderBy: classroomListOrderBy,
 				}),
 				ctx.db.classRoomDepartment.findMany({
 					where: {
@@ -150,16 +150,7 @@ export const staffRouter = createTRPCRouter({
 							},
 						},
 					},
-					orderBy: [
-						{
-							classRoom: {
-								name: "asc",
-							},
-						},
-						{
-							departmentName: "asc",
-						},
-					],
+					orderBy: classroomDepartmentListOrderBy,
 				}),
 				ctx.db.departmentSubject.findMany({
 					where: {
@@ -673,6 +664,7 @@ export const staffRouter = createTRPCRouter({
 											},
 										},
 									},
+									orderBy: classroomDepartmentListOrderBy,
 								})
 							: Promise.resolve([]),
 						access.departmentSubjectIds.length

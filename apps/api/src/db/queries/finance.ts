@@ -1,4 +1,4 @@
-import { Prisma } from "@school-clerk/db";
+import { compareClassroomDepartments, Prisma } from "@school-clerk/db";
 import {
 	type StudentNameFormat,
 	formatStudentName,
@@ -928,7 +928,10 @@ export async function listFinanceItems(
 						select: {
 							id: true,
 							departmentName: true,
-							classRoom: { select: { name: true } },
+							departmentLevel: true,
+							classRoom: {
+								select: { id: true, name: true, classLevel: true },
+							},
 						},
 					},
 				},
@@ -938,32 +941,41 @@ export async function listFinanceItems(
 		orderBy: [{ type: "asc" }, { name: "asc" }],
 	});
 
-	return items.map((item) => ({
-		id: item.id,
-		streamId: item.streamId,
-		stream: item.stream,
-		streamName: item.stream.name,
-		type: item.type,
-		name: item.name,
-		title: item.name,
-		description: item.description,
-		amount: toNumber(item.amount),
-		collectable: item.collectable,
-		isActive: item.isActive,
-		schoolSessionId: item.schoolSessionId,
-		sessionTermId: item.sessionTermId,
-		chargesCount: item._count.charges,
-		applicableClasses: item.applicableClasses.map((row) => ({
-			id: row.classRoomDepartment.id,
-			departmentName: row.classRoomDepartment.departmentName,
-			className: row.classRoomDepartment.classRoom?.name ?? null,
-		})),
-		classroomDepartments: item.applicableClasses.map((row) => ({
-			id: row.classRoomDepartment.id,
-			departmentName: row.classRoomDepartment.departmentName,
-			className: row.classRoomDepartment.classRoom?.name ?? null,
-		})),
-	}));
+	return items.map((item) => {
+		const applicableClasses = [...item.applicableClasses].sort((left, right) =>
+			compareClassroomDepartments(
+				left.classRoomDepartment,
+				right.classRoomDepartment,
+			),
+		);
+
+		return {
+			id: item.id,
+			streamId: item.streamId,
+			stream: item.stream,
+			streamName: item.stream.name,
+			type: item.type,
+			name: item.name,
+			title: item.name,
+			description: item.description,
+			amount: toNumber(item.amount),
+			collectable: item.collectable,
+			isActive: item.isActive,
+			schoolSessionId: item.schoolSessionId,
+			sessionTermId: item.sessionTermId,
+			chargesCount: item._count.charges,
+			applicableClasses: applicableClasses.map((row) => ({
+				id: row.classRoomDepartment.id,
+				departmentName: row.classRoomDepartment.departmentName,
+				className: row.classRoomDepartment.classRoom?.name ?? null,
+			})),
+			classroomDepartments: applicableClasses.map((row) => ({
+				id: row.classRoomDepartment.id,
+				departmentName: row.classRoomDepartment.departmentName,
+				className: row.classRoomDepartment.classRoom?.name ?? null,
+			})),
+		};
+	});
 }
 
 export async function createFinanceCharge(
@@ -2671,7 +2683,10 @@ export async function getReceivePaymentOptions(
 						select: {
 							id: true,
 							departmentName: true,
-							classRoom: { select: { id: true, name: true } },
+							departmentLevel: true,
+							classRoom: {
+								select: { id: true, name: true, classLevel: true },
+							},
 						},
 					},
 				},
@@ -2795,6 +2810,12 @@ export async function getReceivePaymentOptions(
 	}
 
 	for (const item of configuredItems) {
+		const applicableClasses = [...item.applicableClasses].sort((left, right) =>
+			compareClassroomDepartments(
+				left.classRoomDepartment,
+				right.classRoomDepartment,
+			),
+		);
 		upsertPaymentType({
 			stream: item.stream,
 			source: "configured",
@@ -2815,7 +2836,7 @@ export async function getReceivePaymentOptions(
 				sessionTermId: item.sessionTermId,
 				schoolSessionId: item.schoolSessionId,
 				termLabel: null,
-				classroomNames: item.applicableClasses.map((row) =>
+				classroomNames: applicableClasses.map((row) =>
 					[
 						row.classRoomDepartment.classRoom?.name,
 						row.classRoomDepartment.departmentName,

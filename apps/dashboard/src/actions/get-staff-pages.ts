@@ -2,7 +2,7 @@
 
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { whereStaff } from "@/utils/where.staff";
-import { prisma } from "@school-clerk/db";
+import { classroomDepartmentListOrderBy, prisma } from "@school-clerk/db";
 import { STAFF_ROLES, type StaffRole } from "@school-clerk/utils/constants";
 
 type StaffDirectoryCategory = "all" | "teachers" | "non-teaching";
@@ -351,16 +351,7 @@ export async function getStaffDepartmentOverviewAction({
 				},
 			},
 		},
-		orderBy: [
-			{
-				classRoom: {
-					name: "asc",
-				},
-			},
-			{
-				departmentName: "asc",
-			},
-		],
+		orderBy: classroomDepartmentListOrderBy,
 	});
 
 	const items = departments.map((department) => ({

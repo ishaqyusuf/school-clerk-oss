@@ -51,7 +51,10 @@ import {
 } from "@api/db/queries/assessment-workbooks";
 import { getLatestReportPrintStatus } from "@api/db/queries/report-print-history";
 import { classroomDisplayName } from "@school-clerk/utils";
-import { resolveStaffAcademicAccess } from "@school-clerk/db";
+import {
+  classroomDepartmentListOrderBy,
+  resolveStaffAcademicAccess,
+} from "@school-clerk/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -335,19 +338,7 @@ export const assessmentRouter = createTRPCRouter({
                 },
               },
             },
-            orderBy: [
-              {
-                classRoom: {
-                  classLevel: "asc",
-                },
-              },
-              {
-                departmentLevel: "asc",
-              },
-              {
-                departmentName: "asc",
-              },
-            ],
+            orderBy: classroomDepartmentListOrderBy,
           })
         : [];
       const effectiveClassroomById = new Map(

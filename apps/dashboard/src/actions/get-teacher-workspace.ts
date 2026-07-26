@@ -3,7 +3,11 @@
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { getSession } from "@/auth/server";
 import { getDashboardStudentNameFormat } from "@/lib/student-name-format/server";
-import { prisma, resolveStaffAcademicAccess } from "@school-clerk/db";
+import {
+	classroomDepartmentListOrderBy,
+	prisma,
+	resolveStaffAcademicAccess,
+} from "@school-clerk/db";
 import { classroomDisplayName, formatStudentName } from "@school-clerk/utils";
 
 export async function getTeacherWorkspaceAction({
@@ -123,16 +127,7 @@ export async function getTeacherWorkspaceAction({
 						},
 					},
 				},
-				orderBy: [
-					{
-						classRoom: {
-							name: "asc",
-						},
-					},
-					{
-						departmentName: "asc",
-					},
-				],
+				orderBy: classroomDepartmentListOrderBy,
 			})
 		: [];
 

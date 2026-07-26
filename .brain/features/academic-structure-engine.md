@@ -47,6 +47,10 @@ Allow each tenant to define and run academic operations across term-based or sem
 - Create/update hierarchy nodes.
 - Resolve valid next-level nodes based on institution type.
 - Validate enrollment against configured hierarchy.
+- Order every class-only list by `ClassRoom.classLevel`, then class name and id.
+- Order every classroom-department list by parent `ClassRoom.classLevel`, then `ClassRoomDepartment.departmentLevel`, then class name, department name, and id. Missing levels sort after configured levels.
+- Order departments nested under one class by `departmentLevel`, then department name and id.
+- See `ADR-0017-centralized-classroom-level-ordering.md`.
 
 ## UI/UX Notes
 - Use institution-aware labels (for example, `Term` vs `Semester`, `Subject` vs `Course`).

@@ -1,4 +1,4 @@
-import { prisma } from "@school-clerk/db";
+import { classroomDepartmentListOrderBy, prisma } from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { tool } from "ai";
 import { z } from "zod";
@@ -141,11 +141,7 @@ export function createStudentTools(
 								},
 							},
 						},
-						orderBy: [
-							{ classRoom: { classLevel: "asc" } },
-							{ departmentLevel: "asc" },
-							{ departmentName: "asc" },
-						],
+						orderBy: classroomDepartmentListOrderBy,
 					});
 
 					const output = departments.map((department) => ({

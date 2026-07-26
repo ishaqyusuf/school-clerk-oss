@@ -1,4 +1,5 @@
 import {
+	classroomDepartmentListOrderBy,
 	prisma,
 	retryAssessmentScoreHistoryTransaction,
 	saveStudentAssessmentScoreWithHistory,
@@ -249,11 +250,7 @@ export function createAssessmentTools(
 								},
 							},
 						},
-						orderBy: [
-							{ classRoom: { classLevel: "asc" } },
-							{ departmentLevel: "asc" },
-							{ departmentName: "asc" },
-						],
+						orderBy: classroomDepartmentListOrderBy,
 					});
 
 					const classroomMatches = uniqueMatches(

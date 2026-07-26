@@ -3,7 +3,11 @@
 import { unstable_cache } from "next/cache";
 import { whereClassroom } from "@/utils/where.classroom";
 
-import { prisma } from "@school-clerk/db";
+import {
+  classroomListOrderBy,
+  nestedClassroomDepartmentListOrderBy,
+  prisma,
+} from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 
 import { getAuthCookie } from "../cookies/auth-cookie";
@@ -21,8 +25,10 @@ export async function getCachedClassRooms(termId, sessionId) {
         include: {
           classRoomDepartments: {
             include: {},
+            orderBy: nestedClassroomDepartmentListOrderBy,
           },
         },
+        orderBy: classroomListOrderBy,
       });
       return classrooms
         .map((c) => {

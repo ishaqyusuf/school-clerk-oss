@@ -38,6 +38,7 @@ import {
   getClassroomDepartments,
   getClassroomsSchema,
 } from "@api/db/queries/classroom";
+import { compareClassroomDepartments } from "@school-clerk/db";
 import {
   entrollStudentToTerm,
   entrollStudentToTermSchema,
@@ -763,12 +764,30 @@ export const academicsRouter = createTRPCRouter({
           classLevel: form.classroomDepartment?.classRoom?.classLevel ?? null,
           departmentLevel: form.classroomDepartment?.departmentLevel ?? null,
         }))
-        .sort((a, b) => {
-          const classLevelOrder =
-            (a.classLevel ?? 9999) - (b.classLevel ?? 9999);
-          if (classLevelOrder !== 0) return classLevelOrder;
-          return (a.departmentLevel ?? 9999) - (b.departmentLevel ?? 9999);
-        });
+        .sort((a, b) =>
+          compareClassroomDepartments(
+            {
+              id: a.id,
+              departmentLevel: a.departmentLevel,
+              departmentName: a.departmentName,
+              classRoom: {
+                id: a.classRoomId,
+                classLevel: a.classLevel,
+                name: a.classRoomName,
+              },
+            },
+            {
+              id: b.id,
+              departmentLevel: b.departmentLevel,
+              departmentName: b.departmentName,
+              classRoom: {
+                id: b.classRoomId,
+                classLevel: b.classLevel,
+                name: b.classRoomName,
+              },
+            },
+          ),
+        );
 
       return {
         classrooms,

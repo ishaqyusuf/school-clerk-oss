@@ -3,7 +3,12 @@ import type { TRPCContext } from "@api/trpc/init";
 import type { GetStudentsSchema } from "@api/trpc/schemas/schemas";
 import type { PageFilterData } from "@api/type";
 import { composeQuery, txContext } from "@api/utils";
-import { Prisma } from "@school-clerk/db";
+import {
+  classroomDepartmentListOrderBy,
+  classroomListOrderBy,
+  nestedClassroomDepartmentListOrderBy,
+  Prisma,
+} from "@school-clerk/db";
 import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
 import { processStudentImportJobTaskId } from "@school-clerk/utils/task-contracts";
 import { auth, tasks } from "@trigger.dev/sdk";
@@ -342,11 +347,13 @@ export async function getStudentsQueryParams(ctx: TRPCContext) {
       },
       classRooms: {
         where: { deletedAt: null },
+        orderBy: classroomListOrderBy,
         select: {
           id: true,
           name: true,
           classRoomDepartments: {
             where: { deletedAt: null },
+            orderBy: nestedClassroomDepartmentListOrderBy,
             select: {
               id: true,
               departmentName: true,
@@ -1007,6 +1014,7 @@ export async function studentsRecentRecord(
         },
       },
     },
+    orderBy: classroomDepartmentListOrderBy,
   });
   const term = await db.sessionTerm.findUnique({
     where: {

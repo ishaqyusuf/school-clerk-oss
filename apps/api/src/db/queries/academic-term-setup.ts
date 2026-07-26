@@ -7,6 +7,10 @@ import type {
 } from "@api/trpc/schemas/academic-term-setup";
 import { TRPCError } from "@trpc/server";
 import { randomUUID } from "node:crypto";
+import {
+  classroomListOrderBy,
+  nestedClassroomDepartmentListOrderBy,
+} from "@school-clerk/db";
 
 const ACADEMIC_ADMIN_ROLES = new Set(["Admin", "ADMIN"]);
 
@@ -381,17 +385,14 @@ async function loadSourceData(
           title: true,
           classRooms: {
             where: { deletedAt: null },
-            orderBy: [{ classLevel: "asc" }, { name: "asc" }],
+            orderBy: classroomListOrderBy,
             select: {
               id: true,
               name: true,
               classLevel: true,
               classRoomDepartments: {
                 where: { deletedAt: null },
-                orderBy: [
-                  { departmentLevel: "asc" },
-                  { departmentName: "asc" },
-                ],
+                orderBy: nestedClassroomDepartmentListOrderBy,
                 select: {
                   id: true,
                   departmentName: true,
@@ -552,6 +553,7 @@ async function loadTargetClassrooms(
       classLevel: true,
       classRoomDepartments: {
         where: { deletedAt: null },
+        orderBy: nestedClassroomDepartmentListOrderBy,
         select: {
           id: true,
           departmentName: true,
@@ -559,6 +561,7 @@ async function loadTargetClassrooms(
         },
       },
     },
+    orderBy: classroomListOrderBy,
   })) as TargetClassroom[];
 }
 

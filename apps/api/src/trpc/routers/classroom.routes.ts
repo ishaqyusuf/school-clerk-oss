@@ -1,5 +1,9 @@
 import { z } from "@hono/zod-openapi";
-import type { Prisma } from "@school-clerk/db";
+import {
+  classroomListOrderBy,
+  nestedClassroomDepartmentListOrderBy,
+  type Prisma,
+} from "@school-clerk/db";
 import { createTRPCRouter, publicProcedure } from "../init";
 import { classroomQuerySchema, questionQuerySchema } from "../schemas/schemas";
 
@@ -253,7 +257,7 @@ export const classroomRouter = createTRPCRouter({
             include: {
               classRoomDepartments: {
                 where: { deletedAt: null },
-                orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+                orderBy: nestedClassroomDepartmentListOrderBy,
               },
             },
           });
@@ -299,7 +303,7 @@ export const classroomRouter = createTRPCRouter({
           include: {
             classRoomDepartments: {
               where: { deletedAt: null },
-              orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+              orderBy: nestedClassroomDepartmentListOrderBy,
             },
           },
         });
@@ -319,7 +323,7 @@ export const classroomRouter = createTRPCRouter({
           include: {
             classRoomDepartments: {
               where: { deletedAt: null },
-              orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+              orderBy: nestedClassroomDepartmentListOrderBy,
             },
           },
         });
@@ -336,7 +340,7 @@ export const classroomRouter = createTRPCRouter({
           classLevel: true,
           classRoomDepartments: {
             where: { deletedAt: null },
-            orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+            orderBy: nestedClassroomDepartmentListOrderBy,
             select: {
               id: true,
               departmentName: true,
@@ -479,7 +483,7 @@ export const classroomRouter = createTRPCRouter({
             include: {
               classRoomDepartments: {
                 where: { deletedAt: null },
-                orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+                orderBy: nestedClassroomDepartmentListOrderBy,
               },
             },
           }),
@@ -492,7 +496,7 @@ export const classroomRouter = createTRPCRouter({
             include: {
               classRoomDepartments: {
                 where: { deletedAt: null },
-                orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+                orderBy: nestedClassroomDepartmentListOrderBy,
               },
             },
           }),
@@ -645,7 +649,7 @@ export const classroomRouter = createTRPCRouter({
         schoolProfileId: ctx.profile.schoolId,
       },
       distinct: ["name"],
-      orderBy: [{ classLevel: "asc" }, { name: "asc" }],
+      orderBy: classroomListOrderBy,
       select: {
         name: true,
         classLevel: true,
@@ -669,9 +673,10 @@ export const classroomRouter = createTRPCRouter({
             departmentName: true,
             departmentLevel: true,
           },
-          orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+          orderBy: nestedClassroomDepartmentListOrderBy,
         },
       },
+      orderBy: classroomListOrderBy,
     });
 
     const classGroups = new Map<
@@ -723,10 +728,10 @@ export const classroomRouter = createTRPCRouter({
         include: {
           classRoomDepartments: {
             where: { deletedAt: null },
-            orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+            orderBy: nestedClassroomDepartmentListOrderBy,
           },
         },
-        orderBy: [{ classLevel: "asc" }, { name: "asc" }],
+        orderBy: classroomListOrderBy,
       });
 
       let created = 0;
@@ -828,7 +833,11 @@ export const classroomRouter = createTRPCRouter({
             },
           },
         },
-        include: { classRoomDepartments: true },
+        include: {
+          classRoomDepartments: {
+            orderBy: nestedClassroomDepartmentListOrderBy,
+          },
+        },
       });
     }),
   getForm: publicProcedure

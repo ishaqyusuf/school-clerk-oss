@@ -2,7 +2,10 @@
 
 import { z } from "zod";
 
-import { prisma } from "@school-clerk/db";
+import {
+  nestedClassroomDepartmentListOrderBy,
+  prisma,
+} from "@school-clerk/db";
 
 import { classChanged } from "./cache/cache-control";
 import { getAuthCookie } from "./cookies/auth-cookie";
@@ -134,6 +137,7 @@ export async function createClassroom(
         include: {
           classRoomDepartments: {
             where: { deletedAt: null },
+            orderBy: nestedClassroomDepartmentListOrderBy,
           },
         },
       });
@@ -208,7 +212,9 @@ export async function createClassroom(
       },
     },
     include: {
-      classRoomDepartments: true,
+      classRoomDepartments: {
+        orderBy: nestedClassroomDepartmentListOrderBy,
+      },
     },
   });
 

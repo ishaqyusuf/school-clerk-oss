@@ -54,6 +54,14 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases:
 - Notes:
 
+## Classroom Ordering Contracts
+
+- Applies to: classroom and classroom-department lists returned by classroom, academic setup, student, staff, assessment, enrollment, finance, dashboard-action, and AI-tool APIs.
+- Class-only order: `ClassRoom.classLevel ASC NULLS LAST`, then class name, then id.
+- Classroom-department order: parent `ClassRoom.classLevel ASC NULLS LAST`, then `ClassRoomDepartment.departmentLevel ASC NULLS LAST`, then class name, department name, and id.
+- Nested department order: `ClassRoomDepartment.departmentLevel ASC NULLS LAST`, then department name, then id.
+- Notes: the contract is centralized in `@school-clerk/db`. In-memory response shaping must use its equivalent comparator so nested applicability lists do not revert to database insertion order.
+
 ## Enrollment Link Contracts
 
 - Route: `enrollmentLinks.listLinks`

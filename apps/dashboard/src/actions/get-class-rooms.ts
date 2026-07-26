@@ -3,7 +3,7 @@
 import { AsyncFnType, PageItemData } from "@/types";
 import { SearchParamsType } from "@/utils/search-params";
 
-import { prisma } from "@school-clerk/db";
+import { classroomDepartmentListOrderBy, prisma } from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 
 import { getAuthCookie } from "./cookies/auth-cookie";
@@ -52,7 +52,7 @@ export async function getClassRooms(params: SearchParamsType) {
         },
       },
     },
-    orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+    orderBy: classroomDepartmentListOrderBy,
   });
   return {
     data: classRooms.map(({ ...a }) => {

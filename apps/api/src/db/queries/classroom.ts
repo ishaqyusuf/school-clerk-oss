@@ -4,7 +4,10 @@ import {
   paginationSchema,
   type ClassroomQuery,
 } from "@api/trpc/schemas/schemas";
-import type { Prisma } from "@school-clerk/db";
+import {
+  classroomDepartmentListOrderBy,
+  type Prisma,
+} from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { z } from "zod";
 
@@ -90,19 +93,7 @@ export async function getClassrooms(
         },
       },
     },
-    orderBy: [
-      {
-        classRoom: {
-          classLevel: "asc",
-        },
-      },
-      {
-        departmentLevel: "asc",
-      },
-      {
-        departmentName: "asc",
-      },
-    ],
+    orderBy: classroomDepartmentListOrderBy,
   });
   return {
     data: classRoomDepartments.map(({ ...a }) => {
@@ -206,7 +197,7 @@ export async function getClassroomDepartments(
         },
       },
     },
-    orderBy: [{ departmentLevel: "asc" }, { departmentName: "asc" }],
+    orderBy: classroomDepartmentListOrderBy,
   });
 
   return await response(

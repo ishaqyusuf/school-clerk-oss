@@ -6,6 +6,7 @@ import type {
 } from "@api/trpc/schemas/enrollment-links";
 import { AdmissionApprovalEmail } from "@school-clerk/email";
 import { render } from "@school-clerk/email/render";
+import { compareClassroomDepartments } from "@school-clerk/db";
 import {
 	formatStudentName,
   formatTenantEmailFrom,
@@ -480,15 +481,22 @@ export async function listEnrollmentLinks(ctx: TRPCContext) {
     instructions: link.instructions,
     opensAt: link.opensAt,
     closesAt: link.closesAt,
-    classrooms: link.classrooms.map((row: any) => ({
-      id: row.classRoomDepartmentId,
-      name: classroomLabel(row.classRoomDepartment),
-      capacity: row.capacity,
-      minimumAgeMonths: row.minimumAgeMonths,
-      maximumAgeMonths: row.maximumAgeMonths,
-      ageCutoffDate: row.ageCutoffDate,
-      requirementNotes: row.requirementNotes,
-    })),
+    classrooms: [...link.classrooms]
+      .sort((left: any, right: any) =>
+        compareClassroomDepartments(
+          left.classRoomDepartment,
+          right.classRoomDepartment,
+        ),
+      )
+      .map((row: any) => ({
+        id: row.classRoomDepartmentId,
+        name: classroomLabel(row.classRoomDepartment),
+        capacity: row.capacity,
+        minimumAgeMonths: row.minimumAgeMonths,
+        maximumAgeMonths: row.maximumAgeMonths,
+        ageCutoffDate: row.ageCutoffDate,
+        requirementNotes: row.requirementNotes,
+      })),
     documentRequirements: link.documentRequirements.map((row: any) => ({
       id: row.id,
       label: row.label,

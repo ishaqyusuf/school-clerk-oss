@@ -601,3 +601,13 @@ Record of completed tasks and delivery outcomes.
 - Validation: Focused attendance and populated responsive-session fixture tests plus dashboard typecheck passed; authenticated browser QA at 320 × 800, 390 × 844, and 1280 × 900 confirmed no document or classroom-dialog horizontal overflow and exercised mobile status selection and remark entry without saving.
 - Related changes: `apps/dashboard/src/components/classroom-attendance-roster.tsx`, `apps/dashboard/src/components/classroom-attendance-form.tsx`, `apps/dashboard/src/components/classroom-attendance-session-lists.tsx`, `apps/dashboard/src/components/classroom-attendance-session-lists.test.tsx`, `apps/dashboard/src/components/classroom-attendance.tsx`, `.brain/features/attendance.md`, `.brain/bugs/2026-07-26-attendance-mobile-overflow.md`
 - Owner: Codex
+
+## Completed Task
+
+- ID: 2026-07-26-classroom-list-level-ordering
+- Title: Standardize Classroom And Department Level Ordering
+- Completed: 2026-07-26
+- Outcome: Centralized class and classroom-department ordering in the database package and applied the level-first contract to API, academic setup, student, staff, assessment, enrollment, finance, dashboard action/cache, and AI classroom-list producers. Configured class and department levels sort before unranked records, with deterministic name/id tie-breakers.
+- Validation: Three focused ordering tests, database/dashboard/AI package typechecks, and both Standards/Spec review axes pass. The repository suite completed with 343 passes and its existing six failures plus one Playwright configuration error; the API typecheck reaches only the two pre-existing academic-term reset/setup errors, and the broad Turbo typecheck remains blocked by pre-existing Jobs/shared strictness failures.
+- Related changes: `packages/db/src/classroom-order.ts`, `apps/api/src/db/queries/classroom.ts`, `apps/api/src/trpc/routers/classroom.routes.ts`, `apps/dashboard/src/actions/get-class-rooms.ts`, `packages/ai/src/tools/students.ts`, `.brain/features/academic-structure-engine.md`, `.brain/api/contracts.md`, `.brain/api/endpoints.md`, `.brain/decisions/ADR-0017-centralized-classroom-level-ordering.md`, `.brain/bugs/2026-07-26-classroom-list-level-ordering.md`
+- Owner: Codex
