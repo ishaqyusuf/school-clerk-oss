@@ -3,9 +3,11 @@ import { describe, expect, test } from "bun:test";
 import {
   ATTENDANCE_STATUSES,
   RECORDABLE_ATTENDANCE_STATUSES,
+  allowsAttendanceRemark,
   applyBulkAttendanceStatus,
   attendanceFormDetailsSchema,
   attendanceStatusLabel,
+  filterAttendanceRemarks,
 } from "./attendance";
 
 describe("attendanceFormDetailsSchema", () => {
@@ -43,6 +45,30 @@ describe("attendanceFormDetailsSchema", () => {
 });
 
 describe("recordable attendance statuses", () => {
+  test("only allows optional remarks for absent and late students", () => {
+    expect(allowsAttendanceRemark()).toBe(false);
+    expect(allowsAttendanceRemark("PRESENT")).toBe(false);
+    expect(allowsAttendanceRemark("ABSENT")).toBe(true);
+    expect(allowsAttendanceRemark("LATE")).toBe(true);
+    expect(
+      filterAttendanceRemarks(
+        {
+          absentStudent: "Sick",
+          lateStudent: "Bus delay",
+          presentStudent: "Stale remark",
+        },
+        {
+          absentStudent: "ABSENT",
+          lateStudent: "LATE",
+          presentStudent: "PRESENT",
+        },
+      ),
+    ).toEqual({
+      absentStudent: "Sick",
+      lateStudent: "Bus delay",
+    });
+  });
+
   test("uses absence remarks instead of a separate sick recording control", () => {
     expect(
       RECORDABLE_ATTENDANCE_STATUSES.map((status) => status.value),

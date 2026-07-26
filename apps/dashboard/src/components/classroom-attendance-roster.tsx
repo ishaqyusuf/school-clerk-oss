@@ -3,6 +3,7 @@
 import type { DataDirection } from "@/components/academic-data-direction/provider";
 import {
   RECORDABLE_ATTENDANCE_STATUSES,
+  allowsAttendanceRemark,
   type AttendanceStatus,
   type RecordableAttendanceStatus,
 } from "@/lib/attendance";
@@ -98,6 +99,10 @@ export function ClassroomAttendanceRoster({
     );
   }
 
+  const showRemarksColumn = students.some((student) =>
+    allowsAttendanceRemark(statusMap[student.attendanceKey]),
+  );
+
   return (
     <div
       className="min-w-0 overflow-hidden rounded-lg border bg-card"
@@ -109,12 +114,15 @@ export function ClassroomAttendanceRoster({
             <tr>
               <th className="px-4 py-3 font-semibold">Student</th>
               <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Remarks</th>
+              {showRemarksColumn ? (
+                <th className="px-4 py-3 font-semibold">Remarks</th>
+              ) : null}
             </tr>
           </thead>
           <tbody className="block divide-y md:table-row-group">
             {students.map((student) => {
               const selectedStatus = statusMap[student.attendanceKey];
+              const showRemark = allowsAttendanceRemark(selectedStatus);
               return (
                 <tr
                   key={student.id}
@@ -137,20 +145,24 @@ export function ClassroomAttendanceRoster({
                       onStatusChange={onStatusChange}
                     />
                   </td>
-                  <td className="block p-0 md:table-cell md:px-4 md:py-3">
-                    <Input
-                      dir="auto"
-                      aria-label={`Remarks for ${student.studentName}`}
-                      placeholder="Remark (e.g. Sick)"
-                      value={commentMap[student.attendanceKey] ?? ""}
-                      onChange={(event) =>
-                        onCommentChange(
-                          student.attendanceKey,
-                          event.target.value,
-                        )
-                      }
-                    />
-                  </td>
+                  {showRemarksColumn ? (
+                    <td className="block p-0 md:table-cell md:px-4 md:py-3">
+                      {showRemark ? (
+                        <Input
+                          dir="auto"
+                          aria-label={`Remarks for ${student.studentName}`}
+                          placeholder="Optional remark (e.g. Sick)"
+                          value={commentMap[student.attendanceKey] ?? ""}
+                          onChange={(event) =>
+                            onCommentChange(
+                              student.attendanceKey,
+                              event.target.value,
+                            )
+                          }
+                        />
+                      ) : null}
+                    </td>
+                  ) : null}
                 </tr>
               );
             })}

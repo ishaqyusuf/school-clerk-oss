@@ -63,6 +63,21 @@ export function attendanceStatusLabel(status: string) {
   );
 }
 
+export function allowsAttendanceRemark(status?: AttendanceStatus) {
+  return status === "ABSENT" || status === "LATE";
+}
+
+export function filterAttendanceRemarks(
+  remarks: Record<string, string>,
+  statuses: Record<string, AttendanceStatus | undefined>,
+) {
+  return Object.fromEntries(
+    Object.entries(remarks).filter(([attendanceKey]) =>
+      allowsAttendanceRemark(statuses[attendanceKey]),
+    ),
+  );
+}
+
 export function applyBulkAttendanceStatus(
   current: Record<string, AttendanceStatus | undefined>,
   attendanceKeys: string[],

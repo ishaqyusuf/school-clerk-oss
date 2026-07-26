@@ -10,10 +10,12 @@ import {
   type AttendanceScope,
   type AttendanceStatus,
   type RecordableAttendanceStatus,
+  allowsAttendanceRemark,
   applyBulkAttendanceStatus,
   attendanceRevisionSummary,
   attendanceStatusLabel,
   downloadAttendanceCsv,
+  filterAttendanceRemarks,
   todayAttendanceDate,
 } from "@/lib/attendance";
 import { useTRPC } from "@/trpc/client";
@@ -234,6 +236,9 @@ export function TeacherAttendanceWorkspace({
     selectedStudents.length > 0 &&
     selectedStudents.every((student) => Boolean(statusMap[student.id]));
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const showRemarksColumn = selectedStudents.some((student) =>
+    allowsAttendanceRemark(statusMap[student.id]),
+  );
 
   function handleSubmit() {
     if (
@@ -262,7 +267,9 @@ export function TeacherAttendanceWorkspace({
       periodLabel: periodLabel.trim() || undefined,
       scope,
       students: selectedStudents.map((student) => ({
-        comment: commentMap[student.id]?.trim() || undefined,
+        comment: allowsAttendanceRemark(statusMap[student.id])
+          ? commentMap[student.id]?.trim() || undefined
+          : undefined,
         status: statusMap[student.id]!,
         studentTermFormId: student.id,
       })),
@@ -455,19 +462,24 @@ export function TeacherAttendanceWorkspace({
                 status: RecordableAttendanceStatus,
                 mode: "all" | "rest",
               ) => {
-                setStatusMap((current) =>
-                  applyBulkAttendanceStatus(
-                    current,
-                    selectedStudents.map((student) => student.id),
-                    status,
-                    mode,
-                  ),
+                const nextStatusMap = applyBulkAttendanceStatus(
+                  statusMap,
+                  selectedStudents.map((student) => student.id),
+                  status,
+                  mode,
+                );
+                setStatusMap(nextStatusMap);
+                setCommentMap((current) =>
+                  filterAttendanceRemarks(current, nextStatusMap),
                 );
                 toast({
                   title: `${mode === "all" ? "All" : "Remaining"} students marked ${attendanceStatusLabel(status).toLowerCase()}`,
                 });
               }}
-              onClear={() => setStatusMap({})}
+              onClear={() => {
+                setStatusMap({});
+                setCommentMap({});
+              }}
             />
           </div>
 
@@ -477,7 +489,7 @@ export function TeacherAttendanceWorkspace({
                 <TableRow>
                   <TableHead>Student</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Remarks</TableHead>
+                  {showRemarksColumn ? <TableHead>Remarks</TableHead> : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -489,12 +501,16 @@ export function TeacherAttendanceWorkspace({
                     <TableCell className="min-w-36">
                       <Select
                         value={statusMap[student.id]}
-                        onValueChange={(value) =>
-                          setStatusMap((current) => ({
-                            ...current,
+                        onValueChange={(value) => {
+                          const nextStatusMap = {
+                            ...statusMap,
                             [student.id]: value as AttendanceStatus,
-                          }))
-                        }
+                          };
+                          setStatusMap(nextStatusMap);
+                          setCommentMap((current) =>
+                            filterAttendanceRemarks(current, nextStatusMap),
+                          );
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select status" />
@@ -508,25 +524,30 @@ export function TeacherAttendanceWorkspace({
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell>
-                      <Input
-                        dir="auto"
-                        value={commentMap[student.id] ?? ""}
-                        onChange={(event) =>
-                          setCommentMap((current) => ({
-                            ...current,
-                            [student.id]: event.target.value,
-                          }))
-                        }
-                        placeholder="Add note"
-                      />
-                    </TableCell>
+                    {showRemarksColumn ? (
+                      <TableCell>
+                        {allowsAttendanceRemark(statusMap[student.id]) ? (
+                          <Input
+                            dir="auto"
+                            aria-label={`Remarks for ${student.name}`}
+                            value={commentMap[student.id] ?? ""}
+                            onChange={(event) =>
+                              setCommentMap((current) => ({
+                                ...current,
+                                [student.id]: event.target.value,
+                              }))
+                            }
+                            placeholder="Optional remark"
+                          />
+                        ) : null}
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 ))}
                 {!selectedStudents.length ? (
                   <TableRow>
                     <TableCell
-                      colSpan={3}
+                      colSpan={showRemarksColumn ? 3 : 2}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No students found for this classroom.

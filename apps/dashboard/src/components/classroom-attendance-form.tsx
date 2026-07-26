@@ -9,11 +9,13 @@ import {
   type AttendanceScope,
   type AttendanceStatus,
   type RecordableAttendanceStatus,
+  allowsAttendanceRemark,
   applyBulkAttendanceStatus,
   attendanceFormDetailsSchema,
   attendanceRate,
   attendanceRevisionSummary,
   attendanceStatusLabel,
+  filterAttendanceRemarks,
   todayAttendanceDate,
 } from "@/lib/attendance";
 import { useTRPC } from "@/trpc/client";
@@ -516,7 +518,9 @@ function AttendanceFormContent({
       students: roster.map((student) => ({
         studentTermFormId: student.attendanceKey,
         status: statusMap[student.attendanceKey]!,
-        comment: commentMap[student.attendanceKey]?.trim() || undefined,
+        comment: allowsAttendanceRemark(statusMap[student.attendanceKey])
+          ? commentMap[student.attendanceKey]?.trim() || undefined
+          : undefined,
       })),
     };
 
@@ -546,13 +550,15 @@ function AttendanceFormContent({
     status: RecordableAttendanceStatus,
     mode: "all" | "rest",
   ) => {
-    setStatusMap((current) =>
-      applyBulkAttendanceStatus(
-        current,
-        roster.map((student) => student.attendanceKey),
-        status,
-        mode,
-      ),
+    const nextStatusMap = applyBulkAttendanceStatus(
+      statusMap,
+      roster.map((student) => student.attendanceKey),
+      status,
+      mode,
+    );
+    setStatusMap(nextStatusMap);
+    setCommentMap((current) =>
+      filterAttendanceRemarks(current, nextStatusMap),
     );
     setFieldErrors((current) => ({
       ...current,
@@ -680,7 +686,10 @@ function AttendanceFormContent({
           <AttendanceBulkActions
             disabled={isRosterLoading || isRosterError || roster.length === 0}
             onApply={applyBulkStatus}
-            onClear={() => setStatusMap({})}
+            onClear={() => {
+              setStatusMap({});
+              setCommentMap({});
+            }}
           />
           {inline ? (
             <SubmitButton
@@ -714,10 +723,14 @@ function AttendanceFormContent({
           }))
         }
         onStatusChange={(attendanceKey, status) => {
-          setStatusMap((current) => ({
-            ...current,
+          const nextStatusMap = {
+            ...statusMap,
             [attendanceKey]: status,
-          }));
+          };
+          setStatusMap(nextStatusMap);
+          setCommentMap((current) =>
+            filterAttendanceRemarks(current, nextStatusMap),
+          );
           setFieldErrors((current) => ({
             ...current,
             roster: undefined,

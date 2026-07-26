@@ -2,8 +2,10 @@ import { z } from "zod";
 export {
   ATTENDANCE_STATUSES,
   RECORDABLE_ATTENDANCE_STATUSES,
+  allowsAttendanceRemark,
   applyBulkAttendanceStatus,
   attendanceStatusLabel,
+  filterAttendanceRemarks,
   normalizeAttendanceStatus,
   type AttendanceStatus,
   type RecordableAttendanceStatus,
