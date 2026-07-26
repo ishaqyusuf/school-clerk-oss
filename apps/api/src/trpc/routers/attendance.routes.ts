@@ -6,6 +6,7 @@ import {
 	getTeacherAcademicAccess,
 } from "@api/lib/teacher-authorization";
 import { z } from "@hono/zod-openapi";
+import { getActiveAttendanceRoster } from "@school-clerk/db";
 import { classroomDisplayName, formatStudentName } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 import {
@@ -316,21 +317,11 @@ async function resolveAttendanceWrite(
 			message: "Each student can appear only once in an attendance session.",
 		});
 	}
-	const rosterStudentForms = await ctx.db.studentTermForm.findMany({
-		where: {
-			classroomDepartmentId: input.departmentId,
-			deletedAt: null,
-			schoolProfileId,
-			sessionTermId: activeTermId,
-			student: {
-				deletedAt: null,
-			},
-		},
-		select: {
-			id: true,
-			sessionTermId: true,
-			schoolProfileId: true,
-		},
+	const rosterStudentForms = await getActiveAttendanceRoster({
+		activeTermId,
+		db: ctx.db,
+		departmentId: input.departmentId,
+		schoolProfileId,
 	});
 
 	const selectedStudentTermFormIds = new Set(studentTermFormIds);
@@ -534,6 +525,51 @@ export const attendanceRouter = createTRPCRouter({
 					id: item.id,
 					title: item.subject.title,
 				})),
+			};
+		}),
+
+	getAttendanceRoster: authenticatedProcedure
+		.input(z.object({ departmentId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			assertAttendanceRole(ctx, "write");
+			await assertTeacherCanAccessClassroomDepartment(ctx, input.departmentId);
+
+			const schoolProfileId = ctx.profile.schoolId;
+			const activeTermId = ctx.profile.termId;
+			if (!schoolProfileId || !activeTermId) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message:
+						"Select a school and academic term before taking attendance.",
+				});
+			}
+
+			const studentTermForms = await getActiveAttendanceRoster({
+				activeTermId,
+				db: ctx.db,
+				departmentId: input.departmentId,
+				schoolProfileId,
+			});
+
+			const students = studentTermForms.flatMap((studentTermForm) => {
+				if (!studentTermForm.student) return [];
+
+				return [
+					{
+						id: studentTermForm.student.id,
+						studentName:
+							formatStudentName(
+								studentTermForm.student,
+								ctx.profile.studentNameFormat,
+							) || "Unknown student",
+						studentTermFormId: studentTermForm.id,
+					},
+				];
+			});
+
+			return {
+				count: students.length,
+				students,
 			};
 		}),
 

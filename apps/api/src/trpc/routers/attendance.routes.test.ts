@@ -14,6 +14,12 @@ type StudentTermFormMock = {
 	id: string;
 	schoolProfileId: string;
 	sessionTermId: string;
+	student?: {
+		id: string;
+		name: string;
+		otherName?: string | null;
+		surname?: string | null;
+	};
 };
 
 function createAttendanceContext({
@@ -45,6 +51,7 @@ function createAttendanceContext({
 	const attendanceFindFirstQueries: MockQuery[] = [];
 	const createdAttendance: unknown[] = [];
 	const studentAttendanceQueries: unknown[] = [];
+	const studentTermFormQueries: unknown[] = [];
 	const attendanceUpdates: unknown[] = [];
 	const studentAttendanceWrites: Array<{
 		operation: string;
@@ -91,7 +98,10 @@ function createAttendanceContext({
 				}),
 			},
 			studentTermForm: {
-				findMany: async () => studentTermForms,
+				findMany: async (query: unknown) => {
+					studentTermFormQueries.push(query);
+					return studentTermForms;
+				},
 			},
 			staffProfile: {
 				findFirst: async () => ({ id: "staff-1" }),
@@ -206,6 +216,7 @@ function createAttendanceContext({
 		revisionWrites,
 		studentAttendanceQueries,
 		studentAttendanceWrites,
+		studentTermFormQueries,
 	};
 }
 
@@ -263,6 +274,42 @@ describe("attendanceRouter permissions", () => {
 					],
 					departmentId: "department-1",
 					schoolProfileId: "school-1",
+				}),
+			}),
+		]);
+	});
+
+	test("loads the complete active classroom roster for attendance recording", async () => {
+		const studentTermForms = Array.from({ length: 25 }, (_, index) => ({
+			id: `term-form-${index + 1}`,
+			schoolProfileId: "school-1",
+			sessionTermId: "term-1",
+			student: {
+				id: `student-${index + 1}`,
+				name: `Student ${index + 1}`,
+				surname: "Example",
+			},
+		}));
+		const { ctx, studentTermFormQueries } = createAttendanceContext({
+			role: "Admin",
+			studentTermForms,
+		});
+		const caller = attendanceRouter.createCaller(
+			ctx as unknown as CallerContext,
+		);
+
+		const roster = await (caller as any).getAttendanceRoster({
+			departmentId: "department-1",
+		});
+
+		expect(roster.students).toHaveLength(25);
+		expect(roster.count).toBe(25);
+		expect(studentTermFormQueries).toEqual([
+			expect.objectContaining({
+				where: expect.objectContaining({
+					classroomDepartmentId: "department-1",
+					schoolProfileId: "school-1",
+					sessionTermId: "term-1",
 				}),
 			}),
 		]);

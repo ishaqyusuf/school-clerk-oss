@@ -66,6 +66,7 @@ Catalog of API routes and responsibilities.
 ### Attendance
 
 - `trpc.attendance.getAttendanceOptions` (active-term subject options for an authorized classroom)
+- `trpc.attendance.getAttendanceRoster` (complete active-term student roster for an authorized attendance writer)
 - `trpc.attendance.getClassroomAttendance` (active-term session summaries for an authorized classroom)
 - `trpc.attendance.getAttendanceSession` (editable session detail with explicit student statuses)
 - `trpc.attendance.getAttendanceReport` (active-term, date-range and optional subject report rows for CSV export)

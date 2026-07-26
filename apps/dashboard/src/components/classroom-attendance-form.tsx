@@ -9,6 +9,7 @@ import {
   ATTENDANCE_STATUSES,
   type AttendanceScope,
   type AttendanceStatus,
+  attendanceFormDetailsSchema,
   attendanceRate,
   attendanceRevisionSummary,
   todayAttendanceDate,
@@ -16,7 +17,6 @@ import {
 import { useTRPC } from "@/trpc/client";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
-import { cn } from "@school-clerk/ui/cn";
 import Sheet from "@school-clerk/ui/custom/sheet";
 import { Input } from "@school-clerk/ui/input";
 import { Label } from "@school-clerk/ui/label";
@@ -27,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@school-clerk/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
 import { toast } from "@school-clerk/ui/use-toast";
 import {
   useMutation,
@@ -47,6 +46,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useInView } from "react-intersection-observer";
+import { ClassroomAttendanceRoster } from "./classroom-attendance-roster";
 import { SubmitButton } from "./submit-button";
 import { TableSkeleton } from "./tables/skeleton";
 
@@ -111,41 +112,14 @@ export function ClassroomAttendanceRecorder({
   );
 }
 
-const RECORDABLE_ATTENDANCE_STATUSES = ATTENDANCE_STATUSES.filter((status) =>
-  ["PRESENT", "ABSENT", "LATE", "SICK"].includes(status.value),
-);
+const ROSTER_RENDER_BATCH_SIZE = 25;
 
-const ATTENDANCE_STATUS_CODES: Partial<Record<AttendanceStatus, string>> = {
-  PRESENT: "P",
-  ABSENT: "A",
-  LATE: "L",
-  SICK: "S",
-};
-
-const ATTENDANCE_STATUS_STYLES: Partial<
-  Record<AttendanceStatus, { row: string; toggle: string }>
-> = {
-  PRESENT: {
-    row: "bg-emerald-50/40 dark:bg-emerald-950/10",
-    toggle:
-      "data-[state=on]:border-emerald-500 data-[state=on]:bg-emerald-500 data-[state=on]:text-white",
-  },
-  ABSENT: {
-    row: "bg-red-50/50 dark:bg-red-950/10",
-    toggle:
-      "data-[state=on]:border-red-500 data-[state=on]:bg-red-500 data-[state=on]:text-white",
-  },
-  LATE: {
-    row: "bg-amber-50/50 dark:bg-amber-950/10",
-    toggle:
-      "data-[state=on]:border-amber-500 data-[state=on]:bg-amber-400 data-[state=on]:text-amber-950",
-  },
-  SICK: {
-    row: "bg-blue-50/50 dark:bg-blue-950/10",
-    toggle:
-      "data-[state=on]:border-blue-500 data-[state=on]:bg-blue-500 data-[state=on]:text-white",
-  },
-};
+type AttendanceFieldErrors = Partial<
+  Record<
+    "attendanceDate" | "attendanceTitle" | "departmentSubjectId" | "roster",
+    string
+  >
+>;
 
 function AttendanceOverviewContent({
   attendanceId,
@@ -343,11 +317,22 @@ function AttendanceFormContent({
     fingerprint: string;
     key: string;
   } | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<AttendanceFieldErrors>({});
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [visibleRosterCount, setVisibleRosterCount] = useState(
+    ROSTER_RENDER_BATCH_SIZE,
+  );
+  const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
+    rootMargin: "400px",
+  });
 
-  const { data: studentsData } = useQuery(
-    trpc.students.index.queryOptions(
-      { departmentId },
+  const {
+    data: rosterData,
+    isError: isRosterError,
+    isLoading: isRosterLoading,
+  } = useQuery(
+    trpc.attendance.getAttendanceRoster.queryOptions(
+      { departmentId: departmentId || "-" },
       { enabled: !!departmentId },
     ),
   );
@@ -363,7 +348,22 @@ function AttendanceFormContent({
       { enabled: !!attendanceId },
     ),
   );
-  const students = studentsData?.data ?? [];
+
+  useEffect(() => {
+    if (attendanceId) return;
+
+    idempotencyRequestRef.current = null;
+    setTitle("Daily attendance");
+    setAttendanceDate(todayAttendanceDate());
+    setScope("GENERAL");
+    setPeriodLabel("");
+    setDepartmentSubjectId("");
+    setStatusMap({});
+    setCommentMap({});
+    setFieldErrors({});
+    setSubmissionError(null);
+    setVisibleRosterCount(ROSTER_RENDER_BATCH_SIZE);
+  }, [attendanceId, departmentId]);
 
   useEffect(() => {
     if (!editingSession) return;
@@ -400,14 +400,26 @@ function AttendanceFormContent({
 
   const roster = useMemo(
     () =>
-      students
-        .filter((student) => student.termFormId)
-        .map((student) => ({
-          ...student,
-          attendanceKey: student.termFormId!,
-        })),
-    [students],
+      (rosterData?.students ?? []).map((student) => ({
+        ...student,
+        attendanceKey: student.studentTermFormId,
+      })),
+    [rosterData?.students],
   );
+  const visibleRoster = useMemo(
+    () => roster.slice(0, visibleRosterCount),
+    [roster, visibleRosterCount],
+  );
+  const hasMoreRoster = visibleRoster.length < roster.length;
+
+  useEffect(() => {
+    if (!loadMoreInView || !hasMoreRoster) return;
+
+    setVisibleRosterCount((current) =>
+      Math.min(current + ROSTER_RENDER_BATCH_SIZE, roster.length),
+    );
+  }, [hasMoreRoster, loadMoreInView, roster.length, visibleRoster.length]);
+
   const rosterDirection = useMemo(
     () =>
       resolveRosterDataDirection(
@@ -422,7 +434,8 @@ function AttendanceFormContent({
 
   const onSuccess = async () => {
     idempotencyRequestRef.current = null;
-    setValidationError(null);
+    setFieldErrors({});
+    setSubmissionError(null);
     if (inline) {
       setStatusMap({});
       setCommentMap({});
@@ -455,6 +468,9 @@ function AttendanceFormContent({
         },
       },
       onSuccess,
+      onError(error) {
+        setSubmissionError(error.message);
+      },
     }),
   );
   const updateMutation = useMutation(
@@ -467,39 +483,61 @@ function AttendanceFormContent({
         },
       },
       onSuccess,
+      onError(error) {
+        setSubmissionError(error.message);
+      },
     }),
   );
 
   const handleSubmit = () => {
-    if (
-      !departmentId ||
-      !title.trim() ||
-      !attendanceDate ||
-      !allStudentsMarked ||
-      (scope === "SUBJECT" && !departmentSubjectId)
-    ) {
-      setValidationError(
-        !departmentId
-          ? "Select a classroom."
-          : scope === "SUBJECT" && !departmentSubjectId
-            ? "Select a subject for subject attendance."
-            : !title.trim()
-              ? "Enter a session title."
-              : !attendanceDate
-                ? "Select an attendance date."
-                : "Select a status for every student.",
-      );
+    const details = attendanceFormDetailsSchema.safeParse({
+      attendanceDate,
+      attendanceTitle: title,
+      departmentId: departmentId ?? "",
+      departmentSubjectId,
+      scope,
+    });
+
+    const nextFieldErrors: AttendanceFieldErrors = {};
+    if (!details.success) {
+      for (const issue of details.error.issues) {
+        const field = issue.path[0];
+        if (
+          field === "attendanceDate" ||
+          field === "attendanceTitle" ||
+          field === "departmentSubjectId"
+        ) {
+          nextFieldErrors[field] ??= issue.message;
+        } else if (field === "departmentId") {
+          nextFieldErrors.roster ??= issue.message;
+        }
+      }
+    }
+    if (isRosterLoading) {
+      nextFieldErrors.roster =
+        "Wait for the complete classroom roster to load.";
+    } else if (isRosterError) {
+      nextFieldErrors.roster =
+        "The classroom roster could not be loaded. Try again.";
+    } else if (!allStudentsMarked) {
+      nextFieldErrors.roster = "Select a status for every student.";
+    }
+
+    setFieldErrors(nextFieldErrors);
+    if (!details.success || Object.keys(nextFieldErrors).length > 0) {
       return;
     }
-    setValidationError(null);
+    setSubmissionError(null);
     const payload = {
-      attendanceDate,
-      attendanceTitle: title.trim(),
-      departmentId,
+      attendanceDate: details.data.attendanceDate,
+      attendanceTitle: details.data.attendanceTitle,
+      departmentId: details.data.departmentId,
       departmentSubjectId:
-        scope === "SUBJECT" ? departmentSubjectId : undefined,
+        details.data.scope === "SUBJECT"
+          ? details.data.departmentSubjectId
+          : undefined,
       periodLabel: periodLabel.trim() || undefined,
-      scope,
+      scope: details.data.scope,
       students: roster.map((student) => ({
         studentTermFormId: student.attendanceKey,
         status: statusMap[student.attendanceKey]!,
@@ -528,9 +566,14 @@ function AttendanceFormContent({
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const isSaveDisabled = isPending || isRosterLoading || isRosterError;
   const shiftAttendanceDate = (days: number) => {
     const currentDate = new Date(`${attendanceDate}T12:00:00`);
     setAttendanceDate(format(addDays(currentDate, days), "yyyy-MM-dd"));
+    setFieldErrors((current) => ({
+      ...current,
+      attendanceDate: undefined,
+    }));
   };
 
   return (
@@ -543,7 +586,13 @@ function AttendanceFormContent({
             onValueChange={(value) => {
               const nextScope = value as AttendanceScope;
               setScope(nextScope);
-              if (nextScope === "GENERAL") setDepartmentSubjectId("");
+              if (nextScope === "GENERAL") {
+                setDepartmentSubjectId("");
+                setFieldErrors((current) => ({
+                  ...current,
+                  departmentSubjectId: undefined,
+                }));
+              }
             }}
           >
             <SelectTrigger>
@@ -555,44 +604,65 @@ function AttendanceFormContent({
             </SelectContent>
           </Select>
         </div>
-        {scope === "SUBJECT" ? (
-          <div className="grid gap-2">
-            <Label>Subject</Label>
-            <Select
-              value={departmentSubjectId}
-              onValueChange={(value) => {
-                setDepartmentSubjectId(value);
-                const subject = options?.subjects.find(
-                  (item) => item.id === value,
-                );
-                if (subject && !attendanceId) setTitle(subject.title);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a subject" />
-              </SelectTrigger>
-              <SelectContent>
-                {(options?.subjects ?? []).map((subject) => (
-                  <SelectItem key={subject.id} value={subject.id}>
-                    <span dir="auto">{subject.title}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2">
           <Label htmlFor="attendance-title">Session title</Label>
           <Input
             id="attendance-title"
             value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            aria-invalid={Boolean(fieldErrors.attendanceTitle)}
+            onChange={(event) => {
+              setTitle(event.target.value);
+              setFieldErrors((current) => ({
+                ...current,
+                attendanceTitle: undefined,
+              }));
+            }}
             placeholder="e.g. Monday morning"
           />
+          {fieldErrors.attendanceTitle ? (
+            <p className="text-sm text-destructive">
+              {fieldErrors.attendanceTitle}
+            </p>
+          ) : null}
         </div>
       </div>
+      {scope === "SUBJECT" ? (
+        <div className="grid gap-2">
+          <Label>Subject</Label>
+          <Select
+            value={departmentSubjectId}
+            onValueChange={(value) => {
+              setDepartmentSubjectId(value);
+              setFieldErrors((current) => ({
+                ...current,
+                departmentSubjectId: undefined,
+              }));
+              const subject = options?.subjects.find(
+                (item) => item.id === value,
+              );
+              if (subject && !attendanceId) setTitle(subject.title);
+            }}
+          >
+            <SelectTrigger
+              aria-invalid={Boolean(fieldErrors.departmentSubjectId)}
+            >
+              <SelectValue placeholder="Select a subject" />
+            </SelectTrigger>
+            <SelectContent>
+              {(options?.subjects ?? []).map((subject) => (
+                <SelectItem key={subject.id} value={subject.id}>
+                  <span dir="auto">{subject.title}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {fieldErrors.departmentSubjectId ? (
+            <p className="text-sm text-destructive">
+              {fieldErrors.departmentSubjectId}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <div className="grid gap-2">
         <Label htmlFor="attendance-period">
           Period or time{" "}
@@ -623,7 +693,14 @@ function AttendanceFormContent({
             aria-label="Attendance date"
             type="date"
             value={attendanceDate}
-            onChange={(event) => setAttendanceDate(event.target.value)}
+            aria-invalid={Boolean(fieldErrors.attendanceDate)}
+            onChange={(event) => {
+              setAttendanceDate(event.target.value);
+              setFieldErrors((current) => ({
+                ...current,
+                attendanceDate: undefined,
+              }));
+            }}
             className="w-40 rounded-none border-x-0 text-center"
           />
           <Button
@@ -645,12 +722,17 @@ function AttendanceFormContent({
             type="button"
             size="sm"
             variant="outline"
+            disabled={isRosterLoading || isRosterError || roster.length === 0}
             onClick={() => {
               setStatusMap(
                 Object.fromEntries(
                   roster.map((student) => [student.attendanceKey, "PRESENT"]),
                 ),
               );
+              setFieldErrors((current) => ({
+                ...current,
+                roster: undefined,
+              }));
               toast({ title: "Present" });
             }}
           >
@@ -668,7 +750,7 @@ function AttendanceFormContent({
             <SubmitButton
               isSubmitting={isPending}
               onClick={handleSubmit}
-              disabled={isPending}
+              disabled={isSaveDisabled}
             >
               <Save className="mr-1 size-4" />
               Save attendance
@@ -676,101 +758,51 @@ function AttendanceFormContent({
           ) : null}
         </div>
       </div>
+      {fieldErrors.attendanceDate ? (
+        <p className="text-sm text-destructive">{fieldErrors.attendanceDate}</p>
+      ) : null}
 
-      {roster.length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">
-          No students enrolled in this class for the active term.
-        </p>
-      ) : (
-        <div className="overflow-x-auto border bg-card" dir={rosterDirection}>
-          <table className="w-full text-start text-sm">
-            <thead className="border-b bg-muted/50">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Student</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold">Remarks</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {roster.map((student) => {
-                const selectedStatus = statusMap[student.attendanceKey];
-                return (
-                  <tr
-                    key={student.id}
-                    className={cn(
-                      "transition-colors hover:bg-muted/30",
-                      selectedStatus &&
-                        ATTENDANCE_STATUS_STYLES[selectedStatus]?.row,
-                    )}
-                  >
-                    <td className="px-4 py-3 font-medium" dir="auto">
-                      {student.studentName}
-                    </td>
-                    <td className="min-w-72 px-4 py-3">
-                      <ToggleGroup
-                        type="single"
-                        variant="outline"
-                        size="sm"
-                        dir="ltr"
-                        value={statusMap[student.attendanceKey]}
-                        aria-label={`Attendance status for ${student.studentName}`}
-                        onValueChange={(value) => {
-                          if (!value) return;
-                          const status = RECORDABLE_ATTENDANCE_STATUSES.find(
-                            (item) => item.value === value,
-                          );
-                          setStatusMap((current) => ({
-                            ...current,
-                            [student.attendanceKey]: value as AttendanceStatus,
-                          }));
-                          if (status) toast({ title: status.label });
-                        }}
-                      >
-                        {RECORDABLE_ATTENDANCE_STATUSES.map((status) => (
-                          <ToggleGroupItem
-                            key={status.value}
-                            value={status.value}
-                            aria-label={status.label}
-                            title={status.label}
-                            className={cn(
-                              "min-w-9 px-2",
-                              ATTENDANCE_STATUS_STYLES[status.value]?.toggle,
-                            )}
-                          >
-                            {ATTENDANCE_STATUS_CODES[status.value]}
-                          </ToggleGroupItem>
-                        ))}
-                      </ToggleGroup>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Input
-                        dir="auto"
-                        placeholder="Add note"
-                        value={commentMap[student.attendanceKey] ?? ""}
-                        onChange={(event) =>
-                          setCommentMap((current) => ({
-                            ...current,
-                            [student.attendanceKey]: event.target.value,
-                          }))
-                        }
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <ClassroomAttendanceRoster
+        commentMap={commentMap}
+        direction={rosterDirection}
+        hasMore={hasMoreRoster}
+        isError={isRosterError}
+        isLoading={isRosterLoading}
+        loadMoreRef={loadMoreRef}
+        onCommentChange={(attendanceKey, comment) =>
+          setCommentMap((current) => ({
+            ...current,
+            [attendanceKey]: comment,
+          }))
+        }
+        onStatusChange={(attendanceKey, status) => {
+          setStatusMap((current) => ({
+            ...current,
+            [attendanceKey]: status,
+          }));
+          setFieldErrors((current) => ({
+            ...current,
+            roster: undefined,
+          }));
+        }}
+        statusMap={statusMap}
+        students={visibleRoster}
+        total={roster.length}
+      />
 
       {roster.length > 0 && !allStudentsMarked ? (
         <p className="text-sm text-amber-700">
           Select a status for every student before saving.
         </p>
       ) : null}
-      {validationError ? (
+      {fieldErrors.roster ? (
         <p role="alert" className="text-sm text-destructive">
-          {validationError}
+          {fieldErrors.roster}
+        </p>
+      ) : null}
+      {submissionError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {submissionError}
         </p>
       ) : null}
 
@@ -791,7 +823,7 @@ function AttendanceFormContent({
           <SubmitButton
             isSubmitting={isPending}
             onClick={handleSubmit}
-            disabled={isPending}
+            disabled={isSaveDisabled}
           >
             <Save className="mr-1 h-4 w-4" />
             {attendanceId ? "Save Correction" : "Save Attendance"}

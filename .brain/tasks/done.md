@@ -23,6 +23,16 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: ATTENDANCE-002
+- Title: Repair classroom attendance capture and classroom overview navigation
+- Completed: 2026-07-26
+- Outcome: Fixed the first-page roster/save mismatch with one authorized complete-roster attendance query, retained the full roster for validated writes, added progressive 25-row rendering, field-level attendance validation plus server error feedback, split recording and history into `Mark attendance`/`Sessions` sub-tabs, aligned attendance type and session title in two columns, and made the classroom overview title an in-place classroom switcher.
+- Validation: The red attendance-roster regression now passes; 18 focused API/UI attendance tests, dashboard typecheck, database package typecheck, and both standards/spec code-review axes pass. The dashboard production build compiled successfully but page-data collection remains blocked by missing `DATABASE_URL`/`BETTER_AUTH_SECRET` in the build environment. The broad API typecheck has two pre-existing academic-term reset/setup errors, and the full API suite has two pre-existing finance name-order expectations. Live browser QA was blocked because no School Clerk stack was running and cmux was unavailable.
+- Related changes: `packages/db/src/attendance.ts`, `apps/api/src/trpc/routers/attendance.routes.ts`, `apps/dashboard/src/components/classroom-attendance-form.tsx`, `apps/dashboard/src/components/classroom-attendance-roster.tsx`, `apps/dashboard/src/components/classroom-attendance.tsx`, `apps/dashboard/src/components/sheets/classroom-overview-sheet.tsx`, `.brain/features/attendance.md`, `.brain/bugs/2026-07-26-attendance-first-page-roster-save-failure.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: ACADEMIC-SESSION-SCOPED-TERM-SELECTORS-001
 - Title: Scope academic term selectors to the selected session
 - Completed: 2026-07-25

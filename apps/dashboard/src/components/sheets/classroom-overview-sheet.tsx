@@ -6,6 +6,7 @@ import {
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { ClassroomStudents } from "../classroom-students";
 import { ClassroomSubject } from "../classroom-subjects";
+import { ErrorFallback } from "../error-fallback";
 import { FormContext } from "../students/form-context";
 import { Form } from "../forms/student-form";
 import { Skeleton } from "@school-clerk/ui/skeleton";
@@ -14,7 +15,6 @@ import { ClassroomSubjectSecondaryForm } from "../classroom-subject-secondary-fo
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { StudentFormAction } from "../forms/student-form-action";
 import { ClassroomSubjectOverviewSecondary } from "../classroom-subject-secondary-overview";
-import { _trpc } from "../static-trpc";
 import { ClassroomAttendance } from "../classroom-attendance";
 import { ClassroomAttendanceForm } from "../classroom-attendance-form";
 import { Badge } from "@school-clerk/ui/badge";
@@ -34,6 +34,14 @@ import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { ErrorBoundary } from "next/dist/client/components/error-boundary";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@school-clerk/ui/select";
 
 export function ClassroomOverviewSheet({}) {
   const { setParams, ...params } = useClassroomParams();
@@ -49,9 +57,11 @@ export function ClassroomOverviewSheet({}) {
       sheetName="student-overview"
       secondaryOpened={!!params.secondaryTab}
     >
-      <Suspense fallback={<LoadingSkeleton />}>
-        <Content />
-      </Suspense>
+      <ErrorBoundary errorComponent={ErrorFallback}>
+        <Suspense fallback={<LoadingSkeleton />}>
+          <Content />
+        </Suspense>
+      </ErrorBoundary>
     </Sheet>
   );
 }
@@ -68,8 +78,9 @@ export function Content({}) {
   const { setParams, ...params } = useClassroomParams();
   const { viewClassroomId } = params;
   const isOpen = !!params.viewClassroomId;
+  const trpc = useTRPC();
   const { data: classRoom } = useSuspenseQuery(
-    _trpc.classrooms.getClassroomOverview.queryOptions(
+    trpc.classrooms.getClassroomOverview.queryOptions(
       {
         departmentId: params.viewClassroomId || "-",
       },
@@ -78,10 +89,14 @@ export function Content({}) {
       },
     ),
   );
+  const { data: classroomOptionsData } = useSuspenseQuery(
+    trpc.classrooms.getCurrentSessionClassroom.queryOptions(),
+  );
   if (!isOpen) return null;
 
   const studentCount = classRoom?._count?.studentSessionForms ?? 0;
   const sessionTitle = classRoom?.classRoom?.session?.title;
+  const classroomOptions = classroomOptionsData?.data ?? [];
 
   return (
     <>
@@ -91,9 +106,31 @@ export function Content({}) {
           <Sheet.Title>
             <Sheet.PrimaryContent>
               <div className="flex items-center gap-3">
-                <span className="text-xl font-bold tracking-tight">
-                  {classRoom?.displayName}
-                </span>
+                <Select
+                  value={viewClassroomId ?? ""}
+                  onValueChange={(nextClassroomId) =>
+                    setParams({
+                      attendanceSessionId: null,
+                      secondaryTab: null,
+                      subjectOverviewId: null,
+                      viewClassroomId: nextClassroomId,
+                    })
+                  }
+                >
+                  <SelectTrigger
+                    aria-label="Switch classroom"
+                    className="h-auto min-w-0 max-w-[min(70vw,28rem)] gap-2 rounded-none border-0 bg-transparent p-0 text-xl font-bold tracking-tight shadow-none focus:ring-0"
+                  >
+                    <SelectValue placeholder="Select a classroom" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-80">
+                    {classroomOptions.map((classroom) => (
+                      <SelectItem key={classroom.id} value={classroom.id}>
+                        <span dir="auto">{classroom.displayName}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {sessionTitle && (
                   <Badge
                     variant="outline"

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export type AttendanceScope = "GENERAL" | "SUBJECT";
 export type AttendanceStatus =
   "PRESENT" | "ABSENT" | "LATE" | "EXCUSED" | "SICK" | "LEAVE";
@@ -13,6 +15,24 @@ export const ATTENDANCE_STATUSES: Array<{
   { label: "Sick", value: "SICK" },
   { label: "Leave", value: "LEAVE" },
 ];
+
+export const attendanceFormDetailsSchema = z
+  .object({
+    attendanceDate: z.string().min(1, "Select an attendance date."),
+    attendanceTitle: z.string().trim().min(1, "Enter a session title."),
+    departmentId: z.string().min(1, "Select a classroom."),
+    departmentSubjectId: z.string().optional(),
+    scope: z.enum(["GENERAL", "SUBJECT"]),
+  })
+  .superRefine((value, context) => {
+    if (value.scope === "SUBJECT" && !value.departmentSubjectId) {
+      context.addIssue({
+        code: "custom",
+        message: "Select a subject for subject attendance.",
+        path: ["departmentSubjectId"],
+      });
+    }
+  });
 
 export function attendanceStatusLabel(status: string) {
   return (

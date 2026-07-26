@@ -756,6 +756,12 @@ Defines request/response contracts, validation rules, and versioning expectation
 - Error cases: unauthenticated, role not allowed, classroom outside the active tenant/session, teacher not assigned to the classroom.
 - Notes: teacher results include only active-term department subjects in the teacher's effective academic access.
 
+- Route: `attendance.getAttendanceRoster`
+- Request schema: `{ departmentId: string }`
+- Response schema: `{ count, students: Array<{ id, studentName, studentTermFormId }> }`
+- Error cases: unauthenticated, role not allowed to write attendance, inactive/missing tenant term, classroom outside the active tenant/session, or teacher not assigned to the classroom.
+- Notes: returns the complete active, non-deleted classroom roster in one response. This endpoint is intentionally not paginated because `takeAttendance` and `updateAttendanceSession` require one status for every active roster student.
+
 - Route: `attendance.takeAttendance`
 - Request schema: `{ departmentId, attendanceTitle, attendanceDate?, scope: "GENERAL" | "SUBJECT", departmentSubjectId?, periodLabel?, idempotencyKey?, students: Array<{ studentTermFormId, status?, isPresent?, comment? }> }`
 - Response schema: `{ id }`
