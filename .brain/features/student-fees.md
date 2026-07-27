@@ -84,17 +84,20 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 
 ### `finance.getReceivePaymentOptions`
 - Returns the simplified receive-payment option read model for a selected student.
-- Includes selected student context, active term/session/class context, payment types grouped by account/stream, configured description/item options, outstanding-charge options, summary counts/totals, and receive-payment permission flags.
-- Configured options are limited to active, collectable, tenant-owned finance items that are global/current-term, session-compatible, and applicable to the student's classroom.
-- Outstanding student charges remain available even when their finance item is inactive or from an older term, so collectors can still see and collect pending balances.
+- Accepts `paidForStudentTermFormId?`, validates the selected form through the tenant-owned student, and defaults to the student's form in the active dashboard term (or the newest valid historical form when the student has no active-term form).
+- Returns every valid student term form newest-first as a full `Session · Term` label, the selected paid-for term, and the active dashboard term/session that will own the cash entry.
+- Payment types, descriptions, and outstanding totals are scoped to the selected form's session, classroom, and configured fees. Presentation metadata carries the full term label without changing stored stream, item, or charge titles.
+- Configured options are limited to active, collectable, tenant-owned finance items that are global/selected-term, session-compatible, and applicable to the selected historical classroom.
+- Existing selected-term charges take precedence over their configured item so a fee is not listed twice. Outstanding historical charges remain available even when their finance item is inactive.
 - Permission flags distinguish receiving payment from creating reusable simple collections, school fees, reusable descriptions/items, and one-off manual charge rows.
 
 ### `finance.receiveStudentPaymentSimple`
 - Provides the simplified cashier submit path for the new receive-payment flow.
 - Accepts either an existing outstanding `chargeId`, a configured collectable `itemId`, or a quick-created stream/title pair for one-off/simple collection payments.
-- Configured item payments create the applicable finance charge before recording the payment; quick-created payments create a one-off charge under the selected or newly named finance stream.
+- Configured item payments create the applicable finance charge against the selected paid-for `StudentTermForm` before recording the payment; quick-created payments create a one-off charge under the selected or newly named finance stream and selected student term.
 - Validates positive payment amounts, blocks overpayment against known due/outstanding amounts, and returns `paymentIds[]` for receipt printing.
 - Persists collected-in term/session on `FinancePayment` and `FinanceLedgerEntry` separately from the paid-for term on `FinanceCharge`, so late payments for previous terms affect the current term account while reducing the old obligation.
+- Existing historical charges can be settled after the old ledger closes: the existing charge balance/status is updated while the payment and ledger entry post in the current term. Creating a missing historical charge keeps the existing closed-ledger guard and requires the old term to be reopened.
 
 ### `finance.receiveStudentPayment`
 - Handles allocation source `"feeHistory"`:
@@ -137,15 +140,18 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 - Classrooms (department names or "All classes")
 
 ### Receive Payment Sheet (`/finance` → "Receive Payment")
-- The default sheet is a guided cashier workflow: select/confirm student, choose payment type, choose description/item, confirm price and amount paid, then enter method/date/reference/note.
-- Payment type and description options come from `finance.getReceivePaymentOptions`, so outstanding items are prioritized and configured collectable items load their default amounts.
+- The default sheet is a guided cashier workflow: select/confirm student, choose **Paying for**, choose payment type, choose description/item, confirm price and amount paid, then enter method/date/reference/note.
+- **Paying for** defaults to the student's active-term form and lists valid historical forms newest-first using full `Session · Term` labels.
+- Changing **Paying for** reloads term-scoped options and clears stale payment type, description, amount, note, and receipt state.
+- Payment type and description options come from `finance.getReceivePaymentOptions`, show their full paid-for term, prioritize outstanding items, and load configured default amounts.
+- The confirmation area shows `Paid for` and `Collected in` separately for historical payments. The active dashboard term remains the collected-in accounting period.
 - Operators can type a new payment type or description for one-off/simple collections; submission maps that intent through `finance.receiveStudentPaymentSimple`.
 - When the options read model grants reusable simple-collection creation, a typed new payment type/description is first saved as an active collectable `FinanceItem`, then the payment is submitted against that item so the option appears for future student payments.
 - Operators without reusable-creation permission can still record the payment as a one-off charge, with the sheet indicating that the new option is only for the current payment.
-- Admin users who type a missing payment type can route it into the existing Add Fee sheet through **Create as school fee**. The handoff carries the typed title, selected student, current student term sheet, and classroom department. The Add Fee sheet can then default to a selected-student scope that creates direct `FinanceCharge` rows for that student, or switch to the normal class/global school-fee configuration when the fee should apply beyond the current student.
+- Admin users who type a missing payment type can route it into the existing Add Fee sheet through **Create as school fee**. The handoff carries the typed title, selected student, selected paid-for term sheet, and classroom department. The Add Fee sheet can then default to a selected-student scope that creates direct `FinanceCharge` rows for that student, or switch to the normal class/global school-fee configuration when the fee should apply beyond the selected student.
 - Payment method defaults to Bank Transfer, payment date defaults to today, and reference/note remain optional.
 - Successful submissions show immediate **Print Receipt** and **Download PDF** actions backed by the payment IDs returned from the API.
-- The previous allocation-heavy flow is retained as `LegacyReceivePaymentSheet` and is reachable from the default sheet through an Advanced switch, with a Simple mode action to return to the compact cashier flow.
+- The previous allocation-heavy flow is retained unchanged as `LegacyReceivePaymentSheet` and is reachable from the default sheet through an Advanced switch, with a Simple mode action to return to the compact cashier flow.
 
 ### Dashboard Quick Link
 - "Receive Fee" button on the main dashboard page opens the receive-payment sheet directly.

@@ -17,6 +17,16 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { AddFeeSheet } from "@/components/finance/forms/add-fee-sheet";
+import {
+	buildReceivePaymentOptionsInput,
+	createEmptyTermScopedPaymentSelection,
+	createPaidForTermChange,
+} from "@/components/sheets/receive-payment-term-model";
+import {
+	PaymentTermSummary,
+	buildTermScopedOptionLabel,
+	getEmptyTermPaymentOptionsMessage,
+} from "@/components/sheets/receive-payment-term-summary";
 import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 import { useAddFeeParams } from "@/hooks/use-add-fee-params";
 import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
@@ -145,6 +155,7 @@ type SimplePaymentTypeOption = {
 	title: string;
 	streamId: string;
 	streamName: string;
+	termLabel?: string | null;
 	hasOutstanding: boolean;
 	hasConfiguredItems: boolean;
 	defaultAmount: number;
@@ -159,16 +170,29 @@ type SimpleDescriptionOption = {
 	itemId?: string | null;
 	chargeId?: string | null;
 	streamId: string;
+	studentTermFormId?: string | null;
 	amountDue: number;
 	defaultAmount: number;
 	termLabel?: string | null;
 	isActive: boolean;
 };
 
+type SimplePaymentTermOption = {
+	id: string;
+	label: string;
+	classroom?: string | null;
+	isCurrent: boolean;
+	outstandingCount: number;
+	totalOutstanding: number;
+};
+
 type SimplePaymentTypeComboboxItem = SimplePaymentTypeOption & {
 	label: string;
 };
 type SimpleDescriptionComboboxItem = SimpleDescriptionOption & {
+	label: string;
+};
+type SimplePaymentTermComboboxItem = SimplePaymentTermOption & {
 	label: string;
 };
 
@@ -233,6 +257,7 @@ function SimpleReceivePaymentSheet({
 	);
 	const [reference, setReference] = useState("");
 	const [note, setNote] = useState("");
+	const [paidForStudentTermFormId, setPaidForStudentTermFormId] = useState("");
 	const [selectedPaymentTypeId, setSelectedPaymentTypeId] = useState("");
 	const [customPaymentTypeTitle, setCustomPaymentTypeTitle] = useState("");
 	const [selectedDescriptionId, setSelectedDescriptionId] = useState("");
@@ -241,16 +266,20 @@ function SimpleReceivePaymentSheet({
 	const [amountPaid, setAmountPaid] = useState("");
 	const [receiptState, setReceiptState] = useState<ReceiptState | null>(null);
 
-	const resetPaymentChoice = () => {
-		setSelectedPaymentTypeId("");
-		setCustomPaymentTypeTitle("");
-		setSelectedDescriptionId("");
-		setCustomDescriptionTitle("");
-		setAmountDue("");
-		setAmountPaid("");
-		setNote("");
-		setReceiptState(null);
+	const applyPaymentChoiceState = (
+		selection: ReturnType<typeof createEmptyTermScopedPaymentSelection>,
+	) => {
+		setSelectedPaymentTypeId(selection.selectedPaymentTypeId);
+		setCustomPaymentTypeTitle(selection.customPaymentTypeTitle);
+		setSelectedDescriptionId(selection.selectedDescriptionId);
+		setCustomDescriptionTitle(selection.customDescriptionTitle);
+		setAmountDue(selection.amountDue);
+		setAmountPaid(selection.amountPaid);
+		setNote(selection.note);
+		setReceiptState(selection.receiptState);
 	};
+	const resetPaymentChoice = () =>
+		applyPaymentChoiceState(createEmptyTermScopedPaymentSelection());
 
 	useEffect(() => {
 		if (!isOpen) {
@@ -258,11 +287,13 @@ function SimpleReceivePaymentSheet({
 			setPaymentMethod(paymentMethods[0]);
 			setPaymentDate(format(new Date(), "yyyy-MM-dd"));
 			setReference("");
+			setPaidForStudentTermFormId("");
 			resetPaymentChoice();
 		}
 	}, [isOpen]);
 
 	useEffect(() => {
+		setPaidForStudentTermFormId("");
 		resetPaymentChoice();
 	}, [selectedStudentId]);
 
@@ -275,10 +306,24 @@ function SimpleReceivePaymentSheet({
 
 	const { data: optionsData, isLoading } = useQuery(
 		trpc.finance.getReceivePaymentOptions.queryOptions(
-			{ studentId: selectedStudentId },
+			buildReceivePaymentOptionsInput(
+				selectedStudentId,
+				paidForStudentTermFormId,
+			),
 			{ enabled: isOpen && Boolean(selectedStudentId) },
 		),
 	);
+
+	useEffect(() => {
+		const defaultTermFormId =
+			optionsData?.context?.paidForStudentTermFormId ?? "";
+		if (!paidForStudentTermFormId && defaultTermFormId) {
+			setPaidForStudentTermFormId(defaultTermFormId);
+		}
+	}, [
+		optionsData?.context?.paidForStudentTermFormId,
+		paidForStudentTermFormId,
+	]);
 
 	const studentOptions = searchResults.map((student) => ({
 		id: student.id,
@@ -302,6 +347,15 @@ function SimpleReceivePaymentSheet({
 
 	const paymentTypes = (optionsData?.paymentTypes ??
 		[]) as SimplePaymentTypeOption[];
+	const paymentTerms = (optionsData?.termOptions ??
+		[]) as SimplePaymentTermOption[];
+	const selectedPaymentTerm =
+		paymentTerms.find(
+			(option) =>
+				option.id ===
+				(paidForStudentTermFormId ||
+					optionsData?.context?.paidForStudentTermFormId),
+		) ?? paymentTerms.find((option) => option.isCurrent);
 
 	const selectedPaymentType =
 		paymentTypes.find((option) => option.id === selectedPaymentTypeId) ??
@@ -311,6 +365,7 @@ function SimpleReceivePaymentSheet({
 					title: customPaymentTypeTitle,
 					streamId: "",
 					streamName: customPaymentTypeTitle,
+					termLabel: optionsData?.context?.paidForTermLabel ?? null,
 					hasOutstanding: false,
 					hasConfiguredItems: false,
 					defaultAmount: 0,
@@ -327,8 +382,11 @@ function SimpleReceivePaymentSheet({
 					source: "configuredItem" as const,
 					title: customDescriptionTitle,
 					streamId: selectedPaymentType?.streamId ?? "",
+					studentTermFormId:
+						optionsData?.context?.paidForStudentTermFormId ?? null,
 					amountDue: Number(amountDue || 0),
 					defaultAmount: Number(amountPaid || amountDue || 0),
+					termLabel: optionsData?.context?.paidForTermLabel ?? null,
 					isActive: true,
 				}
 			: undefined);
@@ -343,29 +401,39 @@ function SimpleReceivePaymentSheet({
 		() =>
 			paymentTypes.map((option) => ({
 				...option,
-				label: option.title,
+				label: buildTermScopedOptionLabel(option.title, option.termLabel),
 			})),
 		[paymentTypes],
 	);
 	const selectedPaymentTypeItem = selectedPaymentType
 		? {
 				...selectedPaymentType,
-				label: selectedPaymentType.title,
+				label: buildTermScopedOptionLabel(
+					selectedPaymentType.title,
+					selectedPaymentType.termLabel,
+				),
 			}
 		: undefined;
 	const descriptionItems = useMemo<SimpleDescriptionComboboxItem[]>(
 		() =>
 			descriptionOptions.map((option) => ({
 				...option,
-				label: option.title,
+				label: buildTermScopedOptionLabel(option.title, option.termLabel),
 			})),
 		[descriptionOptions],
 	);
 	const selectedDescriptionItem = selectedDescription
 		? {
 				...selectedDescription,
-				label: selectedDescription.title,
+				label: buildTermScopedOptionLabel(
+					selectedDescription.title,
+					selectedDescription.termLabel,
+				),
 			}
+		: undefined;
+	const paymentTermItems = paymentTerms as SimplePaymentTermComboboxItem[];
+	const selectedPaymentTermItem = selectedPaymentTerm
+		? (selectedPaymentTerm as SimplePaymentTermComboboxItem)
 		: undefined;
 
 	const receivePaymentMutation = useMutation(
@@ -383,6 +451,7 @@ function SimpleReceivePaymentSheet({
 					qc.invalidateQueries({
 						queryKey: trpc.finance.getReceivePaymentOptions.queryKey({
 							studentId: selectedStudentId,
+							paidForStudentTermFormId: paidForStudentTermFormId || undefined,
 						}),
 					}),
 					qc.invalidateQueries({
@@ -430,6 +499,8 @@ function SimpleReceivePaymentSheet({
 						? qc.invalidateQueries({
 								queryKey: trpc.finance.getReceivePaymentOptions.queryKey({
 									studentId: selectedStudentId,
+									paidForStudentTermFormId:
+										paidForStudentTermFormId || undefined,
 								}),
 							})
 						: Promise.resolve(),
@@ -481,6 +552,13 @@ function SimpleReceivePaymentSheet({
 		});
 	};
 
+	const handlePaymentTermSelect = (option: SimplePaymentTermOption) => {
+		if (option.id === paidForStudentTermFormId) return;
+		const nextSelection = createPaidForTermChange(option.id);
+		setPaidForStudentTermFormId(nextSelection.paidForStudentTermFormId);
+		applyPaymentChoiceState(nextSelection);
+	};
+
 	const handlePaymentTypeSelect = (option: SimplePaymentTypeOption) => {
 		setSelectedPaymentTypeId(option.id);
 		setCustomPaymentTypeTitle("");
@@ -505,6 +583,7 @@ function SimpleReceivePaymentSheet({
 
 	const canSubmit =
 		Boolean(selectedStudentId) &&
+		Boolean(optionsData?.context?.paidForStudentTermFormId) &&
 		Boolean(selectedPaymentType) &&
 		Boolean(selectedDescription || customDescriptionTitle.trim()) &&
 		Number(amountPaid) > 0 &&
@@ -555,7 +634,10 @@ function SimpleReceivePaymentSheet({
 
 		await receivePaymentMutation.mutateAsync({
 			studentId: selectedStudentId,
-			studentTermFormId: optionsData?.student?.currentTermFormId ?? null,
+			studentTermFormId:
+				selectedDescription?.studentTermFormId ??
+				optionsData?.context?.paidForStudentTermFormId ??
+				null,
 			chargeId:
 				selectedDescription?.chargeId ??
 				matchedExistingDescription?.chargeId ??
@@ -676,7 +758,8 @@ function SimpleReceivePaymentSheet({
 												optionsData?.student?.classroomDepartmentId ?? null,
 											addFeeStudentId: selectedStudent.id,
 											addFeeStudentTermFormId:
-												optionsData?.student?.currentTermFormId ?? null,
+												optionsData?.context?.paidForStudentTermFormId ??
+												null,
 											addFeeTitle: customPaymentTypeTitle,
 										});
 									}}
@@ -729,6 +812,56 @@ function SimpleReceivePaymentSheet({
 						</Card>
 					) : null}
 
+					{selectedStudent ? (
+						<div className="space-y-2">
+							<div className="flex items-end justify-between gap-3">
+								<div>
+									<Label>Paying for</Label>
+									<p className="mt-1 text-xs text-muted-foreground">
+										Choose the term that owns this fee.
+									</p>
+								</div>
+								{selectedPaymentTerm?.isCurrent ? (
+									<Badge variant="secondary">Current</Badge>
+								) : null}
+							</div>
+							<ComboboxDropdown<SimplePaymentTermComboboxItem>
+								items={paymentTermItems}
+								selectedItem={selectedPaymentTermItem}
+								disabled={isLoading || paymentTermItems.length === 0}
+								placeholder={isLoading ? "Loading terms..." : "Select a term"}
+								searchPlaceholder="Search sessions and terms..."
+								onSelect={handlePaymentTermSelect}
+								renderSelectedItem={(item) => (
+									<div className="flex min-w-0 items-center justify-between gap-3">
+										<span className="truncate">{item.label}</span>
+										{item.isCurrent ? (
+											<span className="shrink-0 text-xs text-muted-foreground">
+												Current
+											</span>
+										) : null}
+									</div>
+								)}
+								renderListItem={({ item }) => (
+									<div className="flex w-full items-center justify-between gap-3">
+										<div className="min-w-0">
+											<p className="truncate font-medium">{item.label}</p>
+											<p className="truncate text-xs text-muted-foreground">
+												{item.classroom || "No class recorded"}
+											</p>
+										</div>
+										<div className="shrink-0 text-right text-xs text-muted-foreground">
+											{item.isCurrent ? <p>Current</p> : null}
+											{item.totalOutstanding > 0 ? (
+												<p>{formatCurrency(item.totalOutstanding)} due</p>
+											) : null}
+										</div>
+									</div>
+								)}
+							/>
+						</div>
+					) : null}
+
 					{receiptState ? (
 						<Alert>
 							<CheckCircle2 className="h-4 w-4" />
@@ -768,10 +901,26 @@ function SimpleReceivePaymentSheet({
 						</Alert>
 					) : null}
 
+					{selectedStudent &&
+						!isLoading &&
+						paidForStudentTermFormId &&
+						paymentTypes.length === 0 ? (
+						<Alert>
+							<BookOpen className="h-4 w-4" />
+							<AlertTitle>No saved payment options for this term</AlertTitle>
+							<AlertDescription>
+								{getEmptyTermPaymentOptionsMessage(
+									selectedPaymentTerm?.label,
+								)}
+							</AlertDescription>
+						</Alert>
+					) : null}
+
 					<div className="grid gap-4">
 						<div className="space-y-2">
 							<Label>Payment type</Label>
 							<ComboboxDropdown<SimplePaymentTypeComboboxItem>
+								key={`payment-type:${paidForStudentTermFormId}`}
 								items={paymentTypeItems}
 								selectedItem={selectedPaymentTypeItem}
 								disabled={!selectedStudentId || isLoading}
@@ -813,6 +962,8 @@ function SimpleReceivePaymentSheet({
 										<div className="flex flex-col">
 											<span className="font-medium">{item.title}</span>
 											<span className="text-xs text-muted-foreground">
+												{item.termLabel}
+												{item.termLabel ? " • " : ""}
 												{item.descriptions.length} option
 												{item.descriptions.length !== 1 ? "s" : ""}
 											</span>
@@ -827,7 +978,8 @@ function SimpleReceivePaymentSheet({
 
 						<div className="space-y-2">
 							<Label>Description</Label>
-								<ComboboxDropdown<SimpleDescriptionComboboxItem>
+							<ComboboxDropdown<SimpleDescriptionComboboxItem>
+								key={`payment-description:${paidForStudentTermFormId}:${selectedPaymentTypeId}`}
 								items={descriptionItems}
 								selectedItem={selectedDescriptionItem}
 								disabled={!selectedPaymentType}
@@ -866,9 +1018,10 @@ function SimpleReceivePaymentSheet({
 										<div className="flex flex-col">
 											<span className="font-medium">{item.title}</span>
 											<span className="text-xs text-muted-foreground">
-													{item.termLabel ||
-														item.description ||
-														"Current option"}
+												{item.termLabel}
+												{item.termLabel && item.description ? " • " : ""}
+												{item.description ||
+													(!item.termLabel ? "Term option" : "")}
 											</span>
 										</div>
 										<span className="text-sm font-medium">
@@ -971,6 +1124,18 @@ function SimpleReceivePaymentSheet({
 									? ` • ${selectedDescription?.title || customDescriptionTitle}`
 									: ""}
 							</p>
+							{selectedStudent ? (
+								<div className="mt-1">
+									<PaymentTermSummary
+										paidForLabel={
+											optionsData?.context?.paidForTermLabel ?? null
+										}
+										collectedInLabel={
+											optionsData?.context?.collectedTermLabel ?? null
+										}
+									/>
+								</div>
+							) : null}
 							{(customPaymentTypeTitle || customDescriptionTitle) &&
 							selectedPaymentType ? (
 								<p className="mt-1 text-xs text-muted-foreground">

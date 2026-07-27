@@ -2573,12 +2573,6 @@ export async function getReceivePaymentOptions(
 	const sessionId =
 		input.sessionId ?? (input.termId ? null : (ctx.profile.sessionId ?? null));
 
-	await reconcileStudentTermCharges(ctx, {
-		studentId: input.studentId,
-		termId,
-		sessionId,
-	});
-
 	const student = await ctx.db.students.findFirst({
 		where: { id: input.studentId, schoolProfileId },
 		select: {
@@ -2588,14 +2582,12 @@ export async function getReceivePaymentOptions(
 			otherName: true,
 			termForms: {
 				where: {
+					schoolProfileId,
 					deletedAt: null,
-					...(termId ? { sessionTermId: termId } : {}),
-					...(sessionId ? { schoolSessionId: sessionId } : {}),
 				},
-				take: 1,
-				orderBy: { createdAt: "desc" },
 				select: {
 					id: true,
+					createdAt: true,
 					sessionTermId: true,
 					schoolSessionId: true,
 					classroomDepartmentId: true,
@@ -2610,6 +2602,7 @@ export async function getReceivePaymentOptions(
 						select: {
 							id: true,
 							title: true,
+							startDate: true,
 							session: { select: { id: true, title: true } },
 						},
 					},
@@ -2625,10 +2618,74 @@ export async function getReceivePaymentOptions(
 		});
 	}
 
-	const termForm = student.termForms[0] ?? null;
-	const effectiveTermId = termId ?? termForm?.sessionTermId ?? null;
-	const effectiveSessionId = sessionId ?? termForm?.schoolSessionId ?? null;
+	const sortedTermForms = [...student.termForms].sort((left, right) => {
+		const leftDate =
+			left.sessionTerm?.startDate?.getTime() ?? left.createdAt?.getTime() ?? 0;
+		const rightDate =
+			right.sessionTerm?.startDate?.getTime() ??
+			right.createdAt?.getTime() ??
+			0;
+		return rightDate - leftDate;
+	});
+	const activeTermForm =
+		sortedTermForms.find(
+			(form) =>
+				(!termId || form.sessionTermId === termId) &&
+				(!sessionId || form.schoolSessionId === sessionId),
+		) ?? null;
+	let collectedTerm: {
+		id: string;
+		title: string;
+		session: { id: string; title: string } | null;
+	} | null = activeTermForm?.sessionTerm ?? null;
+
+	if (!collectedTerm && termId) {
+		collectedTerm = await ctx.db.sessionTerm.findFirst({
+			where: {
+				id: termId,
+				schoolId: schoolProfileId,
+				deletedAt: null,
+				...(sessionId ? { sessionId } : {}),
+			},
+			select: {
+				id: true,
+				title: true,
+				session: { select: { id: true, title: true } },
+			},
+		});
+	}
+	const collectedSessionId =
+		activeTermForm?.schoolSessionId ??
+		collectedTerm?.session?.id ??
+		sessionId;
+	const requestedTermForm = input.paidForStudentTermFormId
+		? sortedTermForms.find((form) => form.id === input.paidForStudentTermFormId)
+		: null;
+
+	if (input.paidForStudentTermFormId && !requestedTermForm) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "The selected student term was not found.",
+		});
+	}
+
+	const termForm =
+		requestedTermForm ?? activeTermForm ?? sortedTermForms[0] ?? null;
+	const effectiveTermId = termForm?.sessionTermId ?? termId;
+	const effectiveSessionId = termForm?.schoolSessionId ?? sessionId;
 	const classroomDepartmentId = termForm?.classroomDepartmentId ?? null;
+	const formatTermLabel = (
+		sessionTitle?: string | null,
+		termTitle?: string | null,
+	) => [sessionTitle, termTitle].filter(Boolean).join(" · ") || "Term";
+
+	if (termForm && termForm.id === activeTermForm?.id) {
+		await reconcileStudentTermCharges(ctx, {
+			studentId: input.studentId,
+			termId: effectiveTermId,
+			sessionId: effectiveSessionId,
+		});
+	}
 
 	const classApplicability: Prisma.FinanceItemWhereInput[] = [
 		{
@@ -2700,7 +2757,7 @@ export async function getReceivePaymentOptions(
 			schoolProfileId,
 			studentId: input.studentId,
 			deletedAt: null,
-			status: { in: ["PENDING", "PARTIALLY_PAID"] },
+			status: { notIn: ["CANCELLED", "WAIVED"] },
 		},
 		include: {
 			stream: { select: { id: true, name: true, accountType: true } },
@@ -2745,6 +2802,7 @@ export async function getReceivePaymentOptions(
 		defaultAmount: number;
 		sessionTermId: string | null;
 		schoolSessionId: string | null;
+		studentTermFormId: string | null;
 		termLabel: string | null;
 		classroomNames: string[];
 		isActive: boolean;
@@ -2759,6 +2817,7 @@ export async function getReceivePaymentOptions(
 		streamName: string;
 		accountType: "CREDIT" | "DEBIT";
 		source: "configured" | "outstanding" | "mixed";
+		termLabel: string;
 		itemTypes: string[];
 		hasOutstanding: boolean;
 		hasConfiguredItems: boolean;
@@ -2793,6 +2852,7 @@ export async function getReceivePaymentOptions(
 			streamName: params.stream.name,
 			accountType: params.stream.accountType,
 			source: nextSource,
+			termLabel: params.description.termLabel ?? "Term",
 			itemTypes: [...itemTypes],
 			hasOutstanding:
 				(existing?.hasOutstanding ?? false) || params.source === "outstanding",
@@ -2800,7 +2860,9 @@ export async function getReceivePaymentOptions(
 				(existing?.hasConfiguredItems ?? false) ||
 				params.source === "configured",
 			defaultAmount:
-				existing?.defaultAmount && existing.defaultAmount > 0
+				params.source === "outstanding"
+					? params.description.defaultAmount
+					: existing?.defaultAmount && existing.defaultAmount > 0
 					? existing.defaultAmount
 					: params.description.defaultAmount,
 			descriptions: hasDescription
@@ -2809,7 +2871,30 @@ export async function getReceivePaymentOptions(
 		});
 	}
 
+	const selectedTermCharges = outstandingCharges.filter((charge) => {
+		if (!termForm) return false;
+		if (charge.studentTermForm?.id) {
+			return charge.studentTermForm.id === termForm.id;
+		}
+
+		return (
+			charge.sessionTermId === termForm.sessionTermId &&
+			charge.schoolSessionId === termForm.schoolSessionId
+		);
+	});
+	const selectedChargeItemIds = new Set(
+		selectedTermCharges
+			.map((charge) => charge.itemId)
+			.filter((itemId): itemId is string => Boolean(itemId)),
+	);
+	const selectedTermLabel = formatTermLabel(
+		termForm?.sessionTerm?.session?.title,
+		termForm?.sessionTerm?.title,
+	);
+
 	for (const item of configuredItems) {
+		if (selectedChargeItemIds.has(item.id)) continue;
+
 		const applicableClasses = [...item.applicableClasses].sort((left, right) =>
 			compareClassroomDepartments(
 				left.classRoomDepartment,
@@ -2835,7 +2920,8 @@ export async function getReceivePaymentOptions(
 				defaultAmount: toNumber(item.amount),
 				sessionTermId: item.sessionTermId,
 				schoolSessionId: item.schoolSessionId,
-				termLabel: null,
+				studentTermFormId: termForm?.id ?? null,
+				termLabel: selectedTermLabel,
 				classroomNames: applicableClasses.map((row) =>
 					[
 						row.classRoomDepartment.classRoom?.name,
@@ -2850,7 +2936,7 @@ export async function getReceivePaymentOptions(
 		});
 	}
 
-	for (const charge of outstandingCharges) {
+	for (const charge of selectedTermCharges) {
 		const amount = toNumber(charge.amount);
 		const amountPaid = toNumber(charge.amountPaid);
 		const amountDue = Math.max(amount - amountPaid, 0);
@@ -2879,7 +2965,13 @@ export async function getReceivePaymentOptions(
 					charge.schoolSessionId ??
 					charge.studentTermForm?.schoolSessionId ??
 					null,
-				termLabel: charge.studentTermForm?.sessionTerm?.title ?? null,
+				studentTermFormId: charge.studentTermForm?.id ?? termForm?.id ?? null,
+				termLabel: formatTermLabel(
+					charge.studentTermForm?.sessionTerm?.session?.title ??
+						termForm?.sessionTerm?.session?.title,
+					charge.studentTermForm?.sessionTerm?.title ??
+						termForm?.sessionTerm?.title,
+				),
 				classroomNames: [
 					[
 						charge.studentTermForm?.classroomDepartment?.classRoom?.name,
@@ -2894,39 +2986,110 @@ export async function getReceivePaymentOptions(
 		});
 	}
 
-	const sortedPaymentTypes = [...paymentTypes.values()].sort((a, b) => {
-		if (a.hasOutstanding !== b.hasOutstanding) {
-			return a.hasOutstanding ? -1 : 1;
-		}
+	const sortedPaymentTypes = [...paymentTypes.values()]
+		.map((paymentType) => ({
+			...paymentType,
+			descriptions: [...paymentType.descriptions].sort((left, right) => {
+				if (left.source !== right.source) {
+					return left.source === "outstandingCharge" ? -1 : 1;
+				}
+				return left.title.localeCompare(right.title);
+			}),
+		}))
+		.sort((a, b) => {
+			if (a.hasOutstanding !== b.hasOutstanding) {
+				return a.hasOutstanding ? -1 : 1;
+			}
 
-		if (a.hasConfiguredItems !== b.hasConfiguredItems) {
-			return a.hasConfiguredItems ? -1 : 1;
-		}
+			if (a.hasConfiguredItems !== b.hasConfiguredItems) {
+				return a.hasConfiguredItems ? -1 : 1;
+			}
 
-		return a.title.localeCompare(b.title);
+			return a.title.localeCompare(b.title);
+		});
+	const outstandingByTermForm = new Map<
+		string,
+		{ count: number; total: number }
+	>();
+	for (const charge of outstandingCharges) {
+		const studentTermFormId = charge.studentTermForm?.id;
+		if (!studentTermFormId) continue;
+		const amountDue = Math.max(
+			toNumber(charge.amount) - toNumber(charge.amountPaid),
+			0,
+		);
+		if (amountDue <= 0) continue;
+		const existing = outstandingByTermForm.get(studentTermFormId) ?? {
+			count: 0,
+			total: 0,
+		};
+		outstandingByTermForm.set(studentTermFormId, {
+			count: existing.count + 1,
+			total: existing.total + amountDue,
+		});
+	}
+	const termOptions = sortedTermForms.map((form) => {
+		const outstanding = outstandingByTermForm.get(form.id) ?? {
+			count: 0,
+			total: 0,
+		};
+
+		return {
+			id: form.id,
+			sessionTermId: form.sessionTermId,
+			schoolSessionId: form.schoolSessionId,
+			termTitle: form.sessionTerm?.title ?? null,
+			sessionTitle: form.sessionTerm?.session?.title ?? null,
+			label: formatTermLabel(
+				form.sessionTerm?.session?.title,
+				form.sessionTerm?.title,
+			),
+			classroom: [
+				form.classroomDepartment?.classRoom?.name,
+				form.classroomDepartment?.departmentName,
+			]
+				.filter(Boolean)
+				.join(" "),
+			isCurrent: form.id === activeTermForm?.id,
+			outstandingCount: outstanding.count,
+			totalOutstanding: outstanding.total,
+		};
 	});
+	const collectedTermLabel = collectedTerm
+		? formatTermLabel(
+				collectedTerm.session?.title,
+				collectedTerm.title,
+			)
+		: null;
 
 	return {
 		student: {
 			id: student.id,
 			name: studentDisplayName(student, ctx.profile.studentNameFormat),
 			currentClassroom: [
-				termForm?.classroomDepartment?.classRoom?.name,
-				termForm?.classroomDepartment?.departmentName,
+				activeTermForm?.classroomDepartment?.classRoom?.name,
+				activeTermForm?.classroomDepartment?.departmentName,
 			]
 				.filter(Boolean)
 				.join(" "),
-			currentTerm: termForm?.sessionTerm?.title ?? null,
-			currentTermFormId: termForm?.id ?? null,
+			currentTerm: activeTermForm?.sessionTerm?.title ?? null,
+			currentTermFormId: activeTermForm?.id ?? null,
+			selectedTermFormId: termForm?.id ?? null,
 			classroomDepartmentId,
-			sessionTermId: effectiveTermId,
-			schoolSessionId: effectiveSessionId,
+			sessionTermId: activeTermForm?.sessionTermId ?? termId,
+			schoolSessionId: activeTermForm?.schoolSessionId ?? sessionId,
 		},
+		termOptions,
 		context: {
-			termId: effectiveTermId,
-			sessionId: effectiveSessionId,
-			termTitle: termForm?.sessionTerm?.title ?? null,
-			sessionTitle: termForm?.sessionTerm?.session?.title ?? null,
+			termId,
+			sessionId: collectedSessionId,
+			termTitle: collectedTerm?.title ?? null,
+			sessionTitle: collectedTerm?.session?.title ?? null,
+			collectedTermLabel,
+			paidForStudentTermFormId: termForm?.id ?? null,
+			paidForTermId: effectiveTermId,
+			paidForSessionId: effectiveSessionId,
+			paidForTermLabel: selectedTermLabel,
 		},
 		paymentTypes: sortedPaymentTypes,
 		summary: {
@@ -2935,8 +3098,11 @@ export async function getReceivePaymentOptions(
 				(sum, paymentType) => sum + paymentType.descriptions.length,
 				0,
 			),
-			outstandingCount: outstandingCharges.length,
-			totalOutstanding: outstandingCharges.reduce(
+			outstandingCount: selectedTermCharges.filter(
+				(charge) =>
+					charge.status === "PENDING" || charge.status === "PARTIALLY_PAID",
+			).length,
+			totalOutstanding: selectedTermCharges.reduce(
 				(sum, charge) =>
 					sum +
 					Math.max(toNumber(charge.amount) - toNumber(charge.amountPaid), 0),
@@ -3031,6 +3197,9 @@ export async function receiveStudentPaymentSimple(
 				id: true,
 				amount: true,
 				amountPaid: true,
+				studentTermFormId: true,
+				sessionTermId: true,
+				schoolSessionId: true,
 			},
 		});
 
@@ -3038,6 +3207,24 @@ export async function receiveStudentPaymentSimple(
 			throw new TRPCError({
 				code: "NOT_FOUND",
 				message: "Outstanding charge was not found for this student.",
+			});
+		}
+
+		const hasTermAttribution = Boolean(
+			charge.studentTermFormId ||
+				charge.sessionTermId ||
+				charge.schoolSessionId,
+		);
+		const belongsToSelectedTerm = charge.studentTermFormId
+			? charge.studentTermFormId === termForm.id
+			: charge.sessionTermId === termForm.sessionTermId &&
+				charge.schoolSessionId === termForm.schoolSessionId;
+
+		if (hasTermAttribution && !belongsToSelectedTerm) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message:
+					"The outstanding charge does not belong to the selected student term.",
 			});
 		}
 

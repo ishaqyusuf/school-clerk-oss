@@ -33,6 +33,16 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: 2026-07-27-previous-term-student-payments
+- Title: Previous-Term Student Payment Support
+- Completed: 2026-07-27
+- Outcome: Added a term-first simple cashier flow with tenant-validated historical student term choices, full session/term labels, dependent-field resets, selected-term fee and charge scoping, duplicate suppression, old-charge/current-cash accounting separation, and closed-ledger-safe missing-charge behavior. The Advanced flow remains unchanged.
+- Validation: 36 focused finance tests and 6 payment-term UI tests pass; dashboard typecheck passes; authenticated live browser QA confirmed historical term switching, full option labels, paid-for/collected-in confirmation labels, and clean dependent-field resets without submitting payment. The broad suite reached 374 passes with only its existing AI assessment-history failures and Playwright/Bun discovery error; API typecheck reaches only the two existing academic-term reset/setup errors.
+- Related changes: `apps/api/src/db/queries/finance.ts`, `apps/api/src/trpc/routers/finance.routes.ts`, `apps/api/src/trpc/schemas/finance.ts`, `apps/dashboard/src/components/sheets/receive-payment-sheet.tsx`, `.brain/api/finance-payments.md`, `.brain/features/student-fees.md`, `.brain/features/finance-operations.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: 2026-07-26-attendance-remove-sick-status
 - Title: Simplify Attendance Statuses And Recorder Controls
 - Completed: 2026-07-26

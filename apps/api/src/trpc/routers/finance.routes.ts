@@ -1084,7 +1084,10 @@ export const financeRouter = createTRPCRouter({
 	getReceivePaymentOptions: authenticatedProcedure
 		.input(financeReceivePaymentOptionsSchema)
 		.query(async ({ ctx, input }) =>
-			getReceivePaymentOptions(ctx, normalizeStudentQuery(input, ctx)),
+			getReceivePaymentOptions(ctx, {
+				...normalizeStudentQuery(input, ctx),
+				paidForStudentTermFormId: input.paidForStudentTermFormId,
+			}),
 		),
 	getStudentPayments: authenticatedProcedure
 		.input(financeStudentQueryCompatSchema)

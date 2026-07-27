@@ -62,6 +62,12 @@ This layer covers:
 
 ## Term Ledger Foundation
 
+### Previous-Term Student Collections
+- The simple cashier workflow separates the term that owns the student obligation from the active dashboard term that receives the cash.
+- `finance.getReceivePaymentOptions` accepts an optional paid-for student term form, returns tenant-validated term choices with full session/term labels, and scopes configured items plus outstanding charges to the selected term's session and classroom.
+- `finance.receiveStudentPaymentSimple` creates missing charges against the selected historical `StudentTermForm`, while `FinancePayment` and `FinanceLedgerEntry` continue to use the active collected-in term/session.
+- A closed historical ledger still permits settlement of an existing charge, but creating a missing historical charge returns the standard reopen-term error.
+
 ### `finance.getTermLedger`
 - Provides the first operator-facing **Term Ledger** read model for the active or selected term.
 - The current implementation is derived from `SessionTerm`, finance streams, and finance ledger entries rather than a persisted close/snapshot table.

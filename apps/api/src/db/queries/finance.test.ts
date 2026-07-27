@@ -50,7 +50,472 @@ function createFinanceCtx({
 	} as any;
 }
 
+function createReceivePaymentTermForm({
+	id,
+	termId,
+	sessionId,
+	classroomDepartmentId,
+	classroomName,
+	departmentName,
+	termTitle,
+	sessionTitle,
+	startDate,
+}: {
+	id: string;
+	termId: string;
+	sessionId: string;
+	classroomDepartmentId: string;
+	classroomName: string;
+	departmentName: string;
+	termTitle: string;
+	sessionTitle: string;
+	startDate: string;
+}) {
+	const date = new Date(startDate);
+	return {
+		id,
+		studentId: "student-1",
+		sessionTermId: termId,
+		schoolSessionId: sessionId,
+		classroomDepartmentId,
+		createdAt: date,
+		classroomDepartment: {
+			id: classroomDepartmentId,
+			departmentName,
+			classRoom: { id: `class-${id}`, name: classroomName },
+		},
+		sessionTerm: {
+			id: termId,
+			title: termTitle,
+			startDate: date,
+			session: { id: sessionId, title: sessionTitle },
+		},
+	};
+}
+
 describe("getReceivePaymentOptions", () => {
+	test("defaults the paid-for term to the active term and lists historical term choices", async () => {
+		const activeTermForm = createReceivePaymentTermForm({
+			id: "term-form-current",
+			termId: "term-current",
+			sessionId: "session-current",
+			classroomDepartmentId: "dept-current",
+			classroomName: "Primary 4",
+			departmentName: "B",
+			termTitle: "Second Term",
+			sessionTitle: "2026/2027",
+			startDate: "2026-04-01",
+		});
+		const previousTermForm = createReceivePaymentTermForm({
+			id: "term-form-previous",
+			termId: "term-previous",
+			sessionId: "session-previous",
+			classroomDepartmentId: "dept-previous",
+			classroomName: "Primary 3",
+			departmentName: "A",
+			termTitle: "First Term",
+			sessionTitle: "2025/2026",
+			startDate: "2025-09-01",
+		});
+		const db = {
+			$transaction: async (fn: (tx: any) => unknown) =>
+				fn({
+					$executeRaw: async () => undefined,
+					studentTermForm: {
+						findFirst: async () => activeTermForm,
+					},
+					financeItem: {
+						findMany: async () => [],
+					},
+					financeCharge: {
+						findMany: async () => [],
+					},
+				}),
+			students: {
+				findFirst: async () => ({
+					id: "student-1",
+					name: "Aisha",
+					surname: "Bello",
+					otherName: null,
+					termForms: [previousTermForm, activeTermForm],
+				}),
+			},
+			financeItem: {
+				findMany: async () => [],
+			},
+			financeCharge: {
+				findMany: async () => [],
+			},
+		};
+
+		const result = await getReceivePaymentOptions(
+			createFinanceCtx({
+				db,
+				termId: "term-current",
+				sessionId: "session-current",
+			}),
+			{ studentId: "student-1", termId: "term-current" } as any,
+		);
+
+		expect(result.termOptions).toEqual([
+			{
+				id: "term-form-current",
+				sessionTermId: "term-current",
+				schoolSessionId: "session-current",
+				termTitle: "Second Term",
+				sessionTitle: "2026/2027",
+				label: "2026/2027 · Second Term",
+				classroom: "Primary 4 B",
+				isCurrent: true,
+				outstandingCount: 0,
+				totalOutstanding: 0,
+			},
+			{
+				id: "term-form-previous",
+				sessionTermId: "term-previous",
+				schoolSessionId: "session-previous",
+				termTitle: "First Term",
+				sessionTitle: "2025/2026",
+				label: "2025/2026 · First Term",
+				classroom: "Primary 3 A",
+				isCurrent: false,
+				outstandingCount: 0,
+				totalOutstanding: 0,
+			},
+		]);
+		expect(result.context).toMatchObject({
+			termId: "term-current",
+			sessionId: "session-current",
+			collectedTermLabel: "2026/2027 · Second Term",
+			paidForStudentTermFormId: "term-form-current",
+			paidForTermId: "term-current",
+			paidForSessionId: "session-current",
+			paidForTermLabel: "2026/2027 · Second Term",
+		});
+	});
+
+	test("scopes options to the selected previous term and prefers existing charges over configured items", async () => {
+		const activeTermForm = createReceivePaymentTermForm({
+			id: "term-form-current",
+			termId: "term-current",
+			sessionId: "session-current",
+			classroomDepartmentId: "dept-current",
+			classroomName: "Primary 4",
+			departmentName: "B",
+			termTitle: "Second Term",
+			sessionTitle: "2026/2027",
+			startDate: "2026-04-01",
+		});
+		const previousTermForm = createReceivePaymentTermForm({
+			id: "term-form-previous",
+			termId: "term-previous",
+			sessionId: "session-previous",
+			classroomDepartmentId: "dept-previous",
+			classroomName: "Primary 3",
+			departmentName: "A",
+			termTitle: "First Term",
+			sessionTitle: "2025/2026",
+			startDate: "2025-09-01",
+		});
+		const configuredItems = [
+			{
+				id: "item-tuition",
+				streamId: "stream-fees",
+				type: "TUITION_FEE",
+				name: "Tuition",
+				description: "Previous term tuition",
+				amount: 1000,
+				collectable: true,
+				isActive: true,
+				schoolSessionId: "session-previous",
+				sessionTermId: "term-previous",
+				stream: {
+					id: "stream-fees",
+					name: "School Fees",
+					accountType: "CREDIT",
+				},
+				applicableClasses: [],
+			},
+			{
+				id: "item-exam",
+				streamId: "stream-fees",
+				type: "OTHER",
+				name: "Exam Fee",
+				description: "Previous term exam",
+				amount: 300,
+				collectable: true,
+				isActive: true,
+				schoolSessionId: "session-previous",
+				sessionTermId: "term-previous",
+				stream: {
+					id: "stream-fees",
+					name: "School Fees",
+					accountType: "CREDIT",
+				},
+				applicableClasses: [],
+			},
+			{
+				id: "item-paid",
+				streamId: "stream-fees",
+				type: "BOOK",
+				name: "Paid Book",
+				description: "Already settled",
+				amount: 200,
+				collectable: true,
+				isActive: true,
+				schoolSessionId: "session-previous",
+				sessionTermId: "term-previous",
+				stream: {
+					id: "stream-fees",
+					name: "School Fees",
+					accountType: "CREDIT",
+				},
+				applicableClasses: [],
+			},
+		];
+		const previousOutstanding = {
+			id: "charge-tuition",
+			streamId: "stream-fees",
+			itemId: "item-tuition",
+			title: "Tuition",
+			description: "Previous term tuition",
+			amount: 1000,
+			amountPaid: 400,
+			status: "PARTIALLY_PAID",
+			sessionTermId: "term-previous",
+			schoolSessionId: "session-previous",
+			stream: {
+				id: "stream-fees",
+				name: "School Fees",
+				accountType: "CREDIT",
+			},
+			item: {
+				id: "item-tuition",
+				type: "TUITION_FEE",
+				name: "Tuition",
+				isActive: false,
+			},
+			studentTermForm: previousTermForm,
+		};
+		const previousPaid = {
+			...previousOutstanding,
+			id: "charge-paid",
+			itemId: "item-paid",
+			title: "Paid Book",
+			amount: 200,
+			amountPaid: 200,
+			status: "PAID",
+			item: {
+				id: "item-paid",
+				type: "BOOK",
+				name: "Paid Book",
+				isActive: true,
+			},
+		};
+		const currentOutstanding = {
+			...previousOutstanding,
+			id: "charge-current",
+			itemId: "item-current",
+			title: "Current Fee",
+			sessionTermId: "term-current",
+			schoolSessionId: "session-current",
+			studentTermForm: activeTermForm,
+		};
+		let financeItemWhere: any;
+		let financeChargeWhere: any;
+		const db = {
+			$transaction: async (fn: (tx: any) => unknown) =>
+				fn({
+					$executeRaw: async () => undefined,
+					studentTermForm: {
+						findFirst: async () => previousTermForm,
+					},
+					financeItem: {
+						findMany: async () => [],
+					},
+					financeCharge: {
+						findMany: async () => [],
+					},
+				}),
+			students: {
+				findFirst: async () => ({
+					id: "student-1",
+					name: "Aisha",
+					surname: "Bello",
+					otherName: null,
+					termForms: [activeTermForm, previousTermForm],
+				}),
+			},
+			financeItem: {
+				findMany: async (args: any) => {
+					financeItemWhere = args.where;
+					return configuredItems;
+				},
+			},
+			financeCharge: {
+				findMany: async (args: any) => {
+					financeChargeWhere = args.where;
+					return [previousOutstanding, previousPaid, currentOutstanding];
+				},
+			},
+		};
+
+		const result = await getReceivePaymentOptions(
+			createFinanceCtx({
+				db,
+				termId: "term-current",
+				sessionId: "session-current",
+			}),
+			{
+				studentId: "student-1",
+				paidForStudentTermFormId: "term-form-previous",
+			} as any,
+		);
+
+		expect(financeItemWhere).toMatchObject({
+			schoolProfileId: "school-1",
+			OR: [{ sessionTermId: "term-previous" }, { sessionTermId: null }],
+		});
+		expect(financeChargeWhere.status).toEqual({
+			notIn: ["CANCELLED", "WAIVED"],
+		});
+		expect(result.context).toMatchObject({
+			termId: "term-current",
+			sessionId: "session-current",
+			collectedTermLabel: "2026/2027 · Second Term",
+			paidForStudentTermFormId: "term-form-previous",
+			paidForTermLabel: "2025/2026 · First Term",
+		});
+		expect(result.paymentTypes).toHaveLength(1);
+		expect(result.paymentTypes[0]).toMatchObject({
+			title: "School Fees",
+			termLabel: "2025/2026 · First Term",
+			hasOutstanding: true,
+		});
+		expect(result.paymentTypes[0]?.descriptions).toEqual([
+			expect.objectContaining({
+				source: "outstandingCharge",
+				title: "Tuition",
+				chargeId: "charge-tuition",
+				studentTermFormId: "term-form-previous",
+				termLabel: "2025/2026 · First Term",
+				defaultAmount: 600,
+			}),
+			expect.objectContaining({
+				source: "configuredItem",
+				title: "Exam Fee",
+				itemId: "item-exam",
+				studentTermFormId: "term-form-previous",
+				termLabel: "2025/2026 · First Term",
+				defaultAmount: 300,
+			}),
+		]);
+		expect(
+			result.paymentTypes[0]?.descriptions.some(
+				(option) => option.title === "Paid Book",
+			),
+		).toBe(false);
+	});
+
+	test("tenant-scopes term forms and rejects one not owned by the selected student", async () => {
+		const db = {
+			students: {
+				findFirst: async (args: any) => {
+					expect(args.select.termForms.where).toMatchObject({
+						schoolProfileId: "school-1",
+						deletedAt: null,
+					});
+					return {
+						id: "student-1",
+						name: "Aisha",
+						surname: "Bello",
+						otherName: null,
+						termForms: [
+							{
+								id: "term-form-1",
+								createdAt: new Date("2026-01-01"),
+								sessionTermId: "term-1",
+								schoolSessionId: "session-1",
+								classroomDepartmentId: "dept-1",
+								classroomDepartment: null,
+								sessionTerm: {
+									id: "term-1",
+									title: "Second Term",
+									startDate: new Date("2026-01-01"),
+									session: { id: "session-1", title: "2026/2027" },
+								},
+							},
+						],
+					};
+				},
+			},
+		};
+
+		await expect(
+			getReceivePaymentOptions(createFinanceCtx({ db }), {
+				studentId: "student-1",
+				paidForStudentTermFormId: "another-student-term-form",
+			} as any),
+		).rejects.toMatchObject({
+			code: "NOT_FOUND",
+			message: "The selected student term was not found.",
+		});
+	});
+
+	test("keeps the dashboard term as collected-in when the student has only historical forms", async () => {
+		const historicalTermForm = {
+			id: "term-form-historical",
+			createdAt: new Date("2025-09-01"),
+			sessionTermId: "term-historical",
+			schoolSessionId: "session-historical",
+			classroomDepartmentId: "dept-1",
+			classroomDepartment: null,
+			sessionTerm: {
+				id: "term-historical",
+				title: "1st Term",
+				startDate: new Date("2025-09-01"),
+				session: { id: "session-historical", title: "1446/1447" },
+			},
+		};
+		const db = {
+			students: {
+				findFirst: async () => ({
+					id: "student-1",
+					name: "Aisha",
+					surname: "Bello",
+					otherName: null,
+					termForms: [historicalTermForm],
+				}),
+			},
+			sessionTerm: {
+				findFirst: async () => ({
+					id: "term-current",
+					title: "2nd Term",
+					session: { id: "session-current", title: "1447/1448" },
+				}),
+			},
+			financeItem: { findMany: async () => [] },
+			financeCharge: { findMany: async () => [] },
+		};
+
+		const result = await getReceivePaymentOptions(
+			createFinanceCtx({
+				db,
+				termId: "term-current",
+				sessionId: "session-current",
+			}),
+			{ studentId: "student-1" } as any,
+		);
+
+		expect(result.context).toMatchObject({
+			termId: "term-current",
+			sessionId: "session-current",
+			paidForStudentTermFormId: "term-form-historical",
+			paidForTermLabel: "1446/1447 · 1st Term",
+			collectedTermLabel: "1447/1448 · 2nd Term",
+		});
+	});
+
 	test("returns configured payment types, outstanding charges, and permission flags", async () => {
 		const financeItemCalls: any[] = [];
 		const termForm = {
@@ -193,14 +658,13 @@ describe("getReceivePaymentOptions", () => {
 			},
 		};
 
-		const result = await getReceivePaymentOptions(
-			createFinanceCtx({ db }),
-			{ studentId: "student-1" } as any,
-		);
+		const result = await getReceivePaymentOptions(createFinanceCtx({ db }), {
+			studentId: "student-1",
+		} as any);
 
 		expect(result.student).toMatchObject({
 			id: "student-1",
-			name: "Bello Aisha",
+			name: "Aisha Bello",
 			currentClassroom: "Primary 3 A",
 			sessionTermId: "term-1",
 			schoolSessionId: "session-1",
@@ -211,21 +675,21 @@ describe("getReceivePaymentOptions", () => {
 			collectable: true,
 		});
 		expect(result.paymentTypes.map((option) => option.title)).toEqual([
-			"PTA",
 			"Books",
 			"School Fees",
 		]);
 		expect(result.paymentTypes[0]).toMatchObject({
-			streamId: "stream-pta",
-			hasOutstanding: true,
-			defaultAmount: 350,
+			streamId: "stream-books",
+			hasOutstanding: false,
+			defaultAmount: 250,
+			termLabel: "2026/2027 · Second Term",
 		});
 		expect(result.paymentTypes[0]?.descriptions[0]).toMatchObject({
-			source: "outstandingCharge",
-			chargeId: "charge-pta",
-			amountDue: 350,
-			termLabel: "First Term",
-			isActive: false,
+			source: "configuredItem",
+			itemId: "item-book",
+			amountDue: 250,
+			termLabel: "2026/2027 · Second Term",
+			isActive: true,
 		});
 		expect(result.permissions).toEqual({
 			canReceivePayment: true,
@@ -238,10 +702,9 @@ describe("getReceivePaymentOptions", () => {
 
 	test("rejects non-finance roles", async () => {
 		await expect(
-			getReceivePaymentOptions(
-				createFinanceCtx({ role: "Teacher", db: {} }),
-				{ studentId: "student-1" } as any,
-			),
+			getReceivePaymentOptions(createFinanceCtx({ role: "Teacher", db: {} }), {
+				studentId: "student-1",
+			} as any),
 		).rejects.toMatchObject({
 			code: "FORBIDDEN",
 		} satisfies Partial<TRPCError>);
@@ -469,12 +932,16 @@ describe("receiveStudentPaymentSimple", () => {
 		item = null,
 		onChargeCreate,
 		onStreamCreate,
+		onPaymentCreate,
+		onLedgerCreate,
 	}: {
 		charge: any;
 		stream: any;
 		item?: any;
 		onChargeCreate?: (data: any) => void;
 		onStreamCreate?: (data: any) => void;
+		onPaymentCreate?: (data: any) => void;
+		onLedgerCreate?: (data: any) => void;
 	}) {
 		let activeCharge = charge;
 		return {
@@ -505,17 +972,23 @@ describe("receiveStudentPaymentSimple", () => {
 				update: async ({ data }: any) => ({ ...activeCharge, ...data }),
 			},
 			financePayment: {
-				create: async ({ data }: any) => ({
+				create: async ({ data }: any) => {
+					onPaymentCreate?.(data);
+					return {
 					id: "payment-1",
 					paymentDate: data.paymentDate,
 					...data,
-				}),
+					};
+				},
 			},
 			financePaymentAllocation: {
 				create: async ({ data }: any) => ({ id: "allocation-1", ...data }),
 			},
 			financeLedgerEntry: {
-				create: async ({ data }: any) => ({ id: "ledger-1", ...data }),
+				create: async ({ data }: any) => {
+					onLedgerCreate?.(data);
+					return { id: "ledger-1", ...data };
+				},
 			},
 			inventory: {
 				findFirst: async () => null,
@@ -598,6 +1071,65 @@ describe("receiveStudentPaymentSimple", () => {
 		expect(Number(ledgerEntries[0].amount)).toBe(250);
 	});
 
+	test("rejects an outstanding charge that does not belong to the selected paid-for term", async () => {
+		const previousTermForm = {
+			...termForm,
+			id: "term-form-previous",
+			sessionTermId: "term-previous",
+			schoolSessionId: "session-previous",
+			classroomDepartmentId: "dept-previous",
+		};
+		const currentCharge = {
+			id: "charge-current",
+			schoolProfileId: "school-1",
+			streamId: "stream-fees",
+			payerType: "STUDENT",
+			studentId: "student-1",
+			staffProfileId: null,
+			title: "Current Tuition",
+			amount: 1000,
+			amountPaid: 0,
+			status: "PENDING",
+			collectionStatus: "NOT_REQUIRED",
+			studentTermFormId: "term-form-1",
+			sessionTermId: "term-1",
+			schoolSessionId: "session-1",
+			stream: { id: "stream-fees", accountType: "CREDIT" },
+		};
+		const tx = createPaymentTx({
+			charge: currentCharge,
+			stream: currentCharge.stream,
+		});
+		const db = {
+			students: { findFirst: async () => ({ id: "student-1" }) },
+			studentTermForm: { findFirst: async () => previousTermForm },
+			financeCharge: {
+				findFirst: async () => ({
+					id: currentCharge.id,
+					amount: currentCharge.amount,
+					amountPaid: currentCharge.amountPaid,
+					studentTermFormId: currentCharge.studentTermFormId,
+					sessionTermId: currentCharge.sessionTermId,
+					schoolSessionId: currentCharge.schoolSessionId,
+				}),
+			},
+			$transaction: async (fn: (transaction: any) => unknown) => fn(tx),
+		};
+
+		await expect(
+			receiveStudentPaymentSimple(createFinanceCtx({ db }), {
+				studentId: "student-1",
+				studentTermFormId: "term-form-previous",
+				chargeId: "charge-current",
+				amountPaid: 100,
+				termId: "term-1",
+				sessionId: "session-1",
+			} as any),
+		).rejects.toMatchObject({
+			code: "BAD_REQUEST",
+		});
+	});
+
 	test("creates a charge from a configured item before recording payment", async () => {
 		let createdCharge: any;
 		const item = {
@@ -659,6 +1191,190 @@ describe("receiveStudentPaymentSimple", () => {
 			success: true,
 			paymentIds: ["payment-1"],
 			chargeStatus: "PAID",
+		});
+	});
+
+	test("creates a missing previous-term charge while collecting cash in the active term", async () => {
+		let createdCharge: any;
+		let createdPayment: any;
+		let createdLedgerEntry: any;
+		const previousTermForm = {
+			...termForm,
+			id: "term-form-previous",
+			sessionTermId: "term-previous",
+			schoolSessionId: "session-previous",
+			classroomDepartmentId: "dept-previous",
+		};
+		const item = {
+			id: "item-previous-exam",
+			type: "OTHER",
+			name: "Previous Exam Fee",
+			description: "Exam fee for the previous term",
+			amount: 750,
+			streamId: "stream-fees",
+		};
+		const stream = { id: "stream-fees", accountType: "CREDIT" };
+		const tx = createPaymentTx({
+			charge: null,
+			stream,
+			item,
+			onChargeCreate: (data) => {
+				createdCharge = data;
+			},
+			onPaymentCreate: (data) => {
+				createdPayment = data;
+			},
+			onLedgerCreate: (data) => {
+				createdLedgerEntry = data;
+			},
+		});
+		const db = {
+			students: { findFirst: async () => ({ id: "student-1" }) },
+			studentTermForm: { findFirst: async () => previousTermForm },
+			financeItem: { findFirst: async () => item },
+			financeTermLedgerClose: { findFirst: async () => null },
+			$transaction: async (fn: (transaction: any) => unknown) => fn(tx),
+		};
+
+		const result = await receiveStudentPaymentSimple(createFinanceCtx({ db }), {
+			studentId: "student-1",
+			studentTermFormId: previousTermForm.id,
+			chargeId: null,
+			itemId: item.id,
+			amountPaid: 750,
+			method: "cash",
+			paymentDate: new Date("2026-05-02"),
+			termId: "term-current",
+			sessionId: "session-current",
+		} as any);
+
+		expect(createdCharge).toMatchObject({
+			studentTermFormId: "term-form-previous",
+			classroomDepartmentId: "dept-previous",
+			schoolSessionId: "session-previous",
+			sessionTermId: "term-previous",
+		});
+		expect(createdPayment).toMatchObject({
+			collectedSessionTermId: "term-current",
+			collectedSchoolSessionId: "session-current",
+		});
+		expect(createdLedgerEntry).toMatchObject({
+			collectedSessionTermId: "term-current",
+			collectedSchoolSessionId: "session-current",
+		});
+		expect(result).toMatchObject({
+			success: true,
+			chargeStatus: "PAID",
+		});
+	});
+
+	test("allows an existing previous-term charge to be paid after that term closes", async () => {
+		const previousTermForm = {
+			...termForm,
+			id: "term-form-previous",
+			sessionTermId: "term-previous",
+			schoolSessionId: "session-previous",
+		};
+		const previousCharge = {
+			id: "charge-previous",
+			schoolProfileId: "school-1",
+			streamId: "stream-fees",
+			payerType: "STUDENT",
+			studentId: "student-1",
+			staffProfileId: null,
+			title: "Previous Tuition",
+			amount: 1000,
+			amountPaid: 250,
+			status: "PARTIALLY_PAID",
+			collectionStatus: "NOT_REQUIRED",
+			studentTermFormId: previousTermForm.id,
+			sessionTermId: previousTermForm.sessionTermId,
+			schoolSessionId: previousTermForm.schoolSessionId,
+			stream: { id: "stream-fees", accountType: "CREDIT" },
+		};
+		const tx = createPaymentTx({
+			charge: previousCharge,
+			stream: previousCharge.stream,
+		});
+		const db = {
+			students: { findFirst: async () => ({ id: "student-1" }) },
+			studentTermForm: { findFirst: async () => previousTermForm },
+			financeCharge: {
+				findFirst: async () => ({
+					id: previousCharge.id,
+					amount: previousCharge.amount,
+					amountPaid: previousCharge.amountPaid,
+					studentTermFormId: previousCharge.studentTermFormId,
+					sessionTermId: previousCharge.sessionTermId,
+					schoolSessionId: previousCharge.schoolSessionId,
+				}),
+			},
+			financeTermLedgerClose: {
+				findFirst: async ({ where }: any) =>
+					where.sessionTermId === "term-previous"
+						? { id: "closed-previous" }
+						: null,
+			},
+			$transaction: async (fn: (transaction: any) => unknown) => fn(tx),
+		};
+
+		const result = await receiveStudentPaymentSimple(createFinanceCtx({ db }), {
+			studentId: "student-1",
+			studentTermFormId: previousTermForm.id,
+			chargeId: previousCharge.id,
+			amountPaid: 750,
+			method: "cash",
+			termId: "term-current",
+			sessionId: "session-current",
+		} as any);
+
+		expect(result).toMatchObject({
+			success: true,
+			chargeStatus: "PAID",
+		});
+	});
+
+	test("requires a closed previous term to be reopened before creating a missing charge", async () => {
+		const previousTermForm = {
+			...termForm,
+			id: "term-form-previous",
+			sessionTermId: "term-previous",
+			schoolSessionId: "session-previous",
+		};
+		const item = {
+			id: "item-previous-exam",
+			type: "OTHER",
+			name: "Previous Exam Fee",
+			description: null,
+			amount: 750,
+			streamId: "stream-fees",
+		};
+		const db = {
+			students: { findFirst: async () => ({ id: "student-1" }) },
+			studentTermForm: { findFirst: async () => previousTermForm },
+			financeItem: { findFirst: async () => item },
+			financeTermLedgerClose: {
+				findFirst: async ({ where }: any) =>
+					where.sessionTermId === "term-previous"
+						? { id: "closed-previous" }
+						: null,
+			},
+		};
+
+		await expect(
+			receiveStudentPaymentSimple(createFinanceCtx({ db }), {
+				studentId: "student-1",
+				studentTermFormId: previousTermForm.id,
+				chargeId: null,
+				itemId: item.id,
+				amountPaid: 750,
+				termId: "term-current",
+				sessionId: "session-current",
+			} as any),
+		).rejects.toMatchObject({
+			code: "BAD_REQUEST",
+			message:
+				"This term ledger is closed. Reopen it before recording changes.",
 		});
 	});
 
@@ -807,7 +1523,10 @@ describe("recordFinancePayment term attribution", () => {
 						},
 					},
 					financePaymentAllocation: {
-						create: async ({ data }: any) => ({ id: "allocation-late", ...data }),
+						create: async ({ data }: any) => ({
+							id: "allocation-late",
+							...data,
+						}),
 					},
 					financeLedgerEntry: {
 						create: async ({ data }: any) => {
@@ -884,7 +1603,10 @@ describe("recordFinancePayment term attribution", () => {
 						}),
 					},
 					financePaymentAllocation: {
-						create: async ({ data }: any) => ({ id: "allocation-salary", ...data }),
+						create: async ({ data }: any) => ({
+							id: "allocation-salary",
+							...data,
+						}),
 					},
 					financeLedgerEntry: {
 						create: async ({ data }: any) => {
@@ -1045,7 +1767,7 @@ describe("getFinanceTermAccountStatement", () => {
 		]);
 		expect(result.entries[0]).toMatchObject({
 			id: "ledger-in",
-			payerName: "Bello Aisha",
+			payerName: "Aisha Bello",
 			ledgerDirection: "CREDIT",
 			collectedSessionTermId: "term-1",
 			paidForSessionTermId: "term-1",
@@ -1119,16 +1841,13 @@ describe("transferFinanceFunds", () => {
 
 	test("requires Admin for large transfers", async () => {
 		await expect(
-			transferFinanceFunds(
-				createFinanceCtx({ role: "Accountant", db: {} }),
-				{
+			transferFinanceFunds(createFinanceCtx({ role: "Accountant", db: {} }), {
 					fromStreamId: "stream-fees",
 					toStreamId: "stream-salary",
 					amount: 250_001,
 					note: "Large movement",
 					sentById: null,
-				},
-			),
+			}),
 		).rejects.toMatchObject({ code: "FORBIDDEN" });
 	});
 
@@ -1149,16 +1868,13 @@ describe("transferFinanceFunds", () => {
 		};
 
 		await expect(
-			transferFinanceFunds(
-				createFinanceCtx({ role: "Accountant", db }),
-				{
+			transferFinanceFunds(createFinanceCtx({ role: "Accountant", db }), {
 					fromStreamId: "stream-fees",
 					toStreamId: "stream-salary",
 					amount: 300,
 					note: "Fund salary account",
 					sentById: null,
-				},
-			),
+			}),
 		).rejects.toMatchObject({ code: "BAD_REQUEST" });
 	});
 });
@@ -1245,7 +1961,10 @@ describe("closeFinanceTermLedger", () => {
 					},
 					financeTermCarryForward: {
 						create: async ({ data }: any) => {
-							const row = { id: `carry-${carryForwardsCreated.length + 1}`, ...data };
+							const row = {
+								id: `carry-${carryForwardsCreated.length + 1}`,
+								...data,
+							};
 							carryForwardsCreated.push(row);
 							return row;
 						},
@@ -1558,7 +2277,10 @@ describe("payroll, purchases, and payee accounting", () => {
 						},
 					},
 					financePaymentAllocation: {
-						create: async ({ data }: any) => ({ id: "allocation-purchase", ...data }),
+						create: async ({ data }: any) => ({
+							id: "allocation-purchase",
+							...data,
+						}),
 					},
 					financeLedgerEntry: {
 						create: async ({ data }: any) => {
@@ -1869,7 +2591,11 @@ describe("payroll, purchases, and payee accounting", () => {
 						occurredAt: new Date("2026-02-02"),
 						payee: { id: "payee-1", name: "Vendor", type: "VENDOR" },
 						charge: { id: "charge-purchase", title: "Cloth", status: "PAID" },
-						payment: { id: "payment-purchase", reference: "P-1", method: "transfer" },
+						payment: {
+							id: "payment-purchase",
+							reference: "P-1",
+							method: "transfer",
+						},
 					},
 					{
 						id: "purchase-2",
@@ -1885,7 +2611,11 @@ describe("payroll, purchases, and payee accounting", () => {
 						reference: null,
 						occurredAt: new Date("2026-02-04"),
 						payee: { id: "payee-2", name: "Tailor", type: "CASUAL_WORKER" },
-						charge: { id: "charge-labor", title: "Tailor labor", status: "PAID" },
+						charge: {
+							id: "charge-labor",
+							title: "Tailor labor",
+							status: "PAID",
+						},
 						payment: { id: "payment-labor", reference: null, method: "cash" },
 					},
 				],
@@ -1935,7 +2665,11 @@ describe("payroll, purchases, and payee accounting", () => {
 						bonusAmount: 0,
 						netAmount: 1050,
 						isActive: true,
-						stream: { id: "stream-salary", name: "Salary/Wages", accountType: "DEBIT" },
+						stream: {
+							id: "stream-salary",
+							name: "Salary/Wages",
+							accountType: "DEBIT",
+						},
 					},
 				],
 			},
@@ -2192,7 +2926,11 @@ describe("finance report routes", () => {
 							},
 							item: { id: "item-salary", type: "SALARY", name: "Salary" },
 							student: null,
-							staffProfile: { id: "staff-1", name: "Teacher One", title: "Teacher" },
+							staffProfile: {
+								id: "staff-1",
+								name: "Teacher One",
+								title: "Teacher",
+							},
 							staffTermProfile: null,
 							classroomDepartment: null,
 							createdAt: new Date("2026-02-01"),

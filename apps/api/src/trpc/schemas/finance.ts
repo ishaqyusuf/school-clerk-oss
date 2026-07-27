@@ -145,6 +145,9 @@ export const financeReceivePaymentOptionsSchema = financeStudentQuerySchema
 		termId: true,
 		sessionId: true,
 	})
+	.extend({
+		paidForStudentTermFormId: nullableString,
+	})
 	.passthrough();
 
 export const financeSimpleStudentPaymentInputSchema = z.object({
