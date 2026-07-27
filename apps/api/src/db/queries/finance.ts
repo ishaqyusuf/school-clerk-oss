@@ -2267,13 +2267,41 @@ export async function cancelFinancePurchase(
 
 export async function searchFinanceStudents(
 	ctx: TRPCContext,
-	input?: { q?: string | null; query?: string | null },
+	input?: {
+		q?: string | null;
+		query?: string | null;
+		currentTermOnly?: boolean;
+	},
 ) {
 	const schoolProfileId = requireSchoolId(ctx);
-	const search = input?.q ?? input?.query ?? "";
+	const sessionTermId = ctx.profile.termId;
+	const schoolSessionId = ctx.profile.sessionId;
+	const currentTermOnly = input?.currentTermOnly ?? false;
+	if (currentTermOnly && (!sessionTermId || !schoolSessionId)) {
+		return [];
+	}
+
+	const activeRegistration =
+		currentTermOnly && sessionTermId && schoolSessionId
+			? {
+					schoolProfileId,
+					sessionTermId,
+					schoolSessionId,
+					deletedAt: null,
+				}
+			: null;
+	const search = (input?.q ?? input?.query ?? "").trim();
 	const students = await ctx.db.students.findMany({
 		where: {
 			schoolProfileId,
+			...(activeRegistration
+				? {
+						deletedAt: null,
+						termForms: {
+							some: activeRegistration,
+						},
+					}
+				: {}),
 			...(search
 				? {
 						OR: [
@@ -2290,6 +2318,7 @@ export async function searchFinanceStudents(
 			surname: true,
 			otherName: true,
 			termForms: {
+				...(activeRegistration ? { where: activeRegistration } : {}),
 				take: 1,
 				orderBy: { createdAt: "desc" },
 				select: {
@@ -2306,6 +2335,7 @@ export async function searchFinanceStudents(
 			},
 		},
 		orderBy: [{ surname: "asc" }, { name: "asc" }],
+		...(activeRegistration ? { distinct: ["id"] as const } : {}),
 		take: 25,
 	});
 

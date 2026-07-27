@@ -141,6 +141,7 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 
 ### Receive Payment Sheet (`/finance` → "Receive Payment")
 - The default sheet is a guided cashier workflow: select/confirm student, choose **Paying for**, choose payment type, choose description/item, confirm price and amount paid, then enter method/date/reference/note.
+- The student picker is sourced from canonical student records, de-duplicated by student ID, and defaults to students registered in the active dashboard session and term. Its classroom and term subtitle is taken from that same active registration.
 - **Paying for** defaults to the student's active-term form and lists valid historical forms newest-first using full `Session · Term` labels.
 - Changing **Paying for** reloads term-scoped options and clears stale payment type, description, amount, note, and receipt state.
 - Payment type and description options come from `finance.getReceivePaymentOptions`, show their full paid-for term, prioritize outstanding items, and load configured default amounts.

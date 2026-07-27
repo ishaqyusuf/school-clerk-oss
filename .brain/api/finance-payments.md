@@ -1,5 +1,15 @@
 # Finance Payment API
 
+## Student Payment Search
+
+### `finance.searchStudentsForPayment`
+
+- Reads from the tenant-owned canonical `Students` model and returns each student ID once.
+- Input supports `currentTermOnly?`. The simple Receive Student Payment sheet sets it to `true`, returning only non-deleted students with a non-deleted registration in the active dashboard session and term.
+- The classroom and term metadata shown in the payment picker come from that same active-term registration, never from the student's latest-created historical term form.
+- A current-term-only search returns an empty list when the dashboard has no complete active session/term context.
+- Omitting `currentTermOnly` preserves the existing all-term search for Advanced payment and other finance selectors.
+
 ## Previous-Term Student Payments
 
 ### `finance.getReceivePaymentOptions`

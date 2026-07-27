@@ -15,6 +15,7 @@ const {
 	recordFinancePurchase,
 	recordFinancePayment,
 	receiveStudentPaymentSimple,
+	searchFinanceStudents,
 	transferFinanceFunds,
 	upsertFinanceItem,
 	upsertFinancePayee,
@@ -92,6 +93,171 @@ function createReceivePaymentTermForm({
 		},
 	};
 }
+
+describe("searchFinanceStudents", () => {
+	test("lists each canonical student once and scopes registration details to the active term", async () => {
+		let findManyArgs: Record<string, unknown> | undefined;
+		const currentStudent = {
+			id: "student-current",
+			name: "Fatimah",
+			surname: "Ajanji",
+			otherName: null,
+			termForms: [
+				{
+					id: "term-form-current",
+					sessionTermId: "term-current",
+					schoolSessionId: "session-current",
+					classroomDepartment: {
+						id: "department-current",
+						departmentName: "B",
+						classRoom: { name: "Primary 2" },
+					},
+					sessionTerm: { title: "Second Term" },
+				},
+			],
+		};
+		const historicalStudentWithSameName = {
+			...currentStudent,
+			id: "student-historical",
+			termForms: [
+				{
+					...currentStudent.termForms[0],
+					id: "term-form-historical",
+					sessionTermId: "term-historical",
+					schoolSessionId: "session-historical",
+					sessionTerm: { title: "First Term" },
+				},
+			],
+		};
+		const db = {
+			students: {
+				findMany: async (args: Record<string, unknown>) => {
+					findManyArgs = args;
+					const activeTermId = (
+						args.where as {
+							termForms?: { some?: { sessionTermId?: string } };
+						}
+					).termForms?.some?.sessionTermId;
+					return activeTermId === "term-current"
+						? [currentStudent]
+						: [historicalStudentWithSameName, currentStudent];
+				},
+			},
+		};
+
+		const result = await searchFinanceStudents(
+			createFinanceCtx({
+				db,
+				termId: "term-current",
+				sessionId: "session-current",
+			}),
+			{ currentTermOnly: true },
+		);
+
+		expect(findManyArgs).toMatchObject({
+			where: {
+				schoolProfileId: "school-1",
+				deletedAt: null,
+				termForms: {
+					some: {
+						schoolProfileId: "school-1",
+						sessionTermId: "term-current",
+						schoolSessionId: "session-current",
+						deletedAt: null,
+					},
+				},
+			},
+			select: {
+				termForms: {
+					where: {
+						schoolProfileId: "school-1",
+						sessionTermId: "term-current",
+						schoolSessionId: "session-current",
+						deletedAt: null,
+					},
+					take: 1,
+				},
+			},
+			distinct: ["id"],
+		});
+		expect(result).toEqual([
+			{
+				id: "student-current",
+				name: "Fatimah",
+				surname: "Ajanji",
+				otherName: null,
+				classroomId: "department-current",
+				classroom: "Primary 2 B",
+				currentTermLabel: "Second Term",
+				hasCurrentTermSheet: true,
+			},
+		]);
+	});
+
+	test("returns no payment-search students when the active term context is incomplete", async () => {
+		let queried = false;
+		const db = {
+			students: {
+				findMany: async () => {
+					queried = true;
+					return [];
+				},
+			},
+		};
+
+		const result = await searchFinanceStudents(
+			createFinanceCtx({
+				db,
+				termId: "",
+				sessionId: "session-current",
+			}),
+			{ query: "Fatimah", currentTermOnly: true },
+		);
+
+		expect(result).toEqual([]);
+		expect(queried).toBe(false);
+	});
+
+	test("preserves the all-term search used by advanced finance flows", async () => {
+		let findManyArgs: Record<string, unknown> | undefined;
+		const db = {
+			students: {
+				findMany: async (args: Record<string, unknown>) => {
+					findManyArgs = args;
+					return [];
+				},
+			},
+		};
+
+		await searchFinanceStudents(
+			createFinanceCtx({
+				db,
+				termId: "",
+				sessionId: "",
+			}),
+			{ query: "Fatimah" },
+		);
+
+		expect(findManyArgs).toMatchObject({
+			where: {
+				schoolProfileId: "school-1",
+				OR: [
+					{ name: { contains: "Fatimah", mode: "insensitive" } },
+					{ surname: { contains: "Fatimah", mode: "insensitive" } },
+					{ otherName: { contains: "Fatimah", mode: "insensitive" } },
+				],
+			},
+			select: {
+				termForms: {
+					take: 1,
+					orderBy: { createdAt: "desc" },
+				},
+			},
+		});
+		expect(findManyArgs).not.toHaveProperty("distinct");
+		expect(findManyArgs).not.toHaveProperty("where.termForms");
+	});
+});
 
 describe("getReceivePaymentOptions", () => {
 	test("defaults the paid-for term to the active term and lists historical term choices", async () => {

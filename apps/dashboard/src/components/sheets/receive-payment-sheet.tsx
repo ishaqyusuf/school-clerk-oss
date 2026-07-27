@@ -299,7 +299,7 @@ function SimpleReceivePaymentSheet({
 
 	const { data: searchResults = [] } = useQuery(
 		trpc.finance.searchStudentsForPayment.queryOptions(
-			{ query: studentSearch || undefined },
+			{ query: studentSearch || undefined, currentTermOnly: true },
 			{ enabled: isOpen },
 		),
 	);

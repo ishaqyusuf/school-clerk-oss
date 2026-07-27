@@ -556,6 +556,16 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: 2026-07-27-current-term-payment-student-search
+- Title: Current-Term Unique Student Payment Search
+- Completed: 2026-07-27
+- Outcome: Scoped the Receive Student Payment picker to non-deleted canonical students registered in the active dashboard session and term, selected display metadata from that same registration, and enforced distinct student IDs so historical term sheets cannot produce duplicate picker entries.
+- Validation: 39 focused finance tests and dashboard typecheck passed; authenticated browser QA confirmed current-term-only simple results and unchanged all-term Advanced results. The repository suite completed with 379 passes plus its existing three AI assessment-history failures and one Playwright discovery error. API typecheck reached only the two pre-existing academic-term reset/setup errors.
+- Related changes: `apps/api/src/db/queries/finance.ts`, `apps/api/src/db/queries/finance.test.ts`, `apps/api/src/trpc/schemas/finance.ts`, `apps/dashboard/src/components/sheets/receive-payment-sheet.tsx`, `.brain/api/finance-payments.md`, `.brain/features/student-fees.md`, `.brain/bugs/2026-07-27-payment-student-search-duplicates.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: ACADEMIC-TERM-001
 - Title: Explicit New-Term Setup, Rollover, Activation, And Closure
 - Completed: 2026-07-20

@@ -110,6 +110,7 @@ export const financeSearchInputSchema = z
 	.object({
 		q: nullableString,
 		query: nullableString,
+		currentTermOnly: z.boolean().optional(),
 	})
 	.optional();
 
