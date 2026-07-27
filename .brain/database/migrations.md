@@ -352,3 +352,8 @@ Change log for database schema migrations and rollout notes.
 - Rollback plan: Remove dashboard/API/Trigger use of payment imports, regenerate Prisma Client, then drop the payment import tables and enums/activity values.
 - Owner: Codex
 - Note: `bun run db:generate`, `bun run db:push --local`, and `bun run db:push --prod` completed successfully after the final activity-enum audit. No migration files were created.
+# QA cleanup schema
+
+- Adds account QA lifecycle fields and global purge receipts.
+- Per repository policy, schema changes use guarded `db:push --local` and
+  `db:push --prod`; no migration file is authored for this feature.

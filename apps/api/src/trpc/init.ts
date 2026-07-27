@@ -107,6 +107,11 @@ export async function findAuthSessionByBearer(
           name: true,
           role: true,
           saasAccountId: true,
+          tenant: {
+            select: {
+              qaPurgeStartedAt: true,
+            },
+          },
         },
       },
     },
@@ -138,6 +143,12 @@ const requireAuthMiddleware = t.middleware(async (opts) => {
       message: "Your session is no longer valid.",
     });
   }
+  if (session.user.tenant?.qaPurgeStartedAt) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "This QA workspace is being purged.",
+    });
+  }
 
   return opts.next({
     ctx: {
@@ -156,4 +167,26 @@ const requireAuthMiddleware = t.middleware(async (opts) => {
 export const publicProcedure = t.procedure.use(withPrimaryDbMiddleware);
 export const authenticatedProcedure = publicProcedure.use(
   requireAuthMiddleware,
+);
+export const platformAdminProcedure = authenticatedProcedure.use(
+  t.middleware(async (opts) => {
+    const currentUser = opts.ctx.currentUser;
+    if (!currentUser) {
+      throw new TRPCError({ code: "UNAUTHORIZED" });
+    }
+    const allowedRoles = new Set(
+      (process.env.SCHOOL_CLERK_PLATFORM_ADMIN_ROLES ??
+        "PLATFORM_ADMIN,SUPER_ADMIN")
+        .split(",")
+        .map((role) => role.trim().toUpperCase())
+        .filter(Boolean),
+    );
+    if (!allowedRoles.has(currentUser.role?.toUpperCase() ?? "")) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Platform owner access is required.",
+      });
+    }
+    return opts.next();
+  }),
 );

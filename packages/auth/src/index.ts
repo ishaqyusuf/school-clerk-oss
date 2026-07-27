@@ -2,7 +2,7 @@ import { prisma } from "@school-clerk/db";
 import {
 	formatTenantEmailFrom,
 	formatTenantEmailSubject,
-	getRecipient,
+	getEmailDeliveryRoutes,
 	resolveDashboardAppRootDomain,
 } from "@school-clerk/utils";
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
@@ -25,6 +25,15 @@ async function sendAuthEmail({
 	subject: string;
 	html: string;
 }) {
+	const [route] = getEmailDeliveryRoutes(to);
+	if (!route) throw new Error("At least one email recipient is required.");
+	if (route.transport === "console") {
+		console.info("[auth] email captured by console delivery", {
+			recipient: route.originalRecipient,
+			subject,
+		});
+		return;
+	}
 	const apiKey = process.env.RESEND_API_KEY;
 	const from = formatTenantEmailFrom({
 		fallbackFrom: process.env.RESEND_FROM_EMAIL,
@@ -44,9 +53,16 @@ async function sendAuthEmail({
 		},
 		body: JSON.stringify({
 			from,
-			to: [getRecipient(to)],
-			subject,
-			html,
+			to: [route.recipient],
+			subject: route.qaRouted
+				? `[QA: ${route.originalRecipient}] ${subject}`
+				: subject,
+			html: route.qaRouted
+				? `<p><strong>QA routed for ${route.originalRecipient}</strong></p>${html}`
+				: html,
+			headers: route.qaRouted
+				? { "X-QA-Original-Recipient": route.originalRecipient }
+				: undefined,
 		}),
 	});
 

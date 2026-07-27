@@ -1,26 +1,30 @@
 "use server";
 
-import type z from "zod";
 import { headers } from "next/headers";
+import type z from "zod";
 
-import { ensureNotificationContact, prisma } from "@school-clerk/db";
+import {
+	ensureNotificationContact,
+	getQaClassificationForOwner,
+	prisma,
+} from "@school-clerk/db";
 import { createNotificationFromType } from "@school-clerk/notifications";
 import {
   formatTenantEmailFrom,
   formatTenantEmailSubject,
-  getRecipient,
+	getEmailDeliveryRoutes,
   slugify,
 } from "@school-clerk/utils";
 
 import { auth } from "@/auth/server";
 import {
-  buildDashboardTenantUrl,
-  buildSchoolSiteUrl,
-} from "@/features/signup/tenant-urls";
-import {
   getInstitutionType,
   isInstitutionTypeEnabled,
 } from "@/features/signup/institution-types";
+import {
+	buildDashboardTenantUrl,
+	buildSchoolSiteUrl,
+} from "@/features/signup/tenant-urls";
 import { provisionSchoolVercelDomains } from "@/utils/domain";
 import { isTenantDomainTableMissing } from "@/utils/tenant-domain-context";
 import { actionClient } from "./safe-action";
@@ -119,6 +123,14 @@ async function sendSignupSuccessEmail({
   siteUrl: string;
   workspaceUrl: string;
 }) {
+	const [route] = getEmailDeliveryRoutes(to);
+	if (!route) throw new Error("At least one email recipient is required.");
+	if (route.transport === "console") {
+		console.info("[signup] email captured by console delivery", {
+			recipient: route.originalRecipient,
+		});
+		return;
+	}
   const apiKey = process.env.RESEND_API_KEY;
   const from = formatTenantEmailFrom({
     fallbackFrom: process.env.RESEND_FROM_EMAIL,
@@ -130,8 +142,6 @@ async function sendSignupSuccessEmail({
     return;
   }
 
-  const recipient = getRecipient(to);
-
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -140,11 +150,16 @@ async function sendSignupSuccessEmail({
     },
     body: JSON.stringify({
       from,
-      to: [recipient],
-      subject: formatTenantEmailSubject({
+			to: [route.recipient],
+			subject: `${route.qaRouted ? `[QA: ${route.originalRecipient}] ` : ""}${formatTenantEmailSubject(
+				{
         message: "workspace is ready",
         schoolName,
-      }),
+				},
+			)}`,
+			headers: route.qaRouted
+				? { "X-QA-Original-Recipient": route.originalRecipient }
+				: undefined,
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
           <h2 style="margin-bottom: 12px;">Welcome to School Clerk</h2>
@@ -212,6 +227,14 @@ async function sendSignupVerificationEmail({
   schoolName: string;
   verificationUrl: string;
 }) {
+	const [route] = getEmailDeliveryRoutes(to);
+	if (!route) throw new Error("At least one email recipient is required.");
+	if (route.transport === "console") {
+		console.info("[signup] email captured by console delivery", {
+			recipient: route.originalRecipient,
+		});
+		return;
+	}
   const apiKey = process.env.RESEND_API_KEY;
   const from = formatTenantEmailFrom({
     fallbackFrom: process.env.RESEND_FROM_EMAIL,
@@ -233,11 +256,16 @@ async function sendSignupVerificationEmail({
     },
     body: JSON.stringify({
       from,
-      to: [getRecipient(to)],
-      subject: formatTenantEmailSubject({
+			to: [route.recipient],
+			subject: `${route.qaRouted ? `[QA: ${route.originalRecipient}] ` : ""}${formatTenantEmailSubject(
+				{
         message: "verify your account",
         schoolName,
-      }),
+				},
+			)}`,
+			headers: route.qaRouted
+				? { "X-QA-Original-Recipient": route.originalRecipient }
+				: undefined,
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
           <h2 style="margin-bottom: 12px;">Verify your email address</h2>
@@ -355,6 +383,7 @@ export const createSaasProfileAction = actionClient
           email,
           name: input.adminName.trim(),
           phoneNo: input.phone?.trim() || null,
+					...getQaClassificationForOwner(email),
         },
       });
 

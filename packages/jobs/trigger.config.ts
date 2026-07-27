@@ -1,7 +1,7 @@
-import { defineConfig } from "@trigger.dev/sdk";
-import { syncVercelEnvVars } from "@trigger.dev/build/extensions/core";
-import { prismaExtension } from "@trigger.dev/build/extensions/prisma";
 import { PrismaInstrumentation } from "@prisma/instrumentation";
+import { syncEnvVars } from "@trigger.dev/build/extensions/core";
+import { prismaExtension } from "@trigger.dev/build/extensions/prisma";
+import { defineConfig } from "@trigger.dev/sdk";
 
 export default defineConfig({
   project: process.env.TRIGGER_PROJECT_ID!,
@@ -20,10 +20,30 @@ export default defineConfig({
   },
   build: {
     extensions: [
-      // syncVercelEnvVars({
-      //   projectId: process.env.PROJECT_ID_VERCEL!,
-      //   vercelAccessToken: process.env.VERCEL_TRIGGER_ACCESS_TOKEN!,
-      // }),
+			syncEnvVars(
+				() =>
+					Object.fromEntries(
+						[
+							"DATABASE_URL",
+							"EMAIL_DELIVERY_MODE",
+							"EMAIL_QA_DOMAIN_ROUTES",
+							"RESEND_API_KEY",
+							"RESEND_FROM_EMAIL",
+							"BLOB_READ_WRITE_TOKEN",
+							"QA_MAINTENANCE_SECRET",
+							"VERCEL_BEARER_TOKEN",
+							"VERCEL_TEAM_ID",
+							"VERCEL_DASHBOARD_PROJECT_ID",
+							"VERCEL_SITE_PROJECT_ID",
+							"APP_ROOT_DOMAIN",
+							"SCHOOL_SITE_ROOT_DOMAIN",
+						].flatMap((key) => {
+							const value = process.env[key]?.trim();
+							return value ? [[key, value]] : [];
+						}),
+					),
+				{ override: true },
+			),
       prismaExtension({
         // version: "5.20.0", // optional, we'll automatically detect the version if not provided
         // update this to the path of your Prisma schema file

@@ -21,3 +21,4 @@ export * from "./academic-data-direction";
 export * from "./assessment-score-history";
 export * from "./attendance";
 export * from "./classroom-order";
+export * from "./qa-maintenance";

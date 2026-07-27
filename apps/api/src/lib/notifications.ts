@@ -6,7 +6,7 @@ import {
 } from "@school-clerk/notifications";
 import {
   formatTenantEmailFrom,
-  getRecipient,
+	getEmailDeliveryRoutes,
   resolveDashboardAppRootDomain,
 } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
@@ -97,6 +97,15 @@ async function sendEmail({
   subject: string;
   to: string;
 }) {
+	const [route] = getEmailDeliveryRoutes(to);
+	if (!route) throw new Error("At least one email recipient is required.");
+	if (route.transport === "console") {
+		console.info("[notifications] email captured by console delivery", {
+			recipient: route.originalRecipient,
+			subject,
+		});
+		return true;
+	}
   const apiKey = process.env.RESEND_API_KEY;
 
   if (!apiKey) {
@@ -114,9 +123,16 @@ async function sendEmail({
     },
     body: JSON.stringify({
       from: getNotificationEmailFrom(schoolName),
-      to: [getRecipient(to)],
-      subject,
-      html,
+			to: [route.recipient],
+			subject: route.qaRouted
+				? `[QA: ${route.originalRecipient}] ${subject}`
+				: subject,
+			html: route.qaRouted
+				? `<p><strong>QA routed for ${route.originalRecipient}</strong></p>${html}`
+				: html,
+			headers: route.qaRouted
+				? { "X-QA-Original-Recipient": route.originalRecipient }
+				: undefined,
     }),
   });
 

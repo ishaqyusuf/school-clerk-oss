@@ -77,3 +77,7 @@ Tracks tasks currently being worked on.
 - Plan File: brain/plans/2026-06-19-feature-flat-minimal-dashboard-ui-audit-and-refactor.md
 - Created Date: 2026-06-19
 - Started Date: 2026-06-19
+# Cross-product QA email and cleanup
+
+- Product implementation is integrated. Guarded schema pushes, secure route
+  propagation, canary delivery, and first reviewed purge remain rollout work.

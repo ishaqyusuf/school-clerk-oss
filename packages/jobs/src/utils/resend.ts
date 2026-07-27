@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { Resend } from "resend";
 import { render } from "@school-clerk/email/render";
-import { getRecipient } from "@school-clerk/utils/envs";
+import { getEmailDeliveryRoutes } from "@school-clerk/utils/envs";
 import { nanoid } from "nanoid";
 import { logger } from "@trigger.dev/sdk";
 
@@ -26,22 +26,42 @@ export async function sendEmail({
   errorLog,
   successLog,
 }: SendEmailProps) {
-  const toEmail = getRecipient(to!);
-  const response = await resend.emails.send({
+	const html = await render(content);
+	const routes = getEmailDeliveryRoutes(to);
+
+	for (const route of routes) {
+		if (route.transport === "console") {
+			logger.info("email captured by console delivery", {
+				originalRecipient: route.originalRecipient,
     subject,
+			});
+			continue;
+		}
+
+		const response = await resend.emails.send({
+			subject: route.qaRouted
+				? `[QA: ${route.originalRecipient}] ${subject}`
+				: subject,
     from,
-    to: toEmail,
+			to: route.recipient,
     headers: {
       "X-Entity-Ref-ID": nanoid(),
+				...(route.qaRouted
+					? { "X-QA-Original-Recipient": route.originalRecipient }
+					: {}),
     },
-    html: await render(content),
+			html: route.qaRouted
+				? `<p><strong>QA routed for ${route.originalRecipient}</strong></p>${html}`
+				: html,
   });
   if (response.error) {
     logger.error(errorLog || "email failed to send", {
       error: response.error,
-      customerEmail: toEmail,
+				originalRecipient: route.originalRecipient,
+				qaRouted: route.qaRouted,
     });
     throw new Error(errorLog || "email failed to send");
   }
+	}
   logger.info(successLog || "email sent");
 }

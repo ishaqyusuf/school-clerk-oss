@@ -2004,6 +2004,10 @@ model SaasAccount {
     schools   SchoolProfile[]
     users     User[]
     domains   TenantDomain[]
+    dataClassification QaDataClassification @default(NORMAL)
+    qaSourceDomain      String?
+    qaMarkedAt          DateTime? @db.Timestamp(0)
+    qaPurgeStartedAt    DateTime? @db.Timestamp(0)
 }
 
 model User {
@@ -2089,6 +2093,37 @@ model EmailTokenLogin {
     createdAt DateTime? @default(now()) @db.Timestamp(0)
     deletedAt DateTime? @db.Timestamp(0)
     updatedAt DateTime? @updatedAt
+}
+
+enum QaDataClassification {
+    NORMAL
+    QA
+}
+
+enum QaPurgeRunStatus {
+    PENDING
+    RUNNING
+    COMPLETED
+    PARTIAL
+    FAILED
+    BLOCKED
+}
+
+model QaPurgeRun {
+    id                       String           @id @default(uuid())
+    actorUserId              String
+    status                   QaPurgeRunStatus @default(PENDING)
+    activeKey                String?          @unique
+    startedAt                DateTime?        @db.Timestamp(0)
+    completedAt              DateTime?        @db.Timestamp(0)
+    deletedWorkspaceCount    Int              @default(0)
+    deletedSchoolCount       Int              @default(0)
+    deletedRecordCount       Int              @default(0)
+    deletedFileCount         Int              @default(0)
+    deletedFileBytes         BigInt           @default(0)
+    errorCategory            String?
+    createdAt                DateTime         @default(now()) @db.Timestamp(0)
+    updatedAt                DateTime         @updatedAt
 }
 
 // ---- finance.prisma ----

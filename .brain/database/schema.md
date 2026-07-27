@@ -464,3 +464,9 @@ The composite assessment public-link lookup index on `schoolProfileId`, `session
 - Planned website config status rule: `PUBLISHED` should only be assigned as part of a publish transaction that also updates `WebsitePublishedConfig`.
 - Planned website config immutability rule: rows with `publishedAt` should not be edited directly; duplicate into a draft for changes.
 - TODO: document which models are production-active vs transitional legacy.
+# QA account lifecycle
+
+- `SaasAccount` stores classification, source QA domain, marked timestamp, and
+  purge-start timestamp; all owned schools inherit this boundary.
+- Global `QaPurgeRun` stores actor, timestamps, status, aggregate workspace,
+  school, record, and file counts, plus error category only.

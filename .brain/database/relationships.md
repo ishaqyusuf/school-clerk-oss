@@ -140,3 +140,8 @@ Describes entity relationships and cardinality constraints.
 - `AssessmentWorkbookImport.exportId` references `AssessmentWorkbookExport.id` with delete restriction.
 - Tenant, term, and classroom ids are captured as immutable scalar audit boundaries rather than cascading relations; the signed workbook and apply service verify the corresponding live tenant-scoped entities before use.
 - `createdAssessmentIds` records standalone assessment rows created in the same transaction, while canonical score rows continue to relate through `StudentAssessmentRecord.classSubjectAssessmentId`.
+# QA cleanup boundary
+
+- QA classification belongs to `SaasAccount` and therefore covers its schools,
+  users, domains, and school-owned aggregates.
+- `QaPurgeRun` deliberately has no account relation.

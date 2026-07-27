@@ -11,7 +11,7 @@ import {
 	formatStudentName,
   formatTenantEmailFrom,
   formatTenantEmailSubject,
-  getRecipient,
+	getEmailDeliveryRoutes,
 } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
@@ -209,6 +209,14 @@ async function sendAdmissionApprovalEmail(input: {
   schoolName: string;
   studentName: string;
 }) {
+	const [route] = getEmailDeliveryRoutes(input.parentEmail);
+	if (!route) throw new Error("At least one email recipient is required.");
+	if (route.transport === "console") {
+		console.info("[enrollment] email captured by console delivery", {
+			recipient: route.originalRecipient,
+		});
+		return true;
+	}
   const apiKey = process.env.RESEND_API_KEY;
 
   if (!apiKey) {
@@ -241,12 +249,19 @@ async function sendAdmissionApprovalEmail(input: {
     },
     body: JSON.stringify({
       from: getAdmissionEmailFrom(input.schoolName),
-      to: [getRecipient(input.parentEmail)],
-      subject: formatTenantEmailSubject({
+			to: [route.recipient],
+			subject: `${route.qaRouted ? `[QA: ${route.originalRecipient}] ` : ""}${formatTenantEmailSubject(
+				{
         message: "admission approved",
         schoolName: input.schoolName,
-      }),
-      html,
+				},
+			)}`,
+			html: route.qaRouted
+				? `<p><strong>QA routed for ${route.originalRecipient}</strong></p>${html}`
+				: html,
+			headers: route.qaRouted
+				? { "X-QA-Original-Recipient": route.originalRecipient }
+				: undefined,
     }),
   });
 

@@ -14,7 +14,7 @@ import {
 	formatStudentName,
   formatTenantEmailFrom,
   formatTenantEmailSubject,
-  getRecipient,
+	getEmailDeliveryRoutes,
   resolveDashboardAppRootDomain,
 } from "@school-clerk/utils";
 
@@ -238,6 +238,14 @@ async function sendAdmissionSubmissionEmail(input: {
   schoolName: string;
   studentName: string;
 }) {
+	const [route] = getEmailDeliveryRoutes(input.parentEmail);
+	if (!route) throw new Error("At least one email recipient is required.");
+	if (route.transport === "console") {
+		console.info("[enrollment] email captured by console delivery", {
+			recipient: route.originalRecipient,
+		});
+		return;
+	}
   const apiKey = process.env.RESEND_API_KEY;
 
   if (!apiKey) {
@@ -266,12 +274,19 @@ async function sendAdmissionSubmissionEmail(input: {
     },
     body: JSON.stringify({
       from: getAdmissionEmailFrom(input.schoolName),
-      to: [getRecipient(input.parentEmail)],
-      subject: formatTenantEmailSubject({
+			to: [route.recipient],
+			subject: `${route.qaRouted ? `[QA: ${route.originalRecipient}] ` : ""}${formatTenantEmailSubject(
+				{
         message: "admission application received",
         schoolName: input.schoolName,
-      }),
-      html,
+				},
+			)}`,
+			html: route.qaRouted
+				? `<p><strong>QA routed for ${route.originalRecipient}</strong></p>${html}`
+				: html,
+			headers: route.qaRouted
+				? { "X-QA-Original-Recipient": route.originalRecipient }
+				: undefined,
     }),
   });
 

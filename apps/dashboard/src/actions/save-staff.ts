@@ -9,8 +9,8 @@ import {
   staffRoleSchema,
 } from "@/actions/schema";
 import {
-  sendStaffInvitationEmailTaskId,
   type SendStaffInvitationEmailPayload,
+	sendStaffInvitationEmailTaskId,
 } from "@school-clerk/utils/task-contracts";
 import { tasks } from "@trigger.dev/sdk";
 import { z } from "zod";
@@ -18,6 +18,7 @@ import { ensureCredentialAccount } from "./ensure-credential-account";
 import { getTenantDashboardEmailUrl } from "./tenant-email-url";
 
 import {
+	assertSchoolClerkIdentityLane,
   assertStaffAcademicAssignmentReferences,
   buildStaffAcademicAccessPersistence,
   collectStaffAcademicAssignmentReferenceIds,
@@ -349,6 +350,10 @@ export const saveStaffAction = actionClient
     const { actor, profile, school, tenantSlug } = await getSchoolContext();
 
     const email = normalizeEmail(parsedInput.email);
+		await assertSchoolClerkIdentityLane(prisma, {
+			email,
+			saasAccountId: school.accountId,
+		});
     const assignments = roleSupportsAssignments(parsedInput.role)
       ? normalizeStaffAcademicAssignments(parsedInput.assignments)
       : [];

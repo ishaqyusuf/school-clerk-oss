@@ -20,6 +20,7 @@ import { searchRouter } from "./search.routes";
 import { enrollmentLinksRouter } from "./enrollment-links.routes";
 import { parentsRouter } from "./parents.routes";
 import { schoolSettingsRouter } from "./school-settings.routes";
+import { qaMaintenanceRouter } from "./qa-maintenance.routes";
 export const appRouter = createTRPCRouter({
   assessments: assessmentRouter,
   auth: authRouter,
@@ -41,6 +42,7 @@ export const appRouter = createTRPCRouter({
   enrollmentLinks: enrollmentLinksRouter,
   parents: parentsRouter,
   schoolSettings: schoolSettingsRouter,
+  qaMaintenance: qaMaintenanceRouter,
 });
 
 export type AppRouter = typeof appRouter;
