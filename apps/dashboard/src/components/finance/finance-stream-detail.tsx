@@ -5,7 +5,7 @@ import { Button } from "@school-clerk/ui/button";
 import { ArrowLeft, ArrowUpRight, ArrowDownRight, Wallet } from "lucide-react";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { NumberInput } from "@/components/currency-input";
+import { MoneyValue } from "@/components/finance/money-value";
 import { DataTable as FinanceLedgerTable } from "@/components/tables/finance-ledger/data-table";
 import { useTRPC } from "@/trpc/client";
 
@@ -29,7 +29,7 @@ function StreamStat({
 				<Icon className="h-4 w-4 text-muted-foreground" />
 			</div>
 			<p className="mt-3 text-2xl font-semibold">
-				<NumberInput value={value} prefix="NGN " />
+				<MoneyValue value={value} />
 			</p>
 		</div>
 	);
@@ -44,7 +44,11 @@ export function FinanceStreamDetail({ streamId }: FinanceStreamDetailProps) {
 	return (
 		<div className="space-y-6 p-6">
 			<div className="space-y-3">
-				<Button asChild variant="ghost" className="w-fit px-0 text-muted-foreground">
+				<Button
+					asChild
+					variant="ghost"
+					className="w-fit px-0 text-muted-foreground"
+				>
 					<Link href="/finance/accounts">
 						<ArrowLeft className="h-4 w-4" />
 						Back to accounts
@@ -60,7 +64,8 @@ export function FinanceStreamDetail({ streamId }: FinanceStreamDetailProps) {
 					</Badge>
 				</div>
 				<p className="text-muted-foreground text-sm">
-					{data.description || `Ledger-backed account activity for ${data.periodLabel}.`}
+					{data.description ||
+						`Ledger-backed account activity for ${data.periodLabel}.`}
 				</p>
 			</div>
 

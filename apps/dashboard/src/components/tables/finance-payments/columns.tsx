@@ -113,7 +113,11 @@ import { MoreHorizontal, Undo } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 
-function FinancePaymentRowActions({ row }: { row: { original: FinancePaymentRow } }) {
+function FinancePaymentRowActions({
+	row,
+}: {
+	row: { original: FinancePaymentRow };
+}) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 
@@ -131,6 +135,12 @@ function FinancePaymentRowActions({ row }: { row: { original: FinancePaymentRow 
 						queryKey: trpc.finance.overview.queryKey(),
 					}),
 					queryClient.invalidateQueries({
+						queryKey: trpc.finance.getWorkspaceSummary.queryKey(),
+					}),
+					queryClient.invalidateQueries({
+						queryKey: trpc.finance.getAccounts.queryKey(),
+					}),
+					queryClient.invalidateQueries({
 						queryKey: trpc.finance.getLedgerEntries.queryKey(),
 					}),
 				]);
@@ -138,7 +148,10 @@ function FinancePaymentRowActions({ row }: { row: { original: FinancePaymentRow 
 		}),
 	);
 
-	if (row.original.status === "CANCELLED" || row.original.status === "REVERSED") {
+	if (
+		row.original.status === "CANCELLED" ||
+		row.original.status === "REVERSED"
+	) {
 		return null;
 	}
 

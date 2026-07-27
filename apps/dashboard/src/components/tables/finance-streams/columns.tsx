@@ -1,6 +1,6 @@
 "use client";
 
-import { NumberInput } from "@/components/currency-input";
+import { MoneyValue } from "@/components/finance/money-value";
 import { Badge } from "@school-clerk/ui/badge";
 import type { ColumnDef } from "@tanstack/react-table";
 
@@ -35,7 +35,7 @@ export type FinanceStreamRow = {
 function MoneyCell({ value }: { value: number }) {
 	return (
 		<div className="font-medium text-sm">
-			<NumberInput value={value} prefix="NGN " />
+			<MoneyValue value={value} />
 		</div>
 	);
 }
@@ -70,7 +70,8 @@ export const columns: ColumnDef<FinanceStreamRow>[] = [
 						) : null}
 					</div>
 					<p className="truncate text-muted-foreground text-xs">
-						{stream.description || `${stream.accountType.toLowerCase()} account`}
+						{stream.description ||
+							`${stream.accountType.toLowerCase()} account`}
 					</p>
 				</div>
 			);
@@ -123,7 +124,7 @@ export const columns: ColumnDef<FinanceStreamRow>[] = [
 		},
 		cell: ({ row }) => (
 			<div className="font-semibold text-sm">
-				<NumberInput value={row.original.balance} prefix="NGN " />
+				<MoneyValue value={row.original.balance} />
 			</div>
 		),
 	},

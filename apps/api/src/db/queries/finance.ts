@@ -7,6 +7,7 @@ import { TRPCError } from "@trpc/server";
 import type { TRPCContext } from "../../trpc/init";
 import type {
 	FinanceChargeInput,
+	FinanceAccountDetailsInput,
 	FinanceItemInput,
 	FinancePayeeHistoryInput,
 	FinancePayeeInput,
@@ -23,6 +24,7 @@ import type {
 	FinanceStreamDetailsInput,
 	FinanceStreamInput,
 	FinanceStreamQuery,
+	FinanceWorkspaceQuery,
 	FinanceTermAccountStatementInput,
 	FinanceTermCloseInput,
 	FinanceTermLedgerQuery,
@@ -1276,9 +1278,9 @@ export async function recordFinancePayment(
 				streamId: charge.streamId,
 				payerType: charge.payerType,
 				studentId: charge.studentId,
-			staffProfileId: charge.staffProfileId,
-			payeeId: charge.payeeId,
-			amount,
+				staffProfileId: charge.staffProfileId,
+				payeeId: charge.payeeId,
+				amount,
 				paymentDate: input.paymentDate ?? new Date(),
 				collectedSessionTermId,
 				collectedSchoolSessionId,
@@ -1398,9 +1400,9 @@ export async function reverseFinancePayment(
 
 		for (const allocation of payment.allocations) {
 			const charge = allocation.charge;
-				const amountToReverse = toMoney(allocation.amount);
-				const currentPaid = toMoney(charge.amountPaid ?? 0);
-				const newPaid = currentPaid.minus(amountToReverse);
+			const amountToReverse = toMoney(allocation.amount);
+			const currentPaid = toMoney(charge.amountPaid ?? 0);
+			const newPaid = currentPaid.minus(amountToReverse);
 
 			const nextStatus = newPaid.lessThanOrEqualTo(0)
 				? "PENDING"
@@ -2685,9 +2687,7 @@ export async function getReceivePaymentOptions(
 		});
 	}
 	const collectedSessionId =
-		activeTermForm?.schoolSessionId ??
-		collectedTerm?.session?.id ??
-		sessionId;
+		activeTermForm?.schoolSessionId ?? collectedTerm?.session?.id ?? sessionId;
 	const requestedTermForm = input.paidForStudentTermFormId
 		? sortedTermForms.find((form) => form.id === input.paidForStudentTermFormId)
 		: null;
@@ -2893,8 +2893,8 @@ export async function getReceivePaymentOptions(
 				params.source === "outstanding"
 					? params.description.defaultAmount
 					: existing?.defaultAmount && existing.defaultAmount > 0
-					? existing.defaultAmount
-					: params.description.defaultAmount,
+						? existing.defaultAmount
+						: params.description.defaultAmount,
 			descriptions: hasDescription
 				? descriptions
 				: [...descriptions, params.description],
@@ -3086,10 +3086,7 @@ export async function getReceivePaymentOptions(
 		};
 	});
 	const collectedTermLabel = collectedTerm
-		? formatTermLabel(
-				collectedTerm.session?.title,
-				collectedTerm.title,
-			)
+		? formatTermLabel(collectedTerm.session?.title, collectedTerm.title)
 		: null;
 
 	return {
@@ -3434,12 +3431,12 @@ export async function getFinanceTermLedger(
 	}
 	const closeRecord = await (ctx.db as any).financeTermLedgerClose?.findFirst?.(
 		{
-		where: {
-			schoolProfileId,
-			sessionTermId: term.id,
-			deletedAt: null,
-		},
-		orderBy: [{ createdAt: "desc" }],
+			where: {
+				schoolProfileId,
+				sessionTermId: term.id,
+				deletedAt: null,
+			},
+			orderBy: [{ createdAt: "desc" }],
 		},
 	);
 
@@ -4454,5 +4451,464 @@ export async function getFinanceOverview(ctx: TRPCContext) {
 			totalDebit: streams.reduce((sum, stream) => sum + stream.debit, 0),
 			totalBalance: streams.reduce((sum, stream) => sum + stream.balance, 0),
 		},
+	};
+}
+
+type FinanceWorkspaceLedgerEntry = {
+	streamId: string;
+	direction: "CREDIT" | "DEBIT";
+	sourceType:
+		| "CHARGE"
+		| "PAYMENT"
+		| "TRANSFER"
+		| "TRANSFER_REVERSAL"
+		| "CANCELLATION"
+		| "ADJUSTMENT";
+	amount: Prisma.Decimal | number | string;
+	occurredAt: Date;
+};
+
+type FinanceWorkspaceCharge = {
+	streamId: string;
+	payerType: "STUDENT" | "STAFF" | "SCHOOL";
+	amount: Prisma.Decimal | number | string;
+	amountPaid: Prisma.Decimal | number | string;
+	status:
+		| "DRAFT"
+		| "PENDING"
+		| "PARTIALLY_PAID"
+		| "PAID"
+		| "CANCELLED"
+		| "WAIVED";
+};
+
+type FinanceWorkspaceStream = {
+	id: string;
+	name: string;
+	slug: string;
+	accountType: "CREDIT" | "DEBIT";
+	description: string | null;
+	isSystem: boolean;
+	_count: {
+		charges: number;
+		payments: number;
+		incomingTransfers: number;
+		outgoingTransfers: number;
+	};
+};
+
+export type FinanceWorkspaceAccount = {
+	id: string;
+	name: string;
+	slug: string;
+	accountType: "CREDIT" | "DEBIT";
+	description: string | null;
+	isSystem: boolean;
+	moneyIn: number;
+	moneyOut: number;
+	ledgerBalance: number;
+	pendingObligations: number;
+	pendingObligationsCount: number;
+	projectedBalance: number;
+	health: "healthy" | "needs_funding" | "deficit" | "no_activity";
+	lastActivityAt: Date | null;
+	activityCount: number;
+	counts: FinanceWorkspaceStream["_count"];
+};
+
+export function buildFinanceWorkspaceAccounts(params: {
+	streams: FinanceWorkspaceStream[];
+	ledgerEntries: FinanceWorkspaceLedgerEntry[];
+	charges: FinanceWorkspaceCharge[];
+}) {
+	const entriesByStream = new Map<string, FinanceWorkspaceLedgerEntry[]>();
+	for (const entry of params.ledgerEntries) {
+		entriesByStream.set(entry.streamId, [
+			...(entriesByStream.get(entry.streamId) ?? []),
+			entry,
+		]);
+	}
+
+	const chargesByStream = new Map<string, FinanceWorkspaceCharge[]>();
+	for (const charge of params.charges) {
+		chargesByStream.set(charge.streamId, [
+			...(chargesByStream.get(charge.streamId) ?? []),
+			charge,
+		]);
+	}
+
+	return params.streams.map<FinanceWorkspaceAccount>((stream) => {
+		const entries = entriesByStream.get(stream.id) ?? [];
+		const charges = chargesByStream.get(stream.id) ?? [];
+		const ledger = summarizeLedger(
+			entries.map((entry) => ({
+				direction: entry.direction,
+				amount: toMoney(entry.amount),
+			})),
+		);
+		const cashEntries = entries.filter(
+			(entry) =>
+				entry.sourceType !== "TRANSFER" &&
+				entry.sourceType !== "TRANSFER_REVERSAL" &&
+				entry.sourceType !== "ADJUSTMENT",
+		);
+		const moneyIn = cashEntries
+			.filter((entry) => entry.direction === "CREDIT")
+			.reduce((sum, entry) => sum + toNumber(entry.amount), 0);
+		const moneyOut = cashEntries
+			.filter((entry) => entry.direction === "DEBIT")
+			.reduce((sum, entry) => sum + toNumber(entry.amount), 0);
+		const pendingCharges = charges.filter(
+			(charge) =>
+				(charge.payerType === "STAFF" || charge.payerType === "SCHOOL") &&
+				(charge.status === "PENDING" || charge.status === "PARTIALLY_PAID"),
+		);
+		const pendingObligations = pendingCharges.reduce(
+			(sum, charge) =>
+				sum +
+				Math.max(toNumber(charge.amount) - toNumber(charge.amountPaid), 0),
+			0,
+		);
+		const projectedBalance = ledger.balance - pendingObligations;
+		const lastActivityAt =
+			entries.reduce<Date | null>(
+				(latest, entry) =>
+					!latest || entry.occurredAt > latest ? entry.occurredAt : latest,
+				null,
+			) ?? null;
+		const health =
+			entries.length === 0 && pendingObligations === 0
+				? ("no_activity" as const)
+				: ledger.balance < 0
+					? ("deficit" as const)
+					: projectedBalance < 0
+						? ("needs_funding" as const)
+						: ("healthy" as const);
+
+		return {
+			id: stream.id,
+			name: stream.name,
+			slug: stream.slug,
+			accountType: stream.accountType,
+			description: stream.description,
+			isSystem: stream.isSystem,
+			moneyIn,
+			moneyOut,
+			ledgerBalance: ledger.balance,
+			pendingObligations,
+			pendingObligationsCount: pendingCharges.length,
+			projectedBalance,
+			health,
+			lastActivityAt,
+			activityCount: entries.length,
+			counts: stream._count,
+		};
+	});
+}
+
+function financeWorkspacePeriodWhere(
+	ctx: TRPCContext,
+	input?: FinanceWorkspaceQuery,
+): Prisma.FinanceLedgerEntryWhereInput {
+	const period = input?.period ?? "term";
+	if (period === "all") return {};
+	if (period === "session") {
+		return ctx.profile.sessionId
+			? { collectedSchoolSessionId: ctx.profile.sessionId }
+			: {};
+	}
+	return ctx.profile.termId
+		? { collectedSessionTermId: ctx.profile.termId }
+		: ctx.profile.sessionId
+			? { collectedSchoolSessionId: ctx.profile.sessionId }
+			: {};
+}
+
+function financeWorkspaceChargeWhere(
+	ctx: TRPCContext,
+	input?: FinanceWorkspaceQuery,
+): Prisma.FinanceChargeWhereInput {
+	const period = input?.period ?? "term";
+	if (period === "all") return {};
+	if (period === "session") {
+		return ctx.profile.sessionId
+			? { schoolSessionId: ctx.profile.sessionId }
+			: {};
+	}
+	return ctx.profile.termId
+		? { sessionTermId: ctx.profile.termId }
+		: ctx.profile.sessionId
+			? { schoolSessionId: ctx.profile.sessionId }
+			: {};
+}
+
+async function loadFinanceWorkspace(
+	ctx: TRPCContext,
+	input?: FinanceWorkspaceQuery,
+) {
+	requireFinanceReadAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+	const [streams, ledgerEntries, charges] = await Promise.all([
+		ctx.db.financeStream.findMany({
+			where: { schoolProfileId, deletedAt: null },
+			select: {
+				id: true,
+				name: true,
+				slug: true,
+				accountType: true,
+				description: true,
+				isSystem: true,
+				_count: {
+					select: {
+						charges: true,
+						payments: true,
+						incomingTransfers: true,
+						outgoingTransfers: true,
+					},
+				},
+			},
+		}),
+		ctx.db.financeLedgerEntry.findMany({
+			where: {
+				schoolProfileId,
+				deletedAt: null,
+				...financeWorkspacePeriodWhere(ctx, input),
+			},
+			select: {
+				streamId: true,
+				direction: true,
+				sourceType: true,
+				amount: true,
+				occurredAt: true,
+			},
+		}),
+		ctx.db.financeCharge.findMany({
+			where: {
+				schoolProfileId,
+				deletedAt: null,
+				...financeWorkspaceChargeWhere(ctx, input),
+			},
+			select: {
+				streamId: true,
+				payerType: true,
+				amount: true,
+				amountPaid: true,
+				status: true,
+			},
+		}),
+	]);
+
+	return {
+		accounts: buildFinanceWorkspaceAccounts({
+			streams,
+			ledgerEntries,
+			charges,
+		}),
+		charges,
+	};
+}
+
+async function financePeriodLabel(
+	ctx: TRPCContext,
+	period: "term" | "session" | "all",
+) {
+	if (period === "all") return "All time";
+	const schoolProfileId = requireSchoolId(ctx);
+	const term = await ctx.db.sessionTerm.findFirst({
+		where: {
+			schoolId: schoolProfileId,
+			deletedAt: null,
+			...(period === "term" && ctx.profile.termId
+				? { id: ctx.profile.termId }
+				: ctx.profile.sessionId
+					? { sessionId: ctx.profile.sessionId }
+					: {}),
+		},
+		select: {
+			title: true,
+			session: { select: { title: true } },
+		},
+		orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
+	});
+
+	if (period === "session") {
+		return term?.session?.title ?? "Current session";
+	}
+	return (
+		[term?.session?.title, term?.title].filter(Boolean).join(" · ") ||
+		"Current term"
+	);
+}
+
+export async function getFinanceWorkspaceSummary(
+	ctx: TRPCContext,
+	input?: FinanceWorkspaceQuery,
+) {
+	const { accounts, charges } = await loadFinanceWorkspace(ctx, input);
+	const studentOutstanding = charges
+		.filter(
+			(charge) =>
+				charge.payerType === "STUDENT" &&
+				(charge.status === "PENDING" || charge.status === "PARTIALLY_PAID"),
+		)
+		.reduce(
+			(sum, charge) =>
+				sum +
+				Math.max(toNumber(charge.amount) - toNumber(charge.amountPaid), 0),
+			0,
+		);
+	const reconciliationIssueCount = charges.filter((charge) => {
+		const outstanding = toNumber(charge.amount) - toNumber(charge.amountPaid);
+		return (
+			(charge.status === "PAID" && outstanding > 0) ||
+			(charge.status === "PENDING" && outstanding <= 0)
+		);
+	}).length;
+
+	return {
+		period: input?.period ?? "term",
+		periodLabel: await financePeriodLabel(ctx, input?.period ?? "term"),
+		moneyIn: accounts.reduce((sum, account) => sum + account.moneyIn, 0),
+		moneyOut: accounts.reduce((sum, account) => sum + account.moneyOut, 0),
+		netMovement: accounts.reduce(
+			(sum, account) => sum + account.moneyIn - account.moneyOut,
+			0,
+		),
+		ledgerBalance: accounts.reduce(
+			(sum, account) => sum + account.ledgerBalance,
+			0,
+		),
+		pendingPayables: accounts.reduce(
+			(sum, account) => sum + account.pendingObligations,
+			0,
+		),
+		studentOutstanding,
+		reconciliationIssueCount,
+		accountCount: accounts.length,
+		needsAttentionCount: accounts.filter(
+			(account) =>
+				account.health === "deficit" || account.health === "needs_funding",
+		).length,
+	};
+}
+
+export async function getFinanceAccounts(
+	ctx: TRPCContext,
+	input?: FinanceWorkspaceQuery,
+) {
+	const { accounts } = await loadFinanceWorkspace(ctx, input);
+	const q = input?.q?.trim().toLowerCase();
+	const accountTypes = new Set(input?.accountTypes ?? []);
+	const health = new Set(input?.health ?? []);
+	const filtered = accounts.filter(
+		(account) =>
+			(!q ||
+				account.name.toLowerCase().includes(q) ||
+				account.description?.toLowerCase().includes(q)) &&
+			(accountTypes.size === 0 || accountTypes.has(account.accountType)) &&
+			(health.size === 0 || health.has(account.health)),
+	);
+	const sortField = input?.sortField ?? "name";
+	const direction = input?.sortDirection === "desc" ? -1 : 1;
+	filtered.sort((left, right) => {
+		const leftValue = left[sortField];
+		const rightValue = right[sortField];
+		if (leftValue == null && rightValue == null)
+			return left.id.localeCompare(right.id);
+		if (leftValue == null) return 1;
+		if (rightValue == null) return -1;
+		const compared =
+			typeof leftValue === "string" && typeof rightValue === "string"
+				? leftValue.localeCompare(rightValue)
+				: Number(leftValue) - Number(rightValue);
+		return compared === 0
+			? left.id.localeCompare(right.id)
+			: compared * direction;
+	});
+
+	const offset = Math.max(Number.parseInt(input?.cursor ?? "0", 10) || 0, 0);
+	const pageSize = input?.pageSize ?? 40;
+	const data = filtered.slice(offset, offset + pageSize);
+	const nextOffset = offset + data.length;
+
+	return {
+		data,
+		meta: {
+			cursor: nextOffset < filtered.length ? String(nextOffset) : null,
+			hasNextPage: nextOffset < filtered.length,
+			total: filtered.length,
+		},
+	};
+}
+
+export async function getFinanceAccountDetails(
+	ctx: TRPCContext,
+	input: FinanceAccountDetailsInput,
+) {
+	const schoolProfileId = requireSchoolId(ctx);
+	const workspaceInput: FinanceWorkspaceQuery = {
+		period: input.period,
+		q: null,
+		accountTypes: [],
+		health: [],
+		sortField: "name",
+		sortDirection: "asc",
+		cursor: null,
+		pageSize: 100,
+	};
+	const { accounts } = await loadFinanceWorkspace(ctx, workspaceInput);
+	const account = accounts.find((item) => item.id === input.accountId);
+	if (!account) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Finance account was not found.",
+		});
+	}
+	const ledgerEntries = await ctx.db.financeLedgerEntry.findMany({
+		where: {
+			schoolProfileId,
+			streamId: input.accountId,
+			deletedAt: null,
+			...financeWorkspacePeriodWhere(ctx, workspaceInput),
+		},
+		include: {
+			charge: {
+				select: {
+					id: true,
+					title: true,
+					payerType: true,
+					status: true,
+				},
+			},
+			payment: {
+				select: {
+					id: true,
+					reference: true,
+					method: true,
+					status: true,
+				},
+			},
+			transfer: {
+				select: {
+					id: true,
+					note: true,
+					status: true,
+					fromStreamId: true,
+					toStreamId: true,
+				},
+			},
+		},
+		orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+		take: 50,
+	});
+
+	return {
+		...account,
+		period: input.period,
+		periodLabel: await financePeriodLabel(ctx, input.period),
+		ledgerEntries: ledgerEntries.map((entry) => ({
+			...entry,
+			amount: toNumber(entry.amount),
+		})),
 	};
 }

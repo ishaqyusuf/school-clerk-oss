@@ -12,19 +12,24 @@ import {
 } from "@school-clerk/ui/select";
 import { useMutation } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import type { FinanceStreamRow } from "@/components/tables/finance-streams/columns";
 import { useTRPC } from "@/trpc/client";
 import { useRefreshFinance } from "./use-refresh-finance";
 import { ArrowRightLeft } from "lucide-react";
 
 type TransferFundsFormProps = {
-	streams: FinanceStreamRow[];
+	streams: Array<{ id: string; name: string }>;
+	initialFromStreamId?: string;
+	onSuccess?: () => void;
 };
 
-export function TransferFundsForm({ streams }: TransferFundsFormProps) {
+export function TransferFundsForm({
+	streams,
+	initialFromStreamId,
+	onSuccess,
+}: TransferFundsFormProps) {
 	const trpc = useTRPC();
 	const refreshFinance = useRefreshFinance();
-	const [fromStreamId, setFromStreamId] = useState("");
+	const [fromStreamId, setFromStreamId] = useState(initialFromStreamId ?? "");
 	const [toStreamId, setToStreamId] = useState("");
 	const [transferAmount, setTransferAmount] = useState("");
 	const [transferNote, setTransferNote] = useState("");
@@ -34,6 +39,7 @@ export function TransferFundsForm({ streams }: TransferFundsFormProps) {
 				setTransferAmount("");
 				setTransferNote("");
 				await refreshFinance();
+				onSuccess?.();
 			},
 		}),
 	);
@@ -51,7 +57,7 @@ export function TransferFundsForm({ streams }: TransferFundsFormProps) {
 	};
 
 	return (
-		<Card className="hover:shadow-md transition-shadow duration-300">
+		<Card className="border-0 shadow-none">
 			<form onSubmit={handleSubmit}>
 				<Card.Header className="pb-3">
 					<Card.Title className="text-sm font-medium flex items-center gap-2">
@@ -97,7 +103,12 @@ export function TransferFundsForm({ streams }: TransferFundsFormProps) {
 						value={transferNote}
 						onChange={(event) => setTransferNote(event.target.value)}
 					/>
-					<Button className="w-full" disabled={transferFunds.isPending} type="submit" variant="secondary">
+					<Button
+						className="w-full"
+						disabled={transferFunds.isPending}
+						type="submit"
+						variant="secondary"
+					>
 						Send Transfer
 					</Button>
 				</Card.Content>

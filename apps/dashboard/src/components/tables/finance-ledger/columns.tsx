@@ -1,6 +1,6 @@
 "use client";
 
-import { NumberInput } from "@/components/currency-input";
+import { MoneyValue } from "@/components/finance/money-value";
 import { Badge } from "@school-clerk/ui/badge";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
@@ -127,7 +127,7 @@ export const columns: ColumnDef<FinanceLedgerRow>[] = [
 		},
 		cell: ({ row }) => (
 			<div className="font-semibold text-sm">
-				<NumberInput value={row.original.amount ?? 0} prefix="NGN " />
+				<MoneyValue value={row.original.amount ?? 0} />
 			</div>
 		),
 	},

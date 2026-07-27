@@ -235,6 +235,12 @@ export function PaymentImportModal() {
 			queryClient.invalidateQueries({
 				queryKey: trpc.finance.overview.queryKey(),
 			}),
+			queryClient.invalidateQueries({
+				queryKey: trpc.finance.getWorkspaceSummary.queryKey(),
+			}),
+			queryClient.invalidateQueries({
+				queryKey: trpc.finance.getAccounts.queryKey(),
+			}),
 		]);
 	}, [jobFinished, queryClient, trpc]);
 

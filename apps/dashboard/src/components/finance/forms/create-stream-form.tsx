@@ -18,7 +18,7 @@ import { Plus } from "lucide-react";
 
 type AccountType = "CREDIT" | "DEBIT";
 
-export function CreateStreamForm() {
+export function CreateStreamForm({ onSuccess }: { onSuccess?: () => void }) {
 	const trpc = useTRPC();
 	const refreshFinance = useRefreshFinance();
 	const [streamName, setStreamName] = useState("");
@@ -28,6 +28,7 @@ export function CreateStreamForm() {
 			onSuccess: async () => {
 				setStreamName("");
 				await refreshFinance();
+				onSuccess?.();
 			},
 		}),
 	);
@@ -43,7 +44,7 @@ export function CreateStreamForm() {
 	};
 
 	return (
-		<Card className="hover:shadow-md transition-shadow duration-300">
+		<Card className="border-0 shadow-none">
 			<form onSubmit={handleSubmit}>
 				<Card.Header className="pb-3">
 					<Card.Title className="text-sm font-medium flex items-center gap-2">
@@ -72,7 +73,11 @@ export function CreateStreamForm() {
 							<SelectItem value="DEBIT">Debit (Expense)</SelectItem>
 						</SelectContent>
 					</Select>
-					<Button className="w-full" disabled={createStream.isPending} type="submit">
+					<Button
+						className="w-full"
+						disabled={createStream.isPending}
+						type="submit"
+					>
 						Save Account
 					</Button>
 				</Card.Content>

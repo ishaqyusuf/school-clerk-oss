@@ -1,6 +1,6 @@
 "use client";
 
-import { NumberInput } from "@/components/currency-input";
+import { MoneyValue } from "@/components/finance/money-value";
 import { Card } from "@school-clerk/ui/composite";
 import { ArrowDownRight, ArrowUpRight, Scale, Wallet } from "lucide-react";
 
@@ -25,7 +25,7 @@ function Stat({
 			</Card.Header>
 			<Card.Content>
 				<div className="text-2xl font-bold tracking-tight">
-					<NumberInput value={value} prefix="NGN " />
+					<MoneyValue value={value} />
 				</div>
 				<p className="mt-2 text-xs text-muted-foreground">{helper}</p>
 			</Card.Content>

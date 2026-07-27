@@ -115,6 +115,12 @@ export function AddFeeSheet() {
 						queryKey: trpc.finance.overview.queryKey(),
 					}),
 					qc.invalidateQueries({
+						queryKey: trpc.finance.getWorkspaceSummary.queryKey(),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getAccounts.queryKey(),
+					}),
+					qc.invalidateQueries({
 						queryKey: trpc.finance.getStudentPayments.queryKey(),
 					}),
 					qc.invalidateQueries({
@@ -160,6 +166,12 @@ export function AddFeeSheet() {
 					}),
 					qc.invalidateQueries({
 						queryKey: trpc.finance.overview.queryKey(),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getWorkspaceSummary.queryKey(),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getAccounts.queryKey(),
 					}),
 				]);
 				toast({

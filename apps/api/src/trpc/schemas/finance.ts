@@ -128,6 +128,43 @@ export const financeStreamDetailsSchema = z.object({
 	sessionId: nullableString,
 });
 
+export const financeWorkspacePeriodSchema = z.enum(["term", "session", "all"]);
+export const financeAccountHealthSchema = z.enum([
+	"healthy",
+	"needs_funding",
+	"deficit",
+	"no_activity",
+]);
+export const financeAccountSortFieldSchema = z.enum([
+	"name",
+	"accountType",
+	"moneyIn",
+	"moneyOut",
+	"ledgerBalance",
+	"pendingObligations",
+	"projectedBalance",
+	"health",
+	"lastActivityAt",
+]);
+
+export const financeWorkspaceQuerySchema = z
+	.object({
+		period: financeWorkspacePeriodSchema.optional().default("term"),
+		q: nullableString,
+		accountTypes: z.array(financeAccountTypeSchema).optional().default([]),
+		health: z.array(financeAccountHealthSchema).optional().default([]),
+		sortField: financeAccountSortFieldSchema.optional().default("name"),
+		sortDirection: z.enum(["asc", "desc"]).optional().default("asc"),
+		cursor: nullableString,
+		pageSize: z.coerce.number().int().min(1).max(100).optional().default(40),
+	})
+	.optional();
+
+export const financeAccountDetailsSchema = z.object({
+	accountId: z.string(),
+	period: financeWorkspacePeriodSchema.optional().default("term"),
+});
+
 export const financeStudentQuerySchema = z.object({
 	studentId: z.string(),
 	termId: nullableString,
@@ -292,6 +329,10 @@ export type FinanceStreamQuery = z.infer<typeof financeStreamQuerySchema>;
 export type FinanceStreamDetailsInput = z.infer<
 	typeof financeStreamDetailsSchema
 >;
+export type FinanceWorkspaceQuery = z.infer<typeof financeWorkspaceQuerySchema>;
+export type FinanceAccountDetailsInput = z.infer<
+	typeof financeAccountDetailsSchema
+>;
 export type FinanceStudentQuery = z.infer<typeof financeStudentQuerySchema>;
 export type FinanceReceivePaymentOptionsInput = z.infer<
 	typeof financeReceivePaymentOptionsSchema
@@ -321,5 +362,9 @@ export type FinancePurchaseCancellationInput = z.infer<
 export type FinanceProjectAccountSummaryInput = z.infer<
 	typeof financeProjectAccountSummarySchema
 >;
-export type FinanceStaffHistoryInput = z.infer<typeof financeStaffHistorySchema>;
-export type FinancePayeeHistoryInput = z.infer<typeof financePayeeHistorySchema>;
+export type FinanceStaffHistoryInput = z.infer<
+	typeof financeStaffHistorySchema
+>;
+export type FinancePayeeHistoryInput = z.infer<
+	typeof financePayeeHistorySchema
+>;

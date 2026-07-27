@@ -1,10 +1,13 @@
-import { FinancePage } from "@/components/finance/finance-page";
+import { redirect } from "next/navigation";
+import {
+	type FinanceRedirectSearchParams,
+	redirectTargetWithSearch,
+} from "../redirect-with-search";
 
-export default async function Page() {
-	return (
-		<FinancePage
-			title="Accounts"
-			subtitle="Monitor available funds, projected balances, and account activity."
-		/>
-	);
+export default async function Page({
+	searchParams,
+}: {
+	searchParams?: FinanceRedirectSearchParams;
+}) {
+	redirect(await redirectTargetWithSearch("/finance", searchParams));
 }

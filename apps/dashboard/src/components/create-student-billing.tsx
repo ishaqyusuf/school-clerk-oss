@@ -54,6 +54,12 @@ export function CreateStudentBilling({
 					queryClient.invalidateQueries({
 						queryKey: trpc.finance.overview.queryKey(),
 					}),
+					queryClient.invalidateQueries({
+						queryKey: trpc.finance.getWorkspaceSummary.queryKey(),
+					}),
+					queryClient.invalidateQueries({
+						queryKey: trpc.finance.getAccounts.queryKey(),
+					}),
 				]);
 			},
 		}),
@@ -81,7 +87,10 @@ export function CreateStudentBilling({
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="space-y-2">
 					<Label>Type</Label>
-					<Select value={type} onValueChange={(value) => setType(value as typeof type)}>
+					<Select
+						value={type}
+						onValueChange={(value) => setType(value as typeof type)}
+					>
 						<SelectTrigger>
 							<SelectValue />
 						</SelectTrigger>

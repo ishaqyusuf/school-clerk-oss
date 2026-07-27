@@ -6,7 +6,10 @@ import {
 	closeFinanceTermLedger,
 	createFinanceCharge,
 	createFinancePayrollObligation,
+	getFinanceAccountDetails,
+	getFinanceAccounts,
 	getFinanceOverview,
+	getFinanceWorkspaceSummary,
 	getFinancePayeeHistory,
 	getFinanceProjectAccountSummary,
 	getFinanceStaffHistory,
@@ -50,6 +53,7 @@ import {
 	createTRPCRouter,
 } from "../init";
 import {
+	financeAccountDetailsSchema,
 	financeChargeInputSchema,
 	financeItemInputSchema,
 	financePayeeHistorySchema,
@@ -68,6 +72,7 @@ import {
 	financeStreamDetailsSchema,
 	financeStreamInputSchema,
 	financeStreamQuerySchema,
+	financeWorkspaceQuerySchema,
 	financeStudentQueryCompatSchema,
 	financeStudentQuerySchema,
 	financeTermAccountStatementSchema,
@@ -448,6 +453,18 @@ function normalizeLegacyChargeInput(
 
 export const financeRouter = createTRPCRouter({
 	overview: authenticatedProcedure.query(({ ctx }) => getFinanceOverview(ctx)),
+
+	getWorkspaceSummary: authenticatedProcedure
+		.input(financeWorkspaceQuerySchema)
+		.query(({ ctx, input }) => getFinanceWorkspaceSummary(ctx, input)),
+
+	getAccounts: authenticatedProcedure
+		.input(financeWorkspaceQuerySchema)
+		.query(({ ctx, input }) => getFinanceAccounts(ctx, input)),
+
+	getAccountDetails: authenticatedProcedure
+		.input(financeAccountDetailsSchema)
+		.query(({ ctx, input }) => getFinanceAccountDetails(ctx, input)),
 
 	verifyPaymentImport: authenticatedProcedure
 		.input(verifyPaymentImportSchema)

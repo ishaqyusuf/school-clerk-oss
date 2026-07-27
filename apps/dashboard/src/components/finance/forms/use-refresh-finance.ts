@@ -13,6 +13,12 @@ export function useRefreshFinance() {
 				queryKey: trpc.finance.overview.queryKey(),
 			}),
 			queryClient.invalidateQueries({
+				queryKey: trpc.finance.getWorkspaceSummary.queryKey(),
+			}),
+			queryClient.invalidateQueries({
+				queryKey: trpc.finance.getAccounts.queryKey(),
+			}),
+			queryClient.invalidateQueries({
 				queryKey: trpc.finance.getStreams.queryKey(),
 			}),
 			queryClient.invalidateQueries({

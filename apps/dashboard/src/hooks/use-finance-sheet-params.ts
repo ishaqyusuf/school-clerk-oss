@@ -7,6 +7,10 @@ export function useFinanceSheetParams(options?: { shallow: boolean }) {
 			recordFinancePayment: parseAsBoolean,
 			financeChargeId: parseAsString,
 			financePaymentPayerType: parseAsString,
+			financeAccountId: parseAsString,
+			createFinanceAccount: parseAsBoolean,
+			transferFunds: parseAsBoolean,
+			transferFromAccountId: parseAsString,
 		},
 		options,
 	);

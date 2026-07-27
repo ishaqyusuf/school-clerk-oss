@@ -2,7 +2,7 @@
 
 import { FinanceOverviewStats } from "@/components/finance/finance-overview-stats";
 import { DataTable as FinanceStreamsTable } from "@/components/tables/finance-streams/data-table";
-import { NumberInput } from "@/components/currency-input";
+import { MoneyValue } from "@/components/finance/money-value";
 import { useTRPC } from "@/trpc/client";
 import type { TableSettings } from "@/utils/table-settings";
 import { useSuspenseQuery } from "@tanstack/react-query";
@@ -61,7 +61,8 @@ export function FinanceOverview({
 			<div>
 				<h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
 				<p className="mt-1 text-sm text-muted-foreground">
-					{subtitle || "Finance command center. Review account health and perform quick actions."}
+					{subtitle ||
+						"Finance command center. Review account health and perform quick actions."}
 				</p>
 			</div>
 
@@ -121,7 +122,7 @@ export function FinanceOverview({
 					</Card.Header>
 					<Card.Content>
 						<div className="text-2xl font-bold">
-							<NumberInput value={pendingPayables} prefix="NGN " />
+							<MoneyValue value={pendingPayables} />
 						</div>
 						<p className="mt-1 text-xs text-muted-foreground">
 							{pendingPayablesCount} open payable
@@ -144,7 +145,7 @@ export function FinanceOverview({
 						<div className="mt-1 text-xs text-muted-foreground">
 							Accounts with negative projected balance.
 							<div className="mt-1">
-								Owing: <NumberInput value={owingAmount} prefix="NGN " />
+								Owing: <MoneyValue value={owingAmount} />
 							</div>
 						</div>
 						<Button variant="link" className="h-auto px-0" asChild>

@@ -4,9 +4,12 @@ import { TRPCError } from "@trpc/server";
 process.env.DATABASE_URL ??= "postgresql://test:test@127.0.0.1:5432/test";
 
 const {
+	buildFinanceWorkspaceAccounts,
 	closeFinanceTermLedger,
 	cancelFinancePurchase,
 	getFinancePayeeHistory,
+	getFinanceAccounts,
+	getFinanceWorkspaceSummary,
 	getFinanceProjectAccountSummary,
 	getFinanceStaffHistory,
 	getFinanceTermAccountStatement,
@@ -1083,6 +1086,263 @@ describe("getFinanceTermLedger", () => {
 	});
 });
 
+describe("buildFinanceWorkspaceAccounts", () => {
+	test("keeps transfers and adjustments in the ledger balance but out of cash movement", () => {
+		const accounts = buildFinanceWorkspaceAccounts({
+			streams: [
+				{
+					id: "fees",
+					name: "School Fees",
+					slug: "school-fees",
+					accountType: "CREDIT",
+					description: null,
+					isSystem: true,
+					_count: {
+						charges: 1,
+						payments: 1,
+						incomingTransfers: 1,
+						outgoingTransfers: 0,
+					},
+				},
+			],
+			ledgerEntries: [
+				{
+					streamId: "fees",
+					direction: "CREDIT",
+					sourceType: "PAYMENT",
+					amount: 1_000,
+					occurredAt: new Date("2026-01-01"),
+				},
+				{
+					streamId: "fees",
+					direction: "CREDIT",
+					sourceType: "TRANSFER",
+					amount: 300,
+					occurredAt: new Date("2026-01-02"),
+				},
+				{
+					streamId: "fees",
+					direction: "CREDIT",
+					sourceType: "ADJUSTMENT",
+					amount: 200,
+					occurredAt: new Date("2026-01-03"),
+				},
+				{
+					streamId: "fees",
+					direction: "DEBIT",
+					sourceType: "PAYMENT",
+					amount: 100,
+					occurredAt: new Date("2026-01-04"),
+				},
+			],
+			charges: [],
+		});
+
+		expect(accounts[0]).toMatchObject({
+			moneyIn: 1_000,
+			moneyOut: 100,
+			ledgerBalance: 1_400,
+			projectedBalance: 1_400,
+			health: "healthy",
+			activityCount: 4,
+		});
+	});
+
+	test("subtracts pending school and staff obligations from projected balance", () => {
+		const accounts = buildFinanceWorkspaceAccounts({
+			streams: [
+				{
+					id: "salary",
+					name: "Salary",
+					slug: "salary",
+					accountType: "DEBIT",
+					description: null,
+					isSystem: true,
+					_count: {
+						charges: 2,
+						payments: 0,
+						incomingTransfers: 0,
+						outgoingTransfers: 0,
+					},
+				},
+			],
+			ledgerEntries: [
+				{
+					streamId: "salary",
+					direction: "CREDIT",
+					sourceType: "TRANSFER",
+					amount: 500,
+					occurredAt: new Date("2026-01-01"),
+				},
+			],
+			charges: [
+				{
+					streamId: "salary",
+					payerType: "STAFF",
+					amount: 800,
+					amountPaid: 100,
+					status: "PARTIALLY_PAID",
+				},
+				{
+					streamId: "salary",
+					payerType: "STUDENT",
+					amount: 2_000,
+					amountPaid: 0,
+					status: "PENDING",
+				},
+			],
+		});
+
+		expect(accounts[0]).toMatchObject({
+			ledgerBalance: 500,
+			pendingObligations: 700,
+			pendingObligationsCount: 1,
+			projectedBalance: -200,
+			health: "needs_funding",
+		});
+	});
+});
+
+describe("finance workspace queries", () => {
+	test("defaults ledger movement to the active term and derives funding health", async () => {
+		const ledgerCalls: any[] = [];
+		const streams = [
+			{
+				id: "fees",
+				name: "School Fees",
+				slug: "school-fees",
+				accountType: "CREDIT",
+				description: null,
+				isSystem: true,
+				_count: {
+					charges: 1,
+					payments: 1,
+					incomingTransfers: 1,
+					outgoingTransfers: 0,
+				},
+			},
+			{
+				id: "salary",
+				name: "Salary",
+				slug: "salary",
+				accountType: "DEBIT",
+				description: null,
+				isSystem: true,
+				_count: {
+					charges: 1,
+					payments: 0,
+					incomingTransfers: 1,
+					outgoingTransfers: 0,
+				},
+			},
+		];
+		const db = {
+			financeStream: {
+				findMany: async () => streams,
+			},
+			financeLedgerEntry: {
+				findMany: async (args: any) => {
+					ledgerCalls.push(args);
+					return [
+						{
+							streamId: "fees",
+							direction: "CREDIT",
+							sourceType: "PAYMENT",
+							amount: 1_000,
+							occurredAt: new Date("2026-02-01"),
+						},
+						{
+							streamId: "fees",
+							direction: "CREDIT",
+							sourceType: "TRANSFER",
+							amount: 200,
+							occurredAt: new Date("2026-02-02"),
+						},
+						{
+							streamId: "fees",
+							direction: "CREDIT",
+							sourceType: "ADJUSTMENT",
+							amount: 100,
+							occurredAt: new Date("2026-02-03"),
+						},
+						{
+							streamId: "salary",
+							direction: "CREDIT",
+							sourceType: "TRANSFER",
+							amount: 500,
+							occurredAt: new Date("2026-02-04"),
+						},
+					];
+				},
+			},
+			financeCharge: {
+				findMany: async () => [
+					{
+						streamId: "salary",
+						payerType: "STAFF",
+						amount: 800,
+						amountPaid: 0,
+						status: "PENDING",
+					},
+					{
+						streamId: "fees",
+						payerType: "STUDENT",
+						amount: 600,
+						amountPaid: 0,
+						status: "PENDING",
+					},
+				],
+			},
+			sessionTerm: {
+				findFirst: async () => ({
+					title: "Second Term",
+					session: { title: "2026/2027" },
+				}),
+			},
+		};
+		const ctx = createFinanceCtx({ role: "Accountant", db });
+
+		const summary = await getFinanceWorkspaceSummary(ctx, {
+			period: "term",
+		} as any);
+		const accounts = await getFinanceAccounts(ctx, {
+			period: "term",
+			health: ["needs_funding"],
+			sortField: "projectedBalance",
+			sortDirection: "asc",
+			pageSize: 40,
+		} as any);
+
+		expect(ledgerCalls[0].where).toMatchObject({
+			schoolProfileId: "school-1",
+			collectedSessionTermId: "term-1",
+			deletedAt: null,
+		});
+		expect(summary).toMatchObject({
+			period: "term",
+			periodLabel: "2026/2027 · Second Term",
+			moneyIn: 1_000,
+			moneyOut: 0,
+			netMovement: 1_000,
+			ledgerBalance: 1_800,
+			pendingPayables: 800,
+			studentOutstanding: 600,
+			needsAttentionCount: 1,
+		});
+		expect(accounts).toMatchObject({
+			meta: { cursor: null, hasNextPage: false, total: 1 },
+			data: [
+				{
+					id: "salary",
+					pendingObligations: 800,
+					projectedBalance: -300,
+					health: "needs_funding",
+				},
+			],
+		});
+	});
+});
+
 describe("receiveStudentPaymentSimple", () => {
 	const termForm = {
 		id: "term-form-1",
@@ -1141,9 +1401,9 @@ describe("receiveStudentPaymentSimple", () => {
 				create: async ({ data }: any) => {
 					onPaymentCreate?.(data);
 					return {
-					id: "payment-1",
-					paymentDate: data.paymentDate,
-					...data,
+						id: "payment-1",
+						paymentDate: data.paymentDate,
+						...data,
 					};
 				},
 			},
@@ -2008,11 +2268,11 @@ describe("transferFinanceFunds", () => {
 	test("requires Admin for large transfers", async () => {
 		await expect(
 			transferFinanceFunds(createFinanceCtx({ role: "Accountant", db: {} }), {
-					fromStreamId: "stream-fees",
-					toStreamId: "stream-salary",
-					amount: 250_001,
-					note: "Large movement",
-					sentById: null,
+				fromStreamId: "stream-fees",
+				toStreamId: "stream-salary",
+				amount: 250_001,
+				note: "Large movement",
+				sentById: null,
 			}),
 		).rejects.toMatchObject({ code: "FORBIDDEN" });
 	});
@@ -2035,11 +2295,11 @@ describe("transferFinanceFunds", () => {
 
 		await expect(
 			transferFinanceFunds(createFinanceCtx({ role: "Accountant", db }), {
-					fromStreamId: "stream-fees",
-					toStreamId: "stream-salary",
-					amount: 300,
-					note: "Fund salary account",
-					sentById: null,
+				fromStreamId: "stream-fees",
+				toStreamId: "stream-salary",
+				amount: 300,
+				note: "Fund salary account",
+				sentById: null,
 			}),
 		).rejects.toMatchObject({ code: "BAD_REQUEST" });
 	});

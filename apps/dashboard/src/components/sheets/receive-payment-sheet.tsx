@@ -470,6 +470,12 @@ function SimpleReceivePaymentSheet({
 					qc.invalidateQueries({
 						queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),
 					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getWorkspaceSummary.queryKey(),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getAccounts.queryKey(),
+					}),
 				]);
 				setReceiptState({
 					paymentIds: result.paymentIds,
@@ -1511,6 +1517,12 @@ function LegacyReceivePaymentSheet({
 					}),
 					qc.invalidateQueries({
 						queryKey: trpc.finance.getStreams.queryKey({ filter: "term" }),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getWorkspaceSummary.queryKey(),
+					}),
+					qc.invalidateQueries({
+						queryKey: trpc.finance.getAccounts.queryKey(),
 					}),
 				]);
 				setReceiptState({
