@@ -6,14 +6,14 @@ export function OpenStudentSheet() {
   const { setParams } = useStudentParams();
 
   return (
-    <div>
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => setParams({ createStudent: true })}
-      >
-        <Icons.Add />
-      </Button>
-    </div>
+    <Button
+      variant="outline"
+      size="icon"
+      aria-label="Enroll student"
+      title="Enroll student"
+      onClick={() => setParams({ createStudent: true })}
+    >
+      <Icons.Add />
+    </Button>
   );
 }

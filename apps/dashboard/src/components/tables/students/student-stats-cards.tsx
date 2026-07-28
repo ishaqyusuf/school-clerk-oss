@@ -8,14 +8,14 @@ import { Users, UserCheck, UserPlus, AlertTriangle } from "lucide-react";
 export function StudentStatsCards() {
   const trpc = useTRPC();
   const { data: analytics, isLoading } = useQuery(
-    trpc.students.analytics.queryOptions({})
+    trpc.students.analytics.queryOptions({}),
   );
 
   const formatStat = (value?: number) =>
     isLoading ? "--" : (value ?? 0).toLocaleString();
 
   return (
-    <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <Card className="bg-card p-5 rounded-xl shadow-sm">
         <CardContent className="p-0">
           <div className="flex items-center justify-between mb-2">

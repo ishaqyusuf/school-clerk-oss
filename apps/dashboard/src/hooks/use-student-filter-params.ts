@@ -12,6 +12,7 @@ type StudentFilterKeys = keyof Exclude<RouterInputs["students"]["index"], void>;
 export const studentFilterParamsSchema = {
   classroomTitle: parseAsString,
   departmentId: parseAsString,
+  classroomDepartmentIds: parseAsArrayOf(parseAsString),
   departmentTitles: parseAsArrayOf(parseAsString),
   sessionTermId: parseAsString,
   sessionId: parseAsString,

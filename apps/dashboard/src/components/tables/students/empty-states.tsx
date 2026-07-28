@@ -5,7 +5,7 @@ import { useStudentParams } from "@/hooks/use-student-params";
 import { Button } from "@school-clerk/ui/button";
 
 type EmptyStateProps = {
-	onCreate?: () => void;
+  onCreate?: () => void;
 };
 
 export function EmptyState({ onCreate }: EmptyStateProps) {
@@ -17,8 +17,8 @@ export function EmptyState({ onCreate }: EmptyStateProps) {
         <div className="mb-6 space-y-2 text-center">
           <h2 className="text-lg font-medium">No students</h2>
           <p className="text-sm text-[#606060]">
-            You haven't created any invoices yet. <br />
-            Go ahead and create your first one.
+            No student records are available yet. <br />
+            Enroll a student or import an existing roster.
           </p>
         </div>
 
@@ -35,7 +35,7 @@ export function EmptyState({ onCreate }: EmptyStateProps) {
             });
           }}
         >
-          Create Student
+          Enroll student
         </Button>
       </div>
     </div>
@@ -66,12 +66,10 @@ export function NoResults({ onClear }: NoResultsProps) {
               return;
             }
 
-            q.setParams({
-              createStudent: true,
-            });
+            q.setParams(null);
           }}
         >
-          {onClear ? "Clear filters" : "Create"}
+          Clear filters
         </Button>
       </div>
     </div>

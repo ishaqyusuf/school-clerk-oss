@@ -1,5 +1,7 @@
 import { loadStudentFilterParams } from "@/hooks/use-student-filter-params";
+import { loadSortParams } from "@/hooks/use-sort-params";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
+import { getInitialTableSettings } from "@/utils/columns";
 import { buildTenantPageMetadata } from "@/utils/tenant-page-metadata";
 import type { SearchParams } from "nuqs";
 
@@ -27,35 +29,48 @@ type Props = {
 export default async function Page(props: Props) {
 	const searchParams = await props.searchParams;
 	const filter = loadStudentFilterParams(searchParams);
+	const { sort } = loadSortParams(searchParams);
+	const normalizedSort =
+		sort?.length === 2 &&
+		["studentName", "gender", "dob", "createdAt"].includes(sort[0] ?? "") &&
+		["asc", "desc"].includes(sort[1] ?? "")
+			? (sort as [
+					"studentName" | "gender" | "dob" | "createdAt",
+					"asc" | "desc",
+				])
+			: null;
+	const initialSettings = await getInitialTableSettings("students");
 
 	await batchPrefetch([
 		trpc.students.index.infiniteQueryOptions({
 			...filter,
+			sort: normalizedSort,
 		}),
 		trpc.students.analytics.queryOptions({}),
 		trpc.academics.dashboard.queryOptions({}),
+		trpc.students.filters.queryOptions(),
 	]);
 
 	return (
 		<HydrateClient>
 			<PageTitle>Students</PageTitle>
-			<div className="animate-in fade-in duration-500">
-				<div className="py-6">
-					<StudentHeader />
-				</div>
-				<PromotionCta />
+			<div className="flex animate-in flex-col gap-6 py-6 fade-in duration-500">
 				<StudentStatsCards />
-				<div className="mt-6">
+				<StudentHeader />
+				<PromotionCta />
+				<div>
 					<StudentDuplicateAlert
 						classroomDepartmentId={filter.departmentId}
 						sessionTermId={filter.sessionTermId}
 						showCount
 					/>
 				</div>
-				<div className="flex flex-col gap-6 mt-8">
+				<div className="flex flex-col gap-6">
 					<ErrorBoundary errorComponent={ErrorFallback}>
-						<Suspense fallback={<StudentsSkeleton />}>
-							<DataTable grid />
+						<Suspense
+							fallback={<StudentsSkeleton initialSettings={initialSettings} />}
+						>
+							<DataTable initialSettings={initialSettings} />
 						</Suspense>
 					</ErrorBoundary>
 				</div>

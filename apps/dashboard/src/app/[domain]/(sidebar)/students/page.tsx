@@ -1,24 +1,19 @@
-import { ErrorFallback } from "@/components/error-fallback";
-import { StudentHeader } from "@/components/student-header";
-import { DataTable } from "@/components/tables/students/data-table";
-import { StudentsSkeleton } from "@/components/tables/students/skeleton";
-import { batchPrefetch, trpc } from "@/trpc/server";
-import { PageTitle } from "@school-clerk/ui/custom/page-title";
-import { ErrorBoundary } from "next/dist/client/components/error-boundary";
-import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import type { SearchParams } from "nuqs";
 
-export default async function Page() {
-	await batchPrefetch([trpc.students.index.infiniteQueryOptions({})]);
+type Props = {
+	searchParams: Promise<SearchParams>;
+};
 
-	return (
-		<div className="flex flex-col gap-6">
-			<PageTitle>Students</PageTitle>
-			<StudentHeader />
-			<ErrorBoundary errorComponent={ErrorFallback}>
-				<Suspense fallback={<StudentsSkeleton />}>
-					<DataTable grid />
-				</Suspense>
-			</ErrorBoundary>
-		</div>
-	);
+export default async function Page({ searchParams }: Props) {
+	const params = await searchParams;
+	const query = new URLSearchParams();
+	for (const [key, value] of Object.entries(params)) {
+		if (Array.isArray(value)) {
+			for (const item of value) query.append(key, item);
+		} else if (value != null) {
+			query.set(key, String(value));
+		}
+	}
+	redirect(`/students/list${query.size ? `?${query.toString()}` : ""}`);
 }

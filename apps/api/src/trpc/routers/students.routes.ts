@@ -1,4 +1,4 @@
-import { authenticatedProcedure, createTRPCRouter, publicProcedure } from "../init";
+import { authenticatedProcedure, createTRPCRouter } from "../init";
 import {
   getStudents,
   getStudent,
@@ -19,6 +19,8 @@ import {
   changeStudentClass,
   bulkDeleteTermSheetsSchema,
   bulkDeleteTermSheets,
+  bulkChangeStudentClassSchema,
+  bulkChangeStudentClass,
   changeStudentGenderSchema,
   changeStudentGender,
   verifyStudentImportSchema,
@@ -38,27 +40,26 @@ import {
   previewStudentDuplicateMerge,
   mergeStudentDuplicates,
 } from "../../db/queries/student-duplicates";
-import {
-  getStudentOverviewSchema,
-  getStudentsSchema,
-} from "../schemas/schemas";
+import { getStudentOverviewSchema } from "../schemas/schemas";
+import { getStudentsSchema } from "../schemas/students";
 import { studentsOverview } from "@api/db/queries/students.overview";
 import { getStudentTermsList } from "@api/db/queries/academic-terms";
+import { TRPCError } from "@trpc/server";
 export const studentsRouter = createTRPCRouter({
-  filters: publicProcedure.query(async ({ input, ctx }) => {
+  filters: authenticatedProcedure.query(async ({ input, ctx }) => {
     return getStudentsQueryParams(ctx);
   }),
-  index: publicProcedure
+  index: authenticatedProcedure
     .input(getStudentsSchema)
     .query(async ({ input, ctx }) => {
       return getStudents(ctx, input);
     }),
-  getStudent: publicProcedure
+  getStudent: authenticatedProcedure
     .input(getStudentsSchema)
     .query(async ({ input, ctx }) => {
       return getStudent(ctx, input);
     }),
-  createStudent: publicProcedure
+  createStudent: authenticatedProcedure
     .input(createStudentSchema)
     .mutation(async (props) => {
       return createStudent(props.ctx, props.input);
@@ -83,7 +84,12 @@ export const studentsRouter = createTRPCRouter({
     .mutation(async (props) => {
       return bulkDeleteTermSheets(props.ctx, props.input);
     }),
-  updateStudentBasicProfile: publicProcedure
+  bulkChangeClass: authenticatedProcedure
+    .input(bulkChangeStudentClassSchema)
+    .mutation(async (props) => {
+      return bulkChangeStudentClass(props.ctx, props.input);
+    }),
+  updateStudentBasicProfile: authenticatedProcedure
     .input(updateStudentBasicProfileSchema)
     .mutation(async (props) => {
       return updateStudentBasicProfile(props.ctx, props.input);
@@ -93,27 +99,27 @@ export const studentsRouter = createTRPCRouter({
     .mutation(async (props) => {
       return changeStudentGender(props.ctx, props.input);
     }),
-  executeStudentImport: publicProcedure
+  executeStudentImport: authenticatedProcedure
     .input(executeStudentImportSchema)
     .mutation(async (props) => {
       return executeStudentImport(props.ctx, props.input);
     }),
-  startStudentImportJob: publicProcedure
+  startStudentImportJob: authenticatedProcedure
     .input(startStudentImportJobSchema)
     .mutation(async (props) => {
       return startStudentImportJob(props.ctx, props.input);
     }),
-  getStudentImportJob: publicProcedure
+  getStudentImportJob: authenticatedProcedure
     .input(getStudentImportJobSchema)
     .query(async (props) => {
       return getStudentImportJob(props.ctx, props.input);
     }),
-  analytics: publicProcedure
+  analytics: authenticatedProcedure
     .input(studentsAnalyticsSchema)
     .query(async (props) => {
       return studentsAnalytics(props.ctx, props.input);
     }),
-  duplicateGroups: publicProcedure
+  duplicateGroups: authenticatedProcedure
     .input(studentDuplicateScopeSchema)
     .query(async (props) => {
       return getStudentDuplicateGroups(props.ctx, props.input);
@@ -128,7 +134,7 @@ export const studentsRouter = createTRPCRouter({
     .mutation(async (props) => {
       return mergeStudentDuplicates(props.ctx, props.input);
     }),
-  academicsOverview: publicProcedure
+  academicsOverview: authenticatedProcedure
     .input(getStudentOverviewSchema)
     .query(async ({ ctx, input }) => {
       // if (!input.termSheetId) return null;
@@ -146,38 +152,55 @@ export const studentsRouter = createTRPCRouter({
         term,
       };
     }),
-  overview: publicProcedure
+  overview: authenticatedProcedure
     .input(getStudentOverviewSchema)
     .query(async (props) => {
       return studentsOverview(props.ctx, props.input);
     }),
-  getStudentPaymentHistory: publicProcedure.query(async ({ ctx, input }) => {
-    // return getStudentPaymentHistory(ctx, input);
-  }),
-  studentsRecentRecord: publicProcedure
+  getStudentPaymentHistory: authenticatedProcedure.query(
+    async ({ ctx, input }) => {
+      // return getStudentPaymentHistory(ctx, input);
+    },
+  ),
+  studentsRecentRecord: authenticatedProcedure
     .input(studentsRecentRecordSchema)
     .query(async (props) => {
       return studentsRecentRecord(props.ctx, props.input);
     }),
-  getImportNameGuide: publicProcedure.query(async (props) => {
+  getImportNameGuide: authenticatedProcedure.query(async (props) => {
     return getImportNameGuide(props.ctx);
   }),
-  verifyStudentImport: publicProcedure
+  verifyStudentImport: authenticatedProcedure
     .input(verifyStudentImportSchema)
     .query(async (props) => {
       return verifyStudentImport(props.ctx, props.input);
     }),
-  verifyStudentImportBatch: publicProcedure
+  verifyStudentImportBatch: authenticatedProcedure
     .input(verifyStudentImportSchema)
     .mutation(async (props) => {
       return verifyStudentImport(props.ctx, props.input);
     }),
-  getTermFormDetails: publicProcedure
+  getTermFormDetails: authenticatedProcedure
     .input(deleteTermSheetSchema) // reuse { id: string }
     .query(async ({ ctx, input }) => {
       const { db } = ctx;
-      const form = await db.studentTermForm.findUnique({
-        where: { id: input.id },
+      const schoolProfileId = ctx.profile.schoolId;
+      if (!schoolProfileId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "A school workspace is required.",
+        });
+      }
+      const form = await db.studentTermForm.findFirst({
+        where: {
+          id: input.id,
+          schoolProfileId,
+          deletedAt: null,
+          student: {
+            schoolProfileId,
+            deletedAt: null,
+          },
+        },
         include: {
           student: { select: { name: true, surname: true, otherName: true } },
           classroomDepartment: { select: { departmentName: true } },

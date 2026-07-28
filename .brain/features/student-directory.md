@@ -1,36 +1,84 @@
 # Student Directory
 
 ## Status
+
 Implemented: 2026-06-19
 
-## Overview
-The student directory renders the `/students` and `/students/list` pages through the shared dashboard table system in `apps/dashboard/src/components/tables/core`.
+Midday table migration completed: 2026-07-28
 
-The directory supports both grid and table views. The grid/table mode, column sizing, column order, column visibility, and column divider preference are persisted through the shared table-settings cookie under the `students` table id.
+## Overview
+
+The canonical student directory is `/students/list`; `/students` preserves its
+query string and redirects there. The page uses the shared dashboard table core
+and a single virtualized table surface rather than separate grid and list
+implementations.
+
+The shared `tables/core` layer provides reusable bottom-bar, empty-state,
+skeleton-cell, table-skeleton, table-grid, type, and virtual-row primitives.
+The Midday-aligned table support layer also includes draggable headers,
+persisted column order/sizing/visibility/dividers, URL-backed sorting, sticky
+columns, row selection, infinite loading, and RTL-aware logical positioning.
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `apps/dashboard/src/components/tables/core/*` | Copied gnd-style table primitives, including virtual rows, table skeletons, and grid rendering |
-| `apps/dashboard/src/components/tables/students/data-table.tsx` | Student directory data surface using `trpc.students.index` infinite queries |
-| `apps/dashboard/src/components/tables/students/columns.tsx` | Student table column definitions, row ids, skeleton metadata, sticky column metadata, and row actions |
-| `apps/dashboard/src/components/tables/students/table-header.tsx` | Sticky/resizable table header with horizontal scroll controls |
-| `apps/dashboard/src/components/tables/students/column-visibility.tsx` | Grid/table toggle plus column visibility and divider controls |
-| `apps/dashboard/src/components/tables/students/store.ts` | Store that bridges header controls with persisted table settings |
-| `apps/dashboard/src/components/tables/students/skeleton.tsx` | Student table skeleton backed by the core table skeleton |
+| File                                                             | Purpose                                                                                 |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `apps/dashboard/src/components/tables/core/*`                    | Shared table loading, empty, virtual-row, selection, sticky, and bulk-action primitives |
+| `apps/dashboard/src/components/tables/draggable-header.tsx`      | Reorderable table header cell                                                           |
+| `apps/dashboard/src/hooks/use-table-dnd.ts`                      | Persistable TanStack column reordering behavior                                         |
+| `apps/dashboard/src/hooks/use-sort-params.ts`                    | URL sort parser and server loader                                                       |
+| `apps/dashboard/src/hooks/use-sort-query.ts`                     | Three-state ascending/descending/clear sort control                                     |
+| `apps/dashboard/src/components/tables/students/data-table.tsx`   | Virtualized student directory with infinite loading and row selection                   |
+| `apps/dashboard/src/components/tables/students/columns.tsx`      | Student, class, enrollment, identity, guardian, and action columns                      |
+| `apps/dashboard/src/components/tables/students/table-header.tsx` | Sticky, sortable, reorderable, resizable table header                                   |
+| `apps/dashboard/src/components/tables/students/bottom-bar.tsx`   | CSV export and role-gated bulk enrollment actions                                       |
+| `apps/dashboard/src/components/tables/students/actions-menu.tsx` | View, edit, remove-current-term, and delete actions                                     |
+| `apps/api/src/trpc/schemas/students.ts`                          | Typed list filters, pagination, and sort allowlist                                      |
+| `apps/api/src/db/queries/students.ts`                            | Tenant-scoped list query and transactional bulk mutations                               |
 
 ## UX Notes
-- The default student directory entry points continue to render grid view while allowing users to switch to table view.
-- The `StudentHeader` exposes the grid/table toggle and column settings alongside search, import, and enrollment actions.
-- Student cards keep the existing open, gender update, and delete workflows.
-- Table rows open the existing student overview sheet through `studentViewId`.
-- The table and grid cards consume the tenant's resolved academic data direction. RTL mode mirrors table flow, sticky identity edges, dividers, scroll controls, and record alignment without mirroring the English directory toolbar or actions.
-- Student and classroom values use `dir="auto"` so mixed-script records retain their natural inline direction.
-- Student display names use the tenant's configured `StudentNameFormat`; blank optional name parts are omitted.
+
+- Student search, column controls, import, and enrollment actions stay in the
+  compact directory header.
+- The table includes select, student, student ID, class, gender, status, DOB,
+  guardian, phone, and actions columns. Less frequently used identity and
+  guardian columns are hidden by default and can be enabled.
+- Select and student columns remain pinned to the logical start edge; actions
+  remain pinned to the logical end edge. Direction-aware styles preserve the
+  same behavior in RTL workspaces.
+- Sort state is shareable in the URL and cycles through ascending, descending,
+  and cleared states. Supported fields are student name, gender, DOB, and
+  creation date.
+- Selecting rows opens a shared bottom bar. All permitted users can export the
+  selected loaded rows to CSV. `ADMIN`, `Admin`, and `Registrar` users can move
+  current-term enrollments to another class or remove them from the term.
+- A row opens the existing overview sheet through `studentViewId`. Row actions
+  reuse the existing overview and focused edit sheets through `studentViewId`
+  and `studentEditId`.
+- The classroom student embed may continue to pass its legacy `grid` prop for
+  compatibility, but the shared student data surface now renders the table.
 
 ## Data Behavior
-- The directory continues to read from `trpc.students.index` with the existing student filter query params.
-- Infinite loading still follows the existing `{ data, meta.cursor }` API contract.
-- Student listing data and permissions are unchanged. Direction resolution comes from the separate tenant-scoped school settings contract.
-- Name formatting is presentation-only and does not rewrite stored name parts or alter duplicate identity matching.
+
+- `students.index` requires authentication and derives tenant scope from the
+  active school profile. Canonical students and related rows must be
+  non-deleted and tenant-owned.
+- The query retains the `{ data, meta.cursor }` infinite-list contract and uses
+  a maximum page size of 100.
+- Search covers student name parts, student ID, and the first tenant-owned
+  guardian name or phone.
+- Classroom filters use stable classroom-department IDs and default missing
+  session/term context to the active workspace.
+- Sort fields are validated at the API boundary and translated to explicit
+  Prisma order clauses with stable student-ID tie breakers.
+- Each row includes the resolved display name, current scoped class, enrollment
+  status, DOB, and first guardian summary required by the table.
+- Bulk class changes run in one transaction, verify tenant ownership of every
+  selected term form and target class, preserve the exact-duplicate guard, and
+  synchronize the linked session form. Bulk term removal is tenant-scoped and
+  soft-deletes only the selected enrollment rows.
+
+## Architecture Notes
+
+This change extends the existing shared table architecture and URL-backed sheet
+model, so no new ADR is required.

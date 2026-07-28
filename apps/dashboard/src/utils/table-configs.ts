@@ -19,7 +19,10 @@ export const STICKY_COLUMNS: Record<TableId, StickyColumnConfig[]> = {
 		{ id: "select", width: 50 },
 		{ id: "title", width: 250 },
 	],
-	students: [{ id: "studentName", width: 320 }],
+	students: [
+		{ id: "select", width: 50 },
+		{ id: "studentName", width: 320 },
+	],
 	financeStreams: [{ id: "name", width: 280 }],
 	financeItems: [{ id: "name", width: 280 }],
 	financeCharges: [{ id: "title", width: 320 }],
@@ -69,8 +72,8 @@ export const SORT_FIELD_MAPS: Record<TableId, Record<string, string>> = {
 	vault: {}, // Vault doesn't have sorting
 	students: {
 		studentName: "studentName",
-		department: "department",
 		gender: "gender",
+		dob: "dob",
 	},
 	financeStreams: {
 		name: "name",
@@ -125,7 +128,7 @@ export const NON_REORDERABLE_COLUMNS: Record<TableId, Set<string>> = {
 	invoices: new Set(["select", "invoiceNumber", "actions"]),
 	customers: new Set(["name", "actions"]),
 	vault: new Set(["select", "title", "actions"]),
-	students: new Set(["studentName", "actions"]),
+	students: new Set(["select", "studentName", "actions"]),
 	financeStreams: new Set(["name", "actions"]),
 	financeItems: new Set(["name", "actions"]),
 	financeCharges: new Set(["title", "actions"]),

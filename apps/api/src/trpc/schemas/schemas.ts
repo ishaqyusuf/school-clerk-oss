@@ -1,5 +1,4 @@
 import { z } from "@hono/zod-openapi";
-import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
 export const paginationSchema = z.object({
   size: z.number().nullable().optional(),
   sort: z.string().nullable().optional(),
@@ -85,19 +84,6 @@ export const enrollmentQuerySchema = z.object({
 });
 export type EnrollmentQuery = z.infer<typeof enrollmentQuerySchema>;
 
-export const getStudentsSchema = z
-  .object({
-    sessionId: z.string().optional().nullable(),
-    departmentId: z.string().optional().nullable(),
-    departmentTitles: z.array(z.string()).optional().nullable(),
-    // departmentTitles: z.string().optional().nullable(),
-    classroomTitle: z.string().optional().nullable(),
-    sessionTermId: z.string().optional().nullable(),
-    studentId: z.string().optional().nullable(),
-    status: z.enum(STUDENT_PAGE_STATUS_FILTERS).optional().nullable(),
-  })
-  .merge(paginationSchema);
-export type GetStudentsSchema = z.infer<typeof getStudentsSchema>;
 export const getStudentOverviewSchema = z.object({
   studentId: z.string(),
   termSheetId: z.string().optional().nullable(),

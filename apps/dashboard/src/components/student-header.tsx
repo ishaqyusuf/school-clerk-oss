@@ -1,42 +1,18 @@
-"use client";
-import { useStudentParams } from "@/hooks/use-student-params";
-import { Button } from "@school-clerk/ui/button";
-import { UserPlus } from "lucide-react";
 import { OpenStudentImport } from "./open-student-import";
+import { OpenStudentSheet } from "./open-student-sheet";
 import { StudentSearchFilter } from "./student-search-filter";
-import {
-	StudentsColumnVisibility,
-	StudentsViewToggle,
-} from "./tables/students/column-visibility";
+import { StudentsColumnVisibility } from "./tables/students/column-visibility";
 
 export function StudentHeader() {
-	const { setParams } = useStudentParams();
 	return (
-		<div className="flex flex-col gap-4">
-			<div>
-				<h2 className="text-2xl font-bold text-foreground tracking-tight">
-					Student Management
-				</h2>
-				<p className="text-sm text-muted-foreground mt-1">
-					Manage and track all enrolled students
-				</p>
+		<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+			<div className="min-w-0 flex-1">
+				<StudentSearchFilter />
 			</div>
-			<div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between">
-				<div className="flex-1 w-full sm:w-auto">
-					<StudentSearchFilter />
-				</div>
-				<div className="flex items-center gap-3 shrink-0">
-					<StudentsViewToggle />
-					<StudentsColumnVisibility />
-					<OpenStudentImport />
-					<Button
-						onClick={() => setParams({ createStudent: true })}
-						className="flex items-center gap-2"
-					>
-						<UserPlus className="w-4 h-4" />
-						Enroll New Student
-					</Button>
-				</div>
+			<div className="flex shrink-0 items-center gap-2">
+				<StudentsColumnVisibility />
+				<OpenStudentImport />
+				<OpenStudentSheet />
 			</div>
 		</div>
 	);

@@ -71,7 +71,7 @@ export const defaultHiddenColumns: Record<TableId, string[]> = {
 		"internalNote",
 	],
 	vault: [], // No hidden columns by default
-	students: [],
+	students: ["studentId", "dob", "guardianName", "guardianPhone"],
 	financeStreams: [],
 	financeItems: [],
 	financeCharges: [],

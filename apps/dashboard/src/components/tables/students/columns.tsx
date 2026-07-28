@@ -1,243 +1,230 @@
 "use client";
 
-import { useStudentParams } from "@/hooks/use-student-params";
-import { Badge } from "@school-clerk/ui/badge";
-import { Button } from "@school-clerk/ui/button";
-import { Avatar, DropdownMenu } from "@school-clerk/ui/composite";
-import { cn } from "@school-clerk/ui/cn";
-import { Spinner } from "@school-clerk/ui/spinner";
-import { getInitials } from "@school-clerk/utils";
+import { StudentActionsMenu } from "@/components/tables/students/actions-menu";
 import type { RouterOutputs } from "@api/trpc/routers/_app";
-import { useMutation } from "@tanstack/react-query";
+import { Badge } from "@school-clerk/ui/badge";
+import { Avatar } from "@school-clerk/ui/composite";
+import { Checkbox } from "@school-clerk/ui/checkbox";
+import { cn } from "@school-clerk/ui/cn";
+import { getInitials } from "@school-clerk/utils";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye, MoreHorizontal } from "lucide-react";
-
-import { _qc, _trpc } from "@/components/static-trpc";
+import { format } from "date-fns";
 
 export type Item = RouterOutputs["students"]["index"]["data"][number];
 
-type Column = ColumnDef<Item>;
-
-export function getStudentRowId(item: Item, index?: number) {
-	return item.id?.toString() ?? `${item.studentName ?? "student"}-${index}`;
+export function getStudentRowId(item: Item) {
+	return item.id;
 }
 
 function StudentCell({ item }: { item: Item }) {
-	const name = item.studentName || "-";
-
 	return (
 		<div className="flex min-w-0 items-center gap-3">
-			<Avatar className="size-10 shrink-0 border bg-muted">
-				<Avatar.Image src="/placeholder.svg" alt={name} />
-				<Avatar.Fallback>{getInitials(name)}</Avatar.Fallback>
+			<Avatar className="size-9 shrink-0 border bg-muted">
+				<Avatar.Image src="/placeholder.svg" alt={item.studentName} />
+				<Avatar.Fallback>{getInitials(item.studentName)}</Avatar.Fallback>
 			</Avatar>
-			<div className="min-w-0 space-y-0.5">
-				<div className="truncate font-semibold uppercase" dir="auto">
-					{name}
-				</div>
-				<div
-					className="truncate text-[11px] text-muted-foreground"
-					dir="auto"
-				>
+			<div className="min-w-0">
+				<p className="truncate font-medium" dir="auto">
+					{item.studentName}
+				</p>
+				<p className="truncate text-xs text-muted-foreground" dir="auto">
 					{item.department || "No class assigned"}
-				</div>
+				</p>
 			</div>
 		</div>
 	);
 }
 
-function GenderCell({ item }: { item: Item }) {
+function StatusCell({ status }: { status: Item["status"] }) {
+	const enrolled = status === "enrolled";
 	return (
-		<Badge
-			variant="outline"
-			className="border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-400"
-		>
-			{item.gender || "-"}
+		<Badge variant={enrolled ? "success" : "outline"} className="rounded-none">
+			{enrolled ? "Enrolled" : "Not enrolled"}
 		</Badge>
 	);
 }
 
-function StatusCell() {
-	return (
-		<Badge
-			variant="outline"
-			className="border-green-200 text-green-700 dark:border-green-800 dark:text-green-400"
-		>
-			Active
-		</Badge>
-	);
-}
-
-function StudentActions({ item }: { item: Item }) {
-	const { setParams } = useStudentParams();
-	const { mutate: deleteStudent, isPending: isDeleting } = useMutation(
-		_trpc.students.deleteStudent.mutationOptions({
-			onSuccess() {
-				_qc.invalidateQueries({
-					queryKey: _trpc.students.index.infiniteQueryKey(),
-				});
-				_qc.invalidateQueries({
-					queryKey: _trpc.students.analytics.queryKey(),
-				});
-			},
-			meta: {
-				toastTitle: {
-					error: "Unable to complete",
-					loading: "Processing...",
-					success: "Done!.",
-				},
-			},
-		}),
-	);
-	const { mutate: changeGender } = useMutation(
-		_trpc.students.changeGender.mutationOptions({
-			onSuccess() {
-				_qc.invalidateQueries({
-					queryKey: _trpc.students.index.infiniteQueryKey(),
-				});
-			},
-			meta: {
-				toastTitle: {
-					error: "Unable to update gender",
-					loading: "Updating...",
-					success: "Gender updated.",
-				},
-			},
-		}),
-	);
-
-	return (
-		<div className="flex items-center justify-center gap-1">
-			<Button
-				variant="ghost"
-				size="icon"
-				className="size-8"
-				onClick={() => setParams({ studentViewId: item.id })}
-			>
-				<Eye className="size-4" />
-			</Button>
-			<DropdownMenu>
-				<DropdownMenu.Trigger asChild>
-					<Button variant="ghost" size="icon" className="size-8">
-						{isDeleting ? (
-							<Spinner />
-						) : (
-							<MoreHorizontal className="size-4" />
-						)}
-					</Button>
-				</DropdownMenu.Trigger>
-				<DropdownMenu.Content align="end">
-					<DropdownMenu.Item onClick={() => setParams({ studentViewId: item.id })}>
-						View Details
-					</DropdownMenu.Item>
-					<DropdownMenu.Item
-						disabled={item.gender === "Male"}
-						onClick={() => changeGender({ id: item.id, gender: "Male" })}
-					>
-						Set as Male
-					</DropdownMenu.Item>
-					<DropdownMenu.Item
-						disabled={item.gender === "Female"}
-						onClick={() => changeGender({ id: item.id, gender: "Female" })}
-					>
-						Set as Female
-					</DropdownMenu.Item>
-					<DropdownMenu.Separator />
-					<DropdownMenu.Item
-						onClick={() => deleteStudent({ studentId: item.id })}
-					>
-						Delete Student
-					</DropdownMenu.Item>
-				</DropdownMenu.Content>
-			</DropdownMenu>
-		</div>
-	);
-}
-
-export const columns: Column[] = [
+export const columns: ColumnDef<Item>[] = [
+	{
+		id: "select",
+		size: 50,
+		minSize: 50,
+		maxSize: 50,
+		enableResizing: false,
+		enableHiding: false,
+		enableSorting: false,
+		meta: {
+			sticky: true,
+			headerLabel: "Select",
+			skeleton: { type: "checkbox" },
+			className:
+				"w-[50px] min-w-[50px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-secondary z-30 justify-center",
+		},
+		header: ({ table }) => (
+			<Checkbox
+				aria-label="Select all loaded students"
+				checked={
+					table.getIsAllPageRowsSelected()
+						? true
+						: table.getIsSomePageRowsSelected()
+							? "indeterminate"
+							: false
+				}
+				onCheckedChange={(value) =>
+					table.toggleAllPageRowsSelected(value === true)
+				}
+			/>
+		),
+		cell: ({ row }) => (
+			<Checkbox
+				aria-label={`Select ${row.original.studentName}`}
+				checked={row.getIsSelected()}
+				onCheckedChange={(value) => row.toggleSelected(value === true)}
+				onClick={(event) => event.stopPropagation()}
+			/>
+		),
+	},
 	{
 		id: "studentName",
-		header: "Student",
 		accessorKey: "studentName",
+		header: "Student",
 		size: 320,
 		minSize: 260,
 		maxSize: 520,
-		enableResizing: true,
 		enableHiding: false,
 		meta: {
 			sticky: true,
-			skeleton: { type: "avatar-text" },
 			headerLabel: "Student",
+			skeleton: { type: "avatar-text", width: "w-32" },
 			className:
 				"w-[320px] min-w-[260px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-secondary z-20",
 		},
 		cell: ({ row }) => <StudentCell item={row.original} />,
 	},
 	{
+		id: "studentId",
+		accessorKey: "id",
+		header: "Student ID",
+		size: 150,
+		minSize: 120,
+		maxSize: 220,
+		meta: {
+			headerLabel: "Student ID",
+			skeleton: { type: "text", width: "w-24" },
+		},
+		cell: ({ row }) => (
+			<span className="font-mono text-xs text-muted-foreground">
+				{row.original.id.slice(0, 8)}
+			</span>
+		),
+	},
+	{
 		id: "department",
-		header: "Class",
 		accessorKey: "department",
+		header: "Class",
 		size: 220,
 		minSize: 160,
 		maxSize: 320,
-		enableResizing: true,
 		meta: {
-			skeleton: { type: "text", width: "w-28" },
 			headerLabel: "Class",
-			className: "w-[220px] min-w-[160px]",
+			skeleton: { type: "text", width: "w-28" },
 		},
 		cell: ({ row }) => (
 			<span className="truncate text-muted-foreground" dir="auto">
-				{row.original.department || "-"}
+				{row.original.department || "—"}
 			</span>
 		),
 	},
 	{
 		id: "gender",
-		header: "Gender",
 		accessorKey: "gender",
-		size: 140,
-		minSize: 120,
-		maxSize: 180,
-		enableResizing: true,
+		header: "Gender",
+		size: 120,
+		minSize: 100,
+		maxSize: 160,
 		meta: {
-			skeleton: { type: "badge" },
 			headerLabel: "Gender",
-			className: "w-[140px] min-w-[120px]",
+			skeleton: { type: "badge", width: "w-16" },
 		},
-		cell: ({ row }) => <GenderCell item={row.original} />,
+		cell: ({ row }) => (
+			<Badge variant="outline" className="rounded-none">
+				{row.original.gender}
+			</Badge>
+		),
 	},
 	{
 		id: "status",
+		accessorKey: "status",
 		header: "Status",
 		size: 140,
 		minSize: 120,
 		maxSize: 180,
-		enableResizing: true,
 		meta: {
-			skeleton: { type: "badge" },
 			headerLabel: "Status",
-			className: "w-[140px] min-w-[120px]",
+			skeleton: { type: "badge", width: "w-20" },
 		},
-		cell: () => <StatusCell />,
+		cell: ({ row }) => <StatusCell status={row.original.status} />,
+	},
+	{
+		id: "dob",
+		accessorKey: "dob",
+		header: "Date of birth",
+		size: 150,
+		minSize: 130,
+		maxSize: 200,
+		meta: {
+			headerLabel: "Date of birth",
+			skeleton: { type: "text", width: "w-24" },
+		},
+		cell: ({ row }) =>
+			row.original.dob
+				? format(new Date(row.original.dob), "dd MMM yyyy")
+				: "—",
+	},
+	{
+		id: "guardianName",
+		accessorKey: "guardianName",
+		header: "Guardian",
+		size: 220,
+		minSize: 160,
+		maxSize: 320,
+		meta: {
+			headerLabel: "Guardian",
+			skeleton: { type: "text", width: "w-28" },
+		},
+		cell: ({ row }) => row.original.guardianName || "—",
+	},
+	{
+		id: "guardianPhone",
+		accessorKey: "guardianPhone",
+		header: "Guardian phone",
+		size: 180,
+		minSize: 150,
+		maxSize: 240,
+		meta: {
+			headerLabel: "Guardian phone",
+			skeleton: { type: "text", width: "w-28" },
+		},
+		cell: ({ row }) => row.original.guardianPhone || "—",
 	},
 	{
 		id: "actions",
-		header: "",
-		size: 130,
-		minSize: 110,
-		maxSize: 150,
+		header: "Actions",
+		size: 100,
+		minSize: 100,
+		maxSize: 100,
 		enableResizing: false,
 		enableHiding: false,
 		enableSorting: false,
 		meta: {
-			skeleton: { type: "icon" },
+			sticky: true,
 			headerLabel: "Actions",
+			skeleton: { type: "icon" },
 			className: cn(
-				"w-[130px] min-w-[110px]",
+				"w-[100px] min-w-[100px] text-right md:sticky md:end-0 z-30 justify-center",
 				"bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-secondary",
 			),
 		},
-		cell: ({ row }) => <StudentActions item={row.original} />,
+		cell: ({ row }) => <StudentActionsMenu student={row.original} />,
 	},
 ];

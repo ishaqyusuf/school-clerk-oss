@@ -55,9 +55,11 @@ function VirtualRowInner<TData>({
     return (
         <TableRow
             data-index={row.index}
+            data-state={row.getIsSelected() ? "selected" : undefined}
             className={cn(
                 "group cursor-pointer select-text",
                 "hover:bg-[#F2F1EF] hover:dark:bg-secondary",
+                "data-[state=selected]:bg-muted/70",
                 "flex items-center border-0",
                 "absolute inset-x-0 top-0 w-full min-w-full",
                 rowClassName?.(row),
@@ -71,8 +73,7 @@ function VirtualRowInner<TData>({
             {cells.map((cell: Cell<TData, unknown>, cellIndex: number) => {
                 const columnId = cell.column.id;
                 const meta = cell.column.columnDef.meta as
-                    | TableColumnMeta
-                    | undefined;
+                    TableColumnMeta | undefined;
                 const isSticky = meta?.sticky ?? false;
                 const isActions = columnId === "actions";
                 const isLastBeforeActions =

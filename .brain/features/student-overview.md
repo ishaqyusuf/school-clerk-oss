@@ -1,10 +1,13 @@
 # Student Overview
 
 ## Status
+
 Implemented: 2026-04-03
 
 ## Overview
+
 Student details now render through a shared overview shell that works in both contexts:
+
 - the existing student sheet
 - a dedicated student details page at `/students/[studentId]`
 
@@ -12,19 +15,20 @@ The shared shell keeps the same overview, academics, attendance, and payments fe
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `apps/dashboard/src/hooks/use-student-overview-sheet.ts` | Host-aware provider for sheet and page modes |
-| `apps/dashboard/src/components/students/student-overview-shell.tsx` | Shared header + tabs + tab-content shell |
-| `apps/dashboard/src/components/students/student-overview-sheet-header.tsx` | Reusable profile header card |
-| `apps/dashboard/src/components/sheets/student-basic-info-edit-sheet.tsx` | Sheet host for editing student identity and parent details from the overview header |
-| `apps/dashboard/src/components/forms/student-basic-info-form.tsx` | Focused basic-info form for names, gender, DOB, and parent contact fields |
-| `apps/dashboard/src/components/students/student-overview.tsx` | Overview tab layout |
-| `apps/dashboard/src/components/sheets/student-overview-sheet.tsx` | Sheet host using the shared shell |
-| `apps/dashboard/src/components/students/student-overview-page-client.tsx` | Page host using the shared shell |
-| `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/students/[studentId]/page.tsx` | Student overview page route |
+| File                                                                                | Purpose                                                                             |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `apps/dashboard/src/hooks/use-student-overview-sheet.ts`                            | Host-aware provider for sheet and page modes                                        |
+| `apps/dashboard/src/components/students/student-overview-shell.tsx`                 | Shared header + tabs + tab-content shell                                            |
+| `apps/dashboard/src/components/students/student-overview-sheet-header.tsx`          | Reusable profile header card                                                        |
+| `apps/dashboard/src/components/sheets/student-basic-info-edit-sheet.tsx`            | Sheet host for editing student identity and parent details from the overview header |
+| `apps/dashboard/src/components/forms/student-basic-info-form.tsx`                   | Focused basic-info form for names, gender, DOB, and parent contact fields           |
+| `apps/dashboard/src/components/students/student-overview.tsx`                       | Overview tab layout                                                                 |
+| `apps/dashboard/src/components/sheets/student-overview-sheet.tsx`                   | Sheet host using the shared shell                                                   |
+| `apps/dashboard/src/components/students/student-overview-page-client.tsx`           | Page host using the shared shell                                                    |
+| `apps/dashboard/src/app/dashboard/[domain]/(sidebar)/students/[studentId]/page.tsx` | Student overview page route                                                         |
 
 ## UX Notes
+
 - The UI is based on the sample in `ai-studio-sample/schoolclerk-admin/pages/StudentOverview.tsx`.
 - Shared surfaces use semantic shadcn-style tokens like `bg-card`, `bg-background`, `text-foreground`, `text-muted-foreground`, `border-border`, and `bg-primary/10` to preserve theme support.
 - The page host adds breadcrumb chrome while the sheet host keeps the compact scrollable sheet container.
@@ -34,8 +38,10 @@ The shared shell keeps the same overview, academics, attendance, and payments fe
 - Class labels in the overview and academics tabs use the full classroom display name (`className + departmentName` unless the department already contains the class name) instead of showing only the department/arm name.
 - The overview sheet uses mobile-first spacing and overflow controls: long names and term labels truncate inside the header, tab navigation scrolls within the sheet, term history rows stack status badges on narrow screens, attendance records render as compact cards on mobile, and finance actions/forms collapse into single-column or full-width controls where needed.
 - Student list, classroom overview Students tab, and individual student overview surfaces now show class/term-scoped duplicate-name warnings. The warning includes student counts, duplicate group counts, recommended survivor records, and a preview-first merge action so operators do not delete the copy that owns historical records. Classroom overview also shows the student count in the Students tab label/header.
+- The Midday-style student directory keeps overview and focused edit state in the existing `studentViewId` and `studentEditId` URL parameters. This preserves direct row navigation, back/forward behavior, and compatibility with the shared sheet hosts while the directory table itself was replaced.
 
 ## Data Behavior
+
 - Overview data still comes from `students.overview`, which includes basic identity fields plus the first non-deleted guardian for edit prefill.
 - The provider resolves the active term from `studentTerms`, preferring the selected term and otherwise falling back to the latest enrolled term.
 - Sheet mode syncs term selection back into `studentViewTermId` and `studentTermSheetId`.
@@ -44,3 +50,4 @@ The shared shell keeps the same overview, academics, attendance, and payments fe
 - Administrative overview actions call authenticated, tenant-scoped `students.changeStudentClass`, `students.deleteTermSheet`, and `students.deleteStudent` mutations. The class-change mutation updates the selected term sheet and linked session form rather than creating a duplicate enrollment.
 - Duplicate detection uses active, non-deleted `StudentTermForm` rows in the selected term/classroom and groups students by normalized `name + surname + otherName`. A merge preview recommends the student copy with the strongest history score and blocks merge execution when multiple current-term copies have conflicting assessment, attendance, or finance records, or when assessment records would collide with an existing score key after moving.
 - Student list classroom filtering defaults missing `sessionId` and `sessionTermId` to the active workspace context, then prefers current `StudentTermForm.classroomDepartmentId + sessionTermId` for term-accurate classroom results.
+- Directory row and bulk enrollment mutations invalidate the list, analytics, and duplicate-group queries so overview and directory surfaces converge after an action.

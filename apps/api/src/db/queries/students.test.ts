@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 process.env.DATABASE_URL ??= "postgresql://test:test@127.0.0.1:5432/test";
 
 const {
+  bulkChangeStudentClass,
   changeStudentGender,
   executeStudentImport,
   getStudentImportJob,
@@ -121,6 +122,10 @@ describe("getStudents", () => {
     expect(countCalls[0]?.where).toMatchObject({
       AND: [
         {
+          schoolProfileId: "school-1",
+          deletedAt: null,
+        },
+        {
           termForms: {
             some: {
               deletedAt: null,
@@ -129,17 +134,175 @@ describe("getStudents", () => {
             },
           },
         },
-        {
-          termForms: {
-            some: {
-              sessionTermId: "term-1",
-            },
-          },
-        },
       ],
     });
     expect(findManyCalls[0]?.select?.sessionForms?.where).toEqual({
       schoolSessionId: "session-1",
+    });
+    expect(findManyCalls[0]?.orderBy).toEqual([
+      { name: "asc" },
+      { surname: { sort: "asc", nulls: "last" } },
+      { otherName: { sort: "asc", nulls: "last" } },
+      { id: "asc" },
+    ]);
+  });
+
+  test("uses only allowlisted typed sort fields", async () => {
+    const findManyCalls: any[] = [];
+    const ctx = {
+      profile: {
+        schoolId: "school-1",
+        sessionId: "session-1",
+        termId: "term-1",
+      },
+      db: {
+        students: {
+          count: async () => 0,
+          findMany: async (args: any) => {
+            findManyCalls.push(args);
+            return [];
+          },
+        },
+      },
+    } as any;
+
+    await getStudents(ctx, { sort: ["dob", "desc"] });
+
+    expect(findManyCalls[0]?.orderBy).toEqual([
+      { dob: { sort: "desc", nulls: "last" } },
+      { id: "asc" },
+    ]);
+  });
+});
+
+describe("bulkChangeStudentClass", () => {
+  test("moves tenant-owned term forms and their session form atomically", async () => {
+    const termUpdates: unknown[] = [];
+    const sessionUpdates: unknown[] = [];
+    const tx = {
+      classRoomDepartment: {
+        findFirst: async () => ({
+          id: "classroom-b",
+          classRoom: { schoolSessionId: "session-1" },
+        }),
+      },
+      studentTermForm: {
+        findMany: async () => [],
+        findFirst: async ({ where }: any) => ({
+          id: where.id,
+          studentSessionFormId: "session-form-1",
+          schoolSessionId: "session-1",
+          sessionTermId: "term-1",
+          student: {
+            id: "student-1",
+            name: "Ada",
+            surname: "Lovelace",
+            otherName: null,
+          },
+        }),
+        update: async (args: unknown) => {
+          termUpdates.push(args);
+          return {};
+        },
+      },
+      studentSessionForm: {
+        updateMany: async (args: unknown) => {
+          sessionUpdates.push(args);
+          return { count: 1 };
+        },
+      },
+      students: {
+        findFirst: async () => null,
+      },
+    };
+    const ctx = {
+      profile: { schoolId: "school-1" },
+      currentUser: { role: "Admin" },
+      db: {
+        $transaction: async (callback: (transaction: typeof tx) => unknown) =>
+          callback(tx),
+      },
+    } as any;
+
+    await expect(
+      bulkChangeStudentClass(ctx, {
+        studentTermFormIds: ["term-form-1"],
+        classroomDepartmentId: "classroom-b",
+      }),
+    ).resolves.toEqual({ count: 1 });
+    expect(termUpdates).toEqual([
+      {
+        where: { id: "term-form-1" },
+        data: { classroomDepartmentId: "classroom-b" },
+      },
+    ]);
+    expect(sessionUpdates).toEqual([
+      {
+        where: {
+          id: "session-form-1",
+          schoolProfileId: "school-1",
+          deletedAt: null,
+        },
+        data: { classroomDepartmentId: "classroom-b" },
+      },
+    ]);
+  });
+
+  test("rejects roles that cannot manage students", async () => {
+    const ctx = {
+      profile: { schoolId: "school-1" },
+      currentUser: { role: "Teacher" },
+      db: {},
+    } as any;
+
+    await expect(
+      bulkChangeStudentClass(ctx, {
+        studentTermFormIds: ["term-form-1"],
+        classroomDepartmentId: "classroom-b",
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  test("rejects a target class from a different academic session", async () => {
+    const tx = {
+      classRoomDepartment: {
+        findFirst: async () => ({
+          id: "classroom-b",
+          classRoom: { schoolSessionId: "session-2" },
+        }),
+      },
+      studentTermForm: {
+        findFirst: async () => ({
+          id: "term-form-1",
+          studentSessionFormId: "session-form-1",
+          schoolSessionId: "session-1",
+          sessionTermId: "term-1",
+          student: {
+            id: "student-1",
+            name: "Ada",
+            surname: "Lovelace",
+            otherName: null,
+          },
+        }),
+      },
+    };
+    const ctx = {
+      profile: { schoolId: "school-1" },
+      currentUser: { role: "Admin" },
+      db: {
+        $transaction: async (callback: (transaction: typeof tx) => unknown) =>
+          callback(tx),
+      },
+    } as any;
+
+    await expect(
+      bulkChangeStudentClass(ctx, {
+        studentTermFormIds: ["term-form-1"],
+        classroomDepartmentId: "classroom-b",
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "The target class must belong to every enrollment session.",
     });
   });
 });

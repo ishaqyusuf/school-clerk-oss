@@ -1,6 +1,6 @@
 import { composeQueryData } from "@api/query-response";
 import type { TRPCContext } from "@api/trpc/init";
-import type { GetStudentsSchema } from "@api/trpc/schemas/schemas";
+import type { GetStudentsSchema } from "@api/trpc/schemas/students";
 import type { PageFilterData } from "@api/type";
 import { composeQuery, txContext } from "@api/utils";
 import {
@@ -24,17 +24,6 @@ function toMoney(value: number | string | Prisma.Decimal) {
   return new Prisma.Decimal(value);
 }
 
-const emptySearchQuery = (q: GetStudentsSchema) =>
-  (
-    [
-      "q",
-      "status",
-      "studentId",
-      "sessionTermId",
-      "sessionId",
-    ] as (keyof GetStudentsSchema)[]
-  ).every((a) => !q[a]);
-
 function withDefaultStudentQueryContext(
   ctx: TRPCContext,
   query: GetStudentsSchema,
@@ -48,16 +37,20 @@ function withDefaultStudentQueryContext(
 
 const STUDENT_MANAGEMENT_ROLES = new Set(["ADMIN", "Admin", "Registrar"]);
 
-function requireStudentManagementAccess(ctx: TRPCContext) {
+function requireStudentWorkspace(ctx: TRPCContext) {
   const schoolProfileId = ctx.profile.schoolId;
-  const role = ctx.currentUser?.role;
-
   if (!schoolProfileId) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "A school workspace is required.",
     });
   }
+  return { schoolProfileId };
+}
+
+function requireStudentManagementAccess(ctx: TRPCContext) {
+  const { schoolProfileId } = requireStudentWorkspace(ctx);
+  const role = ctx.currentUser?.role;
 
   if (!role || !STUDENT_MANAGEMENT_ROLES.has(role)) {
     throw new TRPCError({
@@ -72,19 +65,25 @@ function requireStudentManagementAccess(ctx: TRPCContext) {
 // !q.q && !q.status && !q.studentId && !q.sessionId && !q.sessionTermId;
 export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
   const { db } = ctx;
+  const { schoolProfileId } = requireStudentWorkspace(ctx);
   const effectiveQuery = withDefaultStudentQueryContext(ctx, query);
-
   const model = db.students;
-
+  const paginationQuery = {
+    ...effectiveQuery,
+    size: effectiveQuery.pageSize ?? effectiveQuery.size ?? 25,
+    sort: null,
+  };
   const { response, searchMeta, where } = await composeQueryData(
-    effectiveQuery,
-    whereStudents(effectiveQuery, ctx),
+    paginationQuery,
+    whereStudents(effectiveQuery, ctx, schoolProfileId),
     model,
   );
+  const { skip, take } = searchMeta;
 
   const list = await model.findMany({
     where,
-    ...searchMeta,
+    skip,
+    take,
     select: {
       id: true,
       name: true,
@@ -92,6 +91,28 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
       surname: true,
       dob: true,
       gender: true,
+      createdAt: true,
+      guardians: {
+        where: {
+          deletedAt: null,
+          guardian: {
+            deletedAt: null,
+            schoolProfileId,
+          },
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+        take: 1,
+        select: {
+          guardian: {
+            select: {
+              name: true,
+              phone: true,
+            },
+          },
+        },
+      },
       termForms: {
         where: {
           deletedAt: null,
@@ -157,17 +178,10 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
         take: 1,
       },
     },
-    orderBy: [
-      {
-        gender: "asc",
-      },
-      {
-        name: "asc",
-      },
-    ],
+    orderBy: getStudentsOrderBy(effectiveQuery, ctx),
   });
 
-  return await response(
+  return response(
     list.map((student) => {
       const sf = student.sessionForms?.[0];
       const term = student.termForms?.[0] ?? sf?.termForms?.[0];
@@ -179,15 +193,21 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
       const departmentId = classroomDepartment?.id;
       const termFormId = term?.id;
       const termFormSessionTermId = term?.sessionTermId;
+      const guardian = student.guardians[0]?.guardian ?? null;
       return {
         id: student.id,
         gender: student.gender,
-				studentName: studentDisplayName(student, ctx.profile.studentNameFormat),
+        dob: student.dob,
+        createdAt: student.createdAt,
+        studentName: studentDisplayName(student, ctx.profile.studentNameFormat),
         department: Array.from(new Set([className, departmentName])).join(" "),
         departmentId,
         classId: classRoom?.id,
         termFormId,
         termFormSessionTermId,
+        status: termFormId ? "enrolled" : "not enrolled",
+        guardianName: guardian?.name ?? null,
+        guardianPhone: guardian?.phone ?? null,
       };
     }),
   );
@@ -196,17 +216,16 @@ export async function getStudent(ctx: TRPCContext, query: GetStudentsSchema) {
   const student = await getStudents(ctx, query);
   return student?.data?.[0];
 }
-function whereStudents(query: GetStudentsSchema, ctx: TRPCContext) {
+function whereStudents(
+  query: GetStudentsSchema,
+  ctx: TRPCContext,
+  schoolProfileId: string,
+) {
   const where: Prisma.StudentsWhereInput[] = [
-    // {
-    //   // schoolProfileId: ctx.profile.schoolId,
-    //   // sessionForms: {
-    //   //   some: {
-    //   //     deletedAt: null,
-    //   //     // schoolSessionId: query.sessionId,
-    //   //   },
-    //   // },
-    // },
+    {
+      schoolProfileId,
+      deletedAt: null,
+    },
   ];
 
   Object.entries(query).map(([key, value]) => {
@@ -233,6 +252,37 @@ function whereStudents(query: GetStudentsSchema, ctx: TRPCContext) {
                 mode: "insensitive",
               },
             },
+            {
+              id: {
+                contains: value as any,
+                mode: "insensitive",
+              },
+            },
+            {
+              guardians: {
+                some: {
+                  deletedAt: null,
+                  guardian: {
+                    deletedAt: null,
+                    schoolProfileId,
+                    OR: [
+                      {
+                        name: {
+                          contains: value as any,
+                          mode: "insensitive",
+                        },
+                      },
+                      {
+                        phone: {
+                          contains: value as any,
+                          mode: "insensitive",
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
           ],
         });
         break;
@@ -257,6 +307,21 @@ function whereStudents(query: GetStudentsSchema, ctx: TRPCContext) {
                 },
               }),
         });
+        break;
+      case "classroomDepartmentIds":
+        if (query.classroomDepartmentIds?.length) {
+          where.push({
+            termForms: {
+              some: {
+                deletedAt: null,
+                sessionTermId: query.sessionTermId || ctx.profile.termId,
+                classroomDepartmentId: {
+                  in: query.classroomDepartmentIds,
+                },
+              },
+            },
+          });
+        }
         break;
       case "departmentTitles":
         if (query.departmentTitles?.length!)
@@ -305,35 +370,84 @@ function whereStudents(query: GetStudentsSchema, ctx: TRPCContext) {
     case "not enrolled":
       where.push({
         termForms: {
-          every: {
-            sessionTermId: {
-              not: ctx?.profile?.termId,
-            },
+          none: {
+            deletedAt: null,
+            sessionTermId: query.sessionTermId || ctx.profile.termId,
+          },
+        },
+      });
+      break;
+    case "no enrollement record":
+      where.push({
+        termForms: {
+          none: {
+            deletedAt: null,
           },
         },
       });
       break;
     case "enrolled":
-    default:
       where.push({
         termForms: {
           some: {
+            deletedAt: null,
             sessionTermId: query.sessionTermId || ctx?.profile?.termId,
           },
         },
       });
       break;
+    default:
+      break;
   }
   return composeQuery(where);
 }
+
+function getStudentsOrderBy(
+  query: GetStudentsSchema,
+  ctx: TRPCContext,
+): Prisma.StudentsOrderByWithRelationInput[] {
+  const [field, direction] = query.sort ?? [];
+  const sortDirection = direction ?? "asc";
+
+  if (field === "gender") {
+    return [{ gender: sortDirection }, { id: "asc" }];
+  }
+  if (field === "dob") {
+    return [{ dob: { sort: sortDirection, nulls: "last" } }, { id: "asc" }];
+  }
+  if (field === "createdAt") {
+    return [
+      { createdAt: { sort: sortDirection, nulls: "last" } },
+      { id: "asc" },
+    ];
+  }
+
+  const nameDirection = sortDirection;
+  if (ctx.profile.studentNameFormat === "SURNAME_FIRST_OTHER") {
+    return [
+      { surname: { sort: nameDirection, nulls: "last" } },
+      { name: nameDirection },
+      { otherName: { sort: nameDirection, nulls: "last" } },
+      { id: "asc" },
+    ];
+  }
+
+  return [
+    { name: nameDirection },
+    { surname: { sort: nameDirection, nulls: "last" } },
+    { otherName: { sort: nameDirection, nulls: "last" } },
+    { id: "asc" },
+  ];
+}
 export async function getStudentsQueryParams(ctx: TRPCContext) {
+  const { schoolProfileId } = requireStudentWorkspace(ctx);
   // session list
   const sessionList = await ctx.db.schoolSession.findMany({
     where: {
       id: {
         not: ctx.profile?.termId,
       },
-      schoolId: ctx.profile?.schoolId,
+      schoolId: schoolProfileId,
       deletedAt: null,
     },
     select: {
@@ -403,23 +517,19 @@ export async function getStudentsQueryParams(ctx: TRPCContext) {
       value: "sessionTermId",
     },
     {
-      label: "Departments",
+      label: "Classrooms",
       type: "checkbox",
-      options: Array.from(
-        new Set(
-          ...sessionList.map((s) =>
-            s.classRooms
-              .map((c) =>
-                c.classRoomDepartments.map((d) => d.departmentName).flat(),
-              )
-              .flat(),
-          ),
+      options: sessionList.flatMap((session) =>
+        session.classRooms.flatMap((classroom) =>
+          classroom.classRoomDepartments.map((department) => ({
+            label: Array.from(
+              new Set([classroom.name, department.departmentName]),
+            ).join(" "),
+            value: department.id,
+          })),
         ),
-      ).map((name) => ({
-        label: name as any,
-        value: name as any,
-      })),
-      value: "departmentTitles",
+      ),
+      value: "classroomDepartmentIds",
     },
   ] as FilterData[];
   const multiDepsClasses = sessionList
@@ -790,12 +900,13 @@ export async function studentsAnalytics(
   _query: StudentsAnalyticsSchema,
 ) {
   const { db, profile } = ctx;
+  const { schoolProfileId } = requireStudentWorkspace(ctx);
   const now = new Date();
 
   const currentTerm = await db.sessionTerm.findFirst({
     where: {
       deletedAt: null,
-      schoolId: profile.schoolId,
+      schoolId: schoolProfileId,
       startDate: {
         lte: now,
       },
@@ -828,13 +939,13 @@ export async function studentsAnalytics(
     await Promise.all([
       db.students.count({
         where: {
-          schoolProfileId: profile.schoolId,
+          schoolProfileId,
           deletedAt: null,
         },
       }),
       db.studentTermForm.findMany({
         where: {
-          schoolProfileId: profile.schoolId,
+          schoolProfileId,
           ...activeTermWhere,
           deletedAt: null,
           studentId: {
@@ -848,7 +959,7 @@ export async function studentsAnalytics(
       }),
       db.studentSessionForm.findMany({
         where: {
-          schoolProfileId: profile.schoolId,
+          schoolProfileId,
           schoolSessionId: currentSessionId,
           deletedAt: null,
           studentId: {
@@ -867,7 +978,7 @@ export async function studentsAnalytics(
   const newAdmissions = sessionStart
     ? await db.students.count({
         where: {
-          schoolProfileId: profile.schoolId,
+          schoolProfileId,
           deletedAt: null,
           createdAt: {
             gte: sessionStart,
@@ -1343,10 +1454,18 @@ export const changeStudentClassSchema = z.object({
 export type ChangeStudentClassSchema = z.infer<typeof changeStudentClassSchema>;
 
 export const bulkDeleteTermSheetsSchema = z.object({
-  ids: z.array(z.string()).min(1),
+  ids: z.array(z.string()).min(1).max(100),
 });
 export type BulkDeleteTermSheetsSchema = z.infer<
   typeof bulkDeleteTermSheetsSchema
+>;
+
+export const bulkChangeStudentClassSchema = z.object({
+  studentTermFormIds: z.array(z.string()).min(1).max(100),
+  classroomDepartmentId: z.string(),
+});
+export type BulkChangeStudentClassSchema = z.infer<
+  typeof bulkChangeStudentClassSchema
 >;
 
 export async function deleteTermSheet(
@@ -1389,7 +1508,14 @@ export async function changeStudentClass(
           deletedAt: null,
         },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        classRoom: {
+          select: {
+            schoolSessionId: true,
+          },
+        },
+      },
     });
 
     if (!classroomDepartment) {
@@ -1413,6 +1539,7 @@ export async function changeStudentClass(
         id: true,
         studentSessionFormId: true,
         studentId: true,
+        schoolSessionId: true,
         sessionTermId: true,
         student: {
           select: {
@@ -1429,6 +1556,16 @@ export async function changeStudentClass(
       throw new TRPCError({
         code: "NOT_FOUND",
         message: "Term sheet was not found in this school workspace.",
+      });
+    }
+
+    if (
+      classroomDepartment.classRoom?.schoolSessionId !==
+      termForm.schoolSessionId
+    ) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "The target class must belong to the enrollment session.",
       });
     }
 
@@ -1463,6 +1600,120 @@ export async function changeStudentClass(
         },
       });
     }
+  });
+}
+
+export async function bulkChangeStudentClass(
+  ctx: TRPCContext,
+  query: BulkChangeStudentClassSchema,
+) {
+  const { db } = ctx;
+  const { schoolProfileId } = requireStudentManagementAccess(ctx);
+
+  return db.$transaction(async (tx) => {
+    const classroomDepartment = await tx.classRoomDepartment.findFirst({
+      where: {
+        id: query.classroomDepartmentId,
+        deletedAt: null,
+        classRoom: {
+          schoolProfileId,
+          deletedAt: null,
+        },
+      },
+      select: {
+        id: true,
+        classRoom: {
+          select: {
+            schoolSessionId: true,
+          },
+        },
+      },
+    });
+
+    if (!classroomDepartment) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Target class was not found in this school workspace.",
+      });
+    }
+
+    let count = 0;
+    const studentTermFormIds = Array.from(new Set(query.studentTermFormIds));
+    for (const studentTermFormId of studentTermFormIds) {
+      const termForm = await tx.studentTermForm.findFirst({
+        where: {
+          id: studentTermFormId,
+          schoolProfileId,
+          deletedAt: null,
+          student: {
+            deletedAt: null,
+            schoolProfileId,
+          },
+        },
+        select: {
+          id: true,
+          studentSessionFormId: true,
+          schoolSessionId: true,
+          sessionTermId: true,
+          student: {
+            select: {
+              id: true,
+              name: true,
+              surname: true,
+              otherName: true,
+            },
+          },
+        },
+      });
+
+      if (!termForm?.student) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "One or more term sheets were not found in this workspace.",
+        });
+      }
+
+      if (
+        classroomDepartment.classRoom?.schoolSessionId !==
+        termForm.schoolSessionId
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The target class must belong to every enrollment session.",
+        });
+      }
+
+      await assertNoExactDuplicateStudentInClassTerm(tx, {
+        schoolProfileId,
+        sessionTermId: termForm.sessionTermId,
+        classroomDepartmentId: classroomDepartment.id,
+        name: termForm.student.name,
+        surname: termForm.student.surname,
+        otherName: termForm.student.otherName,
+        excludeStudentIds: [termForm.student.id],
+      });
+
+      await tx.studentTermForm.update({
+        where: { id: termForm.id },
+        data: {
+          classroomDepartmentId: classroomDepartment.id,
+        },
+      });
+
+      await tx.studentSessionForm.updateMany({
+        where: {
+          id: termForm.studentSessionFormId,
+          schoolProfileId,
+          deletedAt: null,
+        },
+        data: {
+          classroomDepartmentId: classroomDepartment.id,
+        },
+      });
+      count += 1;
+    }
+
+    return { count };
   });
 }
 

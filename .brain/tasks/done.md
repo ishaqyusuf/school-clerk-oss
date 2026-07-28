@@ -14,6 +14,16 @@ Record of completed tasks and delivery outcomes.
 
 ## Completed Task
 
+- ID: 2026-07-28-midday-student-directory
+- Title: Midday-Style Student Directory And Shared Table Core
+- Completed: 2026-07-28
+- Outcome: Migrated `/students/list` to a single virtualized Midday-style table with persisted column controls, drag reordering, URL sorting, row selection, CSV export, role-gated bulk enrollment actions, and existing overview/edit sheet interoperability. Completed the shared table support layer, added typed tenant-scoped list contracts, authenticated the student router, and added atomic tenant-safe bulk class changes.
+- Validation: Focused student query tests passed with 27 tests and 52 assertions; dashboard typecheck passed. API typecheck reaches only the two pre-existing academic-term reset/setup errors.
+- Related changes: `apps/dashboard/src/components/tables/core`, `apps/dashboard/src/components/tables/students`, `apps/dashboard/src/hooks/use-table-dnd.ts`, `apps/dashboard/src/hooks/use-sort-params.ts`, `apps/dashboard/src/hooks/use-sort-query.ts`, `apps/api/src/db/queries/students.ts`, `apps/api/src/trpc/routers/students.routes.ts`, `.brain/features/student-directory.md`, `.brain/api/contracts.md`, `.brain/api/endpoints.md`, `.brain/api/permissions.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID:
 - Title:
 - Completed:
