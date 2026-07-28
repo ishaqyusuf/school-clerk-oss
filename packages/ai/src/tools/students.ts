@@ -304,6 +304,7 @@ export function createStudentTools(
 							sessionTermId: ctx.termId ?? undefined,
 							schoolProfileId: ctx.schoolId,
 							studentSessionFormId: sessionForm.id,
+              admissionType: "RETURNING",
 						},
 					});
 

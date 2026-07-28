@@ -22,3 +22,4 @@ export * from "./assessment-score-history";
 export * from "./attendance";
 export * from "./classroom-order";
 export * from "./qa-maintenance";
+export * from "./student-fee-application";

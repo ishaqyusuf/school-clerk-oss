@@ -40,6 +40,12 @@ enum Gender {
     Female
 }
 
+enum StudentTermAdmissionType {
+    UNCLASSIFIED
+    NEW_ADMISSION
+    RETURNING
+}
+
 model StudentSessionForm {
     id                    String               @id @default(uuid())
     student               Students?            @relation(fields: [studentId], references: [id])
@@ -78,5 +84,8 @@ model StudentTermForm {
 
     classroomDepartment   ClassRoomDepartment? @relation(fields: [classroomDepartmentId], references: [id])
     classroomDepartmentId String?
+    admissionType          StudentTermAdmissionType @default(UNCLASSIFIED)
     financeCharges        FinanceCharge[]
+
+    @@index([schoolProfileId, sessionTermId, admissionType])
 }

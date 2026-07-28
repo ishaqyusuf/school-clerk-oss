@@ -172,10 +172,11 @@ export async function setStudentClassroomAction(
   return await transaction(async (tx) => {
     let post = data?.paymentData?.storePayments;
     const pr = await getAuthCookie();
-    const profile = await createStudentAcademicProfile(
+    await createStudentAcademicProfile(
       {
         classroomDepartmentId: departmentId,
         studentId: post.studentId,
+        admissionType: "UNCLASSIFIED",
         termIds: [
           {
             sessionTermId: pr.termId,
@@ -185,13 +186,7 @@ export async function setStudentClassroomAction(
       },
       tx
     );
-    const termFrom = profile.sessionForms
-      .filter((a) => a.schoolSessionId == pr.sessionId)
-      .map((f) => {
-        return f.termForms.find((tf) => tf.sessionTermId == pr.termId);
-      })?.[0];
     void feeId;
-    void termFrom;
     // if (!post) post = {} as any;
     const { postId, ...postData } = post;
     postData.departmentId = departmentId;

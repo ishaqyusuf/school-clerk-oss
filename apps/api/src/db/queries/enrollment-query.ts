@@ -255,6 +255,7 @@ export async function entrollStudentToTerm(
         sessionTermId: data.sessionTermId,
         schoolProfileId: profile.schoolId,
         studentSessionFormId: data.studentSessionFormId!,
+        admissionType: "RETURNING",
       },
     });
 
@@ -266,6 +267,7 @@ export async function entrollStudentToTerm(
         schoolSessionId: data.schoolSessionId,
         sessionTermId: data.sessionTermId,
         classroomDepartmentId: data.classroomDepartmentId,
+        admissionType: "RETURNING",
       });
     }
     // throw new Error("CREATED DEBUG!");

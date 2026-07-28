@@ -106,16 +106,15 @@ type ExecuteRow = {
   classroomDepartmentId: string;
   action: "import_new" | "keep_match" | "update_match_with_name";
   existingStudentId: string | null;
+  admissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
 };
 type ImportAction =
-	| "import_new"
-	| "keep_match"
-	| "update_match_with_name"
-	| "skip";
+  "import_new" | "keep_match" | "update_match_with_name" | "skip";
 
 type RowDecision = {
   action?: ImportAction;
   existingStudentId?: string | null;
+  admissionType?: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
   touched?: boolean;
 };
 type ClassroomBreakdown = {
@@ -177,6 +176,9 @@ export function ImportActivity({
   const [classroomDeptId, setClassroomDeptId] = useState<string>(
     () => savedDraft?.classroomDeptId || "",
   );
+  const [admissionType, setAdmissionType] = useState<
+    "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING"
+  >(() => savedDraft?.admissionType ?? "UNCLASSIFIED");
   const [activeClassroomFilterId, setActiveClassroomFilterId] =
     useState<string>(() => savedDraft?.activeClassroomFilterId || "all");
   const [rowDecisions, setRowDecisions] = useState<Record<number, RowDecision>>(
@@ -669,11 +671,23 @@ export function ImportActivity({
         getSingleCandidateId(row);
 
       return {
+        ...current,
         action,
         existingStudentId: needsExisting ? fallbackMatchId || null : null,
         touched: true,
       };
     });
+  };
+
+  const setRowAdmissionType = (
+    lineNumber: number,
+    nextAdmissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING",
+  ) => {
+    setDecision(lineNumber, (current) => ({
+      ...current,
+      admissionType: nextAdmissionType,
+      touched: true,
+    }));
   };
 
   const setCandidate = (row: VerifyResult, candidateId: string) => {
@@ -913,6 +927,7 @@ export function ImportActivity({
         decision: rowDecisions[row.lineNumber],
         manualGender: manualGenders[row.lineNumber],
         fallbackClassroomDepartmentId: classroomDeptId,
+        fallbackAdmissionType: admissionType,
         manualClassroomRequiredLineNumbers,
       });
 
@@ -975,6 +990,7 @@ export function ImportActivity({
       decision: rowDecisions[row.lineNumber],
       manualGender: manualGenders[row.lineNumber],
       fallbackClassroomDepartmentId: classroomDeptId,
+      fallbackAdmissionType: admissionType,
       manualClassroomRequiredLineNumbers,
     });
 
@@ -1220,6 +1236,7 @@ export function ImportActivity({
   const reviewDraft = useMemo<StudentImportReviewDraft>(
     () => ({
       sourceRaw,
+      admissionType,
       classroomDeptId,
       activeClassroomFilterId,
       rowDecisions,
@@ -1280,7 +1297,7 @@ export function ImportActivity({
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       {!showExecutionOnly ? (
         <div className="rounded-md border bg-background">
-          <div className="grid gap-3 p-3 lg:grid-cols-[minmax(16rem,24rem)_auto_minmax(0,1fr)] lg:items-end">
+          <div className="grid gap-3 p-3 lg:grid-cols-[minmax(16rem,24rem)_minmax(14rem,18rem)_auto_minmax(0,1fr)] lg:items-end">
             <div className="flex min-w-0 flex-col gap-1.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Fallback Classroom
@@ -1306,6 +1323,31 @@ export function ImportActivity({
                       {classroom.classRoom.name} - {classroom.departmentName}
                     </Select.Item>
                   ))}
+                </Select.Content>
+              </Select>
+            </div>
+
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Admission status
+              </span>
+              <Select
+                value={admissionType}
+                onValueChange={(value) =>
+                  setAdmissionType(
+                    value as "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING",
+                  )
+                }
+              >
+                <Select.Trigger className="h-9 w-full bg-background">
+                  <Select.Value />
+                </Select.Trigger>
+                <Select.Content>
+                  <Select.Item value="UNCLASSIFIED">
+                    Needs classification
+                  </Select.Item>
+                  <Select.Item value="NEW_ADMISSION">New admission</Select.Item>
+                  <Select.Item value="RETURNING">Returning student</Select.Item>
                 </Select.Content>
               </Select>
             </div>
@@ -1472,6 +1514,7 @@ export function ImportActivity({
                       classroomOptions={records?.classDepartments ?? []}
                       rowDecisions={rowDecisions}
                       manualGenders={manualGenders}
+                      fallbackAdmissionType={admissionType}
                       showRowClassroom={showRowClassroom}
                       checkedRows={checkedRows}
                       nameOverrides={nameOverrides}
@@ -1480,6 +1523,7 @@ export function ImportActivity({
                       studentSearchItems={studentSearchItems}
                       onCheckedChange={setRowChecked}
                       onActionChange={setAction}
+                      onAdmissionTypeChange={setRowAdmissionType}
                       onCandidateChange={setCandidate}
                       onNamePartChange={setNamePart}
                       onNamePartsReset={resetNameParts}
@@ -1550,6 +1594,7 @@ export function ImportActivity({
                       classroomOptions={records?.classDepartments ?? []}
                       rowDecisions={rowDecisions}
                       manualGenders={manualGenders}
+                      fallbackAdmissionType={admissionType}
                       showRowClassroom={showRowClassroom}
                       checkedRows={checkedRows}
                       nameOverrides={nameOverrides}
@@ -1558,6 +1603,7 @@ export function ImportActivity({
                       studentSearchItems={studentSearchItems}
                       onCheckedChange={setRowChecked}
                       onActionChange={setAction}
+                      onAdmissionTypeChange={setRowAdmissionType}
                       onCandidateChange={setCandidate}
                       onNamePartChange={setNamePart}
                       onNamePartsReset={resetNameParts}
@@ -1619,6 +1665,7 @@ export function ImportActivity({
                       classroomOptions={records?.classDepartments ?? []}
                       rowDecisions={rowDecisions}
                       manualGenders={manualGenders}
+                      fallbackAdmissionType={admissionType}
                       showRowClassroom={showRowClassroom}
                       checkedRows={checkedRows}
                       nameOverrides={nameOverrides}
@@ -1627,6 +1674,7 @@ export function ImportActivity({
                       studentSearchItems={studentSearchItems}
                       onCheckedChange={setRowChecked}
                       onActionChange={setAction}
+                      onAdmissionTypeChange={setRowAdmissionType}
                       onCandidateChange={setCandidate}
                       onNamePartChange={setNamePart}
                       onNamePartsReset={resetNameParts}
@@ -2229,6 +2277,7 @@ function RowsList({
   classroomOptions,
   rowDecisions,
   manualGenders,
+  fallbackAdmissionType,
   showRowClassroom,
   checkedRows,
   nameOverrides,
@@ -2237,6 +2286,7 @@ function RowsList({
   studentSearchItems,
   onCheckedChange,
   onActionChange,
+  onAdmissionTypeChange,
   onCandidateChange,
   onNamePartChange,
   onNamePartsReset,
@@ -2256,6 +2306,7 @@ function RowsList({
   classroomOptions: ClassDepartment[];
   rowDecisions: Record<number, RowDecision>;
   manualGenders: Record<number, "Male" | "Female">;
+  fallbackAdmissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
   showRowClassroom: boolean;
   checkedRows: Record<number, boolean>;
   nameOverrides: Record<number, NameOverride>;
@@ -2264,6 +2315,10 @@ function RowsList({
   studentSearchItems: StudentSearchItem[];
   onCheckedChange: (lineNumber: number, checked: boolean) => void;
   onActionChange: (row: VerifyResult, action: ImportAction) => void;
+  onAdmissionTypeChange: (
+    lineNumber: number,
+    admissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING",
+  ) => void;
   onCandidateChange: (row: VerifyResult, candidateId: string) => void;
   onNamePartChange: (row: VerifyResult, option: NamePartOption) => void;
   onNamePartsReset: (lineNumber: number) => void;
@@ -2301,6 +2356,7 @@ function RowsList({
           classroomOptions={classroomOptions}
           decision={rowDecisions[row.lineNumber]}
           manualGender={manualGenders[row.lineNumber]}
+          fallbackAdmissionType={fallbackAdmissionType}
           showRowClassroom={showRowClassroom}
           checked={isRowChecked(checkedRows, row.lineNumber)}
           isNameDirty={Boolean(nameOverrides[row.lineNumber])}
@@ -2313,6 +2369,7 @@ function RowsList({
           studentSearchItems={studentSearchItems}
           onCheckedChange={onCheckedChange}
           onActionChange={onActionChange}
+          onAdmissionTypeChange={onAdmissionTypeChange}
           onCandidateChange={onCandidateChange}
           onNamePartChange={onNamePartChange}
           onNamePartsReset={onNamePartsReset}
@@ -2337,6 +2394,7 @@ function RowCard({
   classroomOptions,
   decision,
   manualGender,
+  fallbackAdmissionType,
   showRowClassroom,
   checked,
   isNameDirty,
@@ -2346,6 +2404,7 @@ function RowCard({
   studentSearchItems,
   onCheckedChange,
   onActionChange,
+  onAdmissionTypeChange,
   onCandidateChange,
   onNamePartChange,
   onNamePartsReset,
@@ -2364,6 +2423,7 @@ function RowCard({
   classroomOptions: ClassDepartment[];
   decision?: RowDecision;
   manualGender?: "Male" | "Female";
+  fallbackAdmissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
   showRowClassroom: boolean;
   checked: boolean;
   isNameDirty: boolean;
@@ -2373,6 +2433,10 @@ function RowCard({
   studentSearchItems: StudentSearchItem[];
   onCheckedChange: (lineNumber: number, checked: boolean) => void;
   onActionChange: (row: VerifyResult, action: ImportAction) => void;
+  onAdmissionTypeChange: (
+    lineNumber: number,
+    admissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING",
+  ) => void;
   onCandidateChange: (row: VerifyResult, candidateId: string) => void;
   onNamePartChange: (row: VerifyResult, option: NamePartOption) => void;
   onNamePartsReset: (lineNumber: number) => void;
@@ -2604,6 +2668,34 @@ function RowCard({
                 </Select.Item>
                 <Select.Item value="skip" disabled={!candidates.length}>
                   Skip
+                </Select.Item>
+              </Select.Content>
+            </Select>
+            <Select
+              value={decision?.admissionType ?? fallbackAdmissionType}
+              onValueChange={(value) =>
+                onAdmissionTypeChange(
+                  row.lineNumber,
+                  value as
+                    | "UNCLASSIFIED"
+                    | "NEW_ADMISSION"
+                    | "RETURNING",
+                )
+              }
+              disabled={imported || importing}
+            >
+              <Select.Trigger className="mt-1 h-8 w-full border-0 bg-background text-xs shadow-none">
+                <Select.Value />
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Item value="UNCLASSIFIED">
+                  Needs classification
+                </Select.Item>
+                <Select.Item value="NEW_ADMISSION">
+                  New admission
+                </Select.Item>
+                <Select.Item value="RETURNING">
+                  Returning student
                 </Select.Item>
               </Select.Content>
             </Select>
@@ -3198,12 +3290,14 @@ function buildExecuteRow({
   decision,
   manualGender,
   fallbackClassroomDepartmentId,
+  fallbackAdmissionType,
   manualClassroomRequiredLineNumbers,
 }: {
   row: VerifyResult;
   decision?: RowDecision;
   manualGender?: "Male" | "Female";
   fallbackClassroomDepartmentId: string;
+  fallbackAdmissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
   manualClassroomRequiredLineNumbers: Set<number>;
 }): BuildExecuteRowResult {
   const action = decision?.action;
@@ -3267,6 +3361,7 @@ function buildExecuteRow({
       classroomDepartmentId: rowClassroomDepartmentId,
       action,
       existingStudentId,
+      admissionType: decision?.admissionType ?? fallbackAdmissionType,
     },
   };
 }
@@ -3295,6 +3390,13 @@ function sanitizeRowDecisions(
           {
             action: decision.action,
             existingStudentId: decision.existingStudentId ?? null,
+            admissionType:
+              decision.admissionType === "NEW_ADMISSION" ||
+              decision.admissionType === "RETURNING"
+                ? decision.admissionType
+                : decision.admissionType === "UNCLASSIFIED"
+                  ? "UNCLASSIFIED"
+                  : undefined,
             touched: Boolean(decision.touched),
           } satisfies RowDecision,
         ],

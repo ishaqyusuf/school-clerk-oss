@@ -1,5 +1,24 @@
 # Migrations
 
+## Migration Entry
+
+- Date: 2026-07-28
+- ID: SCHEMA-2026-07-28-admission-status-fee-audience
+- Summary: Added explicit per-term student admission classification and
+  finance-item student audience targeting, plus charge-assignment provenance.
+- Affected entities: `StudentTermForm`, `FinanceItem`, `FinanceCharge`,
+  `StudentTermAdmissionType`, `FinanceStudentAudience`,
+  `FinanceChargeAssignmentSource`
+- Backfill required: No. Existing term forms default to `UNCLASSIFIED` and
+  existing finance items default to `ALL_STUDENTS`; legacy charge provenance
+  remains nullable.
+- Applied: `bun run db:generate`, `bun run db:push --local`, and
+  `bun run db:push --prod` succeeded on 2026-07-28. No migration file,
+  remote-development push, or destructive flag was used.
+- Rollback plan: Remove UI/API use, export admission classifications if needed,
+  regenerate Prisma Client, then remove the index, columns, and enums.
+- Owner: Codex
+
 ## Purpose
 
 Change log for database schema migrations and rollout notes.

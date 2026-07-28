@@ -1155,6 +1155,7 @@ async function executePaymentImportRow(
 								? "COLLECTED"
 								: "NOT_COLLECTED"
 							: "NOT_REQUIRED",
+					assignmentSource: "MANUAL",
 					createdById: job.createdByUserId,
 				},
 			});

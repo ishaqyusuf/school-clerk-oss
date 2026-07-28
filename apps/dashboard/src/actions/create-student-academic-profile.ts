@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { transaction } from "@/utils/db";
 import { z } from "zod";
 
-import { prisma } from "@school-clerk/db";
+import {
+  applyFeeHistoriesToStudentTermForm,
+  prisma,
+} from "@school-clerk/db";
 
 import { getAuthCookie } from "./cookies/auth-cookie";
 import { actionClient } from "./safe-action";
@@ -18,7 +21,7 @@ export async function createStudentAcademicProfile(
   tx: typeof prisma = prisma
 ) {
   const profile = await getAuthCookie();
-  const student = tx.students.update({
+  const student = await tx.students.update({
     where: {
       id: data.studentId,
     },
@@ -37,6 +40,7 @@ export async function createStudentAcademicProfile(
                       schoolProfileId: profile.schoolId,
                       studentId: data.studentId,
                       classroomDepartmentId: data?.classroomDepartmentId,
+                      admissionType: data.admissionType,
                     })),
                   },
                 },
@@ -54,20 +58,43 @@ export async function createStudentAcademicProfile(
                     ...termForm,
                     schoolProfileId: profile.schoolId,
                     studentId: data.studentId,
+                    admissionType: data.admissionType,
                   })),
                 },
               },
             },
           },
     },
-    include: {
-      sessionForms: {
-        include: {
-          termForms: true,
-        },
+  });
+  const termForms = await tx.studentTermForm.findMany({
+    where: {
+      schoolProfileId: profile.schoolId,
+      studentId: data.studentId,
+      sessionTermId: {
+        in: data.termIds.map((term) => term.sessionTermId),
       },
     },
   });
+  for (const requestedTerm of data.termIds) {
+    const termForm = termForms.find(
+      (form) =>
+        form.sessionTermId === requestedTerm.sessionTermId &&
+        form.schoolSessionId === requestedTerm.schoolSessionId,
+    );
+    const classroomDepartmentId =
+      termForm?.classroomDepartmentId ?? data.classroomDepartmentId;
+    if (!termForm || !classroomDepartmentId) continue;
+
+    await applyFeeHistoriesToStudentTermForm(tx, {
+      schoolProfileId: profile.schoolId,
+      studentId: data.studentId,
+      studentTermFormId: termForm.id,
+      schoolSessionId: requestedTerm.schoolSessionId,
+      sessionTermId: requestedTerm.sessionTermId,
+      classroomDepartmentId,
+      admissionType: data.admissionType,
+    });
+  }
   return student;
 }
 export const createStudentAcademicProfileAction = actionClient

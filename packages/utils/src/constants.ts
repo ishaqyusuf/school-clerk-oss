@@ -5,6 +5,23 @@ export const STUDENT_PAGE_STATUS_FILTERS = [
 	"no enrollement record",
 ] as const;
 
+export const STUDENT_TERM_ADMISSION_TYPES = [
+	"UNCLASSIFIED",
+	"NEW_ADMISSION",
+	"RETURNING",
+] as const;
+
+export type StudentTermAdmissionType =
+	(typeof STUDENT_TERM_ADMISSION_TYPES)[number];
+
+export const FINANCE_STUDENT_AUDIENCES = [
+	"ALL_STUDENTS",
+	"NEW_ADMISSIONS_ONLY",
+	"RETURNING_STUDENTS_ONLY",
+] as const;
+
+export type FinanceStudentAudience = (typeof FINANCE_STUDENT_AUDIENCES)[number];
+
 export const daysFilters = [
 	"yesterday",
 	"today",

@@ -1,5 +1,8 @@
 import { z } from "@hono/zod-openapi";
-import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
+import {
+  STUDENT_PAGE_STATUS_FILTERS,
+  STUDENT_TERM_ADMISSION_TYPES,
+} from "@school-clerk/utils/constants";
 import { paginationSchema } from "./schemas";
 
 export const studentSortFields = [
@@ -18,6 +21,10 @@ export const getStudentsSchema = z.object({
   classroomTitle: z.string().optional().nullable(),
   studentId: z.string().optional().nullable(),
   status: z.enum(STUDENT_PAGE_STATUS_FILTERS).optional().nullable(),
+  admissionTypes: z
+    .array(z.enum(STUDENT_TERM_ADMISSION_TYPES))
+    .optional()
+    .nullable(),
   cursor: z.string().optional().nullable(),
   pageSize: z.number().min(1).max(100).optional().nullable(),
   size: z.number().min(1).max(100).optional().nullable(),

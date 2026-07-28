@@ -23,6 +23,7 @@ import { QuickFill } from "@/components/quick-fill";
 import { useAuth } from "@/hooks/use-auth";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { ButtonGroup } from "@school-clerk/ui/button-group";
+import { Checkbox } from "@school-clerk/ui/checkbox";
 import { FormDate } from "@school-clerk/ui/controls/form-date";
 import { FormInput } from "@school-clerk/ui/controls/form-input";
 import { FormSelect } from "@school-clerk/ui/controls/form-select";
@@ -100,6 +101,8 @@ export function Form({}) {
   const auth = useAuth();
   const name = watch("name");
   const classRoomId = watch("classRoomId");
+  const admissionType = watch("admissionType");
+  const selectedOptionalFeeItemIds = watch("selectedOptionalFeeItemIds") ?? [];
 
   useEffect(() => {
     if (classRoomId && classList?.data) {
@@ -115,6 +118,7 @@ export function Form({}) {
       {
         sessionTermId: auth?.profile?.termId || "",
         classroomDepartmentId: classRoomId || null,
+        admissionType,
       },
       {
         enabled: Boolean(auth?.profile?.termId),
@@ -143,6 +147,18 @@ export function Form({}) {
         />
         <FormDate control={control} label="DoB" name="dob" />
       </div>
+      <FormSelect
+        name="admissionType"
+        label="Admission status for this term"
+        options={[
+          { id: "UNCLASSIFIED", title: "Needs classification" },
+          { id: "NEW_ADMISSION", title: "New admission" },
+          { id: "RETURNING", title: "Returning student" },
+        ]}
+        valueKey="id"
+        titleKey="title"
+        control={control}
+      />
       <div className="space-y-2">
         <Label>Classroom</Label>
 				<Select
@@ -204,9 +220,7 @@ export function Form({}) {
         />
       )}
       <div className="rounded-lg border border-border p-3">
-				<h4 className="text-sm font-medium">
-					Fees that will be applied on save
-				</h4>
+        <h4 className="text-sm font-medium">Fees for this student</h4>
         {!applicableFeesPreview?.length ? (
           <p className="mt-2 text-sm text-muted-foreground">
             No active term fees match this class selection.
@@ -216,7 +230,32 @@ export function Form({}) {
             {applicableFeesPreview.map((fee) => (
               <li key={fee.feeHistoryId} className="rounded-md border p-2">
                 <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {!fee.collectable && (
+                      <Checkbox
+                        checked={selectedOptionalFeeItemIds.includes(
+                          fee.feeHistoryId,
+                        )}
+                        onCheckedChange={(checked) => {
+                          const next = checked
+                            ? Array.from(
+                                new Set([
+                                  ...selectedOptionalFeeItemIds,
+                                  fee.feeHistoryId,
+                                ]),
+                              )
+                            : selectedOptionalFeeItemIds.filter(
+                                (id) => id !== fee.feeHistoryId,
+                              );
+                          setValue("selectedOptionalFeeItemIds", next, {
+                            shouldDirty: true,
+                          });
+                        }}
+                        aria-label={`Add ${fee.title}`}
+                      />
+                    )}
                   <span className="font-medium">{fee.title}</span>
+                  </div>
                   <span className="text-sm">
                     {new Intl.NumberFormat("en-NG", {
                       style: "currency",
@@ -229,6 +268,11 @@ export function Form({}) {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Scope: {fee.scope} • Stream: {fee.streamName || "Unassigned"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {fee.collectable
+                    ? "Required — added automatically"
+                    : "Optional — select to add"}
                 </p>
               </li>
             ))}

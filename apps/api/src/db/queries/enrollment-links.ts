@@ -1048,6 +1048,7 @@ export async function approveEnrollmentApplication(
 				studentId: student.id,
 				studentSessionFormId: sessionForm.id,
 				classroomDepartmentId: application.classRoomDepartmentId,
+        admissionType: "NEW_ADMISSION",
 			},
 			select: { id: true },
 		});
@@ -1059,6 +1060,7 @@ export async function approveEnrollmentApplication(
 			schoolSessionId: ctx.profile.sessionId,
 			sessionTermId: ctx.profile.termId,
 			classroomDepartmentId: application.classRoomDepartmentId,
+			admissionType: "NEW_ADMISSION",
 		});
 
 		if (primaryParent) {

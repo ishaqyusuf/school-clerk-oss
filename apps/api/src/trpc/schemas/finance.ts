@@ -11,6 +11,11 @@ export const financeItemTypeSchema = z.enum([
 	"SALARY",
 	"OTHER",
 ]);
+export const financeStudentAudienceSchema = z.enum([
+  "ALL_STUDENTS",
+  "NEW_ADMISSIONS_ONLY",
+  "RETURNING_STUDENTS_ONLY",
+]);
 export const financePayerTypeSchema = z.enum(["STUDENT", "STAFF", "SCHOOL"]);
 export const financePayeeTypeSchema = z.enum([
 	"VENDOR",
@@ -55,6 +60,7 @@ export const financeItemInputSchema = z.object({
 	description: nullableString,
 	amount: money,
 	collectable: z.boolean().optional(),
+  studentAudience: financeStudentAudienceSchema.optional(),
 	isActive: z.boolean().optional(),
 	sessionId: nullableString,
 	termId: nullableString,

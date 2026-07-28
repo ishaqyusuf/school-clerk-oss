@@ -102,6 +102,7 @@ type StudentTermChargeForm = {
 	sessionTermId: string | null;
 	schoolSessionId: string | null;
 	classroomDepartmentId: string | null;
+  admissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
 };
 
 const FINANCE_READ_ROLES = new Set(["ADMIN", "Admin", "Accountant"]);
@@ -258,7 +259,7 @@ async function assertTermLedgerWritable(
 	}
 }
 
-async function reconcileStudentTermChargesForForm(
+export async function reconcileStudentTermChargesForForm(
 	tx: StudentChargeReconciliationDb,
 	params: {
 		schoolProfileId: string;
@@ -297,26 +298,6 @@ async function reconcileStudentTermChargesForForm(
 		});
 	}
 
-	const applicableItems = await tx.financeItem.findMany({
-		where: {
-			schoolProfileId,
-			deletedAt: null,
-			isActive: true,
-			collectable: true,
-			OR: [{ sessionTermId: termForm.sessionTermId }, { sessionTermId: null }],
-			AND: [
-				{
-					OR: [
-						{ schoolSessionId: termForm.schoolSessionId },
-						{ schoolSessionId: null },
-					],
-				},
-				{ OR: classApplicability },
-			],
-		},
-		orderBy: [{ type: "asc" }, { name: "asc" }],
-	});
-
 	const existingCharges = await tx.financeCharge.findMany({
 		where: {
 			schoolProfileId,
@@ -333,6 +314,53 @@ async function reconcileStudentTermChargesForForm(
 			],
 		},
 		orderBy: [{ createdAt: "asc" }],
+	});
+	const existingItemIds = existingCharges
+		.filter((charge) => charge.assignmentSource === "OPTIONAL_SELECTED")
+		.map((charge) => charge.itemId)
+		.filter((itemId): itemId is string => Boolean(itemId));
+
+	const applicableItems = await tx.financeItem.findMany({
+		where: {
+			schoolProfileId,
+			deletedAt: null,
+			isActive: true,
+			AND: [
+				{
+					OR: [
+						{ collectable: true },
+						...(existingItemIds.length
+							? [{ id: { in: existingItemIds } }]
+							: []),
+					],
+				},
+				{
+					OR: [
+						{ studentAudience: "ALL_STUDENTS" },
+						...(termForm.admissionType === "NEW_ADMISSION"
+							? [{ studentAudience: "NEW_ADMISSIONS_ONLY" as const }]
+							: []),
+						...(termForm.admissionType === "RETURNING"
+							? [{ studentAudience: "RETURNING_STUDENTS_ONLY" as const }]
+							: []),
+					],
+				},
+				{
+					OR: [
+						{ sessionTermId: termForm.sessionTermId },
+						{ sessionTermId: null },
+					],
+				},
+				{
+					OR: [
+						{ schoolSessionId: termForm.schoolSessionId },
+						{ schoolSessionId: null },
+					],
+				},
+				{ OR: classApplicability },
+			],
+		},
+		orderBy: [{ type: "asc" }, { name: "asc" }],
 	});
 
 	const applicableItemIds = new Set(applicableItems.map((item) => item.id));
@@ -354,7 +382,15 @@ async function reconcileStudentTermChargesForForm(
 	for (const item of applicableItems) {
 		const charges = chargesByItemId.get(item.id) ?? [];
 		const primary =
-			charges.find((charge) => toNumber(charge.amountPaid) > 0) ?? charges[0];
+			charges.find(
+				(charge) =>
+					charge.assignmentSource !== "MANUAL" &&
+					toNumber(charge.amountPaid) > 0,
+			) ??
+			charges.find((charge) => charge.assignmentSource !== "MANUAL");
+		const assignmentSource = item.collectable
+			? "REQUIRED_AUTO"
+			: "OPTIONAL_SELECTED";
 
 		if (!primary) {
 			await tx.financeCharge.create({
@@ -372,6 +408,7 @@ async function reconcileStudentTermChargesForForm(
 					description: item.description,
 					amount: item.amount,
 					collectionStatus: "NOT_COLLECTED",
+					assignmentSource,
 					createdById: params.createdById,
 				},
 			});
@@ -393,6 +430,7 @@ async function reconcileStudentTermChargesForForm(
 					description: item.description,
 					amount: item.amount,
 					collectionStatus: "NOT_COLLECTED",
+					assignmentSource,
 					status: "PENDING",
 					cancelledAt: null,
 					cancellationReason: null,
@@ -404,7 +442,9 @@ async function reconcileStudentTermChargesForForm(
 		const duplicateIds = charges
 			.filter(
 				(charge) =>
-					charge.id !== primary.id && toNumber(charge.amountPaid) <= 0,
+					charge.id !== primary.id &&
+					charge.assignmentSource !== "MANUAL" &&
+					toNumber(charge.amountPaid) <= 0,
 			)
 			.map((charge) => charge.id);
 
@@ -428,6 +468,8 @@ async function reconcileStudentTermChargesForForm(
 			(charge) =>
 				charge.itemId &&
 				!applicableItemIds.has(charge.itemId) &&
+				(charge.assignmentSource === "REQUIRED_AUTO" ||
+					charge.assignmentSource === "OPTIONAL_SELECTED") &&
 				toNumber(charge.amountPaid) <= 0,
 		)
 		.map((charge) => charge.id);
@@ -472,6 +514,7 @@ async function findStudentTermFormForFinance(
 			sessionTermId: true,
 			schoolSessionId: true,
 			classroomDepartmentId: true,
+      admissionType: true,
 		},
 	});
 }
@@ -530,6 +573,7 @@ async function reconcileClassroomTermCharges(
 				sessionTermId: true,
 				schoolSessionId: true,
 				classroomDepartmentId: true,
+        admissionType: true,
 			},
 		});
 
@@ -547,6 +591,77 @@ async function reconcileClassroomTermCharges(
 
 		return result;
 	});
+}
+
+const FEE_ITEM_RECONCILIATION_BATCH_SIZE = 25;
+
+async function reconcileTermChargesInBatches(
+	ctx: TRPCContext,
+	input: { schoolProfileId: string; termId: string },
+) {
+	let cursor: string | undefined;
+	let reconciledTermForms = 0;
+	const failedTermFormIds: string[] = [];
+
+	while (true) {
+		const termForms = await ctx.db.studentTermForm.findMany({
+			where: {
+				schoolProfileId: input.schoolProfileId,
+				sessionTermId: input.termId,
+				deletedAt: null,
+				studentId: { not: null },
+			},
+			select: {
+				id: true,
+				studentId: true,
+				sessionTermId: true,
+				schoolSessionId: true,
+				classroomDepartmentId: true,
+				admissionType: true,
+			},
+			orderBy: { id: "asc" },
+			take: FEE_ITEM_RECONCILIATION_BATCH_SIZE,
+			...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+		});
+
+		if (!termForms.length) break;
+
+		const reconcileBatch = () =>
+			ctx.db.$transaction(
+				async (tx) => {
+					for (const termForm of termForms) {
+						await reconcileStudentTermChargesForForm(tx, {
+							schoolProfileId: input.schoolProfileId,
+							createdById: ctx.currentUser?.id,
+							termForm,
+						});
+					}
+				},
+				{ maxWait: 10_000, timeout: 60_000 },
+			);
+
+		try {
+			await reconcileBatch();
+			reconciledTermForms += termForms.length;
+		} catch {
+			try {
+				await reconcileBatch();
+				reconciledTermForms += termForms.length;
+			} catch {
+				failedTermFormIds.push(...termForms.map((termForm) => termForm.id));
+			}
+		}
+
+		cursor = termForms.at(-1)?.id;
+		if (termForms.length < FEE_ITEM_RECONCILIATION_BATCH_SIZE) break;
+	}
+
+	return {
+		status: failedTermFormIds.length ? ("PARTIAL" as const) : ("COMPLETED" as const),
+		reconciledTermForms,
+		failedTermFormIds,
+		retryable: failedTermFormIds.length > 0,
+	};
 }
 
 function ledgerDirectionForStream(accountType: "CREDIT" | "DEBIT") {
@@ -850,7 +965,7 @@ export async function upsertFinanceItem(
 	requireFinanceAdmin(ctx, "Only an Admin can create or update finance items.");
 	const schoolProfileId = requireSchoolId(ctx);
 
-	return ctx.db.$transaction(async (tx) => {
+	const item = await ctx.db.$transaction(async (tx) => {
 		const stream = await getOrCreateStream(tx, {
 			schoolProfileId,
 			streamId: input.streamId,
@@ -886,9 +1001,22 @@ export async function upsertFinanceItem(
 					message: "Finance item was not found.",
 				});
 			}
-			item = await tx.financeItem.update({ where: { id: input.id }, data });
+			item = await tx.financeItem.update({
+				where: { id: input.id },
+				data: {
+					...data,
+					...(input.studentAudience
+						? { studentAudience: input.studentAudience }
+						: {}),
+				},
+			});
 		} else {
-			item = await tx.financeItem.create({ data });
+			item = await tx.financeItem.create({
+				data: {
+					...data,
+					studentAudience: input.studentAudience ?? "ALL_STUDENTS",
+				},
+			});
 		}
 
 		await tx.financeItemClassRoomDepartment.deleteMany({
@@ -906,7 +1034,24 @@ export async function upsertFinanceItem(
 		}
 
 		return item;
+	}, {
+		maxWait: 10_000,
+		timeout: 60_000,
 	});
+
+	const reconciliation = input.termId
+		? await reconcileTermChargesInBatches(ctx, {
+				schoolProfileId,
+				termId: input.termId,
+			})
+		: {
+				status: "NOT_APPLICABLE" as const,
+				reconciledTermForms: 0,
+				failedTermFormIds: [],
+				retryable: false,
+			};
+
+	return { ...item, reconciliation };
 }
 
 export async function listFinanceItems(
@@ -962,6 +1107,7 @@ export async function listFinanceItems(
 			description: item.description,
 			amount: toNumber(item.amount),
 			collectable: item.collectable,
+      studentAudience: item.studentAudience,
 			isActive: item.isActive,
 			schoolSessionId: item.schoolSessionId,
 			sessionTermId: item.sessionTermId,
@@ -1034,6 +1180,7 @@ export async function createFinanceCharge(
 				collectionStatus:
 					input.collectionStatus ??
 					(item?.collectable ? "NOT_COLLECTED" : "NOT_REQUIRED"),
+				assignmentSource: "MANUAL",
 				dueDate: input.dueDate,
 				createdById: ctx.currentUser?.id,
 			},
@@ -2117,6 +2264,7 @@ export async function recordFinancePurchase(
 				amountPaid: toMoney(0),
 				status: amountPaid > 0 ? "PARTIALLY_PAID" : "PENDING",
 				collectionStatus: "NOT_REQUIRED",
+				assignmentSource: "MANUAL",
 				createdById: ctx.currentUser?.id,
 			},
 		});
@@ -2623,6 +2771,7 @@ export async function getReceivePaymentOptions(
 					sessionTermId: true,
 					schoolSessionId: true,
 					classroomDepartmentId: true,
+          admissionType: true,
 					classroomDepartment: {
 						select: {
 							id: true,
@@ -2748,6 +2897,17 @@ export async function getReceivePaymentOptions(
 				? { OR: [{ sessionTermId: effectiveTermId }, { sessionTermId: null }] }
 				: {}),
 			AND: [
+        {
+          OR: [
+            { studentAudience: "ALL_STUDENTS" },
+            ...(termForm?.admissionType === "NEW_ADMISSION"
+              ? [{ studentAudience: "NEW_ADMISSIONS_ONLY" as const }]
+              : []),
+            ...(termForm?.admissionType === "RETURNING"
+              ? [{ studentAudience: "RETURNING_STUDENTS_ONLY" as const }]
+              : []),
+          ],
+        },
 				...(effectiveSessionId
 					? [
 							{
@@ -3193,6 +3353,7 @@ export async function receiveStudentPaymentSimple(
 					sessionTermId: true,
 					schoolSessionId: true,
 					classroomDepartmentId: true,
+          admissionType: true,
 				},
 			})
 		: await findStudentTermFormForFinance(ctx.db, {
@@ -3275,6 +3436,17 @@ export async function receiveStudentPaymentSimple(
 					{ sessionTermId: null },
 				],
 				AND: [
+          {
+            OR: [
+              { studentAudience: "ALL_STUDENTS" },
+              ...(termForm.admissionType === "NEW_ADMISSION"
+                ? [{ studentAudience: "NEW_ADMISSIONS_ONLY" as const }]
+                : []),
+              ...(termForm.admissionType === "RETURNING"
+                ? [{ studentAudience: "RETURNING_STUDENTS_ONLY" as const }]
+                : []),
+            ],
+          },
 					{
 						OR: [
 							{ schoolSessionId: termForm.schoolSessionId },
@@ -3526,10 +3698,7 @@ export async function getFinanceTermLedger(
 		termTitle: term.title,
 		sessionTitle: term.session?.title ?? null,
 		status: (closeRecord?.status ?? "OPEN") as
-			| "OPEN"
-			| "CLOSING"
-			| "CLOSED"
-			| "REOPENED",
+      "OPEN" | "CLOSING" | "CLOSED" | "REOPENED",
 		statusLabel:
 			closeRecord?.status === "CLOSED"
 				? "Closed"
@@ -3559,10 +3728,7 @@ export async function getFinanceTermLedger(
 		},
 		lifecycle: {
 			current: (closeRecord?.status ?? "OPEN") as
-				| "OPEN"
-				| "CLOSING"
-				| "CLOSED"
-				| "REOPENED",
+        "OPEN" | "CLOSING" | "CLOSED" | "REOPENED",
 			availableStatuses: ["DRAFT", "OPEN", "CLOSING", "CLOSED", "REOPENED"],
 			canClose: financePermissionFlags(ctx).canCreateSchoolFee,
 			canReopen: financePermissionFlags(ctx).canCreateSchoolFee,
@@ -4474,12 +4640,7 @@ type FinanceWorkspaceCharge = {
 	amount: Prisma.Decimal | number | string;
 	amountPaid: Prisma.Decimal | number | string;
 	status:
-		| "DRAFT"
-		| "PENDING"
-		| "PARTIALLY_PAID"
-		| "PAID"
-		| "CANCELLED"
-		| "WAIVED";
+    "DRAFT" | "PENDING" | "PARTIALLY_PAID" | "PAID" | "CANCELLED" | "WAIVED";
 };
 
 type FinanceWorkspaceStream = {

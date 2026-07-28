@@ -1374,6 +1374,7 @@ async function applySetupTransaction(
         studentId: string;
         studentSessionFormId: string;
         classroomDepartmentId: string;
+        admissionType: "RETURNING";
       }
     >();
     for (const sourceForm of source.termForms) {
@@ -1402,6 +1403,7 @@ async function applySetupTransaction(
         studentId: sourceForm.studentId,
         studentSessionFormId: sourceForm.studentSessionFormId,
         classroomDepartmentId: targetDepartmentId,
+        admissionType: "RETURNING" as const,
       });
     }
 
@@ -1444,12 +1446,37 @@ async function applySetupTransaction(
           schoolProfileId,
           isActive: true,
           deletedAt: null,
-          applicableClasses: {
-            some: {
-              classRoomDepartmentId: { in: departmentIds },
-              deletedAt: null,
+          collectable: true,
+          AND: [
+            {
+              OR: [
+                { studentAudience: "ALL_STUDENTS" },
+                { studentAudience: "RETURNING_STUDENTS_ONLY" },
+              ],
             },
-          },
+            {
+              OR: [
+                { schoolSessionId: preview.target.sessionId },
+                { schoolSessionId: null },
+              ],
+            },
+            {
+              OR: [{ sessionTermId: input.termId }, { sessionTermId: null }],
+            },
+            {
+              OR: [
+                { applicableClasses: { none: { deletedAt: null } } },
+                {
+                  applicableClasses: {
+                    some: {
+                      classRoomDepartmentId: { in: departmentIds },
+                      deletedAt: null,
+                    },
+                  },
+                },
+              ],
+            },
+          ],
         },
         select: {
           id: true,
@@ -1467,6 +1494,9 @@ async function applySetupTransaction(
           },
         },
       });
+      const globalFeeItems = feeItems.filter(
+        (item) => item.applicableClasses.length === 0,
+      );
       const feeItemsByDepartment = new Map<string, typeof feeItems>();
       for (const feeItem of feeItems) {
         for (const applicability of feeItem.applicableClasses) {
@@ -1480,8 +1510,10 @@ async function applySetupTransaction(
         }
       }
       const chargeRows = newEnrollments.flatMap((enrollment) =>
-        (feeItemsByDepartment.get(enrollment.classroomDepartmentId) ?? []).map(
-          (item) => ({
+        [
+          ...globalFeeItems,
+          ...(feeItemsByDepartment.get(enrollment.classroomDepartmentId) ?? []),
+        ].map((item) => ({
             schoolProfileId,
             streamId: item.streamId,
             itemId: item.id,
@@ -1494,9 +1526,8 @@ async function applySetupTransaction(
             title: item.name,
             description: item.description,
             amount: item.amount,
-            collectionStatus: item.collectable
-              ? ("NOT_COLLECTED" as const)
-              : ("NOT_REQUIRED" as const),
+            collectionStatus: "NOT_COLLECTED" as const,
+            assignmentSource: "REQUIRED_AUTO" as const,
           }),
         ),
       );

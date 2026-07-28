@@ -2,10 +2,7 @@ export const STUDENT_IMPORT_DRAFT_STORAGE_KEY = "student-import-draft-v1";
 export const LEGACY_STUDENT_IMPORT_RAW_STORAGE_KEY = "student-import-data";
 
 export type StudentImportDraftAction =
-  | "import_new"
-  | "keep_match"
-  | "update_match_with_name"
-  | "skip";
+  "import_new" | "keep_match" | "update_match_with_name" | "skip";
 
 export type StudentImportDraftNamePart = "name" | "surname" | "otherName";
 
@@ -26,11 +23,13 @@ export type StudentImportDraftNameOverride = {
 export type StudentImportDraftRowDecision = {
   action?: StudentImportDraftAction;
   existingStudentId?: string | null;
+  admissionType?: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
   touched?: boolean;
 };
 
 export type StudentImportReviewDraft = {
   sourceRaw: string;
+  admissionType?: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
   classroomDeptId?: string;
   activeClassroomFilterId?: string;
   rowDecisions?: Record<number, StudentImportDraftRowDecision>;
@@ -49,13 +48,12 @@ export type StudentImportDraft = {
     raw: string;
     tab: "main" | "importing";
     importPhase: "review" | "import";
+    admissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
   };
   review: StudentImportReviewDraft | null;
 };
 
-export function createEmptyStudentImportDraft(
-  raw = "",
-): StudentImportDraft {
+export function createEmptyStudentImportDraft(raw = ""): StudentImportDraft {
   return {
     version: 1,
     setup: {
@@ -64,6 +62,7 @@ export function createEmptyStudentImportDraft(
       raw,
       tab: "main",
       importPhase: "review",
+      admissionType: "UNCLASSIFIED",
     },
     review: null,
   };
@@ -91,6 +90,11 @@ export function normalizeStudentImportDraft(
       raw: draft.setup?.raw ?? fallbackRaw,
       tab: draft.setup?.tab === "importing" ? "importing" : "main",
       importPhase: draft.setup?.importPhase === "import" ? "import" : "review",
+      admissionType:
+        draft.setup?.admissionType === "NEW_ADMISSION" ||
+        draft.setup?.admissionType === "RETURNING"
+          ? draft.setup.admissionType
+          : "UNCLASSIFIED",
     },
     review: draft.review ?? null,
   };

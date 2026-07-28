@@ -3,6 +3,24 @@
 ## Overview
 Student fees are the school-side charges billed to individual students. They are separate from `Billable`/`BillableHistory` (which are for staff payroll and service expenses).
 
+## Admission Audience And Required Status
+
+- Standardized `FinanceItem` rows have a `studentAudience` of all students, new
+  admissions only, or returning students only.
+- Audience is independent of `collectable`: required matching items auto-charge;
+  optional matching items appear as quick fee choices during student creation.
+- Applicability combines session, term, classroom, and the selected
+  `StudentTermForm.admissionType`.
+- Creating a current-term item immediately reconciles matching term forms.
+  Classification changes create newly required charges and cancel only unpaid
+  no-longer-applicable item-backed charges. Paid and partially paid rows remain.
+- New fee creation never reuses an existing item by name. Reusing a title
+  creates a separate structure for the selected period; only the edit flow
+  updates an existing item.
+- Current-term reconciliation runs in bounded batches, retries each failed
+  batch once, and reports a partial result without rolling back the already
+  saved fee or successful batches.
+
 ## Data Model Lifecycle
 
 ```

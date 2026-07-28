@@ -1,8 +1,5 @@
 import { useTRPC } from "@/trpc/client";
-import {
-  useMutation,
-  useQuery,
-} from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { TableSkeleton } from "../tables/skeleton";
 import { Suspense } from "react";
 
@@ -161,7 +158,7 @@ function NotEntrolled() {
           error: "Unable to complete!",
         },
       },
-    })
+    }),
   );
   useDebugToast("Enrollment Form", enrolledData, error);
   const onSubmit = (formData: typeof entrollStudentToTermSchema._type) => {
@@ -170,7 +167,7 @@ function NotEntrolled() {
   const { data: classrooms } = useQuery(
     trpc.classrooms.getClassroomsForSession.queryOptions(term?.termSessionId, {
       enabled: !!term?.termSessionId,
-    })
+    }),
   );
   const selectedClassroomDepartmentId = form.watch("classroomDepartmentId");
   const { data: applicableFeesPreview } = useQuery(
@@ -178,11 +175,12 @@ function NotEntrolled() {
       {
         sessionTermId: term?.termId || "",
         classroomDepartmentId: selectedClassroomDepartmentId || null,
+        admissionType: "RETURNING",
       },
       {
         enabled: Boolean(term?.termId),
-      }
-    )
+      },
+    ),
   );
 
   // build nice student not enrolled for this term card, with enrollement formˆ

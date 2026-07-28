@@ -10,6 +10,7 @@ const {
   getStudentImportJob,
   getStudents,
   processStudentImportJob,
+  setStudentAdmissionType,
   startStudentImportJob,
   verifyStudentImport,
 } = await import("./students");
@@ -171,6 +172,97 @@ describe("getStudents", () => {
     expect(findManyCalls[0]?.orderBy).toEqual([
       { dob: { sort: "desc", nulls: "last" } },
       { id: "asc" },
+    ]);
+  });
+
+  test("filters admission status on the selected term record", async () => {
+    const countCalls: any[] = [];
+    const ctx = {
+      profile: {
+        schoolId: "school-1",
+        sessionId: "session-1",
+        termId: "term-1",
+      },
+      db: {
+        students: {
+          count: async (args: any) => {
+            countCalls.push(args);
+            return 0;
+          },
+          findMany: async () => [],
+        },
+      },
+    } as any;
+
+    await getStudents(ctx, {
+      admissionTypes: ["NEW_ADMISSION", "UNCLASSIFIED"],
+    });
+
+    expect(countCalls[0]?.where).toMatchObject({
+      AND: [
+        { schoolProfileId: "school-1", deletedAt: null },
+        {
+          termForms: {
+            some: {
+              deletedAt: null,
+              sessionTermId: "term-1",
+              admissionType: {
+                in: ["NEW_ADMISSION", "UNCLASSIFIED"],
+              },
+            },
+          },
+        },
+      ],
+    });
+  });
+});
+
+describe("setStudentAdmissionType", () => {
+  test("tenant-scopes the term update and safely skips incomplete fee context", async () => {
+    const updates: any[] = [];
+    const ctx = {
+      profile: {
+        schoolId: "school-1",
+        sessionId: "session-1",
+        termId: "term-1",
+      },
+      currentUser: { id: "admin-1", role: "Admin" },
+      db: {
+        $transaction: async (callback: (tx: any) => unknown) =>
+          callback({
+            studentTermForm: {
+              findMany: async () => [
+                {
+                  id: "form-1",
+                  studentId: "student-1",
+                  schoolSessionId: null,
+                  sessionTermId: null,
+                  classroomDepartmentId: null,
+                },
+              ],
+              updateMany: async (args: any) => {
+                updates.push(args);
+                return { count: 1 };
+              },
+            },
+          }),
+      },
+    } as any;
+
+    const result = await setStudentAdmissionType(ctx, {
+      studentTermFormId: "form-1",
+      admissionType: "RETURNING",
+    });
+
+    expect(result.updated).toBe(1);
+    expect(updates).toEqual([
+      {
+        where: {
+          id: { in: ["form-1"] },
+          schoolProfileId: "school-1",
+        },
+        data: { admissionType: "RETURNING" },
+      },
     ]);
   });
 });
@@ -606,6 +698,26 @@ describe("verifyStudentImport", () => {
 });
 
 describe("executeStudentImport", () => {
+  test("rejects teacher-triggered imports", async () => {
+    const { ctx } = createImportCtx();
+    ctx.currentUser = {
+      id: "teacher-1",
+      email: "teacher@example.com",
+      name: "Teacher",
+      role: "Teacher",
+      saasAccountId: null,
+    };
+
+    await expect(
+      executeStudentImport(ctx, {
+        classroomDepartmentId: "classroom-a",
+        rows: [],
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    } satisfies Partial<TRPCError>);
+  });
+
   test("returns a typed error when no target classroom is available", async () => {
     const { ctx } = createImportCtx();
 

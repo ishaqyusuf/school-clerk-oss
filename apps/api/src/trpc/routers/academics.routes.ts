@@ -61,6 +61,7 @@ import { z } from "zod";
 const previewApplicableFeeHistoriesSchema = z.object({
   sessionTermId: z.string(),
   classroomDepartmentId: z.string().optional().nullable(),
+  admissionType: z.enum(["UNCLASSIFIED", "NEW_ADMISSION", "RETURNING"]),
 });
 
 function findCurrentDatedTerm<
@@ -391,24 +392,75 @@ export const academicsRouter = createTRPCRouter({
   previewApplicableFeeHistories: authenticatedProcedure
     .input(previewApplicableFeeHistoriesSchema)
     .query(async ({ ctx, input }) => {
-      if (!input.classroomDepartmentId) return [];
+      const term = await ctx.db.sessionTerm.findFirst({
+        where: {
+          id: input.sessionTermId,
+          schoolId: ctx.profile.schoolId,
+          deletedAt: null,
+        },
+        select: { sessionId: true },
+      });
+      if (!term) return [];
       const items = await ctx.db.financeItem.findMany({
         where: {
           schoolProfileId: ctx.profile.schoolId,
+          deletedAt: null,
           isActive: true,
-          applicableClasses: {
-            some: { classRoomDepartmentId: input.classroomDepartmentId },
-          },
+          AND: [
+            {
+              OR: [
+                { schoolSessionId: term.sessionId },
+                { schoolSessionId: null },
+              ],
+            },
+            {
+              OR: [
+                { sessionTermId: input.sessionTermId },
+                { sessionTermId: null },
+              ],
+            },
+            {
+              OR: [
+                { studentAudience: "ALL_STUDENTS" },
+                ...(input.admissionType === "NEW_ADMISSION"
+                  ? [{ studentAudience: "NEW_ADMISSIONS_ONLY" as const }]
+                  : []),
+                ...(input.admissionType === "RETURNING"
+                  ? [{ studentAudience: "RETURNING_STUDENTS_ONLY" as const }]
+                  : []),
+              ],
+            },
+            {
+              OR: [
+                { applicableClasses: { none: { deletedAt: null } } },
+                ...(input.classroomDepartmentId
+                  ? [
+                      {
+                        applicableClasses: {
+                          some: {
+                            deletedAt: null,
+                            classRoomDepartmentId: input.classroomDepartmentId,
+                          },
+                        },
+                      },
+                    ]
+                  : []),
+              ],
+            },
+          ],
         },
         include: { stream: true },
+        orderBy: [{ collectable: "desc" }, { name: "asc" }],
       });
       return items.map((item) => ({
         feeHistoryId: item.id,
         title: item.name,
         amount: Number(item.amount),
         description: item.description,
-        scope: "Classroom",
+        scope: input.classroomDepartmentId ? "Classroom or school" : "School",
         streamName: item.stream.name,
+        collectable: item.collectable,
+        studentAudience: item.studentAudience,
       }));
     }),
   migrateTermData: authenticatedProcedure
@@ -1033,6 +1085,7 @@ export const academicsRouter = createTRPCRouter({
                   classroomDepartmentId: targetClassroomDepartmentId,
                   schoolSessionId: toTerm.sessionId,
                   schoolProfileId: ctx.profile.schoolId,
+                  admissionType: "RETURNING",
                 },
                 select: { id: true },
               })
@@ -1044,6 +1097,7 @@ export const academicsRouter = createTRPCRouter({
                   schoolSessionId: toTerm.sessionId,
                   schoolProfileId: ctx.profile.schoolId,
                   sessionTermId: input.toTermId,
+                  admissionType: "RETURNING",
                 },
                 select: { id: true },
               });
@@ -1056,6 +1110,7 @@ export const academicsRouter = createTRPCRouter({
               schoolSessionId: toTerm.sessionId,
               sessionTermId: input.toTermId,
               classroomDepartmentId: targetClassroomDepartmentId,
+              admissionType: "RETURNING",
             });
           }
         }

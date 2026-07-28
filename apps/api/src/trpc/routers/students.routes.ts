@@ -21,6 +21,10 @@ import {
   bulkDeleteTermSheets,
   bulkChangeStudentClassSchema,
   bulkChangeStudentClass,
+  setStudentAdmissionTypeSchema,
+  setStudentAdmissionType,
+  bulkSetStudentAdmissionTypeSchema,
+  bulkSetStudentAdmissionType,
   changeStudentGenderSchema,
   changeStudentGender,
   verifyStudentImportSchema,
@@ -89,6 +93,12 @@ export const studentsRouter = createTRPCRouter({
     .mutation(async (props) => {
       return bulkChangeStudentClass(props.ctx, props.input);
     }),
+  setAdmissionType: authenticatedProcedure
+    .input(setStudentAdmissionTypeSchema)
+    .mutation((props) => setStudentAdmissionType(props.ctx, props.input)),
+  bulkSetAdmissionType: authenticatedProcedure
+    .input(bulkSetStudentAdmissionTypeSchema)
+    .mutation((props) => bulkSetStudentAdmissionType(props.ctx, props.input)),
   updateStudentBasicProfile: authenticatedProcedure
     .input(updateStudentBasicProfileSchema)
     .mutation(async (props) => {

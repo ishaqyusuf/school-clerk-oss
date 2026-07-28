@@ -77,6 +77,12 @@ columns, row selection, infinite loading, and RTL-aware logical positioning.
   selected term form and target class, preserve the exact-duplicate guard, and
   synchronize the linked session form. Bulk term removal is tenant-scoped and
   soft-deletes only the selected enrollment rows.
+- Admission status is read from the selected `StudentTermForm`. Directory rows,
+  URL filters, and analytics use `UNCLASSIFIED`, `NEW_ADMISSION`, or
+  `RETURNING` for that term rather than comparing `Students.createdAt`.
+- Management roles can bulk-update admission status. The mutation validates
+  every selected term form against the active tenant and reconciles
+  admission-targeted fees in the same transaction.
 
 ## Architecture Notes
 

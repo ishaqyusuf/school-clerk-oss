@@ -9,6 +9,7 @@ import { cn } from "@school-clerk/ui/cn";
 import { getInitials } from "@school-clerk/utils";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
+import { AdmissionTypeCell } from "./admission-type-cell";
 
 export type Item = RouterOutputs["students"]["index"]["data"][number];
 
@@ -165,6 +166,21 @@ export const columns: ColumnDef<Item>[] = [
 		},
 		cell: ({ row }) => <StatusCell status={row.original.status} />,
 	},
+  {
+    id: "admissionType",
+    accessorKey: "admissionType",
+    header: "Admission status",
+    size: 180,
+    minSize: 150,
+    maxSize: 240,
+    meta: {
+      headerLabel: "Admission status",
+      skeleton: { type: "badge", width: "w-24" },
+    },
+    cell: ({ row }) => (
+      <AdmissionTypeCell admissionType={row.original.admissionType} />
+    ),
+  },
 	{
 		id: "dob",
 		accessorKey: "dob",

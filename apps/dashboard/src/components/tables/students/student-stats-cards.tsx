@@ -1,14 +1,18 @@
 "use client";
 
+import { useStudentFilterParams } from "@/hooks/use-student-filter-params";
 import { useTRPC } from "@/trpc/client";
 import { Card, CardContent } from "@school-clerk/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { Users, UserCheck, UserPlus, AlertTriangle } from "lucide-react";
+import { Users, UserCheck, UserPlus, RotateCcw } from "lucide-react";
 
 export function StudentStatsCards() {
   const trpc = useTRPC();
+  const { filter, setFilters } = useStudentFilterParams();
   const { data: analytics, isLoading } = useQuery(
-    trpc.students.analytics.queryOptions({}),
+    trpc.students.analytics.queryOptions({
+      sessionTermId: filter.sessionTermId,
+    }),
   );
 
   const formatStat = (value?: number) =>
@@ -16,7 +20,10 @@ export function StudentStatsCards() {
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <Card className="bg-card p-5 rounded-xl shadow-sm">
+      <Card
+        className="cursor-pointer bg-card p-5 rounded-xl shadow-sm"
+        onClick={() => setFilters({ admissionTypes: null })}
+      >
         <CardContent className="p-0">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -35,7 +42,10 @@ export function StudentStatsCards() {
         </CardContent>
       </Card>
 
-      <Card className="bg-card p-5 rounded-xl shadow-sm">
+      <Card
+        className="cursor-pointer bg-card p-5 rounded-xl shadow-sm"
+        onClick={() => setFilters({ admissionTypes: null })}
+      >
         <CardContent className="p-0">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -54,7 +64,10 @@ export function StudentStatsCards() {
         </CardContent>
       </Card>
 
-      <Card className="bg-card p-5 rounded-xl shadow-sm">
+      <Card
+        className="cursor-pointer bg-card p-5 rounded-xl shadow-sm"
+        onClick={() => setFilters({ admissionTypes: ["NEW_ADMISSION"] })}
+      >
         <CardContent className="p-0">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -68,26 +81,29 @@ export function StudentStatsCards() {
             {formatStat(analytics?.newAdmissions)}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            This academic period
+            This selected term
           </p>
         </CardContent>
       </Card>
 
-      <Card className="bg-card p-5 rounded-xl shadow-sm">
+      <Card
+        className="cursor-pointer bg-card p-5 rounded-xl shadow-sm"
+        onClick={() => setFilters({ admissionTypes: ["RETURNING"] })}
+      >
         <CardContent className="p-0">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Pending Fees
+              Returning Students
             </span>
             <div className="h-8 w-8 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-500">
-              <AlertTriangle className="w-5 h-5" />
+              <RotateCcw className="w-5 h-5" />
             </div>
           </div>
           <p className="text-2xl font-bold text-foreground">
-            {formatStat(analytics?.pendingFees)}
+            {formatStat(analytics?.returningStudents)}
           </p>
-          <p className="text-xs text-red-500 font-medium mt-1">
-            Outstanding balances
+          <p className="text-xs text-muted-foreground mt-1">
+            This selected term
           </p>
         </CardContent>
       </Card>

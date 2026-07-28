@@ -1,4 +1,5 @@
 import {
+  FINANCE_STUDENT_AUDIENCES,
   STAFF_CLASSROOM_SUBJECT_ACCESS_MODES,
   STAFF_ROLES,
 } from "@school-clerk/utils/constants";
@@ -66,6 +67,11 @@ export const createStudentAcademicProfileSchema = z.object({
   sessionId: z.string(),
   sessionFormId: z.string().optional(),
   classroomDepartmentId: z.string(),
+  admissionType: z.enum([
+    "UNCLASSIFIED",
+    "NEW_ADMISSION",
+    "RETURNING",
+  ]),
 });
 export const createStudentSchema = z.object({
   name: z.string().min(1),
@@ -74,6 +80,12 @@ export const createStudentSchema = z.object({
   gender: z.enum(["Male", "Female"]),
   dob: z.date().nullable(),
   classRoomId: z.string().nullable(),
+  admissionType: z.enum([
+    "UNCLASSIFIED",
+    "NEW_ADMISSION",
+    "RETURNING",
+  ]),
+  selectedOptionalFeeItemIds: z.array(z.string()).default([]),
   fees: z.array(studentFeeSchema).optional(),
   guardian: guardianSchema.optional().nullable(),
   termForms: z
@@ -85,12 +97,15 @@ export const createStudentSchema = z.object({
     )
     .optional()
     .nullable(),
-  initialPayment: z.object({
+  initialPayment: z
+    .object({
     amount: z.number().min(0),
     method: z.string(),
     reference: z.string().optional().nullable(),
     paymentDate: z.date().optional().nullable(),
-  }).optional().nullable(),
+    })
+    .optional()
+    .nullable(),
 });
 export const createStaffSchema = z
   .object({
@@ -105,9 +120,8 @@ export const createStaffSchema = z
           classRoomDepartmentId: z.string().optional().nullable(),
           subjectId: z.string().optional().nullable(),
           departmentSubjectId: z.string().optional().nullable(),
-          subjectAccessMode: staffClassroomSubjectAccessModeSchema.default(
-            "SELECTED",
-          ),
+          subjectAccessMode:
+            staffClassroomSubjectAccessModeSchema.default("SELECTED"),
           departmentSubjectIds: z.array(z.string()).default([]),
         }),
       )
@@ -139,7 +153,10 @@ export const createStaffSchema = z
         });
       }
 
-      if (assignment.scope === "DEPARTMENT" && !assignment.classRoomDepartmentId) {
+      if (
+        assignment.scope === "DEPARTMENT" &&
+        !assignment.classRoomDepartmentId
+      ) {
         ctx.addIssue({
           code: "custom",
           message: "Select a department for this assignment.",
@@ -160,7 +177,8 @@ export const createStaffSchema = z
 
       if (
         assignment.scope === "DEPARTMENT_SUBJECT" &&
-        (!assignment.classRoomDepartmentId && !assignment.departmentSubjectId)
+        !assignment.classRoomDepartmentId &&
+        !assignment.departmentSubjectId
       ) {
         ctx.addIssue({
           code: "custom",
@@ -205,9 +223,12 @@ export const createSchoolFeeSchema = z.object({
   amount: z.number(),
   streamId: z.string().optional(),
   streamName: z.string().optional(),
+  sessionId: z.string().optional().nullable(),
+  termId: z.string().optional().nullable(),
   collectionStatus: z
     .enum(["NOT_REQUIRED", "NOT_COLLECTED", "COLLECTED"])
     .optional(),
+  studentAudience: z.enum(FINANCE_STUDENT_AUDIENCES).default("ALL_STUDENTS"),
   classroomDepartmentIds: z.array(z.string()).default([]),
 });
 const classroomFeeLineSchema = z.object({

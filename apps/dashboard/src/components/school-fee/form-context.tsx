@@ -20,7 +20,10 @@ export function FormContext({ children }) {
 			amount: 0,
 			streamId: "",
 			streamName: "",
+			sessionId: null,
+			termId: null,
 			collectionStatus: "NOT_COLLECTED",
+      studentAudience: "ALL_STUDENTS",
 			classroomDepartmentIds: [],
 		},
 	});
@@ -35,7 +38,10 @@ export function FormContext({ children }) {
 				amount: 0,
 				streamId: "",
 				streamName: "",
+				sessionId: null,
+				termId: null,
 				collectionStatus: "NOT_COLLECTED",
+        studentAudience: "ALL_STUDENTS",
 				classroomDepartmentIds: [],
 			});
 			return;
@@ -51,11 +57,12 @@ export function FormContext({ children }) {
 			amount: fee.amount ?? 0,
 			streamId: fee.streamId ?? "",
 			streamName: fee.streamName ?? "",
+			sessionId: fee.schoolSessionId ?? null,
+			termId: fee.sessionTermId ?? null,
 			collectionStatus: fee.collectable ? "NOT_COLLECTED" : "NOT_REQUIRED",
+      studentAudience: fee.studentAudience ?? "ALL_STUDENTS",
 			classroomDepartmentIds:
-				fee.classroomDepartments?.map(
-					(department) => department.id,
-				) ?? [],
+        fee.classroomDepartments?.map((department) => department.id) ?? [],
 		});
 	}, [fees, form, schoolFeeId]);
 

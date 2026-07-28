@@ -209,6 +209,7 @@ export function DataTable({
 						sessionTermId: null,
 						sessionId: null,
 						status: null,
+            admissionTypes: null,
 						q: null,
 					})
 				}

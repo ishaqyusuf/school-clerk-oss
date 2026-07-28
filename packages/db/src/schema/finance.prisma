@@ -11,6 +11,12 @@ enum FinanceItemType {
     OTHER
 }
 
+enum FinanceStudentAudience {
+    ALL_STUDENTS
+    NEW_ADMISSIONS_ONLY
+    RETURNING_STUDENTS_ONLY
+}
+
 enum FinancePayerType {
     STUDENT
     STAFF
@@ -36,6 +42,12 @@ enum FinanceCollectionStatus {
     NOT_REQUIRED
     NOT_COLLECTED
     COLLECTED
+}
+
+enum FinanceChargeAssignmentSource {
+    REQUIRED_AUTO
+    OPTIONAL_SELECTED
+    MANUAL
 }
 
 enum FinanceTransferStatus {
@@ -136,6 +148,7 @@ model FinanceItem {
     description     String?
     amount          Decimal         @default(0) @db.Decimal(14, 2)
     collectable     Boolean         @default(false)
+    studentAudience FinanceStudentAudience @default(ALL_STUDENTS)
     isActive        Boolean         @default(true)
     schoolSession   SchoolSession?  @relation(fields: [schoolSessionId], references: [id])
     schoolSessionId String?
@@ -201,6 +214,7 @@ model FinanceCharge {
     amountPaid            Decimal                   @default(0) @db.Decimal(14, 2)
     status                FinanceChargeStatus       @default(PENDING)
     collectionStatus      FinanceCollectionStatus   @default(NOT_REQUIRED)
+    assignmentSource      FinanceChargeAssignmentSource?
     dueDate               DateTime?                 @db.Timestamp(0)
     cancelledAt           DateTime?                 @db.Timestamp(0)
     cancelledById         String?

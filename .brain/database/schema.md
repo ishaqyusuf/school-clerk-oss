@@ -1,5 +1,18 @@
 # Database Schema
 
+## 2026-07-28 Admission Classification And Fee Audience
+
+- `StudentTermForm.admissionType` uses `StudentTermAdmissionType` with
+  `UNCLASSIFIED` as the database default.
+- `StudentTermForm` has an index across school, term, and admission type for
+  directory filters and analytics.
+- `FinanceItem.studentAudience` uses `FinanceStudentAudience` with
+  `ALL_STUDENTS` as the database default.
+- `FinanceCharge.assignmentSource` uses `FinanceChargeAssignmentSource` to
+  record `REQUIRED_AUTO`, `OPTIONAL_SELECTED`, or `MANUAL` provenance for new
+  item-backed and manual charges. It is nullable for legacy charge rows.
+- Existing rows require no manual backfill and retain safe default behavior.
+
 ## Purpose
 
 Tracks logical and physical schema for SchoolClerk data entities.

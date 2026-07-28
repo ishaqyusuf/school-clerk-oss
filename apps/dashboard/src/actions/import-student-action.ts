@@ -150,6 +150,7 @@ export async function importStudentAction(
         {
           classroomDepartmentId: _classRoom.departmentId,
           studentId: student.id,
+          admissionType: "UNCLASSIFIED",
           termIds: [
             {
               sessionTermId: pr.termId,

@@ -4,6 +4,17 @@
 
 Allow school operators to import multiple students from pasted text data, assign rows to one or more active-session classrooms, verify rows against existing records, surface matches or suspected typo matches, resolve gender, and execute selected import/enrollment actions safely.
 
+## Admission Classification
+
+- Review includes a batch admission-status selector with
+  `UNCLASSIFIED`, `NEW_ADMISSION`, and `RETURNING`.
+- The selected value is copied into every executable row and persisted in the
+  durable import-job JSON payload.
+- The safe default is `UNCLASSIFIED`; import no longer equates a newly created
+  canonical student row with a new admission.
+- Imported and matched-student term sheets use the persisted row
+  classification when applying admission-targeted fees.
+
 ## User Flow
 
 1. **Upload / Start Screen**:

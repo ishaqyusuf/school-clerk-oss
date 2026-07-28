@@ -12,6 +12,8 @@ const _defaultValues = {
   gender: "Male",
   dob: null,
   classRoomId: null,
+  admissionType: "UNCLASSIFIED",
+  selectedOptionalFeeItemIds: [],
   fees: [],
   termForms: [],
   guardian: {

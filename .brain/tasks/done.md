@@ -1,5 +1,22 @@
 # Done
 
+## Completed Task
+
+- ID: 2026-07-28-admission-status-targeted-fees
+- Title: Term Admission Classification And Targeted Student Fees
+- Completed: 2026-07-28
+- Outcome: Added explicit term-level new-admission/returning/unclassified
+  status, directory filters and bulk actions, term-derived analytics, import
+  classification, finance-item admission audiences, safe fee reconciliation,
+  and optional quick-fee selection during student creation.
+- Validation: 89 focused API/import/UI tests pass; dashboard, database, shared
+  utilities, and AI packages type-check. API typecheck reaches only its two
+  pre-existing academic-term reset/setup errors. Local and production Prisma
+  schema pushes succeeded.
+- Related changes: `.brain/features/admission-status-and-targeted-fees.md`,
+  `.brain/decisions/ADR-0018-term-enrollment-admission-status-and-fee-audience.md`
+- Owner: Codex
+
 ## Purpose
 
 Record of completed tasks and delivery outcomes.

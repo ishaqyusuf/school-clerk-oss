@@ -1,5 +1,14 @@
 # Database Relationships
 
+## Admission And Finance Applicability
+
+- `Students` → `StudentTermForm` remains one-to-many; admission classification
+  is owned by each term form.
+- `FinanceItem` applies to a `StudentTermForm` through evaluated tenant,
+  session, term, classroom, and admission-audience attributes.
+- Materialized `FinanceCharge.studentTermFormId` preserves the exact billed
+  term. Paid or partially paid charges survive later classification changes.
+
 ## Purpose
 
 Describes entity relationships and cardinality constraints.

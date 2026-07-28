@@ -1,5 +1,8 @@
 import { RouterInputs } from "@api/trpc/routers/_app";
-import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
+import {
+  STUDENT_PAGE_STATUS_FILTERS,
+  STUDENT_TERM_ADMISSION_TYPES,
+} from "@school-clerk/utils/constants";
 import { useQueryStates } from "nuqs";
 import {
   createLoader,
@@ -17,6 +20,9 @@ export const studentFilterParamsSchema = {
   sessionTermId: parseAsString,
   sessionId: parseAsString,
   status: parseAsStringEnum([...STUDENT_PAGE_STATUS_FILTERS]),
+  admissionTypes: parseAsArrayOf(
+    parseAsStringEnum([...STUDENT_TERM_ADMISSION_TYPES]),
+  ),
   q: parseAsString,
 } satisfies Partial<Record<StudentFilterKeys, any>>;
 

@@ -17,6 +17,7 @@ const {
 	getReceivePaymentOptions,
 	recordFinancePurchase,
 	recordFinancePayment,
+	reconcileStudentTermChargesForForm,
 	receiveStudentPaymentSimple,
 	searchFinanceStudents,
 	transferFinanceFunds,
@@ -949,6 +950,171 @@ describe("upsertFinanceItem", () => {
 			code: "NOT_FOUND",
 		} satisfies Partial<TRPCError>);
 		expect(updateCalled).toBe(false);
+	});
+
+	test("preserves the existing audience when a legacy edit omits it", async () => {
+		let updateData: Record<string, unknown> | undefined;
+		const db = {
+			$transaction: async (fn: (tx: any) => unknown) =>
+				fn({
+					financeStream: {
+						findFirst: async () => ({
+							id: "stream-books",
+							name: "Books",
+							accountType: "CREDIT",
+						}),
+					},
+					financeItem: {
+						findFirst: async () => ({ id: "item-1" }),
+						update: async ({ data }: any) => {
+							updateData = data;
+							return { id: "item-1", ...data };
+						},
+					},
+					financeItemClassRoomDepartment: {
+						deleteMany: async () => undefined,
+						createMany: async () => undefined,
+					},
+				}),
+		};
+
+		await upsertFinanceItem(createFinanceCtx({ db }), {
+			id: "item-1",
+			streamId: "stream-books",
+			streamName: null,
+			accountType: "CREDIT",
+			type: "BOOK",
+			name: "English Reader",
+			description: null,
+			amount: 250,
+			collectable: true,
+			isActive: true,
+			sessionId: null,
+			termId: null,
+			classRoomDepartmentIds: [],
+		} as any);
+
+		expect(updateData).toBeDefined();
+		expect(updateData).not.toHaveProperty("studentAudience");
+	});
+
+	test("creates separate same-named fee structures for different terms", async () => {
+		const createdItems: Array<Record<string, unknown>> = [];
+		const tx = {
+			financeStream: {
+				findFirst: async () => ({
+					id: "stream-entrance",
+					name: "Entrance Form",
+					accountType: "CREDIT",
+				}),
+			},
+			financeItem: {
+				create: async ({ data }: any) => {
+					const item = { id: `item-${createdItems.length + 1}`, ...data };
+					createdItems.push(item);
+					return item;
+				},
+			},
+			financeItemClassRoomDepartment: {
+				deleteMany: async () => undefined,
+				createMany: async () => undefined,
+			},
+		};
+		const db = {
+			$transaction: async (fn: (client: typeof tx) => unknown) => fn(tx),
+			studentTermForm: {
+				findMany: async () => [],
+			},
+		};
+		const baseInput = {
+			id: null,
+			streamId: "stream-entrance",
+			streamName: "Entrance Form",
+			accountType: "CREDIT",
+			type: "OTHER",
+			name: "Entrance Form",
+			description: null,
+			amount: 1_000,
+			collectable: true,
+			isActive: true,
+			sessionId: "session-1",
+			classRoomDepartmentIds: [],
+			studentAudience: "NEW_ADMISSIONS_ONLY",
+		};
+
+		await upsertFinanceItem(createFinanceCtx({ db }), {
+			...baseInput,
+			termId: "term-1",
+		} as any);
+		await upsertFinanceItem(createFinanceCtx({ db }), {
+			...baseInput,
+			termId: "term-2",
+		} as any);
+
+		expect(createdItems).toHaveLength(2);
+		expect(createdItems.map((item) => item.sessionTermId)).toEqual([
+			"term-1",
+			"term-2",
+		]);
+	});
+});
+
+describe("reconcileStudentTermChargesForForm", () => {
+	test("preserves an explicitly selected optional fee across repeated reconciliation", async () => {
+		const charge = {
+			id: "charge-1",
+			itemId: "optional-item",
+			amountPaid: 0,
+			assignmentSource: "OPTIONAL_SELECTED",
+			createdAt: new Date("2026-07-28"),
+		};
+		let cancellations = 0;
+		const tx = {
+			$executeRaw: async () => undefined,
+			financeItem: {
+				findMany: async () => [
+					{
+						id: "optional-item",
+						streamId: "stream-1",
+						name: "Optional club",
+						description: null,
+						amount: 500,
+						collectable: false,
+					},
+				],
+			},
+			financeCharge: {
+				findMany: async () => [charge],
+				create: async () => {
+					throw new Error("The selected optional charge already exists.");
+				},
+				update: async ({ data }: any) => {
+					Object.assign(charge, data);
+					return charge;
+				},
+				updateMany: async () => {
+					cancellations++;
+					return { count: 1 };
+				},
+			},
+		};
+		const input = {
+			schoolProfileId: "school-1",
+			termForm: {
+				id: "term-form-1",
+				studentId: "student-1",
+				sessionTermId: "term-1",
+				schoolSessionId: "session-1",
+				classroomDepartmentId: "classroom-1",
+				admissionType: "NEW_ADMISSION" as const,
+			},
+		};
+
+		await reconcileStudentTermChargesForForm(tx as any, input);
+		await reconcileStudentTermChargesForForm(tx as any, input);
+
+		expect(charge.assignmentSource).toBe("OPTIONAL_SELECTED");
+		expect(cancellations).toBe(0);
 	});
 });
 

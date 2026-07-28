@@ -159,6 +159,7 @@ export function StudentImportModal() {
         raw,
         tab: tab === "importing" ? "importing" : "main",
         importPhase,
+        admissionType: normalized.setup.admissionType,
       };
 
       if (
@@ -166,7 +167,8 @@ export function StudentImportModal() {
         normalized.setup.globalGender === nextSetup.globalGender &&
         normalized.setup.raw === nextSetup.raw &&
         normalized.setup.tab === nextSetup.tab &&
-        normalized.setup.importPhase === nextSetup.importPhase
+        normalized.setup.importPhase === nextSetup.importPhase &&
+        normalized.setup.admissionType === nextSetup.admissionType
       ) {
         return current;
       }

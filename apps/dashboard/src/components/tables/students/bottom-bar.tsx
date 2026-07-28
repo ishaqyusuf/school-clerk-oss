@@ -23,7 +23,7 @@ import {
 } from "@school-clerk/ui/select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RowSelectionState } from "@tanstack/react-table";
-import { Download, GraduationCap, UserMinus } from "lucide-react";
+import { Download, GraduationCap, Tags, UserMinus } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Item } from "./columns";
 
@@ -50,8 +50,13 @@ export function StudentsBottomBar({
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const auth = useAuth();
-	const [action, setAction] = useState<"move" | "remove" | null>(null);
+  const [action, setAction] = useState<"move" | "admission" | "remove" | null>(
+    null,
+  );
 	const [classroomDepartmentId, setClassroomDepartmentId] = useState("");
+  const [admissionType, setAdmissionType] = useState<
+    "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING"
+  >("NEW_ADMISSION");
 	const selectedStudents = useMemo(
 		() => data.filter((student) => rowSelection[student.id]),
 		[data, rowSelection],
@@ -88,6 +93,11 @@ export function StudentsBottomBar({
 			onSuccess: invalidateDirectory,
 		}),
 	);
+  const classifyStudents = useMutation(
+    trpc.students.bulkSetAdmissionType.mutationOptions({
+      onSuccess: invalidateDirectory,
+    }),
+  );
 
 	const exportCsv = () => {
 		const rows = [
@@ -131,6 +141,12 @@ export function StudentsBottomBar({
 		if (action === "remove") {
 			removeStudents.mutate({ ids: selectedTermFormIds });
 		}
+    if (action === "admission") {
+      classifyStudents.mutate({
+        studentTermFormIds: selectedTermFormIds,
+        admissionType,
+      });
+    }
 		setAction(null);
 	};
 
@@ -144,6 +160,17 @@ export function StudentsBottomBar({
 					<Download className="size-4" />
 					<span className="hidden sm:inline">Export CSV</span>
 				</Button>
+        {canManage ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={selectedTermFormIds.length === 0}
+            onClick={() => setAction("admission")}
+          >
+            <Tags className="size-4" />
+            <span className="hidden sm:inline">Set admission status</span>
+          </Button>
+        ) : null}
 				{canManage ? (
 					<Button
 						variant="outline"
@@ -180,11 +207,15 @@ export function StudentsBottomBar({
 						<AlertDialogTitle>
 							{action === "move"
 								? "Move selected students?"
+                : action === "admission"
+                  ? "Update admission status?"
 								: "Remove selected term enrollments?"}
 						</AlertDialogTitle>
 						<AlertDialogDescription>
 							{action === "move"
 								? "Every selected current-term enrollment will move to the chosen class. Duplicate enrollment guards still apply."
+                : action === "admission"
+                  ? "This updates the selected term records and safely reconciles admission-targeted required fees."
 								: "Student identities and historical terms remain available."}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
@@ -212,17 +243,43 @@ export function StudentsBottomBar({
 							</SelectContent>
 						</Select>
 					) : null}
+          {action === "admission" ? (
+            <Select
+              value={admissionType}
+              onValueChange={(value) =>
+                setAdmissionType(
+                  value as "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING",
+                )
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NEW_ADMISSION">New admission</SelectItem>
+                <SelectItem value="RETURNING">Returning student</SelectItem>
+                <SelectItem value="UNCLASSIFIED">
+                  Needs classification
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          ) : null}
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
 							disabled={
 								moveStudents.isPending ||
 								removeStudents.isPending ||
+                classifyStudents.isPending ||
 								(action === "move" && !classroomDepartmentId)
 							}
 							onClick={confirmAction}
 						>
-							{action === "move" ? "Move students" : "Remove enrollments"}
+              {action === "move"
+                ? "Move students"
+                : action === "admission"
+                  ? "Update status"
+                  : "Remove enrollments"}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

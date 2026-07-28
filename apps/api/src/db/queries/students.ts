@@ -9,14 +9,20 @@ import {
   nestedClassroomDepartmentListOrderBy,
   Prisma,
 } from "@school-clerk/db";
-import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
+import {
+  STUDENT_PAGE_STATUS_FILTERS,
+  STUDENT_TERM_ADMISSION_TYPES,
+} from "@school-clerk/utils/constants";
 import { processStudentImportJobTaskId } from "@school-clerk/utils/task-contracts";
 import { auth, tasks } from "@trigger.dev/sdk";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { studentDisplayName } from "./enrollment-query";
 import { assertNoExactDuplicateStudentInClassTerm } from "./student-duplicates";
-import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
+import {
+  applyFeeHistoriesToStudentTermForm,
+  reconcileFeeHistoriesForStudentTermForm,
+} from "./student-fee-application";
 
 import { subDays } from "date-fns";
 
@@ -126,6 +132,7 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
         select: {
           id: true,
           sessionTermId: true,
+          admissionType: true,
           classroomDepartment: {
             select: {
               departmentLevel: true,
@@ -172,6 +179,7 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
             select: {
               id: true,
               sessionTermId: true,
+              admissionType: true,
             },
           },
         },
@@ -205,6 +213,7 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
         classId: classRoom?.id,
         termFormId,
         termFormSessionTermId,
+        admissionType: term?.admissionType ?? "UNCLASSIFIED",
         status: termFormId ? "enrolled" : "not enrolled",
         guardianName: guardian?.name ?? null,
         guardianPhone: guardian?.phone ?? null,
@@ -364,6 +373,19 @@ function whereStudents(
           id: value as string,
         });
         break;
+      case "admissionTypes":
+        if (query.admissionTypes?.length) {
+          where.push({
+            termForms: {
+              some: {
+                deletedAt: null,
+                sessionTermId: query.sessionTermId || ctx.profile.termId,
+                admissionType: { in: query.admissionTypes },
+              },
+            },
+          });
+        }
+        break;
     }
   });
   switch (query.status) {
@@ -494,6 +516,16 @@ export async function getStudentsQueryParams(ctx: TRPCContext) {
       })),
     },
     {
+      label: "Admission status",
+      type: "checkbox",
+      value: "admissionTypes",
+      options: [
+        { label: "New admission", value: "NEW_ADMISSION" },
+        { label: "Returning", value: "RETURNING" },
+        { label: "Needs classification", value: "UNCLASSIFIED" },
+      ],
+    },
+    {
       label: "Session",
       options: sessionList.map((s) => ({
         label: s.title,
@@ -578,6 +610,8 @@ export const createStudentSchema = z.object({
   gender: z.enum(["Male", "Female"]),
   dob: z.date().nullable().optional(),
   classRoomId: z.string().nullable(),
+  admissionType: z.enum(STUDENT_TERM_ADMISSION_TYPES),
+  selectedOptionalFeeItemIds: z.array(z.string()).optional().default([]),
   fees: z.array(studentFeeSchema).optional(),
   guardian: guardianSchema.optional().nullable(),
   termForms: z
@@ -654,6 +688,7 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
                 createMany: {
                   data: data.termForms.map((termForm) => ({
                     ...termForm,
+                    admissionType: data.admissionType,
                     schoolProfileId: profile.schoolId,
                     classroomDepartmentId: data.classRoomId || undefined,
                   })),
@@ -665,6 +700,7 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
                   sessionTermId: profile.termId,
                   schoolSessionId: profile.sessionId,
                   classroomDepartmentId: data.classRoomId || undefined,
+                  admissionType: data.admissionType,
                 },
               },
         },
@@ -719,6 +755,8 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
         schoolSessionId: initialTermForm.schoolSessionId || profile.sessionId,
         sessionTermId: initialTermForm.sessionTermId || profile.termId,
         classroomDepartmentId,
+        admissionType: initialTermForm.admissionType,
+        selectedOptionalFeeItemIds: data.selectedOptionalFeeItemIds,
       });
     }
   }
@@ -892,12 +930,14 @@ export type StudentsRecentRecordSchema = z.infer<
   typeof studentsRecentRecordSchema
 >;
 
-export const studentsAnalyticsSchema = z.object({});
+export const studentsAnalyticsSchema = z.object({
+  sessionTermId: z.string().optional().nullable(),
+});
 export type StudentsAnalyticsSchema = z.infer<typeof studentsAnalyticsSchema>;
 
 export async function studentsAnalytics(
   ctx: TRPCContext,
-  _query: StudentsAnalyticsSchema,
+  query: StudentsAnalyticsSchema,
 ) {
   const { db, profile } = ctx;
   const { schoolProfileId } = requireStudentWorkspace(ctx);
@@ -929,13 +969,13 @@ export async function studentsAnalytics(
     },
   });
 
-  const currentSessionId = currentTerm?.sessionId ?? profile.sessionId;
-  const currentTermId = currentTerm?.id ?? profile.termId;
+  const currentTermId =
+    query.sessionTermId ?? currentTerm?.id ?? profile.termId;
   const activeTermWhere = currentTermId
     ? { sessionTermId: currentTermId }
     : { id: "__missing-current-term__" };
 
-  const [totalStudents, activeTermForms, fallbackSessionForms] =
+  const [totalStudents, activeTermForms, newAdmissionForms, returningForms] =
     await Promise.all([
       db.students.count({
         where: {
@@ -957,41 +997,41 @@ export async function studentsAnalytics(
           studentId: true,
         },
       }),
-      db.studentSessionForm.findMany({
+      db.studentTermForm.findMany({
         where: {
           schoolProfileId,
-          schoolSessionId: currentSessionId,
+          ...activeTermWhere,
           deletedAt: null,
           studentId: {
             not: null,
           },
+          admissionType: "NEW_ADMISSION",
         },
         distinct: ["studentId"],
         select: {
           studentId: true,
         },
       }),
-    ]);
-
-  const sessionStart = currentTerm?.session?.startDate;
-  const sessionEnd = currentTerm?.session?.endDate;
-  const newAdmissions = sessionStart
-    ? await db.students.count({
+      db.studentTermForm.findMany({
         where: {
           schoolProfileId,
+          ...activeTermWhere,
           deletedAt: null,
-          createdAt: {
-            gte: sessionStart,
-            ...(sessionEnd ? { lte: sessionEnd } : {}),
-          },
+          studentId: { not: null },
+          admissionType: "RETURNING",
         },
-      })
-    : fallbackSessionForms.length;
+        distinct: ["studentId"],
+        select: { studentId: true },
+      }),
+    ]);
 
   return {
     totalStudents,
     activeThisTerm: activeTermForms.length,
-    newAdmissions,
+    newAdmissions: newAdmissionForms.length,
+    returningStudents: returningForms.length,
+    unclassified:
+      activeTermForms.length - newAdmissionForms.length - returningForms.length,
     pendingFees: 0,
     currentTerm: currentTerm
       ? {
@@ -1464,6 +1504,112 @@ export const bulkChangeStudentClassSchema = z.object({
   studentTermFormIds: z.array(z.string()).min(1).max(100),
   classroomDepartmentId: z.string(),
 });
+
+export const setStudentAdmissionTypeSchema = z.object({
+  studentTermFormId: z.string(),
+  admissionType: z.enum(STUDENT_TERM_ADMISSION_TYPES),
+});
+
+export const bulkSetStudentAdmissionTypeSchema = z.object({
+  studentTermFormIds: z.array(z.string()).min(1).max(100),
+  admissionType: z.enum(STUDENT_TERM_ADMISSION_TYPES),
+});
+
+type SetStudentAdmissionType = z.infer<typeof setStudentAdmissionTypeSchema>;
+
+async function updateAdmissionTypes(
+  ctx: TRPCContext,
+  studentTermFormIds: string[],
+  admissionType: SetStudentAdmissionType["admissionType"],
+) {
+  const { schoolProfileId } = requireStudentManagementAccess(ctx);
+
+  return ctx.db.$transaction(async (tx) => {
+    const forms = await tx.studentTermForm.findMany({
+      where: {
+        id: { in: studentTermFormIds },
+        schoolProfileId,
+        deletedAt: null,
+        studentId: { not: null },
+      },
+      select: {
+        id: true,
+        studentId: true,
+        schoolSessionId: true,
+        sessionTermId: true,
+        classroomDepartmentId: true,
+      },
+    });
+
+    if (forms.length !== studentTermFormIds.length) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message:
+          "One or more student term records were not found in this school workspace.",
+      });
+    }
+
+    await tx.studentTermForm.updateMany({
+      where: { id: { in: studentTermFormIds }, schoolProfileId },
+      data: { admissionType },
+    });
+
+    const reconciliation: Awaited<
+      ReturnType<typeof reconcileFeeHistoriesForStudentTermForm>
+    >[] = [];
+    for (const form of forms) {
+      if (
+        !form.studentId ||
+        !form.schoolSessionId ||
+        !form.sessionTermId ||
+        !form.classroomDepartmentId
+      ) {
+        continue;
+      }
+      reconciliation.push(
+        await reconcileFeeHistoriesForStudentTermForm(tx, {
+          schoolProfileId,
+          studentId: form.studentId,
+          studentTermFormId: form.id,
+          schoolSessionId: form.schoolSessionId,
+          sessionTermId: form.sessionTermId,
+          classroomDepartmentId: form.classroomDepartmentId,
+          admissionType,
+        }),
+      );
+    }
+
+    return {
+      updated: forms.length,
+      reconciliation,
+    };
+  }, {
+    maxWait: 10_000,
+    timeout: 60_000,
+  });
+}
+
+export function setStudentAdmissionType(
+  ctx: TRPCContext,
+  input: SetStudentAdmissionType,
+) {
+  return updateAdmissionTypes(
+    ctx,
+    [input.studentTermFormId],
+    input.admissionType,
+  );
+}
+
+export function bulkSetStudentAdmissionType(
+  ctx: TRPCContext,
+  input: z.infer<typeof bulkSetStudentAdmissionTypeSchema>,
+) {
+  return updateAdmissionTypes(
+    ctx,
+    input.studentTermFormIds,
+    input.admissionType,
+  );
+}
 export type BulkChangeStudentClassSchema = z.infer<
   typeof bulkChangeStudentClassSchema
 >;
@@ -2179,6 +2325,7 @@ export const executeStudentImportSchema = z.object({
       classroomDepartmentId: z.string().optional().nullable(),
       action: z.enum(["import_new", "keep_match", "update_match_with_name"]),
       existingStudentId: z.string().optional().nullable(),
+      admissionType: z.enum(STUDENT_TERM_ADMISSION_TYPES).optional(),
     }),
   ),
 });
@@ -2278,6 +2425,9 @@ export async function executeStudentImport(
   ctx: TRPCContext,
   input: ExecuteStudentImport,
 ): Promise<ExecuteStudentImportResult> {
+  if (ctx.currentUser) {
+    requireStudentManagementAccess(ctx);
+  }
   const { db } = ctx;
   const profile = ctx.profile;
   const classroomById = await resolveStudentImportClassrooms(ctx, input);
@@ -2337,6 +2487,7 @@ export async function executeStudentImport(
                         sessionTermId: profile.termId,
                         schoolSessionId: profile.sessionId,
                         classroomDepartmentId: rowClassroomDepartmentId,
+                        admissionType: row.admissionType ?? "UNCLASSIFIED",
                       },
                     },
                   },
@@ -2365,6 +2516,7 @@ export async function executeStudentImport(
                 schoolSessionId: profile.sessionId,
                 sessionTermId: profile.termId,
                 classroomDepartmentId: rowClassroomDepartmentId,
+                admissionType: row.admissionType ?? "UNCLASSIFIED",
               });
             }
 
@@ -2410,6 +2562,7 @@ export async function executeStudentImport(
               existingStudentId,
               profile,
               rowClassroomDepartmentId,
+              row.admissionType ?? "UNCLASSIFIED",
             );
 
             if (termSheetResult.conflictClassroom) {
@@ -2472,6 +2625,7 @@ export async function executeStudentImport(
               existingStudentId,
               profile,
               rowClassroomDepartmentId,
+              row.admissionType ?? "UNCLASSIFIED",
             );
 
             if (termSheetResult.conflictClassroom) {
@@ -2737,6 +2891,7 @@ export async function startStudentImportJob(
   input: ExecuteStudentImport,
   options: StartStudentImportJobOptions = {},
 ): Promise<StudentImportJobRead> {
+  requireStudentManagementAccess(ctx);
   const { db, profile } = ctx;
   await resolveStudentImportClassrooms(ctx, input);
   const rows = input.rows.map((row) => ({
@@ -2957,6 +3112,7 @@ async function createTermSheetIfMissing(
   studentId: string,
   profile: { schoolId?: string; sessionId?: string; termId?: string },
   classroomDepartmentId: string,
+  admissionType: (typeof STUDENT_TERM_ADMISSION_TYPES)[number],
 ): Promise<{ created: boolean; conflictClassroom?: string }> {
   const existingCurrentTermForm = await tx.studentTermForm.findFirst({
     where: {
@@ -2976,6 +3132,24 @@ async function createTermSheetIfMissing(
     if (
       existingCurrentTermForm.classroomDepartmentId === classroomDepartmentId
     ) {
+      if (
+        (existingCurrentTermForm.admissionType ?? "UNCLASSIFIED") !==
+        admissionType
+      ) {
+        await tx.studentTermForm.update({
+          where: { id: existingCurrentTermForm.id },
+          data: { admissionType },
+        });
+        await reconcileFeeHistoriesForStudentTermForm(tx, {
+          schoolProfileId: profile.schoolId!,
+          studentId,
+          studentTermFormId: existingCurrentTermForm.id,
+          schoolSessionId: profile.sessionId!,
+          sessionTermId: profile.termId!,
+          classroomDepartmentId,
+          admissionType,
+        });
+      }
       return { created: false };
     }
 
@@ -3017,6 +3191,7 @@ async function createTermSheetIfMissing(
       schoolSessionId: profile.sessionId,
       schoolProfileId: profile.schoolId,
       classroomDepartmentId,
+      admissionType,
     },
   });
 
@@ -3027,6 +3202,7 @@ async function createTermSheetIfMissing(
     schoolSessionId: profile.sessionId!,
     sessionTermId: profile.termId!,
     classroomDepartmentId,
+    admissionType,
   });
 
   return { created: true };
