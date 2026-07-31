@@ -1,5 +1,11 @@
 # Migrations
 
+## 2026-07-31: Shared Database Commands And Sync
+
+- `db:generate`, `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell` use `local-infra-kit/bin/db.ts`; local is the default and `--local`, `--remote`, and `--prod` are the only mode flags.
+- `db:sync` defaults to `--from-prod --to-local`; `--to-remote` changes the destination, `--to-prod` is rejected, and synchronizer options follow `--`.
+- Mode-suffixed aliases and repository-local database routers were removed. Connected production actions require the credential-free target fingerprint as confirmation.
+
 ## Migration Entry
 
 - Date: 2026-07-28
