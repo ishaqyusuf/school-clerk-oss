@@ -2,20 +2,29 @@
 
 import {
   resolveOptions,
+  SYNC_PAIR_MODES,
   syncDatabases,
   type SyncMode,
   type SyncProgressEvent,
 } from "../src/local-sync";
 
 function printHelp() {
+  const modes = Object.entries(SYNC_PAIR_MODES);
+  const usage = modes
+    .map(([mode]) => `  bun run sync -- -m ${mode} [options]`)
+    .join("\n");
+  const environments = modes
+    .map(
+      ([mode, pair]) =>
+        `  ${mode.padEnd(16)} source ${envFile(pair.sourceMode)}, target ${envFile(pair.targetMode)}`,
+    )
+    .join("\n");
   console.log(`Usage:
-  bun run sync -- -m prod-local [options]
-  bun run sync -- -m preview-local [options]
-  bun run sync -- -m prod-preview [options]
+${usage}
 
 Options:
-  -m, --mode <mode>                 prod-local, preview-local, or prod-preview (default: prod-local)
-  --dry-run                         Inspect changed rows without writing locally
+  -m, --mode <mode>                 ${Object.keys(SYNC_PAIR_MODES).join(", ")} (default: prod-local)
+  --dry-run                         Inspect changed rows without writing to the destination
   --table <name>                    Sync one table only
   --source-url <url>                Override source DATABASE_URL
   --target-url <url>                Override target DATABASE_URL
@@ -24,7 +33,7 @@ Options:
   --reset                           Alias for --reset-cursor
   --reset-cursor                    Ignore saved cursor for the selected table(s)
   --read-batch-size <number>        Source read batch size (default: 10000)
-  --write-batch-size <number>       Local upsert batch size (default: 500)
+  --write-batch-size <number>       Destination upsert batch size (default: 500)
   --refresh-static                  Upsert small tables that have no timestamp cursor
   --static-refresh-max-rows <n>     Max rows for --refresh-static tables (default: 5000)
   --skip-local-domain-normalization Skip local tenant domain compatibility updates
@@ -32,12 +41,16 @@ Options:
   -h, --help                        Show this help
 
 Environment:
-  prod-local    source .env.prod DATABASE_URL, target .env.local DATABASE_URL
-  preview-local  source .env.preview DATABASE_URL over .env.local, target .env.local DATABASE_URL
-  prod-preview   source .env.prod DATABASE_URL, target .env.preview DATABASE_URL over .env.local
+${environments}
 
 Explicit SOURCE_DATABASE_URL and TARGET_DATABASE_URL still override mode resolution for one-off runs.
 Local sync requires DATABASE_URL in .env.local; it does not generate a fallback target.`);
+}
+
+function envFile(mode: "local" | "preview" | "prod") {
+  if (mode === "local") return ".env.local DATABASE_URL";
+  if (mode === "preview") return ".env.preview DATABASE_URL over .env.local";
+  return ".env.prod DATABASE_URL";
 }
 
 function printReport(

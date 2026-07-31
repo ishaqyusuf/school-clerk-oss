@@ -3,7 +3,7 @@
 ## 2026-07-31: Shared Database Commands And Sync
 
 - `db:generate`, `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell` use `local-infra-kit/bin/db.ts`; local is the default and `--local`, `--preview`, and `--prod` are the only mode flags.
-- `db:sync` defaults to `--from-prod --to-local`; `--to-preview` changes the destination, `--to-prod` is rejected, and `db:sync --help` prints the public contract without resolving endpoints or starting services. Synchronizer options follow `--`.
+- `db:sync` defaults to `--from-prod --to-local`; `--from-local --to-preview` publishes local data to preview, `--to-prod` is rejected, and `db:sync --help` requires no environment resolution or connection.
 - Mode-suffixed aliases and repository-local database routers were removed. Connected production actions require the credential-free target fingerprint as confirmation.
 
 ## Migration Entry
@@ -64,7 +64,7 @@ Change log for database schema migrations and rollout notes.
 - Use `bun run db:studio` for Prisma Studio against the selected development database.
 - If the Docker DB is not running yet, start it with `bun run db:start` or `docker compose up -d postgres` from the repo root.
 - Use `bun run db:sync --to-local -- --dry-run` to inspect production-to-local import changes before writing to local Docker.
-- `bun run db:sync` defaults to `--from-prod --to-local`; use `--to-preview` only when that destination is intended. Production is source-only and `--to-prod` is rejected. Synchronizer options such as `--dry-run`, `--table`, and `--reset` follow `--`.
+- `bun run db:sync` defaults to `--from-prod --to-local`; use `--from-local --to-preview` to publish local data. Production is never a destination and `--to-prod` is rejected. Synchronizer options follow `--`.
 - The production-to-local sync refuses to write unless the target database host is local, writes cursor state under `.local-db-sync/`, temporarily disables triggers on all local target tables while importing table-by-table data, casts raw upsert parameters to the target PostgreSQL column types, preserves native PostgreSQL arrays while JSON-stringifying JSON values, re-enables triggers before disconnecting, and normalizes imported tenant domains for local dashboard routing by default.
 - Local domain normalization keeps `SchoolProfile.subDomain`, `TenantDomain.subdomain`, and legacy `school.sub_domain` as slug-only values compatible with `<tenant>.school-clerk-dashboard.localhost`; imported production custom domains are cleared unless `--keep-custom-domains` is passed.
 

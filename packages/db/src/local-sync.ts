@@ -5,7 +5,16 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 export type SyncMode = "incremental" | "insert-only" | "static-refresh" | "skip";
 export type SyncEnvMode = "local" | "preview" | "prod";
-export type SyncPairMode = "prod-local" | "preview-local" | "prod-preview";
+export const SYNC_PAIR_MODES = {
+  "prod-local": { sourceMode: "prod", targetMode: "local" },
+  "preview-local": { sourceMode: "preview", targetMode: "local" },
+  "prod-preview": { sourceMode: "prod", targetMode: "preview" },
+  "local-preview": { sourceMode: "local", targetMode: "preview" },
+} as const satisfies Record<
+  string,
+  { sourceMode: SyncEnvMode; targetMode: SyncEnvMode }
+>;
+export type SyncPairMode = keyof typeof SYNC_PAIR_MODES;
 
 export type ColumnInfo = {
   name: string;
@@ -535,11 +544,13 @@ export function parseArgs(argv: string[]): ParsedSyncArgs {
 }
 
 export function parseSyncPairMode(value: string): SyncPairMode {
-  if (value === "prod-local" || value === "preview-local" || value === "prod-preview") {
-    return value;
+  if (Object.hasOwn(SYNC_PAIR_MODES, value)) {
+    return value as SyncPairMode;
   }
 
-  throw new Error(`Unknown sync mode: ${value}. Use prod-local, preview-local, or prod-preview.`);
+  throw new Error(
+    `Unknown sync mode: ${value}. Use ${Object.keys(SYNC_PAIR_MODES).join(", ")}.`,
+  );
 }
 
 export function parseEnvFile(text: string): Record<string, string> {
@@ -602,14 +613,7 @@ export function syncPairModes(pairMode: SyncPairMode): {
   sourceMode: SyncEnvMode;
   targetMode: SyncEnvMode;
 } {
-  switch (pairMode) {
-    case "prod-local":
-      return { sourceMode: "prod", targetMode: "local" };
-    case "preview-local":
-      return { sourceMode: "preview", targetMode: "local" };
-    case "prod-preview":
-      return { sourceMode: "prod", targetMode: "preview" };
-  }
+  return SYNC_PAIR_MODES[pairMode];
 }
 
 async function databaseUrlForMode(repoRoot: string, mode: SyncEnvMode): Promise<string | undefined> {
@@ -682,7 +686,7 @@ export async function resolveOptions(
 
   if (!sourceUrl) {
     throw new Error(
-      `Missing source database URL. Set DATABASE_URL in ${sourceMode === "prod" ? ".env.prod" : ".env.preview"} or pass --source-url.`,
+      `Missing source database URL. Set DATABASE_URL in ${sourceMode === "prod" ? ".env.prod" : sourceMode === "preview" ? ".env.preview" : ".env.local"} or pass --source-url.`,
     );
   }
 

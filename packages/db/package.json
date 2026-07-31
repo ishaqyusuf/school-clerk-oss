@@ -22,7 +22,7 @@
     "db:pull": "prisma db pull",
     "db:push": "prisma db push",
     "db:studio": "prisma studio --port 5556",
-    "db:sync": "bun scripts/sync-prod-to-local.ts",
+    "db:sync": "bun scripts/sync-databases.ts",
     "with-env": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local --"
   },
   "dependencies": {
