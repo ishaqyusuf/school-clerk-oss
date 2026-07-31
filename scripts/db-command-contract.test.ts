@@ -82,7 +82,7 @@ describe("shared database command contract", () => {
   test("workspace consumers do not invoke removed database aliases", () => {
     for (const [consumer, command] of workspaceScripts()) {
       expect(command, consumer).not.toMatch(
-        /\b(?:prisma-generate:(?:local|remote|prod)|db:(?:generate|migrate|pull|push|studio|shell):(?:local|remote|prod|dev))\b/,
+        /\b(?:prisma-generate:(?:local|preview|prod)|db:(?:generate|migrate|pull|push|studio|shell):(?:local|preview|prod|dev))\b/,
       );
     }
   });

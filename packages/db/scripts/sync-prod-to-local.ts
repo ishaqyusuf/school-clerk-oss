@@ -10,11 +10,11 @@ import {
 function printHelp() {
   console.log(`Usage:
   bun run sync -- -m prod-local [options]
-  bun run sync -- -m remote-local [options]
-  bun run sync -- -m prod-remote [options]
+  bun run sync -- -m preview-local [options]
+  bun run sync -- -m prod-preview [options]
 
 Options:
-  -m, --mode <mode>                 prod-local, remote-local, or prod-remote (default: prod-local)
+  -m, --mode <mode>                 prod-local, preview-local, or prod-preview (default: prod-local)
   --dry-run                         Inspect changed rows without writing locally
   --table <name>                    Sync one table only
   --source-url <url>                Override source DATABASE_URL
@@ -33,11 +33,11 @@ Options:
 
 Environment:
   prod-local    source .env.prod DATABASE_URL, target .env.local DATABASE_URL
-  remote-local  source .env.remote.local DATABASE_URL over .env.local, target .env.local DATABASE_URL
-  prod-remote   source .env.prod DATABASE_URL, target .env.remote.local DATABASE_URL over .env.local
+  preview-local  source .env.preview DATABASE_URL over .env.local, target .env.local DATABASE_URL
+  prod-preview   source .env.prod DATABASE_URL, target .env.preview DATABASE_URL over .env.local
 
 Explicit SOURCE_DATABASE_URL and TARGET_DATABASE_URL still override mode resolution for one-off runs.
-Without a local target URL, local mode falls back to postgresql://postgres:postgres@127.0.0.1:55432/school_clerk.`);
+Local sync requires DATABASE_URL in .env.local; it does not generate a fallback target.`);
 }
 
 function printReport(

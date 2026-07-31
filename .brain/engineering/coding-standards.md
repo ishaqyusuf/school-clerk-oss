@@ -41,8 +41,9 @@ Defines implementation standards for consistency, maintainability, and reliabili
 ## Local QA And Dev Commands
 
 - The root `bun run dev` router, `dev-run` bridge, kill-port discovery, and root-level env command wrapper are owned by `/Users/M1PRO/Documents/code/local-infra-kit`; invoke the toolkit directly from `package.json` with `--profile school-clerk` and keep dev command behavior aligned with the toolkit's standard monorepo contract.
-- Standard local infra env files are `.env.local`, `.env.remote.local`, and `.env.prod`; use `DATABASE_URL` as the database URL in each mode instead of adding mode-specific database URL names.
-- Database sync uses explicit mode pairs: `bun run db:sync -- -m prod-local`, `bun run db:sync -- -m remote-local`, or `bun run db:sync -- -m prod-remote`; use `--reset` only to reset sync cursors/state for that pair.
+- Standard local infra env files are `.env.local`, `.env.preview`, and `.env.prod`; use `DATABASE_URL` as the database URL in each mode instead of adding mode-specific database URL names.
+- Treat each selected mode file's `DATABASE_URL` as authoritative. Parse local Docker connection settings from it at runtime; never duplicate its port, credentials, or database name in a registry or script fallback.
+- Database sync uses one shared command: `bun run db:sync` defaults to `--from-prod --to-local`; `--to-preview` selects preview, `--to-prod` is forbidden, and synchronizer options such as `--dry-run`, `--table`, or `--reset` follow `--`.
 - Agents must never start a development server in their current shell. Reuse the already-running stack when available.
 - If dev is required and no suitable stack is running, create a new tab in the already-open cmux session and run exactly `jd school-clerk dev --local -f marketing dashboard school-site`. If cmux is unavailable or cannot create the tab, mark the active goal blocked; do not start dev through another terminal or command runner.
 - Website QA must use the HTTPS URLs reported by the active Portless proxy for the `school-clerk`, `<tenant>.school-clerk-dashboard`, and `<tenant>.school-clerk-site` hostnames instead of raw app ports.
@@ -50,7 +51,8 @@ Defines implementation standards for consistency, maintainability, and reliabili
 - Raw localhost ports may be inspected only while diagnosing Portless itself; they are not valid website QA URLs and do not allow work to proceed past a broken named host.
 - `bun run kill:ports` discovers numeric env variables ending in `_PORT` and ignores names containing `PORTLESS`. Keep every project-owned dev port declared as an individual `*_PORT` env variable instead of adding aggregate kill lists.
 - After every Prisma schema/database update, run only `bun run db:push --local` and `bun run db:push --prod`.
-- Do not run `db:migrate`, create migration files, or push Prisma schema changes to the remote-development profile unless the user explicitly requests it. Preserve the repository's destructive-change safeguards, never force data loss without explicit approval, and report any required local or production push that could not be updated.
+- Database actions are owned by `local-infra-kit`: the single root command for each of generate/migrate/pull/push/studio/shell defaults to local and accepts only `--local`, `--preview`, or `--prod`. Connected production actions require typing the printed credential-free target fingerprint. Do not add mode-suffixed aliases or a repository-local router.
+- Do not run `db:migrate`, create migration files, or push Prisma schema changes to the preview profile unless the user explicitly requests it. Preserve the repository's destructive-change safeguards, never force data loss without explicit approval, and report any required local or production push that could not be updated.
 
 ## Midday Architecture Standards
 
@@ -72,7 +74,7 @@ Defines implementation standards for consistency, maintainability, and reliabili
   - domain-specific sheet files under `components/sheets/...`
 - Forms must use Midday validation, field error display, submission state, mutation callbacks, toast/error handling, and cache invalidation patterns.
 - Data fetching and mutations must use standard Midday tRPC patterns, including query keys, prefetch/hydration where applicable, invalidation, loading states, error states, and caching behavior.
-- Prisma schema changes must be followed only by root `bun run db:push --local` and `bun run db:push --prod`. Do not run `db:migrate`, create migration files, or push to the remote-development profile unless the user explicitly requests it.
+- Prisma schema changes must be followed only by root `bun run db:push --local` and `bun run db:push --prod`. Do not run `db:migrate`, create migration files, or push to the preview profile unless the user explicitly requests it.
 - Use shadcn standard components and composition patterns. Do not directly modify shadcn source components; create project-specific wrapper components when SchoolClerk needs custom behavior.
 - Use `/Users/M1PRO/Documents/code/_turbo/gnd` as the reference for the standard notification package system.
 - Use `/Users/M1PRO/Documents/code/plot-keys` as the reference for local URL handling, portless/proxy support, and generated links.

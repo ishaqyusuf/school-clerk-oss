@@ -34,10 +34,10 @@ function normalizeMode() {
 	}
 
 	if (
-		process.env.SCHOOL_CLERK_DB_MODE === "remote" ||
-		process.env.SCHOOL_CLERK_DB_MODE === "remote-dev"
+		process.env.SCHOOL_CLERK_DB_MODE === "preview" ||
+		process.env.SCHOOL_CLERK_DB_MODE === "preview"
 	) {
-		return "remote";
+		return "preview";
 	}
 
 	if (
@@ -59,10 +59,10 @@ function envFilesForMode(mode: string) {
 			: [path.join(repoRoot, ".env.production")];
 	}
 
-	if (mode === "remote") {
+	if (mode === "preview") {
 		return [
 			path.join(repoRoot, ".env.local"),
-			path.join(repoRoot, ".env.remote.local"),
+			path.join(repoRoot, ".env.preview"),
 		];
 	}
 

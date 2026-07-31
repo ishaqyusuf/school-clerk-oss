@@ -2,8 +2,8 @@
 
 ## 2026-07-31: Shared Database Commands And Sync
 
-- `db:generate`, `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell` use `local-infra-kit/bin/db.ts`; local is the default and `--local`, `--remote`, and `--prod` are the only mode flags.
-- `db:sync` defaults to `--from-prod --to-local`; `--to-remote` changes the destination, `--to-prod` is rejected, and `db:sync --help` prints the public contract without resolving endpoints or starting services. Synchronizer options follow `--`.
+- `db:generate`, `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell` use `local-infra-kit/bin/db.ts`; local is the default and `--local`, `--preview`, and `--prod` are the only mode flags.
+- `db:sync` defaults to `--from-prod --to-local`; `--to-preview` changes the destination, `--to-prod` is rejected, and `db:sync --help` prints the public contract without resolving endpoints or starting services. Synchronizer options follow `--`.
 - Mode-suffixed aliases and repository-local database routers were removed. Connected production actions require the credential-free target fingerprint as confirmation.
 
 ## Migration Entry
@@ -39,31 +39,32 @@ Change log for database schema migrations and rollout notes.
 
 - After every Prisma schema/database update, propagate schema readiness only to the local and production database profiles.
 - Run `bun run db:push --local` and `bun run db:push --prod`.
-- Do not run `db:migrate`, create migration files, or push the schema to the remote-development profile unless the user explicitly requests it. Report any unavailable or failed required push rather than silently skipping it.
+- Do not run `db:migrate`, create migration files, or push the schema to the preview profile unless the user explicitly requests it. Report any unavailable or failed required push rather than silently skipping it.
 - Do not force data-loss prompts or destructive changes without explicit approval.
-- The root `db:push` router must call `scripts/db-command.ts push --<profile>` directly so production pushes keep the production guard and do not fall through to the package-local default push profile.
+- Root database commands delegate to `local-infra-kit/bin/db.ts --profile school-clerk`; the shared router owns mode selection, target guards, local service startup, and production confirmation, while package-local scripts remain raw implementations.
 
-- Dev database selection follows the GND-style three-layer model: `remote-dev` for shared development databases, `local` for the Docker Postgres database, and `production` for production-only scripts and deploys.
-- `scripts/dev.ts` is the local development router and delegates DB-mode resolution to `scripts/with-dev-infra.ts`. The router defaults `bun run dev` to local Docker Postgres, supports `bun run dev --remote-dev` for hosted dev, and accepts `--filter`, `--f`, `-f`, or `-filter` with Turbo selector syntax plus bare exact package-name shorthand such as `api marketing! @school-clerk/jobs`. DB env loading is root-only; package-local `.env` files are not part of the database profile contract.
-- The canonical database env set is `DATABASE_URL`, `LOCAL_DATABASE_URL`, `REMOTE_DEV_DATABASE_URL`, `PROD_DATABASE_URL`, and `SCHOOL_CLERK_DB_MODE`. Older `POSTGRES_URL`, `LOCAL_POSTGRES_URL`, `REMOTE_DEV_POSTGRES_URL`, `DEV_DATABASE_URL`, and `PROD_POSTGRES_URL` names may be read as fallback aliases by compatibility code, but new scripts and Vercel/Turbo env allowlists should use the canonical names.
-- Local database runs in Docker and is currently mapped to `localhost:55432`.
-- Use `bun run dev` or `bun run dev --local` for the default local Docker workflow, `bun run dev --remote-dev` for remote development, and `bun run dev --prod` for the production-env dashboard/API smoke profile.
-- Use `bun run dev:services` to start only the local services implied by the selected env; it skips Postgres when the DB mode or URL points at remote dev. Use `bun run dev:services:local`, `bun run db:start`, or `bun run db:docker:up` to force local Postgres startup.
-- Prisma maintenance commands are profile-routed. `bun run db:push --local|--remote|--prod` uses the explicit `scripts/db-push.ts` router; generate/pull/studio use `scripts/db-command.ts`. No profile flag defaults to local Docker Postgres. Normal schema rollout invokes only `--local` and `--prod`.
+- Dev database selection uses `preview` for the shared hosted database, `local` for Docker Postgres, and `prod` for production-only scripts and deploys.
+- `scripts/dev.ts` defaults `bun run dev` to local Docker Postgres and supports `bun run dev --preview` for hosted preview. DB env loading is root-only; package-local `.env` files are not part of the database profile contract.
+- The canonical database env set is `DATABASE_URL` and `SCHOOL_CLERK_DB_MODE`. `.env.local`, `.env.preview`, and `.env.prod` each own the complete URL for their mode; scripts do not generate URLs or read mode-specific aliases.
+- Local database runs in Docker and is mapped by `.env.local` to `localhost:55432`. The shared toolkit parses the URL and passes its port, database name, user, and password to Compose at runtime.
+- Use `bun run dev` or `bun run dev --local` for the default local Docker workflow, `bun run dev --preview` for hosted preview, and `bun run dev --prod` for the production-env dashboard/API smoke profile.
+- Use `bun run dev:services` to start only the local services implied by the selected env; it skips Postgres when the DB mode or URL points at preview. Use `bun run dev:services:local`, `bun run db:start`, or `bun run db:docker:up` to force local Postgres startup.
+- `db:generate`, `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell` use one shared router. Each defaults to local and accepts only `--local`, `--preview`, or `--prod`; normal schema rollout still invokes only `db:push --local` and `db:push --prod`.
 - Use the explicit two-profile push sequence above after Prisma schema/database updates.
 - Do not manually create migration files or run migration commands unless the user explicitly requests them.
 - Keep migration commands aligned with root `package.json` and `packages/db` scripts.
-- `db:push --local` runs `prisma db push` against the resolved local development database. `db:push --prod` loads production env, refuses local database URLs, and requires production `DATABASE_URL`.
-- The DB command routers run Prisma directly from `packages/db` with an explicit profile-resolved `DATABASE_URL` and `SCHOOL_CLERK_DB_MODE`; do not reintroduce a separate environment-mode variable for DB maintenance. This prevents Bun-preloaded `.env.local` values from leaking into `--remote` or `--prod` pushes, and targets SchoolClerk's actual Prisma schema directory at `packages/db/src/schema` with migrations under `packages/db/src/schema/migrations`.
-- Local package dev scripts also pass through root env/profile resolution, which forces `DATABASE_URL` to the local Docker profile from `LOCAL_DATABASE_URL` when present. This prevents root `.env.local` remote database URLs from leaking into filtered local `turbo dev` package processes.
+- Connected local database actions start managed Postgres and run against `.env.local`. Connected production actions load production env, refuse local URLs, print a credential-free fingerprint, and require that fingerprint as confirmation.
+- The shared router runs the raw `packages/db` Prisma script with an explicit profile-resolved `DATABASE_URL`, `SCHOOL_CLERK_DB_MODE`, and `SCHOOL_CLERK_ENV_MODE`. This prevents Bun-preloaded `.env.local` values from leaking into `--preview` or `--prod` pushes and targets the schema under `packages/db/src/schema`.
+- 2026-07-31: Removed repository-local database routers and all mode-suffixed database aliases. The shared root action commands are now the only supported profile-aware interfaces.
+- Local package dev scripts pass through root env/profile resolution, which loads `DATABASE_URL` directly from `.env.local`. Missing local configuration fails closed instead of falling back to a generated URL.
 - The `packages/jobs` dev script now uses the same dev-infra resolver as the DB package, while `jobs:deploy` uses production env loading.
 - Prisma 7 is the default ORM runtime. `packages/db/prisma.config.ts` loads root envs, applies the Halaalvest-style database profile, and reads `DATABASE_URL` for runtime and migration commands. It still allows `prisma generate` and `prisma validate` to use a local placeholder PostgreSQL URL when `DATABASE_URL` is absent so DB-less marketing Vercel builds can generate the client. The generated client lives under `packages/db/src/generated/client`.
 - `@school-clerk/db` follows the Halaalvest lazy-client pattern: `createPrismaClient()` returns a configured client or `null` when `DATABASE_URL` is absent, while the legacy `prisma` export is a lazy compatibility proxy that throws only when actual DB access is attempted without a database URL.
 - `packages/db/src/generated/` is ignored source output and must stay listed in `turbo.json` build outputs as `src/generated/**`; otherwise remote Turbo cache hits can replay `@school-clerk/db:build` logs without restoring the generated Prisma client for downstream Next.js bundles. Run `bun run db:generate` before local typechecks that import `@school-clerk/db`; dashboard and school-site build scripts generate the client before `next build` for app-direct Vercel builds.
 - Use `bun run db:studio` for Prisma Studio against the selected development database.
 - If the Docker DB is not running yet, start it with `bun run db:start` or `docker compose up -d postgres` from the repo root.
-- Use `bun run db:update:local:dry-run` to inspect production-to-local import changes before writing to the local Docker database.
-- Use `bun run db:update:local` to sync production data into the local database. The command reads production source URLs from explicit source env vars first, then `packages/db/.env.production`, then repo root `.env.production`; it reads the local target from local env files and falls back to `postgresql://postgres:postgres@127.0.0.1:55432/school_clerk`.
+- Use `bun run db:sync --to-local -- --dry-run` to inspect production-to-local import changes before writing to local Docker.
+- `bun run db:sync` defaults to `--from-prod --to-local`; use `--to-preview` only when that destination is intended. Production is source-only and `--to-prod` is rejected. Synchronizer options such as `--dry-run`, `--table`, and `--reset` follow `--`.
 - The production-to-local sync refuses to write unless the target database host is local, writes cursor state under `.local-db-sync/`, temporarily disables triggers on all local target tables while importing table-by-table data, casts raw upsert parameters to the target PostgreSQL column types, preserves native PostgreSQL arrays while JSON-stringifying JSON values, re-enables triggers before disconnecting, and normalizes imported tenant domains for local dashboard routing by default.
 - Local domain normalization keeps `SchoolProfile.subDomain`, `TenantDomain.subdomain`, and legacy `school.sub_domain` as slug-only values compatible with `<tenant>.school-clerk-dashboard.localhost`; imported production custom domains are cleared unless `--keep-custom-domains` is passed.
 

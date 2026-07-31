@@ -3,7 +3,7 @@
 	"globalDependencies": [
 		"**/.env",
 		"**/.env.local",
-		"**/.env.remote.local",
+		"**/.env.preview",
 		"**/.env.prod",
 		"**/.env.production"
 	],

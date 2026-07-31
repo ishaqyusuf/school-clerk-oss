@@ -9,13 +9,13 @@ Before starting work:
 - Read the relevant Brain files for the task. Start with `.brain/BRAIN.md`, `.brain/SYSTEM_OVERVIEW.md`, `.brain/system/overview.md`, `.brain/system/architecture.md`, `.brain/engineering/ai-rules.md`, `.brain/engineering/coding-standards.md`, and `.brain/tasks/in-progress.md`.
 - For feature work, also read the matching file in `.brain/features/` and any related ADR in `.brain/decisions/`.
 - For API, auth, permission, database, or migration work, read the matching files under `.brain/api/` and `.brain/database/`.
-- After Prisma schema/database changes, run only `bun run db:push --local` and `bun run db:push --prod`. Do not run `db:migrate`, create migration files, or push the schema to the remote-development profile unless the user explicitly requests it.
+- After Prisma schema/database changes, run only `bun run db:push --local` and `bun run db:push --prod`. Do not run `db:migrate`, create migration files, or push the schema to the preview profile unless the user explicitly requests it.
 
 After code changes:
 
 - Run a Brain documentation impact check before finishing.
 - Update `.brain/database/schema.md`, `.brain/database/relationships.md`, or `.brain/database/migrations.md` for database changes.
-- For Prisma database updates, run only `bun run db:push --local` and `bun run db:push --prod`. Do not run `db:migrate`, create migration files, push to the remote-development profile, or force destructive changes without explicit approval.
+- For Prisma database updates, run only `bun run db:push --local` and `bun run db:push --prod`. Do not run `db:migrate`, create migration files, push to the preview profile, or force destructive changes without explicit approval.
 - Update `.brain/api/endpoints.md`, `.brain/api/contracts.md`, or `.brain/api/permissions.md` for API, contract, auth, or permission changes.
 - Update or create `.brain/features/<feature>.md` for feature behavior changes.
 - Add an ADR under `.brain/decisions/` for durable architecture, product, integration, or implementation decisions.

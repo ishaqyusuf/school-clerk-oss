@@ -4,8 +4,8 @@ import { PrismaClient } from "./generated/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 export type SyncMode = "incremental" | "insert-only" | "static-refresh" | "skip";
-export type SyncEnvMode = "local" | "remote" | "prod";
-export type SyncPairMode = "prod-local" | "remote-local" | "prod-remote";
+export type SyncEnvMode = "local" | "preview" | "prod";
+export type SyncPairMode = "prod-local" | "preview-local" | "prod-preview";
 
 export type ColumnInfo = {
   name: string;
@@ -119,8 +119,6 @@ const DEFAULT_STATE: SyncState = {
   tables: {},
 };
 
-const DEFAULT_LOCAL_DATABASE_CONNECTION_STRING =
-  "postgresql://postgres:postgres@127.0.0.1:55432/school_clerk";
 const LOCAL_HOSTS = new Set([
   "localhost",
   "127.0.0.1",
@@ -537,11 +535,11 @@ export function parseArgs(argv: string[]): ParsedSyncArgs {
 }
 
 export function parseSyncPairMode(value: string): SyncPairMode {
-  if (value === "prod-local" || value === "remote-local" || value === "prod-remote") {
+  if (value === "prod-local" || value === "preview-local" || value === "prod-preview") {
     return value;
   }
 
-  throw new Error(`Unknown sync mode: ${value}. Use prod-local, remote-local, or prod-remote.`);
+  throw new Error(`Unknown sync mode: ${value}. Use prod-local, preview-local, or prod-preview.`);
 }
 
 export function parseEnvFile(text: string): Record<string, string> {
@@ -581,11 +579,10 @@ async function readEnvFiles(files: string[]): Promise<Record<string, string>> {
 }
 
 async function loadModeEnv(repoRoot: string, mode: SyncEnvMode): Promise<Record<string, string>> {
-  if (mode === "remote") {
-    return readEnvFiles([
-      resolve(repoRoot, ".env.local"),
-      resolve(repoRoot, ".env.remote.local"),
-    ]);
+  if (mode === "preview") {
+    const localEnv = await readEnvFiles([resolve(repoRoot, ".env.local")]);
+    const previewEnv = await readEnvFiles([resolve(repoRoot, ".env.preview")]);
+    return { ...localEnv, ...previewEnv, DATABASE_URL: previewEnv.DATABASE_URL };
   }
 
   if (mode === "prod") {
@@ -608,10 +605,10 @@ export function syncPairModes(pairMode: SyncPairMode): {
   switch (pairMode) {
     case "prod-local":
       return { sourceMode: "prod", targetMode: "local" };
-    case "remote-local":
-      return { sourceMode: "remote", targetMode: "local" };
-    case "prod-remote":
-      return { sourceMode: "prod", targetMode: "remote" };
+    case "preview-local":
+      return { sourceMode: "preview", targetMode: "local" };
+    case "prod-preview":
+      return { sourceMode: "prod", targetMode: "preview" };
   }
 }
 
@@ -656,8 +653,7 @@ export async function resolveOptions(
   const targetUrl =
     parsed.targetUrl ??
     process.env.TARGET_DATABASE_URL ??
-    (await databaseUrlForMode(repoRoot, targetMode)) ??
-    (targetMode === "local" ? DEFAULT_LOCAL_DATABASE_CONNECTION_STRING : undefined);
+    (await databaseUrlForMode(repoRoot, targetMode));
 
   const options = {
     pairMode,
@@ -686,13 +682,13 @@ export async function resolveOptions(
 
   if (!sourceUrl) {
     throw new Error(
-      `Missing source database URL. Set DATABASE_URL in ${sourceMode === "prod" ? ".env.prod" : ".env.remote.local"} or pass --source-url.`,
+      `Missing source database URL. Set DATABASE_URL in ${sourceMode === "prod" ? ".env.prod" : ".env.preview"} or pass --source-url.`,
     );
   }
 
   if (!targetUrl) {
     throw new Error(
-      `Missing target database URL. Set DATABASE_URL in ${targetMode === "local" ? ".env.local" : ".env.remote.local"} or pass --target-url.`,
+      `Missing target database URL. Set DATABASE_URL in ${targetMode === "local" ? ".env.local" : ".env.preview"} or pass --target-url.`,
     );
   }
 

@@ -18,7 +18,7 @@
     "db:studio": "bun --env-file=/dev/null ../local-infra-kit/bin/db.ts studio --profile school-clerk",
     "db:sync": "bun --env-file=/dev/null ../local-infra-kit/bin/db-sync.ts --profile school-clerk",
     "db:docker:up": "bun run dev:services:local",
-    "db:docker:down": "docker compose -f docker-compose.yml down",
+    "db:docker:down": "bun ../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- docker compose -f docker-compose.yml down",
     "db:start": "bun run dev:services:local",
     "db:shell": "bun --env-file=/dev/null ../local-infra-kit/bin/db.ts shell --profile school-clerk",
     "dev:prepare": "bun run kill:ports && bun run dev:services",
