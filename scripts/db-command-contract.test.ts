@@ -10,6 +10,20 @@ function scripts(path: string): Record<string, string> {
   }).scripts ?? {};
 }
 
+function workspaceScripts(): Array<[string, string]> {
+  const manifests = [
+    "package.json",
+    ...new Bun.Glob("{apps,packages}/*/package.json").scanSync({ cwd: root }),
+  ];
+
+  return manifests.flatMap((manifest) =>
+    Object.entries(scripts(manifest)).map(([name, command]) => [
+      `${manifest}#${name}`,
+      command,
+    ]),
+  );
+}
+
 describe("shared database command contract", () => {
   test("exposes one mode-aware root command per database action", () => {
     const rootScripts = scripts("package.json");
@@ -63,5 +77,24 @@ describe("shared database command contract", () => {
   test("has no repository-local database profile router", () => {
     expect(existsSync(resolve(root, "scripts/db-command.ts"))).toBe(false);
     expect(existsSync(resolve(root, "scripts/db-push.ts"))).toBe(false);
+  });
+
+  test("workspace consumers do not invoke removed database aliases", () => {
+    for (const [consumer, command] of workspaceScripts()) {
+      expect(command, consumer).not.toMatch(
+        /\b(?:prisma-generate:(?:local|remote|prod)|db:(?:generate|migrate|pull|push|studio|shell):(?:local|remote|prod|dev))\b/,
+      );
+    }
+  });
+
+  test("Turbo has no tasks for removed database aliases", () => {
+    const tasks = (
+      JSON.parse(readFileSync(resolve(root, "turbo.json"), "utf8")) as {
+        tasks?: Record<string, unknown>;
+      }
+    ).tasks ?? {};
+
+    expect(tasks["prisma-generate"]).toBeUndefined();
+    expect(tasks["db-migrate"]).toBeUndefined();
   });
 });
