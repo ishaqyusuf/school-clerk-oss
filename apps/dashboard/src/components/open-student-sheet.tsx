@@ -1,3 +1,5 @@
+"use client";
+
 import { useStudentParams } from "@/hooks/use-student-params";
 import { Button } from "@school-clerk/ui/button";
 import { Icons } from "@school-clerk/ui/icons";

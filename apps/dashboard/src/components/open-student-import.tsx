@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@school-clerk/ui/button";
 import { Icons } from "@school-clerk/ui/icons";
 import { parseAsString, useQueryStates } from "nuqs";

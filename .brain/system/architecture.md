@@ -80,6 +80,10 @@ Tracks architectural patterns, boundaries, and major design choices.
   and ledger records with row-level transactions, database row locks, and
   replay-safe references. Failed rows are retryable without replaying imported
   rows.
+- Local PostgreSQL startup uses the shared `local-infra-kit`, with `.env.local`
+  `DATABASE_URL` as the sole connection source. The toolkit derives transient
+  Docker Compose settings from that URL, so School Clerk can retain host port
+  `55432` without imposing it on other projects.
 
 ## Tenant Domain Topology
 

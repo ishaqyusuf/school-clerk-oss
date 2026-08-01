@@ -88,3 +88,8 @@ columns, row selection, infinite loading, and RTL-aware logical positioning.
 
 This change extends the existing shared table architecture and URL-backed sheet
 model, so no new ADR is required.
+
+The directory header remains server-rendered. Its URL-backed import and
+enrollment action buttons declare leaf-level client boundaries before invoking
+`nuqs` hooks, preventing client hook execution during the Server Component
+render while keeping the rest of the header out of the client bundle.
