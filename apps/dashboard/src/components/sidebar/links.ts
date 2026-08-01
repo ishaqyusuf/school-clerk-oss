@@ -1,29 +1,12 @@
-import {
-  getLinkModules as buildNavLinkModules,
-  validateLinks as buildValidatedNavLinks,
-} from "@school-clerk/ui/nav/utils";
-
-import { linkModules } from "@/features/navigation/sidebar-modules";
-
-export { linkModules };
+import { resolveDashboardNavigation } from "@/features/navigation/dashboard-navigation";
 
 export function getFirstPermittedHref({
-  can,
-  role,
-  userId,
+	can,
+	role,
 }: {
-  can?: Record<string, boolean>;
-  role?: string | null;
-  userId?: string | null;
+	can?: Record<string, boolean>;
+	role?: string | null;
+	userId?: string | null;
 }) {
-  const validLinks = buildNavLinkModules(
-    buildValidatedNavLinks({
-      linkModules: structuredClone(linkModules),
-      role,
-      can,
-      userId,
-    }),
-  );
-
-  return validLinks.defaultLink || "/";
+	return resolveDashboardNavigation(role, { permissions: can }).defaultHref;
 }

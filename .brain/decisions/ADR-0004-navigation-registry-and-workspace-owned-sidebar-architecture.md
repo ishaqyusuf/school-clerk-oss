@@ -29,6 +29,16 @@ Adopt a shared navigation package and typed registry model:
 
 The first implementation keeps role-based access in place while adding structure for future institution-type and module-toggle filtering.
 
+### 2026-08-01 clarification
+
+The adapter boundary is now a pure resolver boundary:
+
+- `packages/navigation` owns framework-independent schemas, policy intersection, workspace profiles, defaults, ordering, and the `ResolvedNavigation` contract.
+- The dashboard feature owns its canonical destination registry and dashboard-specific workspace profiles.
+- `packages/site-nav` owns React presentation and interaction only and receives an already-resolved model.
+
+The two shared packages remain separate so role/access derivation can be tested and reused without importing UI code, while the renderer can evolve without duplicating or broadening authorization policy. The legacy UI-shaped sidebar adapter and duplicated dashboard/sidebar link trees were removed.
+
 ## Consequences
 
 ### Positive
@@ -43,6 +53,7 @@ The first implementation keeps role-based access in place while adding structure
 - Adds one more shared package and adapter layer.
 - Existing route groups still need incremental cleanup to fully align with workspace ownership.
 - Institution-type and tenant-module filters still need follow-up wiring into runtime tenant config.
+- Dashboard navigation resolution now enforces these constraints when runtime values are supplied; tenant configuration still needs to supply those values before registry entries should depend on them in production.
 
 ## Alternatives Considered
 

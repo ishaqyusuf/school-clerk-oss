@@ -1,5 +1,26 @@
 # Progress
 
+## Role-Based Dashboard Navigation And Latest GND Sidenav Refresh (2026-08-01)
+
+### Completed
+
+- Reorganized the canonical dashboard registry into Overview, People, Academics, Finance, Operations, Teaching, Parent Portal, and Settings modules with clean sections and route-maturity statuses.
+- Added explicit role workspace profiles for Admin, Teacher, Accountant, Registrar, HR, Staff, Parent, Support, and Student, including deterministic defaults and sidebar, compact, header-only, or unavailable surfaces.
+- Converted `packages/navigation` into a pure TypeScript resolver and kept `packages/site-nav` as the React rendering/interaction package.
+- Removed legacy duplicate navigation adapters and role-specific renderer branches.
+- Adapted module selection, selected-module rendering, coordinated floating-menu hover behavior, nested-item controls, reduced-motion support, and the stronger mobile sheet.
+- Synchronized search and login/default redirects with the resolved live navigation model.
+- Added a view-only Staff landing, a safe Student unavailable page, and mobile-visible Notifications for header-only Support.
+
+### Verification
+
+- Focused navigation tests cover the nine-role matrix, safe defaults, policy intersection, upcoming exclusion, search visibility, route existence, active-route matching, duplicate hrefs, and module selection.
+- `bun --filter @school-clerk/navigation typecheck`
+- `bun --filter @school-clerk/site-nav typecheck`
+- `bun --filter @school-clerk/dashboard typecheck`
+- Scoped Biome checks and formatting pass.
+- Browser automation and authenticated desktop/mobile/keyboard/visual QA were not run, by explicit user request; that phase remains pending.
+
 ## Assessment Recording Subject Filling Progress (2026-07-18)
 
 ### Completed

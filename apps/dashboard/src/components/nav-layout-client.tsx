@@ -1,17 +1,17 @@
 "use client";
 import { switchSessionTerm } from "@/actions/cookies/auth-cookie";
 import { _trpc } from "@/components/static-trpc";
+import { resolveDashboardNavigation } from "@/features/navigation/dashboard-navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { createSiteNavContext, SiteNav } from "@school-clerk/site-nav";
 import { Icons } from "@school-clerk/ui/custom/icons";
 import { usePathname } from "next/navigation";
 import { Header } from "./header";
-import { linkModules } from "./sidebar/links";
 import { TenantLink } from "@school-clerk/tenant-url/next";
 import { useLocalTenantHref, useTenantUrl } from "@school-clerk/tenant-url/react";
 import { ChatWidget } from "./chat/chat-widget";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   AcademicDataDirectionProvider,
   type DataDirection,
@@ -31,6 +31,11 @@ export function NavLayoutClient({
   const tenantUrl = useTenantUrl();
   const tenantHref = useLocalTenantHref();
   const productPathName = tenantUrl?.context.productPath ?? pathName;
+  const navigationRole = auth.role ?? initialRole;
+  const navigation = useMemo(
+    () => resolveDashboardNavigation(navigationRole),
+    [navigationRole],
+  );
   const canUseChat =
     process.env.NODE_ENV !== "production" && initialRole === "Admin";
   const onLogout = () => {
@@ -42,10 +47,8 @@ export function NavLayoutClient({
       <SiteNav.Provider
       value={createSiteNavContext({
         pathName: productPathName,
-        linkModules,
+        navigation,
         Link: TenantLink,
-        role: auth.role,
-        userId: auth.id,
         mobileSidebarLogo: <Icons.LogoLg />,
         mobileSidebarFooter: (
           <SidebarUserMenu
@@ -59,10 +62,6 @@ export function NavLayoutClient({
     >
       <div className="relative ">
         <SiteNav.Sidebar>
-          <SiteNav.Logo Icon={Icons.LogoLg} />
-          <SiteNav.LogoSm Icon={Icons.Logo} />
-          {/* <TermSwitcher /> */}
-          {/* <ModuleSwitcher /> */}
           <div className="absolute bottom-4 left-0 right-0 z-10 px-2 w-full flex items-center justify-center md:justify-start md:px-2">
             <SidebarUserMenu
               auth={auth}
@@ -143,31 +142,3 @@ function SidebarUserMenu({
     />
   );
 }
-// export function NavLayoutClient({ children }) {
-//   const auth = useAuth({
-//     required: true,
-//   });
-//   const pathName = usePathname();
-//   return (
-//     <SiteNav.Provider
-//       value={createSiteNavContext({
-//         pathName,
-//         linkModules,
-//         Link,
-//         role: auth.role,
-//         userId: auth.id,
-//       })}
-//     >
-//       <div className="relative">
-//         <SiteNav.Sidebar>
-//           <TermSwitcher />
-//           {/* <ModuleSwitcher /> */}
-//         </SiteNav.Sidebar>
-//         <SiteNav.Shell className="pb-8">
-//           <Header />
-//           <div className="px-6">{children}</div>
-//         </SiteNav.Shell>
-//       </div>
-//     </SiteNav.Provider>
-//   );
-// }

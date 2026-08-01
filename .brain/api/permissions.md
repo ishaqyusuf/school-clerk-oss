@@ -17,3 +17,20 @@
   `Admin`, or `Registrar`.
 - Target classroom departments and selected student term forms are verified
   against the same tenant before a class move is committed.
+- Registrar navigation may expose Enrollment and Student Directory because the
+  existing authenticated student-management contract already includes
+  `Registrar`. This navigation exposure does not replace or broaden server-side
+  checks.
+
+# Dashboard navigation permissions
+
+- Navigation is a discoverability layer, not an authorization boundary.
+- The dashboard resolves module, section, item, and child availability by
+  intersecting role, permission, institution-type, enabled-module, and status
+  policies.
+- Route handlers, server components, tRPC procedures, and database helpers must
+  continue enforcing tenant and role authorization independently of whether a
+  link is visible.
+- Support resolves to header-only Notifications and Student resolves to the
+  explicit unavailable page; neither role falls through to an Admin or Teacher
+  default.

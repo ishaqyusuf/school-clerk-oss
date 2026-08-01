@@ -81,3 +81,15 @@ Tracks tasks currently being worked on.
 
 - Product implementation is integrated. Guarded schema pushes, secure route
   propagation, canary delivery, and first reviewed purge remain rollout work.
+
+### Role-Based Sidebar IA And Latest GND Navigation Refresh
+
+- Priority: Medium
+- Description: Track plan in `.brain/plans/2026-08-01-feature-role-based-sidebar-ia-and-latest-gnd-navigation-refresh.md`.
+- Related Feature: role-based dashboard navigation and GND-style sidebar interactions
+- Status: In Progress
+- Plan Status: In Progress
+- Plan File: .brain/plans/2026-08-01-feature-role-based-sidebar-ia-and-latest-gnd-navigation-refresh.md
+- Created Date: 2026-08-01
+- Current status: Implementation, focused tests, route-manifest checks, formatting, and TypeScript verification are complete. Authenticated browser/UI, keyboard, screen-reader, and visual QA are intentionally paused so the user can begin that phase separately.
+- Blockers: Browser/UI verification is pending by explicit request; no browser automation was run during implementation.

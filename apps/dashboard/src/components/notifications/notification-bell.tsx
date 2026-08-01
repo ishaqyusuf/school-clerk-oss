@@ -1,17 +1,17 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell } from "lucide-react";
 import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
-import { resolveStoredNotificationAction } from "./notification-action";
 import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
 } from "@school-clerk/ui/popover";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bell } from "lucide-react";
+import { resolveStoredNotificationAction } from "./notification-action";
 
 function formatRelativeTime(dateInput?: Date | string | null) {
 	if (!dateInput) return "";
@@ -52,13 +52,22 @@ export function NotificationBell() {
 			queryKey: trpc.notifications.unreadCount.queryKey(),
 		});
 		qc.invalidateQueries({
-			queryKey: trpc.notifications.list.queryKey({ take: 5, onlyUnread: false }),
+			queryKey: trpc.notifications.list.queryKey({
+				take: 5,
+				onlyUnread: false,
+			}),
 		});
 		qc.invalidateQueries({
-			queryKey: trpc.notifications.list.queryKey({ take: 100, onlyUnread: false }),
+			queryKey: trpc.notifications.list.queryKey({
+				take: 100,
+				onlyUnread: false,
+			}),
 		});
 		qc.invalidateQueries({
-			queryKey: trpc.notifications.list.queryKey({ take: 100, onlyUnread: true }),
+			queryKey: trpc.notifications.list.queryKey({
+				take: 100,
+				onlyUnread: true,
+			}),
 		});
 	};
 
@@ -77,7 +86,11 @@ export function NotificationBell() {
 	return (
 		<Popover>
 			<PopoverTrigger asChild>
-				<Button variant="ghost" size="icon" className="relative">
+				<Button
+					variant="ghost"
+					size="icon"
+					className="relative size-11 md:size-9"
+				>
 					<Bell className="h-4 w-4" />
 					{unreadCount > 0 ? (
 						<span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
@@ -131,7 +144,8 @@ export function NotificationBell() {
 										if (!notification.isRead) {
 											markRead({ notificationId: notification.id });
 										}
-										const action = resolveStoredNotificationAction(notification);
+										const action =
+											resolveStoredNotificationAction(notification);
 										router.push(action?.href || "/notifications");
 									}}
 								>

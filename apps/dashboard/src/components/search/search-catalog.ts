@@ -1,7 +1,7 @@
-import { dashboardNavRegistry } from "@/features/navigation/dashboard-nav-registry";
-import type {
-	NavItemDefinition,
-	NavModuleDefinition,
+import { resolveDashboardNavigation } from "@/features/navigation/dashboard-navigation";
+import {
+	type ResolvedNavigation,
+	normalizeNavigationRole,
 } from "@school-clerk/navigation";
 import type { LocalSearchItem, SearchItem } from "./search-types";
 
@@ -35,12 +35,7 @@ const SEARCH_ALIASES: Record<string, string[]> = {
 		"print results",
 		"terminal report",
 	],
-	"academic-subjects": [
-		"subjects",
-		"courses",
-		"curriculum",
-		"class subjects",
-	],
+	"academic-subjects": ["subjects", "courses", "curriculum", "class subjects"],
 	"finance-collections": [
 		"student collections",
 		"receipts",
@@ -56,11 +51,7 @@ const SEARCH_ALIASES: Record<string, string[]> = {
 		"school fees",
 		"fee structure",
 	],
-	"finance-ledger": [
-		"transactions",
-		"finance transactions",
-		"account ledger",
-	],
+	"finance-ledger": ["transactions", "finance transactions", "account ledger"],
 	"finance-payables": [
 		"bills",
 		"expenses",
@@ -130,7 +121,13 @@ const SEARCH_ALIASES: Record<string, string[]> = {
 	],
 	"teacher-attendance": ["attendance", "mark attendance", "class attendance"],
 	"teacher-classes": ["my classes", "classrooms", "teacher classes"],
-	"teacher-reports": ["reports", "results", "assessment recording"],
+	"teacher-reports": ["reports", "results", "report sheets"],
+	"teacher-score-entry": [
+		"assessment recording",
+		"score entry",
+		"record scores",
+		"enter results",
+	],
 	"teacher-students": ["my students", "student records"],
 };
 
@@ -218,46 +215,52 @@ const quickActions: Array<LocalSearchItem & { roles?: string[] }> = [
 	},
 ];
 
-function flattenItems(modules: NavModuleDefinition[]) {
-	const items: NavItemDefinition[] = [];
+function roleAllows(roles: string[] | undefined, role?: string | null) {
+	if (!roles?.length) return true;
+	const normalizedRole = normalizeNavigationRole(role);
+	return normalizedRole ? roles.includes(normalizedRole) : false;
+}
 
-	for (const module of modules) {
+function mapNavItems(navigation: ResolvedNavigation) {
+	const items: LocalSearchItem[] = [];
+
+	for (const module of navigation.modules) {
 		for (const section of module.sections) {
 			for (const item of section.items) {
-				items.push(item);
+				for (const destination of [item, ...item.children]) {
+					items.push({
+						group: "Pages",
+						href: destination.href,
+						id: destination.key,
+						keywords: [
+							destination.title,
+							module.title,
+							section.title || "",
+							...(SEARCH_ALIASES[destination.key] ?? []),
+						]
+							.filter(Boolean)
+							.map((value) => value.toLowerCase()),
+						subtitle: section.title || module.title,
+						title: destination.title,
+					});
+				}
 			}
 		}
 	}
 
-	return items;
-}
-
-function roleAllows(roles: string[] | undefined, role?: string | null) {
-	if (!roles?.length) return true;
-	if (!role) return false;
-	return roles.includes(role);
-}
-
-function mapNavItems(role?: string | null) {
-	return flattenItems(dashboardNavRegistry)
-		.filter((item) => item.status !== "hidden" && item.status !== "upcoming")
-		.filter((item) => roleAllows(item.roles, role))
-		.map<LocalSearchItem>((item) => ({
+	const role = navigation.role;
+	if (role) {
+		items.push({
 			group: "Pages",
-			href: item.href,
-			id: item.key,
-			keywords: [
-				item.title,
-				item.module,
-				item.workspace,
-				item.sectionTitle || "",
-				...(SEARCH_ALIASES[item.key] ?? []),
-			]
-				.filter(Boolean)
-				.map((value) => value.toLowerCase()),
-			subtitle: item.sectionTitle || item.module,
-			title: item.title,
-		}));
+			href: "/notifications",
+			id: "notifications",
+			keywords: ["notifications", ...(SEARCH_ALIASES.notifications ?? [])],
+			subtitle: "Global",
+			title: "Notifications",
+		});
+	}
+
+	return items;
 }
 
 function scoreLocalItem(item: LocalSearchItem, normalizedQuery: string) {
@@ -290,9 +293,13 @@ export function getLocalSearchResults(params: {
 		.trim()
 		.toLowerCase()
 		.replace(/\s+/g, " ");
-	const navigation = mapNavItems(params.role);
-	const actions = quickActions.filter((item) =>
-		roleAllows(item.roles, params.role),
+	const resolvedNavigation = resolveDashboardNavigation(params.role);
+	const navigation = mapNavItems(resolvedNavigation);
+	const allowedHrefs = new Set(navigation.map((item) => item.href));
+	const actions = quickActions.filter(
+		(item) =>
+			roleAllows(item.roles, params.role) &&
+			allowedHrefs.has(item.href.split("?", 1)[0] ?? item.href),
 	);
 
 	return [...navigation, ...actions]

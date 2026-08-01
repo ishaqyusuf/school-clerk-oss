@@ -1,10 +1,10 @@
 {
-  "extends": "@school-clerk/tsconfig/react-library.json",
+  "extends": "@school-clerk/tsconfig/base.json",
   "compilerOptions": {
     "baseUrl": ".",
     "strict": false,
     "noImplicitAny": false
   },
   "include": ["src"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "src/**/*.test.ts"]
 }

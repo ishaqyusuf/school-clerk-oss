@@ -1,162 +1,185 @@
+import type { ResolvedNavItem } from "@school-clerk/navigation";
 import { cn } from "@school-clerk/ui/cn";
-import { Icon, Icons } from "@school-clerk/ui/custom/icons";
-import { useRef, useState } from "react";
+import { Icon, type IconKeys, Icons } from "@school-clerk/ui/custom/icons";
+import { useEffect, useRef, useState } from "react";
 
-import type { NavLink as NavLinkType, NavModule } from "../lib/types";
-import { isPathInLink, normalizeNavPath } from "../lib/utils";
+import {
+	isNavigationItemActive,
+	normalizeNavPath,
+} from "../lib/active-navigation";
 import { NavChildItem } from "./nav-child-item";
 import { NavLink } from "./nav-link";
 import { useSiteNav } from "./use-site-nav";
 
-const HOVER_EXPAND_DELAY_MS = 1200;
+const CHILD_PREVIEW_DELAY_MS = 480;
 
 export interface NavItemProps {
-	module: NavModule;
-	item: NavLinkType;
+	item: ResolvedNavItem;
 	isActive: boolean;
 	isExpanded: boolean;
 	isItemExpanded: boolean;
-	onToggle: (path: string) => void;
+	onToggle: (key: string) => void;
 	onSelect?: () => void;
 }
 
-export const NavItem = ({
+export function NavItem({
 	item,
 	isActive,
 	isExpanded,
+	isItemExpanded,
 	onSelect,
 	onToggle,
-}: NavItemProps) => {
+}: NavItemProps) {
 	const {
 		props: { pathName },
 	} = useSiteNav();
-	const normalizedPathName = normalizeNavPath(
-		pathName?.toLocaleLowerCase() || "",
-	);
-	const hasChildren = item.subLinks && item.subLinks.length > 0;
-	const [isHovered, setIsHovered] = useState(false);
-	const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-	const hasActiveChild = hasChildren
-		? item.subLinks?.some((child) => isPathInLink(normalizedPathName, child))
-		: false;
+	const hasChildren = item.children.length > 0;
+	const [isPreviewing, setIsPreviewing] = useState(false);
+	const previewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const childrenRef = useRef<HTMLDivElement>(null);
 	const shouldShowChildren =
-		isExpanded && (isHovered || hasActiveChild || isActive);
+		isExpanded && hasChildren && (isItemExpanded || isPreviewing);
 
-	const handleMouseEnter = () => {
-		if (hasChildren && !hasActiveChild && !isActive) {
-			hoverTimeoutRef.current = setTimeout(() => {
-				setIsHovered(true);
-			}, HOVER_EXPAND_DELAY_MS);
-		} else {
-			setIsHovered(true);
+	useEffect(() => {
+		return () => {
+			if (previewTimeoutRef.current) clearTimeout(previewTimeoutRef.current);
+		};
+	}, []);
+
+	function beginPreview() {
+		if (
+			!hasChildren ||
+			isItemExpanded ||
+			isPreviewing ||
+			previewTimeoutRef.current
+		)
+			return;
+		previewTimeoutRef.current = setTimeout(() => {
+			setIsPreviewing(true);
+			previewTimeoutRef.current = null;
+		}, CHILD_PREVIEW_DELAY_MS);
+	}
+
+	function endPreview() {
+		if (previewTimeoutRef.current) {
+			clearTimeout(previewTimeoutRef.current);
+			previewTimeoutRef.current = null;
 		}
-	};
+		setIsPreviewing(false);
+	}
 
-	const handleMouseLeave = () => {
-		if (hoverTimeoutRef.current) {
-			clearTimeout(hoverTimeoutRef.current);
-			hoverTimeoutRef.current = null;
+	function toggleChildren(event: React.MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+
+		const scroller = childrenRef.current?.closest<HTMLElement>(
+			"[data-site-nav-scroll-container]",
+		);
+		const distanceFromBottom = scroller
+			? scroller.scrollHeight - scroller.scrollTop
+			: null;
+		onToggle(item.key);
+		setIsPreviewing(false);
+		if (isItemExpanded && scroller && distanceFromBottom !== null) {
+			requestAnimationFrame(() => {
+				scroller.scrollTop = Math.max(
+					0,
+					scroller.scrollHeight - distanceFromBottom,
+				);
+			});
 		}
-		setIsHovered(false);
-	};
+	}
 
-	const handleChevronClick = (e: React.MouseEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-		onToggle(item.href);
-	};
+	const iconName = item.icon ?? "dashboard";
+	const isCurrentPage =
+		normalizeNavPath(pathName) === normalizeNavPath(item.href);
 
 	return (
-		<div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-			<NavLink
-				prefetch
-				href={item.href || ""}
-				onClick={() => onSelect?.()}
-				className="group"
-			>
-				<div className="relative">
-					<div
-						className={cn(
-							"rounded-md h-[36px] transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ml-[10px] mr-[10px]",
-							isActive
-								? "bg-primary/[0.07] dark:bg-primary/[0.12]"
-								: "group-hover:bg-muted/60",
-							isExpanded ? "w-[calc(100%-20px)]" : "w-[40px]",
-						)}
-					/>
-
-					{isActive && (
-						<div className="absolute top-[8px] bottom-[8px] left-[10px] w-[3px] rounded-full bg-primary" />
-					)}
-
-					<div className="absolute top-0 left-[10px] w-[40px] h-[36px] flex items-center justify-center text-muted-foreground group-hover:!text-primary pointer-events-none">
-						<div className={cn(isActive && "!text-primary")}>
-							<Icon name={item.icon} className="h-4 w-4" />
-						</div>
-					</div>
-
-					{isExpanded && (
-						<div className="absolute top-0 left-[50px] right-[4px] h-[36px] flex items-center pointer-events-none">
-							<span
-								className={cn(
-									"text-sm font-medium transition-colors duration-150 text-muted-foreground group-hover:text-foreground",
-									"whitespace-nowrap overflow-hidden",
-									hasChildren ? "pr-2" : "",
-									isActive && "text-foreground font-semibold",
-								)}
-							>
-								{item.name}
-							</span>
-							{item.status && item.status !== "live" && (
-								<span className="ml-2 rounded-md bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-									{item.status === "upcoming" ? "WIP" : item.status}
-								</span>
-							)}
-							{hasChildren && (
-								<button
-									type="button"
-									onClick={handleChevronClick}
-									className={cn(
-										"w-8 h-8 flex items-center justify-center transition-all duration-200 ml-auto mr-3",
-										"text-[#888] hover:text-primary pointer-events-auto",
-										isActive && "text-primary/60",
-										shouldShowChildren && "rotate-180",
-									)}
-								>
-									<Icons.chevronDown size={16} />
-								</button>
-							)}
-						</div>
-					)}
-				</div>
-			</NavLink>
-
-			{hasChildren && (
-				<div
+		<div
+			onMouseEnter={beginPreview}
+			onMouseLeave={(event) => {
+				if (!event.currentTarget.contains(document.activeElement)) endPreview();
+			}}
+			onFocus={beginPreview}
+			onBlur={(event) => {
+				if (!event.currentTarget.contains(event.relatedTarget)) endPreview();
+			}}
+		>
+			<div className="relative">
+				<NavLink
+					prefetch
+					href={item.href}
+					aria-current={isCurrentPage ? "page" : undefined}
+					onClick={() => onSelect?.()}
 					className={cn(
-						"transition-all duration-300 ease-in-out overflow-hidden",
-						shouldShowChildren ? "max-h-96 mt-1" : "max-h-0",
+						"group flex h-11 items-center rounded-lg text-sidebar-foreground/66 outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+						isExpanded ? "gap-3 px-3" : "w-11 justify-center px-0",
+						isExpanded && hasChildren && "pr-12",
+						isActive
+							? "bg-sidebar-primary/10 font-semibold text-sidebar-primary shadow-[inset_0_0_0_1px_rgba(99,91,255,0.09)]"
+							: "hover:bg-sidebar-accent hover:text-sidebar-foreground",
 					)}
 				>
-					{item.subLinks?.map((child, index) => {
-						const isChildActive = isPathInLink(normalizedPathName, child);
-						return (
-							<NavChildItem
-								key={child.href || child.name}
-								child={child}
-								isActive={isChildActive}
-								isExpanded={isExpanded}
-								isParentHovered={isHovered || hasActiveChild || isActive}
-								hasActiveChild={hasActiveChild}
-								isParentActive={isActive}
-								onSelect={onSelect}
-								index={index}
-							/>
-						);
-					})}
+					<Icon
+						name={iconName as IconKeys}
+						className={cn(
+							"size-[18px] shrink-0",
+							isActive
+								? "text-sidebar-primary"
+								: "text-sidebar-foreground/55 group-hover:text-sidebar-foreground/80",
+						)}
+					/>
+					{isExpanded ? (
+						<span className="min-w-0 flex-1 truncate text-sm">
+							{item.title}
+						</span>
+					) : (
+						<span className="sr-only">{item.title}</span>
+					)}
+				</NavLink>
+
+				{isExpanded && hasChildren ? (
+					<button
+						type="button"
+						aria-label={`${shouldShowChildren ? "Collapse" : "Expand"} ${item.title}`}
+						aria-expanded={shouldShowChildren}
+						onClick={toggleChildren}
+						className="absolute right-0 top-0 flex size-11 items-center justify-center rounded-lg text-sidebar-foreground/45 outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+					>
+						<Icons.chevronDown
+							className={cn(
+								"size-4 transition-transform motion-reduce:transition-none",
+								shouldShowChildren && "rotate-180",
+							)}
+						/>
+					</button>
+				) : null}
+			</div>
+
+			{hasChildren ? (
+				<div
+					ref={childrenRef}
+					className={cn(
+						"grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none",
+						shouldShowChildren
+							? "grid-rows-[1fr] opacity-100"
+							: "grid-rows-[0fr] opacity-0",
+					)}
+				>
+					<div className="overflow-hidden">
+						<div className="pb-1 pl-8 pt-1">
+							{item.children.map((child) => (
+								<NavChildItem
+									key={child.key}
+									child={child}
+									isActive={isNavigationItemActive(pathName, child)}
+									onSelect={onSelect}
+								/>
+							))}
+						</div>
+					</div>
 				</div>
-			)}
+			) : null}
 		</div>
 	);
-};
+}

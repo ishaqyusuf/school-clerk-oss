@@ -1,0 +1,61 @@
+import type { NavModuleDefinition } from "@school-clerk/navigation";
+
+export const parentNavigationModule: NavModuleDefinition = {
+	icon: "user",
+	key: "parent-portal",
+	sections: [
+		{
+			items: [
+				{
+					childPaths: ["/parents"],
+					href: "/parents",
+					icon: "dashboard",
+					key: "parent-overview",
+					module: "parent-portal",
+					roles: ["Parent"],
+					section: "main",
+					title: "Overview",
+					workspace: "parent",
+				},
+				{
+					href: "/parents/performance",
+					icon: "lineChart",
+					key: "parent-performance",
+					module: "parent-portal",
+					roles: ["Parent"],
+					section: "main",
+					status: "upcoming",
+					title: "Student Performance",
+					workspace: "parent",
+				},
+				{
+					href: "/parents/payments",
+					icon: "billing",
+					key: "parent-payments",
+					module: "parent-portal",
+					roles: ["Parent"],
+					section: "main",
+					status: "upcoming",
+					title: "Payments",
+					workspace: "parent",
+				},
+				{
+					href: "/parents/messages",
+					icon: "Email",
+					key: "parent-messages",
+					module: "parent-portal",
+					roles: ["Parent"],
+					section: "main",
+					status: "upcoming",
+					title: "Communication",
+					workspace: "parent",
+				},
+			],
+			key: "main",
+			title: "Family",
+		},
+	],
+	subtitle: "Family Experience",
+	title: "Parent Portal",
+	workspace: "parent",
+};

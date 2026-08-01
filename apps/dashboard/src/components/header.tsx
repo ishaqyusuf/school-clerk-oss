@@ -53,7 +53,7 @@ export function Header() {
               <div className="lg:hidden">
                 <OpenSearchButton />
               </div>
-              <div className="hidden md:block">
+              <div>
                 <NotificationBell />
               </div>
               <div className="hidden md:block">

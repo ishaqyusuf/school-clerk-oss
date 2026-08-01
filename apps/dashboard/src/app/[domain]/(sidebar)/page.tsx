@@ -14,6 +14,7 @@ import {
 } from "@school-clerk/ui/card";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import {
+  Bell,
   BookOpen,
   GraduationCap,
   Rocket,
@@ -93,20 +94,26 @@ export default async function Page({ params }) {
   const termTitle = cookie?.termTitle ?? "—";
   const sessionTitle = cookie?.sessionTitle ?? "—";
 
-  const stats = sessionId
-    ? await getDashboardStats(schoolId, sessionId)
-    : { students: 0, staff: 0, classes: 0 };
-
+  let role: string | null = null;
   if (cookie?.auth?.userId) {
     const user = await prisma.user.findUnique({
       where: { id: cookie.auth.userId },
       select: { role: true },
     });
+    role = user?.role ?? null;
 
-    if (user && (user.role === "Teacher" || user.role === "Staff")) {
+    if (role === "Teacher") {
       redirect("/teacher");
     }
   }
+
+  if (role === "Staff") {
+    return <StaffDashboard sessionTitle={sessionTitle} termTitle={termTitle} />;
+  }
+
+  const stats = sessionId
+    ? await getDashboardStats(schoolId, sessionId)
+    : { students: 0, staff: 0, classes: 0 };
 
   return (
     <div className="space-y-8 py-4">
@@ -234,6 +241,49 @@ export default async function Page({ params }) {
           <ReceiveFeeButton />
         </div>
       </div>
+    </div>
+  );
+}
+
+function StaffDashboard({
+  sessionTitle,
+  termTitle,
+}: {
+  sessionTitle: string;
+  termTitle: string;
+}) {
+  return (
+    <div className="space-y-6 py-4">
+      <PageTitle>Dashboard</PageTitle>
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          {sessionTitle ? (
+            <Badge variant="outline">{sessionTitle}</Badge>
+          ) : null}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Current term: {termTitle}
+        </p>
+      </div>
+      <Card className="max-w-2xl rounded-2xl">
+        <CardHeader>
+          <div className="mb-2 flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Bell className="size-5" />
+          </div>
+          <CardTitle>Staff workspace</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <p>
+            Your staff account currently has view-only dashboard access. School
+            management tools remain available only to the roles assigned to
+            them.
+          </p>
+          <Button asChild variant="outline">
+            <Link href="/notifications">View notifications</Link>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -6,8 +6,7 @@
   "main": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./types": "./src/types.ts",
-    "./sidebar": "./src/sidebar.ts"
+    "./types": "./src/types.ts"
   },
   "scripts": {
     "clean": "rm -rf .turbo node_modules",
@@ -15,15 +14,8 @@
     "format": "biome --write .",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@school-clerk/ui": "workspace:*"
-  },
   "devDependencies": {
     "@school-clerk/tsconfig": "workspace:*",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
     "typescript": "^5.9.2"
   }
 }

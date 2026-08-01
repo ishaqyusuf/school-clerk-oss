@@ -1,8 +1,18 @@
+import type { AnchorHTMLAttributes } from "react";
+
 import { useSiteNav } from "./use-site-nav";
 
-export const NavLink = (props) => {
-	const { props: _props } = useSiteNav();
-	const Lnk = _props.Link;
-	if (Lnk) return <Lnk {...props} />;
-	return <a {...props}>{props.children}</a>;
+type NavLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
+	href: string;
+	prefetch?: boolean;
 };
+
+export function NavLink(props: NavLinkProps) {
+	const {
+		props: { Link },
+	} = useSiteNav();
+	if (Link) return <Link {...props} />;
+
+	const { prefetch: _prefetch, ...anchorProps } = props;
+	return <a {...anchorProps} />;
+}

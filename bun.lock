@@ -357,15 +357,8 @@
     "packages/navigation": {
       "name": "@school-clerk/navigation",
       "version": "1.0.0",
-      "dependencies": {
-        "@school-clerk/ui": "workspace:*",
-      },
       "devDependencies": {
         "@school-clerk/tsconfig": "workspace:*",
-        "@types/react": "^19.2.2",
-        "@types/react-dom": "^19.2.2",
-        "react": "^19.2.0",
-        "react-dom": "^19.2.0",
         "typescript": "^5.9.2",
       },
     },
@@ -438,8 +431,8 @@
       "name": "@school-clerk/site-nav",
       "version": "1.0.0",
       "dependencies": {
+        "@school-clerk/navigation": "workspace:*",
         "@school-clerk/ui": "workspace:*",
-        "@school-clerk/utils": "workspace:*",
       },
       "devDependencies": {
         "@school-clerk/tsconfig": "workspace:*",

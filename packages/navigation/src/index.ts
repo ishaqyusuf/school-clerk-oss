@@ -1,2 +1,2 @@
-export * from "./sidebar";
+export * from "./resolve";
 export * from "./types";
