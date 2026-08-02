@@ -76,7 +76,7 @@ export function ConfigureTerm({ termId }: { termId: string }) {
   }, [context?.target, form]);
 
   const save = useMutation(
-    trpc.academics.saveTermMetaData.mutationOptions({
+    trpc.academics.updateTermMetadata.mutationOptions({
       onSuccess() {
         if (proceedAfterSave) {
           router.push(

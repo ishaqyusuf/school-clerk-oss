@@ -45,9 +45,10 @@ The lifecycle field remains nullable for legacy terms. When no canonical active 
 
 ## Term Calendar Editing
 
-- Draft and ready terms may be saved with no start date, no end date, or either date cleared independently.
+- Draft and ready terms may be renamed and saved with no start date, no end date, or either date cleared independently. Active terms may be renamed, but their calendar dates are locked after activation. Closed term metadata remains immutable.
 - Term creation, setup, and dashboard quick editing use the shared shadcn-style calendar with month/year dropdowns plus explicit Clear date and Today actions.
-- Academic history keeps dates out of the table/card presentation. Midday-style Edit actions open one focused modal for renaming a draft/ready term or any tenant-owned session and updating or clearing its optional dates.
+- Academic history keeps dates out of the table/card presentation. Midday-style Edit actions open one focused modal for renaming an editable term or any tenant-owned session and updating or clearing its optional dates.
+- The current-session and current-term summary cards expose direct `Edit session` and `Edit term` actions so active metadata is not hidden behind the expandable history table.
 - When a start date exists, the calendar disables earlier end dates and the API rejects an end date before the start date.
 - Rollover preparation may continue while a draft is unscheduled; activation still blocks until a start date is present.
 

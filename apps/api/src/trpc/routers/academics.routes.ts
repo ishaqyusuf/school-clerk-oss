@@ -5,13 +5,15 @@ import {
   academicTermSetupApplySchema,
   academicTermSetupSelectionSchema,
   createAcademicTermDraftSchema,
-  saveAcademicTermDraftSchema,
 } from "../schemas/academic-term-setup";
 import {
 	createAcademicSessionSchema,
 	getStudentTermsListSchema,
-  updateAcademicSessionMetadataSchema,
 } from "../schemas/schemas";
+import {
+  updateAcademicSessionMetadataSchema,
+  updateAcademicTermMetadataSchema,
+} from "../schemas/academic-metadata";
 
 import {
   activateAcademicTerm,
@@ -22,9 +24,8 @@ import {
   getAcademicTermSetupContext,
   previewAcademicTermActivation,
   previewAcademicTermSetup,
-  requireAcademicAdmin,
-  saveAcademicTermDraft,
 } from "@api/db/queries/academic-term-setup";
+import { requireAcademicAdmin } from "@api/db/queries/academic-access";
 import {
   previewAcademicTermReset,
   resetAcademicTerm,
@@ -33,6 +34,7 @@ import {
 	createAcademicSession,
 	getStudentTermsList,
   updateAcademicSessionMetadata,
+  updateAcademicTermMetadata,
 } from "@api/db/queries/academic-terms";
 import {
   getClassroomDepartments,
@@ -296,9 +298,9 @@ export const academicsRouter = createTRPCRouter({
       }),
     };
   }),
-  saveTermMetaData: authenticatedProcedure
-    .input(saveAcademicTermDraftSchema)
-    .mutation(({ ctx, input }) => saveAcademicTermDraft(ctx, input)),
+  updateTermMetadata: authenticatedProcedure
+    .input(updateAcademicTermMetadataSchema)
+    .mutation(({ ctx, input }) => updateAcademicTermMetadata(ctx, input)),
   getStudentTermsList: authenticatedProcedure
     .input(getStudentTermsListSchema)
     .query(async (props) => {

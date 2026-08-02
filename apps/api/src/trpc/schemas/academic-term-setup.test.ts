@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { saveAcademicTermDraftSchema } from "./academic-term-setup";
+import { updateAcademicTermMetadataSchema } from "./academic-metadata";
 
-describe("saveAcademicTermDraftSchema", () => {
+describe("updateAcademicTermMetadataSchema", () => {
 	test("accepts an unscheduled term draft", () => {
-		const result = saveAcademicTermDraftSchema.parse({
+		const result = updateAcademicTermMetadataSchema.parse({
 			termId: "term-1",
 			title: "Second Term",
 			startDate: null,
@@ -17,14 +17,14 @@ describe("saveAcademicTermDraftSchema", () => {
 
 	test("accepts either date being cleared independently", () => {
 		expect(
-			saveAcademicTermDraftSchema.safeParse({
+			updateAcademicTermMetadataSchema.safeParse({
 				termId: "term-1",
 				startDate: null,
 				endDate: new Date("2026-07-30"),
 			}).success,
 		).toBe(true);
 		expect(
-			saveAcademicTermDraftSchema.safeParse({
+			updateAcademicTermMetadataSchema.safeParse({
 				termId: "term-1",
 				startDate: new Date("2026-07-01"),
 				endDate: null,
@@ -33,7 +33,7 @@ describe("saveAcademicTermDraftSchema", () => {
 	});
 
 	test("rejects an end date before a present start date", () => {
-		const result = saveAcademicTermDraftSchema.safeParse({
+		const result = updateAcademicTermMetadataSchema.safeParse({
 			termId: "term-1",
 			startDate: new Date("2026-07-20"),
 			endDate: new Date("2026-07-01"),

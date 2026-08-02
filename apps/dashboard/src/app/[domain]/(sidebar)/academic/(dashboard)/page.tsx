@@ -3,8 +3,6 @@ import React from "react";
 import {
   Plus,
   Calendar,
-  TrendingUp,
-  History,
   CheckCircle2,
   Settings,
   ArrowUpCircle,
@@ -34,7 +32,6 @@ import {
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { _qc, _trpc } from "@/components/static-trpc";
-import { differenceInCalendarDays } from "date-fns";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useAcademicParams } from "@/hooks/use-academic-params";
 import type { RouterOutputs } from "@api/trpc/routers/_app";
@@ -44,12 +41,14 @@ import {
 } from "@/components/modals/edit-academic-metadata-modal";
 import { switchSessionTerm } from "@/actions/cookies/auth-cookie";
 import { useAuth } from "@/hooks/use-auth";
+import { AcademicSummaryCards } from "@/components/academic/academic-summary-cards";
 
 type DashboardTerm =
   RouterOutputs["academics"]["dashboard"]["sessions"][number]["terms"][number];
 
 const Dashboard = () => {
   const auth = useAuth();
+  const canManageAcademics = auth.role === "Admin" || auth.role === "ADMIN";
   const { setParams } = useAcademicParams();
   const [expandedSessionId, setExpandedSessionId] = React.useState<
     string | null
@@ -74,35 +73,6 @@ const Dashboard = () => {
     (count, session) => count + session.terms.length,
     0,
   );
-  const currentTermStartDate = currentTerm?.startDate
-    ? new Date(currentTerm.startDate)
-    : null;
-  const currentTermEndDate = currentTerm?.endDate
-    ? new Date(currentTerm.endDate)
-    : null;
-  const daysRemaining = currentTermEndDate
-    ? Math.max(0, differenceInCalendarDays(currentTermEndDate, new Date()))
-    : null;
-  const termProgress =
-    currentTermStartDate && currentTermEndDate
-      ? Math.min(
-          100,
-          Math.max(
-            0,
-            Math.round(
-              (differenceInCalendarDays(new Date(), currentTermStartDate) /
-                Math.max(
-                  1,
-                  differenceInCalendarDays(
-                    currentTermEndDate,
-                    currentTermStartDate,
-                  ),
-                )) *
-                100,
-            ),
-          ),
-        )
-      : null;
   const { mutate: closeTerm, isPending: isClosingTerm } = useMutation(
     _trpc.academics.closeTerm.mutationOptions({
       onSuccess() {
@@ -184,62 +154,15 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <Card.Root className="p-6 flex flex-col gap-4">
-          <div className="flex justify-between items-start">
-            <span className="text-sm font-medium text-muted-foreground">
-              Current Session Status
-            </span>
-            <Badge variant={currentSession ? "success" : "outline"}>
-              {currentSession ? "ACTIVE" : "NONE"}
-            </Badge>
-          </div>
-          <div>
-            <p className="text-2xl font-bold tracking-tight">
-              {currentSession?.name ?? "No active session"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <TrendingUp className="h-4 w-4" />
-            <span className="text-xs font-bold uppercase">
-              {currentTerm ? `${currentTerm.title} in progress` : "Not started"}
-            </span>
-          </div>
-        </Card.Root>
-
-        <Card className="p-6 flex flex-col gap-4">
-          <span className="text-sm font-medium text-muted-foreground">
-            Total Terms Created
-          </span>
-          <p className="text-2xl font-bold tracking-tight">
-            {totalTerms} {totalTerms === 1 ? "Term" : "Terms"} Recorded
-          </p>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <History className="h-4 w-4" />
-            <span className="text-xs font-medium">
-              Across {sessions.length}{" "}
-              {sessions.length === 1 ? "session" : "sessions"}
-            </span>
-          </div>
-        </Card>
-
-        <Card className="p-6 flex flex-col gap-4">
-          <span className="text-sm font-medium text-muted-foreground">
-            Days Remaining {currentTerm ? `(${currentTerm.title})` : ""}
-          </span>
-          <p className="text-2xl font-bold tracking-tight">
-            {daysRemaining === null
-              ? "No end date"
-              : `${daysRemaining} ${daysRemaining === 1 ? "Day" : "Days"} Left`}
-          </p>
-          <div className="w-full bg-secondary h-1.5 rounded-full mt-1">
-            <div
-              className="bg-primary h-1.5 rounded-full"
-              style={{ width: `${termProgress ?? 0}%` }}
-            ></div>
-          </div>
-        </Card>
+      <div className="mb-10">
+        <AcademicSummaryCards
+          canManageAcademics={canManageAcademics}
+          currentSession={currentSession}
+          currentTerm={currentTerm}
+          sessionCount={sessions.length}
+          totalTerms={totalTerms}
+          onEdit={setMetadataTarget}
+        />
       </div>
 
       {/* Main Table Card */}
@@ -350,25 +273,27 @@ const Dashboard = () => {
                             Switch
                           </Button>
                         ) : null}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 gap-1.5 px-2 font-semibold"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setMetadataTarget({
-                              kind: "session",
-                              id: session.id,
-                              title: session.name,
-                              startDate: session.startDate,
-                              endDate: session.endDate,
-                            });
-                          }}
-                        >
-                          <Pencil data-icon="inline-start" />
-                          Edit
-                        </Button>
+                        {canManageAcademics ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 gap-1.5 px-2 font-semibold"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setMetadataTarget({
+                                kind: "session",
+                                id: session.id,
+                                title: session.name,
+                                startDate: session.startDate,
+                                endDate: session.endDate,
+                              });
+                            }}
+                          >
+                            <Pencil data-icon="inline-start" />
+                            Edit
+                          </Button>
+                        ) : null}
                         {session.status === "current" && promotionIds ? (
                           <Link
                             href={`/academic/progression/${promotionIds.lastTermId}/${session.currentTerm?.id}`}
@@ -409,7 +334,7 @@ const Dashboard = () => {
                                     {term.status}
                                   </span>
                                   <div className="mt-4 flex items-center gap-3">
-                                    {term.status !== "active" &&
+                                    {canManageAcademics &&
                                     term.status !== "closed" ? (
                                       <Button
                                         type="button"
@@ -423,6 +348,10 @@ const Dashboard = () => {
                                             title: term.title,
                                             startDate: term.startDate,
                                             endDate: term.endDate,
+                                            lifecycleStatus:
+                                              term.id === currentTerm?.id
+                                                ? "ACTIVE"
+                                                : term.lifecycleStatus,
                                           })
                                         }
                                       >

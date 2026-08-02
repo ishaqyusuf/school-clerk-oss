@@ -54,26 +54,6 @@ export const createAcademicSessionSchema = z
     path: ["title"],
   });
 export type CreateAcademicSession = z.infer<typeof createAcademicSessionSchema>;
-export const updateAcademicSessionMetadataSchema = z
-  .object({
-    sessionId: z.string().min(1),
-    title: z.string().trim().min(1, "Academic session title is required"),
-    startDate: z.date().nullable(),
-    endDate: z.date().optional().nullable(),
-  })
-  .refine(
-    (data) =>
-      !data.startDate ||
-      !data.endDate ||
-      data.endDate.getTime() >= data.startDate.getTime(),
-    {
-      message: "End date must be on or after the start date",
-      path: ["endDate"],
-    },
-  );
-export type UpdateAcademicSessionMetadata = z.infer<
-  typeof updateAcademicSessionMetadataSchema
->;
 export const enrollmentQuerySchema = z.object({
   previousSessionId: z.string().optional().nullable(),
   previousTermId: z.string().optional().nullable(),

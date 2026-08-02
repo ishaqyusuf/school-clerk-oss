@@ -3,7 +3,6 @@ import type {
   AcademicTermSetupApply,
   AcademicTermSetupSelection,
   CreateAcademicTermDraft,
-  SaveAcademicTermDraft,
 } from "@api/trpc/schemas/academic-term-setup";
 import { TRPCError } from "@trpc/server";
 import { randomUUID } from "node:crypto";
@@ -11,8 +10,7 @@ import {
   classroomListOrderBy,
   nestedClassroomDepartmentListOrderBy,
 } from "@school-clerk/db";
-
-const ACADEMIC_ADMIN_ROLES = new Set(["Admin", "ADMIN"]);
+import { requireAcademicAdmin } from "./academic-access";
 
 type AcademicDb = any;
 type OrderedTerm = {
@@ -218,45 +216,6 @@ function classKey(value: { name: string | null }) {
 
 function departmentKey(value: { departmentName: string | null }) {
   return value.departmentName?.trim().toLocaleLowerCase() ?? null;
-}
-
-export async function requireAcademicAdmin(ctx: TRPCContext) {
-  const user = ctx.currentUser;
-  const schoolProfileId = ctx.profile.schoolId;
-  if (!user || !schoolProfileId) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "A signed-in school administrator is required.",
-    });
-  }
-  if (!user.role || !ACADEMIC_ADMIN_ROLES.has(user.role)) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Only an Admin can manage academic terms.",
-    });
-  }
-  const school = await ctx.db.schoolProfile.findFirst({
-    where: {
-      id: schoolProfileId,
-      accountId: user.saasAccountId ?? "__missing_account__",
-      deletedAt: null,
-    },
-    select: {
-      id: true,
-      activeSessionTermId: true,
-    },
-  });
-  if (!school) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "The selected school does not belong to your account.",
-    });
-  }
-  return {
-    schoolProfileId: school.id,
-    activeSessionTermId: school.activeSessionTermId,
-    user,
-  };
 }
 
 export async function assertAcademicTermWritable(
@@ -1878,69 +1837,6 @@ export async function createAcademicTermDraft(
       title: true,
       sessionId: true,
       session: { select: { title: true } },
-    },
-  });
-}
-
-export async function saveAcademicTermDraft(
-  ctx: TRPCContext,
-  input: SaveAcademicTermDraft,
-) {
-  const { schoolProfileId } = await requireAcademicAdmin(ctx);
-  const term = await ctx.db.sessionTerm.findFirst({
-    where: {
-      id: input.termId,
-      schoolId: schoolProfileId,
-      deletedAt: null,
-    },
-    select: { id: true, lifecycleStatus: true, sessionId: true, title: true },
-  });
-  if (!term) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Academic term was not found.",
-    });
-  }
-  if (term.lifecycleStatus === "ACTIVE" || term.lifecycleStatus === "CLOSED") {
-    throw new TRPCError({
-      code: "CONFLICT",
-      message: `A ${term.lifecycleStatus.toLowerCase()} term cannot be edited.`,
-    });
-  }
-  const title = input.title?.trim();
-  if (title && title.toLocaleLowerCase() !== term.title.toLocaleLowerCase()) {
-    const duplicate = await ctx.db.sessionTerm.findFirst({
-      where: {
-        id: { not: term.id },
-        schoolId: schoolProfileId,
-        sessionId: term.sessionId,
-        deletedAt: null,
-        title: { equals: title, mode: "insensitive" },
-      },
-      select: { id: true },
-    });
-    if (duplicate) {
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: "A term with this title already exists in this session.",
-      });
-    }
-  }
-  return ctx.db.sessionTerm.update({
-    where: { id: term.id },
-    data: {
-      title,
-      startDate: input.startDate,
-      endDate: input.endDate,
-      note: input.note || null,
-    },
-    select: {
-      id: true,
-      title: true,
-      startDate: true,
-      endDate: true,
-      note: true,
-      lifecycleStatus: true,
     },
   });
 }

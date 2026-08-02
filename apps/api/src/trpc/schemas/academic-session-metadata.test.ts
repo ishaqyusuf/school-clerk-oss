@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { updateAcademicSessionMetadataSchema } from "./schemas";
+import { updateAcademicSessionMetadataSchema } from "./academic-metadata";
 
 describe("updateAcademicSessionMetadataSchema", () => {
   test("accepts renamed sessions with optional dates", () => {

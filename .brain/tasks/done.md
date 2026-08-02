@@ -2,6 +2,16 @@
 
 ## Completed Task
 
+- ID: 2026-08-02-active-academic-metadata-editing
+- Title: Current Academic Session And Term Editing
+- Completed: 2026-08-02
+- Outcome: Exposed direct Admin-only edit actions for the current session and term, allowed active-term title updates while locking its calendar, preserved omitted notes and closed-term immutability, and kept history-row editing available.
+- Validation: 29 focused academic lifecycle/metadata/schema/reset tests passed, dashboard typecheck passed, and authenticated browser QA confirmed editable current-session and current-term modals without saving test data.
+- Related changes: `apps/dashboard/src/components/academic/academic-summary-cards.tsx`, `apps/dashboard/src/components/modals/edit-academic-metadata-modal.tsx`, `apps/api/src/db/queries/academic-access.ts`, `apps/api/src/db/queries/academic-terms.ts`, `apps/api/src/trpc/schemas/academic-metadata.ts`, `.brain/features/academic-term-lifecycle-and-rollover.md`, `.brain/api/contracts.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: 2026-08-02-inline-student-creation-payments
 - Title: Fee-Specific Payments During Student Creation
 - Completed: 2026-08-02

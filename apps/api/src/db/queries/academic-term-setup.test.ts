@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { TRPCContext } from "@api/trpc/init";
 import { TRPCError } from "@trpc/server";
+import { requireAcademicAdmin } from "./academic-access";
 import {
   activateAcademicTerm,
   applyAcademicTermSetup,
@@ -9,7 +10,6 @@ import {
   findPreviousAcademicTerm,
   previewAcademicTermActivation,
   previewAcademicTermSetup,
-  requireAcademicAdmin,
 } from "./academic-term-setup";
 
 process.env.DATABASE_URL ??=

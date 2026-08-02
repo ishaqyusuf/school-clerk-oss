@@ -1,12 +1,15 @@
 import type { TRPCContext } from "@api/trpc/init";
 import type {
+  UpdateAcademicSessionMetadata,
+  UpdateAcademicTermMetadata,
+} from "@api/trpc/schemas/academic-metadata";
+import type {
   CreateAcademicSession,
   GetStudentTermListSchema,
-  UpdateAcademicSessionMetadata,
 } from "@api/trpc/schemas/schemas";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
-import { requireAcademicAdmin } from "./academic-term-setup";
+import { requireAcademicAdmin } from "./academic-access";
 
 export async function getStudentTermsList(
   ctx: TRPCContext,
@@ -298,6 +301,77 @@ export async function updateAcademicSessionMetadata(
       title: true,
       startDate: true,
       endDate: true,
+    },
+  });
+}
+
+export async function updateAcademicTermMetadata(
+  ctx: TRPCContext,
+  input: UpdateAcademicTermMetadata,
+) {
+  const { schoolProfileId, activeSessionTermId } =
+    await requireAcademicAdmin(ctx);
+  const term = await ctx.db.sessionTerm.findFirst({
+    where: {
+      id: input.termId,
+      schoolId: schoolProfileId,
+      deletedAt: null,
+    },
+    select: { id: true, lifecycleStatus: true, sessionId: true, title: true },
+  });
+  if (!term) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Academic term was not found.",
+    });
+  }
+  if (term.lifecycleStatus === "CLOSED") {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "A closed term cannot be edited.",
+    });
+  }
+  const isActiveTerm =
+    term.lifecycleStatus === "ACTIVE" || term.id === activeSessionTermId;
+  const title = input.title?.trim();
+  if (title && title.toLocaleLowerCase() !== term.title.toLocaleLowerCase()) {
+    const duplicate = await ctx.db.sessionTerm.findFirst({
+      where: {
+        id: { not: term.id },
+        schoolId: schoolProfileId,
+        sessionId: term.sessionId,
+        deletedAt: null,
+        title: { equals: title, mode: "insensitive" },
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "A term with this title already exists in this session.",
+      });
+    }
+  }
+  return ctx.db.sessionTerm.update({
+    where: { id: term.id },
+    data:
+      isActiveTerm
+        ? { title }
+        : {
+            title,
+            startDate: input.startDate,
+            endDate: input.endDate,
+            ...(input.note === undefined
+              ? {}
+              : { note: input.note || null }),
+          },
+    select: {
+      id: true,
+      title: true,
+      startDate: true,
+      endDate: true,
+      note: true,
+      lifecycleStatus: true,
     },
   });
 }

@@ -5,6 +5,18 @@
 - Live custom domains and unavailable file credentials block cleanup; status
   and durable receipts contain aggregate counts only.
 
+# Academic metadata contracts
+
+- `academics.updateSessionMetadata` lets an academic Admin rename a
+  tenant-owned session and update or clear its optional start/end dates.
+- `academics.updateTermMetadata` lets an academic Admin rename `DRAFT`,
+  `READY`, or `ACTIVE` terms. Draft/ready metadata updates may also change or
+  clear dates and an explicitly supplied note; omitting `note` preserves the
+  stored note. Active-term calendar metadata is locked, and `CLOSED` term
+  metadata remains immutable.
+- Session and term titles are unique case-insensitively within their existing
+  tenant/session scope. End dates cannot precede start dates.
+
 # Student directory contracts
 
 - `students.index` accepts optional `q`, `status`, `admissionTypes`, `sessionId`,

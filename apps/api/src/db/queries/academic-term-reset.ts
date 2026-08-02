@@ -1,6 +1,6 @@
 import type { TRPCContext } from "@api/trpc/init";
 import { TRPCError } from "@trpc/server";
-import { requireAcademicAdmin } from "./academic-term-setup";
+import { requireAcademicAdmin } from "./academic-access";
 
 export const TERM_RESET_CONFIRMATION = "I APPROVE RESET" as const;
 
