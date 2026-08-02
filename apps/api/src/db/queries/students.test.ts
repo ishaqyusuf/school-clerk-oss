@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { TRPCContext } from "@api/trpc/init";
 import { TRPCError } from "@trpc/server";
 
 process.env.DATABASE_URL ??= "postgresql://test:test@127.0.0.1:5432/test";
@@ -6,6 +7,8 @@ process.env.DATABASE_URL ??= "postgresql://test:test@127.0.0.1:5432/test";
 const {
   bulkChangeStudentClass,
   changeStudentGender,
+	createStudent,
+	createStudentSchema,
   executeStudentImport,
   getStudentImportJob,
   getStudents,
@@ -18,6 +21,380 @@ const {
 const { getStudentsSchema } = await import("../../trpc/schemas/students");
 const { getStudentDuplicateGroups, previewStudentDuplicateMerge } =
   await import("./student-duplicates");
+
+describe("createStudent fee collection", () => {
+	test("rejects inline payment from a non-finance role before starting the transaction", async () => {
+		let transactionStarted = false;
+		const ctx = {
+			profile: {
+				schoolId: "school-1",
+				sessionId: "session-1",
+				termId: "term-1",
+			},
+			currentUser: { id: "registrar-1", role: "Registrar" },
+			db: {
+				$transaction: async () => {
+					transactionStarted = true;
+				},
+			},
+		} as unknown as TRPCContext;
+
+		await expect(
+			createStudent(ctx, {
+				name: "Amina",
+				surname: "Yusuf",
+				otherName: null,
+				gender: "Female",
+				dob: null,
+				classRoomId: "classroom-1",
+				admissionType: "NEW_ADMISSION",
+				selectedOptionalFeeItemIds: [],
+				fees: [],
+				guardian: null,
+				termForms: null,
+				feePayments: [{ feeItemId: "entrance-fee", amount: 5_000 }],
+				paymentDetails: { method: "CASH" },
+			}),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		expect(transactionStarted).toBe(false);
+	});
+
+	test("assigns all required classroom fees and pays only the selected fee", async () => {
+		const createdCharges: Array<
+			Record<string, unknown> & { id: string; itemId: string }
+		> = [];
+		const createdAllocations: Array<
+			Record<string, unknown> & {
+				paymentId: string;
+				chargeId: string;
+				amount: unknown;
+			}
+		> = [];
+		const updatedCharges: Array<{
+			where: { id: string };
+			data: Record<string, unknown>;
+		}> = [];
+		const feeItems = [
+			{
+				id: "entrance-fee",
+				name: "Entrance form fee",
+				description: null,
+				amount: 5_000,
+				collectable: true,
+				isActive: true,
+				studentAudience: "NEW_ADMISSIONS_ONLY",
+				schoolSessionId: "session-1",
+				sessionTermId: "term-1",
+				streamId: "stream-entrance",
+				stream: { id: "stream-entrance", accountType: "CREDIT" },
+				applicableClasses: [
+					{
+						classRoomDepartmentId: "classroom-1",
+						deletedAt: null,
+					},
+				],
+			},
+			{
+				id: "matriculation-fee",
+				name: "Matriculation fee",
+				description: null,
+				amount: 20_000,
+				collectable: true,
+				isActive: true,
+				studentAudience: "NEW_ADMISSIONS_ONLY",
+				schoolSessionId: "session-1",
+				sessionTermId: "term-1",
+				streamId: "stream-matriculation",
+				stream: { id: "stream-matriculation", accountType: "CREDIT" },
+				applicableClasses: [
+					{
+						classRoomDepartmentId: "classroom-1",
+						deletedAt: null,
+					},
+				],
+			},
+		];
+		const tx = {
+			studentTermForm: {
+				findMany: async () => [],
+				updateMany: async ({ data }: { data: Record<string, unknown> }) => data,
+			},
+			students: {
+				create: async () => ({
+					id: "student-1",
+					name: "Amina",
+					surname: "Yusuf",
+					otherName: null,
+					gender: "Female",
+					guardians: [],
+					sessionForms: [
+						{
+							id: "session-form-1",
+							schoolSessionId: "session-1",
+							classroomDepartmentId: "classroom-1",
+							classroomDepartment: null,
+							termForms: [
+								{
+									id: "term-form-1",
+									schoolSessionId: "session-1",
+									sessionTermId: "term-1",
+									classroomDepartmentId: "classroom-1",
+									admissionType: "NEW_ADMISSION",
+								},
+							],
+						},
+					],
+				}),
+			},
+			financeItem: {
+				findMany: async () => feeItems,
+			},
+			financeCharge: {
+				findFirst: async ({ where }: { where: { id?: string } }) => {
+					if (!where.id) return null;
+					const charge = createdCharges.find((item) => item.id === where.id);
+					const item = feeItems.find(
+						(feeItem) => feeItem.id === charge?.itemId,
+					);
+					return charge ? { ...charge, stream: item?.stream } : null;
+				},
+				create: async ({ data }: { data: Record<string, unknown> }) => {
+					const charge = {
+						id: `charge-${String(data.itemId)}`,
+						itemId: String(data.itemId),
+						amountPaid: 0,
+						status: "PENDING",
+						...data,
+					};
+					createdCharges.push(charge);
+					return charge;
+				},
+				update: async ({
+					where,
+					data,
+				}: {
+					where: { id: string };
+					data: Record<string, unknown>;
+				}) => {
+					updatedCharges.push({ where, data });
+					return data;
+				},
+			},
+			financePayment: {
+				create: async ({ data }: { data: Record<string, unknown> }) => ({
+					id: "payment-entrance",
+					paymentDate: data.paymentDate,
+					...data,
+				}),
+			},
+			financePaymentAllocation: {
+				create: async ({
+					data,
+				}: {
+					data: Record<string, unknown> & {
+						paymentId: string;
+						chargeId: string;
+						amount: unknown;
+					};
+				}) => {
+					createdAllocations.push(data);
+					return { id: "allocation-entrance", ...data };
+				},
+			},
+			financeLedgerEntry: {
+				create: async ({ data }: { data: Record<string, unknown> }) => ({
+					id: "ledger-entrance",
+					...data,
+				}),
+			},
+			financeTermLedgerClose: {
+				findFirst: async () => null,
+			},
+			inventory: { findFirst: async () => null },
+			inventoryIssuance: { create: async () => undefined },
+		};
+		const ctx = {
+			profile: {
+				schoolId: "school-1",
+				sessionId: "session-1",
+				termId: "term-1",
+			},
+			currentUser: {
+				id: "admin-1",
+				role: "Admin",
+			},
+			db: {
+				$transaction: async (callback: (transaction: typeof tx) => unknown) =>
+					callback(tx),
+			},
+		} as unknown as TRPCContext;
+
+		const result = await createStudent(ctx, {
+			name: "Amina",
+			surname: "Yusuf",
+			otherName: null,
+			gender: "Female",
+			dob: null,
+			classRoomId: "classroom-1",
+			admissionType: "NEW_ADMISSION",
+			selectedOptionalFeeItemIds: [],
+			fees: [],
+			guardian: null,
+			termForms: null,
+			feePayments: [{ feeItemId: "entrance-fee", amount: 5_000 }],
+			paymentDetails: {
+				method: "CASH",
+				reference: "RCPT-1",
+				paymentDate: new Date("2026-08-02"),
+			},
+		});
+
+		expect(createdCharges.map((charge) => charge.itemId)).toEqual([
+			"entrance-fee",
+			"matriculation-fee",
+		]);
+		expect(
+			createdAllocations.map((allocation) => ({
+				...allocation,
+				amount: Number(allocation.amount),
+			})),
+		).toEqual([
+			{
+				paymentId: "payment-entrance",
+				chargeId: "charge-entrance-fee",
+				amount: 5_000,
+			},
+		]);
+		expect(updatedCharges).toHaveLength(1);
+		const updatedCharge = updatedCharges[0]!;
+		expect({
+			...updatedCharge,
+			data: {
+				...updatedCharge.data,
+				amountPaid: Number(updatedCharge.data.amountPaid),
+			},
+		}).toMatchObject({
+			where: { id: "charge-entrance-fee" },
+			data: { amountPaid: 5_000, status: "PAID" },
+		});
+		expect(result.feePaymentSummary).toEqual({
+			paymentIds: ["payment-entrance"],
+			count: 1,
+			totalAssigned: 25_000,
+			totalAllocated: 5_000,
+			remainingBalance: 20_000,
+		});
+	});
+
+	test("rejects a requested fee outside the tenant classroom scope", async () => {
+		let transactionCommitted = false;
+		let allocationCreated = false;
+		let feeLookupArgs: Record<string, unknown> | undefined;
+		const tx = {
+			studentTermForm: {
+				findMany: async () => [],
+				updateMany: async () => ({ count: 1 }),
+			},
+			students: {
+				create: async () => ({
+					id: "student-1",
+					guardians: [],
+					sessionForms: [
+						{
+							id: "session-form-1",
+							schoolSessionId: "session-1",
+							classroomDepartmentId: "classroom-1",
+							classroomDepartment: null,
+							termForms: [
+								{
+									id: "term-form-1",
+									schoolSessionId: "session-1",
+									sessionTermId: "term-1",
+									classroomDepartmentId: "classroom-1",
+									admissionType: "NEW_ADMISSION",
+								},
+							],
+						},
+					],
+				}),
+			},
+			financeItem: {
+				findMany: async (args: Record<string, unknown>) => {
+					feeLookupArgs = args;
+					return [];
+				},
+			},
+			financeCharge: {
+				findFirst: async () => null,
+				create: async () => {
+					throw new Error("No charge should be created");
+				},
+			},
+			financePaymentAllocation: {
+				create: async () => {
+					allocationCreated = true;
+				},
+			},
+		};
+		const ctx = {
+			profile: {
+				schoolId: "school-1",
+				sessionId: "session-1",
+				termId: "term-1",
+			},
+			currentUser: { id: "admin-1", role: "Admin" },
+			db: {
+				$transaction: async (callback: (transaction: typeof tx) => unknown) => {
+					const result = await callback(tx);
+					transactionCommitted = true;
+					return result;
+				},
+			},
+		} as unknown as TRPCContext;
+
+		await expect(
+			createStudent(ctx, {
+				name: "Amina",
+				surname: "Yusuf",
+				otherName: null,
+				gender: "Female",
+				dob: null,
+				classRoomId: "classroom-1",
+				admissionType: "NEW_ADMISSION",
+				selectedOptionalFeeItemIds: [],
+				fees: [],
+				guardian: null,
+				termForms: null,
+				feePayments: [{ feeItemId: "other-school-fee", amount: 5_000 }],
+				paymentDetails: { method: "CASH" },
+			}),
+		).rejects.toMatchObject({
+			code: "BAD_REQUEST",
+			message:
+				"A selected fee no longer applies to this student. Refresh the form and try again.",
+		});
+		expect(transactionCommitted).toBe(false);
+		expect(allocationCreated).toBe(false);
+		expect(feeLookupArgs).toMatchObject({
+			where: {
+				schoolProfileId: "school-1",
+			},
+		});
+	});
+
+	test("requires shared payment details when a fee payment is entered", () => {
+		const parsed = createStudentSchema.safeParse({
+			name: "Amina",
+			surname: "Yusuf",
+			gender: "Female",
+			classRoomId: "classroom-1",
+			admissionType: "NEW_ADMISSION",
+			feePayments: [{ feeItemId: "entrance-fee", amount: 5_000 }],
+		});
+
+		expect(parsed.success).toBe(false);
+	});
+});
 
 function createCtx({
   schoolId = "school-1",
@@ -223,10 +600,7 @@ describe("getStudents", () => {
         lte: new Date("2025-01-10T23:59:59.999Z"),
       },
       classroomDepartment: {
-        AND: [
-          { departmentName: "Primary" },
-          { classRoom: { name: "One" } },
-        ],
+				AND: [{ departmentName: "Primary" }, { classRoom: { name: "One" } }],
       },
       admissionType: { in: ["NEW_ADMISSION"] },
     });

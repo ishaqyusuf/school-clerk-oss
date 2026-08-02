@@ -2162,6 +2162,48 @@ describe("recordFinancePayment term attribution", () => {
 		});
 	});
 
+	test("rejects an amount above the charge outstanding balance", async () => {
+		const charge = {
+			id: "charge-partial",
+			schoolProfileId: "school-1",
+			streamId: "stream-fees",
+			payerType: "STUDENT",
+			studentId: "student-1",
+			staffProfileId: null,
+			title: "Tuition",
+			amount: 1_000,
+			amountPaid: 700,
+			status: "PARTIALLY_PAID",
+			collectionStatus: "NOT_COLLECTED",
+			schoolSessionId: "session-1",
+			sessionTermId: "term-1",
+			stream: { id: "stream-fees", accountType: "CREDIT" },
+		};
+		const db = {
+			$transaction: async (fn: (tx: any) => unknown) =>
+				fn({
+					financeCharge: { findFirst: async () => charge },
+				}),
+		};
+
+		await expect(
+			recordFinancePayment(createFinanceCtx({ db }), {
+				chargeId: "charge-partial",
+				amount: 301,
+				paymentDate: new Date("2026-08-02"),
+				method: "CASH",
+				reference: null,
+				note: null,
+				receivedById: null,
+				collectedTermId: "term-1",
+				collectedSessionId: "session-1",
+			}),
+		).rejects.toMatchObject({
+			code: "BAD_REQUEST",
+			message: "Payment amount cannot exceed the outstanding charge amount.",
+		});
+	});
+
 	test("posts staff or service payable payments as money out", async () => {
 		const createdLedgerEntries: any[] = [];
 		const charge = {

@@ -3,6 +3,7 @@ import type { Prisma } from "./generated/client";
 type AppliedFinanceCharge = {
 	amount: number | string | Prisma.Decimal;
 	id: string;
+	itemId: string | null;
 	streamId: string;
 	title: string;
 };

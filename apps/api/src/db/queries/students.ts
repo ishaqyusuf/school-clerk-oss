@@ -13,6 +13,12 @@ import {
   STUDENT_PAGE_STATUS_FILTERS,
   STUDENT_TERM_ADMISSION_TYPES,
 } from "@school-clerk/utils/constants";
+import {
+  createStudentObjectSchema,
+  createStudentSchema,
+  guardianSchema,
+  studentFeeSchema,
+} from "@school-clerk/utils/student-create-schema";
 import { processStudentImportJobTaskId } from "@school-clerk/utils/task-contracts";
 import { auth, tasks } from "@trigger.dev/sdk";
 import { TRPCError } from "@trpc/server";
@@ -23,6 +29,10 @@ import {
   applyFeeHistoriesToStudentTermForm,
   reconcileFeeHistoriesForStudentTermForm,
 } from "./student-fee-application";
+import {
+  recordFinancePaymentInTransaction,
+  requireFinanceWriteAccess,
+} from "./finance";
 
 import {
   endOfDay,
@@ -711,54 +721,23 @@ export async function getStudentsQueryParams(ctx: TRPCContext) {
 
   return resp;
 }
-export const studentFeeSchema = z.object({
-  feeId: z.string(),
-  title: z.string().optional(),
-  amount: z.number().optional(),
-  paid: z.number().optional(),
-  studentTermId: z.string().optional(),
-  studentId: z.string().optional(),
-});
-export const guardianSchema = z.object({
-  id: z.string().optional().nullable(),
-  phone: z.string().nullable(),
-  phone2: z.string().optional().nullable(),
-  name: z.string().nullable(),
-});
-export const createStudentSchema = z.object({
-  name: z.string().min(1),
-  surname: z.string().min(1),
-  otherName: z.string().optional().nullable(),
-  gender: z.enum(["Male", "Female"]),
-  dob: z.date().nullable().optional(),
-  classRoomId: z.string().nullable(),
-  admissionType: z.enum(STUDENT_TERM_ADMISSION_TYPES),
-  selectedOptionalFeeItemIds: z.array(z.string()).optional().default([]),
-  fees: z.array(studentFeeSchema).optional(),
-  guardian: guardianSchema.optional().nullable(),
-  termForms: z
-    .array(
-      z.object({
-        sessionTermId: z.string(),
-        schoolSessionId: z.string(),
-      }),
-    )
-    .optional()
-    .nullable(),
-  initialPayment: z
-    .object({
-      amount: z.number().min(0),
-      method: z.string(),
-      reference: z.string().optional().nullable(),
-      paymentDate: z.date().optional().nullable(),
-    })
-    .optional()
-    .nullable(),
-});
+export {
+  createStudentSchema,
+  guardianSchema,
+  studentFeeSchema,
+} from "@school-clerk/utils/student-create-schema";
 type CreateStudent = typeof createStudentSchema._type;
 export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
   const profile = ctx.profile;
-  const tx = ctx.db;
+  const requestedFeePayments = data.feePayments.filter(
+    (payment) => payment.amount > 0,
+  );
+
+  if (requestedFeePayments.length > 0) {
+    requireFinanceWriteAccess(ctx);
+  }
+
+  return ctx.db.$transaction(async (tx) => {
   await assertNoExactDuplicateStudentInClassTerm(tx, {
     schoolProfileId: profile.schoolId,
     sessionTermId: profile.termId,
@@ -857,8 +836,11 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
   > | null = null;
 
   if (initialSessionForm && initialTermForm) {
-    await tx.studentTermForm.update({
-      where: { id: initialTermForm.id },
+      const createdTermFormIds = student.sessionForms.flatMap((sessionForm) =>
+        sessionForm.termForms.map((termForm) => termForm.id),
+      );
+      await tx.studentTermForm.updateMany({
+        where: { id: { in: createdTermFormIds } },
       data: {
         studentId: student.id,
       },
@@ -883,84 +865,58 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
     }
   }
 
-  if (data.initialPayment && feeHistoryApplication?.charges?.length) {
-    const firstCharge = feeHistoryApplication.charges[0];
-    if (!firstCharge) {
-      return {
-        ...student,
-        feeHistoryApplication,
-      };
-    }
+    const chargesByFeeItemId = new Map(
+      (feeHistoryApplication?.charges ?? [])
+        .filter((charge) => charge.itemId)
+        .map((charge) => [charge.itemId!, charge]),
+    );
+    const paymentIds: string[] = [];
+    let totalAllocated = toMoney(0);
 
-    let remainingAmount = toMoney(data.initialPayment.amount);
+    for (const requestedPayment of requestedFeePayments) {
+      const charge = chargesByFeeItemId.get(requestedPayment.feeItemId);
+      if (!charge) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "A selected fee no longer applies to this student. Refresh the form and try again.",
+      });
+      }
 
-    // Create a payment record
-    const payment = await tx.financePayment.create({
-      data: {
-        schoolProfileId: profile.schoolId,
-        payerType: "STUDENT",
-        studentId: student.id,
-        amount: remainingAmount,
-        paymentDate: data.initialPayment.paymentDate ?? new Date(),
-        method: data.initialPayment.method,
-        reference: data.initialPayment.reference,
-        streamId: firstCharge.streamId, // Associate with the first stream for the main payment wrapper
+      const result = await recordFinancePaymentInTransaction(ctx, tx, {
+          chargeId: charge.id,
+        amount: requestedPayment.amount,
+        paymentDate: data.paymentDetails?.paymentDate,
+        method: data.paymentDetails?.method,
+        reference: data.paymentDetails?.reference,
+        note: `Payment collected during student registration for ${charge.title}`,
         receivedById: ctx.currentUser?.id,
-      },
-    });
-
-    for (const charge of feeHistoryApplication.charges) {
-      if (remainingAmount.lessThanOrEqualTo(0)) break;
-
-      const chargeAmount = toMoney(charge.amount);
-      const allocatedAmount = remainingAmount.greaterThan(chargeAmount)
-        ? chargeAmount
-        : remainingAmount;
-
-      await tx.financePaymentAllocation.create({
-        data: {
-          paymentId: payment.id,
-          chargeId: charge.id,
-          amount: allocatedAmount,
-        },
+        collectedTermId: initialTermForm?.sessionTermId ?? profile.termId,
+        collectedSessionId:
+          initialTermForm?.schoolSessionId ?? profile.sessionId,
       });
 
-      await tx.financeCharge.update({
-        where: { id: charge.id },
-        data: {
-          amountPaid: allocatedAmount,
-          status: allocatedAmount.equals(chargeAmount)
-            ? "PAID"
-            : "PARTIALLY_PAID",
-        },
-      });
-
-      await tx.financeLedgerEntry.create({
-        data: {
-          schoolProfileId: profile.schoolId,
-          streamId: charge.streamId,
-          direction: "CREDIT", // Payments into the school are typically CREDIT, though the ledgerDirectionForStream handles this more accurately normally. Assuming CREDIT for simplicity.
-          sourceType: "PAYMENT",
-          sourceId: payment.id,
-          amount: allocatedAmount,
-          occurredAt: payment.paymentDate,
-          note: `Initial Payment for ${charge.title}`,
-          createdById: ctx.currentUser?.id,
-          chargeId: charge.id,
-          paymentId: payment.id,
-        },
-      });
-
-      remainingAmount = remainingAmount.minus(allocatedAmount);
-    }
+      paymentIds.push(...result.paymentIds);
+      totalAllocated = totalAllocated.plus(result.totalAllocated);
   }
 
-  await updateStudentTermFormStudentId(ctx);
+    const totalAssigned = (feeHistoryApplication?.charges ?? []).reduce(
+      (sum, charge) => sum.plus(toMoney(charge.amount)),
+      toMoney(0),
+    );
 
   return {
     ...student,
     feeHistoryApplication,
+      feePaymentSummary: {
+        paymentIds,
+        count: paymentIds.length,
+        totalAssigned: Number(totalAssigned),
+        totalAllocated: Number(totalAllocated),
+        remainingBalance: Number(totalAssigned.minus(totalAllocated)),
+      },
   };
+  });
 }
 export async function updateStudentTermFormStudentId(ctx: TRPCContext) {
   const students = await ctx.db.students.findMany({
@@ -1352,7 +1308,7 @@ updateStudentBasicProfile: publicProcedure
 */
 export const updateStudentBasicProfileSchema = z.object({
   id: z.string(),
-  data: createStudentSchema
+  data: createStudentObjectSchema
     .pick({
       gender: true,
       name: true,
@@ -1646,7 +1602,8 @@ async function updateAdmissionTypes(
 ) {
   const { schoolProfileId } = requireStudentManagementAccess(ctx);
 
-  return ctx.db.$transaction(async (tx) => {
+  return ctx.db.$transaction(
+    async (tx) => {
     const forms = await tx.studentTermForm.findMany({
       where: {
         id: { in: studentTermFormIds },
@@ -1705,10 +1662,12 @@ async function updateAdmissionTypes(
       updated: forms.length,
       reconciliation,
     };
-  }, {
+    },
+    {
     maxWait: 10_000,
     timeout: 60_000,
-  });
+    },
+  );
 }
 
 export function setStudentAdmissionType(

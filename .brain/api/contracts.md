@@ -29,9 +29,17 @@
 - Admission update inputs accept one or up to 100 term-form IDs plus
   `UNCLASSIFIED`, `NEW_ADMISSION`, or `RETURNING`. The mutation returns the
   number updated and fee-reconciliation summaries.
-- Student creation accepts `admissionType` plus
-  `selectedOptionalFeeItemIds[]`. Only audience/scope-compatible optional items
-  can become charges.
+- Student creation accepts `admissionType`, `selectedOptionalFeeItemIds[]`,
+  `feePayments[]` (`feeItemId`, `amount`), and shared `paymentDetails`
+  (`method`, optional `reference` and `paymentDate`). Only
+  audience/scope-compatible fee items can become charges or receive payments.
+- Positive fee payments require payment details, may contain each fee item at
+  most once, and must not exceed the matching generated charge. Required and
+  selected optional fees without a payment amount remain pending.
+- Student creation returns `feePaymentSummary` with `paymentIds`, `count`,
+  `totalAssigned`, `totalAllocated`, and `remainingBalance`. Student, term
+  enrollment, charges, payments, allocations, and ledger entries commit
+  atomically.
 - Finance-item input accepts `studentAudience` independently from
   `collectable`.
 - Finance-item create/update returns the saved item plus `reconciliation` with

@@ -2,6 +2,16 @@
 
 ## Completed Task
 
+- ID: 2026-08-02-inline-student-creation-payments
+- Title: Fee-Specific Payments During Student Creation
+- Completed: 2026-08-02
+- Outcome: Added classroom/admission-aware required and optional fee rows to the student form, exact per-fee full/partial Pay now controls, pending-balance summaries, shared payment details, dynamic submit and receipt states, atomic student/charge/payment posting through the canonical ledger routine, finance-role enforcement, and overpayment protection. Removed the unused submit split-menu action.
+- Validation: 94 focused student/finance/fee-application tests passed; dashboard typecheck passed; API changes typechecked with only the two pre-existing academic-term reset/setup errors remaining. Authenticated browser QA confirmed automatic Basic Tuition Fee display for the selected classroom stream, pending and paid states, dynamic totals/submit label, and zero development issues without submitting a real student.
+- Related changes: `apps/dashboard/src/components/forms/student-form.tsx`, `apps/dashboard/src/components/forms/student-form-action.tsx`, `apps/api/src/db/queries/students.ts`, `apps/api/src/db/queries/finance.ts`, `packages/db/src/student-fee-application.ts`, `.brain/features/student-fees.md`, `.brain/features/finance-operations.md`, `.brain/api/contracts.md`, `.brain/api/permissions.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: 2026-07-28-admission-status-targeted-fees
 - Title: Term Admission Classification And Targeted Student Fees
 - Completed: 2026-07-28

@@ -184,6 +184,25 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 - Creating a student fee from the student finance tab now opens the same "apply fee to students" confirmation modal used on fees management when the fee is backed by a `FeeHistory`.
 - This lets staff decide whether a fee created for one student should also be propagated to all matching students in the same term/class scope.
 
+### Student Creation Fees And Payments
+- The student form previews active fee items after the operator selects a
+  classroom stream/sub-class and admission status. School-wide items and items
+  targeted to that classroom are included; required matching items are marked
+  for automatic assignment and optional matching items can be selected.
+- Every included fee is shown as a separate bill with its configured amount,
+  stream, required/optional status, Pay now amount, and resulting pending
+  balance. A missing or zero configured price is presented as not configured
+  and cannot be collected from the form.
+- Admins and accountants can collect a full or partial amount against an exact
+  fee while creating the student. Other authenticated student operators can
+  see the bills and create the student, but payment controls remain hidden.
+- Leaving Pay now empty still creates the required/selected charge as pending.
+  Partial amounts produce `PARTIALLY_PAID`; full amounts produce `PAID`.
+- Student identity, term sheet, applicable charges, exact payment allocations,
+  ledger entries, and receipt IDs are created in one database transaction.
+  The success state reports received and pending totals and offers the receipt
+  when a payment was recorded.
+
 ### Enrollment and Promotion
 - When a student is enrolled into a term or promoted into a new term, all matching current-term `FeeHistory` records are automatically applied to the new `StudentTermForm`.
 - Matching follows classroom targeting rules:

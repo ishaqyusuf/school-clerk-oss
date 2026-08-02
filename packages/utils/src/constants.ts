@@ -22,6 +22,12 @@ export const FINANCE_STUDENT_AUDIENCES = [
 
 export type FinanceStudentAudience = (typeof FINANCE_STUDENT_AUDIENCES)[number];
 
+export const FINANCE_WRITE_ROLES = ["ADMIN", "Admin", "Accountant"] as const;
+
+export function canWriteFinance(role?: string | null) {
+	return FINANCE_WRITE_ROLES.some((financeRole) => financeRole === role);
+}
+
 export const daysFilters = [
 	"yesterday",
 	"today",

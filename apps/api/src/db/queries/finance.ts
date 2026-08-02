@@ -1,4 +1,5 @@
 import { compareClassroomDepartments, Prisma } from "@school-clerk/db";
+import { FINANCE_WRITE_ROLES } from "@school-clerk/utils/constants";
 import {
 	type StudentNameFormat,
 	formatStudentName,
@@ -36,6 +37,16 @@ type StudentTermFormDb = Pick<TRPCContext["db"], "studentTermForm">;
 type StudentChargeReconciliationDb = Pick<
 	TRPCContext["db"],
 	"$executeRaw" | "financeCharge" | "financeItem"
+>;
+type FinancePaymentTransaction = Pick<
+	TRPCContext["db"],
+	| "financeCharge"
+	| "financePayment"
+	| "financePaymentAllocation"
+	| "financeLedgerEntry"
+	| "financeTermLedgerClose"
+	| "inventory"
+	| "inventoryIssuance"
 >;
 
 function requireSchoolId(ctx: TRPCContext) {
@@ -102,10 +113,10 @@ type StudentTermChargeForm = {
 	sessionTermId: string | null;
 	schoolSessionId: string | null;
 	classroomDepartmentId: string | null;
-  admissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
+	admissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
 };
 
-const FINANCE_READ_ROLES = new Set(["ADMIN", "Admin", "Accountant"]);
+const FINANCE_READ_ROLES = new Set<string>(FINANCE_WRITE_ROLES);
 const LARGE_FINANCE_ACTION_THRESHOLD = 250_000;
 
 export function requireFinanceReadAccess(ctx: TRPCContext) {
@@ -386,8 +397,7 @@ export async function reconcileStudentTermChargesForForm(
 				(charge) =>
 					charge.assignmentSource !== "MANUAL" &&
 					toNumber(charge.amountPaid) > 0,
-			) ??
-			charges.find((charge) => charge.assignmentSource !== "MANUAL");
+			) ?? charges.find((charge) => charge.assignmentSource !== "MANUAL");
 		const assignmentSource = item.collectable
 			? "REQUIRED_AUTO"
 			: "OPTIONAL_SELECTED";
@@ -514,7 +524,7 @@ async function findStudentTermFormForFinance(
 			sessionTermId: true,
 			schoolSessionId: true,
 			classroomDepartmentId: true,
-      admissionType: true,
+			admissionType: true,
 		},
 	});
 }
@@ -573,7 +583,7 @@ async function reconcileClassroomTermCharges(
 				sessionTermId: true,
 				schoolSessionId: true,
 				classroomDepartmentId: true,
-        admissionType: true,
+				admissionType: true,
 			},
 		});
 
@@ -657,7 +667,9 @@ async function reconcileTermChargesInBatches(
 	}
 
 	return {
-		status: failedTermFormIds.length ? ("PARTIAL" as const) : ("COMPLETED" as const),
+		status: failedTermFormIds.length
+			? ("PARTIAL" as const)
+			: ("COMPLETED" as const),
 		reconciledTermForms,
 		failedTermFormIds,
 		retryable: failedTermFormIds.length > 0,
@@ -965,79 +977,82 @@ export async function upsertFinanceItem(
 	requireFinanceAdmin(ctx, "Only an Admin can create or update finance items.");
 	const schoolProfileId = requireSchoolId(ctx);
 
-	const item = await ctx.db.$transaction(async (tx) => {
-		const stream = await getOrCreateStream(tx, {
-			schoolProfileId,
-			streamId: input.streamId,
-			streamName: input.streamName,
-			accountType: input.accountType,
-			type: input.type,
-		});
-
-		const collectable = input.collectable ?? input.type === "BOOK";
-		const data = {
-			schoolProfileId,
-			streamId: stream.id,
-			type: input.type,
-			name: input.name,
-			description: input.description,
-			amount: toMoney(input.amount),
-			collectable,
-			isActive: input.isActive ?? true,
-			schoolSessionId: input.sessionId,
-			sessionTermId: input.termId,
-			createdById: ctx.currentUser?.id,
-		};
-
-		let item;
-		if (input.id) {
-			const existing = await tx.financeItem.findFirst({
-				where: { id: input.id, schoolProfileId, deletedAt: null },
-				select: { id: true },
+	const item = await ctx.db.$transaction(
+		async (tx) => {
+			const stream = await getOrCreateStream(tx, {
+				schoolProfileId,
+				streamId: input.streamId,
+				streamName: input.streamName,
+				accountType: input.accountType,
+				type: input.type,
 			});
-			if (!existing) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Finance item was not found.",
+
+			const collectable = input.collectable ?? input.type === "BOOK";
+			const data = {
+				schoolProfileId,
+				streamId: stream.id,
+				type: input.type,
+				name: input.name,
+				description: input.description,
+				amount: toMoney(input.amount),
+				collectable,
+				isActive: input.isActive ?? true,
+				schoolSessionId: input.sessionId,
+				sessionTermId: input.termId,
+				createdById: ctx.currentUser?.id,
+			};
+
+			let item;
+			if (input.id) {
+				const existing = await tx.financeItem.findFirst({
+					where: { id: input.id, schoolProfileId, deletedAt: null },
+					select: { id: true },
+				});
+				if (!existing) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Finance item was not found.",
+					});
+				}
+				item = await tx.financeItem.update({
+					where: { id: input.id },
+					data: {
+						...data,
+						...(input.studentAudience
+							? { studentAudience: input.studentAudience }
+							: {}),
+					},
+				});
+			} else {
+				item = await tx.financeItem.create({
+					data: {
+						...data,
+						studentAudience: input.studentAudience ?? "ALL_STUDENTS",
+					},
 				});
 			}
-			item = await tx.financeItem.update({
-				where: { id: input.id },
-				data: {
-					...data,
-					...(input.studentAudience
-						? { studentAudience: input.studentAudience }
-						: {}),
-				},
-			});
-		} else {
-			item = await tx.financeItem.create({
-				data: {
-					...data,
-					studentAudience: input.studentAudience ?? "ALL_STUDENTS",
-				},
-			});
-		}
 
-		await tx.financeItemClassRoomDepartment.deleteMany({
-			where: { itemId: item.id },
-		});
-
-		if (input.classRoomDepartmentIds.length) {
-			await tx.financeItemClassRoomDepartment.createMany({
-				data: input.classRoomDepartmentIds.map((classRoomDepartmentId) => ({
-					itemId: item.id,
-					classRoomDepartmentId,
-				})),
-				skipDuplicates: true,
+			await tx.financeItemClassRoomDepartment.deleteMany({
+				where: { itemId: item.id },
 			});
-		}
 
-		return item;
-	}, {
-		maxWait: 10_000,
-		timeout: 60_000,
-	});
+			if (input.classRoomDepartmentIds.length) {
+				await tx.financeItemClassRoomDepartment.createMany({
+					data: input.classRoomDepartmentIds.map((classRoomDepartmentId) => ({
+						itemId: item.id,
+						classRoomDepartmentId,
+					})),
+					skipDuplicates: true,
+				});
+			}
+
+			return item;
+		},
+		{
+			maxWait: 10_000,
+			timeout: 60_000,
+		},
+	);
 
 	const reconciliation = input.termId
 		? await reconcileTermChargesInBatches(ctx, {
@@ -1107,7 +1122,7 @@ export async function listFinanceItems(
 			description: item.description,
 			amount: toNumber(item.amount),
 			collectable: item.collectable,
-      studentAudience: item.studentAudience,
+			studentAudience: item.studentAudience,
 			isActive: item.isActive,
 			schoolSessionId: item.schoolSessionId,
 			sessionTermId: item.sessionTermId,
@@ -1375,153 +1390,175 @@ export async function recordFinancePayment(
 	input: FinancePaymentInput,
 ) {
 	requireFinanceWriteAccess(ctx);
+	return ctx.db.$transaction((tx) =>
+		recordFinancePaymentInTransaction(ctx, tx, input),
+	);
+}
+
+export async function recordFinancePaymentInTransaction(
+	ctx: TRPCContext,
+	tx: FinancePaymentTransaction,
+	input: FinancePaymentInput,
+) {
+	requireFinanceWriteAccess(ctx);
 	const schoolProfileId = requireSchoolId(ctx);
 
-	return ctx.db.$transaction(async (tx) => {
-		const charge = await tx.financeCharge.findFirst({
-			where: { id: input.chargeId, schoolProfileId },
-			include: { stream: true },
+	const charge = await tx.financeCharge.findFirst({
+		where: { id: input.chargeId, schoolProfileId },
+		include: { stream: true },
+	});
+
+	if (!charge) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Finance charge was not found.",
 		});
+	}
 
-		if (!charge) {
-			throw new TRPCError({
-				code: "NOT_FOUND",
-				message: "Finance charge was not found.",
-			});
-		}
+	if (charge.status === "CANCELLED" || charge.status === "WAIVED") {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Cancelled or waived charges cannot receive payments.",
+		});
+	}
 
-		if (charge.status === "CANCELLED" || charge.status === "WAIVED") {
-			throw new TRPCError({
-				code: "BAD_REQUEST",
-				message: "Cancelled or waived charges cannot receive payments.",
-			});
-		}
+	const amount = toMoney(input.amount);
+	const currentPaid = toMoney(charge.amountPaid ?? 0);
+	const chargeAmount = toMoney(charge.amount);
+	const outstanding = chargeAmount.minus(currentPaid);
 
-		const amount = toMoney(input.amount);
-		const currentPaid = toMoney(charge.amountPaid ?? 0);
-		const totalPaid = currentPaid.plus(amount);
-		const chargeAmount = toMoney(charge.amount);
-		const nextStatus = totalPaid.greaterThanOrEqualTo(chargeAmount)
-			? "PAID"
-			: "PARTIALLY_PAID";
-		const collectedSessionTermId =
-			input.collectedTermId ??
-			ctx.profile.termId ??
-			charge.sessionTermId ??
-			null;
-		const collectedSchoolSessionId =
-			input.collectedSessionId ??
-			(input.collectedTermId ? null : (ctx.profile.sessionId ?? null)) ??
-			charge.schoolSessionId ??
-			null;
-		await assertTermLedgerWritable(tx as any, {
+	if (amount.lessThanOrEqualTo(0)) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Payment amount must be greater than zero.",
+		});
+	}
+
+	if (amount.greaterThan(outstanding)) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Payment amount cannot exceed the outstanding charge amount.",
+		});
+	}
+
+	const totalPaid = currentPaid.plus(amount);
+	const nextStatus = totalPaid.greaterThanOrEqualTo(chargeAmount)
+		? "PAID"
+		: "PARTIALLY_PAID";
+	const collectedSessionTermId =
+		input.collectedTermId ?? ctx.profile.termId ?? charge.sessionTermId ?? null;
+	const collectedSchoolSessionId =
+		input.collectedSessionId ??
+		(input.collectedTermId ? null : (ctx.profile.sessionId ?? null)) ??
+		charge.schoolSessionId ??
+		null;
+	await assertTermLedgerWritable(tx as any, {
+		schoolProfileId,
+		termId: collectedSessionTermId,
+	});
+
+	const payment = await tx.financePayment.create({
+		data: {
 			schoolProfileId,
-			termId: collectedSessionTermId,
-		});
+			streamId: charge.streamId,
+			payerType: charge.payerType,
+			studentId: charge.studentId,
+			staffProfileId: charge.staffProfileId,
+			payeeId: charge.payeeId,
+			amount,
+			paymentDate: input.paymentDate ?? new Date(),
+			collectedSessionTermId,
+			collectedSchoolSessionId,
+			method: input.method,
+			reference: input.reference,
+			note: input.note,
+			receivedById: input.receivedById ?? ctx.currentUser?.id,
+		},
+	});
 
-		const payment = await tx.financePayment.create({
-			data: {
-				schoolProfileId,
-				streamId: charge.streamId,
-				payerType: charge.payerType,
-				studentId: charge.studentId,
-				staffProfileId: charge.staffProfileId,
-				payeeId: charge.payeeId,
-				amount,
-				paymentDate: input.paymentDate ?? new Date(),
-				collectedSessionTermId,
-				collectedSchoolSessionId,
-				method: input.method,
-				reference: input.reference,
-				note: input.note,
-				receivedById: input.receivedById ?? ctx.currentUser?.id,
-			},
-		});
+	const allocation = await tx.financePaymentAllocation.create({
+		data: {
+			paymentId: payment.id,
+			chargeId: charge.id,
+			amount,
+		},
+	});
 
-		const allocation = await tx.financePaymentAllocation.create({
-			data: {
-				paymentId: payment.id,
-				chargeId: charge.id,
-				amount,
-			},
-		});
+	let nextCollectionStatus = charge.collectionStatus;
+	if (nextStatus === "PAID" && charge.collectionStatus === "NOT_COLLECTED") {
+		nextCollectionStatus = "COLLECTED";
 
-		let nextCollectionStatus = charge.collectionStatus;
-		if (nextStatus === "PAID" && charge.collectionStatus === "NOT_COLLECTED") {
-			nextCollectionStatus = "COLLECTED";
+		// Try to deduct inventory if it's an inventory-related charge
+		if (charge.title) {
+			const inventory = tx.inventory as any;
+			const inventoryItem = await inventory.findFirst({
+				where: {
+					schoolProfileId,
+					title: { equals: charge.title, mode: "insensitive" },
+				},
+			});
 
-			// Try to deduct inventory if it's an inventory-related charge
-			if (charge.title) {
-				const inventory = tx.inventory as any;
-				const inventoryItem = await inventory.findFirst({
-					where: {
-						schoolProfileId,
-						title: { equals: charge.title, mode: "insensitive" },
-					},
+			if (inventoryItem) {
+				await inventory.update({
+					where: { id: inventoryItem.id },
+					data: { quantity: { decrement: 1 } },
 				});
 
-				if (inventoryItem) {
-					await inventory.update({
-						where: { id: inventoryItem.id },
-						data: { quantity: { decrement: 1 } },
-					});
-
-					await tx.inventoryIssuance.create({
-						data: {
-							schoolProfileId,
-							inventoryId: inventoryItem.id,
-							quantity: 1,
-							note: `Issued upon payment of charge ${charge.id}`,
-							issuedTo: charge.studentId
-								? `studentId:${charge.studentId}`
-								: charge.staffProfileId
-									? `staffId:${charge.staffProfileId}`
-									: undefined,
-							issuedDate: input.paymentDate ?? new Date(),
-						},
-					});
-				}
+				await tx.inventoryIssuance.create({
+					data: {
+						schoolProfileId,
+						inventoryId: inventoryItem.id,
+						quantity: 1,
+						note: `Issued upon payment of charge ${charge.id}`,
+						issuedTo: charge.studentId
+							? `studentId:${charge.studentId}`
+							: charge.staffProfileId
+								? `staffId:${charge.staffProfileId}`
+								: undefined,
+						issuedDate: input.paymentDate ?? new Date(),
+					},
+				});
 			}
 		}
+	}
 
-		await tx.financeCharge.update({
-			where: { id: charge.id },
-			data: {
-				amountPaid: totalPaid,
-				status: nextStatus,
-				collectionStatus: nextCollectionStatus,
-			},
-		});
-
-		const direction = ledgerDirectionForStream(charge.stream.accountType);
-		await tx.financeLedgerEntry.create({
-			data: {
-				schoolProfileId,
-				streamId: charge.streamId,
-				direction,
-				sourceType: "PAYMENT",
-				sourceId: payment.id,
-				amount,
-				occurredAt: payment.paymentDate,
-				note: input.note ?? `Payment for ${charge.title}`,
-				createdById: ctx.currentUser?.id,
-				collectedSessionTermId,
-				collectedSchoolSessionId,
-				chargeId: charge.id,
-				paymentId: payment.id,
-			},
-		});
-
-		return {
-			success: true,
-			paymentId: payment.id,
-			paymentIds: [payment.id],
-			allocationId: allocation.id,
-			count: 1,
-			totalAllocated: toNumber(amount),
-			chargeStatus: nextStatus,
-		};
+	await tx.financeCharge.update({
+		where: { id: charge.id },
+		data: {
+			amountPaid: totalPaid,
+			status: nextStatus,
+			collectionStatus: nextCollectionStatus,
+		},
 	});
+
+	const direction = ledgerDirectionForStream(charge.stream.accountType);
+	await tx.financeLedgerEntry.create({
+		data: {
+			schoolProfileId,
+			streamId: charge.streamId,
+			direction,
+			sourceType: "PAYMENT",
+			sourceId: payment.id,
+			amount,
+			occurredAt: payment.paymentDate,
+			note: input.note ?? `Payment for ${charge.title}`,
+			createdById: ctx.currentUser?.id,
+			collectedSessionTermId,
+			collectedSchoolSessionId,
+			chargeId: charge.id,
+			paymentId: payment.id,
+		},
+	});
+
+	return {
+		success: true,
+		paymentId: payment.id,
+		paymentIds: [payment.id],
+		allocationId: allocation.id,
+		count: 1,
+		totalAllocated: toNumber(amount),
+		chargeStatus: nextStatus,
+	};
 }
 
 export async function reverseFinancePayment(
@@ -2771,7 +2808,7 @@ export async function getReceivePaymentOptions(
 					sessionTermId: true,
 					schoolSessionId: true,
 					classroomDepartmentId: true,
-          admissionType: true,
+					admissionType: true,
 					classroomDepartment: {
 						select: {
 							id: true,
@@ -2897,17 +2934,17 @@ export async function getReceivePaymentOptions(
 				? { OR: [{ sessionTermId: effectiveTermId }, { sessionTermId: null }] }
 				: {}),
 			AND: [
-        {
-          OR: [
-            { studentAudience: "ALL_STUDENTS" },
-            ...(termForm?.admissionType === "NEW_ADMISSION"
-              ? [{ studentAudience: "NEW_ADMISSIONS_ONLY" as const }]
-              : []),
-            ...(termForm?.admissionType === "RETURNING"
-              ? [{ studentAudience: "RETURNING_STUDENTS_ONLY" as const }]
-              : []),
-          ],
-        },
+				{
+					OR: [
+						{ studentAudience: "ALL_STUDENTS" },
+						...(termForm?.admissionType === "NEW_ADMISSION"
+							? [{ studentAudience: "NEW_ADMISSIONS_ONLY" as const }]
+							: []),
+						...(termForm?.admissionType === "RETURNING"
+							? [{ studentAudience: "RETURNING_STUDENTS_ONLY" as const }]
+							: []),
+					],
+				},
 				...(effectiveSessionId
 					? [
 							{
@@ -3353,7 +3390,7 @@ export async function receiveStudentPaymentSimple(
 					sessionTermId: true,
 					schoolSessionId: true,
 					classroomDepartmentId: true,
-          admissionType: true,
+					admissionType: true,
 				},
 			})
 		: await findStudentTermFormForFinance(ctx.db, {
@@ -3436,17 +3473,17 @@ export async function receiveStudentPaymentSimple(
 					{ sessionTermId: null },
 				],
 				AND: [
-          {
-            OR: [
-              { studentAudience: "ALL_STUDENTS" },
-              ...(termForm.admissionType === "NEW_ADMISSION"
-                ? [{ studentAudience: "NEW_ADMISSIONS_ONLY" as const }]
-                : []),
-              ...(termForm.admissionType === "RETURNING"
-                ? [{ studentAudience: "RETURNING_STUDENTS_ONLY" as const }]
-                : []),
-            ],
-          },
+					{
+						OR: [
+							{ studentAudience: "ALL_STUDENTS" },
+							...(termForm.admissionType === "NEW_ADMISSION"
+								? [{ studentAudience: "NEW_ADMISSIONS_ONLY" as const }]
+								: []),
+							...(termForm.admissionType === "RETURNING"
+								? [{ studentAudience: "RETURNING_STUDENTS_ONLY" as const }]
+								: []),
+						],
+					},
 					{
 						OR: [
 							{ schoolSessionId: termForm.schoolSessionId },
@@ -3698,7 +3735,10 @@ export async function getFinanceTermLedger(
 		termTitle: term.title,
 		sessionTitle: term.session?.title ?? null,
 		status: (closeRecord?.status ?? "OPEN") as
-      "OPEN" | "CLOSING" | "CLOSED" | "REOPENED",
+			| "OPEN"
+			| "CLOSING"
+			| "CLOSED"
+			| "REOPENED",
 		statusLabel:
 			closeRecord?.status === "CLOSED"
 				? "Closed"
@@ -3728,7 +3768,10 @@ export async function getFinanceTermLedger(
 		},
 		lifecycle: {
 			current: (closeRecord?.status ?? "OPEN") as
-        "OPEN" | "CLOSING" | "CLOSED" | "REOPENED",
+				| "OPEN"
+				| "CLOSING"
+				| "CLOSED"
+				| "REOPENED",
 			availableStatuses: ["DRAFT", "OPEN", "CLOSING", "CLOSED", "REOPENED"],
 			canClose: financePermissionFlags(ctx).canCreateSchoolFee,
 			canReopen: financePermissionFlags(ctx).canCreateSchoolFee,
@@ -4640,7 +4683,12 @@ type FinanceWorkspaceCharge = {
 	amount: Prisma.Decimal | number | string;
 	amountPaid: Prisma.Decimal | number | string;
 	status:
-    "DRAFT" | "PENDING" | "PARTIALLY_PAID" | "PAID" | "CANCELLED" | "WAIVED";
+		| "DRAFT"
+		| "PENDING"
+		| "PARTIALLY_PAID"
+		| "PAID"
+		| "CANCELLED"
+		| "WAIVED";
 };
 
 type FinanceWorkspaceStream = {

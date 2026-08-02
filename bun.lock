@@ -580,6 +580,7 @@
       "dependencies": {
         "date-fns": "^4.1.0",
         "dayjs": "^1.11.18",
+        "zod": "3.25.64",
       },
       "devDependencies": {
         "@school-clerk/tsconfig": "workspace:*",

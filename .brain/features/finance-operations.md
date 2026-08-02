@@ -33,6 +33,18 @@ This layer covers:
 - See `.brain/features/payment-import.md` for the complete contract and
   execution rules.
 
+## Payment During Student Creation
+
+- The student-creation workflow may collect one positive amount per applicable
+  fee item. Each amount is posted to the exact `FinanceCharge` generated for
+  that item rather than distributed by charge order.
+- The workflow reuses the canonical finance payment transaction routine, so
+  finance role checks, outstanding-balance validation, closed-ledger checks,
+  allocation records, collection status, account direction, and ledger term
+  attribution remain identical to the normal receive-payment flow.
+- Payment amounts must be positive and cannot exceed the charge's outstanding
+  balance. A zero or omitted amount means the charge remains pending.
+
 ## Reconciliation Workspace
 
 ### Route

@@ -21,6 +21,10 @@
   existing authenticated student-management contract already includes
   `Registrar`. This navigation exposure does not replace or broaden server-side
   checks.
+- Student creation remains available through its existing authenticated
+  contract, but including a positive `feePayments[]` amount additionally
+  requires finance-write access (`ADMIN`, `Admin`, or `Accountant`). The same
+  finance check is enforced in the transaction service, not only in the UI.
 
 # Dashboard navigation permissions
 
