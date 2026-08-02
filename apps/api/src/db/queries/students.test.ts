@@ -9,11 +9,13 @@ const {
   executeStudentImport,
   getStudentImportJob,
   getStudents,
+  getStudentsQueryParams,
   processStudentImportJob,
   setStudentAdmissionType,
   startStudentImportJob,
   verifyStudentImport,
 } = await import("./students");
+const { getStudentsSchema } = await import("../../trpc/schemas/students");
 const { getStudentDuplicateGroups, previewStudentDuplicateMerge } =
   await import("./student-duplicates");
 
@@ -95,6 +97,224 @@ describe("changeStudentGender", () => {
 });
 
 describe("getStudents", () => {
+  function createStudentListContext() {
+    const countCalls: any[] = [];
+    const findManyCalls: any[] = [];
+    const ctx = {
+      profile: {
+        schoolId: "school-1",
+        sessionId: "session-current",
+        termId: "term-current",
+      },
+      db: {
+        students: {
+          count: async (args: any) => {
+            countCalls.push(args);
+            return 0;
+          },
+          findMany: async (args: any) => {
+            findManyCalls.push(args);
+            return [];
+          },
+        },
+      },
+    } as any;
+
+    return { ctx, countCalls, findManyCalls };
+  }
+
+  test("keeps the unfiltered directory non-restrictive", async () => {
+    const { ctx, countCalls } = createStudentListContext();
+
+    await getStudents(ctx, {});
+
+    expect(countCalls[0]?.where).toEqual({
+      schoolProfileId: "school-1",
+      deletedAt: null,
+    });
+  });
+
+  test("matches period and date criteria on the same active enrollment", async () => {
+    const { ctx, countCalls } = createStudentListContext();
+
+    await getStudents(ctx, {
+      sessionId: "session-2025",
+      sessionTermId: "term-2025-2",
+      enrollmentDate: ["2025-01-10", "2025-01-20"],
+    });
+
+    expect(countCalls[0]?.where).toEqual({
+      AND: [
+        { schoolProfileId: "school-1", deletedAt: null },
+        {
+          termForms: {
+            some: {
+              schoolProfileId: "school-1",
+              deletedAt: null,
+              schoolSessionId: "session-2025",
+              sessionTermId: "term-2025-2",
+              createdAt: {
+                gte: new Date("2025-01-10T00:00:00.000Z"),
+                lte: new Date("2025-01-20T23:59:59.999Z"),
+              },
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  test("searches all active enrollment history when only a date is supplied", async () => {
+    const { ctx, countCalls } = createStudentListContext();
+
+    await getStudents(ctx, { enrollmentDate: ["2025-01-10"] });
+
+    expect(countCalls[0]?.where).toEqual({
+      AND: [
+        { schoolProfileId: "school-1", deletedAt: null },
+        {
+          termForms: {
+            some: {
+              schoolProfileId: "school-1",
+              deletedAt: null,
+              createdAt: {
+                gte: new Date("2025-01-10T00:00:00.000Z"),
+                lte: new Date("2025-01-10T23:59:59.999Z"),
+              },
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  test("keeps contradictory enrollment and not-enrolled filters deterministic", async () => {
+    const { ctx, countCalls } = createStudentListContext();
+
+    await getStudents(ctx, {
+      enrollmentDate: ["2025-01-10"],
+      status: "not enrolled",
+    });
+
+    const enrollmentScope = countCalls[0]?.where?.AND?.[1]?.termForms?.some;
+    const notEnrolledScope = countCalls[0]?.where?.AND?.[2]?.termForms?.none;
+
+    expect(notEnrolledScope).toEqual(enrollmentScope);
+  });
+
+  test("composes period, date, classroom, and admission filters on one enrollment", async () => {
+    const { ctx, countCalls } = createStudentListContext();
+
+    await getStudents(ctx, {
+      sessionId: "session-2025",
+      enrollmentDate: ["2025-01-10"],
+      departmentTitles: ["Primary"],
+      classroomTitle: "One",
+      admissionTypes: ["NEW_ADMISSION"],
+    });
+
+    expect(countCalls[0]?.where?.AND).toHaveLength(2);
+    expect(countCalls[0]?.where?.AND?.[1]?.termForms?.some).toEqual({
+      schoolProfileId: "school-1",
+      deletedAt: null,
+      schoolSessionId: "session-2025",
+      createdAt: {
+        gte: new Date("2025-01-10T00:00:00.000Z"),
+        lte: new Date("2025-01-10T23:59:59.999Z"),
+      },
+      classroomDepartment: {
+        AND: [
+          { departmentName: "Primary" },
+          { classRoom: { name: "One" } },
+        ],
+      },
+      admissionType: { in: ["NEW_ADMISSION"] },
+    });
+  });
+
+  test("filters by an enrolled session without falling back to the active term", async () => {
+    const { ctx, countCalls, findManyCalls } = createStudentListContext();
+
+    await getStudents(ctx, { sessionId: "session-2025" });
+
+    expect(countCalls[0]?.where).toEqual({
+      AND: [
+        { schoolProfileId: "school-1", deletedAt: null },
+        {
+          termForms: {
+            some: {
+              schoolProfileId: "school-1",
+              deletedAt: null,
+              schoolSessionId: "session-2025",
+            },
+          },
+        },
+      ],
+    });
+    expect(findManyCalls[0]?.select?.termForms?.where).toEqual({
+      deletedAt: null,
+      schoolSessionId: "session-2025",
+    });
+  });
+
+  test("filters by an enrolled term without requiring a separate status", async () => {
+    const { ctx, countCalls } = createStudentListContext();
+
+    await getStudents(ctx, { sessionTermId: "term-2025-2" });
+
+    expect(countCalls[0]?.where).toEqual({
+      AND: [
+        { schoolProfileId: "school-1", deletedAt: null },
+        {
+          termForms: {
+            some: {
+              schoolProfileId: "school-1",
+              deletedAt: null,
+              sessionTermId: "term-2025-2",
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  test("resolves the today preset to inclusive day boundaries", async () => {
+    const { ctx, countCalls } = createStudentListContext();
+
+    await getStudents(ctx, { enrollmentDate: ["today"] });
+
+    const createdAt =
+      countCalls[0]?.where?.AND?.[1]?.termForms?.some?.createdAt;
+    expect(createdAt.gte.getHours()).toBe(0);
+    expect(createdAt.gte.getMinutes()).toBe(0);
+    expect(createdAt.lte.getHours()).toBe(23);
+    expect(createdAt.lte.getMinutes()).toBe(59);
+    expect(createdAt.gte.toDateString()).toBe(new Date().toDateString());
+    expect(createdAt.lte.toDateString()).toBe(new Date().toDateString());
+  });
+
+  test("validates enrollment date values and ordering", () => {
+    expect(
+      getStudentsSchema.safeParse({ enrollmentDate: ["today"] }).success,
+    ).toBe(true);
+    expect(
+      getStudentsSchema.safeParse({ enrollmentDate: ["2025-01-10"] }).success,
+    ).toBe(true);
+    expect(
+      getStudentsSchema.safeParse({
+        enrollmentDate: ["2025-01-10", "2025-01-20"],
+      }).success,
+    ).toBe(true);
+    expect(
+      getStudentsSchema.safeParse({
+        enrollmentDate: ["2025-01-20", "2025-01-10"],
+      }).success,
+    ).toBe(false);
+    expect(
+      getStudentsSchema.safeParse({ enrollmentDate: ["not-a-date"] }).success,
+    ).toBe(false);
+  });
+
   test("defaults active session and term for classroom-only filters", async () => {
     const countCalls: any[] = [];
     const findManyCalls: any[] = [];
@@ -214,6 +434,76 @@ describe("getStudents", () => {
         },
       ],
     });
+  });
+});
+
+describe("getStudentsQueryParams", () => {
+  test("returns linked enrolled-period and enrollment-date filters", async () => {
+    const sessionCalls: any[] = [];
+    const ctx = {
+      profile: { schoolId: "school-1" },
+      db: {
+        schoolSession: {
+          findMany: async (args: any) => {
+            sessionCalls.push(args);
+            return [
+              {
+                id: "session-1",
+                title: "2025/2026",
+                terms: [{ id: "term-1", title: "First Term" }],
+                classRooms: [],
+              },
+            ];
+          },
+        },
+      },
+    } as any;
+
+    const filters = await getStudentsQueryParams(ctx);
+
+    expect(sessionCalls[0]).toMatchObject({
+      where: { schoolId: "school-1", deletedAt: null },
+      orderBy: [
+        { startDate: { sort: "desc", nulls: "last" } },
+        { createdAt: { sort: "desc", nulls: "last" } },
+        { title: "desc" },
+      ],
+      select: {
+        terms: {
+          where: { deletedAt: null },
+          orderBy: [
+            { startDate: { sort: "asc", nulls: "last" } },
+            { createdAt: { sort: "asc", nulls: "last" } },
+            { title: "asc" },
+          ],
+        },
+      },
+    });
+    expect(filters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "Enrolled session",
+          value: "sessionId",
+        }),
+        expect.objectContaining({
+          label: "Enrolled term",
+          value: "sessionTermId",
+          options: [
+            {
+              label: "First Term | 2025/2026",
+              subLabel: "2025/2026",
+              value: "term-1",
+              parentValue: "session-1",
+            },
+          ],
+        }),
+        {
+          label: "Enrollment date",
+          type: "date-range",
+          value: "enrollmentDate",
+        },
+      ]),
+    );
   });
 });
 

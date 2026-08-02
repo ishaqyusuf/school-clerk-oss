@@ -210,6 +210,7 @@ export function DataTable({
 						sessionId: null,
 						status: null,
             admissionTypes: null,
+            enrollmentDate: null,
 						q: null,
 					})
 				}

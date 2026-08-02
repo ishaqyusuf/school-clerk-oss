@@ -5,7 +5,6 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { PageFilterData } from "@/types";
 import { useQueryStates } from "nuqs";
 import { useHotkeys } from "react-hotkeys-hook";
-import { formatISO } from "date-fns";
 import { cn } from "@school-clerk/ui/cn";
 
 import {
@@ -21,6 +20,7 @@ import {
 } from "@school-clerk/ui/dropdown-menu";
 import { Icons } from "@school-clerk/ui/icons";
 import { Input } from "@school-clerk/ui/input";
+import { Button } from "@school-clerk/ui/button";
 
 import { Icon } from "@school-clerk/ui/custom/icons";
 import { SelectTag } from "../select-tag";
@@ -28,6 +28,12 @@ import { FilterList } from "./filter-list";
 import { getSearchKey, isSearchKey, searchIcons } from "./search-utils";
 import { Calendar } from "@school-clerk/ui/calendar";
 import { useSearchFilterContext } from "@/hooks/use-search-filter";
+import { daysFilters } from "@school-clerk/utils/constants";
+import {
+  dateFilterValueToSelection,
+  dateRangeSelectionToFilterValue,
+  normalizeDateFilterValue,
+} from "./date-filter-model";
 
 interface Props {
   // filters;
@@ -37,12 +43,16 @@ interface Props {
   filterList?: PageFilterData[];
   trpcFilter?;
   filterSchema?;
+  onOptionSelected?: (filter: PageFilterData, option: any) => boolean;
+  onFilterRemove?: (filterKey: string) => Record<string, unknown> | null;
 }
 
 export function SearchFilter({
   placeholder,
   defaultSearch = {},
   filterList,
+  onOptionSelected,
+  onFilterRemove,
 }: Props) {
   const [prompt, setPrompt] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -108,11 +118,6 @@ export function SearchFilter({
     ).length > 0;
 
   const __filters = (filterList || [])?.filter((a) => !isSearchKey(a.value));
-  const dateValue = (filter, index) => {
-    const f = filters?.[filter.value];
-    if (Array.isArray(f) && f?.length > index) return new Date(f[index]);
-    return undefined;
-  };
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <div className="flex items-center space-x-4">
@@ -155,7 +160,9 @@ export function SearchFilter({
         <FilterList
           loading={streaming}
           onRemove={(obj) => {
-            setFilters(obj);
+            const filterKey = Object.keys(obj)[0];
+            const linkedUpdate = filterKey ? onFilterRemove?.(filterKey) : null;
+            setFilters(linkedUpdate ?? obj);
             const clearPrompt = Object.entries(obj).find(([k, v]) =>
               isSearchKey(k)
             )?.[0];
@@ -191,35 +198,9 @@ export function SearchFilter({
                   className="p-0"
                 >
                   {f.type == "date-range" ? (
-                    <Calendar
-                      mode="range"
-                      initialFocus
-                      selected={{
-                        from: filters?.[f.value]?.split(",")?.[0]
-                          ? new Date(filters?.[f.value]?.split(",")?.[0])
-                          : undefined,
-                        to: filters?.[f.value]?.split(",")?.[1]
-                          ? new Date(filters?.[f.value]?.split(",")?.[1])
-                          : undefined,
-                      }}
-                      onSelect={(range) => {
-                        let value = [
-                          range?.from
-                            ? formatISO(range.from, {
-                                representation: "date",
-                              })
-                            : "-",
-                          range?.to
-                            ? formatISO(range.to, {
-                                representation: "date",
-                              })
-                            : "-",
-                        ];
-
-                        setFilters({
-                          [f.value]: value.join(","),
-                        });
-                      }}
+                    <DateRangeFilter
+                      value={filters?.[f.value]}
+                      onChange={(value) => setFilters({ [f.value]: value })}
                     />
                   ) : f.options?.length > 20 ? (
                     <>
@@ -231,10 +212,13 @@ export function SearchFilter({
                           id: opt.value,
                         }))}
                         onChange={(selected) => {
-                          optionSelected(f.value, {
+                          const option = {
                             ...selected,
                             value: selected.id,
-                          });
+                          };
+                          if (!onOptionSelected?.(f, option)) {
+                            optionSelected(f.value, option);
+                          }
                         }}
                       />
                     </>
@@ -250,7 +234,16 @@ export function SearchFilter({
                           checked={checked}
                           onSelect={(event) => event.preventDefault()}
                           onCheckedChange={() => {
-                            optionSelected(f.value, { value, label });
+                            const option = {
+                              ...f.options?.find(
+                                (candidate) => candidate.value === value,
+                              ),
+                              value,
+                              label,
+                            };
+                            if (!onOptionSelected?.(f, option)) {
+                              optionSelected(f.value, option);
+                            }
                           }}
                           key={_i}
                         >
@@ -266,5 +259,47 @@ export function SearchFilter({
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+type DateRangeFilterProps = {
+  value: unknown;
+  onChange: (value: string[] | null) => void;
+};
+
+function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
+  const normalizedValue = normalizeDateFilterValue(value);
+  const activePreset =
+    normalizedValue.length === 1 &&
+    daysFilters.includes(normalizedValue[0] as (typeof daysFilters)[number])
+      ? normalizedValue[0]
+      : null;
+
+  return (
+    <div className="flex max-w-[min(95vw,42rem)] flex-col sm:flex-row">
+      <div className="grid min-w-40 grid-cols-2 gap-1 border-b p-2 sm:grid-cols-1 sm:border-r sm:border-b-0">
+        {daysFilters.map((preset) => (
+          <Button
+            key={preset}
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "justify-start capitalize",
+              activePreset === preset && "bg-accent font-medium",
+            )}
+            onClick={() => onChange([preset])}
+          >
+            {preset}
+          </Button>
+        ))}
+      </div>
+      <Calendar
+        mode="range"
+        initialFocus
+        selected={dateFilterValueToSelection(value)}
+        onSelect={(range) => onChange(dateRangeSelectionToFilterValue(range))}
+      />
+    </div>
   );
 }

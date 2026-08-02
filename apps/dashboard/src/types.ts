@@ -1,6 +1,7 @@
 import { Primitive } from "@radix-ui/react-primitive";
 
 import type { IconKeys } from "@school-clerk/ui/custom/icons";
+import type { PageFilterData as SharedPageFilterData } from "@school-clerk/utils/types";
 import { SearchParamsKeys } from "./utils/search-params";
 import { ColumnDef as TanColumnDef } from "@tanstack/react-table";
 
@@ -14,15 +15,11 @@ export type PageItemData<T extends (...args: any) => any> = Awaited<
 export type PrimitiveDivProps = React.ComponentPropsWithoutRef<
   typeof Primitive.div
 >;
-export type PageFilterData = {
+export type PageFilterData = Omit<
+  SharedPageFilterData<SearchParamsKeys>,
+  "value"
+> & {
   value: SearchParamsKeys;
-  icon?;
-  type: "checkbox" | "input" | "date" | "date-range";
-  label?: string;
-  options?: {
-    label?: string;
-    value?: string;
-  }[];
 };
 export type PageDataMeta = {
   count?;

@@ -6,10 +6,25 @@ import {
 import { useQueryStates } from "nuqs";
 import {
   createLoader,
+  createParser,
   parseAsArrayOf,
   parseAsString,
   parseAsStringEnum,
 } from "nuqs/server";
+import {
+  isValidDateFilterValue,
+  normalizeDateFilterValue,
+} from "@/components/midday-search-filter/date-filter-model";
+
+export const parseAsEnrollmentDate = createParser({
+  parse(queryValue) {
+    const value = normalizeDateFilterValue(queryValue);
+    return isValidDateFilterValue(value) ? value : null;
+  },
+  serialize(value: string[]) {
+    return value.join(",");
+  },
+});
 
 type StudentFilterKeys = keyof Exclude<RouterInputs["students"]["index"], void>;
 export const studentFilterParamsSchema = {
@@ -23,6 +38,7 @@ export const studentFilterParamsSchema = {
   admissionTypes: parseAsArrayOf(
     parseAsStringEnum([...STUDENT_TERM_ADMISSION_TYPES]),
   ),
+  enrollmentDate: parseAsEnrollmentDate,
   q: parseAsString,
 } satisfies Partial<Record<StudentFilterKeys, any>>;
 

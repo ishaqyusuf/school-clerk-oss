@@ -40,6 +40,9 @@ columns, row selection, infinite loading, and RTL-aware logical positioning.
 
 - Student search, column controls, import, and enrollment actions stay in the
   compact directory header.
+- Directory filters include linked enrolled-session and enrolled-term lists plus
+  an enrollment-date range with relative presets. Filter state remains in the
+  URL so it survives reloads, pagination, and shared links.
 - The table includes select, student, student ID, class, gender, status, DOB,
   guardian, phone, and actions columns. Less frequently used identity and
   guardian columns are hidden by default and can be enabled.
@@ -69,6 +72,12 @@ columns, row selection, infinite loading, and RTL-aware logical positioning.
   guardian name or phone.
 - Classroom filters use stable classroom-department IDs and default missing
   session/term context to the active workspace.
+- Explicit session or term filters require an active `StudentTermForm` in that
+  period. Enrollment dates use `StudentTermForm.createdAt`; period, date,
+  classroom, and admission criteria are evaluated against the same term form.
+- Without an explicit period or enrollment date, the active workspace context
+  continues to resolve displayed class and status without restricting the
+  canonical directory to enrolled students.
 - Sort fields are validated at the API boundary and translated to explicit
   Prisma order clauses with stable student-ID tie breakers.
 - Each row includes the resolved display name, current scoped class, enrollment

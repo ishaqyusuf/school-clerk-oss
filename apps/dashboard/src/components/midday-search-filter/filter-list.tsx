@@ -6,6 +6,7 @@ import { Button } from "@school-clerk/ui/button";
 import { Icons } from "@school-clerk/ui/icons";
 import { Skeleton } from "@school-clerk/ui/skeleton";
 import { isSearchKey } from "./search-utils";
+import { formatDateFilterLabel } from "./date-filter-model";
 
 const listVariant = {
   hidden: { y: 10, opacity: 0 },
@@ -138,8 +139,12 @@ export function FilterList({ loading, filterList, filters, onRemove }) {
 
       default:
         if (isSearchKey(key)) return value;
+        const filterDefinition = filterList?.find((f) => f?.value === key);
+        if (filterDefinition?.type === "date-range") {
+          return formatDateFilterLabel(value);
+        }
         //  return null;
-        const opts = filterList?.find((f) => f?.value === key)?.options;
+        const opts = filterDefinition?.options;
         if (!opts) return null;
         if (!Array.isArray(value)) {
           return opts?.find((a) => a?.value == value)?.label || value;

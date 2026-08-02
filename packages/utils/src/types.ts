@@ -7,5 +7,6 @@ export type PageFilterData<TValue = string> = {
     label: string;
     subLabel?: string;
     value: string;
+    parentValue?: string;
   }[];
 };

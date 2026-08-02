@@ -2,6 +2,7 @@ import { z } from "@hono/zod-openapi";
 import {
   STUDENT_PAGE_STATUS_FILTERS,
   STUDENT_TERM_ADMISSION_TYPES,
+  daysFilters,
 } from "@school-clerk/utils/constants";
 import { paginationSchema } from "./schemas";
 
@@ -11,6 +12,50 @@ export const studentSortFields = [
   "dob",
   "createdAt",
 ] as const;
+
+function isIsoCalendarDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
+}
+
+const enrollmentDateSchema = z
+  .array(z.string())
+  .min(1)
+  .max(2)
+  .superRefine((values, ctx) => {
+    if (values.length === 1) {
+      const [value] = values;
+      if (
+        value &&
+        (daysFilters.includes(value as (typeof daysFilters)[number]) ||
+          isIsoCalendarDate(value))
+      ) {
+        return;
+      }
+    }
+
+    const [from, to] = values;
+    if (
+      from &&
+      to &&
+      values.length === 2 &&
+      values.every(isIsoCalendarDate) &&
+      from <= to
+    ) {
+      return;
+    }
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "Enrollment date must be a supported preset or ordered date range.",
+    });
+  });
 
 export const getStudentsSchema = z.object({
   sessionId: z.string().optional().nullable(),
@@ -25,6 +70,7 @@ export const getStudentsSchema = z.object({
     .array(z.enum(STUDENT_TERM_ADMISSION_TYPES))
     .optional()
     .nullable(),
+  enrollmentDate: enrollmentDateSchema.optional().nullable(),
   cursor: z.string().optional().nullable(),
   pageSize: z.number().min(1).max(100).optional().nullable(),
   size: z.number().min(1).max(100).optional().nullable(),

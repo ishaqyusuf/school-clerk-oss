@@ -8,8 +8,14 @@
 # Student directory contracts
 
 - `students.index` accepts optional `q`, `status`, `admissionTypes`, `sessionId`,
-  `sessionTermId`, `departmentId`, `classroomDepartmentIds`, legacy class/title
-  filters, `studentId`, cursor pagination, and a typed sort tuple.
+  `sessionTermId`, `enrollmentDate`, `departmentId`,
+  `classroomDepartmentIds`, legacy class/title filters, `studentId`, cursor
+  pagination, and a typed sort tuple.
+- Explicit `sessionId` and `sessionTermId` values require an active term
+  enrollment. `enrollmentDate` accepts one supported preset, one ISO calendar
+  date, or an ordered inclusive ISO date range and filters
+  `StudentTermForm.createdAt`. Combined period, date, classroom, and admission
+  criteria match the same tenant-owned, non-deleted term form.
 - Sort tuples allow only `studentName`, `gender`, `dob`, or `createdAt` followed
   by `asc` or `desc`. Page size is bounded to 1–100.
 - The list returns `{ data, meta }`. Each data row includes `id`,

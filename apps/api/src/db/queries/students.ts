@@ -24,7 +24,18 @@ import {
   reconcileFeeHistoriesForStudentTermForm,
 } from "./student-fee-application";
 
-import { subDays } from "date-fns";
+import {
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  parseISO,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+  subMonths,
+  subWeeks,
+} from "date-fns";
 
 function toMoney(value: number | string | Prisma.Decimal) {
   return new Prisma.Decimal(value);
@@ -37,7 +48,9 @@ function withDefaultStudentQueryContext(
   return {
     ...query,
     sessionId: query.sessionId || ctx.profile?.sessionId || null,
-    sessionTermId: query.sessionTermId || ctx.profile?.termId || null,
+    sessionTermId:
+      query.sessionTermId ||
+      (query.sessionId ? null : ctx.profile?.termId || null),
   } satisfies GetStudentsSchema;
 }
 
@@ -81,7 +94,7 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
   };
   const { response, searchMeta, where } = await composeQueryData(
     paginationQuery,
-    whereStudents(effectiveQuery, ctx, schoolProfileId),
+    whereStudents(effectiveQuery, ctx, schoolProfileId, query),
     model,
   );
   const { skip, take } = searchMeta;
@@ -229,6 +242,7 @@ function whereStudents(
   query: GetStudentsSchema,
   ctx: TRPCContext,
   schoolProfileId: string,
+  explicitQuery: GetStudentsSchema,
 ) {
   const where: Prisma.StudentsWhereInput[] = [
     {
@@ -236,6 +250,25 @@ function whereStudents(
       deletedAt: null,
     },
   ];
+  const explicitEnrollmentWhere = createExplicitEnrollmentScope(
+    explicitQuery,
+    schoolProfileId,
+  );
+  const enrollmentWhere: Prisma.StudentTermFormWhereInput = {
+    ...explicitEnrollmentWhere,
+  };
+  const classroomDepartmentWhere: Prisma.ClassRoomDepartmentWhereInput[] = [];
+  let requiresTermEnrollment = hasExplicitEnrollmentFilter(explicitQuery);
+
+  const scopeEnrollmentToActiveTermWhenNeeded = () => {
+    if (
+      !explicitQuery.sessionId &&
+      !explicitQuery.sessionTermId &&
+      !explicitQuery.enrollmentDate?.length
+    ) {
+      enrollmentWhere.sessionTermId = query.sessionTermId || ctx.profile.termId;
+    }
+  };
 
   Object.entries(query).map(([key, value]) => {
     if (!value) return;
@@ -296,77 +329,53 @@ function whereStudents(
         });
         break;
       case "departmentId":
-        where.push({
-          ...(query.departmentId == "undocumented" || !query?.departmentId
-            ? {
-                sessionForms: {
-                  some: {
-                    schoolSessionId: query.sessionId,
-                    classroomDepartmentId: null,
-                  },
-                },
-              }
-            : {
-                termForms: {
-                  some: {
-                    deletedAt: null,
-                    sessionTermId: query.sessionTermId || ctx?.profile?.termId,
-                    classroomDepartmentId: query.departmentId,
-                  },
-                },
-              }),
-        });
+        if (query.departmentId === "undocumented") {
+          where.push({
+            sessionForms: {
+              some: {
+                schoolSessionId: query.sessionId,
+                classroomDepartmentId: null,
+              },
+            },
+          });
+        } else if (query.departmentId) {
+          scopeEnrollmentToActiveTermWhenNeeded();
+          enrollmentWhere.classroomDepartmentId = query.departmentId;
+          requiresTermEnrollment = true;
+        }
         break;
       case "classroomDepartmentIds":
         if (query.classroomDepartmentIds?.length) {
-          where.push({
-            termForms: {
-              some: {
-                deletedAt: null,
-                sessionTermId: query.sessionTermId || ctx.profile.termId,
-                classroomDepartmentId: {
-                  in: query.classroomDepartmentIds,
-                },
-              },
-            },
-          });
+          scopeEnrollmentToActiveTermWhenNeeded();
+          enrollmentWhere.classroomDepartmentId = {
+            in: query.classroomDepartmentIds,
+          };
+          requiresTermEnrollment = true;
         }
         break;
       case "departmentTitles":
-        if (query.departmentTitles?.length!)
-          where.push({
-            termForms: {
-              some: {
-                deletedAt: null,
-                sessionTermId: query.sessionTermId || ctx?.profile?.termId,
-                classroomDepartment:
-                  query.departmentTitles?.length! > 1
-                    ? {
-                        OR: query.departmentTitles?.map((s) => ({
-                          departmentName: s,
-                        })),
-                      }
-                    : {
-                        departmentName: query.departmentTitles[0],
-                      },
-              },
-            },
-          });
+        if (query.departmentTitles?.length) {
+          scopeEnrollmentToActiveTermWhenNeeded();
+          classroomDepartmentWhere.push(
+            query.departmentTitles.length > 1
+              ? {
+                  OR: query.departmentTitles.map((departmentName) => ({
+                    departmentName,
+                  })),
+                }
+              : { departmentName: query.departmentTitles[0] },
+          );
+          requiresTermEnrollment = true;
+        }
         break;
       case "classroomTitle":
-        where.push({
-          termForms: {
-            some: {
-              deletedAt: null,
-              sessionTermId: query.sessionTermId || ctx?.profile?.termId,
-              classroomDepartment: {
-                classRoom: {
-                  name: value as any,
-                },
-              },
-            },
+        scopeEnrollmentToActiveTermWhenNeeded();
+        classroomDepartmentWhere.push({
+          classRoom: {
+            name: value as string,
           },
         });
+        requiresTermEnrollment = true;
         break;
       case "studentId":
         where.push({
@@ -375,27 +384,42 @@ function whereStudents(
         break;
       case "admissionTypes":
         if (query.admissionTypes?.length) {
-          where.push({
-            termForms: {
-              some: {
-                deletedAt: null,
-                sessionTermId: query.sessionTermId || ctx.profile.termId,
-                admissionType: { in: query.admissionTypes },
-              },
-            },
-          });
+          scopeEnrollmentToActiveTermWhenNeeded();
+          enrollmentWhere.admissionType = { in: query.admissionTypes };
+          requiresTermEnrollment = true;
         }
         break;
     }
   });
+
+  if (classroomDepartmentWhere.length) {
+    enrollmentWhere.classroomDepartment = {
+      AND: classroomDepartmentWhere,
+    };
+  }
+
+  if (requiresTermEnrollment) {
+    where.push({
+      termForms: {
+        some: enrollmentWhere,
+      },
+    });
+  }
+
+  const statusEnrollmentWhere: Prisma.StudentTermFormWhereInput =
+    hasExplicitEnrollmentFilter(explicitQuery)
+      ? explicitEnrollmentWhere
+      : {
+          schoolProfileId,
+          deletedAt: null,
+          sessionTermId: query.sessionTermId || ctx.profile.termId,
+        };
+
   switch (query.status) {
     case "not enrolled":
       where.push({
         termForms: {
-          none: {
-            deletedAt: null,
-            sessionTermId: query.sessionTermId || ctx.profile.termId,
-          },
+          none: statusEnrollmentWhere,
         },
       });
       break;
@@ -403,25 +427,109 @@ function whereStudents(
       where.push({
         termForms: {
           none: {
+            schoolProfileId,
             deletedAt: null,
           },
         },
       });
       break;
     case "enrolled":
-      where.push({
-        termForms: {
-          some: {
-            deletedAt: null,
-            sessionTermId: query.sessionTermId || ctx?.profile?.termId,
+      if (!requiresTermEnrollment) {
+        where.push({
+          termForms: {
+            some: statusEnrollmentWhere,
           },
-        },
-      });
+        });
+      }
       break;
     default:
       break;
   }
   return composeQuery(where);
+}
+
+function hasExplicitEnrollmentFilter(query: GetStudentsSchema) {
+  return Boolean(
+    query.sessionId || query.sessionTermId || query.enrollmentDate?.length,
+  );
+}
+
+function createExplicitEnrollmentScope(
+  query: GetStudentsSchema,
+  schoolProfileId: string,
+): Prisma.StudentTermFormWhereInput {
+  return {
+    schoolProfileId,
+    deletedAt: null,
+    ...(query.sessionId ? { schoolSessionId: query.sessionId } : {}),
+    ...(query.sessionTermId ? { sessionTermId: query.sessionTermId } : {}),
+    ...(query.enrollmentDate?.length
+      ? { createdAt: resolveEnrollmentDateRange(query.enrollmentDate) }
+      : {}),
+  };
+}
+
+function resolveEnrollmentDateRange(
+  values: NonNullable<GetStudentsSchema["enrollmentDate"]>,
+) {
+  const [first, second] = values;
+  if (!first) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Enrollment date is required.",
+    });
+  }
+  const now = new Date();
+  let from: Date;
+  let to: Date;
+
+  switch (first) {
+    case "today":
+      from = now;
+      to = now;
+      break;
+    case "yesterday":
+      from = subDays(now, 1);
+      to = from;
+      break;
+    case "this week":
+      return { gte: startOfWeek(now), lte: endOfWeek(now) };
+    case "last week": {
+      const previousWeek = subWeeks(now, 1);
+      return {
+        gte: startOfWeek(previousWeek),
+        lte: endOfWeek(previousWeek),
+      };
+    }
+    case "this month":
+      return { gte: startOfMonth(now), lte: endOfMonth(now) };
+    case "last month": {
+      const previousMonth = subMonths(now, 1);
+      return {
+        gte: startOfMonth(previousMonth),
+        lte: endOfMonth(previousMonth),
+      };
+    }
+    case "last 2 months":
+      return {
+        gte: startOfMonth(subMonths(now, 2)),
+        lte: endOfMonth(subMonths(now, 1)),
+      };
+    case "last 6 months":
+      return {
+        gte: startOfMonth(subMonths(now, 6)),
+        lte: endOfMonth(subMonths(now, 1)),
+      };
+    default:
+      from = parseISO(first);
+      to = parseISO(second || first);
+      break;
+  }
+
+  return {
+    gte: startOfDay(from),
+    lte: endOfDay(to),
+  };
 }
 
 function getStudentsOrderBy(
@@ -466,16 +574,24 @@ export async function getStudentsQueryParams(ctx: TRPCContext) {
   // session list
   const sessionList = await ctx.db.schoolSession.findMany({
     where: {
-      id: {
-        not: ctx.profile?.termId,
-      },
       schoolId: schoolProfileId,
       deletedAt: null,
     },
+    orderBy: [
+      { startDate: { sort: "desc", nulls: "last" } },
+      { createdAt: { sort: "desc", nulls: "last" } },
+      { title: "desc" },
+    ],
     select: {
       id: true,
       title: true,
       terms: {
+        where: { deletedAt: null },
+        orderBy: [
+          { startDate: { sort: "asc", nulls: "last" } },
+          { createdAt: { sort: "asc", nulls: "last" } },
+          { title: "asc" },
+        ],
         select: {
           id: true,
           title: true,
@@ -526,7 +642,7 @@ export async function getStudentsQueryParams(ctx: TRPCContext) {
       ],
     },
     {
-      label: "Session",
+      label: "Enrolled session",
       options: sessionList.map((s) => ({
         label: s.title,
         value: s.id,
@@ -535,18 +651,24 @@ export async function getStudentsQueryParams(ctx: TRPCContext) {
       value: "sessionId",
     },
     {
-      label: "Term",
+      label: "Enrolled term",
       options: sessionList
         .map((s) =>
           s.terms.map((t) => ({
             label: `${t.title} | ${s.title}`,
             subLabel: s.title,
             value: t.id,
+            parentValue: s.id,
           })),
         )
         .flat(),
       type: "checkbox",
       value: "sessionTermId",
+    },
+    {
+      label: "Enrollment date",
+      type: "date-range",
+      value: "enrollmentDate",
     },
     {
       label: "Classrooms",
