@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { AddFeeSheet } from "@/components/finance/forms/add-fee-sheet";
 import {
 	buildReceivePaymentOptionsInput,
 	createEmptyTermScopedPaymentSelection,
@@ -1182,7 +1181,6 @@ function SimpleReceivePaymentSheet({
 				</div>
 				</SheetContent>
 			</Sheet>
-			<AddFeeSheet />
 		</>
 	);
 }
@@ -2797,7 +2795,6 @@ function LegacyReceivePaymentSheet({
 					</div>
 				</div>
 			</SheetContent>
-			<AddFeeSheet />
 		</Sheet>
 	);
 }

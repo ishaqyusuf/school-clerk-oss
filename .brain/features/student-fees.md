@@ -9,6 +9,10 @@ Student fees are the school-side charges billed to individual students. They are
   admissions only, or returning students only.
 - Audience is independent of `collectable`: required matching items auto-charge;
   optional matching items appear as quick fee choices during student creation.
+- The Add Fee modal exposes these as separate **Student audience** and
+  **Assignment** controls. For example, `NEW_ADMISSIONS_ONLY` plus optional
+  makes Transport Fee available for deliberate selection only on new-student
+  enrollment, while the same audience plus required assigns it automatically.
 - Applicability combines session, term, classroom, and the selected
   `StudentTermForm.admissionType`.
 - Creating a current-term item immediately reconciles matching term forms.
@@ -167,7 +171,7 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 - Operators can type a new payment type or description for one-off/simple collections; submission maps that intent through `finance.receiveStudentPaymentSimple`.
 - When the options read model grants reusable simple-collection creation, a typed new payment type/description is first saved as an active collectable `FinanceItem`, then the payment is submitted against that item so the option appears for future student payments.
 - Operators without reusable-creation permission can still record the payment as a one-off charge, with the sheet indicating that the new option is only for the current payment.
-- Admin users who type a missing payment type can route it into the existing Add Fee sheet through **Create as school fee**. The handoff carries the typed title, selected student, selected paid-for term sheet, and classroom department. The Add Fee sheet can then default to a selected-student scope that creates direct `FinanceCharge` rows for that student, or switch to the normal class/global school-fee configuration when the fee should apply beyond the selected student.
+- Admin users who type a missing payment type can route it into the global Add Fee modal through **Create as school fee**. The handoff carries the typed title, selected student, selected paid-for term sheet, and classroom department. The modal can then default to a selected-student scope that creates direct `FinanceCharge` rows for that student, or switch to the normal class/global school-fee configuration when the fee should apply beyond the selected student.
 - Payment method defaults to Bank Transfer, payment date defaults to today, and reference/note remain optional.
 - Successful submissions show immediate **Print Receipt** and **Download PDF** actions backed by the payment IDs returned from the API.
 - The previous allocation-heavy flow is retained unchanged as `LegacyReceivePaymentSheet` and is reachable from the default sheet through an Advanced switch, with a Simple mode action to return to the compact cashier flow.
@@ -183,6 +187,26 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 ### Student Billing Form
 - Creating a student fee from the student finance tab now opens the same "apply fee to students" confirmation modal used on fees management when the fee is backed by a `FeeHistory`.
 - This lets staff decide whether a fee created for one student should also be propagated to all matching students in the same term/class scope.
+
+### Add Fee Modal (`/finance/setup/fees`)
+
+- Uses one URL-driven global modal rather than page- or sheet-owned copies, so
+  the fee table and Receive Payment handoff open the same surface without
+  duplicate overlays.
+- Follows the 560px Midday modal scale for a multi-section form, with scope,
+  assignment, audience, fee title, repeatable descriptions, and amounts kept
+  in one scroll-bounded dialog. The fee stream/title and line inputs use a flat
+  layout without a nested card surface.
+- **Student audience** limits the applicable enrollment classification; it does
+  not by itself assign a charge.
+- **Required** assigns the fee automatically to matching enrollments.
+  **Optional** makes the fee available for explicit selection in the student
+  form.
+- Classroom scope requires at least one current classroom and rejects stale or
+  unresolved selections rather than falling back to a school-wide fee.
+- Multi-line creation reports one operation-level result. When only some lines
+  fail, successful lines remain saved and only the failed lines stay in the
+  modal for retry, avoiding duplicate resubmission of successful fees.
 
 ### Student Creation Fees And Payments
 - The student form previews active fee items after the operator selects a

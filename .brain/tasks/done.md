@@ -2,6 +2,16 @@
 
 ## Completed Task
 
+- ID: 2026-08-02-add-fee-audience-modal
+- Title: Enrollment-Targeted Add Fee Modal
+- Completed: 2026-08-02
+- Outcome: Replaced the duplicated Add Fee sheet instances with one global 560px Midday-style modal, exposed enrollment audience independently from required/optional assignment, flattened the fee stream controls, added plain-language behavior feedback, and preserved selected-student direct charge creation. Stale classroom targets are rejected and partial multi-line failures retain only failed lines for safe retry.
+- Validation: Six focused add-fee model tests and dashboard typecheck passed. Authenticated browser verification confirmed single-dialog ownership, audience/assignment behavior, selected-student cleanup, and scrollable overflow-free mobile layouts at 390 × 844 and 320 × 800 without submitting data.
+- Related changes: `apps/dashboard/src/components/modals/add-fee-modal.tsx`, `apps/dashboard/src/components/finance/forms/add-fee-model.ts`, `apps/dashboard/src/components/modals/global-modals.tsx`, `.brain/features/student-fees.md`, `.brain/features/admission-status-and-targeted-fees.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: 2026-08-02-active-academic-metadata-editing
 - Title: Current Academic Session And Term Editing
 - Completed: 2026-08-02

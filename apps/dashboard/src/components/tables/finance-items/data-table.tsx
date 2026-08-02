@@ -1,9 +1,8 @@
 "use client";
 
 import { FinanceTable } from "@/components/tables/finance-table";
-import type { TableSettings } from "@/utils/table-settings";
 import { useAddFeeParams } from "@/hooks/use-add-fee-params";
-import { AddFeeSheet } from "@/components/finance/forms/add-fee-sheet";
+import type { TableSettings } from "@/utils/table-settings";
 import { Button } from "@school-clerk/ui/button";
 import { Plus } from "lucide-react";
 import { type FinanceItemRow, columns } from "./columns";
@@ -36,21 +35,21 @@ export function DataTable({
 	const { setParams } = useAddFeeParams();
 
 	return (
-		<>
-			<FinanceTable
-				data={data}
-				columns={columns}
-				tableId="financeItems"
-				initialSettings={initialSettings}
-				title={tableTitle}
-				description={tableDescription}
-				searchColumnId="name"
-				searchPlaceholder={searchPlaceholder}
-				emptyTitle={emptyTitle}
-				emptyDescription={emptyDescription}
-				emptyActionHref={emptyActionHref}
-				emptyActionLabel={emptyActionLabel}
-				action={showAddFeeAction ? (
+		<FinanceTable
+			data={data}
+			columns={columns}
+			tableId="financeItems"
+			initialSettings={initialSettings}
+			title={tableTitle}
+			description={tableDescription}
+			searchColumnId="name"
+			searchPlaceholder={searchPlaceholder}
+			emptyTitle={emptyTitle}
+			emptyDescription={emptyDescription}
+			emptyActionHref={emptyActionHref}
+			emptyActionLabel={emptyActionLabel}
+			action={
+				showAddFeeAction ? (
 					<Button
 						variant="outline"
 						size="sm"
@@ -60,9 +59,8 @@ export function DataTable({
 						<Plus className="h-4 w-4" />
 						{actionLabel}
 					</Button>
-				) : undefined}
-			/>
-			{showAddFeeAction && <AddFeeSheet />}
-		</>
+				) : undefined
+			}
+		/>
 	);
 }

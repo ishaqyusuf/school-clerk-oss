@@ -63,6 +63,9 @@ term classification to target required and optional fees safely.
 - Student creation includes an admission-status selector. Matching required
   fees are shown as automatic, while matching optional fees have quick-add
   checkboxes.
+- The Add Fee modal configures admission audience and required/optional
+  assignment independently and previews the resulting enrollment behavior in
+  plain language before save.
 - Student import includes a batch admission-status selector plus per-row
   overrides and persists each row's effective value.
 
