@@ -16,6 +16,11 @@ export const financeStudentAudienceSchema = z.enum([
   "NEW_ADMISSIONS_ONLY",
   "RETURNING_STUDENTS_ONLY",
 ]);
+export const financeStudentGenderAudienceSchema = z.enum([
+	"ALL_GENDERS",
+	"MALE_ONLY",
+	"FEMALE_ONLY",
+]);
 export const financePayerTypeSchema = z.enum(["STUDENT", "STAFF", "SCHOOL"]);
 export const financePayeeTypeSchema = z.enum([
 	"VENDOR",
@@ -61,6 +66,7 @@ export const financeItemInputSchema = z.object({
 	amount: money,
 	collectable: z.boolean().optional(),
   studentAudience: financeStudentAudienceSchema.optional(),
+	studentGenderAudience: financeStudentGenderAudienceSchema.optional(),
 	isActive: z.boolean().optional(),
 	sessionId: nullableString,
 	termId: nullableString,

@@ -1,4 +1,6 @@
 export {
+	applicableStudentAudiences,
+	applicableStudentGenderAudiences,
 	applyFeeHistoriesToStudentTermForm,
 	isFinanceItemApplicableToStudentTerm,
 	reconcileFeeHistoriesForStudentTermForm,

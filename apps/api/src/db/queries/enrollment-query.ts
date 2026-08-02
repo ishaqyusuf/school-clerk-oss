@@ -235,6 +235,10 @@ export async function entrollStudentToTerm(
   const { db, profile } = ctx;
   await assertAcademicTermWritable(ctx, data.sessionTermId);
   return db.$transaction(async (tx) => {
+		const student = await tx.students.findFirstOrThrow({
+			where: { id: data.studentId, schoolProfileId: profile.schoolId },
+			select: { gender: true },
+		});
     // return { profile };
     if (!data.studentSessionFormId) {
       const ssf = await tx.studentSessionForm.create({
@@ -268,6 +272,7 @@ export async function entrollStudentToTerm(
         sessionTermId: data.sessionTermId,
         classroomDepartmentId: data.classroomDepartmentId,
         admissionType: "RETURNING",
+				studentGender: student.gender,
       });
     }
     // throw new Error("CREATED DEBUG!");

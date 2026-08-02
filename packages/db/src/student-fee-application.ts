@@ -8,17 +8,20 @@ type AppliedFinanceCharge = {
 	title: string;
 };
 
-type AdmissionType = "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
-type StudentAudience =
+export type AdmissionType = "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
+export type StudentAudience =
 	| "ALL_STUDENTS"
 	| "NEW_ADMISSIONS_ONLY"
 	| "RETURNING_STUDENTS_ONLY";
+export type StudentGender = "Male" | "Female";
+export type StudentGenderAudience = "ALL_GENDERS" | "MALE_ONLY" | "FEMALE_ONLY";
 
 type FinanceItemApplicability = {
 	id: string;
 	collectable: boolean;
 	isActive: boolean;
 	studentAudience: StudentAudience;
+	studentGenderAudience: StudentGenderAudience;
 	schoolSessionId: string | null;
 	sessionTermId: string | null;
 	applicableClassroomDepartmentIds: string[];
@@ -26,10 +29,35 @@ type FinanceItemApplicability = {
 
 type StudentTermApplicability = {
 	admissionType: AdmissionType;
+	studentGender: StudentGender;
 	classroomDepartmentId: string | null;
 	schoolSessionId: string | null;
 	sessionTermId: string | null;
 };
+
+export function applicableStudentAudiences(
+	admissionType: AdmissionType | null | undefined,
+): StudentAudience[] {
+	return [
+		"ALL_STUDENTS",
+		...(admissionType === "NEW_ADMISSION"
+			? (["NEW_ADMISSIONS_ONLY"] as const)
+			: []),
+		...(admissionType === "RETURNING"
+			? (["RETURNING_STUDENTS_ONLY"] as const)
+			: []),
+	];
+}
+
+export function applicableStudentGenderAudiences(
+	studentGender: StudentGender | null | undefined,
+): StudentGenderAudience[] {
+	return [
+		"ALL_GENDERS",
+		...(studentGender === "Male" ? (["MALE_ONLY"] as const) : []),
+		...(studentGender === "Female" ? (["FEMALE_ONLY"] as const) : []),
+	];
+}
 
 type CandidateFinanceItem = Prisma.FinanceItemGetPayload<{
 	include: { stream: true; applicableClasses: true };
@@ -112,6 +140,7 @@ function normalizeFinanceItemApplicability(
 		collectable: item.collectable,
 		isActive: item.isActive,
 		studentAudience: item.studentAudience,
+		studentGenderAudience: item.studentGenderAudience,
 		schoolSessionId: item.schoolSessionId,
 		sessionTermId: item.sessionTermId,
 		applicableClassroomDepartmentIds: item.applicableClasses
@@ -143,17 +172,18 @@ export function isFinanceItemApplicableToStudentTerm(
 	}
 
 	if (
-		item.studentAudience === "NEW_ADMISSIONS_ONLY" &&
-		term.admissionType !== "NEW_ADMISSION"
+		!applicableStudentAudiences(term.admissionType).includes(
+			item.studentAudience,
+		)
 	) {
 		return false;
 	}
 	if (
-		item.studentAudience === "RETURNING_STUDENTS_ONLY" &&
-		term.admissionType !== "RETURNING"
-	) {
+		!applicableStudentGenderAudiences(term.studentGender).includes(
+			item.studentGenderAudience,
+		)
+	)
 		return false;
-	}
 
 	return (
 		item.collectable ||
@@ -171,6 +201,7 @@ export async function applyFeeHistoriesToStudentTermForm(
 		sessionTermId: string;
 		classroomDepartmentId: string;
 		admissionType: AdmissionType;
+		studentGender: StudentGender;
 		selectedOptionalFeeItemIds?: readonly string[];
 	},
 ): Promise<{
@@ -187,6 +218,7 @@ export async function applyFeeHistoriesToStudentTermForm(
 			normalizeFinanceItemApplicability(item),
 			{
 				admissionType: input.admissionType,
+				studentGender: input.studentGender,
 				classroomDepartmentId: input.classroomDepartmentId,
 				schoolSessionId: input.schoolSessionId,
 				sessionTermId: input.sessionTermId,
@@ -256,6 +288,7 @@ export async function reconcileFeeHistoriesForStudentTermForm(
 		sessionTermId: string;
 		classroomDepartmentId: string;
 		admissionType: AdmissionType;
+		studentGender: StudentGender;
 	},
 ) {
 	const tx = client as StudentFeeApplicationDb;

@@ -2,6 +2,35 @@
 
 ## Completed Task
 
+- ID: 2026-08-02-gender-targeted-student-fees
+- Title: Gender-Targeted Student Fees
+- Completed: 2026-08-02
+- Outcome: Added all-gender, male-only, and female-only targeting to reusable
+  fees independently from admission audience, classroom scope, and
+  required/optional assignment. Enforced the rule across creation, enrollment,
+  promotion/rollover, both canonical gender-edit paths, reconciliation,
+  student-form preview, payment import, and configured payment paths, and
+  exposed it in both fee create and edit forms. The Add Fee
+  modal uses a batch-level default with per-sub-fee overrides and a compact
+  responsive line editor.
+- Validation: 114 focused student/finance/fee/payment-import tests passed;
+  dashboard typecheck passed; API typecheck reached only its two pre-existing
+  academic reset/setup errors.
+  Local and production schema pushes succeeded. Authenticated browser QA
+  exercised combined female/new-admission/optional targeting, per-line gender
+  selection, and confirmed non-overlapping mobile rows at 390 × 844 and
+  320 × 800 plus one-line desktop rows at 1280 × 900.
+- Related changes: `packages/db/src/schema/finance.prisma`,
+  `packages/db/src/student-fee-application.ts`,
+  `apps/api/src/db/queries/finance.ts`,
+  `apps/api/src/trpc/routers/academics.routes.ts`,
+  `apps/dashboard/src/components/modals/add-fee-modal.tsx`,
+  `.brain/features/student-fees.md`,
+  `.brain/decisions/ADR-0019-finance-item-gender-audience.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: 2026-08-02-add-fee-audience-modal
 - Title: Enrollment-Targeted Add Fee Modal
 - Completed: 2026-08-02

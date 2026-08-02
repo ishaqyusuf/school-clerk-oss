@@ -48,6 +48,11 @@ function verificationDb() {
 					streamId: string;
 					amount: number;
 					collectable: boolean;
+					studentAudience:
+						| "ALL_STUDENTS"
+						| "NEW_ADMISSIONS_ONLY"
+						| "RETURNING_STUDENTS_ONLY";
+					studentGenderAudience: "ALL_GENDERS" | "MALE_ONLY" | "FEMALE_ONLY";
 					applicableClasses: Array<{
 						classRoomDepartmentId: string;
 					}>;
@@ -60,6 +65,8 @@ function verificationDb() {
 					streamId: "fees-stream",
 					amount: 3000,
 					collectable: true,
+					studentAudience: "ALL_STUDENTS",
+					studentGenderAudience: "ALL_GENDERS",
 					applicableClasses: [],
 				},
 			],
@@ -71,9 +78,12 @@ function verificationDb() {
 					name: "عبد السلام",
 					surname: "إسماعيل",
 					otherName: null,
+					gender: "Male",
 					termForms: [
 						{
 							id: "term-form-1",
+							admissionType: "RETURNING" as const,
+							classroomDepartmentId: "classroom-1",
 							classroomDepartment: {
 								departmentName: "A",
 								classRoom: { name: "Primary 1" },
@@ -128,6 +138,7 @@ describe("payment import verification", () => {
 				name: "Maryam",
 				surname: "Bello",
 				otherName: null,
+				gender: "Female",
 				termForms: [],
 			},
 		];
@@ -153,6 +164,46 @@ describe("payment import verification", () => {
 		expect(result.rows[0]?.status).toBe("NEEDS_REVIEW");
 		expect(result.rows[0]?.blockers).toContain(
 			"Student has no term sheet in the selected term.",
+		);
+	});
+
+	test("blocks a configured fee outside the student's gender audience", async () => {
+		const db = verificationDb();
+		db.financeItem.findMany = async () => [
+			{
+				id: "female-uniform",
+				name: "Female uniform",
+				type: "OTHER" as const,
+				streamId: "fees-stream",
+				amount: 12_000,
+				collectable: true,
+				studentAudience: "ALL_STUDENTS" as const,
+				studentGenderAudience: "FEMALE_ONLY" as const,
+				applicableClasses: [],
+			},
+		];
+
+		const result = await verifyPaymentImport(baseContext(db), {
+			mode: "STUDENT",
+			termId: "term-1",
+			rows: [
+				{
+					lineNumber: 2,
+					paymentDate: "2026-05-09",
+					counterpartyName: "عبد السلام اسماعيل",
+					paymentType: "UNIFORM",
+					amount: 12_000,
+					sourceNote: null,
+					counterpartyId: "student-1",
+					streamId: "fees-stream",
+					itemId: "female-uniform",
+				},
+			],
+		});
+
+		expect(result.rows[0]?.status).toBe("NEEDS_REVIEW");
+		expect(result.rows[0]?.blockers).toContain(
+			"Selected finance item is unavailable for this account and term.",
 		);
 	});
 
@@ -191,6 +242,8 @@ describe("payment import verification", () => {
 				streamId: "fees-stream",
 				amount: 3000,
 				collectable: true,
+				studentAudience: "ALL_STUDENTS" as const,
+				studentGenderAudience: "ALL_GENDERS" as const,
 				applicableClasses: [],
 			},
 		];

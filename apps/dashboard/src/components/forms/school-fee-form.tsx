@@ -216,6 +216,30 @@ export function Form() {
           Audience is separate from whether this fee is required or optional.
         </p>
       </div>
+      <div className="grid gap-2">
+        <Label>Gender</Label>
+        <Select
+          value={watch("studentGenderAudience")}
+          onValueChange={(value) =>
+            setValue(
+              "studentGenderAudience",
+              value as "ALL_GENDERS" | "MALE_ONLY" | "FEMALE_ONLY",
+            )
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL_GENDERS">All genders</SelectItem>
+            <SelectItem value="MALE_ONLY">Male students only</SelectItem>
+            <SelectItem value="FEMALE_ONLY">Female students only</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-sm text-muted-foreground">
+          Use separate fee records when male and female prices differ.
+        </p>
+      </div>
       <div className="grid gap-2 border-t pt-4">
         <Label>Target Audience</Label>
         <RadioGroup
@@ -275,18 +299,19 @@ export function Form() {
               classRoomDepartmentIds,
               collectable,
               studentAudience: data.studentAudience,
+              studentGenderAudience: data.studentGenderAudience,
               description: data.description?.trim() || null,
               id: itemId,
               isActive: true,
               name: itemName,
               sessionId: data.feeId
                 ? data.sessionId
-                : data.sessionId ?? auth?.profile?.sessionId ?? null,
+                : (data.sessionId ?? auth?.profile?.sessionId ?? null),
               streamId: data.streamId || null,
               streamName: resolvedTitle,
               termId: data.feeId
                 ? data.termId
-                : data.termId ?? auth?.profile?.termId ?? null,
+                : (data.termId ?? auth?.profile?.termId ?? null),
               type: itemType,
             });
           })}

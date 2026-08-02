@@ -5,7 +5,11 @@ import type {
 	StartPaymentImportJobInput,
 	VerifyPaymentImportInput,
 } from "@api/trpc/schemas/payment-import";
-import { Prisma } from "@school-clerk/db";
+import {
+	applicableStudentAudiences,
+	applicableStudentGenderAudiences,
+	Prisma,
+} from "@school-clerk/db";
 import {
 	type StudentNameFormat,
 	formatStudentName,
@@ -41,6 +45,8 @@ type PaymentImportCandidate = {
 	score: number;
 	studentTermFormId: string | null;
 	classroomDepartmentId: string | null;
+	studentGender: "Male" | "Female" | null;
+	admissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING" | null;
 };
 
 type PaymentImportItem = {
@@ -50,6 +56,11 @@ type PaymentImportItem = {
 	streamId: string;
 	amount: number;
 	collectable: boolean;
+	studentAudience:
+		| "ALL_STUDENTS"
+		| "NEW_ADMISSIONS_ONLY"
+		| "RETURNING_STUDENTS_ONLY";
+	studentGenderAudience: "ALL_GENDERS" | "MALE_ONLY" | "FEMALE_ONLY";
 	applicableClassroomDepartmentIds: string[];
 };
 
@@ -331,6 +342,8 @@ export async function verifyPaymentImport(
 				streamId: true,
 				amount: true,
 				collectable: true,
+				studentAudience: true,
+				studentGenderAudience: true,
 				applicableClasses: {
 					where: { deletedAt: null },
 					select: { classRoomDepartmentId: true },
@@ -346,6 +359,8 @@ export async function verifyPaymentImport(
 		streamId: item.streamId,
 		amount: toNumber(item.amount),
 		collectable: item.collectable,
+		studentAudience: item.studentAudience,
+		studentGenderAudience: item.studentGenderAudience,
 		applicableClassroomDepartmentIds: item.applicableClasses.map(
 			(applicability) => applicability.classRoomDepartmentId,
 		),
@@ -361,6 +376,7 @@ export async function verifyPaymentImport(
 							name: true,
 							surname: true,
 							otherName: true,
+							gender: true,
 							termForms: {
 								where: {
 									schoolProfileId,
@@ -371,6 +387,7 @@ export async function verifyPaymentImport(
 								take: 1,
 								select: {
 									id: true,
+									admissionType: true,
 									classroomDepartmentId: true,
 									classroomDepartment: {
 										select: {
@@ -401,6 +418,8 @@ export async function verifyPaymentImport(
 							: "No term sheet in selected term",
 						studentTermFormId: termForm?.id ?? null,
 						classroomDepartmentId: termForm?.classroomDepartmentId ?? null,
+						studentGender: student.gender,
+						admissionType: termForm?.admissionType ?? null,
 					};
 				})
 			: (
@@ -415,6 +434,8 @@ export async function verifyPaymentImport(
 					detail: staff.title ?? "Staff",
 					studentTermFormId: null,
 					classroomDepartmentId: null,
+					studentGender: null,
+					admissionType: null,
 				}));
 
 	const counterpartyById = new Map(
@@ -476,6 +497,12 @@ export async function verifyPaymentImport(
 			(item) =>
 				input.mode === "STAFF" ||
 				(item.collectable &&
+					applicableStudentAudiences(
+						selectedCounterparty?.admissionType,
+					).includes(item.studentAudience) &&
+					applicableStudentGenderAudiences(
+						selectedCounterparty?.studentGender,
+					).includes(item.studentGenderAudience) &&
 					(item.applicableClassroomDepartmentIds.length === 0 ||
 						Boolean(
 							selectedCounterparty?.classroomDepartmentId &&
@@ -970,6 +997,9 @@ async function executePaymentImportRow(
 		let studentTermFormId: string | null = null;
 		let staffProfileId: string | null = null;
 		let classroomDepartmentId: string | null = null;
+		let studentGender: "Male" | "Female" | null = null;
+		let admissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING" | null =
+			null;
 
 		if (job.mode === "STUDENT") {
 			if (!payload.studentTermFormId) {
@@ -986,6 +1016,7 @@ async function executePaymentImportRow(
 					sessionTermId: job.sessionTermId,
 					deletedAt: null,
 				},
+				include: { student: { select: { gender: true } } },
 			});
 			if (!termForm) {
 				throw new Error(
@@ -995,6 +1026,8 @@ async function executePaymentImportRow(
 			studentId = counterpartyId;
 			studentTermFormId = termForm.id;
 			classroomDepartmentId = termForm.classroomDepartmentId;
+			studentGender = termForm.student?.gender ?? null;
+			admissionType = termForm.admissionType;
 		} else {
 			const staff = await tx.staffProfile.findFirst({
 				where: {
@@ -1036,6 +1069,16 @@ async function executePaymentImportRow(
 							? {
 									collectable: true,
 									AND: [
+										{
+											studentAudience: {
+												in: applicableStudentAudiences(admissionType),
+											},
+										},
+										{
+											studentGenderAudience: {
+												in: applicableStudentGenderAudiences(studentGender),
+											},
+										},
 										{
 											OR: [
 												{
@@ -1125,9 +1168,10 @@ async function executePaymentImportRow(
 			});
 			chargeId = outstandingCharge.id;
 		} else {
-			const configuredAmount = job.mode === "STUDENT" && selectedItem
-				? toNumber(selectedItem.amount)
-				: payload.amount;
+			const configuredAmount =
+				job.mode === "STUDENT" && selectedItem
+					? toNumber(selectedItem.amount)
+					: payload.amount;
 			const chargeAmount = new Prisma.Decimal(
 				Math.max(configuredAmount, payload.amount),
 			);

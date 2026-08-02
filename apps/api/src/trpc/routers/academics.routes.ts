@@ -40,7 +40,11 @@ import {
   getClassroomDepartments,
   getClassroomsSchema,
 } from "@api/db/queries/classroom";
-import { compareClassroomDepartments } from "@school-clerk/db";
+import {
+	applicableStudentAudiences,
+	applicableStudentGenderAudiences,
+	compareClassroomDepartments,
+} from "@school-clerk/db";
 import {
   entrollStudentToTerm,
   entrollStudentToTermSchema,
@@ -64,6 +68,7 @@ const previewApplicableFeeHistoriesSchema = z.object({
   sessionTermId: z.string(),
   classroomDepartmentId: z.string().optional().nullable(),
   admissionType: z.enum(["UNCLASSIFIED", "NEW_ADMISSION", "RETURNING"]),
+	studentGender: z.enum(["Male", "Female"]),
 });
 
 function findCurrentDatedTerm<
@@ -422,15 +427,14 @@ export const academicsRouter = createTRPCRouter({
               ],
             },
             {
-              OR: [
-                { studentAudience: "ALL_STUDENTS" },
-                ...(input.admissionType === "NEW_ADMISSION"
-                  ? [{ studentAudience: "NEW_ADMISSIONS_ONLY" as const }]
-                  : []),
-                ...(input.admissionType === "RETURNING"
-                  ? [{ studentAudience: "RETURNING_STUDENTS_ONLY" as const }]
-                  : []),
-              ],
+							studentAudience: {
+								in: applicableStudentAudiences(input.admissionType),
+							},
+						},
+						{
+							studentGenderAudience: {
+								in: applicableStudentGenderAudiences(input.studentGender),
+							},
             },
             {
               OR: [
@@ -463,6 +467,7 @@ export const academicsRouter = createTRPCRouter({
         streamName: item.stream.name,
         collectable: item.collectable,
         studentAudience: item.studentAudience,
+				studentGenderAudience: item.studentGenderAudience,
       }));
     }),
   migrateTermData: authenticatedProcedure
@@ -984,6 +989,7 @@ export const academicsRouter = createTRPCRouter({
               name: true,
               surname: true,
               otherName: true,
+							gender: true,
             },
           },
         },
@@ -1113,6 +1119,7 @@ export const academicsRouter = createTRPCRouter({
               sessionTermId: input.toTermId,
               classroomDepartmentId: targetClassroomDepartmentId,
               admissionType: "RETURNING",
+							studentGender: form.student!.gender,
             });
           }
         }

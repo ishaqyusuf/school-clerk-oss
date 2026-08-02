@@ -83,6 +83,7 @@ describe("createStudent fee collection", () => {
 				collectable: true,
 				isActive: true,
 				studentAudience: "NEW_ADMISSIONS_ONLY",
+				studentGenderAudience: "ALL_GENDERS",
 				schoolSessionId: "session-1",
 				sessionTermId: "term-1",
 				streamId: "stream-entrance",
@@ -102,6 +103,7 @@ describe("createStudent fee collection", () => {
 				collectable: true,
 				isActive: true,
 				studentAudience: "NEW_ADMISSIONS_ONLY",
+				studentGenderAudience: "ALL_GENDERS",
 				schoolSessionId: "session-1",
 				sessionTermId: "term-1",
 				streamId: "stream-matriculation",
@@ -406,6 +408,15 @@ function createCtx({
   updateCount?: number;
 } = {}) {
   const calls: unknown[] = [];
+	const tx = {
+		students: {
+			updateMany: async (args: unknown) => {
+				calls.push(args);
+				return { count: updateCount };
+			},
+		},
+		studentTermForm: { findMany: async () => [] },
+	};
   return {
     ctx: {
       profile: { schoolId },
@@ -419,12 +430,8 @@ function createCtx({
           }
         : undefined,
       db: {
-        students: {
-          updateMany: async (args: unknown) => {
-            calls.push(args);
-            return { count: updateCount };
-          },
-        },
+				...tx,
+				$transaction: async (fn: (client: typeof tx) => unknown) => fn(tx),
       },
     } as any,
     calls,

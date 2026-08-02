@@ -101,6 +101,7 @@ export function Form() {
 	const name = watch("name");
 	const classRoomId = watch("classRoomId");
 	const admissionType = watch("admissionType");
+  const studentGender = watch("gender");
 	const selectedOptionalFeeItemIds = watch("selectedOptionalFeeItemIds") ?? [];
 	const feePayments = watch("feePayments") ?? [];
 	const canReceivePayments = canWriteFinance(auth.role);
@@ -120,9 +121,10 @@ export function Form() {
 				sessionTermId: auth?.profile?.termId || "",
 				classroomDepartmentId: classRoomId || null,
 				admissionType,
+        studentGender,
 			},
 			{
-				enabled: Boolean(auth?.profile?.termId && classRoomId),
+        enabled: Boolean(auth?.profile?.termId && classRoomId && studentGender),
 			},
 		),
 	);
@@ -130,7 +132,7 @@ export function Form() {
 	useEffect(() => {
 		setValue("selectedOptionalFeeItemIds", []);
 		setValue("feePayments", []);
-	}, [admissionType, classRoomId, setValue]);
+  }, [admissionType, classRoomId, studentGender, setValue]);
 
 	useEffect(() => {
 		if (!applicableFeesPreview) return;

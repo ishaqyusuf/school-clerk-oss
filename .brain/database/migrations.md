@@ -1,5 +1,20 @@
 # Migrations
 
+## Migration Entry
+
+- Date: 2026-08-02
+- ID: SCHEMA-2026-08-02-finance-item-gender-audience
+- Summary: Added an orthogonal gender-audience rule to reusable student fee
+  items.
+- Affected entities: `FinanceItem`, `FinanceStudentGenderAudience`
+- Backfill required: No. Existing finance items default to `ALL_GENDERS`.
+- Applied: `bun run db:generate`, `bun run db:push --local`, and
+  `bun run db:push --prod` succeeded on 2026-08-02. No migration file,
+  preview-profile push, or destructive flag was used.
+- Rollback plan: Remove UI/API gender matching, regenerate Prisma Client, then
+  drop the column and enum after confirming no gender-specific fee rows remain.
+- Owner: Codex
+
 ## 2026-07-31: Shared Database Commands And Sync
 
 - `db:generate`, `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell` use `local-infra-kit/bin/db.ts`; local is the default and `--local`, `--preview`, and `--prod` are the only mode flags.

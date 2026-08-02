@@ -1061,6 +1061,7 @@ export async function approveEnrollmentApplication(
 			sessionTermId: ctx.profile.termId,
 			classroomDepartmentId: application.classRoomDepartmentId,
 			admissionType: "NEW_ADMISSION",
+			studentGender: application.studentGender,
 		});
 
 		if (primaryParent) {

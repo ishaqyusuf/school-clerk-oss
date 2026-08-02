@@ -24,6 +24,7 @@ export function FormContext({ children }) {
 			termId: null,
 			collectionStatus: "NOT_COLLECTED",
       studentAudience: "ALL_STUDENTS",
+      studentGenderAudience: "ALL_GENDERS",
 			classroomDepartmentIds: [],
 		},
 	});
@@ -42,6 +43,7 @@ export function FormContext({ children }) {
 				termId: null,
 				collectionStatus: "NOT_COLLECTED",
         studentAudience: "ALL_STUDENTS",
+        studentGenderAudience: "ALL_GENDERS",
 				classroomDepartmentIds: [],
 			});
 			return;
@@ -61,6 +63,7 @@ export function FormContext({ children }) {
 			termId: fee.sessionTermId ?? null,
 			collectionStatus: fee.collectable ? "NOT_COLLECTED" : "NOT_REQUIRED",
       studentAudience: fee.studentAudience ?? "ALL_STUDENTS",
+      studentGenderAudience: fee.studentGenderAudience ?? "ALL_GENDERS",
 			classroomDepartmentIds:
         fee.classroomDepartments?.map((department) => department.id) ?? [],
 		});

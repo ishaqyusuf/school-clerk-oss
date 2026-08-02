@@ -5,7 +5,8 @@
 - `Students` → `StudentTermForm` remains one-to-many; admission classification
   is owned by each term form.
 - `FinanceItem` applies to a `StudentTermForm` through evaluated tenant,
-  session, term, classroom, and admission-audience attributes.
+  session, term, classroom, admission-audience, and canonical-student gender
+  attributes.
 - Materialized `FinanceCharge.studentTermFormId` preserves the exact billed
   term. Paid or partially paid charges survive later classification changes.
 

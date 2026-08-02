@@ -1,4 +1,7 @@
-import type { FinanceStudentAudience } from "@school-clerk/utils/constants";
+import type {
+  FinanceStudentAudience,
+  FinanceStudentGenderAudience,
+} from "@school-clerk/utils/constants";
 
 export const closedAddFeeParams = {
 	addFee: null,
@@ -15,7 +18,12 @@ type AddFeeDefaultValues = {
 	streamName: string;
 	required: boolean;
 	studentAudience: FinanceStudentAudience;
-	lines: Array<{ description: string; amount: number }>;
+  studentGenderAudience: FinanceStudentGenderAudience;
+  lines: Array<{
+    description: string;
+    amount: number;
+    studentGenderAudience: FinanceStudentGenderAudience | null;
+  }>;
 };
 
 export function getAddFeeDefaultValues({
@@ -34,7 +42,14 @@ export function getAddFeeDefaultValues({
 		streamName: title ?? "",
 		required: true,
 		studentAudience: "ALL_STUDENTS",
-		lines: [{ description: title ?? "", amount: 0 }],
+    studentGenderAudience: "ALL_GENDERS",
+    lines: [
+      {
+        description: title ?? "",
+        amount: 0,
+        studentGenderAudience: null,
+      },
+    ],
 	};
 }
 
@@ -108,20 +123,52 @@ export const feeAudienceOptions: Array<{
 	{ value: "RETURNING_STUDENTS_ONLY", label: "Returning students only" },
 ];
 
+export const feeGenderAudienceOptions: Array<{
+  value: FinanceStudentGenderAudience;
+  label: string;
+}> = [
+  { value: "ALL_GENDERS", label: "All genders" },
+  { value: "MALE_ONLY", label: "Male students only" },
+  { value: "FEMALE_ONLY", label: "Female students only" },
+];
+
 export function getFeeAssignmentSummary({
 	audience,
+  genderAudience,
 	required,
 }: {
 	audience: FinanceStudentAudience;
+  genderAudience: FinanceStudentGenderAudience;
 	required: boolean;
 }) {
 	const audienceLabel =
 		feeAudienceOptions.find((option) => option.value === audience)?.label ??
 		"Selected students";
+  const genderLabel =
+    feeGenderAudienceOptions.find((option) => option.value === genderAudience)
+      ?.label ?? "Selected genders";
+  const matchingStudents = `${audienceLabel} · ${genderLabel}`;
 
 	return required
-		? `${audienceLabel}: assigned automatically when the student enrolls.`
-		: `${audienceLabel}: available in the student form and assigned only when selected.`;
+    ? `${matchingStudents}: assigned automatically when the student enrolls.`
+    : `${matchingStudents}: available in the student form and assigned only when selected.`;
+}
+
+export function normalizeFeeLines(
+  lines:
+    | Array<{
+        description?: string | null;
+        amount?: number | null;
+        studentGenderAudience?: FinanceStudentGenderAudience | null;
+      }>
+    | null
+    | undefined,
+) {
+  return (lines ?? []).map((line) => ({
+    description: line.description ?? "",
+    amount: line.amount ?? 0,
+    studentGenderAudience: line.studentGenderAudience ?? null,
+  }));
 }
 
 export function buildFeeItemPayloads({
@@ -129,6 +176,7 @@ export function buildFeeItemPayloads({
 	streamName,
 	required,
 	studentAudience,
+  studentGenderAudience,
 	classRoomDepartmentIds,
 	lines,
 }: {
@@ -136,8 +184,13 @@ export function buildFeeItemPayloads({
 	streamName: string;
 	required: boolean;
 	studentAudience: FinanceStudentAudience;
+  studentGenderAudience: FinanceStudentGenderAudience;
 	classRoomDepartmentIds: string[];
-	lines: Array<{ description: string; amount: number }>;
+  lines: Array<{
+    description: string;
+    amount: number;
+    studentGenderAudience?: FinanceStudentGenderAudience | null;
+  }>;
 }) {
 	return lines.map((line) => ({
 		streamId,
@@ -147,6 +200,7 @@ export function buildFeeItemPayloads({
 		amount: line.amount,
 		collectable: required,
 		studentAudience,
+    studentGenderAudience: line.studentGenderAudience ?? studentGenderAudience,
 		classRoomDepartmentIds,
 	}));
 }

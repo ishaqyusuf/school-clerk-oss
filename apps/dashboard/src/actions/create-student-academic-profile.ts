@@ -4,10 +4,7 @@ import { revalidatePath } from "next/cache";
 import { transaction } from "@/utils/db";
 import { z } from "zod";
 
-import {
-  applyFeeHistoriesToStudentTermForm,
-  prisma,
-} from "@school-clerk/db";
+import { applyFeeHistoriesToStudentTermForm, prisma } from "@school-clerk/db";
 
 import { getAuthCookie } from "./cookies/auth-cookie";
 import { actionClient } from "./safe-action";
@@ -18,7 +15,7 @@ export type CreateClassRoom = z.infer<
 >;
 export async function createStudentAcademicProfile(
   data: CreateClassRoom,
-  tx: typeof prisma = prisma
+  tx: typeof prisma = prisma,
 ) {
   const profile = await getAuthCookie();
   const student = await tx.students.update({
@@ -93,6 +90,7 @@ export async function createStudentAcademicProfile(
       sessionTermId: requestedTerm.sessionTermId,
       classroomDepartmentId,
       admissionType: data.admissionType,
+      studentGender: student.gender,
     });
   }
   return student;

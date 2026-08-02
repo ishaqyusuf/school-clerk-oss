@@ -163,6 +163,9 @@ const legacyItemInput = z
     studentAudience: z
       .enum(["ALL_STUDENTS", "NEW_ADMISSIONS_ONLY", "RETURNING_STUDENTS_ONLY"])
       .optional(),
+		studentGenderAudience: z
+			.enum(["ALL_GENDERS", "MALE_ONLY", "FEMALE_ONLY"])
+			.optional(),
 		isActive: z.boolean().optional(),
 		sessionId: z.string().optional().nullable(),
 		termId: z.string().optional().nullable(),
@@ -226,7 +229,11 @@ const legacyPaymentInput = financePaymentInputSchema
 	.passthrough();
 
 type NormalizedFinanceItemType =
-  "TUITION_FEE" | "BOOK" | "SERVICE" | "SALARY" | "OTHER";
+	| "TUITION_FEE"
+	| "BOOK"
+	| "SERVICE"
+	| "SALARY"
+	| "OTHER";
 
 function normalizeItemType(value?: string | null): NormalizedFinanceItemType {
 	switch (value) {
@@ -1033,6 +1040,7 @@ export const financeRouter = createTRPCRouter({
 				amount: input.amount,
 				collectable: input.collectable,
         studentAudience: input.studentAudience,
+				studentGenderAudience: input.studentGenderAudience,
 				isActive: input.isActive,
 				sessionId: input.sessionId,
 				termId: input.termId,

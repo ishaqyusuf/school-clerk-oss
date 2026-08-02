@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented: 2026-07-28
+Implemented: 2026-07-28; gender targeting extended 2026-08-02
 
 ## Purpose
 
@@ -28,12 +28,15 @@ term classification to target required and optional fees safely.
 - `FinanceItem.studentAudience` is independent of `collectable`.
 - Audience values are `ALL_STUDENTS`, `NEW_ADMISSIONS_ONLY`, and
   `RETURNING_STUDENTS_ONLY`.
+- `FinanceItem.studentGenderAudience` is a second, independent population
+  dimension with `ALL_GENDERS`, `MALE_ONLY`, and `FEMALE_ONLY` values.
 - `collectable = true` means a matching required fee is assigned
   automatically. `collectable = false` means the fee is optional and must be
   selected explicitly on student creation or already exist as an optional
   charge.
 - Applicability is the intersection of tenant, active item, session, term,
-  classroom, admission audience, and required/selected-optional status.
+  classroom, admission audience, gender audience, and
+  required/selected-optional status.
 - Admission status changes reconcile required charges immediately. Newly
   applicable charges are created, duplicate active item charges are skipped,
   and no-longer-applicable unpaid item-backed charges are cancelled.
@@ -66,14 +69,23 @@ term classification to target required and optional fees safely.
 - The Add Fee modal configures admission audience and required/optional
   assignment independently and previews the resulting enrollment behavior in
   plain language before save.
+- The same modal configures gender independently. Schools create separate male
+  and female fee rows when prices differ, while `ALL_GENDERS` preserves the
+  normal shared-fee workflow.
+- A modal-level gender acts as the default for a batch, while each sub-fee line
+  may override it. Because every line persists as its own `FinanceItem`, the
+  resulting eligibility rule remains explicit rather than nested.
 - Student import includes a batch admission-status selector plus per-row
   overrides and persists each row's effective value.
 
 ## Validation
 
-- Shared fee applicability tests cover audience, required/optional selection,
-  session, term, classroom, and school-wide scope.
+- Shared fee applicability tests cover admission and gender audience
+  intersections, required/optional selection, session, term, classroom, and
+  school-wide scope.
 - Student query tests cover term-scoped admission filters and tenant-scoped
   classification updates.
 - A dashboard component test covers all operator-facing admission labels.
 - Local and production Prisma schema pushes succeeded on 2026-07-28.
+- The additive gender-audience schema push succeeded locally and in production
+  on 2026-08-02.

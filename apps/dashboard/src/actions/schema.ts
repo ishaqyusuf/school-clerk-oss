@@ -1,5 +1,6 @@
 import {
 	FINANCE_STUDENT_AUDIENCES,
+  FINANCE_STUDENT_GENDER_AUDIENCES,
 	STAFF_CLASSROOM_SUBJECT_ACCESS_MODES,
 	STAFF_ROLES,
 } from "@school-clerk/utils/constants";
@@ -182,6 +183,9 @@ export const createSchoolFeeSchema = z.object({
 		.enum(["NOT_REQUIRED", "NOT_COLLECTED", "COLLECTED"])
 		.optional(),
 	studentAudience: z.enum(FINANCE_STUDENT_AUDIENCES).default("ALL_STUDENTS"),
+  studentGenderAudience: z
+    .enum(FINANCE_STUDENT_GENDER_AUDIENCES)
+    .default("ALL_GENDERS"),
 	classroomDepartmentIds: z.array(z.string()).default([]),
 });
 const classroomFeeLineSchema = z.object({

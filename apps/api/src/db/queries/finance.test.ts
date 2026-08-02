@@ -996,6 +996,7 @@ describe("upsertFinanceItem", () => {
 
 		expect(updateData).toBeDefined();
 		expect(updateData).not.toHaveProperty("studentAudience");
+		expect(updateData).not.toHaveProperty("studentGenderAudience");
 	});
 
 	test("creates separate same-named fee structures for different terms", async () => {
@@ -1040,6 +1041,7 @@ describe("upsertFinanceItem", () => {
 			sessionId: "session-1",
 			classRoomDepartmentIds: [],
 			studentAudience: "NEW_ADMISSIONS_ONLY",
+			studentGenderAudience: "FEMALE_ONLY",
 		};
 
 		await upsertFinanceItem(createFinanceCtx({ db }), {
@@ -1052,6 +1054,7 @@ describe("upsertFinanceItem", () => {
 		} as any);
 
 		expect(createdItems).toHaveLength(2);
+		expect(createdItems[0]?.studentGenderAudience).toBe("FEMALE_ONLY");
 		expect(createdItems.map((item) => item.sessionTermId)).toEqual([
 			"term-1",
 			"term-2",
@@ -1107,6 +1110,7 @@ describe("reconcileStudentTermChargesForForm", () => {
 				schoolSessionId: "session-1",
 				classroomDepartmentId: "classroom-1",
 				admissionType: "NEW_ADMISSION" as const,
+				student: { gender: "Female" as const },
 			},
 		};
 

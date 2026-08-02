@@ -6,6 +6,7 @@ import {
 	getAddFeeDefaultValues,
 	getFeeAssignmentSummary,
 	getFeeScopeError,
+  normalizeFeeLines,
 	resolveFeeClassroomIds,
 	summarizeFeeBatch,
 } from "./add-fee-model";
@@ -18,8 +19,15 @@ describe("add fee model", () => {
 				streamName: "Transport Fee",
 				required: false,
 				studentAudience: "NEW_ADMISSIONS_ONLY",
+        studentGenderAudience: "FEMALE_ONLY",
 				classRoomDepartmentIds: ["class-1"],
-				lines: [{ description: "Bus service", amount: 25_000 }],
+        lines: [
+          {
+            description: "Bus service",
+            amount: 25_000,
+            studentGenderAudience: null,
+          },
+        ],
 			}),
 			[
 				{
@@ -30,26 +38,86 @@ describe("add fee model", () => {
 					amount: 25_000,
 					collectable: false,
 					studentAudience: "NEW_ADMISSIONS_ONLY",
+          studentGenderAudience: "FEMALE_ONLY",
 					classRoomDepartmentIds: ["class-1"],
 				},
 			],
 		);
 	});
 
+  it("lets a sub-fee override the main gender default", () => {
+    const payloads = buildFeeItemPayloads({
+      streamId: null,
+      streamName: "Uniform",
+      required: true,
+      studentAudience: "ALL_STUDENTS",
+      studentGenderAudience: "ALL_GENDERS",
+      classRoomDepartmentIds: [],
+      lines: [
+        {
+          description: "Female uniform",
+          amount: 30_000,
+          studentGenderAudience: "FEMALE_ONLY",
+        },
+        {
+          description: "Male uniform",
+          amount: 25_000,
+          studentGenderAudience: "MALE_ONLY",
+        },
+      ],
+    });
+
+    assert.deepEqual(
+      payloads.map((payload) => payload.studentGenderAudience),
+      ["FEMALE_ONLY", "MALE_ONLY"],
+    );
+  });
+
+  it("preserves line-level gender while normalizing submitted values", () => {
+    assert.deepEqual(
+      normalizeFeeLines([
+        {
+          description: "Female uniform",
+          amount: 30_000,
+          studentGenderAudience: "FEMALE_ONLY",
+        },
+        {
+          description: null,
+          amount: null,
+          studentGenderAudience: null,
+        },
+      ]),
+      [
+        {
+          description: "Female uniform",
+          amount: 30_000,
+          studentGenderAudience: "FEMALE_ONLY",
+        },
+        {
+          description: "",
+          amount: 0,
+          studentGenderAudience: null,
+        },
+      ],
+    );
+  });
+
 	it("explains required and optional behavior in enrollment language", () => {
 		assert.equal(
 			getFeeAssignmentSummary({
 				audience: "NEW_ADMISSIONS_ONLY",
+        genderAudience: "FEMALE_ONLY",
 				required: true,
 			}),
-			"New admissions only: assigned automatically when the student enrolls.",
+      "New admissions only · Female students only: assigned automatically when the student enrolls.",
 		);
 		assert.equal(
 			getFeeAssignmentSummary({
 				audience: "NEW_ADMISSIONS_ONLY",
+        genderAudience: "FEMALE_ONLY",
 				required: false,
 			}),
-			"New admissions only: available in the student form and assigned only when selected.",
+      "New admissions only · Female students only: available in the student form and assigned only when selected.",
 		);
 	});
 
@@ -67,7 +135,14 @@ describe("add fee model", () => {
 				streamName: "Transport Fee",
 				required: true,
 				studentAudience: "ALL_STUDENTS",
-				lines: [{ description: "Transport Fee", amount: 0 }],
+        studentGenderAudience: "ALL_GENDERS",
+        lines: [
+          {
+            description: "Transport Fee",
+            amount: 0,
+            studentGenderAudience: null,
+          },
+        ],
 			},
 		);
 		assert.deepEqual(closedAddFeeParams, {

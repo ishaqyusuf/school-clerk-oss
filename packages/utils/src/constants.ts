@@ -22,6 +22,15 @@ export const FINANCE_STUDENT_AUDIENCES = [
 
 export type FinanceStudentAudience = (typeof FINANCE_STUDENT_AUDIENCES)[number];
 
+export const FINANCE_STUDENT_GENDER_AUDIENCES = [
+	"ALL_GENDERS",
+	"MALE_ONLY",
+	"FEMALE_ONLY",
+] as const;
+
+export type FinanceStudentGenderAudience =
+	(typeof FINANCE_STUDENT_GENDER_AUDIENCES)[number];
+
 export const FINANCE_WRITE_ROLES = ["ADMIN", "Admin", "Accountant"] as const;
 
 export function canWriteFinance(role?: string | null) {

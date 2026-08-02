@@ -26,7 +26,10 @@ import {
 	SelectValue,
 } from "@school-clerk/ui/select";
 import { toast } from "@school-clerk/ui/use-toast";
-import { FINANCE_STUDENT_AUDIENCES } from "@school-clerk/utils/constants";
+import {
+  FINANCE_STUDENT_AUDIENCES,
+  FINANCE_STUDENT_GENDER_AUDIENCES,
+} from "@school-clerk/utils/constants";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useFieldArray } from "react-hook-form";
@@ -35,9 +38,11 @@ import {
 	buildFeeItemPayloads,
 	closedAddFeeParams,
 	feeAudienceOptions,
+  feeGenderAudienceOptions,
 	getAddFeeDefaultValues,
 	getFeeAssignmentSummary,
 	getFeeScopeError,
+	normalizeFeeLines,
 	resolveFeeClassroomIds,
 	summarizeFeeBatch,
 } from "../finance/forms/add-fee-model";
@@ -50,11 +55,18 @@ const addFeeSchema = z
 		streamName: z.string().min(1, "Fee title is required"),
 		required: z.boolean().default(true),
 		studentAudience: z.enum(FINANCE_STUDENT_AUDIENCES).default("ALL_STUDENTS"),
+    studentGenderAudience: z
+      .enum(FINANCE_STUDENT_GENDER_AUDIENCES)
+      .default("ALL_GENDERS"),
 		lines: z
 			.array(
 				z.object({
 					description: z.string().min(1, "Description is required"),
 					amount: z.coerce.number().min(0, "Amount must be a positive number"),
+          studentGenderAudience: z
+            .enum(FINANCE_STUDENT_GENDER_AUDIENCES)
+            .nullable()
+            .default(null),
 				}),
 			)
 			.min(1, "At least one sub-fee is required"),
@@ -102,6 +114,7 @@ export function AddFeeModal() {
 	const streamName = form.watch("streamName");
 	const required = form.watch("required");
 	const studentAudience = form.watch("studentAudience");
+  const studentGenderAudience = form.watch("studentGenderAudience");
 
 	useEffect(() => {
 		if (isOpen) {
@@ -274,10 +287,7 @@ export function AddFeeModal() {
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		let classRoomDepartmentIds: string[] = [];
-		const feeLines = (data.lines ?? []).map((line) => ({
-			description: line.description ?? "",
-			amount: line.amount ?? 0,
-		}));
+		const feeLines = normalizeFeeLines(data.lines);
 
 		const classroomResolution = resolveFeeClassroomIds({
 			scope: data.scope ?? "global",
@@ -357,6 +367,7 @@ export function AddFeeModal() {
 			streamName: data.streamName ?? "",
 			required: data.required ?? true,
 			studentAudience: data.studentAudience ?? "ALL_STUDENTS",
+      studentGenderAudience: data.studentGenderAudience ?? "ALL_GENDERS",
 			lines: feeLines,
 			classRoomDepartmentIds,
 		});
@@ -524,10 +535,40 @@ export function AddFeeModal() {
 									) : null}
 								</div>
 
+                {scope !== "student" ? (
+                  <div className="space-y-2">
+                    <Label>Default gender</Label>
+                    <Select
+                      value={studentGenderAudience}
+                      onValueChange={(value) =>
+                        form.setValue(
+                          "studentGenderAudience",
+                          value as (typeof FINANCE_STUDENT_GENDER_AUDIENCES)[number],
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {feeGenderAudienceOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Applied to every sub-fee unless that line overrides it.
+                    </p>
+                  </div>
+                ) : null}
+
 								{scope !== "student" ? (
 									<div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
 										{getFeeAssignmentSummary({
 											audience: studentAudience,
+                      genderAudience: studentGenderAudience,
 											required,
 										})}
 									</div>
@@ -568,6 +609,21 @@ export function AddFeeModal() {
 												const watchedDesc = form.watch(
 													`lines.${index}.description`,
 												);
+                        const lineGenderAudience = form.watch(
+                          `lines.${index}.studentGenderAudience`,
+                        );
+                        const defaultGenderLabel =
+                          feeGenderAudienceOptions.find(
+                            (option) => option.value === studentGenderAudience,
+                          )?.label ?? "main fee";
+                        const lineGenderCode =
+                          lineGenderAudience === "MALE_ONLY"
+                            ? "M"
+                            : lineGenderAudience === "FEMALE_ONLY"
+                              ? "F"
+                              : lineGenderAudience === "ALL_GENDERS"
+                                ? "All"
+                                : "Auto";
 												const selectedDescription =
 													descriptionOptions.find(
 														(option) => option.label === watchedDesc,
@@ -582,9 +638,54 @@ export function AddFeeModal() {
 												return (
 													<div
 														key={line.id}
-														className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px_auto] sm:items-start"
+                            className={
+                              scope === "student"
+                                ? "grid grid-cols-[minmax(0,1fr)_28px] items-start gap-2 border-t pt-4 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_110px_28px]"
+                                : "grid grid-cols-[64px_minmax(0,1fr)_28px] items-start gap-2 border-t pt-4 first:border-t-0 first:pt-0 sm:grid-cols-[64px_minmax(0,1fr)_110px_28px]"
+                            }
 													>
-														<div className="grid gap-2">
+                            <div
+                              className={
+                                scope === "student"
+                                  ? "hidden"
+                                  : "grid min-w-0 gap-2"
+                              }
+                            >
+                              {index === 0 ? <Label>Gender</Label> : null}
+                              <Select
+                                value={lineGenderAudience ?? "INHERIT"}
+                                onValueChange={(value) =>
+                                  form.setValue(
+                                    `lines.${index}.studentGenderAudience`,
+                                    value === "INHERIT"
+                                      ? null
+                                      : (value as (typeof FINANCE_STUDENT_GENDER_AUDIENCES)[number]),
+                                  )
+                                }
+                              >
+                                <SelectTrigger className="px-2">
+                                  <SelectValue>{lineGenderCode}</SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="INHERIT" textValue="Auto">
+                                    Use default ({defaultGenderLabel})
+                                  </SelectItem>
+                                  <SelectItem
+                                    value="ALL_GENDERS"
+                                    textValue="All"
+                                  >
+                                    All genders
+                                  </SelectItem>
+                                  <SelectItem value="MALE_ONLY" textValue="M">
+                                    Male students only
+                                  </SelectItem>
+                                  <SelectItem value="FEMALE_ONLY" textValue="F">
+                                    Female students only
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="grid min-w-0 gap-2 overflow-hidden [&>button]:max-w-full [&>button]:min-w-0">
 															{index === 0 ? <Label>Description</Label> : null}
 															<ComboboxDropdown
 																items={descriptionOptions}
@@ -617,26 +718,35 @@ export function AddFeeModal() {
 																</p>
 															)}
 														</div>
-														<div className="grid gap-2">
+                            <div
+                              className={
+                                scope === "student"
+                                  ? "col-span-2 row-start-2 mt-1 grid min-w-0 gap-2 [&>div]:mx-0 sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:mt-0"
+                                  : "col-span-3 row-start-2 mt-1 grid min-w-0 gap-2 [&>div]:mx-0 sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:mt-0"
+                              }
+                            >
 															{index === 0 ? <Label>Amount</Label> : null}
 															<FormInput
 																name={`lines.${index}.amount`}
 																control={form.control}
 																numericProps={{
-																	prefix: "NGN ",
-																	placeholder: "NGN 0",
+                                  prefix: "₦ ",
+                                  placeholder: "0",
 																	thousandSeparator: true,
 																}}
 															/>
 														</div>
-														{fields.length > 1 && (
-															<div className="flex items-end sm:pt-8">
+                            <div
+                              className={`${scope === "student" ? "col-start-2 sm:col-start-3" : "col-start-3 sm:col-start-4"} row-start-1 ${index === 0 ? "pt-7" : ""}`}
+                            >
+                              {fields.length > 1 ? (
 																<ConfirmBtn
 																	trash
+                                  size="xs"
 																	onClick={() => remove(index)}
 																/>
+                              ) : null}
 															</div>
-														)}
 													</div>
 												);
 											})}
@@ -648,7 +758,11 @@ export function AddFeeModal() {
 												variant="outline"
 												size="sm"
 												onClick={() => {
-													append({ description: "", amount: 0 });
+                          append({
+                            description: "",
+                            amount: 0,
+                            studentGenderAudience: null,
+                          });
 												}}
 											>
 												Add Sub Fee

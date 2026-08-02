@@ -1,5 +1,14 @@
 # Database Schema
 
+## 2026-08-02 Finance Item Gender Audience
+
+- `FinanceItem.studentGenderAudience` uses `FinanceStudentGenderAudience` with
+  `ALL_GENDERS` as the database default.
+- Gender-specific values are `MALE_ONLY` and `FEMALE_ONLY`; the field is
+  independent of admission audience, classroom scope, and required/optional
+  assignment.
+- Existing rows require no manual backfill and retain all-gender behavior.
+
 ## 2026-07-28 Admission Classification And Fee Audience
 
 - `StudentTermForm.admissionType` uses `StudentTermAdmissionType` with

@@ -7,6 +7,7 @@ import type {
 import { TRPCError } from "@trpc/server";
 import { randomUUID } from "node:crypto";
 import {
+  applicableStudentGenderAudiences,
   classroomListOrderBy,
   nestedClassroomDepartmentListOrderBy,
 } from "@school-clerk/db";
@@ -1400,6 +1401,19 @@ async function applySetupTransaction(
       const departmentIds = unique(
         newEnrollments.map((enrollment) => enrollment.classroomDepartmentId),
       );
+      const enrolledStudents = await tx.students.findMany({
+        where: {
+          schoolProfileId,
+          id: { in: newEnrollments.map((enrollment) => enrollment.studentId) },
+        },
+        select: { id: true, gender: true },
+      });
+      const studentGenderById = new Map<string, "Male" | "Female">(
+        enrolledStudents.map(
+          (student: { id: string; gender: "Male" | "Female" }) =>
+            [student.id, student.gender] as const,
+        ),
+      );
       const feeItems = await tx.financeItem.findMany({
         where: {
           schoolProfileId,
@@ -1444,6 +1458,7 @@ async function applySetupTransaction(
           amount: true,
           streamId: true,
           collectable: true,
+          studentGenderAudience: true,
           applicableClasses: {
             where: {
               classRoomDepartmentId: { in: departmentIds },
@@ -1472,7 +1487,13 @@ async function applySetupTransaction(
         [
           ...globalFeeItems,
           ...(feeItemsByDepartment.get(enrollment.classroomDepartmentId) ?? []),
-        ].map((item) => ({
+        ]
+          .filter((item) =>
+            applicableStudentGenderAudiences(
+              studentGenderById.get(enrollment.studentId),
+            ).includes(item.studentGenderAudience),
+          )
+          .map((item) => ({
             schoolProfileId,
             streamId: item.streamId,
             itemId: item.id,
@@ -1487,8 +1508,7 @@ async function applySetupTransaction(
             amount: item.amount,
             collectionStatus: "NOT_COLLECTED" as const,
             assignmentSource: "REQUIRED_AUTO" as const,
-          }),
-        ),
+					})),
       );
       if (chargeRows.length) {
         const insertedCharges = await tx.financeCharge.createMany({

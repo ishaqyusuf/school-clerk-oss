@@ -53,7 +53,18 @@
   enrollment, charges, payments, allocations, and ledger entries commit
   atomically.
 - Finance-item input accepts `studentAudience` independently from
-  `collectable`.
+  `collectable`, plus `studentGenderAudience` independently from both.
+- Fee preview, automatic assignment, reconciliation, configured payment
+  options, and direct configured-item payments all intersect the student's
+  `Male`/`Female` value with `ALL_GENDERS`, `MALE_ONLY`, or `FEMALE_ONLY`.
+- `students.changeStudentGender` and gender changes through
+  `students.updateStudentBasicProfile` update the canonical student and
+  reconcile every complete tenant-owned term form in one transaction. Newly
+  applicable required fees are created and only unpaid no-longer-applicable
+  managed charges are cancelled.
+- Student payment-import verification and execution enforce the same admission
+  and gender audiences before suggesting, selecting, or posting a configured
+  finance item.
 - Finance-item create/update returns the saved item plus `reconciliation` with
   `status`, `reconciledTermForms`, `failedTermFormIds`, and `retryable`.
   Current-term batches retry once; `PARTIAL` means the fee was saved and the

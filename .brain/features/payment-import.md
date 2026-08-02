@@ -52,7 +52,7 @@ date,staff_name,payment_type,amount,source_note
   so low-confidence names can still be resolved explicitly.
 - Optional finance items are limited to the selected tenant/session/term and
   account. Student items must also be collectable and applicable to the
-  student's selected-term classroom.
+  student's selected-term classroom, admission type, and canonical gender.
 - Missing dates, unresolved people, missing streams, wrong stream direction,
   and missing student term sheets block execution.
 - Semantic fingerprints use mode, selected term, date, normalized name,
@@ -78,6 +78,9 @@ date,staff_name,payment_type,amount,source_note
 - Configured student items first use an existing selected-term outstanding
   charge. Otherwise the worker creates the configured obligation. Separate
   partial rows remain separate payments while settling the same charge.
+- Execution revalidates classroom, admission, and gender eligibility rather
+  than trusting the preview, preventing a stale or edited import row from
+  posting an ineligible configured fee.
 - Student rows are attributed to the selected student and term sheet. Staff
   rows are attributed to the selected staff profile.
 - The deterministic payment reference `payment-import:<job-row-id>` makes row
@@ -108,7 +111,8 @@ reviewed against the intended tenant and selected term before execution.
 - CSV parser tests cover Arabic text, quoted values, optional notes, blank
   dates, wrong modes, and required mode-specific headers.
 - API tests cover Arabic matching, student term-sheet blocking, duplicate
-  decisions, tenant-scoped item validation, global-term persistence, canonical
-  finance writes, separate partial-payment allocation, and failed-row retry.
+  decisions, tenant- and audience-scoped item validation, global-term
+  persistence, canonical finance writes, separate partial-payment allocation,
+  and failed-row retry.
 - API and dashboard typechecks pass.
 - Prisma schema was pushed to local and production databases on 2026-07-23.

@@ -860,6 +860,7 @@ export async function createStudent(ctx: TRPCContext, data: CreateStudent) {
         sessionTermId: initialTermForm.sessionTermId || profile.termId,
         classroomDepartmentId,
         admissionType: initialTermForm.admissionType,
+          studentGender: student.gender,
         selectedOptionalFeeItemIds: data.selectedOptionalFeeItemIds,
       });
     }
@@ -1324,6 +1325,62 @@ export type UpdateStudentBasicProfileSchema = z.infer<
   typeof updateStudentBasicProfileSchema
 >;
 
+async function reconcileStudentFeesAfterGenderChange(
+  tx: Pick<
+    TRPCContext["db"],
+    "studentTermForm" | "financeItem" | "financeCharge"
+  >,
+  input: {
+    schoolProfileId: string;
+    studentId: string;
+    studentGender: "Male" | "Female";
+  },
+) {
+  const forms = await tx.studentTermForm.findMany({
+    where: {
+      studentId: input.studentId,
+      schoolProfileId: input.schoolProfileId,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      studentId: true,
+      schoolSessionId: true,
+      sessionTermId: true,
+      classroomDepartmentId: true,
+      admissionType: true,
+    },
+  });
+  const reconciliation: Awaited<
+    ReturnType<typeof reconcileFeeHistoriesForStudentTermForm>
+  >[] = [];
+
+  for (const form of forms) {
+    if (
+      !form.studentId ||
+      !form.schoolSessionId ||
+      !form.sessionTermId ||
+      !form.classroomDepartmentId
+    ) {
+      continue;
+    }
+    reconciliation.push(
+      await reconcileFeeHistoriesForStudentTermForm(tx, {
+        schoolProfileId: input.schoolProfileId,
+        studentId: form.studentId,
+        studentTermFormId: form.id,
+        schoolSessionId: form.schoolSessionId,
+        sessionTermId: form.sessionTermId,
+        classroomDepartmentId: form.classroomDepartmentId,
+        admissionType: form.admissionType,
+        studentGender: input.studentGender,
+      }),
+    );
+  }
+
+  return reconciliation;
+}
+
 export async function updateStudentBasicProfile(
   ctx: TRPCContext,
   query: UpdateStudentBasicProfileSchema,
@@ -1342,7 +1399,7 @@ export async function updateStudentBasicProfile(
         schoolProfileId: profile.schoolId,
         deletedAt: null,
       },
-      select: { id: true },
+      select: { id: true, gender: true },
     });
 
     const student = await tx.students.update({
@@ -1369,6 +1426,14 @@ export async function updateStudentBasicProfile(
         },
       },
     });
+
+    if (existingStudent.gender !== query.data.gender) {
+      await reconcileStudentFeesAfterGenderChange(tx, {
+        schoolProfileId: profile.schoolId,
+        studentId: student.id,
+        studentGender: query.data.gender,
+      });
+    }
 
     const currentGuardianLink = student.guardians[0];
 
@@ -1543,7 +1608,9 @@ export async function changeStudentGender(
     });
   }
 
-  const result = await db.students.updateMany({
+  return db.$transaction(
+    async (tx) => {
+      const result = await tx.students.updateMany({
     where: {
       id: query.id,
       schoolProfileId,
@@ -1558,6 +1625,17 @@ export async function changeStudentGender(
       message: "Student was not found in this school workspace.",
     });
   }
+
+      const reconciliation = await reconcileStudentFeesAfterGenderChange(tx, {
+        schoolProfileId,
+        studentId: query.id,
+        studentGender: query.gender,
+      });
+
+      return { updated: result.count, reconciliation };
+    },
+    { maxWait: 10_000, timeout: 60_000 },
+  );
 }
 
 export const deleteTermSheetSchema = z.object({
@@ -1617,6 +1695,7 @@ async function updateAdmissionTypes(
         schoolSessionId: true,
         sessionTermId: true,
         classroomDepartmentId: true,
+          student: { select: { gender: true } },
       },
     });
 
@@ -1654,6 +1733,7 @@ async function updateAdmissionTypes(
           sessionTermId: form.sessionTermId,
           classroomDepartmentId: form.classroomDepartmentId,
           admissionType,
+            studentGender: form.student!.gender,
         }),
       );
     }
@@ -2598,6 +2678,7 @@ export async function executeStudentImport(
                 sessionTermId: profile.termId,
                 classroomDepartmentId: rowClassroomDepartmentId,
                 admissionType: row.admissionType ?? "UNCLASSIFIED",
+                studentGender: student.gender,
               });
             }
 
@@ -2644,6 +2725,7 @@ export async function executeStudentImport(
               profile,
               rowClassroomDepartmentId,
               row.admissionType ?? "UNCLASSIFIED",
+              existing.gender,
             );
 
             if (termSheetResult.conflictClassroom) {
@@ -2707,6 +2789,7 @@ export async function executeStudentImport(
               profile,
               rowClassroomDepartmentId,
               row.admissionType ?? "UNCLASSIFIED",
+              existing.gender,
             );
 
             if (termSheetResult.conflictClassroom) {
@@ -3194,6 +3277,7 @@ async function createTermSheetIfMissing(
   profile: { schoolId?: string; sessionId?: string; termId?: string },
   classroomDepartmentId: string,
   admissionType: (typeof STUDENT_TERM_ADMISSION_TYPES)[number],
+  studentGender: "Male" | "Female",
 ): Promise<{ created: boolean; conflictClassroom?: string }> {
   const existingCurrentTermForm = await tx.studentTermForm.findFirst({
     where: {
@@ -3229,6 +3313,7 @@ async function createTermSheetIfMissing(
           sessionTermId: profile.termId!,
           classroomDepartmentId,
           admissionType,
+          studentGender,
         });
       }
       return { created: false };
@@ -3284,6 +3369,7 @@ async function createTermSheetIfMissing(
     sessionTermId: profile.termId!,
     classroomDepartmentId,
     admissionType,
+    studentGender,
   });
 
   return { created: true };

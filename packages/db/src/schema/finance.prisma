@@ -17,6 +17,12 @@ enum FinanceStudentAudience {
     RETURNING_STUDENTS_ONLY
 }
 
+enum FinanceStudentGenderAudience {
+    ALL_GENDERS
+    MALE_ONLY
+    FEMALE_ONLY
+}
+
 enum FinancePayerType {
     STUDENT
     STAFF
@@ -148,7 +154,8 @@ model FinanceItem {
     description     String?
     amount          Decimal         @default(0) @db.Decimal(14, 2)
     collectable     Boolean         @default(false)
-    studentAudience FinanceStudentAudience @default(ALL_STUDENTS)
+    studentAudience       FinanceStudentAudience       @default(ALL_STUDENTS)
+    studentGenderAudience FinanceStudentGenderAudience @default(ALL_GENDERS)
     isActive        Boolean         @default(true)
     schoolSession   SchoolSession?  @relation(fields: [schoolSessionId], references: [id])
     schoolSessionId String?

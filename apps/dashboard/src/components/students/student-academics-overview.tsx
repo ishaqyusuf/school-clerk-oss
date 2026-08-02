@@ -176,6 +176,7 @@ function NotEntrolled() {
         sessionTermId: term?.termId || "",
         classroomDepartmentId: selectedClassroomDepartmentId || null,
         admissionType: "RETURNING",
+        studentGender: svc.overviewData!.student!.gender,
       },
       {
         enabled: Boolean(term?.termId),

@@ -3,21 +3,27 @@
 ## Overview
 Student fees are the school-side charges billed to individual students. They are separate from `Billable`/`BillableHistory` (which are for staff payroll and service expenses).
 
-## Admission Audience And Required Status
+## Admission Audience, Gender Audience, And Required Status
 
 - Standardized `FinanceItem` rows have a `studentAudience` of all students, new
   admissions only, or returning students only.
+- `studentGenderAudience` independently targets all genders, male students, or
+  female students. Existing and omitted values default to all genders.
 - Audience is independent of `collectable`: required matching items auto-charge;
   optional matching items appear as quick fee choices during student creation.
 - The Add Fee modal exposes these as separate **Student audience** and
   **Assignment** controls. For example, `NEW_ADMISSIONS_ONLY` plus optional
   makes Transport Fee available for deliberate selection only on new-student
   enrollment, while the same audience plus required assigns it automatically.
-- Applicability combines session, term, classroom, and the selected
-  `StudentTermForm.admissionType`.
+- Applicability combines session, term, classroom, the selected
+  `StudentTermForm.admissionType`, and the canonical student's gender.
 - Creating a current-term item immediately reconciles matching term forms.
   Classification changes create newly required charges and cancel only unpaid
   no-longer-applicable item-backed charges. Paid and partially paid rows remain.
+- Canonical gender edits reconcile through both the directory action and the
+  basic-profile edit form, so neither edit path can leave stale managed fees.
+- Payment-import preview and execution apply the same admission and gender
+  eligibility rules as interactive payment collection.
 - New fee creation never reuses an existing item by name. Reusing a title
   creates a separate structure for the selected period; only the edit flow
   updates an existing item.
@@ -199,6 +205,12 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
   layout without a nested card surface.
 - **Student audience** limits the applicable enrollment classification; it does
   not by itself assign a charge.
+- **Gender** limits the applicable student gender. A school should create a
+  Male Uniform and Female Uniform as separate fee rows when their amounts
+  differ.
+- The main **Default gender** applies to all new sub-fee lines. Each line can
+  inherit that default or override it with all genders, male, or female; the
+  override is saved on the line's resulting `FinanceItem`.
 - **Required** assigns the fee automatically to matching enrollments.
   **Optional** makes the fee available for explicit selection in the student
   form.
@@ -207,10 +219,13 @@ FeeHistory → StudentFee (created when student pays or fee is applied)
 - Multi-line creation reports one operation-level result. When only some lines
   fail, successful lines remain saved and only the failed lines stay in the
   modal for retry, avoiding duplicate resubmission of successful fees.
+- On desktop, each sub-fee keeps compact gender, flexible description, amount,
+  and delete controls on one row. On mobile, gender/description/delete remain
+  together and amount moves to a second line to prevent clipping or overlap.
 
 ### Student Creation Fees And Payments
 - The student form previews active fee items after the operator selects a
-  classroom stream/sub-class and admission status. School-wide items and items
+  classroom stream/sub-class, admission status, and gender. School-wide items and items
   targeted to that classroom are included; required matching items are marked
   for automatic assignment and optional matching items can be selected.
 - Every included fee is shown as a separate bill with its configured amount,

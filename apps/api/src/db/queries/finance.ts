@@ -1,4 +1,9 @@
-import { compareClassroomDepartments, Prisma } from "@school-clerk/db";
+import {
+	applicableStudentAudiences,
+	applicableStudentGenderAudiences,
+	compareClassroomDepartments,
+	Prisma,
+} from "@school-clerk/db";
 import { FINANCE_WRITE_ROLES } from "@school-clerk/utils/constants";
 import {
 	type StudentNameFormat,
@@ -114,6 +119,7 @@ type StudentTermChargeForm = {
 	schoolSessionId: string | null;
 	classroomDepartmentId: string | null;
 	admissionType: "UNCLASSIFIED" | "NEW_ADMISSION" | "RETURNING";
+	student: { gender: "Male" | "Female" } | null;
 };
 
 const FINANCE_READ_ROLES = new Set<string>(FINANCE_WRITE_ROLES);
@@ -346,15 +352,14 @@ export async function reconcileStudentTermChargesForForm(
 					],
 				},
 				{
-					OR: [
-						{ studentAudience: "ALL_STUDENTS" },
-						...(termForm.admissionType === "NEW_ADMISSION"
-							? [{ studentAudience: "NEW_ADMISSIONS_ONLY" as const }]
-							: []),
-						...(termForm.admissionType === "RETURNING"
-							? [{ studentAudience: "RETURNING_STUDENTS_ONLY" as const }]
-							: []),
-					],
+					studentGenderAudience: {
+						in: applicableStudentGenderAudiences(termForm.student?.gender),
+					},
+				},
+				{
+					studentAudience: {
+						in: applicableStudentAudiences(termForm.admissionType),
+					},
 				},
 				{
 					OR: [
@@ -525,6 +530,7 @@ async function findStudentTermFormForFinance(
 			schoolSessionId: true,
 			classroomDepartmentId: true,
 			admissionType: true,
+			student: { select: { gender: true } },
 		},
 	});
 }
@@ -584,6 +590,7 @@ async function reconcileClassroomTermCharges(
 				schoolSessionId: true,
 				classroomDepartmentId: true,
 				admissionType: true,
+				student: { select: { gender: true } },
 			},
 		});
 
@@ -628,6 +635,7 @@ async function reconcileTermChargesInBatches(
 				schoolSessionId: true,
 				classroomDepartmentId: true,
 				admissionType: true,
+				student: { select: { gender: true } },
 			},
 			orderBy: { id: "asc" },
 			take: FEE_ITEM_RECONCILIATION_BATCH_SIZE,
@@ -1021,6 +1029,9 @@ export async function upsertFinanceItem(
 						...(input.studentAudience
 							? { studentAudience: input.studentAudience }
 							: {}),
+						...(input.studentGenderAudience
+							? { studentGenderAudience: input.studentGenderAudience }
+							: {}),
 					},
 				});
 			} else {
@@ -1028,6 +1039,7 @@ export async function upsertFinanceItem(
 					data: {
 						...data,
 						studentAudience: input.studentAudience ?? "ALL_STUDENTS",
+						studentGenderAudience: input.studentGenderAudience ?? "ALL_GENDERS",
 					},
 				});
 			}
@@ -1123,6 +1135,7 @@ export async function listFinanceItems(
 			amount: toNumber(item.amount),
 			collectable: item.collectable,
 			studentAudience: item.studentAudience,
+			studentGenderAudience: item.studentGenderAudience,
 			isActive: item.isActive,
 			schoolSessionId: item.schoolSessionId,
 			sessionTermId: item.sessionTermId,
@@ -2797,6 +2810,7 @@ export async function getReceivePaymentOptions(
 			name: true,
 			surname: true,
 			otherName: true,
+			gender: true,
 			termForms: {
 				where: {
 					schoolProfileId,
@@ -2935,15 +2949,14 @@ export async function getReceivePaymentOptions(
 				: {}),
 			AND: [
 				{
-					OR: [
-						{ studentAudience: "ALL_STUDENTS" },
-						...(termForm?.admissionType === "NEW_ADMISSION"
-							? [{ studentAudience: "NEW_ADMISSIONS_ONLY" as const }]
-							: []),
-						...(termForm?.admissionType === "RETURNING"
-							? [{ studentAudience: "RETURNING_STUDENTS_ONLY" as const }]
-							: []),
-					],
+					studentAudience: {
+						in: applicableStudentAudiences(termForm?.admissionType),
+					},
+				},
+				{
+					studentGenderAudience: {
+						in: applicableStudentGenderAudiences(student.gender),
+					},
 				},
 				...(effectiveSessionId
 					? [
@@ -3366,7 +3379,7 @@ export async function receiveStudentPaymentSimple(
 
 	const student = await ctx.db.students.findFirst({
 		where: { id: input.studentId, schoolProfileId },
-		select: { id: true },
+		select: { id: true, gender: true },
 	});
 
 	if (!student) {
@@ -3474,15 +3487,14 @@ export async function receiveStudentPaymentSimple(
 				],
 				AND: [
 					{
-						OR: [
-							{ studentAudience: "ALL_STUDENTS" },
-							...(termForm.admissionType === "NEW_ADMISSION"
-								? [{ studentAudience: "NEW_ADMISSIONS_ONLY" as const }]
-								: []),
-							...(termForm.admissionType === "RETURNING"
-								? [{ studentAudience: "RETURNING_STUDENTS_ONLY" as const }]
-								: []),
-						],
+						studentAudience: {
+							in: applicableStudentAudiences(termForm.admissionType),
+						},
+					},
+					{
+						studentGenderAudience: {
+							in: applicableStudentGenderAudiences(student.gender),
+						},
 					},
 					{
 						OR: [
