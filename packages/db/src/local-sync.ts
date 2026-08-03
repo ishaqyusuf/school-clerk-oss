@@ -593,7 +593,7 @@ async function loadModeEnv(repoRoot: string, mode: SyncEnvMode): Promise<Record<
   if (mode === "preview") {
     const localEnv = await readEnvFiles([resolve(repoRoot, ".env.local")]);
     const previewEnv = await readEnvFiles([resolve(repoRoot, ".env.preview")]);
-    return { ...localEnv, ...previewEnv, DATABASE_URL: previewEnv.DATABASE_URL };
+    return { ...localEnv, ...previewEnv, DATABASE_URL: previewEnv.DATABASE_URL ?? "" };
   }
 
   if (mode === "prod") {
