@@ -5,22 +5,22 @@ import { TRPCError } from "@trpc/server";
 process.env.DATABASE_URL ??= "postgresql://test:test@127.0.0.1:5432/test";
 
 const {
-  bulkChangeStudentClass,
-  changeStudentGender,
+	bulkChangeStudentClass,
+	changeStudentGender,
 	createStudent,
 	createStudentSchema,
-  executeStudentImport,
-  getStudentImportJob,
-  getStudents,
-  getStudentsQueryParams,
-  processStudentImportJob,
-  setStudentAdmissionType,
-  startStudentImportJob,
-  verifyStudentImport,
+	executeStudentImport,
+	getStudentImportJob,
+	getStudents,
+	getStudentsQueryParams,
+	processStudentImportJob,
+	setStudentAdmissionType,
+	startStudentImportJob,
+	verifyStudentImport,
 } = await import("./students");
 const { getStudentsSchema } = await import("../../trpc/schemas/students");
 const { getStudentDuplicateGroups, previewStudentDuplicateMerge } =
-  await import("./student-duplicates");
+	await import("./student-duplicates");
 
 describe("createStudent fee collection", () => {
 	test("rejects inline payment from a non-finance role before starting the transaction", async () => {
@@ -399,15 +399,15 @@ describe("createStudent fee collection", () => {
 });
 
 function createCtx({
-  schoolId = "school-1",
-  role = "Admin",
-  updateCount = 1,
+	schoolId = "school-1",
+	role = "Admin",
+	updateCount = 1,
 }: {
-  schoolId?: string | undefined;
-  role?: string | null;
-  updateCount?: number;
+	schoolId?: string | undefined;
+	role?: string | null;
+	updateCount?: number;
 } = {}) {
-  const calls: unknown[] = [];
+	const calls: unknown[] = [];
 	const tx = {
 		students: {
 			updateMany: async (args: unknown) => {
@@ -417,1758 +417,1758 @@ function createCtx({
 		},
 		studentTermForm: { findMany: async () => [] },
 	};
-  return {
-    ctx: {
-      profile: { schoolId },
-      currentUser: role
-        ? {
-            id: "user-1",
-            email: "admin@example.com",
-            name: "Admin",
-            role,
-            saasAccountId: null,
-          }
-        : undefined,
-      db: {
+	return {
+		ctx: {
+			profile: { schoolId },
+			currentUser: role
+				? {
+						id: "user-1",
+						email: "admin@example.com",
+						name: "Admin",
+						role,
+						saasAccountId: null,
+					}
+				: undefined,
+			db: {
 				...tx,
 				$transaction: async (fn: (client: typeof tx) => unknown) => fn(tx),
-      },
-    } as any,
-    calls,
-  };
+			},
+		} as any,
+		calls,
+	};
 }
 
 describe("changeStudentGender", () => {
-  test("updates by tenant-scoped student id for permitted roles", async () => {
-    const { ctx, calls } = createCtx();
+	test("updates by tenant-scoped student id for permitted roles", async () => {
+		const { ctx, calls } = createCtx();
 
-    await changeStudentGender(ctx, {
-      id: "student-1",
-      gender: "Female",
-    });
+		await changeStudentGender(ctx, {
+			id: "student-1",
+			gender: "Female",
+		});
 
-    expect(calls).toEqual([
-      {
-        where: {
-          id: "student-1",
-          schoolProfileId: "school-1",
-          deletedAt: null,
-        },
-        data: { gender: "Female" },
-      },
-    ]);
-  });
+		expect(calls).toEqual([
+			{
+				where: {
+					id: "student-1",
+					schoolProfileId: "school-1",
+					deletedAt: null,
+				},
+				data: { gender: "Female" },
+			},
+		]);
+	});
 
-  test("rejects teacher updates", async () => {
-    const { ctx } = createCtx({ role: "Teacher" });
+	test("rejects teacher updates", async () => {
+		const { ctx } = createCtx({ role: "Teacher" });
 
-    await expect(
-      changeStudentGender(ctx, { id: "student-1", gender: "Male" }),
-    ).rejects.toMatchObject({
-      code: "FORBIDDEN",
-    } satisfies Partial<TRPCError>);
-  });
+		await expect(
+			changeStudentGender(ctx, { id: "student-1", gender: "Male" }),
+		).rejects.toMatchObject({
+			code: "FORBIDDEN",
+		} satisfies Partial<TRPCError>);
+	});
 
-  test("does not report success for cross-tenant students", async () => {
-    const { ctx } = createCtx({ updateCount: 0 });
+	test("does not report success for cross-tenant students", async () => {
+		const { ctx } = createCtx({ updateCount: 0 });
 
-    await expect(
-      changeStudentGender(ctx, { id: "student-2", gender: "Female" }),
-    ).rejects.toMatchObject({
-      code: "NOT_FOUND",
-    } satisfies Partial<TRPCError>);
-  });
+		await expect(
+			changeStudentGender(ctx, { id: "student-2", gender: "Female" }),
+		).rejects.toMatchObject({
+			code: "NOT_FOUND",
+		} satisfies Partial<TRPCError>);
+	});
 });
 
 describe("getStudents", () => {
-  function createStudentListContext() {
-    const countCalls: any[] = [];
-    const findManyCalls: any[] = [];
-    const ctx = {
-      profile: {
-        schoolId: "school-1",
-        sessionId: "session-current",
-        termId: "term-current",
-      },
-      db: {
-        students: {
-          count: async (args: any) => {
-            countCalls.push(args);
-            return 0;
-          },
-          findMany: async (args: any) => {
-            findManyCalls.push(args);
-            return [];
-          },
-        },
-      },
-    } as any;
+	function createStudentListContext() {
+		const countCalls: any[] = [];
+		const findManyCalls: any[] = [];
+		const ctx = {
+			profile: {
+				schoolId: "school-1",
+				sessionId: "session-current",
+				termId: "term-current",
+			},
+			db: {
+				students: {
+					count: async (args: any) => {
+						countCalls.push(args);
+						return 0;
+					},
+					findMany: async (args: any) => {
+						findManyCalls.push(args);
+						return [];
+					},
+				},
+			},
+		} as any;
 
-    return { ctx, countCalls, findManyCalls };
-  }
+		return { ctx, countCalls, findManyCalls };
+	}
 
-  test("keeps the unfiltered directory non-restrictive", async () => {
-    const { ctx, countCalls } = createStudentListContext();
+	test("keeps the unfiltered directory non-restrictive", async () => {
+		const { ctx, countCalls } = createStudentListContext();
 
-    await getStudents(ctx, {});
+		await getStudents(ctx, {});
 
-    expect(countCalls[0]?.where).toEqual({
-      schoolProfileId: "school-1",
-      deletedAt: null,
-    });
-  });
+		expect(countCalls[0]?.where).toEqual({
+			schoolProfileId: "school-1",
+			deletedAt: null,
+		});
+	});
 
-  test("matches period and date criteria on the same active enrollment", async () => {
-    const { ctx, countCalls } = createStudentListContext();
+	test("matches period and date criteria on the same active enrollment", async () => {
+		const { ctx, countCalls } = createStudentListContext();
 
-    await getStudents(ctx, {
-      sessionId: "session-2025",
-      sessionTermId: "term-2025-2",
-      enrollmentDate: ["2025-01-10", "2025-01-20"],
-    });
+		await getStudents(ctx, {
+			sessionId: "session-2025",
+			sessionTermId: "term-2025-2",
+			enrollmentDate: ["2025-01-10", "2025-01-20"],
+		});
 
-    expect(countCalls[0]?.where).toEqual({
-      AND: [
-        { schoolProfileId: "school-1", deletedAt: null },
-        {
-          termForms: {
-            some: {
-              schoolProfileId: "school-1",
-              deletedAt: null,
-              schoolSessionId: "session-2025",
-              sessionTermId: "term-2025-2",
-              createdAt: {
-                gte: new Date("2025-01-10T00:00:00.000Z"),
-                lte: new Date("2025-01-20T23:59:59.999Z"),
-              },
-            },
-          },
-        },
-      ],
-    });
-  });
+		expect(countCalls[0]?.where).toEqual({
+			AND: [
+				{ schoolProfileId: "school-1", deletedAt: null },
+				{
+					termForms: {
+						some: {
+							schoolProfileId: "school-1",
+							deletedAt: null,
+							schoolSessionId: "session-2025",
+							sessionTermId: "term-2025-2",
+							createdAt: {
+								gte: new Date("2025-01-10T00:00:00.000Z"),
+								lte: new Date("2025-01-20T23:59:59.999Z"),
+							},
+						},
+					},
+				},
+			],
+		});
+	});
 
-  test("searches all active enrollment history when only a date is supplied", async () => {
-    const { ctx, countCalls } = createStudentListContext();
+	test("searches all active enrollment history when only a date is supplied", async () => {
+		const { ctx, countCalls } = createStudentListContext();
 
-    await getStudents(ctx, { enrollmentDate: ["2025-01-10"] });
+		await getStudents(ctx, { enrollmentDate: ["2025-01-10"] });
 
-    expect(countCalls[0]?.where).toEqual({
-      AND: [
-        { schoolProfileId: "school-1", deletedAt: null },
-        {
-          termForms: {
-            some: {
-              schoolProfileId: "school-1",
-              deletedAt: null,
-              createdAt: {
-                gte: new Date("2025-01-10T00:00:00.000Z"),
-                lte: new Date("2025-01-10T23:59:59.999Z"),
-              },
-            },
-          },
-        },
-      ],
-    });
-  });
+		expect(countCalls[0]?.where).toEqual({
+			AND: [
+				{ schoolProfileId: "school-1", deletedAt: null },
+				{
+					termForms: {
+						some: {
+							schoolProfileId: "school-1",
+							deletedAt: null,
+							createdAt: {
+								gte: new Date("2025-01-10T00:00:00.000Z"),
+								lte: new Date("2025-01-10T23:59:59.999Z"),
+							},
+						},
+					},
+				},
+			],
+		});
+	});
 
-  test("keeps contradictory enrollment and not-enrolled filters deterministic", async () => {
-    const { ctx, countCalls } = createStudentListContext();
+	test("keeps contradictory enrollment and not-enrolled filters deterministic", async () => {
+		const { ctx, countCalls } = createStudentListContext();
 
-    await getStudents(ctx, {
-      enrollmentDate: ["2025-01-10"],
-      status: "not enrolled",
-    });
+		await getStudents(ctx, {
+			enrollmentDate: ["2025-01-10"],
+			status: "not enrolled",
+		});
 
-    const enrollmentScope = countCalls[0]?.where?.AND?.[1]?.termForms?.some;
-    const notEnrolledScope = countCalls[0]?.where?.AND?.[2]?.termForms?.none;
+		const enrollmentScope = countCalls[0]?.where?.AND?.[1]?.termForms?.some;
+		const notEnrolledScope = countCalls[0]?.where?.AND?.[2]?.termForms?.none;
 
-    expect(notEnrolledScope).toEqual(enrollmentScope);
-  });
+		expect(notEnrolledScope).toEqual(enrollmentScope);
+	});
 
-  test("composes period, date, classroom, and admission filters on one enrollment", async () => {
-    const { ctx, countCalls } = createStudentListContext();
+	test("composes period, date, classroom, and admission filters on one enrollment", async () => {
+		const { ctx, countCalls } = createStudentListContext();
 
-    await getStudents(ctx, {
-      sessionId: "session-2025",
-      enrollmentDate: ["2025-01-10"],
-      departmentTitles: ["Primary"],
-      classroomTitle: "One",
-      admissionTypes: ["NEW_ADMISSION"],
-    });
+		await getStudents(ctx, {
+			sessionId: "session-2025",
+			enrollmentDate: ["2025-01-10"],
+			departmentTitles: ["Primary"],
+			classroomTitle: "One",
+			admissionTypes: ["NEW_ADMISSION"],
+		});
 
-    expect(countCalls[0]?.where?.AND).toHaveLength(2);
-    expect(countCalls[0]?.where?.AND?.[1]?.termForms?.some).toEqual({
-      schoolProfileId: "school-1",
-      deletedAt: null,
-      schoolSessionId: "session-2025",
-      createdAt: {
-        gte: new Date("2025-01-10T00:00:00.000Z"),
-        lte: new Date("2025-01-10T23:59:59.999Z"),
-      },
-      classroomDepartment: {
+		expect(countCalls[0]?.where?.AND).toHaveLength(2);
+		expect(countCalls[0]?.where?.AND?.[1]?.termForms?.some).toEqual({
+			schoolProfileId: "school-1",
+			deletedAt: null,
+			schoolSessionId: "session-2025",
+			createdAt: {
+				gte: new Date("2025-01-10T00:00:00.000Z"),
+				lte: new Date("2025-01-10T23:59:59.999Z"),
+			},
+			classroomDepartment: {
 				AND: [{ departmentName: "Primary" }, { classRoom: { name: "One" } }],
-      },
-      admissionType: { in: ["NEW_ADMISSION"] },
-    });
-  });
+			},
+			admissionType: { in: ["NEW_ADMISSION"] },
+		});
+	});
 
-  test("filters by an enrolled session without falling back to the active term", async () => {
-    const { ctx, countCalls, findManyCalls } = createStudentListContext();
+	test("filters by an enrolled session without falling back to the active term", async () => {
+		const { ctx, countCalls, findManyCalls } = createStudentListContext();
 
-    await getStudents(ctx, { sessionId: "session-2025" });
+		await getStudents(ctx, { sessionId: "session-2025" });
 
-    expect(countCalls[0]?.where).toEqual({
-      AND: [
-        { schoolProfileId: "school-1", deletedAt: null },
-        {
-          termForms: {
-            some: {
-              schoolProfileId: "school-1",
-              deletedAt: null,
-              schoolSessionId: "session-2025",
-            },
-          },
-        },
-      ],
-    });
-    expect(findManyCalls[0]?.select?.termForms?.where).toEqual({
-      deletedAt: null,
-      schoolSessionId: "session-2025",
-    });
-  });
+		expect(countCalls[0]?.where).toEqual({
+			AND: [
+				{ schoolProfileId: "school-1", deletedAt: null },
+				{
+					termForms: {
+						some: {
+							schoolProfileId: "school-1",
+							deletedAt: null,
+							schoolSessionId: "session-2025",
+						},
+					},
+				},
+			],
+		});
+		expect(findManyCalls[0]?.select?.termForms?.where).toEqual({
+			deletedAt: null,
+			schoolSessionId: "session-2025",
+		});
+	});
 
-  test("filters by an enrolled term without requiring a separate status", async () => {
-    const { ctx, countCalls } = createStudentListContext();
+	test("filters by an enrolled term without requiring a separate status", async () => {
+		const { ctx, countCalls } = createStudentListContext();
 
-    await getStudents(ctx, { sessionTermId: "term-2025-2" });
+		await getStudents(ctx, { sessionTermId: "term-2025-2" });
 
-    expect(countCalls[0]?.where).toEqual({
-      AND: [
-        { schoolProfileId: "school-1", deletedAt: null },
-        {
-          termForms: {
-            some: {
-              schoolProfileId: "school-1",
-              deletedAt: null,
-              sessionTermId: "term-2025-2",
-            },
-          },
-        },
-      ],
-    });
-  });
+		expect(countCalls[0]?.where).toEqual({
+			AND: [
+				{ schoolProfileId: "school-1", deletedAt: null },
+				{
+					termForms: {
+						some: {
+							schoolProfileId: "school-1",
+							deletedAt: null,
+							sessionTermId: "term-2025-2",
+						},
+					},
+				},
+			],
+		});
+	});
 
-  test("resolves the today preset to inclusive day boundaries", async () => {
-    const { ctx, countCalls } = createStudentListContext();
+	test("resolves the today preset to inclusive day boundaries", async () => {
+		const { ctx, countCalls } = createStudentListContext();
 
-    await getStudents(ctx, { enrollmentDate: ["today"] });
+		await getStudents(ctx, { enrollmentDate: ["today"] });
 
-    const createdAt =
-      countCalls[0]?.where?.AND?.[1]?.termForms?.some?.createdAt;
-    expect(createdAt.gte.getHours()).toBe(0);
-    expect(createdAt.gte.getMinutes()).toBe(0);
-    expect(createdAt.lte.getHours()).toBe(23);
-    expect(createdAt.lte.getMinutes()).toBe(59);
-    expect(createdAt.gte.toDateString()).toBe(new Date().toDateString());
-    expect(createdAt.lte.toDateString()).toBe(new Date().toDateString());
-  });
+		const createdAt =
+			countCalls[0]?.where?.AND?.[1]?.termForms?.some?.createdAt;
+		expect(createdAt.gte.getHours()).toBe(0);
+		expect(createdAt.gte.getMinutes()).toBe(0);
+		expect(createdAt.lte.getHours()).toBe(23);
+		expect(createdAt.lte.getMinutes()).toBe(59);
+		expect(createdAt.gte.toDateString()).toBe(new Date().toDateString());
+		expect(createdAt.lte.toDateString()).toBe(new Date().toDateString());
+	});
 
-  test("validates enrollment date values and ordering", () => {
-    expect(
-      getStudentsSchema.safeParse({ enrollmentDate: ["today"] }).success,
-    ).toBe(true);
-    expect(
-      getStudentsSchema.safeParse({ enrollmentDate: ["2025-01-10"] }).success,
-    ).toBe(true);
-    expect(
-      getStudentsSchema.safeParse({
-        enrollmentDate: ["2025-01-10", "2025-01-20"],
-      }).success,
-    ).toBe(true);
-    expect(
-      getStudentsSchema.safeParse({
-        enrollmentDate: ["2025-01-20", "2025-01-10"],
-      }).success,
-    ).toBe(false);
-    expect(
-      getStudentsSchema.safeParse({ enrollmentDate: ["not-a-date"] }).success,
-    ).toBe(false);
-  });
+	test("validates enrollment date values and ordering", () => {
+		expect(
+			getStudentsSchema.safeParse({ enrollmentDate: ["today"] }).success,
+		).toBe(true);
+		expect(
+			getStudentsSchema.safeParse({ enrollmentDate: ["2025-01-10"] }).success,
+		).toBe(true);
+		expect(
+			getStudentsSchema.safeParse({
+				enrollmentDate: ["2025-01-10", "2025-01-20"],
+			}).success,
+		).toBe(true);
+		expect(
+			getStudentsSchema.safeParse({
+				enrollmentDate: ["2025-01-20", "2025-01-10"],
+			}).success,
+		).toBe(false);
+		expect(
+			getStudentsSchema.safeParse({ enrollmentDate: ["not-a-date"] }).success,
+		).toBe(false);
+	});
 
-  test("defaults active session and term for classroom-only filters", async () => {
-    const countCalls: any[] = [];
-    const findManyCalls: any[] = [];
-    const ctx = {
-      profile: {
-        schoolId: "school-1",
-        sessionId: "session-1",
-        termId: "term-1",
-      },
-      db: {
-        students: {
-          count: async (args: any) => {
-            countCalls.push(args);
-            return 0;
-          },
-          findMany: async (args: any) => {
-            findManyCalls.push(args);
-            return [];
-          },
-        },
-      },
-    } as any;
+	test("defaults active session and term for classroom-only filters", async () => {
+		const countCalls: any[] = [];
+		const findManyCalls: any[] = [];
+		const ctx = {
+			profile: {
+				schoolId: "school-1",
+				sessionId: "session-1",
+				termId: "term-1",
+			},
+			db: {
+				students: {
+					count: async (args: any) => {
+						countCalls.push(args);
+						return 0;
+					},
+					findMany: async (args: any) => {
+						findManyCalls.push(args);
+						return [];
+					},
+				},
+			},
+		} as any;
 
-    await getStudents(ctx, { departmentId: "classroom-a" });
+		await getStudents(ctx, { departmentId: "classroom-a" });
 
-    expect(countCalls[0]?.where).toMatchObject({
-      AND: [
-        {
-          schoolProfileId: "school-1",
-          deletedAt: null,
-        },
-        {
-          termForms: {
-            some: {
-              deletedAt: null,
-              sessionTermId: "term-1",
-              classroomDepartmentId: "classroom-a",
-            },
-          },
-        },
-      ],
-    });
-    expect(findManyCalls[0]?.select?.sessionForms?.where).toEqual({
-      schoolSessionId: "session-1",
-    });
-    expect(findManyCalls[0]?.orderBy).toEqual([
-      { name: "asc" },
-      { surname: { sort: "asc", nulls: "last" } },
-      { otherName: { sort: "asc", nulls: "last" } },
-      { id: "asc" },
-    ]);
-  });
+		expect(countCalls[0]?.where).toMatchObject({
+			AND: [
+				{
+					schoolProfileId: "school-1",
+					deletedAt: null,
+				},
+				{
+					termForms: {
+						some: {
+							deletedAt: null,
+							sessionTermId: "term-1",
+							classroomDepartmentId: "classroom-a",
+						},
+					},
+				},
+			],
+		});
+		expect(findManyCalls[0]?.select?.sessionForms?.where).toEqual({
+			schoolSessionId: "session-1",
+		});
+		expect(findManyCalls[0]?.orderBy).toEqual([
+			{ name: "asc" },
+			{ surname: { sort: "asc", nulls: "last" } },
+			{ otherName: { sort: "asc", nulls: "last" } },
+			{ id: "asc" },
+		]);
+	});
 
-  test("uses only allowlisted typed sort fields", async () => {
-    const findManyCalls: any[] = [];
-    const ctx = {
-      profile: {
-        schoolId: "school-1",
-        sessionId: "session-1",
-        termId: "term-1",
-      },
-      db: {
-        students: {
-          count: async () => 0,
-          findMany: async (args: any) => {
-            findManyCalls.push(args);
-            return [];
-          },
-        },
-      },
-    } as any;
+	test("uses only allowlisted typed sort fields", async () => {
+		const findManyCalls: any[] = [];
+		const ctx = {
+			profile: {
+				schoolId: "school-1",
+				sessionId: "session-1",
+				termId: "term-1",
+			},
+			db: {
+				students: {
+					count: async () => 0,
+					findMany: async (args: any) => {
+						findManyCalls.push(args);
+						return [];
+					},
+				},
+			},
+		} as any;
 
-    await getStudents(ctx, { sort: ["dob", "desc"] });
+		await getStudents(ctx, { sort: ["dob", "desc"] });
 
-    expect(findManyCalls[0]?.orderBy).toEqual([
-      { dob: { sort: "desc", nulls: "last" } },
-      { id: "asc" },
-    ]);
-  });
+		expect(findManyCalls[0]?.orderBy).toEqual([
+			{ dob: { sort: "desc", nulls: "last" } },
+			{ id: "asc" },
+		]);
+	});
 
-  test("filters admission status on the selected term record", async () => {
-    const countCalls: any[] = [];
-    const ctx = {
-      profile: {
-        schoolId: "school-1",
-        sessionId: "session-1",
-        termId: "term-1",
-      },
-      db: {
-        students: {
-          count: async (args: any) => {
-            countCalls.push(args);
-            return 0;
-          },
-          findMany: async () => [],
-        },
-      },
-    } as any;
+	test("filters admission status on the selected term record", async () => {
+		const countCalls: any[] = [];
+		const ctx = {
+			profile: {
+				schoolId: "school-1",
+				sessionId: "session-1",
+				termId: "term-1",
+			},
+			db: {
+				students: {
+					count: async (args: any) => {
+						countCalls.push(args);
+						return 0;
+					},
+					findMany: async () => [],
+				},
+			},
+		} as any;
 
-    await getStudents(ctx, {
-      admissionTypes: ["NEW_ADMISSION", "UNCLASSIFIED"],
-    });
+		await getStudents(ctx, {
+			admissionTypes: ["NEW_ADMISSION", "UNCLASSIFIED"],
+		});
 
-    expect(countCalls[0]?.where).toMatchObject({
-      AND: [
-        { schoolProfileId: "school-1", deletedAt: null },
-        {
-          termForms: {
-            some: {
-              deletedAt: null,
-              sessionTermId: "term-1",
-              admissionType: {
-                in: ["NEW_ADMISSION", "UNCLASSIFIED"],
-              },
-            },
-          },
-        },
-      ],
-    });
-  });
+		expect(countCalls[0]?.where).toMatchObject({
+			AND: [
+				{ schoolProfileId: "school-1", deletedAt: null },
+				{
+					termForms: {
+						some: {
+							deletedAt: null,
+							sessionTermId: "term-1",
+							admissionType: {
+								in: ["NEW_ADMISSION", "UNCLASSIFIED"],
+							},
+						},
+					},
+				},
+			],
+		});
+	});
 });
 
 describe("getStudentsQueryParams", () => {
-  test("returns linked enrolled-period and enrollment-date filters", async () => {
-    const sessionCalls: any[] = [];
-    const ctx = {
-      profile: { schoolId: "school-1" },
-      db: {
-        schoolSession: {
-          findMany: async (args: any) => {
-            sessionCalls.push(args);
-            return [
-              {
-                id: "session-1",
-                title: "2025/2026",
-                terms: [{ id: "term-1", title: "First Term" }],
-                classRooms: [],
-              },
-            ];
-          },
-        },
-      },
-    } as any;
+	test("returns linked enrolled-period and enrollment-date filters", async () => {
+		const sessionCalls: any[] = [];
+		const ctx = {
+			profile: { schoolId: "school-1" },
+			db: {
+				schoolSession: {
+					findMany: async (args: any) => {
+						sessionCalls.push(args);
+						return [
+							{
+								id: "session-1",
+								title: "2025/2026",
+								terms: [{ id: "term-1", title: "First Term" }],
+								classRooms: [],
+							},
+						];
+					},
+				},
+			},
+		} as any;
 
-    const filters = await getStudentsQueryParams(ctx);
+		const filters = await getStudentsQueryParams(ctx);
 
-    expect(sessionCalls[0]).toMatchObject({
-      where: { schoolId: "school-1", deletedAt: null },
-      orderBy: [
-        { startDate: { sort: "desc", nulls: "last" } },
-        { createdAt: { sort: "desc", nulls: "last" } },
-        { title: "desc" },
-      ],
-      select: {
-        terms: {
-          where: { deletedAt: null },
-          orderBy: [
-            { startDate: { sort: "asc", nulls: "last" } },
-            { createdAt: { sort: "asc", nulls: "last" } },
-            { title: "asc" },
-          ],
-        },
-      },
-    });
-    expect(filters).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          label: "Enrolled session",
-          value: "sessionId",
-        }),
-        expect.objectContaining({
-          label: "Enrolled term",
-          value: "sessionTermId",
-          options: [
-            {
-              label: "First Term | 2025/2026",
-              subLabel: "2025/2026",
-              value: "term-1",
-              parentValue: "session-1",
-            },
-          ],
-        }),
-        {
-          label: "Enrollment date",
-          type: "date-range",
-          value: "enrollmentDate",
-        },
-      ]),
-    );
-  });
+		expect(sessionCalls[0]).toMatchObject({
+			where: { schoolId: "school-1", deletedAt: null },
+			orderBy: [
+				{ startDate: { sort: "desc", nulls: "last" } },
+				{ createdAt: { sort: "desc", nulls: "last" } },
+				{ title: "desc" },
+			],
+			select: {
+				terms: {
+					where: { deletedAt: null },
+					orderBy: [
+						{ startDate: { sort: "asc", nulls: "last" } },
+						{ createdAt: { sort: "asc", nulls: "last" } },
+						{ title: "asc" },
+					],
+				},
+			},
+		});
+		expect(filters).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					label: "Enrolled session",
+					value: "sessionId",
+				}),
+				expect.objectContaining({
+					label: "Enrolled term",
+					value: "sessionTermId",
+					options: [
+						{
+							label: "First Term | 2025/2026",
+							subLabel: "2025/2026",
+							value: "term-1",
+							parentValue: "session-1",
+						},
+					],
+				}),
+				{
+					label: "Enrollment date",
+					type: "date-range",
+					value: "enrollmentDate",
+				},
+			]),
+		);
+	});
 });
 
 describe("setStudentAdmissionType", () => {
-  test("tenant-scopes the term update and safely skips incomplete fee context", async () => {
-    const updates: any[] = [];
-    const ctx = {
-      profile: {
-        schoolId: "school-1",
-        sessionId: "session-1",
-        termId: "term-1",
-      },
-      currentUser: { id: "admin-1", role: "Admin" },
-      db: {
-        $transaction: async (callback: (tx: any) => unknown) =>
-          callback({
-            studentTermForm: {
-              findMany: async () => [
-                {
-                  id: "form-1",
-                  studentId: "student-1",
-                  schoolSessionId: null,
-                  sessionTermId: null,
-                  classroomDepartmentId: null,
-                },
-              ],
-              updateMany: async (args: any) => {
-                updates.push(args);
-                return { count: 1 };
-              },
-            },
-          }),
-      },
-    } as any;
+	test("tenant-scopes the term update and safely skips incomplete fee context", async () => {
+		const updates: any[] = [];
+		const ctx = {
+			profile: {
+				schoolId: "school-1",
+				sessionId: "session-1",
+				termId: "term-1",
+			},
+			currentUser: { id: "admin-1", role: "Admin" },
+			db: {
+				$transaction: async (callback: (tx: any) => unknown) =>
+					callback({
+						studentTermForm: {
+							findMany: async () => [
+								{
+									id: "form-1",
+									studentId: "student-1",
+									schoolSessionId: null,
+									sessionTermId: null,
+									classroomDepartmentId: null,
+								},
+							],
+							updateMany: async (args: any) => {
+								updates.push(args);
+								return { count: 1 };
+							},
+						},
+					}),
+			},
+		} as any;
 
-    const result = await setStudentAdmissionType(ctx, {
-      studentTermFormId: "form-1",
-      admissionType: "RETURNING",
-    });
+		const result = await setStudentAdmissionType(ctx, {
+			studentTermFormId: "form-1",
+			admissionType: "RETURNING",
+		});
 
-    expect(result.updated).toBe(1);
-    expect(updates).toEqual([
-      {
-        where: {
-          id: { in: ["form-1"] },
-          schoolProfileId: "school-1",
-        },
-        data: { admissionType: "RETURNING" },
-      },
-    ]);
-  });
+		expect(result.updated).toBe(1);
+		expect(updates).toEqual([
+			{
+				where: {
+					id: { in: ["form-1"] },
+					schoolProfileId: "school-1",
+				},
+				data: { admissionType: "RETURNING" },
+			},
+		]);
+	});
 });
 
 describe("bulkChangeStudentClass", () => {
-  test("moves tenant-owned term forms and their session form atomically", async () => {
-    const termUpdates: unknown[] = [];
-    const sessionUpdates: unknown[] = [];
-    const tx = {
-      classRoomDepartment: {
-        findFirst: async () => ({
-          id: "classroom-b",
-          classRoom: { schoolSessionId: "session-1" },
-        }),
-      },
-      studentTermForm: {
-        findMany: async () => [],
-        findFirst: async ({ where }: any) => ({
-          id: where.id,
-          studentSessionFormId: "session-form-1",
-          schoolSessionId: "session-1",
-          sessionTermId: "term-1",
-          student: {
-            id: "student-1",
-            name: "Ada",
-            surname: "Lovelace",
-            otherName: null,
-          },
-        }),
-        update: async (args: unknown) => {
-          termUpdates.push(args);
-          return {};
-        },
-      },
-      studentSessionForm: {
-        updateMany: async (args: unknown) => {
-          sessionUpdates.push(args);
-          return { count: 1 };
-        },
-      },
-      students: {
-        findFirst: async () => null,
-      },
-    };
-    const ctx = {
-      profile: { schoolId: "school-1" },
-      currentUser: { role: "Admin" },
-      db: {
-        $transaction: async (callback: (transaction: typeof tx) => unknown) =>
-          callback(tx),
-      },
-    } as any;
+	test("moves tenant-owned term forms and their session form atomically", async () => {
+		const termUpdates: unknown[] = [];
+		const sessionUpdates: unknown[] = [];
+		const tx = {
+			classRoomDepartment: {
+				findFirst: async () => ({
+					id: "classroom-b",
+					classRoom: { schoolSessionId: "session-1" },
+				}),
+			},
+			studentTermForm: {
+				findMany: async () => [],
+				findFirst: async ({ where }: any) => ({
+					id: where.id,
+					studentSessionFormId: "session-form-1",
+					schoolSessionId: "session-1",
+					sessionTermId: "term-1",
+					student: {
+						id: "student-1",
+						name: "Ada",
+						surname: "Lovelace",
+						otherName: null,
+					},
+				}),
+				update: async (args: unknown) => {
+					termUpdates.push(args);
+					return {};
+				},
+			},
+			studentSessionForm: {
+				updateMany: async (args: unknown) => {
+					sessionUpdates.push(args);
+					return { count: 1 };
+				},
+			},
+			students: {
+				findFirst: async () => null,
+			},
+		};
+		const ctx = {
+			profile: { schoolId: "school-1" },
+			currentUser: { role: "Admin" },
+			db: {
+				$transaction: async (callback: (transaction: typeof tx) => unknown) =>
+					callback(tx),
+			},
+		} as any;
 
-    await expect(
-      bulkChangeStudentClass(ctx, {
-        studentTermFormIds: ["term-form-1"],
-        classroomDepartmentId: "classroom-b",
-      }),
-    ).resolves.toEqual({ count: 1 });
-    expect(termUpdates).toEqual([
-      {
-        where: { id: "term-form-1" },
-        data: { classroomDepartmentId: "classroom-b" },
-      },
-    ]);
-    expect(sessionUpdates).toEqual([
-      {
-        where: {
-          id: "session-form-1",
-          schoolProfileId: "school-1",
-          deletedAt: null,
-        },
-        data: { classroomDepartmentId: "classroom-b" },
-      },
-    ]);
-  });
+		await expect(
+			bulkChangeStudentClass(ctx, {
+				studentTermFormIds: ["term-form-1"],
+				classroomDepartmentId: "classroom-b",
+			}),
+		).resolves.toEqual({ count: 1 });
+		expect(termUpdates).toEqual([
+			{
+				where: { id: "term-form-1" },
+				data: { classroomDepartmentId: "classroom-b" },
+			},
+		]);
+		expect(sessionUpdates).toEqual([
+			{
+				where: {
+					id: "session-form-1",
+					schoolProfileId: "school-1",
+					deletedAt: null,
+				},
+				data: { classroomDepartmentId: "classroom-b" },
+			},
+		]);
+	});
 
-  test("rejects roles that cannot manage students", async () => {
-    const ctx = {
-      profile: { schoolId: "school-1" },
-      currentUser: { role: "Teacher" },
-      db: {},
-    } as any;
+	test("rejects roles that cannot manage students", async () => {
+		const ctx = {
+			profile: { schoolId: "school-1" },
+			currentUser: { role: "Teacher" },
+			db: {},
+		} as any;
 
-    await expect(
-      bulkChangeStudentClass(ctx, {
-        studentTermFormIds: ["term-form-1"],
-        classroomDepartmentId: "classroom-b",
-      }),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  });
+		await expect(
+			bulkChangeStudentClass(ctx, {
+				studentTermFormIds: ["term-form-1"],
+				classroomDepartmentId: "classroom-b",
+			}),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+	});
 
-  test("rejects a target class from a different academic session", async () => {
-    const tx = {
-      classRoomDepartment: {
-        findFirst: async () => ({
-          id: "classroom-b",
-          classRoom: { schoolSessionId: "session-2" },
-        }),
-      },
-      studentTermForm: {
-        findFirst: async () => ({
-          id: "term-form-1",
-          studentSessionFormId: "session-form-1",
-          schoolSessionId: "session-1",
-          sessionTermId: "term-1",
-          student: {
-            id: "student-1",
-            name: "Ada",
-            surname: "Lovelace",
-            otherName: null,
-          },
-        }),
-      },
-    };
-    const ctx = {
-      profile: { schoolId: "school-1" },
-      currentUser: { role: "Admin" },
-      db: {
-        $transaction: async (callback: (transaction: typeof tx) => unknown) =>
-          callback(tx),
-      },
-    } as any;
+	test("rejects a target class from a different academic session", async () => {
+		const tx = {
+			classRoomDepartment: {
+				findFirst: async () => ({
+					id: "classroom-b",
+					classRoom: { schoolSessionId: "session-2" },
+				}),
+			},
+			studentTermForm: {
+				findFirst: async () => ({
+					id: "term-form-1",
+					studentSessionFormId: "session-form-1",
+					schoolSessionId: "session-1",
+					sessionTermId: "term-1",
+					student: {
+						id: "student-1",
+						name: "Ada",
+						surname: "Lovelace",
+						otherName: null,
+					},
+				}),
+			},
+		};
+		const ctx = {
+			profile: { schoolId: "school-1" },
+			currentUser: { role: "Admin" },
+			db: {
+				$transaction: async (callback: (transaction: typeof tx) => unknown) =>
+					callback(tx),
+			},
+		} as any;
 
-    await expect(
-      bulkChangeStudentClass(ctx, {
-        studentTermFormIds: ["term-form-1"],
-        classroomDepartmentId: "classroom-b",
-      }),
-    ).rejects.toMatchObject({
-      code: "BAD_REQUEST",
-      message: "The target class must belong to every enrollment session.",
-    });
-  });
+		await expect(
+			bulkChangeStudentClass(ctx, {
+				studentTermFormIds: ["term-form-1"],
+				classroomDepartmentId: "classroom-b",
+			}),
+		).rejects.toMatchObject({
+			code: "BAD_REQUEST",
+			message: "The target class must belong to every enrollment session.",
+		});
+	});
 });
 
 function createImportCtx() {
-  const classrooms = [
-    {
-      id: "classroom-a",
-      departmentName: "A",
-      schoolProfileId: "school-1",
-      classRoom: {
-        name: "JSS 1",
-        schoolSessionId: "session-1",
-      },
-    },
-    {
-      id: "classroom-b",
-      departmentName: "B",
-      schoolProfileId: "school-1",
-      classRoom: {
-        name: "JSS 1",
-        schoolSessionId: "session-1",
-      },
-    },
-    {
-      id: "primary-1-primary-1",
-      departmentName: "الأول الإبتدائي",
-      schoolProfileId: "school-1",
-      classRoom: {
-        name: "الأول الإبتدائي",
-        schoolSessionId: "session-1",
-      },
-    },
-  ];
-  const existingStudents = [
-    {
-      id: "student-1",
-      name: "John",
-      surname: "Doe",
-      otherName: null,
-      gender: "Male",
-      termForms: [
-        {
-          id: "term-form-1",
-          sessionTermId: "term-1",
-          schoolSessionId: "session-1",
-          classroomDepartmentId: "classroom-a",
-          sessionTerm: {
-            id: "term-1",
-            title: "First Term",
-          },
-          schoolSession: {
-            id: "session-1",
-            title: "2026/2027",
-          },
-          classroomDepartment: {
-            id: "classroom-a",
-            departmentName: "A",
-          },
-        },
-      ],
-    },
-    {
-      id: "student-2",
-      name: "Mary",
-      surname: "Major",
-      otherName: null,
-      gender: "Female",
-      termForms: [],
-    },
-    {
-      id: "student-3",
-      name: "Aisha",
-      surname: "Bello",
-      otherName: "Fatima",
-      gender: "Female",
-      termForms: [],
-    },
-  ];
-  const createdStudents: unknown[] = [];
-  const createdSessionForms: unknown[] = [];
-  const createdTermForms: unknown[] = [];
+	const classrooms = [
+		{
+			id: "classroom-a",
+			departmentName: "A",
+			schoolProfileId: "school-1",
+			classRoom: {
+				name: "JSS 1",
+				schoolSessionId: "session-1",
+			},
+		},
+		{
+			id: "classroom-b",
+			departmentName: "B",
+			schoolProfileId: "school-1",
+			classRoom: {
+				name: "JSS 1",
+				schoolSessionId: "session-1",
+			},
+		},
+		{
+			id: "primary-1-primary-1",
+			departmentName: "الأول الإبتدائي",
+			schoolProfileId: "school-1",
+			classRoom: {
+				name: "الأول الإبتدائي",
+				schoolSessionId: "session-1",
+			},
+		},
+	];
+	const existingStudents = [
+		{
+			id: "student-1",
+			name: "John",
+			surname: "Doe",
+			otherName: null,
+			gender: "Male",
+			termForms: [
+				{
+					id: "term-form-1",
+					sessionTermId: "term-1",
+					schoolSessionId: "session-1",
+					classroomDepartmentId: "classroom-a",
+					sessionTerm: {
+						id: "term-1",
+						title: "First Term",
+					},
+					schoolSession: {
+						id: "session-1",
+						title: "2026/2027",
+					},
+					classroomDepartment: {
+						id: "classroom-a",
+						departmentName: "A",
+					},
+				},
+			],
+		},
+		{
+			id: "student-2",
+			name: "Mary",
+			surname: "Major",
+			otherName: null,
+			gender: "Female",
+			termForms: [],
+		},
+		{
+			id: "student-3",
+			name: "Aisha",
+			surname: "Bello",
+			otherName: "Fatima",
+			gender: "Female",
+			termForms: [],
+		},
+	];
+	const createdStudents: unknown[] = [];
+	const createdSessionForms: unknown[] = [];
+	const createdTermForms: unknown[] = [];
 
-  const tx = {
-    students: {
-      findFirst: async ({ where }: any) =>
-        existingStudents.find((student) => student.id === where.id) ?? null,
-      create: async ({ data }: any) => {
-        const student = {
-          id: `new-student-${createdStudents.length + 1}`,
-          gender: data.gender,
-          name: data.name,
-          surname: data.surname,
-          otherName: data.otherName ?? null,
-          schoolProfileId: data.schoolProfileId,
-          sessionForms: [
-            {
-              id: `new-session-form-${createdStudents.length + 1}`,
-              ...data.sessionForms.create,
-              termForms: [
-                {
-                  id: `new-term-form-${createdStudents.length + 1}`,
-                  ...data.sessionForms.create.termForms.create,
-                },
-              ],
-            },
-          ],
-        };
-        createdStudents.push(student);
-        return student;
-      },
-      update: async () => ({}),
-    },
-    studentTermForm: {
-      findMany: async () => [],
-      findFirst: async () => null,
-      create: async ({ data }: any) => {
-        createdTermForms.push(data);
-        return {
-          id: `new-term-form-${createdTermForms.length}`,
-          ...data,
-        };
-      },
-      update: async ({ where, data }: any) => ({ id: where.id, ...data }),
-    },
-    studentSessionForm: {
-      findFirst: async () => null,
-      create: async ({ data }: any) => {
-        createdSessionForms.push(data);
-        return {
-          id: `new-session-form-${createdSessionForms.length}`,
-          ...data,
-        };
-      },
-    },
-    financeItem: {
-      findMany: async () => [],
-    },
-    financeCharge: {
-      create: async ({ data }: any) => data,
-    },
-  };
+	const tx = {
+		students: {
+			findFirst: async ({ where }: any) =>
+				existingStudents.find((student) => student.id === where.id) ?? null,
+			create: async ({ data }: any) => {
+				const student = {
+					id: `new-student-${createdStudents.length + 1}`,
+					gender: data.gender,
+					name: data.name,
+					surname: data.surname,
+					otherName: data.otherName ?? null,
+					schoolProfileId: data.schoolProfileId,
+					sessionForms: [
+						{
+							id: `new-session-form-${createdStudents.length + 1}`,
+							...data.sessionForms.create,
+							termForms: [
+								{
+									id: `new-term-form-${createdStudents.length + 1}`,
+									...data.sessionForms.create.termForms.create,
+								},
+							],
+						},
+					],
+				};
+				createdStudents.push(student);
+				return student;
+			},
+			update: async () => ({}),
+		},
+		studentTermForm: {
+			findMany: async () => [],
+			findFirst: async () => null,
+			create: async ({ data }: any) => {
+				createdTermForms.push(data);
+				return {
+					id: `new-term-form-${createdTermForms.length}`,
+					...data,
+				};
+			},
+			update: async ({ where, data }: any) => ({ id: where.id, ...data }),
+		},
+		studentSessionForm: {
+			findFirst: async () => null,
+			create: async ({ data }: any) => {
+				createdSessionForms.push(data);
+				return {
+					id: `new-session-form-${createdSessionForms.length}`,
+					...data,
+				};
+			},
+		},
+		financeItem: {
+			findMany: async () => [],
+		},
+		financeCharge: {
+			create: async ({ data }: any) => data,
+		},
+	};
 
-  return {
-    ctx: {
-      profile: {
-        schoolId: "school-1",
-        sessionId: "session-1",
-        termId: "term-1",
-      },
-      db: {
-        classRoomDepartment: {
-          findMany: async ({ where }: any) => {
-            const ids = where.id.in as string[];
-            return classrooms.filter((classroom) => ids.includes(classroom.id));
-          },
-        },
-        students: {
-          findMany: async () => existingStudents,
-        },
-        $transaction: async (callback: (transaction: typeof tx) => unknown) =>
-          callback(tx),
-      },
-    } as any,
-    createdStudents,
-    createdSessionForms,
-    createdTermForms,
-  };
+	return {
+		ctx: {
+			profile: {
+				schoolId: "school-1",
+				sessionId: "session-1",
+				termId: "term-1",
+			},
+			db: {
+				classRoomDepartment: {
+					findMany: async ({ where }: any) => {
+						const ids = where.id.in as string[];
+						return classrooms.filter((classroom) => ids.includes(classroom.id));
+					},
+				},
+				students: {
+					findMany: async () => existingStudents,
+				},
+				$transaction: async (callback: (transaction: typeof tx) => unknown) =>
+					callback(tx),
+			},
+		} as any,
+		createdStudents,
+		createdSessionForms,
+		createdTermForms,
+	};
 }
 
 describe("verifyStudentImport", () => {
-  test("returns a typed error for classroom ids outside the active tenant session", async () => {
-    const { ctx } = createImportCtx();
+	test("returns a typed error for classroom ids outside the active tenant session", async () => {
+		const { ctx } = createImportCtx();
 
-    await expect(
-      verifyStudentImport(ctx, {
-        rows: [
-          {
-            lineNumber: 1,
-            originalText: "Jane Doe",
-            name: "Jane",
-            surname: "Doe",
-            gender: "Female",
-            classroomDepartmentId: "missing-classroom",
-          },
-        ],
-      }),
-    ).rejects.toMatchObject({
-      code: "BAD_REQUEST",
-      message:
-        "One or more selected classroom departments were not found, unauthorized, or not in the active session.",
-    } satisfies Partial<TRPCError>);
-  });
+		await expect(
+			verifyStudentImport(ctx, {
+				rows: [
+					{
+						lineNumber: 1,
+						originalText: "Jane Doe",
+						name: "Jane",
+						surname: "Doe",
+						gender: "Female",
+						classroomDepartmentId: "missing-classroom",
+					},
+				],
+			}),
+		).rejects.toMatchObject({
+			code: "BAD_REQUEST",
+			message:
+				"One or more selected classroom departments were not found, unauthorized, or not in the active session.",
+		} satisfies Partial<TRPCError>);
+	});
 
-  test("returns a typed error when active school session context is missing", async () => {
-    const { ctx } = createImportCtx();
-    ctx.profile.sessionId = undefined;
+	test("returns a typed error when active school session context is missing", async () => {
+		const { ctx } = createImportCtx();
+		ctx.profile.sessionId = undefined;
 
-    await expect(
-      verifyStudentImport(ctx, {
-        rows: [
-          {
-            lineNumber: 1,
-            originalText: "Jane Doe",
-            name: "Jane",
-            surname: "Doe",
-            gender: "Female",
-            classroomDepartmentId: "classroom-a",
-          },
-        ],
-      }),
-    ).rejects.toMatchObject({
-      code: "UNAUTHORIZED",
-      message: "Active school, session, and term are required",
-    } satisfies Partial<TRPCError>);
-  });
+		await expect(
+			verifyStudentImport(ctx, {
+				rows: [
+					{
+						lineNumber: 1,
+						originalText: "Jane Doe",
+						name: "Jane",
+						surname: "Doe",
+						gender: "Female",
+						classroomDepartmentId: "classroom-a",
+					},
+				],
+			}),
+		).rejects.toMatchObject({
+			code: "UNAUTHORIZED",
+			message: "Active school, session, and term are required",
+		} satisfies Partial<TRPCError>);
+	});
 
-  test("uses each row target classroom for current-classroom matching", async () => {
-    const { ctx } = createImportCtx();
+	test("uses each row target classroom for current-classroom matching", async () => {
+		const { ctx } = createImportCtx();
 
-    const report = await verifyStudentImport(ctx, {
-      rows: [
-        {
-          lineNumber: 1,
-          originalText: "John Doe",
-          name: "John",
-          surname: "Doe",
-          gender: "Male",
-          classroomDepartmentId: "classroom-a",
-        },
-        {
-          lineNumber: 2,
-          originalText: "John Doe",
-          name: "John",
-          surname: "Doe",
-          gender: "Male",
-          classroomDepartmentId: "classroom-b",
-        },
-      ],
-    });
+		const report = await verifyStudentImport(ctx, {
+			rows: [
+				{
+					lineNumber: 1,
+					originalText: "John Doe",
+					name: "John",
+					surname: "Doe",
+					gender: "Male",
+					classroomDepartmentId: "classroom-a",
+				},
+				{
+					lineNumber: 2,
+					originalText: "John Doe",
+					name: "John",
+					surname: "Doe",
+					gender: "Male",
+					classroomDepartmentId: "classroom-b",
+				},
+			],
+		});
 
-    expect(report.results.map((row) => row.classroomDepartmentId)).toEqual([
-      "classroom-a",
-      "classroom-b",
-    ]);
-    expect(
-      report.results.map((row) => row.fullMatch?.isCurrentClassroomMatch),
-    ).toEqual([true, false]);
-  });
+		expect(report.results.map((row) => row.classroomDepartmentId)).toEqual([
+			"classroom-a",
+			"classroom-b",
+		]);
+		expect(
+			report.results.map((row) => row.fullMatch?.isCurrentClassroomMatch),
+		).toEqual([true, false]);
+	});
 
-  test("requires other name to match before reporting a full 100 percent match", async () => {
-    const { ctx } = createImportCtx();
+	test("requires other name to match before reporting a full 100 percent match", async () => {
+		const { ctx } = createImportCtx();
 
-    const report = await verifyStudentImport(ctx, {
-      rows: [
-        {
-          lineNumber: 1,
-          originalText: "John Doe Junior",
-          name: "John",
-          surname: "Doe",
-          otherName: "Junior",
-          gender: "Male",
-          classroomDepartmentId: "classroom-a",
-        },
-      ],
-    });
+		const report = await verifyStudentImport(ctx, {
+			rows: [
+				{
+					lineNumber: 1,
+					originalText: "John Doe Junior",
+					name: "John",
+					surname: "Doe",
+					otherName: "Junior",
+					gender: "Male",
+					classroomDepartmentId: "classroom-a",
+				},
+			],
+		});
 
-    expect(report.results[0]?.fullMatch).toBeNull();
-    expect(report.results[0]?.status).toBe("needsAttention");
-    expect(report.results[0]?.suspectedMatches[0]).toMatchObject({
-      id: "student-1",
-      confidence: 70,
-      reason: "First name and surname match exactly; other name differs",
-    });
-  });
+		expect(report.results[0]?.fullMatch).toBeNull();
+		expect(report.results[0]?.status).toBe("needsAttention");
+		expect(report.results[0]?.suspectedMatches[0]).toMatchObject({
+			id: "student-1",
+			confidence: 70,
+			reason: "First name and surname match exactly; other name differs",
+		});
+	});
 
-  test("keeps 100 percent matches when name, surname, and other name all match", async () => {
-    const { ctx } = createImportCtx();
+	test("keeps 100 percent matches when name, surname, and other name all match", async () => {
+		const { ctx } = createImportCtx();
 
-    const report = await verifyStudentImport(ctx, {
-      rows: [
-        {
-          lineNumber: 1,
-          originalText: "Aisha Bello Fatima",
-          name: "Aisha",
-          surname: "Bello",
-          otherName: "Fatima",
-          gender: "Female",
-          classroomDepartmentId: "classroom-a",
-        },
-      ],
-    });
+		const report = await verifyStudentImport(ctx, {
+			rows: [
+				{
+					lineNumber: 1,
+					originalText: "Aisha Bello Fatima",
+					name: "Aisha",
+					surname: "Bello",
+					otherName: "Fatima",
+					gender: "Female",
+					classroomDepartmentId: "classroom-a",
+				},
+			],
+		});
 
-    expect(report.results[0]?.fullMatch).toMatchObject({
-      id: "student-3",
-      confidence: 100,
-      reason: "Exact match on first name, surname, and other name",
-    });
-    expect(report.results[0]?.suspectedMatches).toEqual([]);
-  });
+		expect(report.results[0]?.fullMatch).toMatchObject({
+			id: "student-3",
+			confidence: 100,
+			reason: "Exact match on first name, surname, and other name",
+		});
+		expect(report.results[0]?.suspectedMatches).toEqual([]);
+	});
 });
 
 describe("executeStudentImport", () => {
-  test("rejects teacher-triggered imports", async () => {
-    const { ctx } = createImportCtx();
-    ctx.currentUser = {
-      id: "teacher-1",
-      email: "teacher@example.com",
-      name: "Teacher",
-      role: "Teacher",
-      saasAccountId: null,
-    };
+	test("rejects teacher-triggered imports", async () => {
+		const { ctx } = createImportCtx();
+		ctx.currentUser = {
+			id: "teacher-1",
+			email: "teacher@example.com",
+			name: "Teacher",
+			role: "Teacher",
+			saasAccountId: null,
+		};
 
-    await expect(
-      executeStudentImport(ctx, {
-        classroomDepartmentId: "classroom-a",
-        rows: [],
-      }),
-    ).rejects.toMatchObject({
-      code: "FORBIDDEN",
-    } satisfies Partial<TRPCError>);
-  });
+		await expect(
+			executeStudentImport(ctx, {
+				classroomDepartmentId: "classroom-a",
+				rows: [],
+			}),
+		).rejects.toMatchObject({
+			code: "FORBIDDEN",
+		} satisfies Partial<TRPCError>);
+	});
 
-  test("returns a typed error when no target classroom is available", async () => {
-    const { ctx } = createImportCtx();
+	test("returns a typed error when no target classroom is available", async () => {
+		const { ctx } = createImportCtx();
 
-    await expect(
-      executeStudentImport(ctx, {
-        rows: [
-          {
-            lineNumber: 1,
-            name: "Jane",
-            surname: "Doe",
-            gender: "Female",
-            action: "import_new",
-          },
-        ],
-      }),
-    ).rejects.toMatchObject({
-      code: "BAD_REQUEST",
-      message: "At least one classroom is required",
-    } satisfies Partial<TRPCError>);
-  });
+		await expect(
+			executeStudentImport(ctx, {
+				rows: [
+					{
+						lineNumber: 1,
+						name: "Jane",
+						surname: "Doe",
+						gender: "Female",
+						action: "import_new",
+					},
+				],
+			}),
+		).rejects.toMatchObject({
+			code: "BAD_REQUEST",
+			message: "At least one classroom is required",
+		} satisfies Partial<TRPCError>);
+	});
 
-  test("returns a typed error for classrooms outside the active school", async () => {
-    const { ctx } = createImportCtx();
+	test("returns a typed error for classrooms outside the active school", async () => {
+		const { ctx } = createImportCtx();
 
-    await expect(
-      executeStudentImport(ctx, {
-        rows: [
-          {
-            lineNumber: 1,
-            name: "Jane",
-            surname: "Doe",
-            gender: "Female",
-            classroomDepartmentId: "missing-classroom",
-            action: "import_new",
-          },
-        ],
-      }),
-    ).rejects.toMatchObject({
-      code: "BAD_REQUEST",
-      message:
-        "One or more selected classrooms do not belong to the active school",
-    } satisfies Partial<TRPCError>);
-  });
+		await expect(
+			executeStudentImport(ctx, {
+				rows: [
+					{
+						lineNumber: 1,
+						name: "Jane",
+						surname: "Doe",
+						gender: "Female",
+						classroomDepartmentId: "missing-classroom",
+						action: "import_new",
+					},
+				],
+			}),
+		).rejects.toMatchObject({
+			code: "BAD_REQUEST",
+			message:
+				"One or more selected classrooms do not belong to the active school",
+		} satisfies Partial<TRPCError>);
+	});
 
-  test("creates matched-student term sheets in each row target classroom", async () => {
-    const { ctx, createdSessionForms, createdTermForms } = createImportCtx();
+	test("creates matched-student term sheets in each row target classroom", async () => {
+		const { ctx, createdSessionForms, createdTermForms } = createImportCtx();
 
-    const result = await executeStudentImport(ctx, {
-      rows: [
-        {
-          lineNumber: 1,
-          name: "John",
-          surname: "Doe",
-          gender: "Male",
-          classroomDepartmentId: "classroom-a",
-          action: "keep_match",
-          existingStudentId: "student-1",
-        },
-        {
-          lineNumber: 2,
-          name: "Mary",
-          surname: "Major",
-          gender: "Female",
-          classroomDepartmentId: "classroom-b",
-          action: "keep_match",
-          existingStudentId: "student-2",
-        },
-      ],
-    });
+		const result = await executeStudentImport(ctx, {
+			rows: [
+				{
+					lineNumber: 1,
+					name: "John",
+					surname: "Doe",
+					gender: "Male",
+					classroomDepartmentId: "classroom-a",
+					action: "keep_match",
+					existingStudentId: "student-1",
+				},
+				{
+					lineNumber: 2,
+					name: "Mary",
+					surname: "Major",
+					gender: "Female",
+					classroomDepartmentId: "classroom-b",
+					action: "keep_match",
+					existingStudentId: "student-2",
+				},
+			],
+		});
 
-    expect(result).toMatchObject({
-      keptMatches: 2,
-      termSheetsCreated: 2,
-      failedRows: 0,
-    });
-    expect(
-      createdSessionForms.map((form: any) => form.classroomDepartmentId),
-    ).toEqual(["classroom-a", "classroom-b"]);
-    expect(
-      createdTermForms.map((form: any) => form.classroomDepartmentId),
-    ).toEqual(["classroom-a", "classroom-b"]);
-  });
+		expect(result).toMatchObject({
+			keptMatches: 2,
+			termSheetsCreated: 2,
+			failedRows: 0,
+		});
+		expect(
+			createdSessionForms.map((form: any) => form.classroomDepartmentId),
+		).toEqual(["classroom-a", "classroom-b"]);
+		expect(
+			createdTermForms.map((form: any) => form.classroomDepartmentId),
+		).toEqual(["classroom-a", "classroom-b"]);
+	});
 
-  test("creates Arabic fallback-classroom female rows as new students", async () => {
-    const { ctx, createdStudents } = createImportCtx();
+	test("creates Arabic fallback-classroom female rows as new students", async () => {
+		const { ctx, createdStudents } = createImportCtx();
 
-    const result = await executeStudentImport(ctx, {
-      classroomDepartmentId: "primary-1-primary-1",
-      rows: [
-        {
-          lineNumber: 2,
-          name: "بلقيس",
-          surname: "أحمد",
-          gender: "Female",
-          classroomDepartmentId: "primary-1-primary-1",
-          action: "import_new",
-        },
-        {
-          lineNumber: 3,
-          name: "بلقيس",
-          surname: "أونيكون",
-          gender: "Female",
-          classroomDepartmentId: "primary-1-primary-1",
-          action: "import_new",
-        },
-        {
-          lineNumber: 4,
-          name: "بلقيس",
-          surname: "إبراهيم",
-          gender: "Female",
-          classroomDepartmentId: "primary-1-primary-1",
-          action: "import_new",
-        },
-        {
-          lineNumber: 5,
-          name: "حنيفة",
-          surname: "عيسى",
-          gender: "Female",
-          classroomDepartmentId: "primary-1-primary-1",
-          action: "import_new",
-        },
-        {
-          lineNumber: 6,
-          name: "حليمة",
-          surname: "عثمان",
-          gender: "Female",
-          classroomDepartmentId: "primary-1-primary-1",
-          action: "import_new",
-        },
-      ],
-    });
+		const result = await executeStudentImport(ctx, {
+			classroomDepartmentId: "primary-1-primary-1",
+			rows: [
+				{
+					lineNumber: 2,
+					name: "بلقيس",
+					surname: "أحمد",
+					gender: "Female",
+					classroomDepartmentId: "primary-1-primary-1",
+					action: "import_new",
+				},
+				{
+					lineNumber: 3,
+					name: "بلقيس",
+					surname: "أونيكون",
+					gender: "Female",
+					classroomDepartmentId: "primary-1-primary-1",
+					action: "import_new",
+				},
+				{
+					lineNumber: 4,
+					name: "بلقيس",
+					surname: "إبراهيم",
+					gender: "Female",
+					classroomDepartmentId: "primary-1-primary-1",
+					action: "import_new",
+				},
+				{
+					lineNumber: 5,
+					name: "حنيفة",
+					surname: "عيسى",
+					gender: "Female",
+					classroomDepartmentId: "primary-1-primary-1",
+					action: "import_new",
+				},
+				{
+					lineNumber: 6,
+					name: "حليمة",
+					surname: "عثمان",
+					gender: "Female",
+					classroomDepartmentId: "primary-1-primary-1",
+					action: "import_new",
+				},
+			],
+		});
 
-    expect(result).toMatchObject({
-      createdStudents: 5,
-      termSheetsCreated: 5,
-      failedRows: 0,
-    });
-    expect(result.rows.map((row) => row.status)).toEqual([
-      "created",
-      "created",
-      "created",
-      "created",
-      "created",
-    ]);
-    expect(
-      createdStudents.map((student: any) => ({
-        name: student.name,
-        surname: student.surname,
-        gender: student.gender,
-        classroomDepartmentId: student.sessionForms[0]?.classroomDepartmentId,
-      })),
-    ).toEqual([
-      {
-        name: "بلقيس",
-        surname: "أحمد",
-        gender: "Female",
-        classroomDepartmentId: "primary-1-primary-1",
-      },
-      {
-        name: "بلقيس",
-        surname: "أونيكون",
-        gender: "Female",
-        classroomDepartmentId: "primary-1-primary-1",
-      },
-      {
-        name: "بلقيس",
-        surname: "إبراهيم",
-        gender: "Female",
-        classroomDepartmentId: "primary-1-primary-1",
-      },
-      {
-        name: "حنيفة",
-        surname: "عيسى",
-        gender: "Female",
-        classroomDepartmentId: "primary-1-primary-1",
-      },
-      {
-        name: "حليمة",
-        surname: "عثمان",
-        gender: "Female",
-        classroomDepartmentId: "primary-1-primary-1",
-      },
-    ]);
-  });
+		expect(result).toMatchObject({
+			createdStudents: 5,
+			termSheetsCreated: 5,
+			failedRows: 0,
+		});
+		expect(result.rows.map((row) => row.status)).toEqual([
+			"created",
+			"created",
+			"created",
+			"created",
+			"created",
+		]);
+		expect(
+			createdStudents.map((student: any) => ({
+				name: student.name,
+				surname: student.surname,
+				gender: student.gender,
+				classroomDepartmentId: student.sessionForms[0]?.classroomDepartmentId,
+			})),
+		).toEqual([
+			{
+				name: "بلقيس",
+				surname: "أحمد",
+				gender: "Female",
+				classroomDepartmentId: "primary-1-primary-1",
+			},
+			{
+				name: "بلقيس",
+				surname: "أونيكون",
+				gender: "Female",
+				classroomDepartmentId: "primary-1-primary-1",
+			},
+			{
+				name: "بلقيس",
+				surname: "إبراهيم",
+				gender: "Female",
+				classroomDepartmentId: "primary-1-primary-1",
+			},
+			{
+				name: "حنيفة",
+				surname: "عيسى",
+				gender: "Female",
+				classroomDepartmentId: "primary-1-primary-1",
+			},
+			{
+				name: "حليمة",
+				surname: "عثمان",
+				gender: "Female",
+				classroomDepartmentId: "primary-1-primary-1",
+			},
+		]);
+	});
 });
 
 function createImportJobCtx() {
-  const base = createImportCtx();
-  const jobs: any[] = [];
-  const jobRows: any[] = [];
-  const jobUpdates: any[] = [];
-  let jobCounter = 0;
-  let rowCounter = 0;
-  const now = new Date("2026-07-14T10:00:00.000Z");
+	const base = createImportCtx();
+	const jobs: any[] = [];
+	const jobRows: any[] = [];
+	const jobUpdates: any[] = [];
+	let jobCounter = 0;
+	let rowCounter = 0;
+	const now = new Date("2026-07-14T10:00:00.000Z");
 
-  return {
-    ...base,
-    jobs,
-    jobRows,
-    jobUpdates,
-    ctx: {
-      ...base.ctx,
-      currentUser: {
-        id: "user-1",
-        email: "admin@example.com",
-        name: "Admin",
-        role: "Admin",
-        saasAccountId: null,
-      },
-      db: {
-        ...base.ctx.db,
-        studentImportJob: {
-          create: async ({ data }: any) => {
-            const job = {
-              id: `job-${++jobCounter}`,
-              status: "PENDING",
-              totalRows: data.totalRows,
-              processedRows: data.processedRows ?? 0,
-              createdStudents: data.createdStudents ?? 0,
-              keptMatches: data.keptMatches ?? 0,
-              updatedMatches: data.updatedMatches ?? 0,
-              termSheetsCreated: data.termSheetsCreated ?? 0,
-              skippedRows: data.skippedRows ?? 0,
-              failedRows: data.failedRows ?? 0,
-              errorMessage: data.errorMessage ?? null,
-              triggerRunId: data.triggerRunId ?? null,
-              schoolProfileId: data.schoolProfileId,
-              schoolSessionId: data.schoolSessionId,
-              sessionTermId: data.sessionTermId,
-              createdByUserId: data.createdByUserId ?? null,
-              createdAt: now,
-              updatedAt: now,
-            };
-            jobs.push(job);
-            return job;
-          },
-          findFirst: async ({ where }: any) => {
-            let candidates = jobs.filter((job) => job.deletedAt == null);
-            if (where.schoolProfileId) {
-              candidates = candidates.filter(
-                (job) => job.schoolProfileId === where.schoolProfileId,
-              );
-            }
-            if (where.id) {
-              candidates = candidates.filter((job) => job.id === where.id);
-            }
-            if (where.createdByUserId) {
-              candidates = candidates.filter(
-                (job) => job.createdByUserId === where.createdByUserId,
-              );
-            }
-            if (where.status?.in) {
-              candidates = candidates.filter((job) =>
-                where.status.in.includes(job.status),
-              );
-            }
-            return candidates[0] ?? null;
-          },
-          update: async ({ where, data }: any) => {
-            const job = jobs.find((candidate) => candidate.id === where.id);
-            jobUpdates.push({ id: where.id, data: { ...data } });
-            Object.assign(job, data, { updatedAt: now });
-            return job;
-          },
-        },
-        studentImportJobRow: {
-          createMany: async ({ data }: any) => {
-            for (const row of data) {
-              jobRows.push({
-                id: `job-row-${++rowCounter}`,
-                status: "PENDING",
-                studentId: null,
-                termSheetCreated: false,
-                reason: null,
-                completedAt: null,
-                ...row,
-                createdAt: now,
-                updatedAt: now,
-              });
-            }
-            return { count: data.length };
-          },
-          findMany: async ({ where }: any) =>
-            jobRows
-              .filter((row) => row.jobId === where.jobId)
-              .filter((row) =>
-                where.status?.in ? where.status.in.includes(row.status) : true,
-              )
-              .sort((a, b) => a.lineNumber - b.lineNumber),
-          update: async ({ where, data }: any) => {
-            const row = jobRows.find((candidate) => candidate.id === where.id);
-            Object.assign(row, data, { updatedAt: now });
-            return row;
-          },
-        },
-      },
-    } as any,
-  };
+	return {
+		...base,
+		jobs,
+		jobRows,
+		jobUpdates,
+		ctx: {
+			...base.ctx,
+			currentUser: {
+				id: "user-1",
+				email: "admin@example.com",
+				name: "Admin",
+				role: "Admin",
+				saasAccountId: null,
+			},
+			db: {
+				...base.ctx.db,
+				studentImportJob: {
+					create: async ({ data }: any) => {
+						const job = {
+							id: `job-${++jobCounter}`,
+							status: "PENDING",
+							totalRows: data.totalRows,
+							processedRows: data.processedRows ?? 0,
+							createdStudents: data.createdStudents ?? 0,
+							keptMatches: data.keptMatches ?? 0,
+							updatedMatches: data.updatedMatches ?? 0,
+							termSheetsCreated: data.termSheetsCreated ?? 0,
+							skippedRows: data.skippedRows ?? 0,
+							failedRows: data.failedRows ?? 0,
+							errorMessage: data.errorMessage ?? null,
+							triggerRunId: data.triggerRunId ?? null,
+							schoolProfileId: data.schoolProfileId,
+							schoolSessionId: data.schoolSessionId,
+							sessionTermId: data.sessionTermId,
+							createdByUserId: data.createdByUserId ?? null,
+							createdAt: now,
+							updatedAt: now,
+						};
+						jobs.push(job);
+						return job;
+					},
+					findFirst: async ({ where }: any) => {
+						let candidates = jobs.filter((job) => job.deletedAt == null);
+						if (where.schoolProfileId) {
+							candidates = candidates.filter(
+								(job) => job.schoolProfileId === where.schoolProfileId,
+							);
+						}
+						if (where.id) {
+							candidates = candidates.filter((job) => job.id === where.id);
+						}
+						if (where.createdByUserId) {
+							candidates = candidates.filter(
+								(job) => job.createdByUserId === where.createdByUserId,
+							);
+						}
+						if (where.status?.in) {
+							candidates = candidates.filter((job) =>
+								where.status.in.includes(job.status),
+							);
+						}
+						return candidates[0] ?? null;
+					},
+					update: async ({ where, data }: any) => {
+						const job = jobs.find((candidate) => candidate.id === where.id);
+						jobUpdates.push({ id: where.id, data: { ...data } });
+						Object.assign(job, data, { updatedAt: now });
+						return job;
+					},
+				},
+				studentImportJobRow: {
+					createMany: async ({ data }: any) => {
+						for (const row of data) {
+							jobRows.push({
+								id: `job-row-${++rowCounter}`,
+								status: "PENDING",
+								studentId: null,
+								termSheetCreated: false,
+								reason: null,
+								completedAt: null,
+								...row,
+								createdAt: now,
+								updatedAt: now,
+							});
+						}
+						return { count: data.length };
+					},
+					findMany: async ({ where }: any) =>
+						jobRows
+							.filter((row) => row.jobId === where.jobId)
+							.filter((row) =>
+								where.status?.in ? where.status.in.includes(row.status) : true,
+							)
+							.sort((a, b) => a.lineNumber - b.lineNumber),
+					update: async ({ where, data }: any) => {
+						const row = jobRows.find((candidate) => candidate.id === where.id);
+						Object.assign(row, data, { updatedAt: now });
+						return row;
+					},
+				},
+			},
+		} as any,
+	};
 }
 
 describe("student import jobs", () => {
-  test("creates a pending tenant-scoped import job with persisted row payloads", async () => {
-    const { ctx, jobs, jobRows } = createImportJobCtx();
+	test("creates a pending tenant-scoped import job with persisted row payloads", async () => {
+		const { ctx, jobs, jobRows } = createImportJobCtx();
 
-    const job = await startStudentImportJob(
-      ctx,
-      {
-        rows: [
-          {
-            lineNumber: 1,
-            name: "John",
-            surname: "Doe",
-            gender: "Male",
-            classroomDepartmentId: "classroom-a",
-            action: "keep_match",
-            existingStudentId: "student-1",
-          },
-          {
-            lineNumber: 2,
-            name: "Mary",
-            surname: "Major",
-            gender: "Female",
-            classroomDepartmentId: "classroom-b",
-            action: "keep_match",
-            existingStudentId: "student-2",
-          },
-        ],
-      },
-      { enqueue: false },
-    );
+		const job = await startStudentImportJob(
+			ctx,
+			{
+				rows: [
+					{
+						lineNumber: 1,
+						name: "John",
+						surname: "Doe",
+						gender: "Male",
+						classroomDepartmentId: "classroom-a",
+						action: "keep_match",
+						existingStudentId: "student-1",
+					},
+					{
+						lineNumber: 2,
+						name: "Mary",
+						surname: "Major",
+						gender: "Female",
+						classroomDepartmentId: "classroom-b",
+						action: "keep_match",
+						existingStudentId: "student-2",
+					},
+				],
+			},
+			{ enqueue: false },
+		);
 
-    expect(job).toMatchObject({
-      id: "job-1",
-      status: "PENDING",
-      totalRows: 2,
-      processedRows: 0,
-      createdStudents: 0,
-      failedRows: 0,
-    });
-    expect(jobs[0]).toMatchObject({
-      schoolProfileId: "school-1",
-      schoolSessionId: "session-1",
-      sessionTermId: "term-1",
-      createdByUserId: "user-1",
-    });
-    expect(jobRows.map((row) => row.lineNumber)).toEqual([1, 2]);
-    expect(jobRows[0]?.payload).toMatchObject({
-      action: "keep_match",
-      existingStudentId: "student-1",
-    });
-  });
+		expect(job).toMatchObject({
+			id: "job-1",
+			status: "PENDING",
+			totalRows: 2,
+			processedRows: 0,
+			createdStudents: 0,
+			failedRows: 0,
+		});
+		expect(jobs[0]).toMatchObject({
+			schoolProfileId: "school-1",
+			schoolSessionId: "session-1",
+			sessionTermId: "term-1",
+			createdByUserId: "user-1",
+		});
+		expect(jobRows.map((row) => row.lineNumber)).toEqual([1, 2]);
+		expect(jobRows[0]?.payload).toMatchObject({
+			action: "keep_match",
+			existingStudentId: "student-1",
+		});
+	});
 
-  test("persists the effective classroom fallback on job rows", async () => {
-    const { ctx, jobRows } = createImportJobCtx();
+	test("persists the effective classroom fallback on job rows", async () => {
+		const { ctx, jobRows } = createImportJobCtx();
 
-    await startStudentImportJob(
-      ctx,
-      {
-        classroomDepartmentId: "classroom-a",
-        rows: [
-          {
-            lineNumber: 1,
-            name: "John",
-            surname: "Doe",
-            gender: "Male",
-            action: "keep_match",
-            existingStudentId: "student-1",
-          },
-        ],
-      },
-      { enqueue: false },
-    );
+		await startStudentImportJob(
+			ctx,
+			{
+				classroomDepartmentId: "classroom-a",
+				rows: [
+					{
+						lineNumber: 1,
+						name: "John",
+						surname: "Doe",
+						gender: "Male",
+						action: "keep_match",
+						existingStudentId: "student-1",
+					},
+				],
+			},
+			{ enqueue: false },
+		);
 
-    expect(jobRows[0]?.payload).toMatchObject({
-      classroomDepartmentId: "classroom-a",
-    });
-  });
+		expect(jobRows[0]?.payload).toMatchObject({
+			classroomDepartmentId: "classroom-a",
+		});
+	});
 
-  test("reads only tenant-owned import jobs", async () => {
-    const { ctx, jobs } = createImportJobCtx();
-    jobs.push({
-      id: "job-foreign",
-      status: "COMPLETED",
-      totalRows: 1,
-      processedRows: 1,
-      createdStudents: 1,
-      keptMatches: 0,
-      updatedMatches: 0,
-      termSheetsCreated: 1,
-      skippedRows: 0,
-      failedRows: 0,
-      schoolProfileId: "other-school",
-      schoolSessionId: "session-1",
-      sessionTermId: "term-1",
-      createdByUserId: "user-1",
-      deletedAt: null,
-    });
+	test("reads only tenant-owned import jobs", async () => {
+		const { ctx, jobs } = createImportJobCtx();
+		jobs.push({
+			id: "job-foreign",
+			status: "COMPLETED",
+			totalRows: 1,
+			processedRows: 1,
+			createdStudents: 1,
+			keptMatches: 0,
+			updatedMatches: 0,
+			termSheetsCreated: 1,
+			skippedRows: 0,
+			failedRows: 0,
+			schoolProfileId: "other-school",
+			schoolSessionId: "session-1",
+			sessionTermId: "term-1",
+			createdByUserId: "user-1",
+			deletedAt: null,
+		});
 
-    await expect(
-      getStudentImportJob(ctx, { jobId: "job-foreign" }),
-    ).rejects.toMatchObject({
-      code: "NOT_FOUND",
-    } satisfies Partial<TRPCError>);
-  });
+		await expect(
+			getStudentImportJob(ctx, { jobId: "job-foreign" }),
+		).rejects.toMatchObject({
+			code: "NOT_FOUND",
+		} satisfies Partial<TRPCError>);
+	});
 
-  test("returns null when no recoverable import job exists", async () => {
-    const { ctx } = createImportJobCtx();
+	test("returns null when no recoverable import job exists", async () => {
+		const { ctx } = createImportJobCtx();
 
-    await expect(getStudentImportJob(ctx)).resolves.toBeNull();
-  });
+		await expect(getStudentImportJob(ctx)).resolves.toBeNull();
+	});
 
-  test("processes only pending rows and does not double-count completed rows", async () => {
-    const { ctx, jobs, jobRows, createdTermForms } = createImportJobCtx();
-    jobs.push({
-      id: "job-1",
-      status: "RUNNING",
-      totalRows: 2,
-      processedRows: 1,
-      createdStudents: 0,
-      keptMatches: 1,
-      updatedMatches: 0,
-      termSheetsCreated: 1,
-      skippedRows: 0,
-      failedRows: 0,
-      schoolProfileId: "school-1",
-      schoolSessionId: "session-1",
-      sessionTermId: "term-1",
-      createdByUserId: "user-1",
-      deletedAt: null,
-    });
-    jobRows.push(
-      {
-        id: "job-row-1",
-        jobId: "job-1",
-        lineNumber: 1,
-        action: "keep_match",
-        status: "KEPT",
-        studentId: "student-1",
-        termSheetCreated: true,
-        reason: null,
-        completedAt: new Date("2026-07-14T09:00:00.000Z"),
-        payload: {
-          lineNumber: 1,
-          name: "John",
-          surname: "Doe",
-          gender: "Male",
-          classroomDepartmentId: "classroom-a",
-          action: "keep_match",
-          existingStudentId: "student-1",
-        },
-      },
-      {
-        id: "job-row-2",
-        jobId: "job-1",
-        lineNumber: 2,
-        action: "keep_match",
-        status: "PENDING",
-        studentId: null,
-        termSheetCreated: false,
-        reason: null,
-        completedAt: null,
-        payload: {
-          lineNumber: 2,
-          name: "Mary",
-          surname: "Major",
-          gender: "Female",
-          classroomDepartmentId: "classroom-b",
-          action: "keep_match",
-          existingStudentId: "student-2",
-        },
-      },
-    );
+	test("processes only pending rows and does not double-count completed rows", async () => {
+		const { ctx, jobs, jobRows, createdTermForms } = createImportJobCtx();
+		jobs.push({
+			id: "job-1",
+			status: "RUNNING",
+			totalRows: 2,
+			processedRows: 1,
+			createdStudents: 0,
+			keptMatches: 1,
+			updatedMatches: 0,
+			termSheetsCreated: 1,
+			skippedRows: 0,
+			failedRows: 0,
+			schoolProfileId: "school-1",
+			schoolSessionId: "session-1",
+			sessionTermId: "term-1",
+			createdByUserId: "user-1",
+			deletedAt: null,
+		});
+		jobRows.push(
+			{
+				id: "job-row-1",
+				jobId: "job-1",
+				lineNumber: 1,
+				action: "keep_match",
+				status: "KEPT",
+				studentId: "student-1",
+				termSheetCreated: true,
+				reason: null,
+				completedAt: new Date("2026-07-14T09:00:00.000Z"),
+				payload: {
+					lineNumber: 1,
+					name: "John",
+					surname: "Doe",
+					gender: "Male",
+					classroomDepartmentId: "classroom-a",
+					action: "keep_match",
+					existingStudentId: "student-1",
+				},
+			},
+			{
+				id: "job-row-2",
+				jobId: "job-1",
+				lineNumber: 2,
+				action: "keep_match",
+				status: "PENDING",
+				studentId: null,
+				termSheetCreated: false,
+				reason: null,
+				completedAt: null,
+				payload: {
+					lineNumber: 2,
+					name: "Mary",
+					surname: "Major",
+					gender: "Female",
+					classroomDepartmentId: "classroom-b",
+					action: "keep_match",
+					existingStudentId: "student-2",
+				},
+			},
+		);
 
-    const result = await processStudentImportJob(ctx.db, "job-1");
+		const result = await processStudentImportJob(ctx.db, "job-1");
 
-    expect(result).toMatchObject({
-      status: "COMPLETED",
-      processedRows: 2,
-      keptMatches: 2,
-      termSheetsCreated: 2,
-      failedRows: 0,
-    });
-    expect(createdTermForms).toHaveLength(1);
-    expect(jobRows.map((row) => row.status)).toEqual(["KEPT", "KEPT"]);
-  });
+		expect(result).toMatchObject({
+			status: "COMPLETED",
+			processedRows: 2,
+			keptMatches: 2,
+			termSheetsCreated: 2,
+			failedRows: 0,
+		});
+		expect(createdTermForms).toHaveLength(1);
+		expect(jobRows.map((row) => row.status)).toEqual(["KEPT", "KEPT"]);
+	});
 
-  test("persists aggregate progress after each bounded chunk", async () => {
-    const { ctx, jobs, jobRows, jobUpdates } = createImportJobCtx();
-    jobs.push({
-      id: "job-1",
-      status: "PENDING",
-      totalRows: 26,
-      processedRows: 0,
-      createdStudents: 0,
-      keptMatches: 0,
-      updatedMatches: 0,
-      termSheetsCreated: 0,
-      skippedRows: 0,
-      failedRows: 0,
-      schoolProfileId: "school-1",
-      schoolSessionId: "session-1",
-      sessionTermId: "term-1",
-      createdByUserId: "user-1",
-      deletedAt: null,
-    });
+	test("persists aggregate progress after each bounded chunk", async () => {
+		const { ctx, jobs, jobRows, jobUpdates } = createImportJobCtx();
+		jobs.push({
+			id: "job-1",
+			status: "PENDING",
+			totalRows: 26,
+			processedRows: 0,
+			createdStudents: 0,
+			keptMatches: 0,
+			updatedMatches: 0,
+			termSheetsCreated: 0,
+			skippedRows: 0,
+			failedRows: 0,
+			schoolProfileId: "school-1",
+			schoolSessionId: "session-1",
+			sessionTermId: "term-1",
+			createdByUserId: "user-1",
+			deletedAt: null,
+		});
 
-    for (let lineNumber = 1; lineNumber <= 26; lineNumber += 1) {
-      jobRows.push({
-        id: `job-row-${lineNumber}`,
-        jobId: "job-1",
-        lineNumber,
-        action: "keep_match",
-        status: "PENDING",
-        studentId: null,
-        termSheetCreated: false,
-        reason: null,
-        completedAt: null,
-        payload: {
-          lineNumber,
-          name: "Mary",
-          surname: "Major",
-          gender: "Female",
-          classroomDepartmentId: "classroom-b",
-          action: "keep_match",
-          existingStudentId: "student-2",
-        },
-      });
-    }
+		for (let lineNumber = 1; lineNumber <= 26; lineNumber += 1) {
+			jobRows.push({
+				id: `job-row-${lineNumber}`,
+				jobId: "job-1",
+				lineNumber,
+				action: "keep_match",
+				status: "PENDING",
+				studentId: null,
+				termSheetCreated: false,
+				reason: null,
+				completedAt: null,
+				payload: {
+					lineNumber,
+					name: "Mary",
+					surname: "Major",
+					gender: "Female",
+					classroomDepartmentId: "classroom-b",
+					action: "keep_match",
+					existingStudentId: "student-2",
+				},
+			});
+		}
 
-    const result = await processStudentImportJob(ctx.db, "job-1");
-    const progressUpdates = jobUpdates
-      .map((update) => update.data)
-      .filter((data) => typeof data.processedRows === "number");
+		const result = await processStudentImportJob(ctx.db, "job-1");
+		const progressUpdates = jobUpdates
+			.map((update) => update.data)
+			.filter((data) => typeof data.processedRows === "number");
 
-    expect(progressUpdates[0]).toMatchObject({
-      status: "RUNNING",
-      processedRows: 25,
-      keptMatches: 25,
-    });
-    expect(progressUpdates.at(-1)).toMatchObject({
-      status: "COMPLETED",
-      processedRows: 26,
-      keptMatches: 26,
-    });
-    expect(result).toMatchObject({
-      status: "COMPLETED",
-      processedRows: 26,
-      keptMatches: 26,
-      failedRows: 0,
-    });
-  });
+		expect(progressUpdates[0]).toMatchObject({
+			status: "RUNNING",
+			processedRows: 25,
+			keptMatches: 25,
+		});
+		expect(progressUpdates.at(-1)).toMatchObject({
+			status: "COMPLETED",
+			processedRows: 26,
+			keptMatches: 26,
+		});
+		expect(result).toMatchObject({
+			status: "COMPLETED",
+			processedRows: 26,
+			keptMatches: 26,
+			failedRows: 0,
+		});
+	});
 });
 
 function createDuplicateCtx({
-  firstAssessmentCount = 0,
-  secondAssessmentCount = 0,
-  assessmentRecords = [],
+	firstAssessmentCount = 0,
+	secondAssessmentCount = 0,
+	assessmentRecords = [],
 }: {
-  firstAssessmentCount?: number;
-  secondAssessmentCount?: number;
-  assessmentRecords?: Array<{
-    id: number;
-    classSubjectAssessmentId: number | null;
-    studentId: string | null;
-    studentTermFormId: string | null;
-  }>;
+	firstAssessmentCount?: number;
+	secondAssessmentCount?: number;
+	assessmentRecords?: Array<{
+		id: number;
+		classSubjectAssessmentId: number | null;
+		studentId: string | null;
+		studentTermFormId: string | null;
+	}>;
 } = {}) {
-  const termForms = [
-    {
-      id: "term-form-history",
-      studentSessionFormId: "session-form-history",
-      classroomDepartmentId: "classroom-a",
-      sessionTermId: "term-1",
-      createdAt: new Date("2025-01-01"),
-      classroomDepartment: {
-        id: "classroom-a",
-        departmentName: "A",
-        classRoom: { name: "JSS 1" },
-      },
-      _count: {
-        assessmentRecords: firstAssessmentCount,
-        attendanceList: 3,
-        financeCharges: 2,
-      },
-      student: {
-        id: "student-history",
-        name: "Aisha",
-        surname: "Bello",
-        otherName: null,
-        gender: "Female",
-        createdAt: new Date("2024-01-01"),
-        _count: {
-          sessionForms: 2,
-          termForms: 4,
-          guardians: 1,
-          assessmentRecords: 5,
-          financeCharges: 3,
-          financePayments: 2,
-        },
-      },
-    },
-    {
-      id: "term-form-current",
-      studentSessionFormId: "session-form-current",
-      classroomDepartmentId: "classroom-a",
-      sessionTermId: "term-1",
-      createdAt: new Date("2026-01-01"),
-      classroomDepartment: {
-        id: "classroom-a",
-        departmentName: "A",
-        classRoom: { name: "JSS 1" },
-      },
-      _count: {
-        assessmentRecords: secondAssessmentCount,
-        attendanceList: 0,
-        financeCharges: 0,
-      },
-      student: {
-        id: "student-current",
-        name: "  Aisha ",
-        surname: "Bello",
-        otherName: null,
-        gender: "Female",
-        createdAt: new Date("2026-01-01"),
-        _count: {
-          sessionForms: 1,
-          termForms: 1,
-          guardians: 0,
-          assessmentRecords: 0,
-          financeCharges: 0,
-          financePayments: 0,
-        },
-      },
-    },
-    {
-      id: "term-form-other-name",
-      studentSessionFormId: "session-form-other-name",
-      classroomDepartmentId: "classroom-a",
-      sessionTermId: "term-1",
-      createdAt: new Date("2026-01-02"),
-      classroomDepartment: {
-        id: "classroom-a",
-        departmentName: "A",
-        classRoom: { name: "JSS 1" },
-      },
-      _count: {
-        assessmentRecords: 0,
-        attendanceList: 0,
-        financeCharges: 0,
-      },
-      student: {
-        id: "student-other-name",
-        name: "Aisha",
-        surname: "Bello",
-        otherName: "Khadijah",
-        gender: "Female",
-        createdAt: new Date("2026-01-02"),
-        _count: {
-          sessionForms: 1,
-          termForms: 1,
-          guardians: 0,
-          assessmentRecords: 0,
-          financeCharges: 0,
-          financePayments: 0,
-        },
-      },
-    },
-  ];
+	const termForms = [
+		{
+			id: "term-form-history",
+			studentSessionFormId: "session-form-history",
+			classroomDepartmentId: "classroom-a",
+			sessionTermId: "term-1",
+			createdAt: new Date("2025-01-01"),
+			classroomDepartment: {
+				id: "classroom-a",
+				departmentName: "A",
+				classRoom: { name: "JSS 1" },
+			},
+			_count: {
+				assessmentRecords: firstAssessmentCount,
+				attendanceList: 3,
+				financeCharges: 2,
+			},
+			student: {
+				id: "student-history",
+				name: "Aisha",
+				surname: "Bello",
+				otherName: null,
+				gender: "Female",
+				createdAt: new Date("2024-01-01"),
+				_count: {
+					sessionForms: 2,
+					termForms: 4,
+					guardians: 1,
+					assessmentRecords: 5,
+					financeCharges: 3,
+					financePayments: 2,
+				},
+			},
+		},
+		{
+			id: "term-form-current",
+			studentSessionFormId: "session-form-current",
+			classroomDepartmentId: "classroom-a",
+			sessionTermId: "term-1",
+			createdAt: new Date("2026-01-01"),
+			classroomDepartment: {
+				id: "classroom-a",
+				departmentName: "A",
+				classRoom: { name: "JSS 1" },
+			},
+			_count: {
+				assessmentRecords: secondAssessmentCount,
+				attendanceList: 0,
+				financeCharges: 0,
+			},
+			student: {
+				id: "student-current",
+				name: "  Aisha ",
+				surname: "Bello",
+				otherName: null,
+				gender: "Female",
+				createdAt: new Date("2026-01-01"),
+				_count: {
+					sessionForms: 1,
+					termForms: 1,
+					guardians: 0,
+					assessmentRecords: 0,
+					financeCharges: 0,
+					financePayments: 0,
+				},
+			},
+		},
+		{
+			id: "term-form-other-name",
+			studentSessionFormId: "session-form-other-name",
+			classroomDepartmentId: "classroom-a",
+			sessionTermId: "term-1",
+			createdAt: new Date("2026-01-02"),
+			classroomDepartment: {
+				id: "classroom-a",
+				departmentName: "A",
+				classRoom: { name: "JSS 1" },
+			},
+			_count: {
+				assessmentRecords: 0,
+				attendanceList: 0,
+				financeCharges: 0,
+			},
+			student: {
+				id: "student-other-name",
+				name: "Aisha",
+				surname: "Bello",
+				otherName: "Khadijah",
+				gender: "Female",
+				createdAt: new Date("2026-01-02"),
+				_count: {
+					sessionForms: 1,
+					termForms: 1,
+					guardians: 0,
+					assessmentRecords: 0,
+					financeCharges: 0,
+					financePayments: 0,
+				},
+			},
+		},
+	];
 
-  return {
-    profile: {
-      schoolId: "school-1",
-      sessionId: "session-1",
-      termId: "term-1",
-    },
-    currentUser: {
-      id: "user-1",
-      role: "Admin",
-    },
-    db: {
-      studentTermForm: {
-        findMany: async ({ where }: any) => {
-          const studentIds = where.studentId?.in as string[] | undefined;
-          return termForms.filter(
-            (termForm) =>
-              (!where.classroomDepartmentId ||
-                termForm.classroomDepartmentId ===
-                  where.classroomDepartmentId) &&
-              termForm.sessionTermId === where.sessionTermId &&
-              (!studentIds || studentIds.includes(termForm.student.id)),
-          );
-        },
-      },
-      studentAssessmentRecord: {
-        findMany: async () => assessmentRecords,
-      },
-    },
-  } as any;
+	return {
+		profile: {
+			schoolId: "school-1",
+			sessionId: "session-1",
+			termId: "term-1",
+		},
+		currentUser: {
+			id: "user-1",
+			role: "Admin",
+		},
+		db: {
+			studentTermForm: {
+				findMany: async ({ where }: any) => {
+					const studentIds = where.studentId?.in as string[] | undefined;
+					return termForms.filter(
+						(termForm) =>
+							(!where.classroomDepartmentId ||
+								termForm.classroomDepartmentId ===
+									where.classroomDepartmentId) &&
+							termForm.sessionTermId === where.sessionTermId &&
+							(!studentIds || studentIds.includes(termForm.student.id)),
+					);
+				},
+			},
+			studentAssessmentRecord: {
+				findMany: async () => assessmentRecords,
+			},
+		},
+	} as any;
 }
 
 describe("student duplicate detection", () => {
-  test("groups exact normalized full names within the same class and term", async () => {
-    const ctx = createDuplicateCtx();
+	test("groups exact normalized full names within the same class and term", async () => {
+		const ctx = createDuplicateCtx();
 
-    const result = await getStudentDuplicateGroups(ctx, {
-      classroomDepartmentId: "classroom-a",
-    });
+		const result = await getStudentDuplicateGroups(ctx, {
+			classroomDepartmentId: "classroom-a",
+		});
 
-    expect(result).toMatchObject({
-      duplicateGroupCount: 1,
-      duplicateStudentCount: 2,
-    });
-    expect(result.groups[0]?.members.map((member) => member.studentId)).toEqual(
-      ["student-history", "student-current"],
-    );
-    expect(result.groups[0]?.recommendedSurvivorId).toBe("student-history");
-  });
+		expect(result).toMatchObject({
+			duplicateGroupCount: 1,
+			duplicateStudentCount: 2,
+		});
+		expect(result.groups[0]?.members.map((member) => member.studentId)).toEqual(
+			["student-history", "student-current"],
+		);
+		expect(result.groups[0]?.recommendedSurvivorId).toBe("student-history");
+	});
 
-  test("preview blocks merge when multiple current copies have assessment records", async () => {
-    const ctx = createDuplicateCtx({
-      firstAssessmentCount: 1,
-      secondAssessmentCount: 1,
-    });
+	test("preview blocks merge when multiple current copies have assessment records", async () => {
+		const ctx = createDuplicateCtx({
+			firstAssessmentCount: 1,
+			secondAssessmentCount: 1,
+		});
 
-    const preview = await previewStudentDuplicateMerge(ctx, {
-      classroomDepartmentId: "classroom-a",
-      survivorStudentId: "student-history",
-      duplicateStudentIds: ["student-current"],
-    });
+		const preview = await previewStudentDuplicateMerge(ctx, {
+			classroomDepartmentId: "classroom-a",
+			survivorStudentId: "student-history",
+			duplicateStudentIds: ["student-current"],
+		});
 
-    expect(preview.canMerge).toBe(false);
-    expect(preview.conflicts).toContain(
-      "Multiple duplicate copies have current-term assessment records. Review scores before merging.",
-    );
-  });
+		expect(preview.canMerge).toBe(false);
+		expect(preview.conflicts).toContain(
+			"Multiple duplicate copies have current-term assessment records. Review scores before merging.",
+		);
+	});
 
-  test("preview allows moving a single current copy into the history survivor", async () => {
-    const ctx = createDuplicateCtx({
-      firstAssessmentCount: 0,
-      secondAssessmentCount: 1,
-    });
+	test("preview allows moving a single current copy into the history survivor", async () => {
+		const ctx = createDuplicateCtx({
+			firstAssessmentCount: 0,
+			secondAssessmentCount: 1,
+		});
 
-    const preview = await previewStudentDuplicateMerge(ctx, {
-      classroomDepartmentId: "classroom-a",
-      survivorStudentId: "student-history",
-      duplicateStudentIds: ["student-current"],
-    });
+		const preview = await previewStudentDuplicateMerge(ctx, {
+			classroomDepartmentId: "classroom-a",
+			survivorStudentId: "student-history",
+			duplicateStudentIds: ["student-current"],
+		});
 
-    expect(preview.canMerge).toBe(true);
-    expect(preview.conflicts).toEqual([]);
-    expect(preview.recordsToMove.assessmentRecords).toBe(1);
-  });
+		expect(preview.canMerge).toBe(true);
+		expect(preview.conflicts).toEqual([]);
+		expect(preview.recordsToMove.assessmentRecords).toBe(1);
+	});
 
-  test("preview blocks assessment unique-key collisions before merge", async () => {
-    const ctx = createDuplicateCtx({
-      assessmentRecords: [
-        {
-          id: 1,
-          classSubjectAssessmentId: 100,
-          studentId: "student-history",
-          studentTermFormId: "term-form-history",
-        },
-        {
-          id: 2,
-          classSubjectAssessmentId: 100,
-          studentId: "student-current",
-          studentTermFormId: "term-form-current",
-        },
-      ],
-    });
+	test("preview blocks assessment unique-key collisions before merge", async () => {
+		const ctx = createDuplicateCtx({
+			assessmentRecords: [
+				{
+					id: 1,
+					classSubjectAssessmentId: 100,
+					studentId: "student-history",
+					studentTermFormId: "term-form-history",
+				},
+				{
+					id: 2,
+					classSubjectAssessmentId: 100,
+					studentId: "student-current",
+					studentTermFormId: "term-form-current",
+				},
+			],
+		});
 
-    const preview = await previewStudentDuplicateMerge(ctx, {
-      classroomDepartmentId: "classroom-a",
-      survivorStudentId: "student-history",
-      duplicateStudentIds: ["student-current"],
-    });
+		const preview = await previewStudentDuplicateMerge(ctx, {
+			classroomDepartmentId: "classroom-a",
+			survivorStudentId: "student-history",
+			duplicateStudentIds: ["student-current"],
+		});
 
-    expect(preview.canMerge).toBe(false);
-    expect(preview.conflicts).toContain(
-      "The survivor and duplicate copy both have a record for the same assessment. Review scores before merging.",
-    );
-  });
+		expect(preview.canMerge).toBe(false);
+		expect(preview.conflicts).toContain(
+			"The survivor and duplicate copy both have a record for the same assessment. Review scores before merging.",
+		);
+	});
 });

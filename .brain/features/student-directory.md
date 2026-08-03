@@ -58,6 +58,9 @@ columns, row selection, infinite loading, and RTL-aware logical positioning.
 - A row opens the existing overview sheet through `studentViewId`. Row actions
   reuse the existing overview and focused edit sheets through `studentViewId`
   and `studentEditId`.
+- Student create and basic-info forms display birth dates as `dd MMM yyyy`,
+  prevent future birth-date selections, and reopen the calendar on the selected
+  month for efficient review and correction.
 - The classroom student embed may continue to pass its legacy `grid` prop for
   compatibility, but the shared student data surface now renders the table.
 

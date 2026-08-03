@@ -111,6 +111,9 @@ export function FormDate<
 									{...calendarProps}
 									mode="single"
 									selected={field.value ?? undefined}
+									defaultMonth={
+										calendarProps?.defaultMonth ?? field.value ?? undefined
+									}
 									captionLayout={calendarProps?.captionLayout ?? "dropdown"}
 									startMonth={calendarProps?.startMonth ?? minimumMonth}
 									endMonth={calendarProps?.endMonth ?? maximumMonth}

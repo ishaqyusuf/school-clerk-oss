@@ -19,44 +19,29 @@ const fraunces = Fraunces({
 
 const icons: Metadata["icons"] =
   process.env.NODE_ENV === "development"
-    ? [
-        {
-          rel: "apple-touch-icon",
-          sizes: "128x128",
-          url: "/favicon-dev.png",
+    ? {
+        icon: {
+          type: "image/svg+xml",
+          sizes: "any",
+          url: "/brand-mark-dev.svg",
         },
-        {
-          rel: "icon",
-          type: "image/png",
-          sizes: "128x128",
-          url: "/favicon-dev.png",
-        },
-      ]
-    : [
-        {
-          rel: "apple-touch-icon",
-          sizes: "128x128",
-          url: "/favicon.png",
-        },
-        {
-          rel: "icon",
-          type: "image/png",
-          media: "(prefers-color-scheme: light)",
-          url: "/logo-light.png",
-        },
-        {
-          rel: "icon",
-          type: "image/png",
-          media: "(prefers-color-scheme: dark)",
-          url: "/logo-dark.png",
-        },
-        {
-          rel: "icon",
-          type: "image/png",
-          sizes: "128x128",
-          url: "/favicon.png",
-        },
-      ];
+        apple: "/favicon-dev.png",
+      }
+    : {
+        icon: [
+          {
+            type: "image/svg+xml",
+            sizes: "any",
+            url: "/brand-mark.svg",
+          },
+          {
+            type: "image/png",
+            sizes: "128x128",
+            url: "/favicon.png",
+          },
+        ],
+        apple: "/favicon.png",
+      };
 
 export const metadata: Metadata = {
   title: "SchoolClerk — One connected system for school operations",

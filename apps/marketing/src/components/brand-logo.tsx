@@ -23,25 +23,29 @@ export function BrandLogo({
 
   if (tone === "dark") {
     return (
-      <Image src="/logo-light.png" className={className} {...sharedProps} />
+      <Image src="/brand-mark.svg" className={className} {...sharedProps} />
     );
   }
 
   if (tone === "light") {
     return (
-      <Image src="/logo-dark.png" className={className} {...sharedProps} />
+      <Image
+        src="/brand-mark-inverse.svg"
+        className={className}
+        {...sharedProps}
+      />
     );
   }
 
   return (
     <>
       <Image
-        src="/logo-light.png"
+        src="/brand-mark.svg"
         className={className ? `${className} dark:hidden` : "dark:hidden"}
         {...sharedProps}
       />
       <Image
-        src="/logo-dark.png"
+        src="/brand-mark-inverse.svg"
         className={
           className ? `hidden ${className} dark:block` : "hidden dark:block"
         }

@@ -126,6 +126,36 @@ import Link from "next/link";
 import { cn } from "../../utils";
 
 export type Icon = LucideIcon;
+
+function SchoolClerkMark({ size = 36 }: { size?: number }) {
+  return (
+    <span
+      className="relative inline-flex shrink-0"
+      style={{ width: size, height: size }}
+    >
+      <Image
+        alt="School Clerk"
+        src="/brand-mark.svg"
+        width={size}
+        height={size}
+        className="dark:hidden"
+        priority
+        unoptimized
+      />
+      <Image
+        alt=""
+        aria-hidden="true"
+        src="/brand-mark-inverse.svg"
+        width={size}
+        height={size}
+        className="absolute inset-0 hidden dark:block"
+        priority
+        unoptimized
+      />
+    </span>
+  );
+}
+
 type SVGIconProps = {
   size?: number;
   stroke?: string;
@@ -526,57 +556,23 @@ export const Icons = {
   //
   // box: Box,
 
-  Logo: () => (
-    <Image
-      alt="School Clerk"
-      src="/logo.png"
-      width={32}
-      height={32}
-      className="rounded-md"
-      priority
-      unoptimized
-    />
-  ),
+  Logo: () => <SchoolClerkMark />,
   LogoLg: () => (
-    <div className="flex items-center gap-2">
-      <Image
-        alt="School Clerk"
-        src="/logo.png"
-        width={32}
-        height={32}
-        className="rounded-md"
-        priority
-        unoptimized
-      />
+    <div className="flex items-center gap-2.5">
+      <SchoolClerkMark />
       <span className="font-semibold text-foreground">School Clerk</span>
     </div>
   ),
   logoLg: () => (
-    <Link href="/" className="flex items-center gap-2">
-      <Image
-        alt="School Clerk"
-        src="/logo.png"
-        width={32}
-        height={32}
-        className="rounded-md"
-        priority
-        unoptimized
-      />
+    <Link href="/" className="flex items-center gap-2.5">
+      <SchoolClerkMark />
       <span className="font-semibold text-foreground">School Clerk</span>
     </Link>
   ),
 
   logo: () => (
     <Link href="/">
-      <Image
-        alt="School Clerk"
-        src="/logo.png"
-        width={32}
-        height={32}
-        className="rounded-md"
-        priority
-        unoptimized
-      />
+      <SchoolClerkMark />
     </Link>
   ),
   PrintLogo: () => (

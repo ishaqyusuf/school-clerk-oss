@@ -19,7 +19,16 @@ export function StudentBasicInfoForm() {
           options={["Male", "Female"]}
           control={control}
         />
-        <FormDate control={control} label="DoB" name="dob" />
+        <FormDate
+          control={control}
+          dateFormat="dd MMM yyyy"
+          label="Date of birth"
+          name="dob"
+          calendarProps={{
+            disabled: { after: new Date() },
+            endMonth: new Date(),
+          }}
+        />
       </div>
 
       <CollapseForm label="Parent">

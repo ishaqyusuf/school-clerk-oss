@@ -34,7 +34,7 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <BrandLogo size={28} />
+              <BrandLogo size={30} />
               <span className="font-semibold text-foreground">
                 School Clerk
               </span>
