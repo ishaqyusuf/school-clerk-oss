@@ -1,6 +1,21 @@
 import type { Metadata } from "next";
+import { Fraunces, Instrument_Sans } from "next/font/google";
 import "@school-clerk/ui/globals.css";
 import "@/styles/globals.css";
+
+const instrumentSans = Instrument_Sans({
+  display: "swap",
+  subsets: ["latin"],
+  variable: "--font-instrument-sans",
+});
+
+const fraunces = Fraunces({
+  display: "swap",
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  weight: "variable",
+});
 
 const icons: Metadata["icons"] =
   process.env.NODE_ENV === "development"
@@ -44,9 +59,9 @@ const icons: Metadata["icons"] =
       ];
 
 export const metadata: Metadata = {
-  title: "School Clerk — Modern School Management System",
+  title: "SchoolClerk — One connected system for school operations",
   description:
-    "School Clerk is an open-source school management platform for handling academics, attendance, finance, inventory, and staffing — all in one place.",
+    "Connect admissions, academics, attendance, payments, results, staff, and family communication in one configurable school operations platform.",
   icons,
 };
 
@@ -57,7 +72,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={`${instrumentSans.variable} ${fraunces.variable}`}>
+        {children}
+      </body>
     </html>
   );
 }

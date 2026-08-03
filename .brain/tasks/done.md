@@ -2,6 +2,30 @@
 
 ## Completed Task
 
+- ID: 2026-08-03-marketing-landing-theme-redesign
+- Title: Veracross-Inspired Marketing Landing Page And Platform Theme
+- Completed: 2026-08-03
+- Outcome: Rebuilt the public marketing page around a connected school-operations
+  story with an original product preview, institution-fit proof, connected
+  workflows, platform modules, accessible role workspaces, rollout guidance,
+  current pricing, FAQ, and responsive conversion paths. Adopted the Academic
+  Evergreen semantic palette across marketing, dashboard, and shared UI while
+  preserving tenant school-site theme ownership.
+- Validation: Marketing production build and focused typecheck passed;
+  dashboard and shared UI typechecks passed; desktop and mobile browser QA
+  verified responsive rendering, the mobile menu, pointer and keyboard role-tab
+  switching, accessible state updates, and zero console errors. The broad Turbo
+  typecheck remains blocked by unrelated existing jobs/API database export and
+  strictness failures.
+- Related changes: `apps/marketing/src/components/landing`,
+  `apps/marketing/src/app/page.tsx`, `apps/marketing/src/styles/globals.css`,
+  `apps/dashboard/src/styles/globals.css`, `packages/ui/src/styles/globals.css`,
+  `.brain/features/marketing-landing-page.md`,
+  `.brain/decisions/ADR-0020-academic-evergreen-platform-theme.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: 2026-08-02-gender-targeted-student-fees
 - Title: Gender-Targeted Student Fees
 - Completed: 2026-08-02
