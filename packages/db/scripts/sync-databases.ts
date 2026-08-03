@@ -49,8 +49,8 @@ Local sync requires DATABASE_URL in .env.local; it does not generate a fallback 
 
 function envFile(mode: "local" | "preview" | "prod") {
   if (mode === "local") return ".env.local DATABASE_URL";
-  if (mode === "preview") return ".env.preview DATABASE_URL over .env.local";
-  return ".env.prod DATABASE_URL";
+  if (mode === "preview") return ".env.preview DATABASE_URL";
+  return ".env.production DATABASE_URL";
 }
 
 function printReport(

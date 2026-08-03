@@ -22,11 +22,22 @@ Operational rules for AI agents contributing to this repository.
 - Never start a development server in the agent's current shell. Reuse an already-running development stack when available.
 - If development runtime is required and is not already running, create a new tab in the already-open cmux session and run exactly `jd school-clerk dev --local -f marketing dashboard school-site`. If cmux is unavailable, mark the active goal blocked instead of starting dev elsewhere.
 - The existing `portless`-wrapped `dev` scripts remain the implementation behind the cmux workflow; do not introduce new hardcoded default ports unless explicitly required.
-- Development database mode follows the project dev router in `scripts/dev.ts`: default `bun run dev` and `bun run dev --local` use local Docker Postgres, `bun run dev --preview` uses hosted preview, and `bun run dev --prod` uses the production-env smoke profile.
-- Database envs are root-only and canonicalized to `DATABASE_URL` plus `SCHOOL_CLERK_DB_MODE`; every mode file owns its complete `DATABASE_URL`. Do not add mode-specific database URL aliases or generated fallbacks.
+- Development database mode follows the shared router: default `bun run dev`
+  and `bun run dev --local` use `.env.local`, `bun run dev --dev` uses hosted
+  development, `bun run dev --preview` uses preview, and `bun run dev --prod`
+  uses the production-env smoke profile.
+- Database envs are root-only and canonicalized to `DATABASE_URL` plus
+  `SCHOOL_CLERK_DB_MODE`. Root tooling loads `.env` followed by exactly one of
+  `.env.local`, `.env.dev`, `.env.preview`, or `.env.production`; every profile
+  file owns its complete `DATABASE_URL`. Do not add filename aliases,
+  package-path scanning, cross-profile inheritance, or generated fallbacks.
 - Local infrastructure must parse `.env.local` `DATABASE_URL` and derive transient Docker Compose settings from it. Missing local database configuration is an error, not a reason to synthesize a URL.
 - Turbo `dev` tasks must pass through the canonical resolved database environment variables so filtered local dev commands keep package processes on the selected DB profile.
-- Prisma database actions use `local-infra-kit/bin/db.ts`: `db:generate`, `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell` default to local and accept only `--local`, `--preview`, or `--prod`. Do not add mode-suffixed aliases or repository-local database routers; normal schema rollout still uses only local and production push profiles.
+- Prisma database actions use `local-infra-kit/bin/db.ts`: `db:generate`,
+  `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell` default to
+  local and accept only `--local`, `--dev`, `--preview`, or `--prod`. Do not add
+  mode-suffixed aliases or repository-local database routers; normal schema
+  rollout still uses only local and production push profiles.
 - Local Postgres startup is owned by `scripts/start-dev-services.sh`; it starts Docker only when the selected DB mode or URL is local and skips local services for preview databases.
 - Keep `packages/db` and `packages/jobs` scripts on the shared dev-infra resolver for development, and keep production commands on `with-root-env --mode production`.
 - Current Portless local app names: dashboard -> `school-clerk-dashboard`, marketing -> `school-clerk`, school-site -> `school-clerk-site`, api -> `api`.

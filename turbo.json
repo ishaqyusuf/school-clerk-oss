@@ -1,11 +1,11 @@
 {
 	"$schema": "https://turborepo.org/schema.json",
 	"globalDependencies": [
-		"**/.env",
-		"**/.env.local",
-		"**/.env.preview",
-		"**/.env.prod",
-		"**/.env.production"
+		".env",
+		".env.local",
+		".env.dev",
+		".env.preview",
+		".env.production"
 	],
 	"globalEnv": [
 		"APP_ENV",

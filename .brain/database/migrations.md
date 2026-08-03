@@ -17,7 +17,7 @@
 
 ## 2026-07-31: Shared Database Commands And Sync
 
-- `db:generate`, `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell` use `local-infra-kit/bin/db.ts`; local is the default and `--local`, `--preview`, and `--prod` are the only mode flags.
+- `db:generate`, `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell` use `local-infra-kit/bin/db.ts`; local is the default and `--local`, `--dev`, `--preview`, and `--prod` are the only mode flags.
 - `db:sync` defaults to `--from-prod --to-local`; `--from-local --to-preview` publishes local data to preview, `--to-prod` is rejected, and `db:sync --help` requires no environment resolution or connection.
 - Mode-suffixed aliases and repository-local database routers were removed. Connected production actions require the credential-free target fingerprint as confirmation.
 
@@ -58,13 +58,26 @@ Change log for database schema migrations and rollout notes.
 - Do not force data-loss prompts or destructive changes without explicit approval.
 - Root database commands delegate to `local-infra-kit/bin/db.ts --profile school-clerk`; the shared router owns mode selection, target guards, local service startup, and production confirmation, while package-local scripts remain raw implementations.
 
-- Dev database selection uses `preview` for the shared hosted database, `local` for Docker Postgres, and `prod` for production-only scripts and deploys.
-- `scripts/dev.ts` defaults `bun run dev` to local Docker Postgres and supports `bun run dev --preview` for hosted preview. DB env loading is root-only; package-local `.env` files are not part of the database profile contract.
-- The canonical database env set is `DATABASE_URL` and `SCHOOL_CLERK_DB_MODE`. `.env.local`, `.env.preview`, and `.env.prod` each own the complete URL for their mode; scripts do not generate URLs or read mode-specific aliases.
+- Dev database selection uses `dev` for hosted development, `preview` for
+  preview, `local` for the default local profile, and `prod` for
+  production-only scripts and deploys.
+- The shared router defaults `bun run dev` to local and supports `--dev`,
+  `--preview`, and `--prod`. DB env loading is root-only; package-local `.env`
+  files are not part of the database profile contract.
+- Root tooling loads `.env` plus exactly one profile file: `.env.local`,
+  `.env.dev`, `.env.preview`, or `.env.production`. The canonical database env
+  set is `DATABASE_URL` and `SCHOOL_CLERK_DB_MODE`; each profile file owns the
+  complete URL, and scripts do not generate URLs or read filename aliases.
 - Local database runs in Docker and is mapped by `.env.local` to `localhost:55432`. The shared toolkit parses the URL and passes its port, database name, user, and password to Compose at runtime.
-- Use `bun run dev` or `bun run dev --local` for the default local Docker workflow, `bun run dev --preview` for hosted preview, and `bun run dev --prod` for the production-env dashboard/API smoke profile.
+- Use `bun run dev` or `bun run dev --local` for the default local workflow,
+  `bun run dev --dev` for hosted development, `bun run dev --preview` for
+  preview, and `bun run dev --prod` for the production-env dashboard/API smoke
+  profile.
 - Use `bun run dev:services` to start only the local services implied by the selected env; it skips Postgres when the DB mode or URL points at preview. Use `bun run dev:services:local`, `bun run db:start`, or `bun run db:docker:up` to force local Postgres startup.
-- `db:generate`, `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell` use one shared router. Each defaults to local and accepts only `--local`, `--preview`, or `--prod`; normal schema rollout still invokes only `db:push --local` and `db:push --prod`.
+- `db:generate`, `db:migrate`, `db:pull`, `db:push`, `db:studio`, and `db:shell`
+  use one shared router. Each defaults to local and accepts only `--local`,
+  `--dev`, `--preview`, or `--prod`; normal schema rollout still invokes only
+  `db:push --local` and `db:push --prod`.
 - Use the explicit two-profile push sequence above after Prisma schema/database updates.
 - Do not manually create migration files or run migration commands unless the user explicitly requests them.
 - Keep migration commands aligned with root `package.json` and `packages/db` scripts.

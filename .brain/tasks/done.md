@@ -2,6 +2,20 @@
 
 ## Completed Task
 
+- ID: 2026-08-03-root-environment-contract
+- Title: Canonical Root Environment And Remote Development Database Support
+- Completed: 2026-08-03
+- Outcome: Standardized tooling on `.env` plus exactly one of `.env.local`,
+  `.env.dev`, `.env.preview`, or `.env.production`; simplified Prisma config;
+  and allowed non-production structure commands to use hosted database URLs
+  while preserving the exact production-target blocker.
+- Validation: Focused database command and sync-pair contract tests passed.
+- Related changes: `packages/db/prisma.config.ts`, `packages/db/src/local-sync.ts`,
+  `turbo.json`, `.brain/database/migrations.md`
+- Owner: Codex
+
+## Completed Task
+
 - ID: 2026-08-03-marketing-landing-theme-redesign
 - Title: Veracross-Inspired Marketing Landing Page And Platform Theme
 - Completed: 2026-08-03

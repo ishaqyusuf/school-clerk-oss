@@ -60,7 +60,7 @@ describe("shared database command contract", () => {
       "bun --env-file=/dev/null ../local-infra-kit/bin/db-sync.ts --profile school-clerk",
     );
     expect(packageScripts["db:sync"]).toBe(
-      "bun scripts/sync-prod-to-local.ts",
+      "bun scripts/sync-databases.ts",
     );
     expect(
       Object.keys(rootScripts).filter(

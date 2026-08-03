@@ -41,8 +41,15 @@ Defines implementation standards for consistency, maintainability, and reliabili
 ## Local QA And Dev Commands
 
 - The root `bun run dev` router, `dev-run` bridge, kill-port discovery, and root-level env command wrapper are owned by `/Users/M1PRO/Documents/code/local-infra-kit`; invoke the toolkit directly from `package.json` with `--profile school-clerk` and keep dev command behavior aligned with the toolkit's standard monorepo contract.
-- Standard local infra env files are `.env.local`, `.env.preview`, and `.env.prod`; use `DATABASE_URL` as the database URL in each mode instead of adding mode-specific database URL names.
-- Treat each selected mode file's `DATABASE_URL` as authoritative. Parse local Docker connection settings from it at runtime; never duplicate its port, credentials, or database name in a registry or script fallback.
+- Root tooling loads `.env` plus exactly one of `.env.local`, `.env.dev`,
+  `.env.preview`, or `.env.production`. Every profile file owns its
+  `DATABASE_URL`; do not add filename aliases, package-path scanning, or
+  cross-profile fallbacks. Platform-injected process values remain valid for
+  hosted builds.
+- Treat each selected profile file's `DATABASE_URL` as authoritative for local
+  tooling. Parse local Docker connection settings from it at runtime; never
+  duplicate its port, credentials, or database name in a registry or script
+  fallback.
 - Database sync uses one shared command: `bun run db:sync` defaults to `--from-prod --to-local`; `--from-local --to-preview` publishes local data, `--to-prod` is forbidden, and synchronizer options follow `--`.
 - Agents must never start a development server in their current shell. Reuse the already-running stack when available.
 - If dev is required and no suitable stack is running, create a new tab in the already-open cmux session and run exactly `jd school-clerk dev --local -f marketing dashboard school-site`. If cmux is unavailable or cannot create the tab, mark the active goal blocked; do not start dev through another terminal or command runner.
@@ -51,7 +58,11 @@ Defines implementation standards for consistency, maintainability, and reliabili
 - Raw localhost ports may be inspected only while diagnosing Portless itself; they are not valid website QA URLs and do not allow work to proceed past a broken named host.
 - `bun run kill:ports` discovers numeric env variables ending in `_PORT` and ignores names containing `PORTLESS`. Keep every project-owned dev port declared as an individual `*_PORT` env variable instead of adding aggregate kill lists.
 - After every Prisma schema/database update, run only `bun run db:push --local` and `bun run db:push --prod`.
-- Database actions are owned by `local-infra-kit`: the single root command for each of generate/migrate/pull/push/studio/shell defaults to local and accepts only `--local`, `--preview`, or `--prod`. Connected production actions require typing the printed credential-free target fingerprint. Do not add mode-suffixed aliases or a repository-local router.
+- Database actions are owned by `local-infra-kit`: the single root command for
+  each of generate/migrate/pull/push/studio/shell defaults to local and accepts
+  only `--local`, `--dev`, `--preview`, or `--prod`. Connected production
+  actions require typing the printed credential-free target fingerprint. Do
+  not add mode-suffixed aliases or a repository-local router.
 - Do not run `db:migrate`, create migration files, or push Prisma schema changes to the preview profile unless the user explicitly requests it. Preserve the repository's destructive-change safeguards, never force data loss without explicit approval, and report any required local or production push that could not be updated.
 
 ## Midday Architecture Standards

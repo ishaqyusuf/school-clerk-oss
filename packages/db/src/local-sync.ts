@@ -590,23 +590,16 @@ async function readEnvFiles(files: string[]): Promise<Record<string, string>> {
 }
 
 async function loadModeEnv(repoRoot: string, mode: SyncEnvMode): Promise<Record<string, string>> {
-  if (mode === "preview") {
-    const localEnv = await readEnvFiles([resolve(repoRoot, ".env.local")]);
-    const previewEnv = await readEnvFiles([resolve(repoRoot, ".env.preview")]);
-    return { ...localEnv, ...previewEnv, DATABASE_URL: previewEnv.DATABASE_URL ?? "" };
-  }
+  const profileFile =
+    mode === "prod" ? ".env.production" : `.env.${mode}`;
+  const baseEnv = await readEnvFiles([resolve(repoRoot, ".env")]);
+  const profileEnv = await readEnvFiles([resolve(repoRoot, profileFile)]);
 
-  if (mode === "prod") {
-    const prodEnv = await readEnvFiles([resolve(repoRoot, ".env.prod")]);
-
-    if (prodEnv.DATABASE_URL) {
-      return prodEnv;
-    }
-
-    return readEnvFiles([resolve(repoRoot, ".env.production")]);
-  }
-
-  return readEnvFiles([resolve(repoRoot, ".env.local")]);
+  return {
+    ...baseEnv,
+    ...profileEnv,
+    DATABASE_URL: profileEnv.DATABASE_URL ?? "",
+  };
 }
 
 export function syncPairModes(pairMode: SyncPairMode): {
@@ -686,7 +679,7 @@ export async function resolveOptions(
 
   if (!sourceUrl) {
     throw new Error(
-      `Missing source database URL. Set DATABASE_URL in ${sourceMode === "prod" ? ".env.prod" : sourceMode === "preview" ? ".env.preview" : ".env.local"} or pass --source-url.`,
+      `Missing source database URL. Set DATABASE_URL in ${sourceMode === "prod" ? ".env.production" : sourceMode === "preview" ? ".env.preview" : ".env.local"} or pass --source-url.`,
     );
   }
 
