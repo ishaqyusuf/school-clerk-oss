@@ -25,6 +25,9 @@ page.
 - Pricing uses the current product ranges: a one-time setup of
   `₦50k–₦200k`, a monthly platform range of `₦10k–₦50k`, and separately scoped
   optional add-ons.
+- Shared marketing links publish a branded 1200×630 Open Graph image and the
+  existing product description through Open Graph and Twitter large-image
+  metadata.
 
 ## Page Structure
 

@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { Fraunces, Instrument_Sans } from "next/font/google";
 import "@school-clerk/ui/globals.css";
 import "@/styles/globals.css";
+import {
+  createMarketingSocialMetadata,
+  marketingSiteUrl,
+} from "@/lib/social-metadata";
 
 const instrumentSans = Instrument_Sans({
   display: "swap",
@@ -43,11 +47,14 @@ const icons: Metadata["icons"] =
         apple: "/favicon.png",
       };
 
+const title = "SchoolClerk — One connected system for school operations";
+const description =
+  "Connect admissions, academics, attendance, payments, results, staff, and family communication in one configurable school operations platform.";
+
 export const metadata: Metadata = {
-  title: "SchoolClerk — One connected system for school operations",
-  description:
-    "Connect admissions, academics, attendance, payments, results, staff, and family communication in one configurable school operations platform.",
+  ...createMarketingSocialMetadata({ description, title }),
   icons,
+  metadataBase: new URL(marketingSiteUrl),
 };
 
 export default function RootLayout({
