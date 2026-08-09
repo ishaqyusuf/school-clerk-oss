@@ -2,6 +2,37 @@
 
 ## Migration Entry
 
+- Date: 2026-08-04
+- ID: PROVIDER-2026-08-04-SUPABASE-TO-NEON
+- Summary: Moved the production application PostgreSQL database from Supabase
+  PostgreSQL 15.8 to Neon PostgreSQL 17.10. Exported and restored only the
+  application-owned `public` schema; Supabase-managed auth, storage, realtime,
+  GraphQL, vault, and extension schemas were intentionally excluded.
+- Affected entities: All 120 production `public` tables, 361 constraints, 293
+  indexes, and 16 sequences. No Prisma model or application schema changed.
+- Backfill required: No. The restored database passed exact per-table row-count
+  and content-checksum comparison, plus enum, constraint, index, sequence, and
+  active-column-definition comparison before cutover.
+- Applied: Restored a custom-format `pg_dump` archive to the Neon direct
+  endpoint, changed the Vercel dashboard production `DATABASE_URL` to Neon's
+  pooled endpoint, redeployed the dashboard, synchronized the Trigger.dev
+  production environment, and deployed Trigger worker version `20260804.10`.
+  The worker build now generates the ignored Prisma 7 database client before
+  bundling. No Prisma push or migration file was required.
+- Compatibility note: Supabase physical column ordinals contained gaps from
+  historical dropped columns; the clean Neon restore compacted those internal
+  ordinals without changing any active column definition or application data.
+- Post-cutover validation: A final exact comparison after both Vercel and
+  Trigger.dev deployment again found 120 tables on each provider with no table,
+  row-count, or content-checksum mismatch.
+- Rollback plan: Keep the Supabase project read-only/available during the
+  observation window. Repoint Vercel and Trigger.dev `DATABASE_URL` to the
+  retained Supabase session-pooler URL and redeploy if a Neon-specific issue is
+  discovered. Reconcile any writes created on Neon before reverting traffic.
+- Owner: Codex
+
+## Migration Entry
+
 - Date: 2026-08-02
 - ID: SCHEMA-2026-08-02-finance-item-gender-audience
 - Summary: Added an orthogonal gender-audience rule to reusable student fee

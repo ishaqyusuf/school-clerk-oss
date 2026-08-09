@@ -2,6 +2,32 @@
 
 ## Completed Task
 
+- ID: 2026-08-04-production-postgresql-neon-migration
+- Title: Migrate Production PostgreSQL From Supabase To Neon
+- Completed: 2026-08-04
+- Outcome: Copied the application-owned production `public` schema and data to
+  Neon, validated all 120 tables and database metadata, switched and redeployed
+  the Vercel dashboard, and synchronized the Trigger.dev production database
+  environment. Trigger worker version `20260804.10` was built and deployed after
+  hardening its remote Prisma-client generation. Supabase-managed services were
+  not part of the application data path and were not copied.
+- Validation: Custom-format archive inspection; exact per-table row counts and
+  content checksums; enum, constraint, index, sequence, and active-column
+  comparisons; Prisma pooled-connection smoke queries; and an HTTP 200 response
+  from the production dashboard after its Neon-backed deployment. The final
+  post-Trigger comparison still reported 120 matching tables and zero content
+  mismatches. The Trigger remote build passed; the existing broad jobs
+  typecheck remains red on unrelated monorepo missing-export and NodeNext
+  extension errors.
+- Related changes: `.env.production`, `.brain/database/migrations.md`,
+  `.brain/database/schema.md`, `.brain/system/overview.md`,
+  `.brain/system/tech-stack.md`, `.brain/SYSTEM_OVERVIEW.md`,
+  `.brain/decisions/ADR-0021-production-postgresql-on-neon.md`,
+  `packages/jobs/trigger.config.ts`, `packages/jobs/package.json`, `bun.lock`
+- Owner: Codex
+
+## Completed Task
+
 - ID: 2026-08-03-root-environment-contract
 - Title: Canonical Root Environment And Remote Development Database Support
 - Completed: 2026-08-03

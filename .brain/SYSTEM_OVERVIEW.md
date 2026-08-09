@@ -82,8 +82,8 @@ High-level description of the SchoolClerk platform architecture, core domains, a
 - Mobile app: Expo React Native
 - API: tRPC routers
 - Business layer: service modules
-- Data layer: Prisma repositories on PostgreSQL
-- Auth: Supabase Auth
+- Data layer: Prisma repositories on Neon PostgreSQL in production
+- Auth: Better Auth with the Prisma adapter
 - Async/background work: Trigger.dev
 - Transactional email: Resend
 

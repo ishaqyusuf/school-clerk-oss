@@ -35,9 +35,9 @@ Tracks logical and physical schema for SchoolClerk data entities.
 ## Source Of Truth
 
 - Prisma schema location: `packages/db/src/schema/*.prisma`
-- Primary datasource: PostgreSQL (`provider = "postgresql"`)
+- Primary datasource: Neon PostgreSQL in production (`provider = "postgresql"`)
 - ORM client: Prisma Client 7 (`prisma-client-js`) generated to `packages/db/src/generated/client`
-- Runtime adapter: `@prisma/adapter-pg`; `packages/db/src/prisma.ts` resolves the canonical `DATABASE_URL` and normalizes PostgreSQL SSL connection parameters for Supabase-compatible deployments.
+- Runtime adapter: `@prisma/adapter-pg`; `packages/db/src/prisma.ts` resolves the canonical `DATABASE_URL` and normalizes PostgreSQL SSL connection parameters. Production runtimes use Neon's pooled URL, while administrative restore and validation work uses its direct URL.
 - Development infra selects `SCHOOL_CLERK_DB_MODE=preview` or `local` and exports the final `DATABASE_URL` used by Prisma maintenance commands. `local-infra-kit/bin/db.ts` runs guarded Prisma commands from `packages/db`; `packages/db/prisma.config.ts` reads only `DATABASE_URL`.
 
 ## Active Model Groups

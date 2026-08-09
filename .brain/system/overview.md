@@ -31,8 +31,8 @@ Operational summary of SchoolClerk domains, modules, and runtime boundaries.
 
 - Frontend apps: `apps/dashboard` (authenticated product UI), `apps/marketing` (marketing)
 - Backend services: `apps/api` tRPC/Hono API, Trigger.dev jobs in `packages/jobs`
-- Data stores: PostgreSQL via Prisma models in `packages/db/src/schema/*.prisma`, including tenant/user-scoped `Notification` and `NotificationPreference` records
-- External providers: Better Auth, Vercel domains, Resend email, Google Fonts (build-time fetch in Next.js)
+- Data stores: Neon PostgreSQL in production via Prisma models in `packages/db/src/schema/*.prisma`, including tenant/user-scoped `Notification` and `NotificationPreference` records
+- External providers: Neon, Better Auth, Vercel domains, Trigger.dev, Resend email, Google Fonts (build-time fetch in Next.js)
 - Tenant/domain proxying owns the dashboard mount, so product pages should navigate with app-relative paths like `/finance/...` instead of hardcoding `/dashboard/...`.
 - Production school signup now provisions both the public site host `{subdomain}.school-clerk.com` and dashboard host `dashboard.{subdomain}.school-clerk.com`, then sends owner email verification through Resend.
 

@@ -1,7 +1,42 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { PrismaInstrumentation } from "@prisma/instrumentation";
+import type { BuildExtension } from "@trigger.dev/build";
 import { syncEnvVars } from "@trigger.dev/build/extensions/core";
 import { prismaExtension } from "@trigger.dev/build/extensions/prisma";
 import { defineConfig } from "@trigger.dev/sdk";
+
+const execFileAsync = promisify(execFile);
+
+const generateDatabaseClient: BuildExtension = {
+	name: "generate-database-prisma-client",
+	async onBuildStart(context) {
+		if (context.target === "dev") return;
+
+		context.logger.progress("Generating @school-clerk/db Prisma client");
+		const prismaCliPath = await context.resolvePath("prisma/build/index.js");
+		if (!prismaCliPath) {
+			throw new Error("Unable to resolve the Prisma CLI in the Trigger build workspace");
+		}
+		await execFileAsync(
+			process.execPath,
+			[
+				prismaCliPath,
+				"generate",
+				"--schema=src/schema",
+			],
+			{
+				cwd: `${context.workingDir}/../db`,
+				env: {
+					...process.env,
+					DATABASE_URL:
+						process.env.DATABASE_URL ??
+						"postgresql://postgres:postgres@localhost:5432/school_clerk",
+				},
+			},
+		);
+	},
+};
 
 export default defineConfig({
 	project: process.env.TRIGGER_PROJECT_ID!,
@@ -20,6 +55,7 @@ export default defineConfig({
 	},
 	build: {
 		extensions: [
+			generateDatabaseClient,
 			syncEnvVars(
 				() =>
 					Object.fromEntries(
