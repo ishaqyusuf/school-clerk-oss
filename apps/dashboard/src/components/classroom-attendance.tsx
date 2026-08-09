@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import {
   useMutation,
   useQuery,
@@ -20,7 +20,10 @@ import {
   TrendingUp,
   XCircle,
 } from "lucide-react";
-import { ClassroomAttendanceRecorder } from "./classroom-attendance-form";
+import {
+  ClassroomAttendanceRecorder,
+} from "./classroom-attendance-form";
+import { AttendanceSessionDialog } from "./attendance-session-dialog";
 import { AttendanceSessionList } from "./classroom-attendance-session-lists";
 import {
   Tabs,
@@ -31,18 +34,32 @@ import {
 
 export function ClassroomAttendance({
   departmentId,
+  sessionPresentation = "sheet",
 }: {
   departmentId?: string | null;
+  sessionPresentation?: "dialog" | "sheet";
 }) {
   return (
     <Suspense fallback={<TableSkeleton />}>
-      <Content departmentId={departmentId} />
+      <Content
+        departmentId={departmentId}
+        sessionPresentation={sessionPresentation}
+      />
     </Suspense>
   );
 }
 
-function Content({ departmentId }: { departmentId?: string | null }) {
+function Content({
+  departmentId,
+  sessionPresentation,
+}: {
+  departmentId?: string | null;
+  sessionPresentation: "dialog" | "sheet";
+}) {
   const { attendanceSessionId, setParams } = useClassroomParams();
+  const [dialogAttendanceSessionId, setDialogAttendanceSessionId] = useState<
+    string | null
+  >(null);
   const trpc = useTRPC();
   const qc = useQueryClient();
   const { data: sessions } = useSuspenseQuery(
@@ -90,6 +107,9 @@ function Content({ departmentId }: { departmentId?: string | null }) {
           }),
         });
 
+        if (dialogAttendanceSessionId === attendanceId) {
+          setDialogAttendanceSessionId(null);
+        }
         if (attendanceSessionId === attendanceId) {
           setParams({
             attendanceSessionId: null,
@@ -123,18 +143,25 @@ function Content({ departmentId }: { departmentId?: string | null }) {
     totalEligibleStudents > 0
       ? Math.round((totalAbsent / totalEligibleStudents) * 1000) / 10
       : 0;
-  const openAttendanceSession = (attendanceId: string) =>
+  const openAttendanceSession = (nextAttendanceSessionId: string) => {
+    if (sessionPresentation === "dialog") {
+      setDialogAttendanceSessionId(nextAttendanceSessionId);
+      return;
+    }
+
     setParams({
-      attendanceSessionId: attendanceId,
+      attendanceSessionId: nextAttendanceSessionId,
       secondaryTab: "attendance-overview",
     });
+  };
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
-      <Tabs
-        defaultValue="attendance"
-        className="flex min-w-0 flex-col gap-4 sm:gap-5"
-      >
+    <>
+      <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
+        <Tabs
+          defaultValue="attendance"
+          className="flex min-w-0 flex-col gap-4 sm:gap-5"
+        >
         <TabsList className="grid h-auto min-w-0 w-full grid-cols-2 rounded-none border bg-muted/40 p-1">
           <TabsTrigger value="attendance" className="rounded-none py-2">
             Mark attendance
@@ -265,7 +292,16 @@ function Content({ departmentId }: { departmentId?: string | null }) {
             />
           )}
         </TabsContent>
-      </Tabs>
-    </div>
+        </Tabs>
+      </div>
+      {sessionPresentation === "dialog" ? (
+        <AttendanceSessionDialog
+          key={dialogAttendanceSessionId ?? "closed"}
+          attendanceId={dialogAttendanceSessionId}
+          departmentId={departmentId}
+          onClose={() => setDialogAttendanceSessionId(null)}
+        />
+      ) : null}
+    </>
   );
 }

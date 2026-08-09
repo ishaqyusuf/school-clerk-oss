@@ -365,8 +365,6 @@ export async function TeacherAttendancePanel() {
 			/>
 			<TeacherAttendanceWorkspace
 				classrooms={data.classrooms}
-				students={data.students}
-				subjects={data.subjects}
 			/>
 		</div>
 	);
