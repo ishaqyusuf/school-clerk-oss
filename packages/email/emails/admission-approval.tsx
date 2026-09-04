@@ -1,20 +1,10 @@
+import { Section } from "@react-email/components";
 import * as React from "react";
-import {
-	Body,
-	Container,
-	Heading,
-	Preview,
-	Section,
-	Text,
-} from "@react-email/components";
-import { Footer } from "../components/footer";
-import { Logo } from "../components/logo";
-import {
-	Button,
-	EmailThemeProvider,
-	getEmailInlineStyles,
-	getEmailThemeClasses,
-} from "../components/theme";
+import { Button } from "../components/button";
+import { EmailFrame } from "../components/email-frame";
+import { FallbackLink } from "../components/fallback-link";
+import { Ledger, type LedgerRow } from "../components/ledger";
+import { Notice } from "../components/notice";
 
 export type AdmissionApprovalEmailProps = {
 	admissionLetterUrl?: string | null;
@@ -43,124 +33,82 @@ export function AdmissionApprovalEmail({
 	schoolName,
 	studentName,
 }: AdmissionApprovalEmailProps) {
-	const title = `${studentName}'s admission was approved`;
-	const themeClasses = getEmailThemeClasses();
-	const lightStyles = getEmailInlineStyles("light");
+	const title = `${studentName} has a place in ${classroomName}.`;
+	const primaryHref = paymentLink ?? admissionLetterUrl;
+	const rows: LedgerRow[] = [
+		{ label: "Student", value: studentName },
+		{ label: "Class", value: classroomName },
+		...(paymentRequired
+			? [
+					{
+						label: paymentLabel || "Admission payment",
+						value: paymentAmount || "Required",
+					},
+					...(paymentDueAt ? [{ label: "Due date", value: paymentDueAt }] : []),
+				]
+			: [{ label: "Admission payment", value: "Not required" }]),
+	];
 
 	return (
-		<EmailThemeProvider preview={<Preview>{title}</Preview>}>
-			<Body style={body}>
-				<Container
-					className={`my-[40px] mx-auto p-[32px] max-w-[560px] ${themeClasses.container}`}
-					style={{
-						...container,
-						borderColor: lightStyles.container.borderColor,
-					}}
-				>
-					<Logo />
-					<Section className="mt-[18px] mb-[12px]">
-						<Text className="m-0 text-[12px] font-bold uppercase tracking-[0.08em] text-[#7c5f10]">
-							Admission approved
-						</Text>
-					</Section>
-					<Heading
-						className={`mx-0 my-[16px] text-[28px] leading-[34px] ${themeClasses.heading}`}
-						style={{ color: lightStyles.text.color }}
-					>
-						{title}
-					</Heading>
-					<Text
-						className={`text-[15px] leading-[24px] ${themeClasses.text}`}
-						style={{ color: lightStyles.text.color }}
-					>
-						Hello {parentName || "there"},
-					</Text>
-					<Text
-						className={`text-[15px] leading-[24px] ${themeClasses.text}`}
-						style={{ color: lightStyles.text.color }}
-					>
-						{schoolName} has approved {studentName}&apos;s admission into{" "}
-						{classroomName}. Please review the next steps below.
-					</Text>
-					{paymentRequired ? (
-						<Section style={metaCard} className="email-border">
-							<Text style={metaItem} className={themeClasses.text}>
-								<strong>Payment:</strong> {paymentLabel || "Admission payment"}
-							</Text>
-							{paymentAmount ? (
-								<Text style={metaItem} className={themeClasses.text}>
-									<strong>Amount:</strong> {paymentAmount}
-								</Text>
-							) : null}
-							{paymentDueAt ? (
-								<Text style={metaItem} className={themeClasses.text}>
-									<strong>Due date:</strong> {paymentDueAt}
-								</Text>
-							) : null}
-							{paymentInstructions ? (
-								<Text style={metaItem} className={themeClasses.text}>
-									<strong>Instructions:</strong> {paymentInstructions}
-								</Text>
-							) : null}
-						</Section>
-					) : (
-						<Text
-							className={`text-[15px] leading-[24px] ${themeClasses.text}`}
-							style={{ color: lightStyles.text.color }}
-						>
-							No admission payment is required before the next step.
-						</Text>
-					)}
+		<EmailFrame
+			category="Admissions"
+			contactLine="Admissions office"
+			eyebrow="Admission approved"
+			intro={
+				<>
+					Hello {parentName || "there"}, {schoolName} has approved {studentName}
+					&apos;s admission. Review the enrolment details and complete the next
+					step below.
+				</>
+			}
+			preview={`${studentName}'s admission to ${schoolName} was approved`}
+			reference="Admissions"
+			schoolName={schoolName}
+			title={title}
+			tone="success"
+		>
+			<Ledger rows={rows} />
+			<Notice>
+				{paymentRequired
+					? paymentInstructions ||
+						"Complete the admission payment to secure the offered place."
+					: "No admission payment is required before the next step."}
+			</Notice>
+			{primaryHref ? (
+				<Section style={{ margin: "26px 0 12px" }}>
 					{paymentLink ? (
-						<Section className="mb-[12px] mt-[24px] text-center">
-							<Button href={paymentLink}>Open payment link</Button>
-						</Section>
+						<Button href={paymentLink}>Complete payment</Button>
 					) : null}
 					{admissionLetterUrl ? (
-						<Section className="mb-[12px] mt-[12px] text-center">
-							<Button href={admissionLetterUrl}>Download admission letter</Button>
-						</Section>
+						<Button
+							className={paymentLink ? "ml-[8px]" : ""}
+							href={admissionLetterUrl}
+							variant="secondary"
+						>
+							Admission letter
+						</Button>
 					) : null}
-					<Text
-						className={`mt-[28px] text-[12px] leading-[18px] ${themeClasses.secondaryText}`}
-						style={{ color: lightStyles.secondaryText.color }}
-					>
-						This admission notice was sent by {schoolName} via School Clerk.
-					</Text>
-					<Footer />
-				</Container>
-			</Body>
-		</EmailThemeProvider>
+				</Section>
+			) : null}
+			<FallbackLink href={primaryHref} />
+		</EmailFrame>
 	);
 }
 
-const body = {
-	backgroundColor: "#f5f4ef",
-	fontFamily: "Arial, sans-serif",
-	margin: 0,
-	padding: "24px 0",
-};
-
-const container = {
-	backgroundColor: "#ffffff",
-	border: "1px solid #e7e5dd",
-	borderRadius: "16px",
-	margin: "0 auto",
-	maxWidth: "560px",
-	padding: "32px",
-};
-
-const metaCard = {
-	backgroundColor: "#fafaf9",
-	border: "1px solid #ece8df",
-	borderRadius: "14px",
-	margin: "20px 0",
-	padding: "16px 20px",
-};
-
-const metaItem = {
-	color: "#3f3f46",
-	fontSize: "14px",
-	lineHeight: "22px",
-	margin: "0 0 6px",
-};
+export default function AdmissionApprovalEmailPreview() {
+	return (
+		<AdmissionApprovalEmail
+			admissionLetterUrl="https://dashboard.greenfield.school-clerk.com/admissions/AMR-0248/letter"
+			classroomName="Junior Secondary 1"
+			parentName="Chioma"
+			paymentAmount="₦125,000"
+			paymentDueAt="5 September 2026"
+			paymentInstructions="Pay online or use the bank instructions in the admission letter. Your place is held until the due date."
+			paymentLabel="Acceptance fee"
+			paymentLink="https://dashboard.greenfield.school-clerk.com/admissions/AMR-0248/payment"
+			paymentRequired
+			schoolName="Greenfield Academy"
+			studentName="Amara Okafor"
+		/>
+	);
+}

@@ -3,6 +3,7 @@ import {
 	createFinanceTemplate,
 	defineSchoolNotification,
 	financeBaseSchema,
+	formatNotificationEmailSubject,
 } from "./shared";
 
 const schema = financeBaseSchema.extend({
@@ -17,7 +18,6 @@ export const studentPaymentCancelled = defineSchoolNotification({
 			amount: payload.amount,
 			ctaHref: payload.link ?? "/finance/transactions",
 			eventLabel: "Student payment cancelled",
-			greetingName: payload.studentName,
 			message: `${payload.schoolName} cancelled a student payment for ${payload.studentName}.`,
 			metadata: [
 				{ label: "Student", value: payload.studentName },
@@ -26,9 +26,15 @@ export const studentPaymentCancelled = defineSchoolNotification({
 					: []),
 			],
 			schoolName: payload.schoolName,
+			subtitle:
+				"Review the transaction record before collecting or reallocating another payment.",
 			title: `Payment cancelled for ${payload.studentName}`,
+			tone: "warning",
 		}),
-		subject: `${payload.schoolName}: payment cancelled for ${payload.studentName}`,
+		subject: formatNotificationEmailSubject(
+			payload.schoolName,
+			`payment cancelled for ${payload.studentName}`,
+		),
 	}),
 	buildLink: (payload) => payload.link ?? "/finance/transactions",
 	channels: ["in_app", "email"],

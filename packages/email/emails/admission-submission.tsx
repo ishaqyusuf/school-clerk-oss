@@ -1,20 +1,10 @@
+import { Section } from "@react-email/components";
 import * as React from "react";
-import {
-	Body,
-	Container,
-	Heading,
-	Preview,
-	Section,
-	Text,
-} from "@react-email/components";
-import { Footer } from "../components/footer";
-import { Logo } from "../components/logo";
-import {
-	Button,
-	EmailThemeProvider,
-	getEmailInlineStyles,
-	getEmailThemeClasses,
-} from "../components/theme";
+import { Button } from "../components/button";
+import { EmailFrame } from "../components/email-frame";
+import { FallbackLink } from "../components/fallback-link";
+import { Ledger } from "../components/ledger";
+import { Notice } from "../components/notice";
 
 export type AdmissionSubmissionEmailProps = {
 	applicationReference: string;
@@ -35,99 +25,56 @@ export function AdmissionSubmissionEmail({
 	schoolName,
 	studentName,
 }: AdmissionSubmissionEmailProps) {
-	const title = `${schoolName} received ${studentName}'s application`;
-	const themeClasses = getEmailThemeClasses();
-	const lightStyles = getEmailInlineStyles("light");
-
 	return (
-		<EmailThemeProvider preview={<Preview>{title}</Preview>}>
-			<Body style={body}>
-				<Container
-					className={`my-[40px] mx-auto p-[32px] max-w-[560px] ${themeClasses.container}`}
-					style={{
-						...container,
-						borderColor: lightStyles.container.borderColor,
-					}}
-				>
-					<Logo />
-					<Section className="mt-[18px] mb-[12px]">
-						<Text className="m-0 text-[12px] font-bold uppercase tracking-[0.08em] text-[#7c5f10]">
-							Admission application
-						</Text>
-					</Section>
-					<Heading
-						className={`mx-0 my-[16px] text-[28px] leading-[34px] ${themeClasses.heading}`}
-						style={{ color: lightStyles.text.color }}
-					>
-						Application received
-					</Heading>
-					<Text
-						className={`text-[15px] leading-[24px] ${themeClasses.text}`}
-						style={{ color: lightStyles.text.color }}
-					>
-						Hello {parentName || "there"},
-					</Text>
-					<Text
-						className={`text-[15px] leading-[24px] ${themeClasses.text}`}
-						style={{ color: lightStyles.text.color }}
-					>
-						We received {studentName}&apos;s admission application for{" "}
-						{classroomName}. The school will review the submitted details and
-						documents, then contact you with the next step.
-					</Text>
-					<Section style={metaCard} className="email-border">
-						<Text style={metaItem} className={themeClasses.text}>
-							<strong>Application reference:</strong> {applicationReference}
-						</Text>
-						<Text style={metaItem} className={themeClasses.text}>
-							<strong>Submitted documents:</strong> {documentCount}
-						</Text>
-					</Section>
-					{ctaHref ? (
-						<Section className="mb-[12px] mt-[24px] text-center">
-							<Button href={ctaHref}>View submission status</Button>
-						</Section>
-					) : null}
-					<Text
-						className={`mt-[28px] text-[12px] leading-[18px] ${themeClasses.secondaryText}`}
-						style={{ color: lightStyles.secondaryText.color }}
-					>
-						This confirmation was sent by {schoolName} via School Clerk.
-					</Text>
-					<Footer />
-				</Container>
-			</Body>
-		</EmailThemeProvider>
+		<EmailFrame
+			category="Admissions"
+			contactLine="Admissions office"
+			eyebrow="Application received"
+			intro={
+				<>
+					Hello {parentName || "there"}, we received {studentName}&apos;s
+					admission application. {schoolName} will review the submitted details
+					and contact you with the next step.
+				</>
+			}
+			preview={`${schoolName} received ${studentName}'s admission application`}
+			reference={`Admissions · ${applicationReference}`}
+			schoolName={schoolName}
+			title="Application received and ready for review."
+			tone="info"
+		>
+			<Ledger
+				rows={[
+					{ label: "Reference", value: applicationReference },
+					{ label: "Student", value: studentName },
+					{ label: "Class", value: classroomName },
+					{ label: "Documents", value: documentCount },
+				]}
+			/>
+			<Notice>
+				Keep the application reference for future correspondence. The school
+				will contact you when its review is complete.
+			</Notice>
+			{ctaHref ? (
+				<Section style={{ margin: "26px 0 12px" }}>
+					<Button href={ctaHref}>View submission status</Button>
+				</Section>
+			) : null}
+			<FallbackLink href={ctaHref} />
+		</EmailFrame>
 	);
 }
 
-const body = {
-	backgroundColor: "#f5f4ef",
-	fontFamily: "Arial, sans-serif",
-	margin: 0,
-	padding: "24px 0",
-};
-
-const container = {
-	backgroundColor: "#ffffff",
-	border: "1px solid #e7e5dd",
-	borderRadius: "16px",
-	margin: "0 auto",
-	maxWidth: "560px",
-	padding: "32px",
-};
-
-const metaCard = {
-	backgroundColor: "#fafaf9",
-	border: "1px solid #ece8df",
-	borderRadius: "14px",
-	margin: "20px 0",
-	padding: "16px 20px",
-};
-
-const metaItem = {
-	color: "#3f3f46",
-	fontSize: "14px",
-	lineHeight: "22px",
-	margin: "0 0 6px",
-};
+export default function AdmissionSubmissionEmailPreview() {
+	return (
+		<AdmissionSubmissionEmail
+			applicationReference="AMR-0248"
+			classroomName="Junior Secondary 1"
+			ctaHref="https://greenfield.school-clerk.com/enroll/AMR-0248"
+			documentCount={3}
+			parentName="Chioma"
+			schoolName="Greenfield Academy"
+			studentName="Amara Okafor"
+		/>
+	);
+}

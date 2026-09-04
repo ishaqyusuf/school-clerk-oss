@@ -19,28 +19,36 @@ export function Button({
 	const lightStyles = getEmailInlineStyles("light");
 
 	const baseClasses =
-		"bg-transparent text-[14px] font-medium no-underline text-center px-6 py-3 border border-solid rounded-[10px]";
+		"email-action text-[13px] font-bold no-underline text-center px-[19px] py-[13px] border border-solid";
 	const variantClasses =
 		variant === "primary"
-			? themeClasses.button
-			: "border-[#d1d5db] text-[#6b7280]";
+			? `${themeClasses.button} bg-[#17263d] text-white`
+			: "border-[#17263d] text-[#17263d]";
 
 	const buttonStyle =
 		variant === "primary"
 			? {
+					backgroundColor: "#17263d",
 					borderColor: lightStyles.button.borderColor,
-					color: lightStyles.button.color,
+					color: "#ffffff",
 				}
 			: {
-					borderColor: "#d1d5db",
-					color: "#6b7280",
+					backgroundColor: "transparent",
+					borderColor: "#17263d",
+					color: "#17263d",
 				};
 
 	return (
 		<ReactEmailButton
 			className={`${baseClasses} ${variantClasses} ${className}`}
 			href={href}
-			style={buttonStyle}
+			style={{
+				...buttonStyle,
+				borderRadius: 0,
+				boxSizing: "border-box",
+				letterSpacing: "0.02em",
+				padding: "13px 19px",
+			}}
 		>
 			{children}
 		</ReactEmailButton>

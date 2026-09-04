@@ -1,4 +1,5 @@
 import { prisma } from "@school-clerk/db";
+import { PasswordResetEmail, render } from "@school-clerk/email";
 import {
 	formatTenantEmailFrom,
 	formatTenantEmailSubject,
@@ -72,15 +73,6 @@ async function sendAuthEmail({
 	}
 }
 
-function escapeHtml(value: string) {
-	return value
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;");
-}
-
 function getHeaderValue(request: Request | undefined, name: string) {
 	const value = request?.headers.get(name)?.trim();
 	if (!value) return null;
@@ -123,49 +115,6 @@ function buildPasswordResetEmailUrl(url: string, email?: string | null) {
 	} catch {
 		return url;
 	}
-}
-
-function renderPasswordResetEmail({
-	name,
-	role,
-	schoolName,
-	url,
-}: {
-	name: string;
-	role?: string | null;
-	schoolName?: string | null;
-	url: string;
-}) {
-	const accountName = schoolName || "School Clerk";
-	const escapedAccountName = escapeHtml(accountName);
-	const escapedName = escapeHtml(name || "there");
-	const escapedRole = role ? escapeHtml(role) : null;
-	const escapedUrl = escapeHtml(url);
-
-	return `
-		<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
-			<h2 style="margin-bottom: 12px;">Set or reset your ${escapedAccountName} password</h2>
-			<p>Hello ${escapedName},</p>
-			<p>
-				${
-					escapedRole
-						? `You've been invited to join ${escapedAccountName} as a ${escapedRole}.`
-						: `Use the link below to continue with your ${escapedAccountName} account.`
-				}
-			</p>
-      <p>
-        <a
-          href="${escapedUrl}"
-          style="display:inline-block;padding:12px 20px;background:#111827;color:#ffffff;text-decoration:none;border-radius:8px;"
-        >
-          Set password
-        </a>
-      </p>
-      <p>If the button doesn't work, copy and paste this link into your browser:</p>
-      <p><a href="${escapedUrl}">${escapedUrl}</a></p>
-			<p>This link lets you choose a password and continue to the dashboard.</p>
-		</div>
-	`;
 }
 
 const devQuickLoginBodySchema = z.object({
@@ -312,16 +261,19 @@ export function initAuth(options: {
 					message: "set or reset your password",
 					schoolName,
 				});
+				const html = await render(
+					PasswordResetEmail({
+						name: data.user.name,
+						schoolName,
+						url: emailUrl,
+					}),
+				);
 
 				await sendAuthEmail({
 					to: data.user.email,
 					schoolName,
 					subject,
-					html: renderPasswordResetEmail({
-						name: data.user.name,
-						schoolName,
-						url: emailUrl,
-					}),
+					html,
 				});
 			},
 		},

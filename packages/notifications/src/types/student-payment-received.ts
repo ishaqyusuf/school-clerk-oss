@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { defineSchoolNotification, financeBaseSchema, createFinanceTemplate } from "./shared";
+import {
+	createFinanceTemplate,
+	defineSchoolNotification,
+	financeBaseSchema,
+	formatNotificationEmailSubject,
+} from "./shared";
 
 const schema = financeBaseSchema.extend({
 	paymentMethod: z.string().optional().nullable(),
@@ -14,7 +19,6 @@ export const studentPaymentReceived = defineSchoolNotification({
 			amount: payload.amount,
 			ctaHref: payload.link ?? "/finance/transactions",
 			eventLabel: "Student payment received",
-			greetingName: payload.studentName,
 			message: `${payload.schoolName} has recorded a student payment for ${payload.studentName}.`,
 			metadata: [
 				{ label: "Student", value: payload.studentName },
@@ -27,8 +31,12 @@ export const studentPaymentReceived = defineSchoolNotification({
 			],
 			schoolName: payload.schoolName,
 			title: `Payment received from ${payload.studentName}`,
+			tone: "success",
 		}),
-		subject: `${payload.schoolName}: payment received from ${payload.studentName}`,
+		subject: formatNotificationEmailSubject(
+			payload.schoolName,
+			`payment received from ${payload.studentName}`,
+		),
 	}),
 	buildLink: (payload) => payload.link ?? "/finance/transactions",
 	channels: ["in_app", "email"],

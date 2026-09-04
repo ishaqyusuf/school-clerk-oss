@@ -1,5 +1,8 @@
 # In Progress
 
+### [Clerk Ledger Email System Standardization](./2026-09-04-clerk-ledger-email-system-standardization.md)
+- Status: In Progress
+
 ## Purpose
 
 Tracks tasks currently being worked on.

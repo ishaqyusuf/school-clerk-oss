@@ -1,9 +1,10 @@
-import * as React from "react";
-import { z } from "zod";
 import {
 	FinanceNotificationEmail,
 	type FinanceNotificationEmailProps,
 } from "@school-clerk/email/emails/finance-notification";
+import { formatTenantEmailSubject } from "@school-clerk/utils/email";
+import * as React from "react";
+import { z } from "zod";
 import type {
 	NotificationActionDescriptor,
 	NotificationChannel,
@@ -40,6 +41,13 @@ export const financeBaseSchema = z.object({
 
 export function createFinanceTemplate(props: FinanceNotificationEmailProps) {
 	return React.createElement(FinanceNotificationEmail, props);
+}
+
+export function formatNotificationEmailSubject(
+	schoolName: string,
+	message: string,
+) {
+	return formatTenantEmailSubject({ message, schoolName });
 }
 
 export function defineSchoolNotification<TSchema extends z.ZodTypeAny>(input: {

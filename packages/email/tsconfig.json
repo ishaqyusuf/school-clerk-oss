@@ -1,10 +1,11 @@
 {
-  "extends": "../tsconfig/react-library.json",
-  "compilerOptions": {
-    "baseUrl": ".",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext"
-  },
-  "include": ["index.ts", "render.ts", "emails/**/*", "components/**/*"],
-  "exclude": ["node_modules"]
+	"extends": "../tsconfig/react-library.json",
+	"compilerOptions": {
+		"baseUrl": ".",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"types": ["bun-types"]
+	},
+	"include": ["index.ts", "render.ts", "emails/**/*", "components/**/*"],
+	"exclude": ["node_modules"]
 }

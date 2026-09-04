@@ -1,78 +1,52 @@
-import { Font, Head, Html, Tailwind } from "@react-email/components";
+import { Head, Html, Tailwind } from "@react-email/components";
 import type React from "react";
 
 export { Button } from "./button";
 
 export const emailTheme = {
 	light: {
-		accent: "#111827",
-		background: "#ffffff",
-		border: "#e7e5dd",
-		foreground: "#141414",
-		muted: "#6b7280",
-		secondary: "#71717a",
-	},
-	dark: {
-		accent: "#fafafa",
-		background: "#0d0d0d",
-		border: "#1c1c1c",
-		foreground: "#fafafa",
-		muted: "#9ca3af",
-		secondary: "#a1a1aa",
+		accent: "#17263d",
+		background: "#ebe7dd",
+		border: "#d9d1bf",
+		foreground: "#17263d",
+		gold: "#b6842f",
+		muted: "#657080",
+		paper: "#fffdf8",
+		secondary: "#657080",
+		success: "#2f6b4f",
+		warning: "#9a4e2f",
 	},
 } as const;
 
 export function getEmailDarkModeCSS() {
 	return `
 		:root {
-			color-scheme: light dark;
-			supported-color-schemes: light dark;
+			color-scheme: light;
+			supported-color-schemes: light;
 		}
 
-		@media (prefers-color-scheme: dark) {
-			.email-body {
-				background-color: ${emailTheme.dark.background} !important;
-				color: ${emailTheme.dark.foreground} !important;
-			}
-			.email-container {
-				border-color: ${emailTheme.dark.border} !important;
-			}
-			.email-text {
-				color: ${emailTheme.dark.foreground} !important;
-			}
-			.email-muted {
-				color: ${emailTheme.dark.muted} !important;
-			}
-			.email-secondary {
-				color: ${emailTheme.dark.secondary} !important;
-			}
-			.email-accent {
-				color: ${emailTheme.dark.accent} !important;
-				border-color: ${emailTheme.dark.accent} !important;
-			}
-			.email-border {
-				border-color: ${emailTheme.dark.border} !important;
-			}
+		.email-pad {
+			padding: 34px 42px !important;
+		}
+		.email-footer {
+			padding: 25px 42px 30px !important;
 		}
 
-		[data-ogsc] .email-text {
-			color: ${emailTheme.dark.foreground} !important;
-		}
-		[data-ogsc] .email-muted {
-			color: ${emailTheme.dark.muted} !important;
-		}
-		[data-ogsc] .email-secondary {
-			color: ${emailTheme.dark.secondary} !important;
-		}
-		[data-ogsc] .email-accent {
-			color: ${emailTheme.dark.accent} !important;
-			border-color: ${emailTheme.dark.accent} !important;
-		}
-		[data-ogsb] .email-body {
-			background-color: ${emailTheme.dark.background} !important;
-		}
-		[data-ogsb] .email-container {
-			border-color: ${emailTheme.dark.border} !important;
+		@media only screen and (max-width: 640px) {
+			.email-pad {
+				padding: 28px 24px !important;
+			}
+			.email-footer {
+				padding: 22px 24px 26px !important;
+			}
+			.email-folio {
+				display: none !important;
+			}
+			.email-action {
+				display: block !important;
+				margin: 8px 0 0 !important;
+				text-align: center !important;
+			}
 		}
 	`;
 }
@@ -103,19 +77,10 @@ export function EmailThemeProvider({
 				}}
 			>
 				<Head>
-					<meta name="color-scheme" content="light dark" />
-					<meta name="supported-color-schemes" content="light dark" />
+					<meta name="viewport" content="width=device-width, initial-scale=1" />
+					<meta name="color-scheme" content="light" />
+					<meta name="supported-color-schemes" content="light" />
 					<style>{getEmailDarkModeCSS()}</style>
-					<Font
-						fontFamily="Instrument Sans"
-						fallbackFontFamily={["Arial", "Helvetica"]}
-						webFont={{
-							url: "https://fonts.gstatic.com/s/instrumentsans/v2/pxiEyp8kv8JHgFVrFJDUc1NECPY.woff2",
-							format: "woff2",
-						}}
-						fontWeight={400}
-						fontStyle="normal"
-					/>
 					{additionalHeadContent}
 				</Head>
 				{preview}
@@ -141,7 +106,7 @@ export function getEmailThemeClasses() {
 }
 
 export function getEmailInlineStyles(mode: "light" | "dark" = "light") {
-	const theme = emailTheme[mode];
+	const theme = emailTheme.light;
 
 	return {
 		body: {
@@ -154,6 +119,7 @@ export function getEmailInlineStyles(mode: "light" | "dark" = "light") {
 		},
 		container: {
 			borderColor: theme.border,
+			backgroundColor: theme.paper,
 		},
 		mutedText: {
 			color: theme.muted,

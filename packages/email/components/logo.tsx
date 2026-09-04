@@ -1,19 +1,33 @@
-import { Img, Section } from "@react-email/components";
+import { Text } from "@react-email/components";
+import { emailTheme } from "./theme";
 
-import { getAppUrl } from "@school-clerk/utils/envs";
-
-const baseUrl = getAppUrl();
-
-export function Logo() {
-  return (
-    <Section className="mt-[32px]">
-      <Img
-        src={`${baseUrl}/logo-light.png`}
-        width="45"
-        height="45"
-        alt="School Clerk"
-        className="mx-auto my-0 block"
-      />
-    </Section>
-  );
+export function Logo({ schoolName }: { schoolName: string }) {
+	return (
+		<>
+			<Text
+				style={{
+					color: emailTheme.light.foreground,
+					fontFamily: "Arial, Helvetica, sans-serif",
+					fontSize: "15px",
+					fontWeight: 700,
+					letterSpacing: "0.06em",
+					lineHeight: "18px",
+					margin: 0,
+					textTransform: "uppercase",
+				}}
+			>
+				{schoolName}
+			</Text>
+			<Text
+				style={{
+					color: emailTheme.light.muted,
+					fontSize: "12px",
+					lineHeight: "18px",
+					margin: "6px 0 0",
+				}}
+			>
+				Powered by School Clerk
+			</Text>
+		</>
+	);
 }

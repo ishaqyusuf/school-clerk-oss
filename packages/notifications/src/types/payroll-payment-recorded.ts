@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { financeBaseSchema, createFinanceTemplate, defineSchoolNotification } from "./shared";
+import {
+	createFinanceTemplate,
+	defineSchoolNotification,
+	financeBaseSchema,
+	formatNotificationEmailSubject,
+} from "./shared";
 
 const schema = financeBaseSchema.extend({
 	staffName: z.string().min(1),
@@ -22,8 +27,12 @@ export const payrollPaymentRecorded = defineSchoolNotification({
 			],
 			schoolName: payload.schoolName,
 			title: "Payroll payment recorded",
+			tone: "success",
 		}),
-		subject: `${payload.schoolName}: payroll payment recorded`,
+		subject: formatNotificationEmailSubject(
+			payload.schoolName,
+			"payroll payment recorded",
+		),
 	}),
 	buildLink: (payload) => payload.link ?? "/staff/payroll",
 	channels: ["in_app", "email"],

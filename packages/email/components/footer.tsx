@@ -1,57 +1,60 @@
-import { Hr, Link, Section, Text } from "@react-email/components";
-import { getAppUrl } from "@school-clerk/utils/envs";
+import { Section, Text } from "@react-email/components";
 import { LogoFooter } from "./logo-footer";
-import { getEmailInlineStyles, getEmailThemeClasses } from "./theme";
+import { emailTheme } from "./theme";
 
-const baseUrl = getAppUrl();
-
-export function Footer() {
-	const themeClasses = getEmailThemeClasses();
-	const lightStyles = getEmailInlineStyles("light");
-
+export function Footer({
+	category,
+	contactLine,
+	schoolName,
+}: {
+	category?: string;
+	contactLine?: string;
+	schoolName: string;
+}) {
 	return (
-		<Section className="w-full">
-			<Hr
-				className={themeClasses.border}
-				style={{ borderColor: lightStyles.container.borderColor }}
-			/>
-
+		<Section
+			className="email-footer"
+			style={{
+				backgroundColor: "#f5f1e7",
+				borderTop: `1px solid ${emailTheme.light.border}`,
+			}}
+		>
 			<Text
-				className={`font-serif text-[21px] font-normal mt-[32px] mb-[24px] ${themeClasses.text}`}
-				style={{ color: lightStyles.text.color }}
+				style={{
+					color: emailTheme.light.foreground,
+					fontFamily: "Georgia, 'Times New Roman', serif",
+					fontSize: "18px",
+					fontWeight: 400,
+					lineHeight: "24px",
+					margin: 0,
+				}}
 			>
-				Run your school operations with more clarity.
+				Clear records. Confident school decisions.
 			</Text>
 
 			<Text
-				className={`text-[13px] leading-relaxed ${themeClasses.mutedText}`}
-				style={{ color: lightStyles.mutedText.color }}
+				style={{
+					color: emailTheme.light.muted,
+					fontSize: "11px",
+					lineHeight: "18px",
+					margin: "12px 0 0",
+				}}
 			>
-				<Link
-					href={baseUrl}
-					className={themeClasses.mutedLink}
-					style={{ color: lightStyles.mutedText.color }}
-				>
-					Dashboard
-				</Link>
-				{" · "}
-				<Link
-					href={`${baseUrl}/notifications`}
-					className={themeClasses.mutedLink}
-					style={{ color: lightStyles.mutedText.color }}
-				>
-					Notifications
-				</Link>
+				This notice was sent by {schoolName} through School Clerk.
+				{contactLine || category ? <br /> : null}
+				{contactLine ?? category}
 			</Text>
 
 			<Text
-				className={`text-xs ${themeClasses.secondaryText}`}
-				style={{ color: lightStyles.secondaryText.color }}
+				style={{
+					color: emailTheme.light.secondary,
+					fontSize: "10px",
+					lineHeight: "16px",
+					margin: "14px 0 8px",
+				}}
 			>
-				School Clerk · Tenant-aware school operations platform
+				Tenant-aware school operations
 			</Text>
-
-			<br />
 
 			<LogoFooter />
 		</Section>

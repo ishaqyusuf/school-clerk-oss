@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@school-clerk/db": "workspace:*",
+    "@school-clerk/email": "workspace:*",
     "@school-clerk/utils": "workspace:*",
     "@next-auth/prisma-adapter": "^1.0.7",
     "bcrypt-ts": "^7.0.0",

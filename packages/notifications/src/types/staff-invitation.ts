@@ -1,12 +1,15 @@
-import * as React from "react";
-import { z } from "zod";
 import {
 	StaffInvitationEmail,
 	type StaffInvitationEmailProps,
 } from "@school-clerk/email/emails/staff-invitation";
+import * as React from "react";
+import { z } from "zod";
 import { createHrefNotificationAction } from "../actions";
 import { channelHelpers } from "../channels";
-import { defineSchoolNotification } from "./shared";
+import {
+	defineSchoolNotification,
+	formatNotificationEmailSubject,
+} from "./shared";
 
 const schema = z.object({
 	inviteLink: z.string().url().optional().nullable(),
@@ -38,7 +41,10 @@ export const staffInvitation = defineSchoolNotification({
 			roleLabel: payload.roleLabel,
 			schoolName: payload.schoolName,
 		}),
-		subject: `${payload.schoolName}: you're invited to join as ${payload.roleLabel}`,
+		subject: formatNotificationEmailSubject(
+			payload.schoolName,
+			`you're invited to join as ${payload.roleLabel}`,
+		),
 	}),
 	buildLink: (payload) => payload.inviteLink ?? `/staff/${payload.staffId}`,
 	channels: channelHelpers.inAppAndEmail(),

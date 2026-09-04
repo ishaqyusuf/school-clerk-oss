@@ -8,6 +8,11 @@ import {
 	getQaClassificationForOwner,
 	prisma,
 } from "@school-clerk/db";
+import {
+	SignupVerificationEmail,
+	WorkspaceReadyEmail,
+	render,
+} from "@school-clerk/email";
 import { createNotificationFromType } from "@school-clerk/notifications";
 import {
 	formatTenantEmailFrom,
@@ -141,6 +146,14 @@ async function sendSignupSuccessEmail({
 		console.warn(`[signup] resend api key missing; email not sent to ${to}`);
 		return;
 	}
+	const html = await render(
+		WorkspaceReadyEmail({
+			onboardingUrl,
+			schoolName,
+			siteUrl,
+			workspaceUrl,
+		}),
+	);
 
 	const response = await fetch("https://api.resend.com/emails", {
 		method: "POST",
@@ -160,22 +173,7 @@ async function sendSignupSuccessEmail({
 			headers: route.qaRouted
 				? { "X-QA-Original-Recipient": route.originalRecipient }
 				: undefined,
-			html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
-          <h2 style="margin-bottom: 12px;">Welcome to School Clerk</h2>
-          <p>Your school workspace for <strong>${schoolName}</strong> has been created successfully.</p>
-          <p>
-            <a href="${onboardingUrl}" style="display:inline-block;padding:12px 20px;background:#111827;color:#ffffff;text-decoration:none;border-radius:10px;">
-              Continue onboarding
-            </a>
-          </p>
-          <p>You can also access your workspace directly here:</p>
-          <p><a href="${workspaceUrl}">${workspaceUrl}</a></p>
-          <p>Your public school site is reserved here:</p>
-          <p><a href="${siteUrl}">${siteUrl}</a></p>
-          <p>If you were not expecting this message, you can safely ignore it.</p>
-        </div>
-      `,
+			html,
 		}),
 	});
 
@@ -247,6 +245,12 @@ async function sendSignupVerificationEmail({
 		);
 		return;
 	}
+	const html = await render(
+		SignupVerificationEmail({
+			schoolName,
+			verificationUrl,
+		}),
+	);
 
 	const response = await fetch("https://api.resend.com/emails", {
 		method: "POST",
@@ -266,20 +270,7 @@ async function sendSignupVerificationEmail({
 			headers: route.qaRouted
 				? { "X-QA-Original-Recipient": route.originalRecipient }
 				: undefined,
-			html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
-          <h2 style="margin-bottom: 12px;">Verify your email address</h2>
-          <p>Your School Clerk workspace for <strong>${schoolName}</strong> is ready. Verify this email address to secure the owner account.</p>
-          <p>
-            <a href="${verificationUrl}" style="display:inline-block;padding:12px 20px;background:#111827;color:#ffffff;text-decoration:none;border-radius:10px;">
-              Verify email
-            </a>
-          </p>
-          <p>If the button does not work, copy and paste this link into your browser:</p>
-          <p><a href="${verificationUrl}">${verificationUrl}</a></p>
-          <p>This link expires in 24 hours.</p>
-        </div>
-      `,
+			html,
 		}),
 	});
 

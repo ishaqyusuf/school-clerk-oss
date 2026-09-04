@@ -1,41 +1,47 @@
 {
-  "name": "@school-clerk/email",
-  "version": "1.0.0",
-  "private": true,
-  "main": "index.ts",
-  "exports": {
-    ".": "./index.ts",
-    "./render": "./render.ts",
-    "./emails/admission-approval": "./emails/admission-approval.tsx",
-    "./emails/admission-submission": "./emails/admission-submission.tsx",
-    "./emails/finance-notification": "./emails/finance-notification.tsx",
-    "./emails/staff-invitation": "./emails/staff-invitation.tsx"
-  },
-  "scripts": {
-    "clean": "rm -rf .turbo node_modules",
-    "lint": "biome check .",
-    "format": "biome format --write .",
-    "typecheck": "tsc --noEmit",
-    "dev": "PORTLESS_WILDCARD=1 portless email email dev",
-    "build": "email build",
-    "start": "email start"
-  },
-  "dependencies": {
-    "@school-clerk/ui": "workspace:*",
-    "@school-clerk/utils": "workspace:*",
-    "@react-email/components": "0.0.31",
-    "@react-email/render": "1.1.2",
-    "@react-email/tailwind": "1.0.4",
-    "date-fns": "^4.1.0",
-    "react-email": "3.0.4",
-    "responsive-react-email": "^0.0.5"
-  },
-  "devDependencies": {
-    "@school-clerk/tsconfig": "workspace:*",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "typescript": "^5.9.2"
-  }
+	"name": "@school-clerk/email",
+	"version": "1.0.0",
+	"private": true,
+	"main": "index.ts",
+	"exports": {
+		".": "./index.ts",
+		"./render": "./render.ts",
+		"./emails/admission-approval": "./emails/admission-approval.tsx",
+		"./emails/admission-submission": "./emails/admission-submission.tsx",
+		"./emails/finance-notification": "./emails/finance-notification.tsx",
+		"./emails/password-reset": "./emails/password-reset.tsx",
+		"./emails/signup-verification": "./emails/signup-verification.tsx",
+		"./emails/staff-invitation": "./emails/staff-invitation.tsx",
+		"./emails/workspace-ready": "./emails/workspace-ready.tsx"
+	},
+	"scripts": {
+		"clean": "rm -rf .turbo node_modules",
+		"lint": "biome check components emails index.ts render.ts package.json tsconfig.json",
+		"format": "biome format --write components emails index.ts render.ts package.json tsconfig.json",
+		"typecheck": "tsc --noEmit",
+		"dev": "PORTLESS_WILDCARD=1 portless school-clerk-email sh -c 'email dev -p \"$PORT\"'",
+		"build": "email build",
+		"start": "email start",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"@school-clerk/ui": "workspace:*",
+		"@school-clerk/utils": "workspace:*",
+		"@react-email/components": "1.0.10",
+		"@react-email/render": "2.0.4",
+		"@react-email/tailwind": "2.0.6",
+		"date-fns": "^4.1.0",
+		"react-email": "6.9.3",
+		"responsive-react-email": "^0.0.5"
+	},
+	"devDependencies": {
+		"@school-clerk/tsconfig": "workspace:*",
+		"@react-email/ui": "6.9.3",
+		"@types/react": "^19.2.2",
+		"@types/react-dom": "^19.2.2",
+		"bun-types": "^1.3.2",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"typescript": "^5.9.2"
+	}
 }
