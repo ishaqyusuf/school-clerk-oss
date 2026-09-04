@@ -1,7 +1,7 @@
 # Task: Clerk Ledger Email System Standardization
 
 ## Status
-In Progress
+Done
 
 ## Priority
 High
@@ -19,8 +19,8 @@ High
 [Clerk Ledger email system plan](../plans/2026-08-30-feature-clerk-ledger-email-system.md). The implementation is present in the current checkout and was previously recorded as complete, but it remains uncommitted. Revalidate the current worktree, complete code review, address findings, and commit the finished task without discarding existing changes.
 
 ## Implementation Progress
-- Completion: 86%
-- Current Checklist: 7/7 — Commit validated work and synchronize Brain status
+- Completion: 100%
+- Current Checklist: 7/7 — Complete
 - Blockers: None
 
 ## Implementation Checklist
@@ -30,7 +30,7 @@ High
 - [x] Run focused email and notification tests plus their package typechecks.
 - [x] Run affected application/package typechecks and classify any failures as introduced or pre-existing.
 - [x] Complete the required two-axis code review and address all actionable findings.
-- [ ] Commit the validated work on the current branch and synchronize Brain task status and ledgers.
+- [x] Commit the validated work on the current branch and synchronize Brain task status and ledgers.
 
 ## Validation Evidence
 - `git diff --check` passed on 2026-09-04.
@@ -52,3 +52,4 @@ High
 - `bun run --cwd packages/email build` now passes dependency installation and reaches Next.js 16.3 production compilation; the generated preview UI then stops on its external Google Fonts fetch because this build runner cannot reach `fonts.googleapis.com`.
 - Historical visual evidence remains valid for the approved direction. Current-worktree rendered-HTML assertions cover the final CTA/footer fixes, but refreshed screenshots are pending because both the browser-skill initializer and local-file navigation were rejected by the active automation policies.
 - Final standards and specification re-review found no remaining actionable task-introduced findings.
+- Implementation committed as `eb6eaa7` (`feat(email): standardize Clerk Ledger templates`).

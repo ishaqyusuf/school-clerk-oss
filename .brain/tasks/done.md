@@ -2,6 +2,18 @@
 
 ## Completed Task
 
+- ID: 2026-09-04-clerk-ledger-email-system-standardization
+- Title: Clerk Ledger Email System Standardization
+- Completed: 2026-09-04
+- Outcome: Standardized all 15 active transactional email messages on seven shared Clerk Ledger React Email layouts, moved auth and signup callers off raw HTML, normalized tenant subjects, removed unsafe generic footer destinations, and added email-safe CTA geometry.
+- Validation: 9 email rendering tests with 52 assertions, 3 notification subject-contract tests, email/notification/auth/school-site typechecks, package and touched-source lint, a fresh 15-message HTML catalog, and independent standards/specification reviews passed. Broader API/dashboard/jobs/root failures remain unrelated and documented in the dedicated task; refreshed screenshots and the generated preview build are limited by browser policy and Google Fonts network access respectively.
+- Related changes: `packages/email`, `packages/notifications`, `packages/auth`, `apps/dashboard/src/actions/create-saas-profile.ts`, `.brain/features/notifications.md`, `.brain/plans/2026-08-30-feature-clerk-ledger-email-system.md`
+- Task: [Clerk Ledger Email System Standardization](./2026-09-04-clerk-ledger-email-system-standardization.md)
+- Implementation commit: `eb6eaa7`
+- Owner: Codex
+
+## Completed Task
+
 - ID: 2026-08-04-production-postgresql-neon-migration
 - Title: Migrate Production PostgreSQL From Supabase To Neon
 - Completed: 2026-08-04
