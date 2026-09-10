@@ -1,3 +1,4 @@
+import { EventsProvider } from "@school-clerk/events/client";
 import "@school-clerk/ui/globals.css";
 import "@/styles/globals.css";
 import { TailwindIndicator } from "@/components/tailwind-indicator";
@@ -59,7 +60,7 @@ export default function RootLayout({
           <NotificationsProvider>
             <Providers locale="en">
               <StaticTrpc />
-              {children}
+              <EventsProvider>{children}</EventsProvider>
             </Providers>
           </NotificationsProvider>
           <Toaster />
