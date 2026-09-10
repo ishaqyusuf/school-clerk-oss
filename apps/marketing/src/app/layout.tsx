@@ -1,3 +1,4 @@
+import { EventsProvider } from "@school-clerk/events/client";
 import type { Metadata } from "next";
 import { Fraunces, Instrument_Sans } from "next/font/google";
 import "@school-clerk/ui/globals.css";
@@ -65,7 +66,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${instrumentSans.variable} ${fraunces.variable}`}>
-        {children}
+        <EventsProvider>{children}</EventsProvider>
       </body>
     </html>
   );
