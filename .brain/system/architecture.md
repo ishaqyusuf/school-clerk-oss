@@ -62,6 +62,14 @@ Tracks architectural patterns, boundaries, and major design choices.
 
 ## Runtime Topology
 
+- Release assurance uses a committed, SHA-pinned release-only `local-infra-kit`
+  snapshot under `.release/toolkit/`. The root manifest tracks Prisma schema,
+  Dashboard, Marketing, school-site, API, and Trigger jobs for Preview and
+  Production. The GitHub workflow only verifies signed, exact-revision
+  provider evidence; it does not perform hosted writes. See
+  [ADR-0022](../decisions/ADR-0022-release-assurance-source-integration.md)
+  and [release assurance](../features/release-assurance.md).
+
 - `apps/marketing`: SaaS landing page (public marketing site)
 - `apps/dashboard`: SaaS application (authenticated product app)
 - `apps/api`: API application surface

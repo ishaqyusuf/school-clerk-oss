@@ -1,5 +1,16 @@
 # Done
 
+## Release assurance source integration (Ticket 12)
+
+- Date: 2026-09-26
+- Outcome: Pinned release-only toolkit; added web/DB/jobs manifest, local CLI,
+  signed exact-revision evidence adapter, verification-only protected workflow,
+  and focused Preview/Production tests. Hosted activation remains pending the
+  provider mappings, authenticated collector, environment protection,
+  production promotion hold, and isolated Preview jobs or approved waiver
+  described in `.brain/features/release-assurance.md`.
+- No hosted database push, deployment, promotion, or provider setting changed.
+
 ## Completed Task
 
 - ID: 2026-09-04-clerk-ledger-email-system-standardization

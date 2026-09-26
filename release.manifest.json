@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "project": "school-clerk",
+  "targets": [
+    {
+      "id": "database",
+      "kind": "database",
+      "environments": ["preview", "production"],
+      "sourcePaths": ["packages/db/src/schema/**/*.prisma", "packages/db/prisma.config.ts"],
+      "impactTargets": ["dashboard-web", "marketing-web", "school-site-web", "api-web", "jobs"]
+    },
+    {
+      "id": "dashboard-web",
+      "kind": "web",
+      "environments": ["preview", "production"],
+      "sourcePaths": ["apps/dashboard/**", "apps/api/**", "packages/**", "package.json", "bun.lock", "turbo.json"],
+      "prerequisites": ["database"]
+    },
+    {
+      "id": "marketing-web",
+      "kind": "web",
+      "environments": ["preview", "production"],
+      "sourcePaths": ["apps/marketing/**", "packages/db/**", "packages/ui/**", "packages/tenant-url/**", "packages/utils/**", "package.json", "bun.lock", "turbo.json"],
+      "prerequisites": ["database"]
+    },
+    {
+      "id": "school-site-web",
+      "kind": "web",
+      "environments": ["preview", "production"],
+      "sourcePaths": ["apps/school-site/**", "packages/auth/**", "packages/db/**", "packages/email/**", "packages/pdf/**", "packages/template-registry/**", "packages/tenant-url/**", "packages/ui/**", "packages/utils/**", "package.json", "bun.lock", "turbo.json"],
+      "prerequisites": ["database"]
+    },
+    {
+      "id": "api-web",
+      "kind": "web",
+      "environments": ["preview", "production"],
+      "sourcePaths": ["apps/api/**", "packages/assessment-results/**", "packages/assessment-workbooks/**", "packages/db/**", "packages/email/**", "packages/notifications/**", "packages/utils/**", "package.json", "bun.lock", "turbo.json"],
+      "prerequisites": ["database"]
+    },
+    {
+      "id": "jobs",
+      "kind": "jobs",
+      "environments": ["preview", "production"],
+      "sourcePaths": ["packages/jobs/**", "packages/db/**", "packages/email/**", "packages/utils/**", "package.json", "bun.lock", "turbo.json"],
+      "prerequisites": ["database"]
+    }
+  ]
+}
