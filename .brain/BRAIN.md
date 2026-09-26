@@ -31,6 +31,8 @@ Central index for project knowledge used by humans and AI collaborators.
 - [Database Migrations](./database/migrations.md)
 - [API Endpoints](./api/endpoints.md)
 - [Tasks Backlog](./tasks/backlog.md)
+- [Release Assurance](./features/release-assurance.md)
+- [Release Assurance Runbook](./runbooks/release-assurance.md)
 
 
 ## Important Project References

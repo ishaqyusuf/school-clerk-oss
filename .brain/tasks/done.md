@@ -10,6 +10,7 @@
   production promotion hold, and isolated Preview jobs or approved waiver
   described in `.brain/features/release-assurance.md`.
 - No hosted database push, deployment, promotion, or provider setting changed.
+- Task: [School Clerk release assurance integration](./2026-09-26-release-assurance-integration.md)
 
 ## Completed Task
 

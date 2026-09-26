@@ -1,5 +1,28 @@
 # Progress
 
+## Release assurance source integration (2026-09-26)
+
+### Completed
+
+- Pinned the reusable release-only toolkit and modeled Database, Dashboard,
+  Marketing, school-site, API, and Trigger jobs for Preview and Production.
+- Added read-only local planning/status, a fail-closed signed exact-revision
+  provider gate, and protected verification-only GitHub workflows.
+- Confirmed the active `schoolclerk-dashboard` Vercel project through
+  authenticated read-only inspection. Other web mappings remain explicit
+  activation blockers rather than assumed deployments.
+- Preserved School Clerk's push-only database policy. No schema push, provider
+  deployment, promotion, secret, or repository setting was changed.
+
+### Verification
+
+- `bun test scripts/release-assurance.test.ts`
+- Scoped strict TypeScript and Biome checks
+- Workflow YAML parsing
+- Preview and Production status plans
+- Missing-key fail-closed verification
+- Scoped diff hygiene
+
 ## Role-Based Dashboard Navigation And Latest GND Sidenav Refresh (2026-08-01)
 
 ### Completed

@@ -1,10 +1,17 @@
 #!/usr/bin/env bun
 
-import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const revision = "ec653d87eb0b65bbac9235680d85eed6fdfd20a1";
 const repository = resolve(import.meta.dir, "..");
+const lock = JSON.parse(
+  readFileSync(resolve(repository, ".release/toolkit.lock.json"), "utf8"),
+) as { toolkitRevision?: string };
+const revision = lock.toolkitRevision;
+if (!revision || !/^[0-9a-f]{40}$/i.test(revision)) {
+  console.error("Release toolkit lock is invalid.");
+  process.exit(2);
+}
 const command = Bun.argv[2];
 const executable = command === "check" ? "bin/release-ci.ts" : "bin/release.ts";
 const args = command === "check"
@@ -18,9 +25,11 @@ if (!["plan", "status", "check"].includes(command ?? "") ||
   process.exit(2);
 }
 
-const result = spawnSync("bun", [resolve(import.meta.dir, "toolkit", revision, executable),
+const result = Bun.spawnSync(["bun", resolve(import.meta.dir, "toolkit", revision, executable),
   ...args.filter((arg): arg is string => typeof arg === "string")], {
   cwd: repository,
-  stdio: "inherit",
+  env: process.env,
+  stdout: "inherit",
+  stderr: "inherit",
 });
-process.exit(result.status ?? 2);
+process.exit(result.exitCode);

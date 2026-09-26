@@ -23,16 +23,17 @@ this source integration. For local tests only, a file may be supplied through
 
 The CI environment must also set the four `SCHOOL_CLERK_VERCEL_*_PROJECT_ID`
 variables and `SCHOOL_CLERK_TRIGGER_PROJECT_REF`. Only the Dashboard project
-ID was confirmed from a local Vercel link during integration. CI rejects
-missing mappings. The Trigger Preview target is unsupported until isolated
+(`schoolclerk-dashboard`, `prj_oSG2ATBE1Mobp3P989VG6B2mTQ5B`) was confirmed
+through authenticated, read-only Vercel inspection during integration. CI
+rejects missing mappings. The Trigger Preview target is unsupported until isolated
 worker ownership is configured or a protected, expiring waiver is provided.
 
 ## Activation blockers
 
 - Confirm Marketing, school-site, and API Vercel projects, exact deployment
   domains, and hosted Preview/Production database wiring. The local profile
-  files declare distinct database URL identities, but the Vercel API was
-  unreachable during source integration.
+  files declare distinct database URL identities, while authenticated Vercel
+  inspection found only the Dashboard project in the accessible team.
 - Install an authenticated provider evidence collector and protected signing
   key. An HMAC envelope alone cannot establish provider truth if the signer
   relies on handwritten claims.
