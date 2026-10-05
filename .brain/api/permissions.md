@@ -160,6 +160,10 @@ Dashboard save/resend/copy actions now require live Admin + Staff module and acc
 
 # Dashboard navigation permissions
 
+## Session persistence and profile recovery — 2026-10-05
+
+Remembered auth sessions now renew daily with a rolling 365-day expiry. Live stored session/account/role checks, revocation and non-remembered sessions remain enforced. `/api/profile` returns 401 when no identity remains and private/no-store for valid workspace reads. Browser tRPC context uses this HTTP read; missing identity redirects to login, while network failures do not grant access or imply expiry. See ADR-0067.
+
 - Navigation is a discoverability layer, not an authorization boundary.
 - The dashboard resolves module, section, item, and child availability by
   intersecting role, permission, institution-type, enabled-module, and status
