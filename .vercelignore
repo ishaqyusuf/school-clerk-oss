@@ -1,0 +1,13 @@
+.env
+.env.*
+**/.env
+**/.env.*
+.brain
+.scratch
+.release/runtime
+**/src/generated
+**/*.tsbuildinfo
+**/dist
+**/coverage
+**/test-results
+**/.turbo
