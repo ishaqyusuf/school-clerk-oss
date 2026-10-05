@@ -1,7 +1,7 @@
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { dashboardAccessErrorResponse, requireDashboardModules } from "@/lib/module-access";
+import { getQueryClient, trpc } from "@/trpc/server";
 import { configs } from "@/configs";
 import { buildStudentReportsById } from "@/features/student-report/report-model";
-import { getClassroomReportSheet } from "@api/db/queries/report-sheet";
 import { prisma } from "@school-clerk/db";
 import { renderToStream } from "@school-clerk/pdf";
 import { renderSchoolDocumentTemplate } from "@school-clerk/pdf/document-templates";
@@ -15,6 +15,7 @@ import {
 } from "@school-clerk/utils/student-name";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { TRPCClientError } from "@trpc/client";
 
 const paramsSchema = z.object({
   termFormIds: z
@@ -29,7 +30,8 @@ const paramsSchema = z.object({
             .filter(Boolean),
         ),
       ),
-    ),
+    )
+    .pipe(z.array(z.string().min(1)).min(1).max(200)),
   termId: z.string().optional(),
   templateId: z.string().optional(),
 	download: z.preprocess(
@@ -60,16 +62,28 @@ export async function GET(req: NextRequest) {
 		);
   }
 
-  const auth = await getAuthCookie();
+  const context = await requireDashboardModules(
+    ["RESULTS_AND_REPORTS"], ["Admin", "Registrar", "Teacher"],
+  ).catch(dashboardAccessErrorResponse);
+  if (context instanceof Response) return context;
+  const auth = context.profile;
   const termId = parsed.data.termId ?? auth.termId;
   if (!auth.schoolId || !termId) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
+  const sessionTerm = await prisma.sessionTerm.findFirst({
+    where: { id: termId, schoolId: auth.schoolId, deletedAt: null, session: { schoolId: auth.schoolId, deletedAt: null } },
+    select: { title: true, session: { select: { title: true } } },
+  });
+  if (!sessionTerm) return NextResponse.json({ error: "Report term not found." }, { status: 404 });
+
   const selectedTermForms = await prisma.studentTermForm.findMany({
     where: {
       id: { in: parsed.data.termFormIds },
       sessionTermId: termId,
+      schoolProfileId: auth.schoolId,
+      student: { schoolProfileId: auth.schoolId, deletedAt: null },
       deletedAt: null,
     },
     select: {
@@ -78,7 +92,7 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  if (!selectedTermForms.length) {
+  if (selectedTermForms.length !== parsed.data.termFormIds.length) {
     return NextResponse.json({ error: "No reports found." }, { status: 404 });
   }
 
@@ -90,11 +104,12 @@ export async function GET(req: NextRequest) {
 		),
   ) as string[];
 
-	const [classrooms, sessionTerm, departmentSheets, schoolSettings] =
-		await Promise.all([
+  const reportData = await Promise.all([
     prisma.classRoomDepartment.findMany({
       where: {
         id: { in: departmentIds },
+        schoolProfileId: auth.schoolId,
+        deletedAt: null,
       },
       select: {
         id: true,
@@ -106,36 +121,13 @@ export async function GET(req: NextRequest) {
         },
       },
     }),
-    prisma.sessionTerm.findUnique({
-      where: {
-        id: termId,
-      },
-      select: {
-        title: true,
-        session: {
-          select: {
-            title: true,
-          },
-        },
-      },
-    }),
     Promise.all(
       departmentIds.map((departmentId) =>
-        getClassroomReportSheet(
-          {
-            db: prisma,
-            profile: {
-              schoolId: auth.schoolId,
-              termId,
-              sessionId: auth.sessionId,
-              authSessionId: auth.auth?.bearerToken,
-              domain: auth.domain,
-            },
-          },
-          {
+        getQueryClient().fetchQuery(
+          trpc.assessments.getClassroomReportSheet.queryOptions({
             departmentId,
             sessionTermId: termId,
-          },
+          }),
         ),
       ),
     ),
@@ -148,7 +140,16 @@ export async function GET(req: NextRequest) {
 					studentNameFormat: true,
 				},
 			}),
-  ]);
+  ]).catch((error: unknown) => {
+    const code = error instanceof TRPCClientError ? error.data?.code : undefined;
+    if (typeof code === "string" && ["UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND"].includes(code)) {
+      const status = code === "UNAUTHORIZED" ? 401 : code === "FORBIDDEN" ? 403 : 404;
+      return NextResponse.json({ error: "The requested reports are unavailable." }, { status });
+    }
+    throw error;
+  });
+  if (reportData instanceof Response) return reportData;
+  const [classrooms, departmentSheets, schoolSettings] = reportData;
 
   const reportsById = buildStudentReportsById({
     departmentSheets,
@@ -159,7 +160,7 @@ export async function GET(req: NextRequest) {
     .map((id) => reportsById[id])
     .filter(Boolean);
 
-  if (!selectedReports.length) {
+  if (selectedReports.length !== parsed.data.termFormIds.length) {
 		return NextResponse.json(
 			{ error: "No printable reports found." },
 			{ status: 404 },

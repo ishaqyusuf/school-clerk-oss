@@ -5,10 +5,10 @@ import { whereClassroom } from "@/utils/where.classroom";
 
 import { prisma } from "@school-clerk/db";
 
-import { getAuthCookie } from "../cookies/auth-cookie";
+import { requireDashboardModules } from "@/lib/module-access";
 
 export async function getCachedStaffs() {
-  const profile = await getAuthCookie();
+  const { profile } = await requireDashboardModules(["STAFF_MANAGEMENT", "ACADEMIC_PROGRAMS"], ["Admin", "Registrar"]);
   return unstable_cache(
     async () => {
       const items = await prisma.staffProfile.findMany({
@@ -36,7 +36,7 @@ export async function getCachedStaffs() {
         staffTermId: item.termProfiles?.[0]?.id,
       }));
     },
-    [`staffs_${profile.termId}`],
+    ["staffs", profile.schoolId, profile.termId ?? "no-term"],
     {
       tags: [`staffs_${profile.termId}`],
     }

@@ -6,6 +6,12 @@
     ".": "./src/index.ts",
     "./middleware": "./src/middleware.ts",
     "./client": "./src/client.ts",
+    "./enrollment-parent": "./src/enrollment-parent.ts",
+    "./staff-onboarding": "./src/staff-onboarding.ts",
+    "./signup-email-verification": "./src/signup-email-verification.ts",
+    "./school-signup": "./src/school-signup.ts",
+    "./development": "./src/development.ts",
+    "./configuration": "./src/configuration.ts",
     "./env": "./env.ts"
   },
   "prisma": {

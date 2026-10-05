@@ -58,20 +58,25 @@ Provide tenant-aware dashboard AI that helps school staff complete real operatio
 - The route now enforces confirmation for risky mutations, but undo/reversal workflows are still domain-specific and not yet generalized
 - There is no automated eval harness yet; validation is currently based on isolated type-check coverage and runtime instrumentation design
 - Provider/model selection is configurable per tenant AI config; DeepSeek is the default preferred provider with `deepseek-chat` as the fallback model, but cost/performance routing is still static rather than intent-aware
-- Tenant module gating is AI-config-backed for now and should later align with the broader platform module engine
+- Chat HTTP requires AI_ASSISTANT plus live session/account ownership and the exact released Admin role. Authenticated Admin settings recovery remains reachable when AI is disabled. All 13 tools declare domain-module requirements; definitions, capabilities and suggestions filter accordingly. Execution and confirmation checks reload session/actor/workspace/modules/settings. New conversation history records a conservative tool envelope; list/detail/model history and analytics require the whole scope under current access. Legacy/unclassified/revoked history remains stored but is withheld without backfill. General activity/non-chat aggregate disclosure remains separate work. No behavioral verification has run.
+- Server stream completion now persists assistant step text/tool results; client assistant/system transcript POST is retired. An independent SSE consumer registered with Next `after` supports completion handling on client disconnect within hosting limits, not an uninterrupted-execution guarantee. Scoped row locks serialize history checks/expansion/appends. See [ADR-0026](../decisions/ADR-0026-ai-history-access-scope.md).
+- Mutation confirmation requires a matching authenticated `confirm-tool` request, not a token echoed by the model. Signed v2 tokens bind a random approval ID, user/school/conversation/academic session/term/tool/input and expire after ten minutes; older tokens need fresh previews and a configured signing secret is mandatory. Issuance stores a hashed approval; all five mutation tools consume it in their domain-write transaction. Rollback restores the approval; committed consumption prevents reuse. Concurrency and separately approved duplicate actions remain unverified. See [ADR-0025](../decisions/ADR-0025-ai-tool-authorization-and-confirmation.md).
+- All five mutation tools now save versioned result receipts and completion activity in that same transaction, with no fallible post-commit completion writes. Later stream errors cannot overwrite completed tool results. A responsive manual Check saved actions panel reads owner/current-tool-policy-filtered run receipts, displays committed output references, and warns that an empty result does not prove rollback. Stream/tool errors surface recovery guidance; no automatic mutation retry. Legacy executions without versioned receipts are not backfilled. Browser/mobile and failure/concurrency verification remain deferred.
+- Enrollment targets require school/current academic-context checks, with session/term writes now in one serializable transaction; inventory issuance atomically decrements only sufficient stock in its transaction. Broader enrollment/payment consistency remains an implementation audit item. Unknown student balance is null, never an invented Paid status. Chat suggestions/confirmation/student cards include responsive wrapping and 44px targets; mobile/browser behavior is unverified.
 
 ## UX Notes
 
 - AI chat is embedded into the dashboard shell rather than exposed as a standalone page
 - Browser printing hides the complete chat widget, including an open mobile backdrop or chat panel.
-- The FAB opens directly to the single chat screen; there are no user-facing history, insights, settings, or new-chat controls in the FAB
+- The FAB opens directly to the chat screen, now with a responsive New chat control, history-preservation notice and read-only saved-action recovery. Starting a new chat preserves old conversations; no history/insights/settings management surface is introduced.
 - Empty-state suggestions focus on enrollment, fee collection, inventory issuance, and student balance checks
 - Tool outputs are converted into structured cards, which is the right pattern to expand instead of relying only on free-text assistant replies
 - Arabic support is already expected in the prompt and the textarea uses `dir="auto"`, which should remain a first-class product requirement
 
 ## Permissions
 
-- All AI actions inherit the authenticated dashboard tenant context from the auth cookie
+- Chat HTTP resolves live-session/cookie-user agreement, current DB user/role/account and an owned non-deleted school before module checks; the workspace cookie alone is not authorization.
+- Feedback conversation/run IDs must belong to the requesting school/user, and a supplied run must match a supplied conversation. No cross-user or cross-school feedback attachment is allowed by the updated service.
 - Any future tool expansion must respect existing role/module permissions before exposing data reads or writes
 - Destructive or financially sensitive actions should require explicit confirmation steps and audit logging
 

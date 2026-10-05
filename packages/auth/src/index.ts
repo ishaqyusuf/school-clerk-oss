@@ -1,19 +1,22 @@
-import { prisma } from "@school-clerk/db";
+import { bindPasswordRecoveryToken, getDevelopmentLoginUser, getPasswordRecoveryIdentity, getPasswordRecoveryToken, prisma } from "@school-clerk/db";
 import { PasswordResetEmail, render } from "@school-clerk/email";
 import {
 	formatTenantEmailFrom,
 	formatTenantEmailSubject,
 	getEmailDeliveryRoutes,
-	resolveDashboardAppRootDomain,
 } from "@school-clerk/utils";
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 // import { expo } from "@better-auth/expo";
-import { APIError, createAuthEndpoint } from "better-auth/api";
+import { APIError, createAuthEndpoint, createAuthMiddleware } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import { nextCookies } from "better-auth/next-js";
 import * as z from "zod";
+import { completePasswordRecovery } from "./password-recovery";
+import { isDevelopmentQuickLoginEnabled, isLoopbackRequestHost } from "./development";
+import { createAuthOriginPolicy } from "./trusted-origins";
+import { loadPasswordSignInIdentity, withLiveAuthSessions, withPasswordSignInIdentity } from "./access";
 
 async function sendAuthEmail({
 	schoolName,
@@ -73,52 +76,10 @@ async function sendAuthEmail({
 	}
 }
 
-function getHeaderValue(request: Request | undefined, name: string) {
-	const value = request?.headers.get(name)?.trim();
-	if (!value) return null;
-
-	try {
-		return decodeURIComponent(value);
-	} catch {
-		return value;
-	}
-}
-
-function getTokenFromResetUrl(url: URL) {
-	const pathToken = url.pathname.split("/").filter(Boolean).at(-1);
-
-	if (pathToken && pathToken !== "reset-password") {
-		return pathToken;
-	}
-
-	return url.searchParams.get("token");
-}
-
-function buildPasswordResetEmailUrl(url: string, email?: string | null) {
-	try {
-		const resetUrl = new URL(url);
-		const callbackUrl =
-			resetUrl.searchParams.get("callbackURL") ??
-			resetUrl.searchParams.get("callbackUrl") ??
-			resetUrl.searchParams.get("redirectTo");
-		const token = getTokenFromResetUrl(resetUrl);
-
-		if (!callbackUrl || !token) return url;
-
-		const emailUrl = new URL(callbackUrl);
-		emailUrl.searchParams.set("token", token);
-		if (email) {
-			emailUrl.searchParams.set("email", email);
-		}
-
-		return emailUrl.toString();
-	} catch {
-		return url;
-	}
-}
 
 const devQuickLoginBodySchema = z.object({
-	userId: z.string().min(1),
+	userId: z.string().min(1).max(200),
+	schoolId: z.string().min(1).max(200),
 	rememberMe: z.boolean().optional(),
 });
 
@@ -133,12 +94,15 @@ function devQuickLoginPlugin() {
 					body: devQuickLoginBodySchema,
 				},
 				async (ctx) => {
-					if (process.env.NODE_ENV === "production") {
+					if (!isDevelopmentQuickLoginEnabled() ||
+						!isLoopbackRequestHost(ctx.headers?.get("host") ?? ctx.request?.headers.get("host"))) {
 						throw new APIError("FORBIDDEN", {
-							message: "Dev quick login is not available in production.",
+							message: "Quick login is unavailable.",
 						});
 					}
 
+					const eligible = await getDevelopmentLoginUser(prisma, ctx.body);
+					if (!eligible) throw new APIError("FORBIDDEN", { message: "Quick login is unavailable." });
 					const user = await ctx.context.internalAdapter.findUserById(
 						ctx.body.userId,
 					);
@@ -159,6 +123,20 @@ function devQuickLoginPlugin() {
 						throw new APIError("UNAUTHORIZED", {
 							message: "Failed to create quick login session.",
 						});
+					}
+
+					try {
+						const current = await getDevelopmentLoginUser(prisma, ctx.body);
+						if (!isDevelopmentQuickLoginEnabled() ||
+							!isLoopbackRequestHost(ctx.headers?.get("host") ?? ctx.request?.headers.get("host")) ||
+							!current || current.email !== eligible.email ||
+							current.role !== eligible.role || current.name !== eligible.name || user.email !== current.email ||
+							user.name !== current.name || !("role" in user) || user.role !== current.role) {
+							throw new Error("Quick login eligibility changed.");
+						}
+					} catch {
+						await ctx.context.internalAdapter.deleteSession(session.token);
+						throw new APIError("FORBIDDEN", { message: "Quick login is unavailable." });
 					}
 
 					await setSessionCookie(
@@ -187,10 +165,7 @@ export function initAuth(options: {
 	//   discordClientId: string;
 	//   discordClientSecret: string;
 }) {
-	const developmentAppRootDomain = resolveDashboardAppRootDomain(
-		process.env.APP_ROOT_DOMAIN,
-	);
-	const defaultDevelopmentOrigin = `http://${developmentAppRootDomain}`;
+	const originPolicy = createAuthOriginPolicy(options);
 
 	const config = {
 		database: prismaAdapter(prisma, {
@@ -216,6 +191,7 @@ export function initAuth(options: {
 			additionalFields: {
 				role: {
 					defaultValue: "Admin",
+					input: false,
 					required: false,
 					type: "string",
 				},
@@ -229,7 +205,7 @@ export function initAuth(options: {
 			expiresIn: 60 * 60 * 24 * 30,
 			updateAge: 60 * 60 * 24,
 			cookieCache: {
-				enabled: true,
+				enabled: false,
 				maxAge: 60 * 5,
 				strategy: "jwe",
 			},
@@ -239,6 +215,10 @@ export function initAuth(options: {
 		},
 		emailAndPassword: {
 			enabled: true,
+			disableSignUp: true,
+			minPasswordLength: 8,
+			maxPasswordLength: 128,
+			revokeSessionsOnPasswordReset: true,
 			password: {
 				// async hash(password) {
 				//   return await hash(password, 10);
@@ -251,24 +231,30 @@ export function initAuth(options: {
 				//   return true;
 				// },
 			},
-			async sendResetPassword(data, request) {
-				const schoolName = getHeaderValue(
-					request,
-					"x-school-clerk-school-name",
-				);
-				const emailUrl = buildPasswordResetEmailUrl(data.url, data.user.email);
+			async sendResetPassword(data) {
+				const identity = await prisma.$transaction((tx) => bindPasswordRecoveryToken(tx, {
+					userId: data.user.id, email: data.user.email, token: data.token,
+				}), { isolationLevel: "Serializable" });
+				if (!identity || identity.user.id !== data.user.id) return;
+				const schoolName = identity.user.tenant?.schools[0]?.name ?? null;
+				const emailUrl = new URL("/reset-password", options.baseUrl);
+				emailUrl.searchParams.set("token", data.token);
+				emailUrl.searchParams.set("email", identity.user.email);
 				const subject = formatTenantEmailSubject({
 					message: "set or reset your password",
 					schoolName,
 				});
 				const html = await render(
 					PasswordResetEmail({
-						name: data.user.name,
+						name: identity.user.name,
 						schoolName,
-						url: emailUrl,
+						url: emailUrl.toString(),
 					}),
 				);
 
+				const current = await getPasswordRecoveryToken(prisma, data.token);
+				if (!current || current.user.id !== identity.user.id || current.user.email !== identity.user.email ||
+					current.user.name !== identity.user.name || current.user.tenant?.schools[0]?.name !== identity.user.tenant?.schools[0]?.name) return;
 				await sendAuthEmail({
 					to: data.user.email,
 					schoolName,
@@ -298,23 +284,49 @@ export function initAuth(options: {
 			//   },
 			// google: {}
 		},
-		hooks: {},
-		trustedOrigins: (request) => {
-			const requestOrigin = request?.headers?.get("origin");
-			const requestUrlOrigin = request?.url
-				? new URL(request?.url).origin
-				: null;
-
-			return [
-				"expo://",
-				defaultDevelopmentOrigin,
-				options.baseUrl,
-				options.productionUrl,
-				requestUrlOrigin,
-				...(requestOrigin ? [requestOrigin] : []),
-				"https://01f5e232bbc3.ngrok-free.app",
-			];
+		hooks: {
+			before: createAuthMiddleware(async (ctx) => {
+				ctx.context.internalAdapter = withLiveAuthSessions(ctx.context.internalAdapter);
+				const origin = ctx.headers?.get("origin") ?? ctx.request?.headers.get("origin");
+				if (origin !== null && origin !== undefined && !await originPolicy.isTrusted(origin)) {
+					throw new APIError("FORBIDDEN", { message: "Untrusted authentication origin.", code: "INVALID_ORIGIN" });
+				}
+				if (!origin && ctx.request && !["GET", "HEAD", "OPTIONS"].includes(ctx.request.method) && ctx.request.headers.has("cookie")) {
+					let source: URL | null = null;
+					try { source = new URL(ctx.request.headers.get("referer") ?? ""); } catch { /* Missing source is denied below. */ }
+					if (!source || !await originPolicy.isTrusted(source.origin)) {
+						throw new APIError("FORBIDDEN", { message: "Authentication origin is required.", code: "INVALID_ORIGIN" });
+					}
+				}
+				if (ctx.path === "/sign-in/email") {
+					const parsed = z.object({ email: z.string().trim().toLowerCase().email().max(320),
+						password: z.string().min(1).max(128) }).safeParse(ctx.body);
+					const identity = parsed.success ? await loadPasswordSignInIdentity(parsed.data.email) : null;
+					if (!identity) {
+						if (parsed.success) await ctx.context.password.hash(parsed.data.password);
+						throw new APIError("UNAUTHORIZED", { message: "Invalid email or password.", code: "INVALID_EMAIL_OR_PASSWORD" });
+					}
+					ctx.context.internalAdapter = withPasswordSignInIdentity(ctx.context.internalAdapter, identity);
+					return { context: { body: { ...ctx.body, email: identity.user.email } } };
+				}
+				if (ctx.path === "/request-password-reset") {
+					const parsed = z.string().trim().toLowerCase().email().max(320).safeParse(ctx.body?.email);
+					if (!parsed.success || !await getPasswordRecoveryIdentity(prisma, parsed.data)) {
+						return ctx.json({ status: true, message: "If this email exists in our system, check your email for the reset link" });
+					}
+					return { context: { body: { ...ctx.body, email: parsed.data } } };
+				}
+				if (ctx.path === "/reset-password") {
+					const token = ctx.body?.token || ctx.query?.token;
+					try {
+						return ctx.json(await completePasswordRecovery({ token, newPassword: ctx.body?.newPassword }));
+					} catch {
+						throw new APIError("BAD_REQUEST", { message: "Invalid or unavailable reset token.", code: "INVALID_TOKEN" });
+					}
+				}
+			}),
 		},
+		trustedOrigins: originPolicy.trustedOrigins,
 	} satisfies BetterAuthOptions;
 
 	return betterAuth(config);

@@ -1,16 +1,21 @@
 import { z } from "@hono/zod-openapi";
-import { createTRPCRouter, publicProcedure } from "../init";
+import {
+  createTRPCRouter,
+  moduleProcedure,
+} from "../init";
 import { questionDataSchema, questionQuerySchema } from "../schemas/schemas";
 
 import { loadQuestions, saveQuestion } from "@api/db/queries/questions";
+const questionProcedure = moduleProcedure(["ASSESSMENT_AND_EXAMS"]);
+
 export const questionsRouter = createTRPCRouter({
-  all: publicProcedure
+  all: questionProcedure
     .input(questionQuerySchema)
     .query(async ({ input, ctx }) => {
       const result = await loadQuestions(ctx, input);
       return result;
     }),
-  getForm: publicProcedure
+  getForm: questionProcedure
     .input(
       z.object({
         postId: z.number().optional(),
@@ -20,7 +25,7 @@ export const questionsRouter = createTRPCRouter({
       const result = await loadQuestions(ctx, input);
       return !input?.postId ? null : result?.[0];
     }),
-  saveQuestion: publicProcedure
+  saveQuestion: questionProcedure
     .input(questionDataSchema)
     .mutation(async ({ input, ctx }) => {
       return saveQuestion(ctx, input);

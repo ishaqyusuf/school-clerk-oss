@@ -12,6 +12,8 @@ export function createFinanceTools(
 	helpers: SchoolAiToolHelpers,
 ) {
 	const {
+		completeMutation,
+		consumeMutationConfirmation,
 		finishAssistantToolExecution,
 		getTeacherWorkspaceSummary,
 		guardCapability,
@@ -183,14 +185,14 @@ export function createFinanceTools(
 					}
 
 					if (
-						!isConfirmedMutation({
+						!(await isConfirmedMutation({
 							ctx,
 							toolName: "receiveStudentPayment",
 							confirmationToken,
 							actionInput,
-						})
+						}))
 					) {
-						const output = requiresConfirmationResult({
+						const output = await requiresConfirmationResult({
 							ctx,
 							toolName: "receiveStudentPayment",
 							summary: `Receive ₦${actionInput.amountReceived.toLocaleString()} from ${actionInput.studentName}?`,
@@ -213,7 +215,8 @@ export function createFinanceTools(
 						return output;
 					}
 
-					const result = await prisma.$transaction(async (tx) => {
+					const output = await prisma.$transaction(async (tx) => {
+						await consumeMutationConfirmation(tx, { toolName: "receiveStudentPayment", confirmationToken, actionInput });
 						const termForm = await tx.studentTermForm.findFirstOrThrow({
 							where: {
 								id: actionInput.studentTermFormId,
@@ -315,30 +318,16 @@ export function createFinanceTools(
 							paymentIds.push(payment.id);
 						}
 
-						return { paymentIds };
+						return completeMutation(tx, {
+							executionId: guarded.executionId, toolName: "receiveStudentPayment",
+							title: "AI recorded student payment",
+							description: `${actionInput.studentName} payment recorded.`,
+							output: { success: true, studentName: actionInput.studentName,
+								amountReceived: actionInput.amountReceived, paymentMethod: actionInput.paymentMethod,
+								paymentCount: paymentIds.length, paymentIds },
+						});
 					});
 
-					const output = {
-						success: true,
-						studentName: actionInput.studentName,
-						amountReceived: actionInput.amountReceived,
-						paymentMethod: actionInput.paymentMethod,
-						paymentCount: result.paymentIds.length,
-					};
-					await recordAssistantActivity({
-						schoolId: ctx.schoolId,
-						userId: ctx.userId,
-						userName: ctx.userName,
-						type: "assistant_action_completed",
-						title: "AI recorded student payment",
-						description: `${actionInput.studentName} payment recorded.`,
-						meta: { toolName: "receiveStudentPayment", actionInput, output },
-					});
-					await finishAssistantToolExecution({
-						toolExecutionId: guarded.executionId,
-						status: "completed",
-						output,
-					});
 					return output;
 				} catch (error) {
 					await finishAssistantToolExecution({

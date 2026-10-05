@@ -1,3 +1,4 @@
+import { normalizeInstitutionType as normalizeCanonicalInstitutionType } from "@school-clerk/utils/institution-config";
 import { prisma } from "@school-clerk/db";
 import {
   type WebsiteInstitutionType,
@@ -13,18 +14,6 @@ const WEBSITE_PLANS = new Set<WebsitePlan>([
   "PRO",
   "ENTERPRISE",
 ]);
-const WEBSITE_INSTITUTION_TYPES = new Set<WebsiteInstitutionType>([
-  "PRESCHOOL",
-  "PRIMARY",
-  "SECONDARY",
-  "K12",
-  "COLLEGE",
-  "POLYTECHNIC",
-  "UNIVERSITY",
-  "TRAINING_CENTER",
-  "RELIGIOUS_SCHOOL",
-]);
-
 export type WebsiteManagementContext = {
   schoolId: string;
   domain: string;
@@ -36,13 +25,9 @@ export type WebsiteManagementContext = {
 };
 
 function normalizeInstitutionType(value?: string | null): WebsiteInstitutionType {
-  const normalized = value?.trim().toUpperCase();
-
-  if (normalized && WEBSITE_INSTITUTION_TYPES.has(normalized as WebsiteInstitutionType)) {
-    return normalized as WebsiteInstitutionType;
-  }
-
-  return "K12";
+  // Public rendering retains its historical K12 fallback without rewriting
+  // unknown stored classifications. Settings exposes those values as unclassified.
+  return normalizeCanonicalInstitutionType(value) ?? "K12";
 }
 
 function getConfiguredWebsitePlan(): WebsitePlan {

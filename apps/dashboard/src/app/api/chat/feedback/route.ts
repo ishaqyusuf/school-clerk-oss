@@ -4,6 +4,7 @@ import {
   saveAssistantFeedback,
 } from "@/lib/assistant/server";
 import { NextResponse } from "next/server";
+import { dashboardAccessErrorResponse } from "@/lib/module-access";
 import { z } from "zod";
 
 const feedbackSchema = z.object({
@@ -16,6 +17,7 @@ const feedbackSchema = z.object({
 
 export async function POST(req: Request) {
   const context = await getAssistantSessionContext();
+  if (context instanceof Response) return context;
   if (!context?.schoolId || !context.userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -34,7 +36,8 @@ export async function POST(req: Request) {
     rating: body.rating ?? null,
     comment: body.comment ?? null,
     meta: body.meta,
-  });
+  }).catch(dashboardAccessErrorResponse);
+  if (feedback instanceof Response) return feedback;
 
   return NextResponse.json({ feedback });
 }

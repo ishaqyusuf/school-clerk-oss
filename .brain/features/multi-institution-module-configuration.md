@@ -14,6 +14,30 @@ Multi-Institution Module Configuration
 ## Goal
 Support small schools, universities, training institutes, and religious schools on one platform by enabling relevant modules per tenant.
 
+## Implementation Status — 2026-09-07
+
+- CORE-001 classification implementation is written; all automated, browser, mobile, and visual verification remains deferred by user instruction.
+- The canonical shared utils contract includes the eight original types plus existing combined `K12`. Settings exposes unknown legacy values as unclassified; no bulk rewrite or Prisma column conversion occurs. See [ADR-0022](../decisions/ADR-0022-canonical-institution-type-compatibility.md).
+- The school-profile settings route composes prefetch/hydration, a dedicated query-reset/error/Suspense boundary, and a flat form. Controls stack on mobile, have 44px touch targets, constrain dropdown width/height, and expose validation/save/read-only states. These are source-level responsive measures, not browser-verified claims.
+- Reads require school-account membership; writes require school admin and account-scoped predicates. Explicit platform procedures target a `schoolId` behind configured platform-admin middleware.
+- Existing K12 signup remains the only released onboarding choice and now writes `K12`. Website management, preview, and public rendering share read normalization while retaining the legacy unknown-to-K12 presentation fallback.
+- Changing institution type does not activate modules, purchase add-ons, rewrite academic data, or expand signup release availability. Persistent module flags/enforcement/defaults remain CORE-002; academic hierarchy normalization remains CORE-003.
+- Canonical execution checklist: [CORE-001](../tasks/2026-09-07-core-001-institution-configuration.md).
+
+### CORE-002 Progress
+
+- Shared module catalog/policy, versioned strict schemas, entitlement intersection and transitive dependency denial are implemented. Catalog entries describe capabilities, not releases or paid subscriptions.
+- An explicit tenant-module navigation adapter covers current registry keys and preserves settings recovery. The shell now reads server-prefetched school-scoped module state. Configured empty sets stay empty; invalid/failed reads restrict navigation and show a recovery notice. The optional Inventory flag remains a separate legacy input.
+- Dedicated per-school module storage and optimistic-concurrency helpers are implemented. Prisma generation and local push succeeded; production push stopped at its required interactive confirmation. No tenant grants/configuration were created.
+- Scoped settings read/update and platform initialization/entitlement APIs are written. Normal read/write inputs include `schoolId` and must match authenticated active-school scope, protecting query caches and stale drafts after tenant switching.
+- Responsive settings UI is implemented with finite module groups, grant/dependency explanations, non-admin read-only behavior, 44px label/button targets, wrapping/stacked controls, pending/error states, explicit stale-revision reload and school-keyed invalidation. Browser/mobile/accessibility verification remains deferred.
+- Enforcement removes the temporary unconfigured-navigation fallback: missing/invalid/failed config restricts modules and shows provisioning/recovery guidance. No school is automatically granted modules; settings/account recovery remain reachable.
+- Primary domain routers, public assessment token services and student/payment import startup/row execution now check modules. School-site admission page/submission/uploads/letters/listings also require Admissions; enrollment parent-login setup additionally requires Parent Portal. The website suppresses denied admission listings without restoring fallback links. Full coverage still requires legacy FTD/global posts, dashboard actions, dashboard PDF/chat/tools, aggregate reads and mixed-domain service effects. The email-proof parent identity replacement is written; historical links/general auth still need audit. Institution defaults, explicit legacy adoption and verification remain unfinished.
+- The focused public parent identity audit resulted in an emailed, single-use setup capability and conditional non-reassigning guardian writes. Application code/phone alone no longer authorizes password initialization or login linking. This replacement and historical links still require deferred verification/audit; see [ADR-0024](../decisions/ADR-0024-enrollment-parent-email-proof.md).
+- Dashboard now has a live-session/account/role/module adapter. Result PDF uses school-owned records and the protected report API; selected legacy actions and cache wrappers guard before reads/writes/cache hits. Chat HTTP requires AI_ASSISTANT while Admin settings recovery remains reachable. All 13 tools declare domain policy and recheck current access. All five mutations atomically consume approvals/save receipts/activity with domain writes; recovery reads only currently permitted tool outputs. Conversation list/detail/model history and analytics now enforce a conservative recorded tool envelope under current access; legacy/unclassified history is preserved but withheld. Server-owned transcript persistence replaces client assistant/system writes. Remaining direct actions, general activity/notification disclosure, aggregate/mixed-service effects and final verification are still required.
+- School activation currently stays within explicit platform grants; the user has been asked to confirm activation authority. No pricing or default entitlement bundle has been inferred.
+- Track the complete remaining implementation at [CORE-002](../tasks/2026-09-07-core-002-tenant-module-controls.md), with the architecture decision in [ADR-0023](../decisions/ADR-0023-tenant-module-policy-resolution.md).
+
 ## Users
 - Platform admins
 - School admins

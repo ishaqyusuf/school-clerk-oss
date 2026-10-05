@@ -4,6 +4,7 @@ import {
   TabsContent,
 } from "@school-clerk/ui/tabs";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
+import { useAuth } from "@/hooks/use-auth";
 import { ClassroomStudents } from "../classroom-students";
 import { ClassroomSubject } from "../classroom-subjects";
 import { ErrorFallback } from "../error-fallback";
@@ -12,7 +13,7 @@ import { Form } from "../forms/student-form";
 import { Skeleton } from "@school-clerk/ui/skeleton";
 import { Suspense } from "react";
 import { ClassroomSubjectSecondaryForm } from "../classroom-subject-secondary-form";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { StudentFormAction } from "../forms/student-form-action";
 import { ClassroomSubjectOverviewSecondary } from "../classroom-subject-secondary-overview";
 import { ClassroomAttendance } from "../classroom-attendance";
@@ -513,6 +514,22 @@ function ComingSoonPlaceholder({ tab }: { tab: string }) {
 
 function StudentForm({ schoolSessionId, sessionTermId }) {
   const ctx = useClassroomParams();
+  const auth = useAuth();
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const defaultValues = useMemo(() => ({
+    classRoomId: ctx.viewClassroomId,
+    termForms: [{ schoolSessionId, sessionTermId }],
+  }), [ctx.viewClassroomId, schoolSessionId, sessionTermId]);
+  const scopeKey = JSON.stringify([auth.profile?.schoolId, auth.id, auth.sessionId, auth.profile?.sessionId, auth.profile?.termId, schoolSessionId, sessionTermId, ctx.viewClassroomId]);
+  const scopeReady = !auth.isPending && !auth.isProfileLoading && !auth.isProfileError &&
+    !!auth.id && !!auth.sessionId && !!auth.profile?.schoolId && auth.profile.auth?.userId === auth.id;
+  const onSaved = () => {
+    queryClient.invalidateQueries({ queryKey: trpc.attendance.getAttendanceRoster.queryKey({ departmentId: ctx.viewClassroomId || "-" }) });
+    queryClient.invalidateQueries({ queryKey: trpc.classrooms.getCurrentSessionClassroom.queryKey() });
+    queryClient.invalidateQueries({ queryKey: trpc.classrooms.getClassroomOverview.queryKey({ departmentId: ctx.viewClassroomId || "-" }) });
+    ctx.setParams({ secondaryTab: null });
+  };
   if (ctx.secondaryTab != "student-form") return null;
   return (
     <>
@@ -530,22 +547,12 @@ function StudentForm({ schoolSessionId, sessionTermId }) {
           </Sheet.Header>
         </Sheet.SecondaryHeader>
         <Sheet.Content>
-          <FormContext
-            defaultValues={{
-              classRoomId: ctx?.viewClassroomId,
-              termForms: [
-                {
-                  schoolSessionId,
-                  sessionTermId,
-                },
-              ],
-            }}
-          >
-            <Form />
+          {scopeReady ? <FormContext key={scopeKey} defaultValues={defaultValues}>
+            <Form onEnrolled={ctx.classroomTab === "attendance" ? onSaved : undefined} />
             <Sheet.SecondaryFooter>
-              <StudentFormAction />
+              <StudentFormAction onSaved={ctx.classroomTab === "attendance" ? onSaved : undefined} />
             </Sheet.SecondaryFooter>
-          </FormContext>
+          </FormContext> : <p role="status">Loading your registration workspace…</p>}
         </Sheet.Content>
       </Sheet.SecondaryContent>
     </>

@@ -3,6 +3,9 @@ import { switchSessionTerm } from "@/actions/cookies/auth-cookie";
 import { _trpc } from "@/components/static-trpc";
 import { resolveDashboardNavigation } from "@/features/navigation/dashboard-navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { useTRPC } from "@/trpc/client";
+import { ModuleAccessNotice } from "./settings/module-access-notice";
+import type { ModuleId } from "@school-clerk/utils/module-config";
 import { createSiteNavContext, SiteNav } from "@school-clerk/site-nav";
 import { Icons } from "@school-clerk/ui/custom/icons";
 import { usePathname } from "next/navigation";
@@ -17,27 +20,43 @@ import {
   type DataDirection,
 } from "./academic-data-direction/provider";
 
+const NO_MODULES: readonly ModuleId[] = [];
+
 export function NavLayoutClient({
   children,
   initialRole,
   academicDataDirection,
+  schoolId,
 }: {
   children: React.ReactNode;
   initialRole?: string | null;
   academicDataDirection: DataDirection;
+  schoolId: string;
 }) {
   const auth = useAuth();
+  const trpc = useTRPC();
+  const moduleQuery = useQuery(trpc.schoolSettings.getModules.queryOptions({ schoolId }));
+  const moduleAccess = moduleQuery.data?.access;
+  // Missing, invalid and failed configuration reads do not grant navigation.
+  // Settings and account recovery remain outside module-specific policies.
+  const tenantModules = moduleQuery.isError
+    ? NO_MODULES
+    : moduleAccess?.effectiveModules ?? NO_MODULES;
   const pathName = usePathname();
   const tenantUrl = useTenantUrl();
   const tenantHref = useLocalTenantHref();
   const productPathName = tenantUrl?.context.productPath ?? pathName;
   const navigationRole = auth.role ?? initialRole;
   const navigation = useMemo(
-    () => resolveDashboardNavigation(navigationRole),
-    [navigationRole],
+    () => resolveDashboardNavigation(navigationRole, {
+      tenantModules,
+      institutionType: moduleQuery.data?.institutionType,
+    }),
+    [navigationRole, tenantModules, moduleQuery.data?.institutionType],
   );
   const canUseChat =
-    process.env.NODE_ENV !== "production" && initialRole === "Admin";
+    process.env.NODE_ENV !== "production" && initialRole === "Admin" &&
+    tenantModules.includes("AI_ASSISTANT");
   const onLogout = () => {
     window.location.href = tenantHref("/signout");
   };
@@ -70,9 +89,17 @@ export function NavLayoutClient({
           </div>
         </SiteNav.Sidebar>
         <SiteNav.Shell className="pb-8">
-          <WorkspaceTermBootstrap />
+          <WorkspaceTermBootstrap enabled={tenantModules.includes("ACADEMIC_PROGRAMS")} />
           <Header />
-          <div className="px-2 sm:px-6">{children}</div>
+          <div className="min-w-0 px-2 sm:px-6">
+            <ModuleAccessNotice
+              status={moduleQuery.isError ? "error" : moduleAccess?.status ?? "loading"}
+              canManage={navigationRole === "Admin" || navigationRole === "ADMIN"}
+              isFetching={moduleQuery.isFetching}
+              onRetry={() => { void moduleQuery.refetch(); }}
+            />
+            {children}
+          </div>
         </SiteNav.Shell>
         {canUseChat ? <ChatWidget /> : null}
       </div>
@@ -81,10 +108,10 @@ export function NavLayoutClient({
   );
 }
 
-function WorkspaceTermBootstrap() {
+function WorkspaceTermBootstrap({ enabled }: { enabled: boolean }) {
   const auth = useAuth();
   const didSwitchTerm = useRef(false);
-  const shouldSelectTerm = !!auth.profile?.schoolId && !auth.profile?.termId;
+  const shouldSelectTerm = enabled && !!auth.profile?.schoolId && !auth.profile?.termId;
   const { data: dashboardData } = useQuery(
     _trpc.academics.dashboard.queryOptions(
       {},

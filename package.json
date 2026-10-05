@@ -49,6 +49,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
+    "@tailwindcss/postcss": "^4.1.17",
     "@turbo/gen": "2.5.4",
     "@types/node": "^24.7.2",
     "check-dependency-version-consistency": "4.1.0",

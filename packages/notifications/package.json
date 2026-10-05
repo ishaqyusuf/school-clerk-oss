@@ -7,6 +7,7 @@
     "./core-types": "./src/core-types.ts",
     "./delivery": "./src/delivery.ts",
     "./memory-store": "./src/memory-store.ts",
+    "./module-policy": "./src/module-policy.ts",
     "./notification-types": "./src/notification-types.ts",
     "./payload-utils": "./src/payload-utils.ts",
     "./services": "./src/services/triggers.ts",

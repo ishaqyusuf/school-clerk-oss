@@ -1,7 +1,7 @@
 import "server-only";
+import type { ResolvedModuleAccess } from "@school-clerk/utils/module-config";
 
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
-import { getSession } from "@/auth/server";
+import { DashboardAccessError, dashboardAccessErrorResponse, requireDashboardModules, requireDashboardSchoolContext } from "@/lib/module-access";
 import {
   type AssistantConversation,
   type AssistantFeedback,
@@ -9,6 +9,12 @@ import {
   type AssistantRun,
   type AssistantToolExecution,
   type SchoolAssistantConfig,
+  type AssistantConfirmationTransaction,
+  createAssistantConfirmation,
+  consumeAssistantConfirmation,
+  assistantHistoryMetadata,
+  withAssistantConversationAccess,
+  withAssistantHistoryList,
   prisma,
 } from "@school-clerk/db";
 
@@ -20,8 +26,16 @@ import {
   safeJsonParse,
   buildSchoolAiConfirmationToken,
   readSchoolAiConfirmationToken,
+  schoolAiConfirmationDigest,
+  type SchoolAiToolConfirmationPayload,
+  type SchoolAiSignedConfirmationPayload,
   summarizeConversationTitle,
   workflowActionToMessage,
+  getSchoolAiToolPolicy,
+  getSchoolAiAvailableToolNames,
+  hasSchoolAiCapabilityModules,
+  SchoolAiToolAccessError,
+  type SchoolAiToolContext,
   type AiCapabilityKey,
   type AiMessagePart,
   type ChatInput,
@@ -40,15 +54,20 @@ const DEFAULT_PREFERRED_PROVIDER = "deepseek";
 const DEFAULT_ROLLOUT_STAGE = "beta";
 
 function getConfirmationSecret() {
-  return process.env.BETTER_AUTH_SECRET || "school-clerk-assistant";
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error("AI confirmation signing is not configured.");
+  return secret;
 }
 
-export async function getAssistantSessionContext() {
-  const [profile, session] = await Promise.all([getAuthCookie(), getSession()]);
-  const user = session?.user;
-
-  if (!profile?.schoolId || !profile.auth?.userId || !user?.id) {
-    return null;
+export async function getAssistantSessionContext(options: { settingsRecovery?: boolean } = {}) {
+  const scope = await (options.settingsRecovery
+    ? requireDashboardSchoolContext(CURRENT_RELEASED_CHAT_ROLES)
+    : requireDashboardModules(["AI_ASSISTANT"], CURRENT_RELEASED_CHAT_ROLES)
+  ).catch(dashboardAccessErrorResponse);
+  if (scope instanceof Response) return scope;
+  const { profile, user } = scope;
+  if (!CURRENT_RELEASED_CHAT_ROLES.includes(user.role ?? "")) {
+    return dashboardAccessErrorResponse(new DashboardAccessError(403, "AI access is not released for this role."));
   }
 
   return {
@@ -56,10 +75,23 @@ export async function getAssistantSessionContext() {
     termId: profile.termId ?? null,
     sessionId: profile.sessionId ?? null,
     userId: user.id,
-    role: ((user as { role?: string | null }).role ?? null) as string | null,
+    role: user.role,
+    moduleAccess: scope.access,
     userName: user.name ?? "School Clerk User",
     userEmail: user.email ?? null,
   };
+}
+
+export async function getAssistantHistoryContext() {
+  const context = await getAssistantSessionContext();
+  if (context instanceof Response) return context;
+  const config = await prisma.schoolAssistantConfig.findFirst({
+    where: { schoolProfileId: context.schoolId, deletedAt: null },
+  });
+  if (!config?.enabled) return dashboardAccessErrorResponse(new DashboardAccessError(403, "AI access is unavailable."));
+  const capabilities = getAllowedCapabilities({ role: context.role, config, moduleAccess: context.moduleAccess });
+  return { ...context, config, capabilities,
+    availableTools: getSchoolAiAvailableToolNames(context.moduleAccess, capabilities) };
 }
 
 export async function ensureAssistantConfig(schoolId: string) {
@@ -106,9 +138,11 @@ export async function ensureAssistantConfig(schoolId: string) {
 export function getAllowedCapabilities({
   role,
   config,
+  moduleAccess,
 }: {
   role: string | null;
   config: SchoolAssistantConfig;
+  moduleAccess: ResolvedModuleAccess;
 }) {
   const allowedRoles = safeJsonParse<string[]>(
     config.allowedRoles,
@@ -135,6 +169,7 @@ export function getAllowedCapabilities({
     const capability = aiCapabilityMap[key];
     return (
       capability &&
+      hasSchoolAiCapabilityModules(key, moduleAccess) &&
       !disabledCapabilities.has(key) &&
       capability.roles.includes(role)
     );
@@ -145,21 +180,61 @@ export function isCapabilityAllowed({
   role,
   config,
   capability,
+  moduleAccess,
 }: {
   role: string | null;
   config: SchoolAssistantConfig;
   capability: AiCapabilityKey;
+  moduleAccess: ResolvedModuleAccess;
 }) {
-  return getAllowedCapabilities({ role, config }).includes(capability);
+  return getAllowedCapabilities({ role, config, moduleAccess }).includes(capability);
 }
 
-export function buildConfirmationToken(input: {
-  conversationId: string;
-  schoolId: string;
-  toolName: string;
-  actionInput: Record<string, unknown>;
+export async function assertAssistantToolAccess(
+  expected: SchoolAiToolContext,
+  input: { toolName: string; capability: AiCapabilityKey },
+) {
+  const policy = getSchoolAiToolPolicy(input.toolName);
+  if (!policy || policy.capability !== input.capability) throw new SchoolAiToolAccessError();
+  try {
+    const current = await requireDashboardModules(["AI_ASSISTANT", ...policy.modules], CURRENT_RELEASED_CHAT_ROLES);
+    if (current.user.id !== expected.userId || current.profile.schoolId !== expected.schoolId ||
+      current.user.role !== expected.role || !CURRENT_RELEASED_CHAT_ROLES.includes(current.user.role ?? "") ||
+      (current.profile.termId ?? null) !== expected.termId ||
+      (current.profile.sessionId ?? null) !== expected.sessionId) {
+      throw new SchoolAiToolAccessError("The workspace or account changed. Start a new request.");
+    }
+    const config = await prisma.schoolAssistantConfig.findFirst({ where: { schoolProfileId: expected.schoolId } });
+    if (!config || !isCapabilityAllowed({ role: current.user.role, config,
+      moduleAccess: current.access, capability: input.capability })) {
+      throw new SchoolAiToolAccessError();
+    }
+  } catch (error) {
+    if (error instanceof DashboardAccessError) throw new SchoolAiToolAccessError();
+    throw error;
+  }
+}
+
+export async function buildConfirmationToken(input: SchoolAiToolConfirmationPayload & { runId: string }) {
+  const { runId, ...scope } = input;
+  const token = buildSchoolAiConfirmationToken(scope, getConfirmationSecret());
+  const payload = readConfirmationToken(token);
+  if (!payload) throw new Error("Approval could not be created.");
+  await createAssistantConfirmation(prisma, {
+    ...payload, runId, tokenDigest: schoolAiConfirmationDigest(token),
+    expiresAt: new Date(payload.expiresAt),
+  });
+  return token;
+}
+
+export async function consumeConfirmation(tx: AssistantConfirmationTransaction, input: {
+  token: string; payload: SchoolAiSignedConfirmationPayload; runId: string;
 }) {
-  return buildSchoolAiConfirmationToken(input, getConfirmationSecret());
+  await consumeAssistantConfirmation(tx, {
+    ...input.payload, runId: input.runId,
+    tokenDigest: schoolAiConfirmationDigest(input.token),
+    expiresAt: new Date(input.payload.expiresAt),
+  });
 }
 
 export function readConfirmationToken(token: string) {
@@ -169,9 +244,11 @@ export function readConfirmationToken(token: string) {
 export async function listAssistantConversations(params: {
   schoolId: string;
   userId: string;
+  availableTools: string[];
 }) {
-  const conversations = await prisma.assistantConversation.findMany({
+  const conversations = await withAssistantHistoryList(prisma, params, (tx, ids) => tx.assistantConversation.findMany({
     where: {
+      id: { in: ids },
       schoolProfileId: params.schoolId,
       createdByUserId: params.userId,
     },
@@ -179,6 +256,7 @@ export async function listAssistantConversations(params: {
     include: {
       messages: {
         take: 1,
+        where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
@@ -189,6 +267,7 @@ export async function listAssistantConversations(params: {
       },
       runs: {
         take: 1,
+        where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
@@ -197,7 +276,7 @@ export async function listAssistantConversations(params: {
         },
       },
     },
-  });
+  }));
 
   return conversations.map((conversation) => ({
     id: conversation.id,
@@ -217,6 +296,7 @@ export async function listAssistantConversations(params: {
 export async function createAssistantConversation(params: {
   schoolId: string;
   userId: string;
+  availableTools: string[];
   title?: string;
   locale?: string;
 }) {
@@ -227,6 +307,7 @@ export async function createAssistantConversation(params: {
       title: params.title ?? "New conversation",
       locale: params.locale ?? "en",
       lastMessageAt: new Date(),
+      meta: assistantHistoryMetadata(params.availableTools),
     },
   });
 }
@@ -235,8 +316,10 @@ export async function getAssistantConversation(params: {
   conversationId: string;
   schoolId: string;
   userId: string;
+  availableTools: string[];
+  mode?: "read" | "extend";
 }) {
-  return prisma.assistantConversation.findFirst({
+  return withAssistantConversationAccess(prisma, params, (tx) => tx.assistantConversation.findFirst({
     where: {
       id: params.conversationId,
       schoolProfileId: params.schoolId,
@@ -244,31 +327,36 @@ export async function getAssistantConversation(params: {
     },
     include: {
       messages: {
+        where: { deletedAt: null },
         orderBy: { createdAt: "asc" },
       },
       runs: {
+        where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
         take: 10,
         include: {
           toolExecutions: {
+            where: { deletedAt: null },
             orderBy: { createdAt: "asc" },
           },
         },
       },
     },
-  });
+  }));
 }
 
 export async function saveAssistantMessage(params: {
   conversationId: string;
   schoolId: string;
-  userId?: string | null;
+  userId: string;
+  availableTools: string[];
   role: "user" | "assistant" | "system";
   content: string;
   parts: AiMessagePart[];
   workflowState?: Record<string, unknown> | null;
 }) {
-  const created = await prisma.assistantMessage.create({
+  const created = await withAssistantConversationAccess(prisma, { ...params, mode: "append" }, async (tx) => {
+  const message = await tx.assistantMessage.create({
     data: {
       conversationId: params.conversationId,
       schoolProfileId: params.schoolId,
@@ -280,7 +368,7 @@ export async function saveAssistantMessage(params: {
     },
   });
 
-  await prisma.assistantConversation.update({
+  await tx.assistantConversation.update({
     where: { id: params.conversationId },
     data: {
       lastMessageAt: new Date(),
@@ -293,6 +381,9 @@ export async function saveAssistantMessage(params: {
     },
   });
 
+  return message;
+  });
+  if (!created) throw new DashboardAccessError(403, "Conversation history is unavailable. Start a new chat.");
   return created;
 }
 
@@ -394,8 +485,10 @@ export async function finishAssistantToolExecution(params: {
   output?: unknown;
   error?: string | null;
 }) {
-  return prisma.assistantToolExecution.update({
-    where: { id: params.toolExecutionId },
+  return prisma.assistantToolExecution.updateMany({
+    // A commit acknowledgment can fail after the transaction persisted a receipt.
+    // Never overwrite that authoritative completion with a later stream error.
+    where: { id: params.toolExecutionId, status: { not: "completed" } },
     data: {
       status: params.status,
       output: params.output ?? undefined,
@@ -435,52 +528,61 @@ export async function recordAssistantActivity(params: {
 export async function getAssistantAnalytics(params: {
   schoolId: string;
   userId: string;
+  availableTools: string[];
 }) {
   const [conversationCount, runCount, failedRuns, toolExecutions, feedback] =
-    await Promise.all([
-      prisma.assistantConversation.count({
+    await withAssistantHistoryList(prisma, params, (tx, ids) => Promise.all([
+      tx.assistantConversation.count({
         where: {
           schoolProfileId: params.schoolId,
+          id: { in: ids },
           createdByUserId: params.userId,
         },
       }),
-      prisma.assistantRun.findMany({
+      tx.assistantRun.findMany({
         where: {
+          conversationId: { in: ids },
           schoolProfileId: params.schoolId,
           userId: params.userId,
         },
         orderBy: { createdAt: "desc" },
         take: 100,
         include: {
-          toolExecutions: true,
+          toolExecutions: { where: { deletedAt: null, toolName: { in: params.availableTools } } },
         },
       }),
-      prisma.assistantRun.count({
+      tx.assistantRun.count({
         where: {
+          deletedAt: null,
+          conversationId: { in: ids },
           schoolProfileId: params.schoolId,
           userId: params.userId,
           status: "failed",
         },
       }),
-      prisma.assistantToolExecution.findMany({
+      tx.assistantToolExecution.findMany({
         where: {
+          conversationId: { in: ids },
+          toolName: { in: params.availableTools },
           schoolProfileId: params.schoolId,
           run: {
             userId: params.userId,
+            deletedAt: null,
           },
         },
         orderBy: { createdAt: "desc" },
         take: 200,
       }),
-      prisma.assistantFeedback.findMany({
+      tx.assistantFeedback.findMany({
         where: {
+          conversationId: { in: ids },
           schoolProfileId: params.schoolId,
           userId: params.userId,
         },
         orderBy: { createdAt: "desc" },
         take: 50,
       }),
-    ]);
+    ]));
 
   const toolUsage = toolExecutions.reduce<Record<string, number>>(
     (acc, execution) => {
@@ -540,6 +642,21 @@ export async function saveAssistantFeedback(params: {
   comment?: string | null;
   meta?: Record<string, unknown>;
 }) {
+  if (params.conversationId) {
+    const conversation = await prisma.assistantConversation.findFirst({
+      where: { id: params.conversationId, schoolProfileId: params.schoolId, createdByUserId: params.userId },
+      select: { id: true },
+    });
+    if (!conversation) throw new DashboardAccessError(403, "Feedback conversation is unavailable.");
+  }
+  if (params.runId) {
+    const run = await prisma.assistantRun.findFirst({
+      where: { id: params.runId, schoolProfileId: params.schoolId, userId: params.userId,
+        ...(params.conversationId ? { conversationId: params.conversationId } : {}) },
+      select: { id: true },
+    });
+    if (!run) throw new DashboardAccessError(403, "Feedback run is unavailable.");
+  }
   return prisma.assistantFeedback.create({
     data: {
       schoolProfileId: params.schoolId,

@@ -1,4 +1,6 @@
 import { getTeacherWorkspaceAction } from "@/actions/get-teacher-workspace";
+import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { SubmitClassStudentSheet } from "@/components/students/submit-class-student-sheet";
 import { TeacherAssessmentWorkspace } from "@/components/teachers/teacher-assessment-workspace";
 import { TeacherAttendanceWorkspace } from "@/components/teachers/teacher-attendance-workspace";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
@@ -286,7 +288,7 @@ export async function TeacherStudentsPanel({
 }: {
 	search?: string;
 }) {
-	const data = await getTeacherWorkspaceAction({ search });
+	const [data, cookie] = await Promise.all([getTeacherWorkspaceAction({ search }), getAuthCookie()]);
 
 	if (!data.teacher) {
 		return <TeacherEmptyState email={data.signedInEmail} />;
@@ -297,7 +299,7 @@ export async function TeacherStudentsPanel({
 			<TeacherSection
 				title="My students"
 				description="Students listed here come from your assigned classrooms for the current term."
-				action={<SearchForm search={search} />}
+				action={<div className="flex flex-wrap items-center gap-2"><SearchForm search={search} /><SubmitClassStudentSheet classrooms={data.classrooms} termId={cookie.termId ?? ""} /></div>}
 			>
 				{data.students.length ? (
 					<AcademicDataSurface className="overflow-hidden border">
@@ -313,7 +315,9 @@ export async function TeacherStudentsPanel({
 								{data.students.map((student) => (
 									<TableRow key={student.id}>
 										<TableCell className="font-medium" dir="auto">
-											{student.name}
+										{student.name}
+										{student.registrationReviewStatus === "PENDING" ? <Badge variant="warning" className="ms-2">Pending approval</Badge> : null}
+										{student.registrationReviewStatus === "REJECTED" ? <Badge variant="destructive" className="ms-2">Unapproved</Badge> : null}
 										</TableCell>
 										<TableCell>{student.gender}</TableCell>
 										<TableCell dir="auto">{student.classroom}</TableCell>

@@ -14,9 +14,9 @@ import {
 import { classroomDisplayName, formatStudentName } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 import {
-	type TRPCContext,
-	authenticatedProcedure,
-	createTRPCRouter,
+  type TRPCContext,
+  createTRPCRouter,
+  moduleProcedure,
 } from "../init";
 
 const ATTENDANCE_READ_ROLES = new Set([
@@ -67,7 +67,7 @@ const takeAttendanceSchema = z
 						(student) =>
 							student.status !== undefined || student.isPresent !== undefined,
 						{
-							message: "Select an attendance status for every student.",
+							message: "Each submitted student needs an attendance status.",
 						},
 					),
 			)
@@ -321,17 +321,14 @@ async function resolveAttendanceWrite(
 		schoolProfileId,
 	});
 
-	const selectedStudentTermFormIds = new Set(studentTermFormIds);
+	const activeStudentTermFormIds = new Set(rosterStudentForms.map((student) => student.id));
 	if (
-		rosterStudentForms.length !== studentTermFormIds.length ||
-		rosterStudentForms.some(
-			(studentTermForm) => !selectedStudentTermFormIds.has(studentTermForm.id),
-		)
+		studentTermFormIds.some((id) => !activeStudentTermFormIds.has(id))
 	) {
 		throw new TRPCError({
 			code: "BAD_REQUEST",
 			message:
-				"Select an attendance status for every student in the active classroom roster.",
+				"Attendance can only include students in the active classroom roster.",
 		});
 	}
 
@@ -460,8 +457,10 @@ async function recordAttendanceActivity(
 	}
 }
 
+const attendanceProcedure = moduleProcedure(["ATTENDANCE"]);
+
 export const attendanceRouter = createTRPCRouter({
-	getAttendanceOptions: authenticatedProcedure
+	getAttendanceOptions: attendanceProcedure
 		.input(z.object({ departmentId: z.string() }))
 		.query(async ({ input, ctx }) => {
 			assertAttendanceRole(ctx, "write");
@@ -523,7 +522,7 @@ export const attendanceRouter = createTRPCRouter({
 			};
 		}),
 
-	getAttendanceRoster: authenticatedProcedure
+	getAttendanceRoster: attendanceProcedure
 		.input(z.object({ departmentId: z.string() }))
 		.query(async ({ input, ctx }) => {
 			assertAttendanceRole(ctx, "write");
@@ -568,7 +567,7 @@ export const attendanceRouter = createTRPCRouter({
 			};
 		}),
 
-	getClassroomAttendance: authenticatedProcedure
+	getClassroomAttendance: attendanceProcedure
 		.input(z.object({ departmentId: z.string() }))
 		.query(async ({ input, ctx }) => {
 			assertAttendanceRole(ctx, "read");
@@ -608,6 +607,7 @@ export const attendanceRouter = createTRPCRouter({
 					studentAttendanceList: {
 						where: {
 							deletedAt: null,
+							StudentTermForm: { registrationReviewStatus: { not: "REJECTED" } },
 						},
 						select: {
 							isPresent: true,
@@ -644,7 +644,7 @@ export const attendanceRouter = createTRPCRouter({
 			});
 		}),
 
-	getAttendanceReport: authenticatedProcedure
+	getAttendanceReport: attendanceProcedure
 		.input(
 			z.object({
 				departmentId: z.string(),
@@ -720,6 +720,7 @@ export const attendanceRouter = createTRPCRouter({
 					studentAttendanceList: {
 						where: {
 							deletedAt: null,
+							StudentTermForm: { registrationReviewStatus: { not: "REJECTED" } },
 						},
 						select: {
 							comment: true,
@@ -774,7 +775,7 @@ export const attendanceRouter = createTRPCRouter({
 			};
 		}),
 
-	getAttendanceSession: authenticatedProcedure
+	getAttendanceSession: attendanceProcedure
 		.input(z.object({ attendanceId: z.string() }))
 		.query(async ({ input, ctx }) => {
 			assertAttendanceRole(ctx, "read");
@@ -827,6 +828,7 @@ export const attendanceRouter = createTRPCRouter({
 					studentAttendanceList: {
 						where: {
 							deletedAt: null,
+							StudentTermForm: { registrationReviewStatus: { not: "REJECTED" } },
 						},
 						select: {
 							id: true,
@@ -899,7 +901,7 @@ export const attendanceRouter = createTRPCRouter({
 			};
 		}),
 
-	takeAttendance: authenticatedProcedure
+	takeAttendance: attendanceProcedure
 		.input(takeAttendanceSchema)
 		.mutation(async ({ input, ctx }) => {
 			assertAttendanceRole(ctx, "write");
@@ -1059,7 +1061,7 @@ export const attendanceRouter = createTRPCRouter({
 			return created;
 		}),
 
-	updateAttendanceSession: authenticatedProcedure
+	updateAttendanceSession: attendanceProcedure
 		.input(updateAttendanceSessionSchema)
 		.mutation(async ({ input, ctx }) => {
 			assertAttendanceRole(ctx, "write");
@@ -1083,6 +1085,7 @@ export const attendanceRouter = createTRPCRouter({
 					studentAttendanceList: {
 						where: {
 							deletedAt: null,
+							StudentTermForm: { registrationReviewStatus: { not: "REJECTED" } },
 						},
 						select: {
 							comment: true,
@@ -1161,6 +1164,7 @@ export const attendanceRouter = createTRPCRouter({
 						where: {
 							classroomAttendanceId: existing.id,
 							deletedAt: null,
+							StudentTermForm: { registrationReviewStatus: { not: "REJECTED" } },
 						},
 						data: {
 							deletedAt,
@@ -1211,7 +1215,7 @@ export const attendanceRouter = createTRPCRouter({
 			return result;
 		}),
 
-	deleteAttendanceSession: authenticatedProcedure
+	deleteAttendanceSession: attendanceProcedure
 		.input(z.object({ attendanceId: z.string() }))
 		.mutation(async ({ input, ctx }) => {
 			assertAttendanceRole(ctx, "write");
@@ -1235,7 +1239,10 @@ export const attendanceRouter = createTRPCRouter({
 					scope: true,
 					sessionTermId: true,
 					studentAttendanceList: {
-						where: { deletedAt: null },
+						where: {
+							deletedAt: null,
+							StudentTermForm: { registrationReviewStatus: { not: "REJECTED" } },
+						},
 						select: {
 							comment: true,
 							isPresent: true,
@@ -1308,7 +1315,7 @@ export const attendanceRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	getStudentAttendanceHistory: authenticatedProcedure
+	getStudentAttendanceHistory: attendanceProcedure
 		.input(z.object({ studentId: z.string().optional().nullable() }))
 		.query(async ({ input, ctx }) => {
 			assertAttendanceRole(ctx, "read");

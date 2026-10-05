@@ -1,3 +1,4 @@
+import { normalizeInstitutionType as normalizeCanonicalInstitutionType } from "@school-clerk/utils/institution-config";
 import {
   getPublishedWebsiteConfigBySchoolProfileId,
   listWebsiteMediaAssetsBySchoolProfileId,
@@ -21,26 +22,10 @@ type PublicTenantResolution = {
   source: "database" | "mock";
 };
 
-const WEBSITE_INSTITUTION_TYPES = new Set<WebsiteInstitutionType>([
-  "PRESCHOOL",
-  "PRIMARY",
-  "SECONDARY",
-  "K12",
-  "COLLEGE",
-  "POLYTECHNIC",
-  "UNIVERSITY",
-  "TRAINING_CENTER",
-  "RELIGIOUS_SCHOOL",
-]);
-
 function normalizeInstitutionType(value?: string | null): WebsiteInstitutionType {
-  const normalized = value?.trim().toUpperCase();
-
-  if (normalized && WEBSITE_INSTITUTION_TYPES.has(normalized as WebsiteInstitutionType)) {
-    return normalized as WebsiteInstitutionType;
-  }
-
-  return "K12";
+  // Public rendering retains its historical K12 fallback without rewriting
+  // unknown stored classifications. Settings exposes those values as unclassified.
+  return normalizeCanonicalInstitutionType(value) ?? "K12";
 }
 
 export async function resolvePublicTenant(

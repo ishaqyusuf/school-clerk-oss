@@ -80,12 +80,15 @@ export default async function Page({ params }) {
             </div>
           </CardContent>
 
-          <CardFooter className="justify-center px-6 py-8 sm:px-10">
-            <Button asChild size="lg">
+          <CardFooter className="flex-col justify-center gap-3 px-6 py-8 sm:px-10">
+            <Button asChild size="lg" className="min-h-11 w-full whitespace-normal sm:w-auto">
               <Link href="/onboarding/create-academic-session">
                 Set up academic session
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
+            </Button>
+            <Button asChild variant="outline" className="min-h-11 w-full whitespace-normal sm:w-auto">
+              <Link href="/verify-email">Verify email or request a fresh link</Link>
             </Button>
           </CardFooter>
         </Card>

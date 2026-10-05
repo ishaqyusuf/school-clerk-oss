@@ -72,6 +72,9 @@ export default defineConfig({
 							"VERCEL_DASHBOARD_PROJECT_ID",
 							"VERCEL_SITE_PROJECT_ID",
 							"APP_ROOT_DOMAIN",
+							"BETTER_AUTH_URL",
+							"DASHBOARD_APP_URL",
+							"NEXT_PUBLIC_APP_URL",
 							"SCHOOL_SITE_ROOT_DOMAIN",
 						].flatMap((key) => {
 							const value = process.env[key]?.trim();

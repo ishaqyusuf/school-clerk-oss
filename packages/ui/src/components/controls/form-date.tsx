@@ -3,11 +3,7 @@
 import { useDataSkeleton } from "@/hooks/use-data-skeleton";
 import { Button } from "@school-clerk/ui/button";
 import { Calendar } from "@school-clerk/ui/calendar";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@school-clerk/ui/popover";
+import { CalendarPopover } from "@school-clerk/ui/calendar-popover";
 import { Skeleton } from "@school-clerk/ui/skeleton";
 import { format, startOfDay } from "date-fns";
 import { CalendarIcon, RotateCcw } from "lucide-react";
@@ -69,14 +65,15 @@ export function FormDate<
 						props.disabled && "text-muted-foreground",
 					)}
 				>
-					{label ? (
-						<Field.Label htmlFor={fieldId}>{label}</Field.Label>
-					) : null}
+					{label ? <Field.Label htmlFor={fieldId}>{label}</Field.Label> : null}
 					{load?.loading ? (
 						<Skeleton className="h-9 w-full" />
 					) : (
-						<Popover open={open} onOpenChange={setOpen}>
-							<PopoverTrigger asChild>
+						<CalendarPopover
+							open={open}
+							onOpenChange={setOpen}
+							title={label ?? "Choose date"}
+							trigger={
 								<Button
 									id={fieldId}
 									type="button"
@@ -101,65 +98,60 @@ export function FormDate<
 										className="size-4 shrink-0 opacity-60"
 									/>
 								</Button>
-							</PopoverTrigger>
-							<PopoverContent
-								className="w-auto overflow-hidden p-0"
-								align="start"
-								sideOffset={6}
-							>
-								<Calendar
-									{...calendarProps}
-									mode="single"
-									selected={field.value ?? undefined}
-									defaultMonth={
-										calendarProps?.defaultMonth ?? field.value ?? undefined
-									}
-									captionLayout={calendarProps?.captionLayout ?? "dropdown"}
-									startMonth={calendarProps?.startMonth ?? minimumMonth}
-									endMonth={calendarProps?.endMonth ?? maximumMonth}
-									autoFocus
-									onSelect={(date) => {
-										if (!date) return;
-										field.onChange(date);
-										setOpen(false);
-									}}
-								/>
-								{clearable || showToday ? (
-									<div className="flex items-center justify-between gap-2 border-t p-2">
-										{clearable ? (
-											<Button
-												type="button"
-												size="sm"
-												variant="ghost"
-												disabled={!field.value}
-												onClick={() => {
-													field.onChange(null);
-													setOpen(false);
-												}}
-											>
-												<RotateCcw data-icon="inline-start" />
-												Clear date
-											</Button>
-										) : (
-											<span />
-										)}
-										{showToday ? (
-											<Button
-												type="button"
-												size="sm"
-												variant="ghost"
-												onClick={() => {
-													field.onChange(startOfDay(new Date()));
-													setOpen(false);
-												}}
-											>
-												Today
-											</Button>
-										) : null}
-									</div>
-								) : null}
-							</PopoverContent>
-						</Popover>
+							}
+						>
+							<Calendar
+								{...calendarProps}
+								mode="single"
+								selected={field.value ?? undefined}
+								defaultMonth={
+									calendarProps?.defaultMonth ?? field.value ?? undefined
+								}
+								captionLayout={calendarProps?.captionLayout ?? "dropdown"}
+								startMonth={calendarProps?.startMonth ?? minimumMonth}
+								endMonth={calendarProps?.endMonth ?? maximumMonth}
+								autoFocus
+								onSelect={(date) => {
+									if (!date) return;
+									field.onChange(date);
+									setOpen(false);
+								}}
+							/>
+							{clearable || showToday ? (
+								<div className="flex items-center justify-between gap-2 border-t p-2">
+									{clearable ? (
+										<Button
+											type="button"
+											size="sm"
+											variant="ghost"
+											disabled={!field.value}
+											onClick={() => {
+												field.onChange(null);
+												setOpen(false);
+											}}
+										>
+											<RotateCcw data-icon="inline-start" />
+											Clear date
+										</Button>
+									) : (
+										<span />
+									)}
+									{showToday ? (
+										<Button
+											type="button"
+											size="sm"
+											variant="ghost"
+											onClick={() => {
+												field.onChange(startOfDay(new Date()));
+												setOpen(false);
+											}}
+										>
+											Today
+										</Button>
+									) : null}
+								</div>
+							) : null}
+						</CalendarPopover>
 					)}
 					{description ? (
 						<Field.Description>{description}</Field.Description>

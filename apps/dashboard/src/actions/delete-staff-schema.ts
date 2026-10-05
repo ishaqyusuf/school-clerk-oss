@@ -4,6 +4,7 @@ import { transaction } from "@/utils/db";
 import { z } from "zod";
 
 import { prisma } from "@school-clerk/db";
+import { requireDashboardModules } from "@/lib/module-access";
 
 import { staffChanged } from "./cache/cache-control";
 import { actionClient } from "./safe-action";
@@ -14,9 +15,14 @@ const schema = z.object({
 });
 export type Data = z.infer<typeof schema>;
 export async function deleteStaff(data: Data, tx: typeof prisma = prisma) {
+  const { profile } = await requireDashboardModules(["STAFF_MANAGEMENT"], ["Admin"]);
+  data = schema.parse(data);
   await tx.staffProfile.update({
     where: {
       id: data.staffId,
+      schoolProfileId: profile.schoolId,
+      deletedAt: null,
+      ...(data.termProfileId ? { termProfiles: { some: { id: data.termProfileId, deletedAt: null } } } : {}),
     },
     data: {
       deletedAt: data.termProfileId ? undefined : new Date(),

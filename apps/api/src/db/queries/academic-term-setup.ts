@@ -7,6 +7,7 @@ import type {
 import { TRPCError } from "@trpc/server";
 import { randomUUID } from "node:crypto";
 import {
+  type Prisma,
   applicableStudentGenderAudiences,
   classroomListOrderBy,
   nestedClassroomDepartmentListOrderBy,
@@ -1213,7 +1214,10 @@ async function applySetupTransaction(
   tx: AcademicDb,
   schoolProfileId: string,
   input: AcademicTermSetupApply,
-  preview: Awaited<ReturnType<typeof buildTermSetupPreview>>,
+  preview: Pick<
+    Awaited<ReturnType<typeof buildTermSetupPreview>>,
+    "source" | "target" | "promotional"
+  >,
 ) {
   if (!preview.source) {
     await tx.sessionTerm.update({
@@ -1414,7 +1418,18 @@ async function applySetupTransaction(
             [student.id, student.gender] as const,
         ),
       );
-      const feeItems = await tx.financeItem.findMany({
+      const feeItems: Prisma.FinanceItemGetPayload<{
+        select: {
+          id: true;
+          name: true;
+          description: true;
+          amount: true;
+          streamId: true;
+          collectable: true;
+          studentGenderAudience: true;
+          applicableClasses: { select: { classRoomDepartmentId: true } };
+        };
+      }>[] = await tx.financeItem.findMany({
         where: {
           schoolProfileId,
           isActive: true,

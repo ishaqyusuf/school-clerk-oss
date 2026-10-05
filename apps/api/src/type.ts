@@ -1,15 +1,15 @@
 export type { PageFilterData } from "@school-clerk/utils/types";
 
 export type PageDataMeta = {
-  count?;
-  page?;
+  count?: number;
+  page?: number;
   next?: {
-    size?;
-    start?;
+    size?: number;
+    start?: number;
   };
-  cursor?;
-  hasPreviousePage?;
-  hasNextPage?;
+  cursor?: string | null;
+  hasPreviousePage?: boolean;
+  hasNextPage?: boolean;
 };
 export type ColumnMeta = {
   preventDefault?: boolean;

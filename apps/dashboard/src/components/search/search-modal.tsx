@@ -27,12 +27,12 @@ export function SearchModal() {
 	return (
 		<Dialog open={isOpen} onOpenChange={setOpen}>
 			<DialogContent
-				className="overflow-hidden border-none bg-transparent p-0 shadow-none sm:max-w-[760px]"
+				className="w-[calc(100%-2rem)] max-w-[760px] overflow-hidden border-none bg-transparent p-0 shadow-none sm:max-w-[760px]"
 				hideClose
 			>
 				<DialogTitle className="sr-only">Search</DialogTitle>
 				<DialogDescription className="sr-only">
-					Search across students, classrooms, finance, and school records.
+					Search pages and records permitted for your current school and role.
 				</DialogDescription>
 				{isOpen ? <SearchPanel /> : null}
 			</DialogContent>

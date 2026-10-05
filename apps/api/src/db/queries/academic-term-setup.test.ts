@@ -211,6 +211,12 @@ function createSetupContext({
         ...data,
       }),
     },
+    students: {
+      findMany: async ({ where }: { where: { id: { in: string[] } } }) =>
+        source.termForms
+          .filter((form) => where.id.in.includes(form.studentId))
+          .map((form) => ({ id: form.studentId, gender: "Male" })),
+    },
     financeItem: {
       findMany: async () => [
         {
@@ -220,6 +226,7 @@ function createSetupContext({
           amount: 10_000,
           streamId: "stream-1",
           collectable: true,
+          studentGenderAudience: "ALL_GENDERS",
           stream: { id: "stream-1" },
           applicableClasses: [
             { classRoomDepartmentId: "department-1", deletedAt: null },

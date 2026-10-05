@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@school-clerk/db";
 
 import { classChanged } from "./cache/cache-control";
-import { getAuthCookie } from "./cookies/auth-cookie";
+import { requireDashboardModules } from "@/lib/module-access";
 import { actionClient } from "./safe-action";
 import { deleteSchema } from "./schema";
 
@@ -15,9 +15,13 @@ export async function deleteClassroomDepartment(
   data: Data,
   tx: typeof prisma = prisma
 ) {
+  const { profile } = await requireDashboardModules(["ACADEMIC_PROGRAMS"], ["Admin", "Registrar"]);
+  data = deleteSchema.parse(data);
   const resp = await tx.classRoomDepartment.update({
     where: {
       id: data.id,
+      schoolProfileId: profile.schoolId,
+      deletedAt: null,
     },
     data: {
       deletedAt: new Date(),
@@ -44,6 +48,8 @@ export async function deleteClassroomDepartment(
     await tx.classRoom.update({
       where: {
         id: classRoom.id,
+        schoolProfileId: profile.schoolId,
+        deletedAt: null,
       },
       data: {
         deletedAt: new Date(),

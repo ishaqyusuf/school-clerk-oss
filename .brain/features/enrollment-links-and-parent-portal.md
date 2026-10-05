@@ -16,7 +16,7 @@ Allow school admins to generate public enrollment links for specific classrooms,
 3. Parent opens the generated public school-site link.
 4. Parent selects a classroom, sees that class's age/document requirements, enters student details, enters parent/guardian details, marks the primary parent, and uploads the applicable required documents.
 5. Submission validates selected-class requirements, stores typed uploaded documents, creates a pending enrollment application, and sends a submission confirmation email to the primary parent.
-6. Success UI tells existing onboarded parents they can log in, or shows `Setup parent password` for new/unonboarded parents.
+6. Success UI offers an email setup link sent only to the recorded primary parent. The private, expiring link verifies email ownership before creating/linking a Parent login; existing passwords remain unchanged. New logins use email, not the application's unverified phone number.
 7. Staff review the application and approve with optional/required admission payment details, or reject it.
 8. Approval creates or links the parent, guardian, student, session form, term form, fee charges, parent portal access, stores payment handoff and selected admission-letter template metadata, and sends the successful-admission email with the payment details and admission-letter PDF link.
 9. Schools can manage document templates from `/settings/document-templates`, including choosing a default result template and requesting custom admission/result/form templates from uploaded PDFs or scans. Platform template operators can quote those requests with amount, currency, due date, instructions, and an optional external payment link before marking them paid/in-build/ready.
@@ -34,10 +34,11 @@ Allow school admins to generate public enrollment links for specific classrooms,
 
 ## APIs
 - Admin tRPC: list/create/update links, list applications, approve, reject.
-- Public school-site handlers: read link, submit application, upload documents, set up parent password.
+- Public school-site handlers: read link, submit application, upload documents, request parent setup email, confirm the one-use email setup capability.
 - Parent tRPC: authenticated overview of wards, enrollment status, fees, collection status, books, uniforms, and relevant parent features.
 
 ## Current Implementation Notes
+- 2026-09-07, implemented but untested: Admissions gates public page/submission/uploads/letters/listings; parent setup also requires Parent Portal. `parent-setup-actions.ts` composes the auth package's email-proof workflow; scoped identity/guardian writes live in `packages/db/src/enrollment-parent-access.ts`. See [ADR-0024](../decisions/ADR-0024-enrollment-parent-email-proof.md). The former direct reset-token action has been removed.
 - Prisma schema and migration draft exist for enrollment links, applications, submitted parents, uploaded documents, and `Guardians.userId`.
 - `trpc.enrollmentLinks.*` owns authenticated Admin/Registrar link management and application review.
 - `trpc.parents.overview` owns authenticated Parent ward/status reads through linked guardians.
@@ -63,12 +64,14 @@ Allow school admins to generate public enrollment links for specific classrooms,
 - Result PDFs use the tenant's saved result-template preference unless a query override is supplied.
 - Custom template quote payment uses dashboard-visible instructions and optional external payment links; native checkout-provider collection is not yet selected.
 - Capacity should be shown clearly when a classroom is full.
-- Success state should explain whether the parent can log in now or needs to set a password.
+- Success state requests email verification without exposing existing account/password status. Confirmation explains whether a new password was initialized or the existing password was retained; no automatic login occurs. Request/confirmation controls stack on narrow screens with 44px targets and pending/error states; mobile/browser verification is deferred.
 - Parent portal starts with a useful overview before deeper pages are fully built.
 
 ## Permissions
 - Admin and Registrar can manage links and applications.
-- Public users can only submit through valid active enrollment tokens.
+- Public users submit through active enrollment codes; an application ID/code pair is not a signed identity token. Login linking additionally requires the emailed, single-use capability, bound to the recorded primary parent, application, school/account and email.
+- Parent setup rejects inactive/deleted links, withdrawn/rejected applications, changed identity scope and unavailable required modules. It never returns a password-reset token to a public caller or selects an account by application phone. Existing active account matches must be unambiguous, same-account and Parent-role. Conflicting guardian ownership or other existing wards require staff review.
+- Approval uses only an explicit verified parent-login link, not a phone/email match. Historical links from the former flow still need audit; no automatic cleanup/reassignment has been performed.
 - Parent users can only view wards connected through their linked guardian record.
 - Admission upload links are only exposed to authenticated admin/registrar review surfaces; current Vercel Blob storage uses public, unguessable blob URLs because no private blob proxy exists yet.
 - Live admission/template upload validation requires a valid `BLOB_READ_WRITE_TOKEN`; live Blob upload/delete smoke validation now passes against the provisioned `school-clerk-admissions` Vercel Blob store. `schoolify` is configured for Production and Development Blob access; preview branches still need branch-specific Blob env if used.

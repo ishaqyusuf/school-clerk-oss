@@ -1,6 +1,5 @@
 import { processStudentImportJobSchema } from "../schema.js";
-import { processStudentImportJob } from "../../../../apps/api/src/db/queries/students.js";
-import { prisma } from "../../../db/src/prisma.js";
+import { prisma, runStudentImportJob } from "@school-clerk/db";
 import { processStudentImportJobTaskId } from "@school-clerk/utils/task-contracts";
 import { queue, schemaTask } from "@trigger.dev/sdk";
 
@@ -15,6 +14,6 @@ export const processStudentImportJobTask = schemaTask({
   maxDuration: 300,
   queue: processStudentImportJobQueue,
   run: async (payload) => {
-    await processStudentImportJob(prisma, payload.jobId);
+    await runStudentImportJob(prisma, payload.jobId);
   },
 });

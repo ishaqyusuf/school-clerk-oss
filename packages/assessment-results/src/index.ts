@@ -66,11 +66,11 @@ export const saveSubjectSchema = z.object({
 export type SaveSubjectSchema = z.infer<typeof saveSubjectSchema>;
 
 export const entrollStudentToTermSchema = z.object({
-  studentId: z.string(),
-  classroomDepartmentId: z.string().optional().nullable(),
-  studentSessionFormId: z.string().optional().nullable(),
-  schoolSessionId: z.string(),
-  sessionTermId: z.string(),
+  studentId: z.string().min(1).max(200),
+  classroomDepartmentId: z.string().min(1).max(200),
+  studentSessionFormId: z.string().min(1).max(200).optional().nullable(),
+  schoolSessionId: z.string().min(1).max(200),
+  sessionTermId: z.string().min(1).max(200),
 });
 
 export type EntrollStudentToTerm = z.infer<typeof entrollStudentToTermSchema>;
@@ -164,6 +164,7 @@ export type SubjectRecord = {
 
 export type StudentTermRecord = {
   id: string;
+  registrationReviewStatus?: "APPROVED" | "PENDING" | "REJECTED";
   student?: {
     id?: string | null;
     gender?: string | null;

@@ -1,8 +1,9 @@
 import { createContextFactory } from "@/utils/context-factory";
 import { useStudentParams } from "./use-student-params";
 import { useTRPC } from "@/trpc/client";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { useStudentOverviewQuery } from "./use-student-overview-query";
 
 export type StudentOverviewTab =
   | "overview"
@@ -55,16 +56,7 @@ export const {
     : pageTermSheetId;
 
   const trpc = useTRPC();
-  const { data: overviewData, isLoading } = useSuspenseQuery(
-    trpc.students.overview.queryOptions(
-      {
-        studentId: studentId ?? "",
-      },
-      {
-        enabled: !!studentId && isOpen,
-      }
-    )
-  );
+  const { data: overviewData, isLoading, isUnavailable, refetch } = useStudentOverviewQuery(isOpen ? studentId : null);
 
   const activeStudentTerm = useMemo(() => {
     const terms = overviewData?.studentTerms ?? [];
@@ -117,6 +109,8 @@ export const {
     mode,
     overviewData,
     isLoading,
+    isUnavailable,
+    retryOverview: refetch,
     selectedTermId,
     selectedTermSheetId,
     setActiveTab(tab: StudentOverviewTab) {

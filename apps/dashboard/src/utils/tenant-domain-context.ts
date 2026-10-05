@@ -1,4 +1,5 @@
-import { prisma } from "@school-clerk/db";
+import "server-only";
+import { getActiveAuthTenantDomain, getVerifiedAuthCustomDomain, prisma } from "@school-clerk/db";
 
 export type TenantDomainContext = {
   subdomain: string | null;
@@ -22,56 +23,14 @@ export function isTenantDomainTableMissing(error: unknown) {
 export async function findTenantDomainBySubdomain(
   subdomain: string,
 ): Promise<TenantDomainContext | null> {
-  try {
-    return await prisma.tenantDomain.findFirst({
-      where: {
-        deletedAt: null,
-        subdomain,
-      },
-      select: {
-        subdomain: true,
-        saasAccountId: true,
-      },
-    });
-  } catch (error) {
-    if (!isTenantDomainTableMissing(error)) {
-      throw error;
-    }
-
-    const school = await prisma.schoolProfile.findFirst({
-      where: {
-        deletedAt: null,
-        subDomain: subdomain,
-      },
-      select: {
-        subDomain: true,
-        accountId: true,
-      },
-    });
-
-    return school
-      ? {
-          subdomain: school.subDomain,
-          saasAccountId: school.accountId,
-        }
-      : null;
-  }
+  return getActiveAuthTenantDomain(prisma, subdomain);
 }
 
 export async function findTenantDomainByCustomDomain(
   customDomain: string,
 ): Promise<TenantDomainContext | null> {
   try {
-    return await prisma.tenantDomain.findFirst({
-      where: {
-        customDomain,
-        deletedAt: null,
-      },
-      select: {
-        subdomain: true,
-        saasAccountId: true,
-      },
-    });
+    return await getVerifiedAuthCustomDomain(prisma, customDomain);
   } catch (error) {
     if (isTenantDomainTableMissing(error)) {
       return null;

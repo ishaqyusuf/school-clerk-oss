@@ -1,3 +1,4 @@
+import { EventsProvider } from "@school-clerk/events/client";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
@@ -41,7 +42,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><EventsProvider>{children}</EventsProvider></body>
     </html>
   );
 }

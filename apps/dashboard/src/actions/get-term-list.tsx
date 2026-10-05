@@ -1,11 +1,11 @@
 "use server";
 
 import { prisma } from "@school-clerk/db";
-import { getAuthCookie } from "./cookies/auth-cookie";
+import { requireDashboardModules } from "@/lib/module-access";
 
 export async function getTermListAction() {
   const tags = ["term-list"];
-  const profile = await getAuthCookie();
+  const { profile } = await requireDashboardModules(["ACADEMIC_PROGRAMS"]);
   // profile.
   // return unstable_cache(
   //   async (profile) => {

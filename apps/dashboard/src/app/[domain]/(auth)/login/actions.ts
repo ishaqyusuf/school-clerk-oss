@@ -6,9 +6,10 @@ import { resetCookie } from "@/actions/cookies/auth-cookie";
 import { getTenantDomain } from "@/actions/cookies/auth-cookie";
 import { auth } from "@/auth/server";
 import { getFirstPermittedHref } from "@/components/sidebar/links";
-import { findTenantDomainBySubdomain } from "@/utils/tenant-domain-context";
 import { tenantRedirect } from "@/utils/tenant-redirect";
-import { prisma } from "@school-clerk/db";
+import { getDevelopmentLoginSchool, getDevelopmentLoginUser, resolveParentPhoneLoginEmail, prisma } from "@school-clerk/db";
+import { isDevelopmentQuickLoginEnabled, isLoopbackRequestHost } from "@school-clerk/auth/development";
+import { normalizeAuthReturnTo } from "@school-clerk/utils/auth-return-to";
 
 function getFormValue(formData: FormData, name: string) {
   const value = formData.get(name);
@@ -19,11 +20,11 @@ export async function loginWithPasswordAction(formData: FormData) {
   const identifier = getFormValue(formData, "email").trim();
   const password = getFormValue(formData, "password");
   const quickLoginUserId = getFormValue(formData, "userId").trim();
-  const returnTo = getFormValue(formData, "returnTo").trim();
+  const returnTo = getFormValue(formData, "returnTo");
   const rememberMe = formData.get("rememberMe") === "on";
 
   if (quickLoginUserId) {
-    await loginWithDevQuickLogin({
+    return loginWithDevQuickLogin({
       email: identifier,
       rememberMe,
       returnTo,
@@ -39,6 +40,7 @@ export async function loginWithPasswordAction(formData: FormData) {
     );
   }
 
+  let destination = "/";
   try {
     const email = await resolveLoginEmail(identifier);
     const resp = await auth.api.signInEmail({
@@ -76,21 +78,18 @@ export async function loginWithPasswordAction(formData: FormData) {
       );
     }
 
-    await tenantRedirect(
-      normalizeReturnTo(returnTo) ??
+    destination = normalizeAuthReturnTo(returnTo) ??
         (!cookie?.sessionId && cookie?.domain
           ? "/onboarding/welcome"
-          : defaultHref || "/"),
-    );
-  } catch (error) {
+          : defaultHref || "/");
+  } catch {
     await tenantRedirect(
       `/login?error=${encodeURIComponent(
-        error instanceof Error
-          ? error.message
-          : "Unable to sign in right now. Please try again.",
+        "Unable to sign in. Check your credentials and school workspace.",
       )}&email=${encodeURIComponent(identifier)}`,
     );
   }
+  await tenantRedirect(destination);
 }
 
 async function loginWithDevQuickLogin({
@@ -104,34 +103,24 @@ async function loginWithDevQuickLogin({
   returnTo: string;
   userId: string;
 }) {
-  if (process.env.NODE_ENV === "production") {
+  if (!isDevelopmentQuickLoginEnabled() || !isLoopbackRequestHost((await headers()).get("host"))) {
     await tenantRedirect(
       `/login?error=${encodeURIComponent(
-        "Dev quick login is not available in production.",
+        "Quick login is unavailable.",
       )}&email=${encodeURIComponent(email)}`,
     );
   }
 
+  let destination = "/";
   try {
     const { domain } = await getTenantDomain();
-    const tenant = domain ? await findTenantDomainBySubdomain(domain) : null;
+    const tenant = domain ? await getDevelopmentLoginSchool(prisma, domain) : null;
 
-    if (!tenant?.saasAccountId) {
+    if (!tenant) {
       throw new Error("Quick login tenant could not be resolved.");
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        id: userId,
-        deletedAt: null,
-        saasAccountId: tenant.saasAccountId,
-      },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-      },
-    });
+    const user = await getDevelopmentLoginUser(prisma, { schoolId: tenant.id, userId });
 
     if (!user) {
       throw new Error("Quick login user was not found for this tenant.");
@@ -141,6 +130,7 @@ async function loginWithDevQuickLogin({
       body: {
         rememberMe,
         userId: user.id,
+        schoolId: tenant.id,
       },
       headers: new Headers(await headers()),
     });
@@ -170,30 +160,18 @@ async function loginWithDevQuickLogin({
       );
     }
 
-    await tenantRedirect(
-      normalizeReturnTo(returnTo) ??
+    destination = normalizeAuthReturnTo(returnTo) ??
         (!cookie?.sessionId && cookie?.domain
           ? "/onboarding/welcome"
-          : defaultHref || "/"),
-    );
-  } catch (error) {
+          : defaultHref || "/");
+  } catch {
     await tenantRedirect(
       `/login?error=${encodeURIComponent(
-        error instanceof Error
-          ? error.message
-          : "Unable to sign in with quick login right now.",
+        "Unable to sign in with quick login right now.",
       )}&email=${encodeURIComponent(email)}`,
     );
   }
-}
-
-function normalizeReturnTo(value: string) {
-  if (!value) return null;
-  const normalizedValue = value.startsWith("/") ? value : `/${value}`;
-
-  if (normalizedValue.startsWith("//")) return null;
-
-  return normalizedValue;
+  await tenantRedirect(destination);
 }
 
 async function parseDevQuickLoginResponse(resp: Response | { token?: string }) {
@@ -215,23 +193,7 @@ async function resolveLoginEmail(identifier: string) {
 
   const phone = identifier.replace(/[^\d+]/g, "").trim();
   const { domain } = await getTenantDomain();
-  const tenant = domain ? await findTenantDomainBySubdomain(domain) : null;
-
-  const user = await prisma.user.findFirst({
-    where: {
-      deletedAt: null,
-      phoneNo: phone,
-      role: "Parent",
-      ...(tenant?.saasAccountId ? { saasAccountId: tenant.saasAccountId } : {}),
-    },
-    select: {
-      email: true,
-    },
-  });
-
-  if (!user?.email) {
-    throw new Error("No parent account was found for that phone number.");
-  }
-
-  return user.email;
+  const email = domain ? await resolveParentPhoneLoginEmail(prisma, { phone, tenantSlug: domain }) : null;
+  if (!email) throw new Error("Invalid email or password.");
+  return email;
 }

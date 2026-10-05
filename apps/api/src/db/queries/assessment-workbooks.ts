@@ -210,6 +210,7 @@ async function loadWorkbookScope(
         where: {
           sessionTermId,
           deletedAt: null,
+          registrationReviewStatus: { not: "REJECTED" },
           student: { deletedAt: null },
         },
         orderBy: [{ student: { gender: "asc" } }, { student: { name: "asc" } }],

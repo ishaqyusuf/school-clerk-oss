@@ -1,5 +1,8 @@
 "use client";
 
+import { CalendarPopover } from "@school-clerk/ui/calendar-popover";
+import { useIsMobile } from "@school-clerk/ui/hooks/use-mobile";
+
 import { useRef, useState } from "react";
 
 import { useHotkeys } from "react-hotkeys-hook";
@@ -10,6 +13,7 @@ import {
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuGroup,
+	DropdownMenuItem,
 	DropdownMenuPortal,
 	DropdownMenuSub,
 	DropdownMenuSubContent,
@@ -165,6 +169,7 @@ export function SearchFilterTRPC({
 			([key, value]) => value !== null && !isSearchKey(key),
 		).length > 0;
 
+	const mobileCalendar = useIsMobile();
 	const __filters = (filterList || [])?.filter((a) => !isSearchKey(a.value));
 
 	return (
@@ -229,56 +234,71 @@ export function SearchFilterTRPC({
 			>
 				{__filters?.map((f, i) => (
 					<DropdownMenuGroup key={i}>
-						<DropdownMenuSub>
-							<DropdownMenuSubTrigger>
-								<Icon
-									name={searchIcons[f.value] as any}
-									className={"mr-2 size-4"}
-								/>
-								<span className="capitalize">
-									{f.label || f.value?.split(".").join(" ")}
-								</span>
-							</DropdownMenuSubTrigger>
-							<DropdownMenuPortal>
-								<DropdownMenuSubContent
-									sideOffset={14}
-									alignOffset={-4}
-									className="p-0"
-								>
-									{f.type == "date-range" ? (
-										<CalendarFilter filter={f} />
-									) : f.options?.length > 20 ? (
-										<>
-											<SelectTag
-												headless
-												data={f.options?.map((opt) => ({
-													...opt,
-													label: opt.label,
-													id: opt.value,
-												}))}
-												onChange={(selected) => {
-													optionSelected(f.value, {
-														...selected,
-														value: selected.id,
-													});
-												}}
-											/>
-										</>
-									) : (
-										f.options?.map(({ label, value }, _i) => (
-											<DropdownMenuCheckboxItem
-												onCheckedChange={() => {
-													optionSelected(f.value, { value, label });
-												}}
-												key={_i}
-											>
-												{label}
-											</DropdownMenuCheckboxItem>
-										))
-									)}
-								</DropdownMenuSubContent>
-							</DropdownMenuPortal>
-						</DropdownMenuSub>
+						{mobileCalendar && f.type === "date-range" ? (
+							<CalendarPopover
+								title={f.label || "Choose date range"}
+								trigger={
+									<DropdownMenuItem
+										onSelect={(event) => event.preventDefault()}
+									>
+										{f.label || f.value?.split(".").join(" ")}
+									</DropdownMenuItem>
+								}
+							>
+								<CalendarFilter filter={f} />
+							</CalendarPopover>
+						) : (
+							<DropdownMenuSub>
+								<DropdownMenuSubTrigger>
+									<Icon
+										name={searchIcons[f.value] as any}
+										className={"mr-2 size-4"}
+									/>
+									<span className="capitalize">
+										{f.label || f.value?.split(".").join(" ")}
+									</span>
+								</DropdownMenuSubTrigger>
+								<DropdownMenuPortal>
+									<DropdownMenuSubContent
+										sideOffset={14}
+										alignOffset={-4}
+										className="p-0"
+									>
+										{f.type == "date-range" ? (
+											<CalendarFilter filter={f} />
+										) : f.options?.length > 20 ? (
+											<>
+												<SelectTag
+													headless
+													data={f.options?.map((opt) => ({
+														...opt,
+														label: opt.label,
+														id: opt.value,
+													}))}
+													onChange={(selected) => {
+														optionSelected(f.value, {
+															...selected,
+															value: selected.id,
+														});
+													}}
+												/>
+											</>
+										) : (
+											f.options?.map(({ label, value }, _i) => (
+												<DropdownMenuCheckboxItem
+													onCheckedChange={() => {
+														optionSelected(f.value, { value, label });
+													}}
+													key={_i}
+												>
+													{label}
+												</DropdownMenuCheckboxItem>
+											))
+										)}
+									</DropdownMenuSubContent>
+								</DropdownMenuPortal>
+							</DropdownMenuSub>
+						)}
 					</DropdownMenuGroup>
 				))}
 			</DropdownMenuContent>
@@ -322,7 +342,7 @@ function CalendarFilter({ filter }: CalendarFilterProps) {
 		return undefined;
 	};
 	return (
-		<div className="flex">
+		<div className="flex max-w-full flex-col sm:flex-row">
 			<Table className="">
 				<TableBody>
 					{daysFilters.map((df) => (

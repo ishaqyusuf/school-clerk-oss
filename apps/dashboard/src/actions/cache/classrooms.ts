@@ -10,20 +10,22 @@ import {
 } from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 
-import { getAuthCookie } from "../cookies/auth-cookie";
+import { requireDashboardModules } from "@/lib/module-access";
 import { getStudentsListAction } from "../get-students-list";
 import { SearchParamsType } from "@/utils/search-params";
 
-export async function getCachedClassRooms(termId, sessionId) {
+export async function getCachedClassRooms(termId: string, sessionId: string) {
+  const { profile } = await requireDashboardModules(["ACADEMIC_PROGRAMS"], ["Admin", "Registrar"]);
   return unstable_cache(
     async () => {
       const where = whereClassroom({
         sessionId: sessionId,
       });
       const classrooms = await prisma.classRoom.findMany({
-        where,
+        where: { AND: [where, { schoolProfileId: profile.schoolId, deletedAt: null }] },
         include: {
           classRoomDepartments: {
+            where: { schoolProfileId: profile.schoolId, deletedAt: null },
             include: {},
             orderBy: nestedClassroomDepartmentListOrderBy,
           },
@@ -45,24 +47,19 @@ export async function getCachedClassRooms(termId, sessionId) {
         })
         .flat();
     },
-    [`classrooms_${termId}`],
+    ["classrooms", profile.schoolId, sessionId, termId],
     {
       tags: [`classrooms_${termId}`],
     }
   )();
 }
-export async function getCachedClassroomStudents(departmentId, start = 0) {
-  const tags = [`classroom_students_${departmentId}`];
-  const profile = await getAuthCookie();
+export async function getCachedClassroomStudents(departmentId: string, start = 0) {
+  const { profile } = await requireDashboardModules(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"], ["Admin", "Registrar"]);
   const query: SearchParamsType = {};
   query.sessionId = profile.sessionId;
   query.start = start;
   query.departmentId = departmentId;
-  return unstable_cache(
-    async (query) => {
-      return await getStudentsListAction(query);
-    },
-    tags,
-    { tags }
-  )(query);
+  // The action resolves live authorization; do not execute it inside a shared
+  // cache callback or bypass that authorization on a cache hit.
+  return getStudentsListAction(query, profile.schoolId);
 }

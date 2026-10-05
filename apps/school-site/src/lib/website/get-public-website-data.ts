@@ -5,6 +5,8 @@ import {
   type WebsiteTenantProfile,
 } from "@school-clerk/template-registry";
 import { prisma } from "@school-clerk/db";
+import { ModuleAccessDeniedError } from "@school-clerk/utils/module-config";
+import { requireEnrollmentModules } from "../enrollment/module-access";
 
 const ACTIVE_APPLICATION_STATUSES = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"];
 
@@ -19,6 +21,15 @@ function classroomLabel(classroomDepartment: any) {
 
 async function listVisibleAdmissionLinks(tenant: WebsiteTenantProfile) {
   if (!tenant.schoolProfileId) return [];
+
+  try {
+    await requireEnrollmentModules(tenant.schoolProfileId);
+  } catch (error) {
+    // Keep the public website available, but do not revive disabled admissions
+    // through configured/demo fallback content. Database errors still propagate.
+    if (error instanceof ModuleAccessDeniedError) return null;
+    throw error;
+  }
 
   const db = prisma as any;
   const now = new Date();
@@ -122,7 +133,9 @@ export async function getPublicWebsiteData(
 
   return {
     ...contentData,
-    admissionLinks: admissionLinks.length
+    admissionLinks: admissionLinks === null
+      ? []
+      : admissionLinks.length
       ? admissionLinks
       : contentData.admissionLinks,
   };

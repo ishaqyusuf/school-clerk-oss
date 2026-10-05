@@ -6,13 +6,14 @@ import { z } from "zod";
 import { prisma } from "@school-clerk/db";
 
 import { subjectChanged } from "./cache/cache-control";
-import { getAuthCookie } from "./cookies/auth-cookie";
+import { requireDashboardModules } from "@/lib/module-access";
 import { actionClient } from "./safe-action";
 import { createSubjectSchema } from "./schema";
 
 export type Form = z.infer<typeof createSubjectSchema>;
 export async function createSubject(data: Form, tx: typeof prisma) {
-  const profile = await getAuthCookie();
+  const { profile } = await requireDashboardModules(["COURSES_SUBJECTS"], ["Admin", "Registrar"]);
+  data = createSubjectSchema.parse(data);
   const resp = await tx.subject.create({
     data: {
       title: data.title,

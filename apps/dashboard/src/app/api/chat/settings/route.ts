@@ -22,7 +22,8 @@ const settingsSchema = z.object({
 });
 
 export async function GET() {
-  const context = await getAssistantSessionContext();
+  const context = await getAssistantSessionContext({ settingsRecovery: true });
+  if (context instanceof Response) return context;
   if (!context?.schoolId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -35,7 +36,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const context = await getAssistantSessionContext();
+  const context = await getAssistantSessionContext({ settingsRecovery: true });
+  if (context instanceof Response) return context;
   if (!context?.schoolId || context.role !== "Admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

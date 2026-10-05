@@ -1,4 +1,5 @@
 import type { TRPCContext } from "@api/trpc/init";
+import { requireVerifiedSchoolModules } from "../../lib/module-access";
 import { saveStudentAssessmentScoreWithHistory } from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
@@ -400,6 +401,7 @@ async function resolveAssessmentPublicLinkScope(
       where: {
         classroomDepartmentId: department.id,
         deletedAt: null,
+        registrationReviewStatus: { not: "REJECTED" },
         id: {
           in: selectedStudentTermFormIds,
         },
@@ -885,6 +887,7 @@ async function resolvePublicAssessmentLinkForUse(
   token: string,
 ) {
   const link = await getAssessmentPublicLinkByToken(ctx, token);
+  await requireVerifiedSchoolModules(ctx.db, link.schoolProfileId, ["ASSESSMENT_AND_EXAMS"]);
   const effectiveStatus = getEffectiveAssessmentPublicLinkStatus(link);
 
   if (effectiveStatus === "EXPIRED" && link.status === "APPROVED") {
@@ -1028,6 +1031,7 @@ export async function getPublicAssessmentLink(
         where: {
           classroomDepartmentId: link.classRoomDepartmentId,
           deletedAt: null,
+          registrationReviewStatus: { not: "REJECTED" },
           ...(link.selectedStudentTermFormIds.length
             ? {
                 id: {
@@ -1120,6 +1124,7 @@ export async function updatePublicAssessmentScore(
       where: {
         classroomDepartmentId: link.classRoomDepartmentId,
         deletedAt: null,
+        registrationReviewStatus: { not: "REJECTED" },
         id: input.studentTermId,
         schoolProfileId: link.schoolProfileId,
         sessionTermId: link.sessionTermId,

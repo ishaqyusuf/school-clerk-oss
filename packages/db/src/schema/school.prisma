@@ -6,6 +6,7 @@ model SchoolProfile {
   academicDataDirectionMode AcademicDataDirectionMode @default(AUTO)
   studentNameFormat       StudentNameFormat     @default(FIRST_SURNAME_OTHER)
   institutionType         String?
+  moduleConfiguration     SchoolModuleConfiguration?
   studentCountEstimate    Int?
   country                 String?
   educationSystem         String?
@@ -69,6 +70,19 @@ model SchoolProfile {
   financePurchases               FinancePurchase[]
 
   @@unique([name, subDomain, slug, deletedAt])
+}
+
+model SchoolModuleConfiguration {
+  id                String   @id @default(uuid())
+  schoolProfileId   String   @unique
+  version           Int      @default(1)
+  revision          Int      @default(0)
+  enabledModules    String[] @default([])
+  entitledModules   String[] @default([])
+  updatedByUserId   String?
+  createdAt         DateTime @default(now()) @db.Timestamp(0)
+  updatedAt         DateTime @updatedAt
+  schoolProfile     SchoolProfile @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
 }
 
 enum AcademicDataDirectionMode {

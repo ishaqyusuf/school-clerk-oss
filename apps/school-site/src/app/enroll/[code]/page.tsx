@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 
-import { setupEnrollmentParentPassword } from "@/lib/enrollment/actions";
+import { ParentSetupEmailForm } from "./parent-setup-form";
+import { requireEnrollmentModules } from "@/lib/enrollment/module-access";
+import { canAccessModules, ModuleAccessDeniedError } from "@school-clerk/utils/module-config";
 import { EnrollmentFormClient } from "./enrollment-form-client";
 import { prisma } from "@school-clerk/db";
 import { Badge } from "@school-clerk/ui/badge";
-import { Button } from "@school-clerk/ui/button";
 import {
   Card,
   CardContent,
@@ -12,7 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@school-clerk/ui/card";
-import { Input } from "@school-clerk/ui/input";
 
 const ACTIVE_APPLICATION_STATUSES = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"];
 
@@ -53,8 +53,14 @@ function normalizeDocumentType(value?: string | null, label?: string | null) {
 
 async function getEnrollmentLink(code: string) {
   const db = prisma as any;
-  const link = await db.enrollmentLink.findFirst({
+  const scope = await db.enrollmentLink.findFirst({
     where: { code, status: "ACTIVE", deletedAt: null },
+    select: { schoolProfileId: true },
+  });
+  if (!scope) return null;
+  const access = await requireEnrollmentModules(scope.schoolProfileId);
+  const link = await db.enrollmentLink.findFirst({
+    where: { code, schoolProfileId: scope.schoolProfileId, status: "ACTIVE", deletedAt: null },
     include: {
       schoolProfile: true,
       classrooms: {
@@ -91,6 +97,7 @@ async function getEnrollmentLink(code: string) {
 
   return {
     ...link,
+    canSetupParentLogin: canAccessModules(access, ["PARENT_PORTAL"]),
     totalCount,
     classrooms: link.classrooms.map((row: any) => ({
       ...row,
@@ -100,53 +107,28 @@ async function getEnrollmentLink(code: string) {
   };
 }
 
-async function getSubmissionState(code: string, applicationId?: string | null) {
+async function getSubmissionState(
+  code: string,
+  schoolProfileId: string,
+  applicationId?: string | null,
+) {
   if (!applicationId) return null;
 
   const application = await (prisma as any).enrollmentApplication.findFirst({
     where: {
       id: applicationId,
+      schoolProfileId,
       deletedAt: null,
       enrollmentLink: {
         code,
         deletedAt: null,
       },
     },
-    include: {
-      schoolProfile: true,
-      parents: { where: { deletedAt: null } },
-    },
+    select: { id: true },
   });
 
   if (!application) return null;
-  const primaryParent =
-    application.parents.find((parent: any) => parent.isPrimary) ??
-    application.parents[0];
-
-  const existingUser = primaryParent
-    ? await prisma.user.findFirst({
-        where: {
-          deletedAt: null,
-          saasAccountId: application.schoolProfile.accountId,
-          OR: [
-            ...(primaryParent.email ? [{ email: primaryParent.email }] : []),
-            { phoneNo: primaryParent.phone },
-          ],
-        },
-        select: {
-          id: true,
-          email: true,
-          accounts: { select: { password: true } },
-        },
-      })
-    : null;
-
-  return {
-    application,
-    primaryParent,
-    existingUser,
-    canLogin: existingUser?.accounts.some((account) => Boolean(account.password)),
-  };
+  return { application };
 }
 
 export default async function EnrollmentPage({
@@ -154,15 +136,36 @@ export default async function EnrollmentPage({
   searchParams,
 }: {
   params: Promise<{ code: string }>;
-  searchParams: Promise<{ submitted?: string; parentReady?: string }>;
+  searchParams: Promise<{ submitted?: string }>;
 }) {
   const [{ code }, query] = await Promise.all([params, searchParams]);
-  const [link, submission] = await Promise.all([
-    getEnrollmentLink(code),
-    getSubmissionState(code, query.submitted),
-  ]);
+  const link = await getEnrollmentLink(code).catch((error: unknown) => {
+    if (error instanceof ModuleAccessDeniedError) return "unavailable" as const;
+    throw error;
+  });
+
+  if (link === "unavailable") {
+    return (
+      <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950">
+        <Card className="mx-auto w-full min-w-0 max-w-xl break-words bg-white">
+          <CardHeader>
+            <CardTitle>Enrollment unavailable</CardTitle>
+            <CardDescription>
+              Online enrollment is currently unavailable. Please contact the
+              school for application updates or help with admission.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </main>
+    );
+  }
 
   if (!link) notFound();
+  const submission = await getSubmissionState(
+    code,
+    link.schoolProfileId,
+    query.submitted,
+  );
 
   const now = new Date();
   const isNotOpen = link.opensAt && link.opensAt > now;
@@ -223,43 +226,13 @@ export default async function EnrollmentPage({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              {submission.canLogin || query.parentReady === "1" ? (
-                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-                  Your parent login is ready. You can sign in with your email or
-                  primary phone number after the school approves your ward.
-                </div>
+              {!link.canSetupParentLogin ? (
+                <p className="break-words rounded-md border border-slate-200 p-4 text-sm text-slate-600">
+                  Parent portal access is not currently available. Please contact
+                  the school for updates on your application.
+                </p>
               ) : (
-                <form
-                  action={setupEnrollmentParentPassword.bind(null, code)}
-                  className="space-y-4 rounded-md border border-slate-200 p-4"
-                >
-                  <input
-                    name="applicationId"
-                    type="hidden"
-                    value={submission.application.id}
-                  />
-                  <div>
-                    <h2 className="font-medium">Setup parent password</h2>
-                    <p className="text-sm text-slate-600">
-                      Create your parent login now. You can sign in later with
-                      this email or your primary phone number.
-                    </p>
-                  </div>
-                  <label className="block space-y-1 text-sm">
-                    <span>Email</span>
-                    <Input
-                      defaultValue={submission.primaryParent?.email ?? ""}
-                      name="email"
-                      required
-                      type="email"
-                    />
-                  </label>
-                  <label className="block space-y-1 text-sm">
-                    <span>Password</span>
-                    <Input name="password" required type="password" />
-                  </label>
-                  <Button type="submit">Setup parent password</Button>
-                </form>
+                <ParentSetupEmailForm code={code} applicationId={submission.application.id} />
               )}
             </CardContent>
           </Card>

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { requireVerifiedSchoolModules } from "../../lib/module-access";
 import type { TRPCContext } from "@api/trpc/init";
 import type {
 	PaymentImportSourceRow,
@@ -1272,6 +1273,15 @@ export async function processFinancePaymentImportJob(
 		return serializePaymentImportJob(job, rows);
 	}
 
+	try {
+		await requireVerifiedSchoolModules(db, job.schoolProfileId, ["BILLING_FINANCE", "STUDENT_MANAGEMENT"]);
+	} catch (error) {
+		await db.financePaymentImportJob.update({
+			where: { id: job.id },
+			data: { status: "FAILED", errorMessage: error instanceof Error ? error.message : "Module access is unavailable." },
+		});
+		throw error;
+	}
 	await db.financePaymentImportJob.update({
 		where: { id: job.id },
 		data: { status: "RUNNING", errorMessage: null },
@@ -1287,6 +1297,7 @@ export async function processFinancePaymentImportJob(
 
 	for (const row of pendingRows) {
 		try {
+			await requireVerifiedSchoolModules(db, job.schoolProfileId, ["BILLING_FINANCE", "STUDENT_MANAGEMENT"]);
 			await db.financePaymentImportJobRow.update({
 				where: { id: row.id },
 				data: { status: "RUNNING", reason: null },

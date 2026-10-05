@@ -13,19 +13,24 @@ import {
   rejectEnrollmentApplicationSchema,
   setEnrollmentLinkStatusSchema,
 } from "../schemas/enrollment-links";
-import { authenticatedProcedure, createTRPCRouter } from "../init";
+import {
+  createTRPCRouter,
+  moduleProcedure,
+} from "../init";
 import { TRPCError } from "@trpc/server";
 
+const admissionProcedure = moduleProcedure(["ADMISSION_ENROLLMENT"]);
+
 export const enrollmentLinksRouter = createTRPCRouter({
-  listLinks: authenticatedProcedure.query(({ ctx }) => {
+  listLinks: admissionProcedure.query(({ ctx }) => {
     return listEnrollmentLinks(ctx);
   }),
-  createOrUpdateLink: authenticatedProcedure
+  createOrUpdateLink: admissionProcedure
     .input(createOrUpdateEnrollmentLinkSchema)
     .mutation(({ ctx, input }) => {
       return createOrUpdateEnrollmentLink(ctx, input);
     }),
-  setLinkStatus: authenticatedProcedure
+  setLinkStatus: admissionProcedure
     .input(setEnrollmentLinkStatusSchema)
     .mutation(({ ctx, input }) => {
       if (!input.id || !input.status) {
@@ -39,17 +44,17 @@ export const enrollmentLinksRouter = createTRPCRouter({
         status: input.status,
       });
     }),
-  getApplications: authenticatedProcedure
+  getApplications: admissionProcedure
     .input(getEnrollmentApplicationsSchema)
     .query(({ ctx, input }) => {
       return getEnrollmentApplications(ctx, input);
     }),
-  approveApplication: authenticatedProcedure
+  approveApplication: admissionProcedure
     .input(approveEnrollmentApplicationSchema)
     .mutation(({ ctx, input }) => {
       return approveEnrollmentApplication(ctx, input);
     }),
-  rejectApplication: authenticatedProcedure
+  rejectApplication: admissionProcedure
     .input(rejectEnrollmentApplicationSchema)
     .mutation(({ ctx, input }) => {
       if (!input.applicationId) {

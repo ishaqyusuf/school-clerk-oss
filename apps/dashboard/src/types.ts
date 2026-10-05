@@ -1,5 +1,3 @@
-import { Primitive } from "@radix-ui/react-primitive";
-
 import type { IconKeys } from "@school-clerk/ui/custom/icons";
 import type { PageFilterData as SharedPageFilterData } from "@school-clerk/utils/types";
 import { SearchParamsKeys } from "./utils/search-params";
@@ -12,9 +10,7 @@ export type PageItemData<T extends (...args: any) => any> = Awaited<
   ReturnType<T>
 >["data"][number];
 
-export type PrimitiveDivProps = React.ComponentPropsWithoutRef<
-  typeof Primitive.div
->;
+export type PrimitiveDivProps = React.ComponentPropsWithoutRef<"div">;
 export type PageFilterData = Omit<
   SharedPageFilterData<SearchParamsKeys>,
   "value"

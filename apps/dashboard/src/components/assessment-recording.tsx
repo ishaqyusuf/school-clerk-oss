@@ -93,7 +93,7 @@ export function AssessmentRecording() {
         ? contextOptions?.scoped
           ? "No classrooms are assigned to your teacher profile for this term."
           : "No classrooms are available for this term."
-        : "No classroom is available for assessment recording.";
+        : "Choose a classroom to begin assessment recording.";
 
   useEffect(() => {
     if (!contextOptions || !effectiveTermId) return;

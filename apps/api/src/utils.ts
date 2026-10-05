@@ -9,7 +9,7 @@ export function composeQuery<T>(queries: T[]): T | undefined {
     : queries[0];
 }
 
-export function txContext(ctx, tx) {
+export function txContext<TContext, TTransaction>(ctx: TContext, tx: TTransaction) {
   return {
     ...ctx,
     db: tx,

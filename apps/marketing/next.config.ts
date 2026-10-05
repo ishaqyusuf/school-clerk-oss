@@ -11,7 +11,8 @@ const nextConfig: NextConfig = {
     ...localSchoolClerkHosts.map((host) => `http://${host}`),
     ...localSchoolClerkHosts.map((host) => `https://${host}`),
   ],
-  transpilePackages: ["@school-clerk/ui", "@school-clerk/tenant-url"],
+  transpilePackages: [
+    "@school-clerk/events","@school-clerk/ui", "@school-clerk/tenant-url"],
   typescript: { ignoreBuildErrors: true },
 };
 

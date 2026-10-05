@@ -1,12 +1,10 @@
 import { classroomFilters, subjectFilters } from "@api/db/queries/filters";
-import { createTRPCRouter, publicProcedure } from "../init";
-import { enrollmentQuerySchema } from "../schemas/schemas";
-import { enrollmentsIndex } from "@api/db/queries/enrollment-query";
+import { createTRPCRouter, moduleProcedure } from "../init";
 export const filtersRoutes = createTRPCRouter({
-  subject: publicProcedure.query(async (props) => {
+  subject: moduleProcedure(["COURSES_SUBJECTS"]).query(async (props) => {
     return subjectFilters(props.ctx);
   }),
-  classroom: publicProcedure.query(async (props) => {
+  classroom: moduleProcedure(["ACADEMIC_PROGRAMS"]).query(async (props) => {
     return classroomFilters(props.ctx);
   }),
 });

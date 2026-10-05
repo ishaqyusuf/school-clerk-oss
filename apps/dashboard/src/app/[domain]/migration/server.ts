@@ -1,5 +1,6 @@
 "use server";
 
+import { requireLegacyMigrationAccess } from "@/lib/legacy-migration-access";
 import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { createSchoolFee } from "@/actions/create-school-fee";
 import { createStudentAcademicProfile } from "@/actions/create-student-academic-profile";
@@ -8,6 +9,7 @@ import { prisma } from "@school-clerk/db";
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 
 export async function loadStudentPayments() {
+  await requireLegacyMigrationAccess();
   return unstable_cache(
     async () => {
       const data = await prisma.posts.findMany({
@@ -50,6 +52,7 @@ export async function loadStudentPayments() {
   )();
 }
 export async function updateStudent(id, className, studentName, data) {
+  await requireLegacyMigrationAccess();
   if (id) {
     await prisma.posts.update({
       where: {
@@ -80,6 +83,7 @@ export async function updateStudent(id, className, studentName, data) {
   return id;
 }
 export async function loadGenders() {
+  await requireLegacyMigrationAccess();
   return unstable_cache(
     async () => {
       const data = await prisma.posts.findFirst({
@@ -100,6 +104,7 @@ export async function loadGenders() {
   )();
 }
 export async function loadStudentMergeData() {
+  await requireLegacyMigrationAccess();
   return unstable_cache(
     async () => {
       const data = await prisma.posts.findFirst({
@@ -120,6 +125,7 @@ export async function loadStudentMergeData() {
   )();
 }
 export async function updateGenderData(data) {
+  await requireLegacyMigrationAccess();
   await prisma.posts.updateMany({
     where: {
       name: "student-genders",
@@ -131,6 +137,7 @@ export async function updateGenderData(data) {
   // revalidateTag("student-genders");
 }
 export async function dumpData(gender, studentData, studentMergeData) {
+  await requireLegacyMigrationAccess();
   return transaction(async (tx) => {
     await tx.posts.deleteMany({
       where: {
@@ -169,6 +176,7 @@ export async function setStudentClassroomAction(
   prevDepartmentId?,
   feeId?
 ) {
+  await requireLegacyMigrationAccess();
   return await transaction(async (tx) => {
     let post = data?.paymentData?.storePayments;
     const pr = await getAuthCookie();

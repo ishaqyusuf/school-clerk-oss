@@ -1,4 +1,6 @@
-import { prisma } from "@school-clerk/db";
+import { prisma, type Prisma } from "@school-clerk/db";
+import { requireEnrollmentModules } from "@/lib/enrollment/module-access";
+import { ModuleAccessDeniedError } from "@school-clerk/utils/module-config";
 import { renderToStream } from "@school-clerk/pdf";
 import { renderSchoolDocumentTemplate } from "@school-clerk/pdf/document-templates";
 import {
@@ -91,16 +93,33 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const application = await (prisma as any).enrollmentApplication.findFirst({
-    where: {
-      id: parsed.data.applicationId,
+  const applicationWhere = {
+    id: parsed.data.applicationId,
+    deletedAt: null,
+    status: "APPROVED",
+    enrollmentLink: {
+      code: parsed.data.code,
       deletedAt: null,
-      status: "APPROVED",
-      enrollmentLink: {
-        code: parsed.data.code,
-        deletedAt: null,
-      },
     },
+  } satisfies Prisma.EnrollmentApplicationWhereInput;
+  const scope = await prisma.enrollmentApplication.findFirst({
+    where: applicationWhere,
+    select: { schoolProfileId: true },
+  });
+  if (!scope) {
+    return NextResponse.json({ error: "Admission letter not found." }, { status: 404 });
+  }
+  try {
+    await requireEnrollmentModules(scope.schoolProfileId);
+  } catch (error) {
+    if (error instanceof ModuleAccessDeniedError) {
+      return NextResponse.json({ error: "Admission letters are currently unavailable." }, { status: 403 });
+    }
+    throw error;
+  }
+
+  const application = await (prisma as any).enrollmentApplication.findFirst({
+    where: { ...applicationWhere, schoolProfileId: scope.schoolProfileId },
     include: {
       classRoomDepartment: {
         include: {

@@ -805,3 +805,13 @@ Record of completed tasks and delivery outcomes.
 - Validation: Three focused ordering tests, database/dashboard/AI package typechecks, and both Standards/Spec review axes pass. The repository suite completed with 343 passes and its existing six failures plus one Playwright configuration error; the API typecheck reaches only the two pre-existing academic-term reset/setup errors, and the broad Turbo typecheck remains blocked by pre-existing Jobs/shared strictness failures.
 - Related changes: `packages/db/src/classroom-order.ts`, `apps/api/src/db/queries/classroom.ts`, `apps/api/src/trpc/routers/classroom.routes.ts`, `apps/dashboard/src/actions/get-class-rooms.ts`, `packages/ai/src/tools/students.ts`, `.brain/features/academic-structure-engine.md`, `.brain/api/contracts.md`, `.brain/api/endpoints.md`, `.brain/decisions/ADR-0017-centralized-classroom-level-ordering.md`, `.brain/bugs/2026-07-26-classroom-list-level-ordering.md`
 - Owner: Codex
+
+## Attendance quick-add, partial saves and mobile birth-date Drawer — 2026-10-05
+
+Completed administrator QA in Daarul Hadith: new `QA Attendance OctFive Test` and existing suggested `أشرف محمد` appeared immediately; draft marks/title survived enrollment. Saved one-of-nine marked attendance. Added desktop/mobile roster numbers. Removed unconditional Finance dependency from ordinary registration/enrollment while retaining live guards and rejecting financial inputs without Finance. Student birth-date opens the installed shadcn Drawer below 768 px; selection, Cancel and desktop popover verified. 35 focused tests and narrow compilation pass; broad typecheck has existing shared diagnostics outside changed controls. Local test student/enrollment/attendance session retained, no production data/schema changes.
+
+Documentation impact: features/attendance.md, features/student-directory.md, api/contracts.md, api/endpoints.md, api/permissions.md, decisions/ADR-0064, decisions/ADR-0065, tasks/in-progress.md and tasks/done.md updated. No database docs needed because schema/relationships unchanged.
+
+## Reusable compact mobile calendars — 2026-10-05
+
+Completed shared CalendarPopover/CalendarInput integration for FormDate, attendance dates, native date inputs, range pickers and date filters. Tightened calendar padding/week gaps, kept large day buttons, and reduced mobile ranges to one month. Student/attendance sheets, native controlled updates, range selection and desktop Popover verified. 14 focused tests and narrow compilation pass; broad typecheck retains existing diagnostics. Brain impact: attendance.md, student-directory.md, ADR-0066 and this task record updated. No API/database changes.

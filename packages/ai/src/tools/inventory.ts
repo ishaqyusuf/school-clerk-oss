@@ -25,16 +25,15 @@ type AssistantInventoryModel = {
 	}>;
 	findFirstOrThrow(args: unknown): Promise<{ id: string; quantity: number }>;
 	update(args: unknown): Promise<unknown>;
-};
-
-type AssistantInventoryIssuanceModel = {
-	create(args: unknown): Promise<unknown>;
+	updateMany(args: unknown): Promise<{ count: number }>;
 };
 
 const inventoryModel = prisma.inventory as unknown as AssistantInventoryModel;
 
 export function createInventoryTools(ctx: SchoolAiToolContext, helpers: SchoolAiToolHelpers) {
 	const {
+		completeMutation,
+		consumeMutationConfirmation,
 		finishAssistantToolExecution,
 		getTeacherWorkspaceSummary,
 		guardCapability,
@@ -159,14 +158,14 @@ export function createInventoryTools(ctx: SchoolAiToolContext, helpers: SchoolAi
 
 				try {
 					if (
-						!isConfirmedMutation({
+						!(await isConfirmedMutation({
 							ctx,
 							toolName: "createInventoryItem",
 							confirmationToken,
 							actionInput,
-						})
+						}))
 					) {
-						const output = requiresConfirmationResult({
+						const output = await requiresConfirmationResult({
 							ctx,
 							toolName: "createInventoryItem",
 							summary: `Create inventory item ${actionInput.title} with quantity ${actionInput.quantity}?`,
@@ -189,40 +188,34 @@ export function createInventoryTools(ctx: SchoolAiToolContext, helpers: SchoolAi
 						return output;
 					}
 
-					const item = await inventoryModel.create({
-						data: {
-							title: actionInput.title,
-							type: actionInput.type,
-							quantity: actionInput.quantity,
-							unitPrice: actionInput.unitPrice,
-							description: actionInput.description ?? null,
-							schoolProfileId: ctx.schoolId,
-							lowStockAlert: 5,
-						},
-						select: {
-							id: true,
-							title: true,
-							quantity: true,
-							unitPrice: true,
-							type: true,
-						},
+					const output = await prisma.$transaction(async (tx) => {
+						await consumeMutationConfirmation(tx, { toolName: "createInventoryItem", confirmationToken, actionInput });
+						const item = await tx.inventory.create({
+							data: {
+								title: actionInput.title,
+								type: actionInput.type,
+								quantity: actionInput.quantity,
+								unitPrice: actionInput.unitPrice,
+								description: actionInput.description ?? null,
+								schoolProfileId: ctx.schoolId,
+								lowStockAlert: 5,
+							},
+							select: {
+								id: true,
+								title: true,
+								quantity: true,
+								unitPrice: true,
+								type: true,
+							},
+						});
+						return completeMutation(tx, {
+							executionId: guarded.executionId, toolName: "createInventoryItem",
+							title: "AI created inventory item",
+							description: `${actionInput.title} was created in inventory.`,
+							output: { ...item, created: true },
+						});
 					});
 
-					const output = { ...item, created: true };
-					await recordAssistantActivity({
-						schoolId: ctx.schoolId,
-						userId: ctx.userId,
-						userName: ctx.userName,
-						type: "assistant_action_completed",
-						title: "AI created inventory item",
-						description: `${actionInput.title} was created in inventory.`,
-						meta: { toolName: "createInventoryItem", actionInput, output },
-					});
-					await finishAssistantToolExecution({
-						toolExecutionId: guarded.executionId,
-						status: "completed",
-						output,
-					});
 					return output;
 				} catch (error) {
 					await finishAssistantToolExecution({
@@ -270,14 +263,14 @@ export function createInventoryTools(ctx: SchoolAiToolContext, helpers: SchoolAi
 
 				try {
 					if (
-						!isConfirmedMutation({
+						!(await isConfirmedMutation({
 							ctx,
 							toolName: "recordInventoryIssuance",
 							confirmationToken,
 							actionInput,
-						})
+						}))
 					) {
-						const output = requiresConfirmationResult({
+						const output = await requiresConfirmationResult({
 							ctx,
 							toolName: "recordInventoryIssuance",
 							summary: `Issue ${actionInput.quantity} x ${actionInput.itemTitle}?`,
@@ -332,13 +325,18 @@ export function createInventoryTools(ctx: SchoolAiToolContext, helpers: SchoolAi
 						return output;
 					}
 
-					await prisma.$transaction(async (tx) => {
+					const output = await prisma.$transaction(async (tx) => {
+						await consumeMutationConfirmation(tx, { toolName: "recordInventoryIssuance", confirmationToken, actionInput });
 						const txInventory =
 							tx.inventory as unknown as AssistantInventoryModel;
-						const txInventoryIssuance =
-							tx.inventoryIssuance as unknown as AssistantInventoryIssuanceModel;
+						const reserved = await txInventory.updateMany({
+							where: { id: actionInput.inventoryId, schoolProfileId: ctx.schoolId,
+								deletedAt: null, quantity: { gte: actionInput.quantity } },
+							data: { quantity: { decrement: actionInput.quantity } },
+						});
+						if (reserved.count !== 1) throw new Error("Stock changed or the item is unavailable. Review the current stock before retrying.");
 
-						await txInventoryIssuance.create({
+						const issuance = await tx.inventoryIssuance.create({
 							data: {
 								inventoryId: actionInput.inventoryId,
 								quantity: actionInput.quantity,
@@ -347,29 +345,16 @@ export function createInventoryTools(ctx: SchoolAiToolContext, helpers: SchoolAi
 								issuedDate: new Date(),
 								schoolProfileId: ctx.schoolId,
 							},
+							select: { id: true },
 						});
-
-						await txInventory.update({
-							where: { id: actionInput.inventoryId },
-							data: { quantity: { decrement: actionInput.quantity } },
+						return completeMutation(tx, {
+							executionId: guarded.executionId, toolName: "recordInventoryIssuance",
+							title: "AI recorded inventory issuance",
+							description: `${actionInput.quantity} x ${actionInput.itemTitle} issued.`,
+							output: { success: true, ...actionInput, issuanceId: issuance.id },
 						});
 					});
 
-					const output = { success: true, ...actionInput };
-					await recordAssistantActivity({
-						schoolId: ctx.schoolId,
-						userId: ctx.userId,
-						userName: ctx.userName,
-						type: "assistant_action_completed",
-						title: "AI recorded inventory issuance",
-						description: `${actionInput.quantity} x ${actionInput.itemTitle} issued.`,
-						meta: { toolName: "recordInventoryIssuance", actionInput, output },
-					});
-					await finishAssistantToolExecution({
-						toolExecutionId: guarded.executionId,
-						status: "completed",
-						output,
-					});
 					return output;
 				} catch (error) {
 					await finishAssistantToolExecution({

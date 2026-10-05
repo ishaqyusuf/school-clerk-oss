@@ -1,4 +1,11 @@
-import { ensureNotificationContact } from "@school-clerk/db";
+import {
+	createDeliveredUserNotification,
+	getNotificationDeliveryRecipient,
+	listNotificationAudienceUserIds,
+	type NotificationDeliveryScope,
+} from "@school-clerk/db";
+import { canReadSchoolNotification } from "@school-clerk/notifications/module-policy";
+import { resolveModuleAccess } from "@school-clerk/utils/module-config";
 import { render } from "@school-clerk/email/render";
 import {
 	createNotificationFromType,
@@ -11,7 +18,7 @@ import {
 } from "@school-clerk/utils";
 import { TRPCError } from "@trpc/server";
 import type { TRPCContext } from "../trpc/init";
-import { getAuthSessionWhere } from "../trpc/init";
+import { findAuthSessionByBearer } from "../trpc/init";
 
 const NOTIFICATION_ROLE_GROUPS = {
 	academic_admin: ["Admin"],
@@ -155,24 +162,17 @@ export async function getCurrentUserContext(
 		});
 	}
 
-	const session = await ctx.db.session.findFirst({
-		where: getAuthSessionWhere(ctx.profile.authSessionId),
-		select: {
-			user: {
-				select: {
-					email: true,
-					id: true,
-					name: true,
-					role: true,
-				},
-			},
-		},
-	});
+	const session = await findAuthSessionByBearer(ctx.db, ctx.profile.authSessionId);
+	if (!session?.user.saasAccountId || session.user.tenant?.qaPurgeStartedAt) {
+		throw new TRPCError({ code: "UNAUTHORIZED", message: "Notification account context is unavailable." });
+	}
 
 	const school = await ctx.db.schoolProfile.findFirst({
 		where: {
 			id: ctx.profile.schoolId,
+			accountId: session.user.saasAccountId,
 			deletedAt: null,
+			account: { deletedAt: null, qaPurgeStartedAt: null },
 		},
 		select: {
 			accountId: true,
@@ -202,34 +202,6 @@ export async function tryGetCurrentUserContext(ctx: TRPCContext) {
 		return null;
 	}
 }
-
-async function resolveRecipients(
-	ctx: TRPCContext,
-	input: {
-		audience: NotificationAudience;
-		school: CurrentUserContext["school"];
-	},
-) {
-	const roles = NOTIFICATION_ROLE_GROUPS[input.audience];
-
-	const users = await ctx.db.user.findMany({
-		where: {
-			saasAccountId: input.school.accountId,
-			role: { in: [...roles] },
-			deletedAt: null,
-		},
-		select: {
-			email: true,
-			id: true,
-			name: true,
-			role: true,
-		},
-		orderBy: { createdAt: "asc" },
-	});
-
-	return users;
-}
-
 function absolutizeLink(
 	school: CurrentUserContext["school"],
 	link?: string | null,
@@ -241,293 +213,102 @@ function absolutizeLink(
 	return `${getDashboardOrigin(school.subDomain)}${link}`;
 }
 
-export async function dispatchSchoolNotification<
-	TType extends SchoolClerkNotificationType,
->(
-	ctx: TRPCContext,
-	input: {
-		audience: NotificationAudience;
-		payload: unknown;
-		type: TType;
-	},
-) {
-	try {
-		const current = await getCurrentUserContext(ctx);
-		const recipients = await resolveRecipients(ctx, {
-			audience: input.audience,
-			school: current.school,
-		});
+type DispatchInput = {
+	type: SchoolClerkNotificationType;
+	payload: unknown;
+} & ({ audience: NotificationAudience; userId?: never } | { userId: string; audience?: never });
 
-		if (!recipients.length) {
-			return { emailSent: 0, inAppCreated: 0, skipped: true };
-		}
-
-		const notification = createNotificationFromType(
-			input.type,
-			input.payload as never,
-		);
-		const emailPayload =
-			input.payload && typeof input.payload === "object"
-				? ({
-						...(input.payload as Record<string, unknown>),
-						link: absolutizeLink(
-							current.school,
-							(input.payload as { link?: string | null }).link,
-						),
-					} as never)
-				: (input.payload as never);
-		const emailNotification = createNotificationFromType(
-			input.type,
-			emailPayload,
-		);
-		const preferences = await ctx.db.notificationPreference.findMany({
-			where: {
-				schoolProfileId: current.school.id,
-				userId: { in: recipients.map((recipient) => recipient.id) },
-				type: notification.type,
-				deletedAt: null,
-			},
-			select: {
-				email: true,
-				inApp: true,
-				userId: true,
-			},
-		});
-
-		const preferenceMap = new Map(
-			preferences.map((preference) => [preference.userId, preference]),
-		);
-
-		const inAppRecipients = recipients.filter((recipient) => {
-			return preferenceMap.get(recipient.id)?.inApp ?? true;
-		});
-
-		if (inAppRecipients.length) {
-			const authorContact = await ensureNotificationContact(ctx.db, {
-				displayName: current.user.name,
-				role: "user",
-				schoolProfileId: current.school.id,
-				userId: current.user.id,
-			});
-
-			for (const recipient of inAppRecipients) {
-				const recipientContact = await ensureNotificationContact(ctx.db, {
-					displayName: recipient.name,
-					role: "user",
-					schoolProfileId: current.school.id,
-					userId: recipient.id,
-				});
-
-				await ctx.db.notification.create({
-					data: {
-						action: notification.action ?? undefined,
-						authorContactId: authorContact.id,
-						body: notification.body,
-						content: notification.body,
-						headline: notification.title,
-						link: notification.link,
-						schoolProfileId: current.school.id,
-						subject:
-							emailNotification.emailTemplate?.subject ?? notification.title,
-						tags: {
-							create: [
-								{
-									tagName: "notification_type",
-									tagValue: notification.type,
-								},
-							],
-						},
-						title: notification.title,
-						type: notification.type,
-						userId: recipient.id,
-						recipients: {
-							create: {
-								recipientContactId: recipientContact.id,
-							},
-						},
-					},
-				});
-			}
-		}
-
-		let emailSent = 0;
-		if (
-			notification.channels.includes("email") &&
-			emailNotification.emailTemplate
-		) {
-			const html = await render(emailNotification.emailTemplate.content);
-			const emailRecipients = recipients.filter((recipient) => {
-				if (!recipient.email) return false;
-				return preferenceMap.get(recipient.id)?.email ?? true;
-			});
-
-			for (const recipient of emailRecipients) {
-				const sent = await sendEmail({
-					html,
-					schoolName: current.school.name,
-					subject: emailNotification.emailTemplate.subject,
-					to: recipient.email,
-				});
-
-				if (sent) emailSent += 1;
-			}
-		}
-
-		return {
-			emailSent,
-			inAppCreated: inAppRecipients.length,
-			link: absolutizeLink(current.school, notification.link),
-			skipped: false,
-		};
-	} catch (error) {
-		console.error("[notifications] dispatch failed", {
-			audience: input.audience,
-			error,
-			type: input.type,
-		});
-
-		return { emailSent: 0, inAppCreated: 0, skipped: true };
-	}
+function buildNotification(input: DispatchInput, school: CurrentUserContext["school"], email = false) {
+	const payload = input.payload && typeof input.payload === "object"
+		? { ...(input.payload as Record<string, unknown>), schoolName: school.name,
+			...(email ? { link: absolutizeLink(school, (input.payload as { link?: string | null }).link) } : {}) }
+		: input.payload;
+	return createNotificationFromType(input.type, payload);
 }
 
-export async function dispatchUserNotification<
-	TType extends SchoolClerkNotificationType,
->(
-	ctx: TRPCContext,
-	input: {
-		payload: unknown;
-		type: TType;
-		userId: string;
-	},
-) {
+async function getAllowedRecipient(ctx: TRPCContext, scope: NotificationDeliveryScope) {
+	const current = await getNotificationDeliveryRecipient(ctx.db, scope);
+	return current && canReadSchoolNotification(scope.type,
+		resolveModuleAccess(current.school.moduleConfiguration), current.recipient.role) ? current : null;
+}
+
+async function dispatchNotification(ctx: TRPCContext, input: DispatchInput) {
+	let emailSent = 0;
+	let inAppCreated = 0;
+	let failedChannels = 0;
 	try {
+		const authSessionId = ctx.profile.authSessionId;
+		if (!authSessionId) throw new Error("Notification session is unavailable.");
 		const current = await getCurrentUserContext(ctx);
-		const recipient = await ctx.db.user.findFirst({
-			where: {
-				deletedAt: null,
-				id: input.userId,
-				saasAccountId: current.school.accountId,
-			},
-			select: {
-				email: true,
-				id: true,
-				name: true,
-			},
-		});
+		const audienceRoles = input.audience ? NOTIFICATION_ROLE_GROUPS[input.audience] : undefined;
+		const recipients = audienceRoles
+			? await listNotificationAudienceUserIds(ctx.db, { accountId: current.school.accountId, roles: audienceRoles })
+			: input.userId ? [{ id: input.userId }] : [];
+		for (const recipient of recipients) {
+			const scope: NotificationDeliveryScope = {
+				schoolId: current.school.id, accountId: current.school.accountId,
+				actorUserId: current.user.id, authSessionId,
+				recipientUserId: recipient.id, type: input.type, audienceRoles,
+			};
+			try {
+				const created = await ctx.db.$transaction(async (tx) => {
+					const live = await getNotificationDeliveryRecipient(tx, scope);
+					if (!live || !canReadSchoolNotification(scope.type,
+						resolveModuleAccess(live.school.moduleConfiguration), live.recipient.role) ||
+						live.preference?.inApp === false) return false;
+					const notification = buildNotification(input, live.school);
+					if (!notification.channels.includes("in_app")) return false;
+					await createDeliveredUserNotification(tx, live, {
+						action: notification.action ?? undefined, body: notification.body,
+						link: notification.link, subject: notification.emailTemplate?.subject ?? notification.title,
+						title: notification.title, type: notification.type,
+					});
+					return true;
+				});
+				if (created) inAppCreated += 1;
+			} catch {
+				failedChannels += 1;
+				console.error("[notifications] in-app delivery failed", { type: input.type, userId: recipient.id });
+			}
 
-		if (!recipient) {
-			return { emailSent: 0, inAppCreated: 0, skipped: true };
+			try {
+				const beforeRender = await getAllowedRecipient(ctx, scope);
+				if (!beforeRender || beforeRender.preference?.email === false || !beforeRender.recipient.email) continue;
+				const notification = buildNotification(input, beforeRender.school, true);
+				if (!notification.channels.includes("email") || !notification.emailTemplate) continue;
+				const html = await render(notification.emailTemplate.content);
+				const beforeSend = await getAllowedRecipient(ctx, scope);
+				if (!beforeSend || beforeSend.preference?.email === false || !beforeSend.recipient.email ||
+					beforeSend.school.name !== beforeRender.school.name ||
+					beforeSend.school.subDomain !== beforeRender.school.subDomain) continue;
+				const sent = await sendEmail({
+					html, schoolName: beforeSend.school.name,
+					subject: notification.emailTemplate.subject, to: beforeSend.recipient.email,
+				});
+				if (sent) emailSent += 1;
+				else failedChannels += 1;
+			} catch {
+				failedChannels += 1;
+				console.error("[notifications] email delivery failed", { type: input.type, userId: recipient.id });
+			}
 		}
-
-		const notification = createNotificationFromType(
-			input.type,
-			input.payload as never,
-		);
-		const emailPayload =
-			input.payload && typeof input.payload === "object"
-				? ({
-						...(input.payload as Record<string, unknown>),
-						link: absolutizeLink(
-							current.school,
-							(input.payload as { link?: string | null }).link,
-						),
-					} as never)
-				: (input.payload as never);
-		const emailNotification = createNotificationFromType(
-			input.type,
-			emailPayload,
-		);
-		const preference = await ctx.db.notificationPreference.findFirst({
-			where: {
-				deletedAt: null,
-				schoolProfileId: current.school.id,
-				type: notification.type,
-				userId: recipient.id,
-			},
-			select: {
-				email: true,
-				inApp: true,
-			},
-		});
-
-		let inAppCreated = 0;
-		if (preference?.inApp ?? true) {
-			const authorContact = await ensureNotificationContact(ctx.db, {
-				displayName: current.user.name,
-				role: "user",
-				schoolProfileId: current.school.id,
-				userId: current.user.id,
-			});
-			const recipientContact = await ensureNotificationContact(ctx.db, {
-				displayName: recipient.name,
-				role: "user",
-				schoolProfileId: current.school.id,
-				userId: recipient.id,
-			});
-
-			await ctx.db.notification.create({
-				data: {
-					action: notification.action ?? undefined,
-					authorContactId: authorContact.id,
-					body: notification.body,
-					content: notification.body,
-					headline: notification.title,
-					link: notification.link,
-					schoolProfileId: current.school.id,
-					subject:
-						emailNotification.emailTemplate?.subject ?? notification.title,
-					tags: {
-						create: [
-							{
-								tagName: "notification_type",
-								tagValue: notification.type,
-							},
-						],
-					},
-					title: notification.title,
-					type: notification.type,
-					userId: recipient.id,
-					recipients: {
-						create: {
-							recipientContactId: recipientContact.id,
-						},
-					},
-				},
-			});
-			inAppCreated = 1;
-		}
-
-		let emailSent = 0;
-		if (
-			notification.channels.includes("email") &&
-			emailNotification.emailTemplate &&
-			(preference?.email ?? true) &&
-			recipient.email
-		) {
-			const html = await render(emailNotification.emailTemplate.content);
-			const sent = await sendEmail({
-				html,
-				schoolName: current.school.name,
-				subject: emailNotification.emailTemplate.subject,
-				to: recipient.email,
-			});
-
-			if (sent) emailSent = 1;
-		}
-
-		return {
-			emailSent,
-			inAppCreated,
-			link: absolutizeLink(current.school, notification.link),
-			skipped: false,
-		};
-	} catch (error) {
-		console.error("[notifications] user dispatch failed", {
-			error,
-			type: input.type,
-			userId: input.userId,
-		});
-
-		return { emailSent: 0, inAppCreated: 0, skipped: true };
+	} catch {
+		failedChannels += 1;
+		console.error("[notifications] dispatch context unavailable", { type: input.type });
 	}
+	return { emailSent, inAppCreated, failedChannels, skipped: emailSent === 0 && inAppCreated === 0 };
+}
+
+export function dispatchSchoolNotification<TType extends SchoolClerkNotificationType>(
+	ctx: TRPCContext,
+	input: { audience: NotificationAudience; payload: unknown; type: TType },
+) {
+	return dispatchNotification(ctx, input);
+}
+
+export function dispatchUserNotification<TType extends SchoolClerkNotificationType>(
+	ctx: TRPCContext,
+	input: { payload: unknown; type: TType; userId: string },
+) {
+	return dispatchNotification(ctx, input);
 }

@@ -1,5 +1,6 @@
 import { buildTenantPageMetadata } from "@/utils/tenant-page-metadata";
-import { prisma } from "@school-clerk/db";
+import { getLocalLoginSchool, listLocalLoginUsers, prisma } from "@school-clerk/db";
+import { isDevelopmentQuickLoginEnabled, isLocalDevelopmentDatabase, isLoopbackRequestHost } from "@school-clerk/auth/development";
 import { headers } from "next/headers";
 import { buildDashboardSignupUrl } from "@/features/signup/tenant-urls";
 import { Client } from "./client";
@@ -26,49 +27,26 @@ export default async function Page({ params, searchParams }) {
     },
     select: {
       name: true,
-      account: {
-        select: {
-          users: {
-            where: {
-              deletedAt: null,
-            },
-            orderBy: {
-              createdAt: "asc",
-            },
-            select: {
-              id: true,
-              email: true,
-              name: true,
-              role: true,
-            },
-            take: process.env.NODE_ENV === "production" ? 0 : 100,
-          },
-        },
-      },
     },
   });
 
-  const quickLoginUsers =
-    process.env.NODE_ENV === "production"
-      ? []
-      : (tenant?.account?.users ?? []).map((user) => ({
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        }));
+  const isLocalHost = isLoopbackRequestHost(requestHeaders.get("host"));
+  const localLoginSchool = isLocalDevelopmentDatabase() && isLocalHost
+    ? await getLocalLoginSchool(prisma, domain) : null;
+  const localLoginUsers = localLoginSchool
+    ? await listLocalLoginUsers(prisma, localLoginSchool.id) : [];
+  const quickLoginUsers = isDevelopmentQuickLoginEnabled() && isLocalHost
+    ? localLoginUsers : [];
 
   return (
     <Client
       initialEmail={typeof query?.email === "string" ? query.email : ""}
       initialError={typeof query?.error === "string" ? query.error : ""}
-      initialPassword={
-        typeof query?.password === "string" ? query.password : ""
-      }
       initialRememberMe={query?.rememberMe !== "0"}
       schoolName={tenant?.name ?? domain}
       signupHref={signupHref}
       quickLoginUsers={quickLoginUsers}
+      localLoginUsers={localLoginUsers}
     />
   );
 }

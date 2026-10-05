@@ -4,8 +4,10 @@ import {
 	type NavigationWorkspaceProfile,
 	resolveNavigation,
 } from "@school-clerk/navigation";
+import type { ModuleId } from "@school-clerk/utils/module-config";
 
 import { dashboardNavRegistry } from "./dashboard-nav-registry";
+import { applyDashboardModulePolicy, getNavigationModuleFlags } from "./dashboard-module-policy";
 
 export const dashboardNavigationProfiles: NavigationWorkspaceProfile[] = [
 	{
@@ -123,16 +125,22 @@ export function resolveDashboardNavigation(
 	role?: string | null,
 	options: {
 		enabledModules?: Iterable<string>;
+		/** Complete effective module set from the tenant policy resolver. */
+		tenantModules?: readonly ModuleId[];
 		includeStatuses?: NavStatus[];
 		institutionType?: InstitutionType | null;
 		permissions?: Record<string, boolean>;
 	} = {},
 ) {
 	return resolveNavigation({
-		enabledModules: options.enabledModules,
+		enabledModules: options.tenantModules !== undefined
+			? getNavigationModuleFlags(options.tenantModules)
+			: options.enabledModules,
 		includeStatuses: options.includeStatuses ?? ["live"],
 		institutionType: options.institutionType,
-		modules: dashboardNavRegistry,
+		modules: options.tenantModules !== undefined
+			? applyDashboardModulePolicy(dashboardNavRegistry)
+			: dashboardNavRegistry,
 		permissions: options.permissions,
 		profiles: dashboardNavigationProfiles,
 		role,

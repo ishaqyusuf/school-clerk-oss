@@ -4,6 +4,7 @@ import {
 } from "@api/db/queries/report-sheet";
 import {
   authenticatedProcedure,
+  moduleProcedure,
   createTRPCRouter,
   publicProcedure,
 } from "../init";
@@ -135,32 +136,35 @@ async function getReportTerms(ctx: Parameters<typeof getClassrooms>[0]) {
   }));
 }
 
+const assessmentProcedure = moduleProcedure(["ASSESSMENT_AND_EXAMS"]);
+const reportProcedure = moduleProcedure(["RESULTS_AND_REPORTS"]);
+
 export const assessmentRouter = createTRPCRouter({
-  downloadAssessmentWorkbook: authenticatedProcedure
+  downloadAssessmentWorkbook: assessmentProcedure
     .input(assessmentWorkbookDownloadSchema)
     .mutation(({ ctx, input }) => downloadAssessmentWorkbook(ctx, input)),
-  previewAssessmentWorkbook: authenticatedProcedure
+  previewAssessmentWorkbook: assessmentProcedure
     .input(assessmentWorkbookUploadSchema)
     .mutation(({ ctx, input }) => previewAssessmentWorkbook(ctx, input)),
-  applyAssessmentWorkbook: authenticatedProcedure
+  applyAssessmentWorkbook: assessmentProcedure
     .input(assessmentWorkbookApplySchema)
     .mutation(({ ctx, input }) => applyAssessmentWorkbook(ctx, input)),
-  listPublicAssessmentLinks: authenticatedProcedure
+  listPublicAssessmentLinks: assessmentProcedure
     .input(listAssessmentPublicLinksSchema)
     .query(async ({ ctx, input }) => {
       return listAssessmentPublicLinks(ctx, input);
     }),
-  createPublicAssessmentLink: authenticatedProcedure
+  createPublicAssessmentLink: assessmentProcedure
     .input(createAssessmentPublicLinkSchema)
     .mutation(async ({ ctx, input }) => {
       return createAssessmentPublicLink(ctx, input);
     }),
-  requestPublicAssessmentLink: authenticatedProcedure
+  requestPublicAssessmentLink: assessmentProcedure
     .input(requestAssessmentPublicLinkSchema)
     .mutation(async ({ ctx, input }) => {
       return requestAssessmentPublicLink(ctx, input);
     }),
-  approvePublicAssessmentLink: authenticatedProcedure
+  approvePublicAssessmentLink: assessmentProcedure
     .input(approveAssessmentPublicLinkSchema)
     .mutation(async ({ ctx, input }) => {
       return approveAssessmentPublicLink(ctx, input);
@@ -185,7 +189,7 @@ export const assessmentRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       return updatePublicAssessmentScore(ctx, input);
     }),
-  getRecordingContextOptions: authenticatedProcedure
+  getRecordingContextOptions: assessmentProcedure
     .input(recordingContextOptionsSchema)
     .query(async ({ ctx, input }) => {
       const currentUser = ctx.currentUser;
@@ -413,42 +417,42 @@ export const assessmentRouter = createTRPCRouter({
         defaultDepartmentId: classrooms[0]?.id ?? null,
       };
     }),
-  saveAssessement: authenticatedProcedure
+  saveAssessement: assessmentProcedure
     .input(saveAssessementSchema)
     .mutation(async (props) => {
       return saveAssessement(props.ctx, props.input);
     }),
-  deleteAssessment: authenticatedProcedure
+  deleteAssessment: assessmentProcedure
     .input(deleteAssessmentSchema)
     .mutation(async (props) => {
       return deleteAssessment(props.ctx, props.input);
     }),
-  reorderAssessments: authenticatedProcedure
+  reorderAssessments: assessmentProcedure
     .input(reorderAssessmentsSchema)
     .mutation(async (props) => {
       return reorderAssessments(props.ctx, props.input);
     }),
-  getAssessmentSuggestions: publicProcedure
+  getAssessmentSuggestions: assessmentProcedure
     .input(getAssessmentSuggestionsSchema)
     .query(async (props) => {
       return getAssessmentSuggestions(props.ctx, props.input);
     }),
-  getSubjectAssessmentRecordings: publicProcedure
+  getSubjectAssessmentRecordings: assessmentProcedure
     .input(getSubjectAssessmentRecordingsSchema)
     .query(async (props) => {
       return getSubjectAssessmentRecordings(props.ctx, props.input);
     }),
-  updateAssessmentScore: authenticatedProcedure
+  updateAssessmentScore: assessmentProcedure
     .input(updateAssessmentScoreSchema)
     .mutation(async (props) => {
       return updateAssessmentScore(props.ctx, props.input);
     }),
-  getClassroomReportSheet: publicProcedure
+  getClassroomReportSheet: reportProcedure
     .input(getClassroomReportSheetSchema)
     .query(async (props) => {
       return getClassroomReportSheet(props.ctx, props.input);
     }),
-  savePrintLog: authenticatedProcedure
+  savePrintLog: reportProcedure
     .input(
       z.object({
         termFormIds: z.array(z.string().min(1)).min(1),
@@ -471,6 +475,7 @@ export const assessmentRouter = createTRPCRouter({
           schoolProfileId,
           sessionTermId: input.termId,
           deletedAt: null,
+          registrationReviewStatus: { not: "REJECTED" },
         },
         select: {
           id: true,
@@ -503,7 +508,7 @@ export const assessmentRouter = createTRPCRouter({
         },
       });
     }),
-  getPrintStatus: authenticatedProcedure
+  getPrintStatus: reportProcedure
     .input(
       z.object({
         termFormIds: z.array(z.string().min(1)).max(500),
@@ -541,7 +546,7 @@ export const assessmentRouter = createTRPCRouter({
         requestedTermFormIds: termFormIds,
       });
     }),
-  getPrintLogs: authenticatedProcedure
+  getPrintLogs: reportProcedure
     .input(z.object({ termId: z.string().optional() }))
     .query(async ({ ctx, input }) => {
       const schoolProfileId = ctx.profile.schoolId;

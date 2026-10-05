@@ -1,7 +1,6 @@
 "use client";
 
 import { Badge } from "@school-clerk/ui/badge";
-import { Button } from "@school-clerk/ui/button";
 import { UserRound } from "lucide-react";
 
 type Student = {
@@ -9,7 +8,7 @@ type Student = {
   fullName: string;
   classroom: string | null;
   termFormId: string | null;
-  totalPending: number;
+  totalPending: number | null;
   isEnrolledThisTerm: boolean;
 };
 
@@ -31,9 +30,10 @@ export function StudentListCard({ students, onSelect }: Props) {
     <div className="flex flex-col gap-1.5">
       {students.map((student) => (
         <button
+          type="button"
           key={student.id}
           onClick={() => onSelect(student)}
-          className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 text-left transition-colors hover:bg-accent hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-11 min-w-0 flex-wrap items-center gap-3 rounded-xl border bg-card px-4 py-3 text-left transition-colors hover:bg-accent hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             <UserRound className="h-4 w-4" />
@@ -46,7 +46,7 @@ export function StudentListCard({ students, onSelect }: Props) {
               <span className="text-xs text-muted-foreground/60">Not enrolled this term</span>
             )}
           </div>
-          {student.totalPending > 0 && (
+          {student.totalPending != null && student.totalPending > 0 && (
             <Badge variant="outline" className="shrink-0 text-xs text-amber-600 border-amber-300 bg-amber-50">
               ₦{student.totalPending.toLocaleString()} owed
             </Badge>

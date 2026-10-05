@@ -1,4 +1,4 @@
-"use server";
+import "server-only";
 
 import { env } from "@/env";
 import { Vercel } from "@vercel/sdk";
@@ -27,7 +27,7 @@ function isAlreadyRegisteredDomainError(error: unknown) {
   return message.includes("already exists") || message.includes("already added");
 }
 
-export async function addDomainToVercelProject({
+async function addDomainToVercelProject({
   domain,
   projectId,
   projectSlug,
@@ -57,9 +57,11 @@ export async function addDomainToVercelProject({
 export async function provisionSchoolVercelDomains({
   dashboardDomain,
   siteDomain,
+  assertCurrent,
 }: {
   dashboardDomain: string;
   siteDomain: string;
+  assertCurrent: () => Promise<void>;
 }) {
   const siteProjectId = env.VERCEL_SITE_PROJECT_ID;
   const dashboardProjectId =
@@ -91,6 +93,7 @@ export async function provisionSchoolVercelDomains({
   const results = [];
 
   for (const domain of domains) {
+    await assertCurrent();
     try {
       results.push({
         domain: domain.domain,

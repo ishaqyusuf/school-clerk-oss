@@ -1,6 +1,6 @@
 import {
   getAssistantConversation,
-  getAssistantSessionContext,
+  getAssistantHistoryContext,
 } from "@/lib/assistant/server";
 import { safeJsonParse } from "@school-clerk/ai";
 import { NextResponse } from "next/server";
@@ -9,7 +9,8 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
-  const context = await getAssistantSessionContext();
+  const context = await getAssistantHistoryContext();
+  if (context instanceof Response) return context;
   if (!context?.schoolId || !context.userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -19,6 +20,7 @@ export async function GET(
     conversationId,
     schoolId: context.schoolId,
     userId: context.userId,
+    availableTools: context.availableTools,
   });
 
   if (!conversation) {
@@ -62,5 +64,5 @@ export async function GET(
         })),
       })),
     },
-  });
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }

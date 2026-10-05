@@ -1,7 +1,8 @@
 "use server";
 
 import { staffChanged } from "@/actions/cache/cache-control";
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { requireDashboardModules } from "@/lib/module-access";
+import { completeStaffOnboarding } from "@school-clerk/auth/staff-onboarding";
 import { actionClient } from "@/actions/safe-action";
 import {
 	completeStaffOnboardingSchema,
@@ -14,7 +15,6 @@ import {
 } from "@school-clerk/utils/task-contracts";
 import { tasks } from "@trigger.dev/sdk";
 import { z } from "zod";
-import { ensureCredentialAccount } from "./ensure-credential-account";
 import { getTenantDashboardEmailUrl } from "./tenant-email-url";
 
 import {
@@ -22,20 +22,26 @@ import {
 	assertStaffAcademicAssignmentReferences,
 	buildStaffAcademicAccessPersistence,
 	collectStaffAcademicAssignmentReferenceIds,
-	ensureNotificationContact,
+	createStaffInvitationDelivery,
+	createStaffOnboardingProof,
+	staffPasswordSetupIdentifier,
+	saveStaffLoginIdentity,
+	getStaffInvitationIdentity,
+	ensureStaffCredentialAccount,
+	updateStaffInvitationStatus,
+	createDeliveredUserNotification,
+	getNotificationDeliveryRecipient,
+	getStaffOnboardingContext,
+	lockStaffOnboardingProof,
 	normalizeStaffAcademicAssignments,
 	prisma,
 } from "@school-clerk/db";
 import { createNotificationFromType } from "@school-clerk/notifications";
+import { assertModuleAccess } from "@school-clerk/utils/module-config";
 import {
 	STAFF_ASSIGNMENT_ROLES,
-	type StaffInviteStatus,
+	STAFF_ROLES,
 } from "@school-clerk/utils/constants";
-
-function emptyToUndefined(value?: string | null) {
-	const normalized = value?.trim();
-	return normalized ? normalized : undefined;
-}
 
 function normalizeEmail(email: string) {
 	return email.trim().toLowerCase();
@@ -63,13 +69,11 @@ function buildPendingStaffName(email: string) {
 
 async function sendOnboardingInvite({
 	email,
-	invitedByName,
 	roleLabel,
-	schoolName,
-	staffName,
 	staffId,
 	userId,
 	tenantSlug,
+	resent = false,
 }: {
 	email: string;
 	invitedByName?: string | null;
@@ -79,6 +83,7 @@ async function sendOnboardingInvite({
 	staffId: string;
 	userId: string;
 	tenantSlug: string;
+	resent?: boolean;
 }) {
 	if (!process.env.RESEND_API_KEY) {
 		throw new Error(
@@ -100,16 +105,39 @@ async function sendOnboardingInvite({
 		staffId,
 		tenantSlug,
 		userId,
+		resent,
 	});
 
-	await tasks.trigger(sendStaffInvitationEmailTaskId, {
-		ctaHref: inviteLink,
-		email,
-		invitedByName,
-		roleLabel,
-		schoolName,
-		staffName,
-	} satisfies SendStaffInvitationEmailPayload);
+	try {
+		const current = await getSchoolContext();
+		if (current.tenantSlug !== tenantSlug) throw new Error("Staff workspace changed. Reload before inviting.");
+		const deliveryId = await createStaffInvitationDelivery(prisma, {
+			ctaHref: inviteLink, email, role: roleLabel, staffId, userId, tenantSlug: current.tenantSlug,
+			schoolId: current.school.id, accountId: current.school.accountId, actorUserId: current.actor.id,
+			expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+		});
+		await tasks.trigger(sendStaffInvitationEmailTaskId, {
+			deliveryId, ctaHref: inviteLink,
+		} satisfies SendStaffInvitationEmailPayload);
+	} catch (error) {
+		const token = new URL(inviteLink).searchParams.get("token");
+		if (token) {
+			try {
+				await prisma.$transaction(async (tx) => {
+					if (!await lockStaffOnboardingProof(tx, { staffId, token })) return;
+					const context = await getStaffOnboardingContext(tx, { staffId, token, email });
+					if (!context || context.binding.userId !== userId) return;
+					await updateStaffInvitationStatus(tx, {
+						staffId, schoolId: context.binding.schoolId, accountId: context.binding.accountId,
+						email, status: "FAILED", error: "Invitation could not be queued. Retry or copy a new link.",
+					});
+				});
+			} catch {
+				console.error("[staff-invite] Could not record invitation queue failure");
+			}
+		}
+		throw error;
+	}
 
 	return inviteLink;
 }
@@ -119,22 +147,26 @@ async function createCopyableOnboardingLink({
 	staffId,
 	tenantSlug,
 	userId,
+	resent = false,
 }: {
 	email: string;
 	staffId: string;
 	tenantSlug: string;
 	userId: string;
+	resent?: boolean;
 }) {
-	const token = crypto.randomUUID();
-	const identifier = `reset-password:${token}`;
-
-	await prisma.verification.create({
-		data: {
-			identifier,
-			value: userId,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
-		},
+	const current = await getSchoolContext();
+	if (current.tenantSlug !== tenantSlug) throw new Error("Staff workspace changed. Reload before inviting.");
+	const identity = await getStaffInvitationIdentity(prisma, {
+		staffId, schoolId: current.school.id, accountId: current.school.accountId,
 	});
+	if (!identity || identity.user.id !== userId || identity.email !== email) {
+		throw new Error("Staff invitation identity is unavailable or ambiguous. Review the staff email and login before inviting.");
+	}
+	const { user } = identity;
+	staffRoleSchema.parse(user.role);
+	const token = crypto.randomUUID();
+	const identifier = staffPasswordSetupIdentifier(token);
 
 	const inviteLink = new URL(
 		await getTenantDashboardEmailUrl({
@@ -146,6 +178,30 @@ async function createCopyableOnboardingLink({
 	inviteLink.searchParams.set("staffId", staffId);
 	inviteLink.searchParams.set("email", email);
 	inviteLink.searchParams.set("token", token);
+
+	const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+	await prisma.$transaction(async (tx) => {
+		const latest = await getStaffInvitationIdentity(tx, {
+			staffId, schoolId: current.school.id, accountId: current.school.accountId,
+		});
+		if (!latest || latest.user.id !== userId || latest.email !== email || latest.user.role !== user.role) {
+			throw new Error("Staff invitation identity changed. Reload before inviting.");
+		}
+		await ensureStaffCredentialAccount(tx, userId);
+		await tx.verification.create({ data: { identifier, value: userId, expiresAt } });
+		await createStaffOnboardingProof(tx, {
+			staffId, userId, schoolId: current.school.id, accountId: current.school.accountId,
+			email, role: staffRoleSchema.parse(user.role),
+		}, token, expiresAt);
+		const context = await getStaffOnboardingContext(tx, { staffId, token, email });
+		if (!context) throw new Error("Staff invitation identity changed. Reload before inviting.");
+		assertModuleAccess(context.staff.schoolProfile?.moduleConfiguration, ["STAFF_MANAGEMENT"]);
+		const updated = await updateStaffInvitationStatus(tx, {
+			staffId, schoolId: current.school.id, accountId: current.school.accountId,
+			email, status: "PENDING", resent,
+		});
+		if (updated.count !== 1) throw new Error("Staff invitation changed. Reload before inviting.");
+	}, { isolationLevel: "Serializable" });
 
 	return inviteLink.toString();
 }
@@ -173,37 +229,11 @@ async function tryCreateStaffInvitationNotification(
 ) {
 	try {
 		await createStaffInvitationNotification(input);
-	} catch (error) {
+	} catch {
 		console.error(
-			"[staff-invite] Staff invitation notification failed after email send",
-			error,
+			"[staff-invite] Staff invitation notification failed after email enqueue",
 		);
 	}
-}
-
-async function syncInviteState({
-	staffId,
-	status,
-	error,
-	resent,
-}: {
-	staffId: string;
-	status: StaffInviteStatus;
-	error?: string | null;
-	resent?: boolean;
-}) {
-	const now = new Date();
-	await prisma.staffProfile.update({
-		where: {
-			id: staffId,
-		},
-		data: {
-			inviteStatus: status,
-			inviteSentAt: status === "PENDING" ? now : undefined,
-			inviteResentAt: resent ? now : undefined,
-			lastInviteError: error ?? null,
-		},
-	});
 }
 
 async function createStaffInvitationNotification(input: {
@@ -221,132 +251,69 @@ async function createStaffInvitationNotification(input: {
 	schoolProfileId: string;
 	userId: string;
 }) {
-	const preference = await prisma.notificationPreference.findFirst({
-		where: {
-			deletedAt: null,
-			schoolProfileId: input.schoolProfileId,
-			type: "staff_invitation",
-			userId: input.userId,
-		},
-		select: {
-			inApp: true,
-		},
-	});
-
-	if (preference?.inApp === false) {
-		return;
-	}
-
-	const notification = createNotificationFromType(
-		"staff_invitation",
-		input.payload,
-	);
-
-	if (!notification.channels.includes("in_app")) {
-		return;
-	}
-
+	const current = await getSchoolContext();
+	if (current.school.id !== input.schoolProfileId || current.actor.id !== input.actorUserId) return;
+	if (!input.payload.inviteLink) return;
+	const token = new URL(input.payload.inviteLink).searchParams.get("token");
+	if (!token) return;
 	await prisma.$transaction(async (tx) => {
-		const recipientContact = await ensureNotificationContact(tx, {
-			displayName: input.payload.staffName,
-			role: "user",
-			schoolProfileId: input.schoolProfileId,
-			userId: input.userId,
+		if (!await lockStaffOnboardingProof(tx, { staffId: input.payload.staffId, token })) return;
+		const onboarding = await getStaffOnboardingContext(tx, {
+			staffId: input.payload.staffId, token, email: input.payload.recipientEmail,
 		});
-
-		const authorContact = input.actorUserId
-			? await ensureNotificationContact(tx, {
-					displayName: input.actorName ?? undefined,
-					role: "user",
-					schoolProfileId: input.schoolProfileId,
-					userId: input.actorUserId,
-				})
-			: null;
-
-		await tx.notification.create({
-			data: {
-				action: notification.action ?? undefined,
-				authorContactId: authorContact?.id,
-				body: notification.body,
-				content: notification.body,
-				headline: notification.title,
-				link: notification.link,
-				schoolProfileId: input.schoolProfileId,
-				subject: notification.emailTemplate?.subject ?? notification.title,
-				tags: {
-					create: [
-						{
-							tagName: "staff_email",
-							tagValue: input.payload.recipientEmail,
-						},
-						{
-							tagName: "staff_name",
-							tagValue: input.payload.staffName,
-						},
-					],
-				},
-				title: notification.title,
-				type: notification.type,
-				userId: input.userId,
-				recipients: {
-					create: {
-						recipientContactId: recipientContact.id,
-					},
-				},
-			},
+		if (!onboarding || onboarding.binding.userId !== input.userId ||
+			onboarding.binding.schoolId !== current.school.id ||
+			onboarding.binding.accountId !== current.school.accountId) return;
+		staffRoleSchema.parse(onboarding.binding.role);
+		const live = await getNotificationDeliveryRecipient(tx, {
+			schoolId: current.school.id, accountId: current.school.accountId,
+			actorUserId: current.actor.id, authSessionId: current.authSessionId,
+			recipientUserId: input.userId, type: "staff_invitation",
+		});
+		if (!live || live.actor.role?.toLowerCase() !== "admin" || live.preference?.inApp === false ||
+			live.recipient.email !== onboarding.binding.email || live.recipient.role !== onboarding.binding.role) return;
+		assertModuleAccess(live.school.moduleConfiguration, ["STAFF_MANAGEMENT"]);
+		const staffName = onboarding.staff.name ?? live.recipient.name ?? buildPendingStaffName(live.recipient.email);
+		const notification = createNotificationFromType("staff_invitation", {
+			inviteLink: input.payload.inviteLink, invitedByName: live.actor.name,
+			recipientEmail: live.recipient.email, roleLabel: onboarding.binding.role,
+			schoolName: live.school.name, staffId: onboarding.binding.staffId, staffName,
+		});
+		if (!notification.channels.includes("in_app")) return;
+		await createDeliveredUserNotification(tx, live, {
+			action: notification.action ?? undefined, body: notification.body, link: notification.link,
+			subject: notification.emailTemplate?.subject ?? notification.title,
+			title: notification.title, type: notification.type,
+			tags: [
+				{ tagName: "staff_email", tagValue: live.recipient.email },
+				{ tagName: "staff_name", tagValue: staffName },
+			],
 		});
 	});
 }
 
 async function getSchoolContext() {
-	const profile = await getAuthCookie();
-
-	if (!profile.schoolId || !profile.sessionId || !profile.termId) {
-		throw new Error("Missing active school session context.");
-	}
-
-	if (!profile.domain) {
-		throw new Error("Missing active school tenant context.");
-	}
-
-	const school = await prisma.schoolProfile.findUnique({
-		where: {
-			id: profile.schoolId,
-		},
-		select: {
-			id: true,
-			accountId: true,
-			name: true,
-		},
+	const context = await requireDashboardModules(["STAFF_MANAGEMENT"], ["Admin"]);
+	const { profile } = context;
+	if (!profile.sessionId || !profile.termId) throw new Error("Missing active school session context.");
+	const school = await prisma.schoolProfile.findFirst({
+		where: { id: profile.schoolId, accountId: context.user.saasAccountId, deletedAt: null,
+			account: { deletedAt: null, qaPurgeStartedAt: null } },
+		select: { id: true, accountId: true, name: true, subDomain: true },
 	});
-
-	const actor = profile.auth?.userId
-		? await prisma.user.findFirst({
-				where: {
-					deletedAt: null,
-					id: profile.auth.userId,
-				},
-				select: {
-					name: true,
-				},
-			})
-		: null;
-
-	if (!school) {
-		throw new Error("School not found.");
-	}
-
-	return {
-		actor,
-		profile,
-		school,
-		tenantSlug: profile.domain,
-	};
+	const term = await prisma.sessionTerm.findFirst({
+		where: { id: profile.termId, sessionId: profile.sessionId, schoolId: profile.schoolId, deletedAt: null,
+			session: { schoolId: profile.schoolId, deletedAt: null } },
+		select: { id: true },
+	});
+	if (!school || !term) throw new Error("The active school or academic term is unavailable.");
+	return { actor: context.user, authSessionId: context.authSessionId, profile, school, tenantSlug: school.subDomain };
 }
 
 export const saveStaffAction = actionClient
 	.schema(createStaffSchema)
 	.action(async ({ parsedInput }) => {
+		await requireDashboardModules(["STAFF_MANAGEMENT", "ACADEMIC_PROGRAMS"], ["Admin"]);
 		const { actor, profile, school, tenantSlug } = await getSchoolContext();
 
 		const email = normalizeEmail(parsedInput.email);
@@ -371,6 +338,7 @@ export const saveStaffAction = actionClient
 							email: true,
 							name: true,
 							inviteStatus: true,
+							onboardedAt: true,
 						},
 					})
 				: null;
@@ -476,7 +444,7 @@ export const saveStaffAction = actionClient
 			const resolvedName =
 				existingStaff?.name?.trim() || buildPendingStaffName(email);
 			const emailChanged =
-				Boolean(existingStaff?.email) && existingStaff?.email !== email;
+				Boolean(existingStaff) && existingStaff?.email?.trim().toLowerCase() !== email;
 			const shouldSendInvite =
 				!existingStaff ||
 				emailChanged ||
@@ -492,9 +460,10 @@ export const saveStaffAction = actionClient
 							email,
 							name: resolvedName,
 							inviteStatus: shouldSendInvite
-								? "PENDING"
+								? "NOT_SENT"
 								: existingStaff.inviteStatus,
 							onboardedAt: emailChanged ? null : undefined,
+							password: emailChanged ? null : undefined,
 						},
 					})
 				: await tx.staffProfile.create({
@@ -502,7 +471,7 @@ export const saveStaffAction = actionClient
 							email,
 							name: resolvedName,
 							schoolProfileId: profile.schoolId,
-							inviteStatus: "PENDING",
+							inviteStatus: "NOT_SENT",
 						},
 					});
 
@@ -592,70 +561,24 @@ export const saveStaffAction = actionClient
 				});
 			}
 
-			const existingUser = await tx.user.findFirst({
-				where: {
-					saasAccountId: school.accountId,
-					deletedAt: null,
-					OR: [
-						{
-							email,
-						},
-						...(existingStaff?.email
-							? [
-									{
-										email: existingStaff.email,
-									},
-								]
-							: []),
-					],
-				},
-				select: {
-					id: true,
-				},
+			const login = await saveStaffLoginIdentity(tx, {
+				staffId: staffProfile.id, accountId: school.accountId, actorUserId: actor.id,
+				previousEmail: existingStaff?.email ?? null, email, name: resolvedName,
+				role: parsedInput.role, allowedRoles: STAFF_ROLES,
 			});
-
-			let userId: string;
-
-			if (existingUser) {
-				const updatedUser = await tx.user.update({
-					where: {
-						id: existingUser.id,
-					},
-					data: {
-						name: resolvedName,
-						email,
-						role: parsedInput.role,
-					},
-					select: {
-						id: true,
-					},
-				});
-				userId = updatedUser.id;
-			} else {
-				const createdUser = await tx.user.create({
-					data: {
-						name: resolvedName,
-						email,
-						role: parsedInput.role,
-						saasAccountId: school.accountId,
-					},
-					select: {
-						id: true,
-					},
-				});
-				userId = createdUser.id;
+			const userId = login.id;
+			if (login.roleChanged && !existingStaff?.onboardedAt) {
+				await tx.staffProfile.update({ where: { id: staffProfile.id }, data: { inviteStatus: "NOT_SENT" } });
 			}
-
-			await ensureCredentialAccount(tx, userId);
 
 			return {
 				id: staffProfile.id,
 				email,
 				name: resolvedName,
-				shouldSendInvite,
+				shouldSendInvite: shouldSendInvite || (login.roleChanged && !existingStaff?.onboardedAt),
 				userId,
 			};
-		});
+		}, { isolationLevel: "Serializable" });
 
 		let invited = false;
 		let inviteError: string | null = null;
@@ -673,10 +596,6 @@ export const saveStaffAction = actionClient
 					userId: savedStaff.userId,
 				});
 				invited = true;
-				await syncInviteState({
-					staffId: savedStaff.id,
-					status: "PENDING",
-				});
 				await tryCreateStaffInvitationNotification({
 					actorName: actor?.name ?? null,
 					actorUserId: profile.auth?.userId ?? null,
@@ -692,22 +611,18 @@ export const saveStaffAction = actionClient
 					schoolProfileId: profile.schoolId!,
 					userId: savedStaff.userId,
 				});
-				await prisma.schoolProfile.update({
+				await prisma.schoolProfile.updateMany({
 					where: {
-						id: profile.schoolId!,
+						id: school.id, accountId: school.accountId, deletedAt: null,
+						account: { deletedAt: null, qaPurgeStartedAt: null },
 					},
 					data: {
 						onboardingCompletedAt: new Date(),
 					},
 				});
 			} catch (error) {
-				console.error("[staff-invite] Failed to send invite email", error);
+				console.error("[staff-invite] Failed to queue invite email");
 				inviteError = inviteErrorMessage(error);
-				await syncInviteState({
-					staffId: savedStaff.id,
-					status: "FAILED",
-					error: inviteError,
-				});
 			}
 		}
 
@@ -729,62 +644,25 @@ export const resendStaffOnboardingAction = actionClient
 	.action(async ({ parsedInput }) => {
 		const { actor, profile, school, tenantSlug } = await getSchoolContext();
 
-		const staff = await prisma.staffProfile.findFirst({
-			where: {
-				id: parsedInput.staffId,
-				schoolProfileId: profile.schoolId,
-				deletedAt: null,
-			},
-			select: {
-				id: true,
-				email: true,
-				name: true,
-				onboardedAt: true,
-			},
+		const identity = await getStaffInvitationIdentity(prisma, {
+			staffId: parsedInput.staffId, schoolId: school.id, accountId: school.accountId,
 		});
-
-		if (!staff?.email) {
-			throw new Error("This staff member does not have an onboarding email.");
+		if (!identity) {
+			throw new Error("Staff invitation identity is unavailable or ambiguous. Review the staff email and login before inviting.");
 		}
-
-		if (staff.onboardedAt) {
-			throw new Error("This staff member has already completed onboarding.");
-		}
-
-		const user = await prisma.user.findFirst({
-			where: {
-				email: staff.email,
-				saasAccountId: school.accountId,
-				deletedAt: null,
-			},
-			select: {
-				id: true,
-				role: true,
-			},
-		});
-
-		staffRoleSchema.parse(user?.role ?? "Teacher");
-
-		if (!user?.id) {
-			throw new Error("This staff member does not have a login account yet.");
-		}
+		const { staff, user, email } = identity;
+		staffRoleSchema.parse(user.role);
 
 		try {
-			await ensureCredentialAccount(prisma, user.id);
-
 			const inviteLink = await sendOnboardingInvite({
-				email: staff.email,
+				email,
 				invitedByName: actor?.name ?? null,
 				roleLabel: user.role ?? "Teacher",
 				schoolName: school.name,
-				staffName: staff.name ?? buildPendingStaffName(staff.email),
+				staffName: staff.name ?? buildPendingStaffName(email),
 				staffId: staff.id,
 				tenantSlug,
 				userId: user.id,
-			});
-			await syncInviteState({
-				staffId: staff.id,
-				status: "PENDING",
 				resent: true,
 			});
 			if (user?.id) {
@@ -794,11 +672,11 @@ export const resendStaffOnboardingAction = actionClient
 					payload: {
 						inviteLink,
 						invitedByName: actor?.name ?? null,
-						recipientEmail: staff.email,
+						recipientEmail: email,
 						roleLabel: user.role ?? "Teacher",
 						schoolName: school.name,
 						staffId: staff.id,
-						staffName: staff.name ?? buildPendingStaffName(staff.email),
+						staffName: staff.name ?? buildPendingStaffName(email),
 					},
 					schoolProfileId: profile.schoolId!,
 					userId: user.id,
@@ -817,14 +695,10 @@ export const resendStaffOnboardingAction = actionClient
 					message,
 				);
 				const inviteLink = await createCopyableOnboardingLink({
-					email: staff.email,
+					email,
 					staffId: staff.id,
 					tenantSlug,
 					userId: user.id,
-				});
-				await syncInviteState({
-					staffId: staff.id,
-					status: "PENDING",
 					resent: true,
 				});
 				staffChanged();
@@ -835,13 +709,7 @@ export const resendStaffOnboardingAction = actionClient
 				};
 			}
 
-			console.error("[staff-invite] Failed to resend invite email", error);
-			await syncInviteState({
-				staffId: staff.id,
-				status: "FAILED",
-				error: message,
-				resent: true,
-			});
+			console.error("[staff-invite] Failed to queue resend invite email");
 			throw new Error(message);
 		}
 	});
@@ -853,60 +721,24 @@ export const copyStaffOnboardingLinkAction = actionClient
 		}),
 	)
 	.action(async ({ parsedInput }) => {
-		const { profile, school, tenantSlug } = await getSchoolContext();
+		const { school, tenantSlug } = await getSchoolContext();
 
-		const staff = await prisma.staffProfile.findFirst({
-			where: {
-				id: parsedInput.staffId,
-				schoolProfileId: profile.schoolId,
-				deletedAt: null,
-			},
-			select: {
-				id: true,
-				email: true,
-				onboardedAt: true,
-			},
+		const identity = await getStaffInvitationIdentity(prisma, {
+			staffId: parsedInput.staffId, schoolId: school.id, accountId: school.accountId,
 		});
-
-		if (!staff?.email) {
-			throw new Error("This staff member does not have an onboarding email.");
+		if (!identity) {
+			throw new Error("Staff invitation identity is unavailable or ambiguous. Review the staff email and login before inviting.");
 		}
-
-		if (staff.onboardedAt) {
-			throw new Error("This staff member has already completed onboarding.");
-		}
-
-		const user = await prisma.user.findFirst({
-			where: {
-				email: staff.email,
-				saasAccountId: school.accountId,
-				deletedAt: null,
-			},
-			select: {
-				id: true,
-				role: true,
-			},
-		});
-
-		staffRoleSchema.parse(user?.role ?? "Teacher");
-
-		if (!user?.id) {
-			throw new Error("This staff member does not have a login account yet.");
-		}
-
-		await ensureCredentialAccount(prisma as any, user.id);
+		const { staff, user, email } = identity;
+		staffRoleSchema.parse(user.role);
 
 		const inviteLink = await createCopyableOnboardingLink({
-			email: staff.email,
+			email,
 			staffId: staff.id,
 			tenantSlug,
 			userId: user.id,
 		});
 
-		await syncInviteState({
-			staffId: staff.id,
-			status: "PENDING",
-		});
 		staffChanged();
 
 		return {
@@ -917,68 +749,7 @@ export const copyStaffOnboardingLinkAction = actionClient
 export const completeStaffOnboardingAction = actionClient
 	.schema(completeStaffOnboardingSchema)
 	.action(async ({ parsedInput }) => {
-		const payload = {
-			...parsedInput,
-			title: emptyToUndefined(parsedInput.title),
-			phone: emptyToUndefined(parsedInput.phone),
-			phone2: emptyToUndefined(parsedInput.phone2),
-			address: emptyToUndefined(parsedInput.address),
-		};
-
-		const staff = await prisma.staffProfile.findFirst({
-			where: {
-				id: payload.staffId,
-				email: payload.email,
-				deletedAt: null,
-			},
-			select: {
-				id: true,
-				schoolProfile: {
-					select: {
-						accountId: true,
-					},
-				},
-			},
-		});
-
-		if (!staff) {
-			throw new Error("This onboarding link no longer matches a staff record.");
-		}
-
-		await prisma.$transaction(async (tx) => {
-			await tx.staffProfile.update({
-				where: {
-					id: staff.id,
-				},
-				data: {
-					name: payload.name.trim(),
-					title: payload.title,
-					phone: payload.phone,
-					phone2: payload.phone2,
-					address: payload.address,
-					inviteStatus: "ACTIVE",
-					onboardedAt: new Date(),
-					lastInviteError: null,
-				},
-			});
-
-			await tx.user.updateMany({
-				where: {
-					email: payload.email,
-					saasAccountId: staff.schoolProfile?.accountId,
-					deletedAt: null,
-				},
-				data: {
-					name: payload.name.trim(),
-					emailVerified: true,
-				},
-			});
-		});
-
+		const result = await completeStaffOnboarding(parsedInput);
 		staffChanged();
-
-		return {
-			staffId: staff.id,
-			completed: true,
-		};
+		return result;
 	});

@@ -8,7 +8,7 @@ import {
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { PrimitiveDivProps } from "@/types";
-import { DropdownMenuItemProps } from "@radix-ui/react-dropdown-menu";
+import type { ComponentPropsWithoutRef } from "react";
 import { VariantProps } from "class-variance-authority";
 
 import { Button, buttonVariants } from "@school-clerk/ui/button";
@@ -37,7 +37,7 @@ type MenuItemProps = {
   shortCut?;
   _blank?: boolean;
   icon?: IconKeys;
-} & DropdownMenuItemProps;
+} & ComponentPropsWithoutRef<typeof DropdownMenuItem>;
 interface RowActionMoreMenuProps {
   children;
   disabled?: boolean;

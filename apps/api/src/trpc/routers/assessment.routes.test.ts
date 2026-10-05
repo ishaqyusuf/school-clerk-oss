@@ -1,4 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { MODULE_IDS } from "@school-clerk/utils/module-config";
+
+const schoolModuleConfiguration = {
+  version: 1,
+  revision: 0,
+  enabledModules: [...MODULE_IDS],
+  entitledModules: [...MODULE_IDS],
+};
 
 process.env.DATABASE_URL ??=
   "postgresql://postgres:postgres@127.0.0.1:55432/school_clerk";
@@ -51,6 +59,9 @@ function createRecordingContextOptionsCtx() {
       termId: "term-1",
     },
     db: {
+      schoolProfile: {
+        findFirst: async () => ({ id: "school-1", moduleConfiguration: schoolModuleConfiguration }),
+      },
       session: {
         findFirst: async () => ({
           id: "session-token",
@@ -211,6 +222,9 @@ function createPrintHistoryContext({
         termId: "term-1",
       },
       db: {
+        schoolProfile: {
+          findFirst: async () => ({ id: "school-1", moduleConfiguration: schoolModuleConfiguration }),
+        },
         session: {
           findFirst: async () => ({
             id: "session-token",

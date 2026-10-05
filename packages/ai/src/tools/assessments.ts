@@ -102,6 +102,8 @@ export function createAssessmentTools(
 	database: typeof prisma = prisma,
 ) {
 	const {
+		completeMutation,
+		consumeMutationConfirmation,
 		finishAssistantToolExecution,
 		guardCapability,
 		isConfirmedMutation,
@@ -384,6 +386,7 @@ export function createAssessmentTools(
 							sessionTermId: ctx.termId,
 							classroomDepartmentId: department.id,
 							deletedAt: null,
+							registrationReviewStatus: { not: "REJECTED" },
 							student: {
 								deletedAt: null,
 							},
@@ -623,20 +626,20 @@ export function createAssessmentTools(
 					};
 
 					if (
-						!isConfirmedMutation({
+						!(await isConfirmedMutation({
 							ctx,
 							toolName: "recordAssessmentScores",
 							confirmationToken,
 							actionInput: confirmationActionInput,
-						})
+						}))
 					) {
 						const output = {
-							...requiresConfirmationResult({
+							...(await requiresConfirmationResult({
 								ctx,
 								toolName: "recordAssessmentScores",
 								summary: `Record ${previewScores.length} ${departmentSubject.subject.title} ${actionInput.assessmentTitle} scores for ${departmentDisplayName}?`,
 								actionInput: confirmationActionInput,
-							}),
+							})),
 							classroom: {
 								id: department.id,
 								displayName: departmentDisplayName,
@@ -681,6 +684,9 @@ export function createAssessmentTools(
 					const result = await retryAssessmentScoreHistoryTransaction(() =>
 						database.$transaction(
 							async (tx) => {
+								await consumeMutationConfirmation(tx, {
+									toolName: "recordAssessmentScores", confirmationToken, actionInput: confirmationActionInput,
+								});
 								let assessment = existingAssessment;
 
 								if (!assessment) {
@@ -783,7 +789,7 @@ export function createAssessmentTools(
 									});
 								}
 
-								return {
+								const output = {
 									success: true,
 									classroom: {
 										id: department.id,
@@ -803,29 +809,16 @@ export function createAssessmentTools(
 									scoreCount: writtenScores.length,
 									scores: writtenScores,
 								};
+								return completeMutation(tx, {
+									executionId: guarded.executionId, toolName: "recordAssessmentScores", output,
+									title: "AI recorded assessment scores",
+									description: `${output.scoreCount} ${output.subject.title} scores recorded for ${output.classroom.displayName}.`,
+								});
 							},
 							{ isolationLevel: "Serializable" },
 						),
 					);
 
-					await recordAssistantActivity({
-						schoolId: ctx.schoolId,
-						userId: ctx.userId,
-						userName: ctx.userName,
-						type: "assistant_action_completed",
-						title: "AI recorded assessment scores",
-						description: `${result.scoreCount} ${result.subject.title} scores recorded for ${result.classroom.displayName}.`,
-						meta: {
-							toolName: "recordAssessmentScores",
-							actionInput: confirmationActionInput,
-							output: result,
-						},
-					});
-					await finishAssistantToolExecution({
-						toolExecutionId: guarded.executionId,
-						status: "completed",
-						output: result,
-					});
 					return result;
 				} catch (error) {
 					await finishAssistantToolExecution({

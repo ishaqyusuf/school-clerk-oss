@@ -4,14 +4,23 @@ import { Button } from "@school-clerk/ui/button";
 import { ArrowUp, Bot } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChatMessage } from "./chat-message";
+import { ChatRunReceipts } from "./chat-run-receipts";
 import { useSchoolChat } from "./use-school-chat";
 
-const FALLBACK_SUGGESTIONS = [
-  "Enroll a student into a classroom",
-  "Receive a fee payment",
-  "Record a book purchase / issuance",
-  "Check a student's balance",
-];
+const TOOL_SUGGESTIONS = [
+  ["enrollStudent", "Enroll a student into a classroom"],
+  ["recordAssessmentScores", "Record assessment scores"],
+  ["receiveStudentPayment", "Receive a fee payment"],
+  ["recordInventoryIssuance", "Record an inventory issuance"],
+  ["getStudentPaymentData", "Check a student's balance"],
+  ["searchStudents", "Search for a student"],
+  ["getStudentAttendanceHistory", "Show recent attendance for a student"],
+  ["searchStaffMembers", "Find a staff member"],
+  ["searchGuardians", "Find a guardian contact"],
+  ["listClassrooms", "List available classrooms"],
+  ["searchInventoryItems", "Search inventory items"],
+  ["createInventoryItem", "Create an inventory item"],
+] as const;
 
 export function ChatPanel() {
   const {
@@ -20,7 +29,10 @@ export function ChatPanel() {
     isLoading,
     status,
     error,
-    capabilities,
+    lastRunId,
+    availableTools,
+    historyNotice,
+    startNewConversation,
     settings,
     sendMessage,
     sendWorkflowAction,
@@ -35,21 +47,12 @@ export function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const suggestions = useMemo(() => {
-    if (capabilities.includes("students.enrollment")) {
-      return FALLBACK_SUGGESTIONS;
-    }
-
-    return [
-      "Search for a student",
-      "Show recent attendance for a student",
-      "Find a staff member",
-      "Find a guardian contact",
-    ];
-  }, [capabilities]);
+  const suggestions = useMemo(() => TOOL_SUGGESTIONS
+    .filter(([toolName]) => availableTools.includes(toolName))
+    .map(([, label]) => label).slice(0, 4), [availableTools]);
 
   const submit = async () => {
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || !availableTools.length) return;
     await sendMessage(input.trim());
     setInput("");
     setRows(1);
@@ -58,8 +61,8 @@ export function ChatPanel() {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-4 py-3">
+    <div className="flex h-full min-w-0 flex-col">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
             <Bot className="h-4 w-4" />
@@ -75,7 +78,12 @@ export function ChatPanel() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 border-b px-4 py-2">
+        <Button type="button" variant="outline" className="min-h-11 w-full sm:w-auto" disabled={isLoading}
+          onClick={() => void startNewConversation()}>New chat</Button>
+        {historyNotice ? <p className="min-w-0 flex-1 basis-48 break-words text-xs text-muted-foreground">{historyNotice}</p> : null}
+      </div>
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4">
         {isEmpty ? (
           <div className="flex flex-col items-center gap-6 py-8">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -90,13 +98,16 @@ export function ChatPanel() {
             <div className="grid w-full grid-cols-1 gap-1.5">
               {suggestions.map((suggestion) => (
                 <button
+                  type="button"
+                  disabled={isLoading}
                   key={suggestion}
                   onClick={() => void sendMessage(suggestion)}
-                  className="rounded-lg border bg-muted/40 px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="min-h-11 min-w-0 break-words rounded-lg border bg-muted/40 px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                 >
                   {suggestion}
                 </button>
               ))}
+              {!availableTools.length && !isLoading ? <p className="break-words text-center text-sm text-muted-foreground" role="status">No operational tools are currently available. Check your school's module and AI settings.</p> : null}
             </div>
           </div>
         ) : (
@@ -133,6 +144,10 @@ export function ChatPanel() {
                 </div>
               </div>
             ) : null}
+            {lastRunId && activeConversationId ? <ChatRunReceipts
+              key={`${activeConversationId}:${lastRunId}`}
+              runId={lastRunId} conversationId={activeConversationId} availableTools={availableTools}
+            /> : null}
             <div ref={bottomRef} />
           </div>
         )}
@@ -164,16 +179,18 @@ export function ChatPanel() {
             }}
             rows={rows}
             placeholder="Type a task... (Cmd/Ctrl+Enter to send)"
-            disabled={isLoading}
-            className="flex-1 resize-none rounded-xl border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            disabled={isLoading || !availableTools.length}
+            aria-label="Task for School AI"
+            className="min-h-11 min-w-0 flex-1 resize-none rounded-xl border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             dir="auto"
           />
           <Button
             type="button"
             size="icon"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !input.trim() || !availableTools.length}
+            aria-label="Send task"
             onClick={() => void submit()}
-            className="h-9 w-9 shrink-0 rounded-xl"
+            className="h-11 w-11 shrink-0 rounded-xl"
           >
             <ArrowUp className="h-4 w-4" />
           </Button>

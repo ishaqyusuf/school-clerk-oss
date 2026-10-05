@@ -182,6 +182,7 @@ export async function getTeacherWorkspaceAction({
 				},
 				select: {
 					id: true,
+					registrationReviewStatus: true,
 					classroomDepartmentId: true,
 					classroomDepartment: {
 						select: {
@@ -347,6 +348,7 @@ export async function getTeacherWorkspaceAction({
 		subjects: assignedSubjects,
 		students: studentDirectory.map((studentForm) => ({
 			id: studentForm.id,
+			registrationReviewStatus: studentForm.registrationReviewStatus,
 			studentId: studentForm.student?.id ?? "",
 			classroomDepartmentId: studentForm.classroomDepartmentId ?? "",
 			name: formatStudentName(studentForm.student, studentNameFormat),
@@ -412,6 +414,7 @@ function emptyTeacherWorkspace(signedInEmail: string | null) {
 		}>,
 		students: [] as Array<{
 			id: string;
+			registrationReviewStatus: "APPROVED" | "PENDING" | "REJECTED";
 			studentId: string;
 			classroomDepartmentId: string;
 			name: string;

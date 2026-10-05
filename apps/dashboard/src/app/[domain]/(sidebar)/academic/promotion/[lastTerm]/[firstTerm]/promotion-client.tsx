@@ -2,7 +2,6 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-	AlertTriangle,
   ArrowRight,
 	CheckCircle2,
   ChevronDown,
@@ -28,13 +27,10 @@ import { Card } from "@school-clerk/ui/card";
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "@school-clerk/ui/dialog";
 import { Input } from "@school-clerk/ui/input";
-import { ScrollArea } from "@school-clerk/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -42,7 +38,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@school-clerk/ui/select";
-import { Separator } from "@school-clerk/ui/separator";
 import {
   Table,
   TableBody,
@@ -55,6 +50,8 @@ import {
 import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { useTRPC } from "@/trpc/client";
+import { useRemoveStudentTerms } from "@/hooks/use-remove-student-terms";
+import { StudentTermRemovalDialog } from "@/components/students/student-term-removal-dialog";
 import { toast } from "@school-clerk/ui/use-toast";
 
 interface Props {
@@ -412,12 +409,12 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
     }),
   );
 
-  const deleteTermFormMutation = useMutation(
-    trpc.students.deleteTermSheet.mutationOptions({
-      onSuccess() {
+  const deleteTermFormMutation = useRemoveStudentTerms({
+    contextKey: JSON.stringify([lastTermId, firstTermId, deleteTarget?.termFormId]),
+      onSuccess(data) {
         toast({
-          title: "Deleted",
-          description: "Student term record has been removed.",
+          title: data.count ? "Removed" : "Already removed",
+          description: data.count ? "Student term enrollment has been archived." : "This enrollment was already archived; no new removal was needed.",
         });
         setDeleteTarget(null);
         invalidateStudents();
@@ -429,13 +426,14 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
           variant: "destructive",
         });
       },
-    }),
-  );
+  });
 
   const invalidateTargetClassrooms = () =>
     queryClient.invalidateQueries({
       queryKey: trpc.classrooms.all.queryKey({ sessionTermId: firstTermId }),
     });
+
+  useEffect(() => { setDeleteTarget(null); }, [deleteTermFormMutation.workspaceKey, lastTermId, firstTermId]);
 
   const registerClassroomMutation = useMutation(
     trpc.classrooms.registerClassroomForSession.mutationOptions({
@@ -1010,228 +1008,20 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
       />
 
       {/* Delete confirmation modal */}
-      <DeleteConfirmModal
+      <StudentTermRemovalDialog
         target={deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={(termFormId) =>
           deleteTermFormMutation.mutate({ id: termFormId })
         }
         isPending={deleteTermFormMutation.isPending}
+        ready={deleteTermFormMutation.ready}
+        error={deleteTermFormMutation.error}
       />
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Delete confirmation modal
-// ---------------------------------------------------------------------------
-
-function DeleteConfirmModal({
-  target,
-  onClose,
-  onConfirm,
-  isPending,
-}: {
-  target: { termFormId: string; studentName: string } | null;
-  onClose: () => void;
-  onConfirm: (termFormId: string) => void;
-  isPending: boolean;
-}) {
-  const trpc = useTRPC();
-  const { data: details, isFetching } = useQuery(
-    trpc.students.getTermFormDetails.queryOptions(
-      { id: target?.termFormId ?? "" },
-      { enabled: !!target?.termFormId },
-    ),
-  );
-
-  const hasData =
-    details &&
-    (details.counts.assessmentRecords > 0 ||
-      details.counts.studentFees > 0 ||
-      details.counts.payments > 0 ||
-      details.counts.attendance > 0);
-
-  return (
-    <Dialog open={!!target} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-5 w-5" />
-            Delete Student Term Record
-          </DialogTitle>
-          <DialogDescription>
-            You are about to permanently remove{" "}
-            <span className="font-semibold text-foreground">
-              {target?.studentName}
-            </span>{" "}
-            from this term. This action cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-
-        {isFetching ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">
-            Loading record details…
-          </div>
-        ) : details ? (
-          <div className="space-y-4">
-            {/* Summary badges */}
-            <div className="rounded-lg border bg-muted/40 p-4 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-                Records attached to this term form
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="flex items-center justify-between rounded bg-background border px-3 py-2">
-									<span className="text-muted-foreground">
-										Assessment scores
-									</span>
-									<Badge
-										variant={
-											details.counts.assessmentRecords > 0
-												? "warning"
-												: "secondary"
-										}
-									>
-                    {details.counts.assessmentRecords}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between rounded bg-background border px-3 py-2">
-                  <span className="text-muted-foreground">Fee records</span>
-									<Badge
-										variant={
-											details.counts.studentFees > 0 ? "warning" : "secondary"
-										}
-									>
-                    {details.counts.studentFees}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between rounded bg-background border px-3 py-2">
-                  <span className="text-muted-foreground">Payments</span>
-									<Badge
-										variant={
-											details.counts.payments > 0 ? "warning" : "secondary"
-										}
-									>
-                    {details.counts.payments}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between rounded bg-background border px-3 py-2">
-                  <span className="text-muted-foreground">Attendance</span>
-									<Badge
-										variant={
-											details.counts.attendance > 0 ? "warning" : "secondary"
-										}
-									>
-                    {details.counts.attendance}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-
-            {/* Detail lists */}
-            {hasData && (
-              <ScrollArea className="h-52 rounded-md border">
-                <div className="p-3 space-y-3 text-sm">
-                  {details.assessmentRecords.length > 0 && (
-                    <div>
-                      <p className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                        Assessment Scores
-                      </p>
-                      {details.assessmentRecords.map((r) => (
-                        <div
-                          key={r.id}
-                          className="flex justify-between py-0.5 border-b last:border-0"
-                        >
-                          <span className="text-muted-foreground truncate max-w-[60%]">
-                            {r.subjectTitle} — {r.assessmentTitle}
-                          </span>
-                          <span className="font-medium">{r.obtained}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {details.studentFees.length > 0 && (
-                    <div>
-                      <Separator className="my-2" />
-                      <p className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                        Fee Records
-                      </p>
-                      {details.studentFees.map((f) => (
-                        <div
-                          key={f.id}
-                          className="flex justify-between py-0.5 border-b last:border-0"
-                        >
-                          <span className="text-muted-foreground">Fee</span>
-                          <span className="font-medium">
-                            {f.amount} (pending: {f.pendingAmount})
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {details.payments.length > 0 && (
-                    <div>
-                      <Separator className="my-2" />
-                      <p className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                        Payments
-                      </p>
-                      {details.payments.map((p) => (
-                        <div
-                          key={p.id}
-                          className="flex justify-between py-0.5 border-b last:border-0"
-                        >
-                          <span className="text-muted-foreground text-xs">
-                            {p.createdAt
-                              ? new Date(p.createdAt).toLocaleDateString()
-                              : "—"}
-                          </span>
-                          <span className="font-medium">{p.amount}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {details.attendance.length > 0 && (
-                    <div>
-                      <Separator className="my-2" />
-                      <p className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                        Attendance ({details.counts.attendance} records)
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        All attendance records for this term will be unlinked.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            )}
-
-            {hasData && (
-              <p className="text-xs text-destructive flex items-start gap-1.5">
-                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                The records above are attached to this term form. Deleting it
-                will soft-delete the form only — linked financial and assessment
-                data is preserved in the database.
-              </p>
-            )}
-          </div>
-        ) : null}
-
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose} disabled={isPending}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={isPending || isFetching}
-            onClick={() => target && onConfirm(target.termFormId)}
-          >
-            {isPending ? "Deleting…" : "Confirm Delete"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 // ---------------------------------------------------------------------------
 const ASSESSMENT_ORDER = ["الحضور", "الاختبار", "الامتحان"];

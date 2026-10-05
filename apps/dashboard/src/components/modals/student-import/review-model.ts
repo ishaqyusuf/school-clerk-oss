@@ -264,19 +264,19 @@ export function buildStudentImportReviewModel<
         key: "attention",
         title: "Needs attention",
         rows: attentionRows,
-        checkedRows: countCheckedRows(attentionRows, checkedRows),
+        checkedRows: countCheckedRows(attentionRows, checkedRows, importedLineNumbers),
       },
       {
         key: "matched",
         title: "Match found",
         rows: matchedRows,
-        checkedRows: countCheckedRows(matchedRows, checkedRows),
+        checkedRows: countCheckedRows(matchedRows, checkedRows, importedLineNumbers),
       },
       {
         key: "ready",
         title: "Ready to import",
         rows: readyRows,
-        checkedRows: countCheckedRows(readyRows, checkedRows),
+        checkedRows: countCheckedRows(readyRows, checkedRows, importedLineNumbers),
       },
     ],
     counts,
@@ -289,8 +289,10 @@ export function buildStudentImportReviewModel<
 function countCheckedRows(
   rows: StudentImportReviewRow[],
   checkedRows: Record<number, boolean>,
+  importedLineNumbers: Record<number, boolean>,
 ) {
   return rows.filter((row) =>
+    row.lineNumber != null && !importedLineNumbers[row.lineNumber] &&
     isStudentImportRowChecked(checkedRows, row.lineNumber),
   ).length;
 }
@@ -304,7 +306,9 @@ function getStudentImportDisabledReason(
   blockedLineNumbers: number[],
 ) {
   if (counts.blockedCheckedRows > 0) {
-    return `Resolve checked line${counts.blockedCheckedRows === 1 ? "" : "s"} ${blockedLineNumbers.join(", ")} before importing.`;
+    const visibleLines = blockedLineNumbers.slice(0, 5).join(", ");
+    const remaining = Math.max(0, blockedLineNumbers.length - 5);
+    return `Resolve checked line${counts.blockedCheckedRows === 1 ? "" : "s"} ${visibleLines}${remaining ? ` and ${remaining} more` : ""} before importing.`;
   }
 
   if (counts.executableRows === 0) {

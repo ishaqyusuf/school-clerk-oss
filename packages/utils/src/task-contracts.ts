@@ -5,10 +5,6 @@ export const sendStaffInvitationEmailTaskId = "send-staff-invitation-email";
 export const qaPurgeTaskId = "qa-purge";
 
 export type SendStaffInvitationEmailPayload = {
+  deliveryId: string;
   ctaHref: string;
-  email: string;
-  invitedByName?: string | null;
-  roleLabel: string;
-  schoolName: string;
-  staffName: string;
 };

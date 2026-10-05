@@ -2,24 +2,27 @@
 
 import { prisma } from "@school-clerk/db";
 
-import { getAuthCookie, switchSessionTerm } from "./cookies/auth-cookie";
+import { switchSessionTerm } from "./cookies/auth-cookie";
+import { requireDashboardModules } from "@/lib/module-access";
 import { actionClient } from "./safe-action";
 import { createAcadSessionSchema } from "./schema";
 
 export const createAcadSessionAction = actionClient
   .schema(createAcadSessionSchema)
   .action(async ({ parsedInput: data }) => {
+    const { profile, user } = await requireDashboardModules(["ACADEMIC_PROGRAMS"], ["Admin", "Registrar"]);
     // throw new Error("....");
     // await prisma.sessionTerm.deleteMany({});
     // await prisma.schoolSession.deleteMany({});
     const resp = await prisma.$transaction(async (tx) => {
-      const profile = await getAuthCookie();
       const schoolSession = await tx.schoolSession.create({
         data: {
           title: data.title,
           school: {
             connect: {
               id: profile?.schoolId,
+              accountId: user.saasAccountId,
+              deletedAt: null,
             },
           },
           terms: {
@@ -36,6 +39,7 @@ export const createAcadSessionAction = actionClient
           },
         },
         select: {
+          id: true,
           terms: {
             orderBy: {
               startDate: "desc",
@@ -45,8 +49,7 @@ export const createAcadSessionAction = actionClient
       });
       return schoolSession;
     });
-    const termId = (resp as any)?.terms?.[0]?.id;
-    await switchSessionTerm(termId);
+    await switchSessionTerm({ sessionId: resp.id, termId: resp.terms[0]?.id });
     // console.log(resp);
     // throw new Error("", {
     //   cause: resp,

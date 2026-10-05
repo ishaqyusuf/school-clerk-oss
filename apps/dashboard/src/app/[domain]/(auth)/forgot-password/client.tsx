@@ -35,16 +35,12 @@ export function Client() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setIsLoading(true);
     setError("");
     try {
       const email = formData.email.trim().toLowerCase();
-      const result = await requestPasswordReset(email);
-
-      if (result?.redirectTo) {
-        window.location.assign(result.redirectTo);
-        return;
-      }
+      await requestPasswordReset(email);
 
       setSentEmail(email);
     } catch (caughtError) {
@@ -68,20 +64,20 @@ export function Client() {
                 <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
                   <MailCheck className="h-6 w-6" />
                 </div>
-                <CardTitle className="text-2xl">Reset email sent</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  If an account exists for {sentEmail}, we sent password reset
-                  instructions for this school workspace.
+                <CardTitle className="text-2xl">Check your email</CardTitle>
+                <p className="break-words text-sm text-muted-foreground">
+                  If an eligible account exists for {sentEmail}, reset instructions will be sent by email.
+                  New staff should use their invitation link or ask their administrator to resend it.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button asChild className="w-full bg-amber-700 hover:bg-amber-800">
+                <Button asChild className="min-h-11 w-full whitespace-normal bg-amber-700 hover:bg-amber-800">
                   <Link href="/login">Back to sign in</Link>
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full"
+                  className="min-h-11 w-full whitespace-normal"
                   onClick={() => {
                     setSentEmail("");
                     setError("");
@@ -113,7 +109,7 @@ export function Client() {
             <CardContent>
               {error && (
                 <Alert className="mb-4" variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription className="break-words">{error}</AlertDescription>
                 </Alert>
               )}
 
@@ -125,12 +121,15 @@ export function Client() {
                     <Input
                       id="email"
                       type="email"
+                      autoComplete="email"
+                      maxLength={320}
+                      disabled={isLoading}
                       placeholder="john.doe@example.com"
                       value={formData.email}
                       onChange={(e) =>
                         handleInputChange("email", e.target.value)
                       }
-                      className="pl-10"
+                      className="min-h-11 pl-10"
                       required
                     />
                   </div>
@@ -176,7 +175,7 @@ export function Client() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-amber-700 hover:bg-amber-800"
+                  className="min-h-11 w-full whitespace-normal bg-amber-700 hover:bg-amber-800"
                   disabled={isLoading}
                 >
                   {isLoading ? "Sending..." : "Send reset link"}

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { MODULE_IDS } from "@school-clerk/utils/module-config";
 
 process.env.DATABASE_URL ??=
 	"postgresql://postgres:postgres@127.0.0.1:55432/school_clerk";
@@ -88,6 +89,7 @@ function createAttendanceContext({
 					accountId: "account-1",
 					id: "school-1",
 					name: "Test School",
+					moduleConfiguration: { version: 1, revision: 0, enabledModules: [...MODULE_IDS], entitledModules: [...MODULE_IDS] },
 					subDomain: "test-school",
 				}),
 			},
@@ -413,8 +415,8 @@ describe("attendanceRouter permissions", () => {
 		).rejects.toMatchObject({ code: "CONFLICT" });
 	});
 
-	test("requires a status for the complete active classroom roster", async () => {
-		const { ctx } = createAttendanceContext({
+	test("saves only the marked students in a partial classroom register", async () => {
+		const { ctx, createdAttendance } = createAttendanceContext({
 			role: "Admin",
 			studentTermForms: [
 				{
@@ -433,9 +435,29 @@ describe("attendanceRouter permissions", () => {
 			ctx as unknown as CallerContext,
 		);
 
-		await expect(
-			caller.takeAttendance(subjectAttendanceInput() as never),
-		).rejects.toMatchObject({ code: "BAD_REQUEST" });
+		await caller.takeAttendance(subjectAttendanceInput() as never);
+		expect(createdAttendance).toHaveLength(1);
+		expect(createdAttendance[0]).toMatchObject({
+			data: { studentAttendanceList: { create: [{ studentTermFormId: "term-form-1", status: "LATE" }] } },
+		});
+	});
+
+	test("rejects students outside the active classroom roster", async () => {
+		const { ctx, createdAttendance } = createAttendanceContext({ role: "Admin" });
+		const caller = attendanceRouter.createCaller(ctx as unknown as CallerContext);
+		await expect(caller.takeAttendance({
+			...subjectAttendanceInput(),
+			students: [{ studentTermFormId: "foreign-form", status: "PRESENT" }],
+		} as never)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+		expect(createdAttendance).toHaveLength(0);
+	});
+
+	test("rejects a register without any marked students", async () => {
+		const { ctx, createdAttendance } = createAttendanceContext({ role: "Admin" });
+		const caller = attendanceRouter.createCaller(ctx as unknown as CallerContext);
+		await expect(caller.takeAttendance({ ...subjectAttendanceInput(), students: [] } as never))
+			.rejects.toMatchObject({ code: "BAD_REQUEST" });
+		expect(createdAttendance).toHaveLength(0);
 	});
 
 	test("returns the existing session when an idempotency key is replayed", async () => {
@@ -579,6 +601,10 @@ describe("attendanceRouter permissions", () => {
 		};
 		const { attendanceUpdates, ctx, revisionWrites, studentAttendanceWrites } =
 			createAttendanceContext({
+				studentTermForms: [
+					{ id: "term-form-1", schoolProfileId: "school-1", sessionTermId: "term-1" },
+					{ id: "term-form-2", schoolProfileId: "school-1", sessionTermId: "term-1" },
+				],
 				attendanceFindFirst: (query) =>
 					query.where.id === "attendance-existing" ? existing : null,
 				role: "Admin",

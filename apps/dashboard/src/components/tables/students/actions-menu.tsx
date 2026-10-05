@@ -1,8 +1,9 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
+import { useDeleteStudent } from "@/hooks/use-delete-student";
 import { useStudentParams } from "@/hooks/use-student-params";
-import { useTRPC } from "@/trpc/client";
+import { useRemoveStudentTerms } from "@/hooks/use-remove-student-terms";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -22,9 +23,8 @@ import {
 	DropdownMenuTrigger,
 } from "@school-clerk/ui/dropdown-menu";
 import { Spinner } from "@school-clerk/ui/spinner";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Item } from "./columns";
 
 function canManageStudents(role?: string | null) {
@@ -32,47 +32,33 @@ function canManageStudents(role?: string | null) {
 }
 
 export function StudentActionsMenu({ student }: { student: Item }) {
-	const trpc = useTRPC();
-	const queryClient = useQueryClient();
 	const auth = useAuth();
 	const { setParams } = useStudentParams();
 	const [confirmAction, setConfirmAction] = useState<
 		"remove" | "delete" | null
 	>(null);
 
-	const invalidateDirectory = () => {
-		queryClient.invalidateQueries({
-			queryKey: trpc.students.index.infiniteQueryKey(),
-		});
-		queryClient.invalidateQueries({
-			queryKey: trpc.students.analytics.queryKey(),
-		});
-		queryClient.invalidateQueries({
-			queryKey: trpc.students.duplicateGroups.queryKey(),
-		});
-	};
-
-	const deleteStudent = useMutation(
-		trpc.students.deleteStudent.mutationOptions({
-			onSuccess: invalidateDirectory,
-		}),
-	);
-	const removeTerm = useMutation(
-		trpc.students.bulkDeleteTermSheets.mutationOptions({
-			onSuccess: invalidateDirectory,
-		}),
-	);
+	const deleteStudent = useDeleteStudent(student.id);
+	const removeTerm = useRemoveStudentTerms({ contextKey: JSON.stringify([student.id, student.termFormId]) });
 	const isPending = deleteStudent.isPending || removeTerm.isPending;
 	const canManage = canManageStudents(auth.role);
+	useEffect(() => {
+		setConfirmAction(null);
+	}, [deleteStudent.scopeKey, removeTerm.scopeKey]);
 
-	const confirm = () => {
+	const confirm = async () => {
+		if (isPending || !deleteStudent.ready) return;
 		if (confirmAction === "remove" && student.termFormId) {
-			removeTerm.mutate({ ids: [student.termFormId] });
+			try {
+				await removeTerm.mutateAsync({ ids: [student.termFormId] });
+				setConfirmAction(null);
+			} catch {
+				// Keep the confirmation and error visible for an explicit retry.
+			}
 		}
 		if (confirmAction === "delete") {
-			deleteStudent.mutate({ studentId: student.id });
+			if (await deleteStudent.submit()) setConfirmAction(null);
 		}
-		setConfirmAction(null);
 	};
 
 	return (
@@ -82,7 +68,8 @@ export function StudentActionsMenu({ student }: { student: Item }) {
 					<Button
 						variant="ghost"
 						size="icon"
-						className="size-8"
+						className="size-11"
+						disabled={isPending}
 						aria-label={`Actions for ${student.studentName}`}
 						onClick={(event) => event.stopPropagation()}
 					>
@@ -128,10 +115,10 @@ export function StudentActionsMenu({ student }: { student: Item }) {
 			<AlertDialog
 				open={confirmAction !== null}
 				onOpenChange={(open) => {
-					if (!open) setConfirmAction(null);
+					if (!open && !isPending) setConfirmAction(null);
 				}}
 			>
-				<AlertDialogContent>
+				<AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
 					<AlertDialogHeader>
 						<AlertDialogTitle>
 							{confirmAction === "delete"
@@ -140,14 +127,20 @@ export function StudentActionsMenu({ student }: { student: Item }) {
 						</AlertDialogTitle>
 						<AlertDialogDescription>
 							{confirmAction === "delete"
-								? "This removes the canonical student record and should only be used when the record is no longer needed."
+								? `This archives ${student.studentName} and their active academic records. Financial, assessment and guardian history is retained; outstanding balances are not cancelled.`
 								: "The student record and historical terms remain available, but the current term enrollment is removed."}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
+					{(confirmAction === "delete" ? deleteStudent.error : removeTerm.error?.message) ? (
+						<p role="alert" className="break-words text-sm text-destructive">
+							{confirmAction === "delete" ? deleteStudent.error : removeTerm.error?.message} Refresh the directory if the response was interrupted.
+						</p>
+					) : null}
+					{!deleteStudent.ready ? <p role="status" className="text-sm text-muted-foreground">Student workspace is unavailable. Close this dialog and refresh before making changes.</p> : null}
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={confirm}>
-							{confirmAction === "delete"
+						<AlertDialogCancel className="min-h-11" disabled={isPending}>Cancel</AlertDialogCancel>
+						<AlertDialogAction className="min-h-11 whitespace-normal" disabled={isPending || !deleteStudent.ready} onClick={(event) => { event.preventDefault(); void confirm(); }}>
+							{isPending ? "Saving…" : confirmAction === "delete"
 								? "Delete student"
 								: "Remove enrollment"}
 						</AlertDialogAction>

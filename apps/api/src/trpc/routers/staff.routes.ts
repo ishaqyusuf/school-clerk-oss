@@ -12,7 +12,10 @@ import {
 	type StaffRole,
 } from "@school-clerk/utils/constants";
 import { classroomDisplayName } from "@school-clerk/utils";
-import { createTRPCRouter, publicProcedure } from "../init";
+import {
+  createTRPCRouter,
+  moduleProcedure,
+} from "../init";
 
 function normalizeRole(role?: string | null): StaffRole {
 	return STAFF_ROLES.includes(role as StaffRole)
@@ -101,8 +104,10 @@ const staffListSchema = z
 	})
 	.optional();
 
+const staffProcedure = moduleProcedure(["STAFF_MANAGEMENT"]);
+
 export const staffRouter = createTRPCRouter({
-	getFormData: publicProcedure
+	getFormData: staffProcedure
 		.input(staffFormDataSchema)
 		.query(async ({ input, ctx }) => {
 			const { schoolId, sessionId, termId } = ctx.profile;
@@ -450,7 +455,7 @@ export const staffRouter = createTRPCRouter({
 					: null,
 			};
 		}),
-	getStaffList: publicProcedure
+	getStaffList: staffProcedure
 		.input(staffListSchema)
 		.query(async ({ input, ctx }) => {
 			const { schoolId, sessionId, termId } = ctx.profile;
@@ -765,7 +770,7 @@ export const staffRouter = createTRPCRouter({
 			};
 		}),
 
-	createStaff: publicProcedure
+	createStaff: staffProcedure
 		.input(createStaffSchema)
 		.mutation(async ({ input, ctx }) => {
 			const { schoolId } = ctx.profile;
@@ -782,7 +787,7 @@ export const staffRouter = createTRPCRouter({
 			});
 		}),
 
-	deleteStaff: publicProcedure
+	deleteStaff: staffProcedure
 		.input(deleteStaffSchema)
 		.mutation(async ({ input, ctx }) => {
 			await ctx.db.staffProfile.update({

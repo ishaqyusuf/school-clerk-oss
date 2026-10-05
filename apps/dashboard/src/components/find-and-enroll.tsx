@@ -1,47 +1,57 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { _qc, _trpc } from "./static-trpc";
-import { Icons } from "@school-clerk/ui/custom/icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTRPC } from "@/trpc/client";
+import { entrollStudentToTermSchema } from "@school-clerk/assessment-results";
+import { toast } from "@school-clerk/ui/use-toast";
 import { Item } from "@school-clerk/ui/composite";
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useEffect, useRef } from "react";
 import { Button } from "@school-clerk/ui/button";
 import { useStudentFormContext } from "./students/form-context";
 import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 interface Props {
-  onSelect?;
+  onSelect?: () => void;
   query?;
 }
 export function FindAndEnroll(props: Props) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const academicDataDirection = useAcademicDataDirection();
   const deferredSearch = useDeferredValue(props?.query);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
-  const { control, getValues } = useStudentFormContext();
+  const { getValues } = useStudentFormContext();
   const {
     mutate,
-    data: enrolledData,
     error,
     isPending,
   } = useMutation(
-    _trpc.academics.entrollStudentToTerm.mutationOptions({
+    trpc.academics.entrollStudentToTerm.mutationOptions({
+      retry: false,
       onSuccess() {
         //   svc.refresh();
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.index.infiniteQueryKey(),
+        queryClient.invalidateQueries({
+          queryKey: trpc.students.index.infiniteQueryKey(),
         });
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.analytics.queryKey(),
+        queryClient.invalidateQueries({
+          queryKey: trpc.students.analytics.queryKey(),
         });
+        queryClient.invalidateQueries({ queryKey: trpc.students.overview.queryKey() });
+        if (mounted.current) props.onSelect?.();
       },
       meta: {
         toastTitle: {
           loading: "Enrolling...",
-          success: "Enrolled",
+          success: "Enrollment confirmed",
           error: "Unable to complete!",
         },
       },
     })
   );
   const { data: result } = useQuery(
-    _trpc.students.index.queryOptions(
+    trpc.students.index.queryOptions(
       {
         status: "not enrolled",
         size: 5,
@@ -52,18 +62,25 @@ export function FindAndEnroll(props: Props) {
       }
     )
   );
-  const enroll = (studentId) => {
+  const enroll = (studentId: string) => {
+    if (isPending) return;
     const data = getValues();
     const termForm = data?.termForms?.[0];
-    mutate({
+    const parsed = entrollStudentToTermSchema.safeParse({
       classroomDepartmentId: data.classRoomId,
       sessionTermId: termForm?.sessionTermId,
       schoolSessionId: termForm?.schoolSessionId,
       studentId,
     });
+    if (!parsed.success) {
+      toast({ title: "Select a classroom, academic session and term before enrolling.", variant: "error" });
+      return;
+    }
+    mutate(parsed.data);
   };
   return (
-    <div className="grid grid-cols-2 gap-2 w-full ">
+    <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
+      {error ? <p role="alert" className="break-words text-sm text-destructive sm:col-span-2">Enrollment could not be confirmed. Refresh student history before trying again.</p> : null}
       {result?.data?.map((student) => (
         <Item dir={academicDataDirection} variant="outline" key={student?.id}>
           <Item.Content>
@@ -81,6 +98,8 @@ export function FindAndEnroll(props: Props) {
               }}
               type="button"
               size="sm"
+              className="min-h-11"
+              disabled={isPending}
               variant="outline"
             >
               Enroll

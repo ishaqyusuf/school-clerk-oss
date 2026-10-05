@@ -61,11 +61,19 @@ async function readUIStream(
         if (!trimmed || !trimmed.startsWith("data: ")) continue;
         const data = trimmed.slice(6);
         if (data === "[DONE]") break;
+        let chunk: Record<string, unknown>;
         try {
-          onChunk(JSON.parse(data));
+          const parsed: unknown = JSON.parse(data);
+          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) continue;
+          chunk = parsed as Record<string, unknown>;
         } catch {
-          // Ignore malformed SSE chunks.
+          // Ignore malformed SSE chunks, not errors from a valid stream event.
+          continue;
         }
+        if (chunk.type === "error" || chunk.type === "tool-output-error") {
+          throw new Error("The response was interrupted. Check saved actions before repeating a payment or other change.");
+        }
+        onChunk(chunk);
       }
     }
   } finally {
@@ -82,6 +90,8 @@ export function useSchoolChat() {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [capabilities, setCapabilities] = useState<string[]>([]);
+  const [availableTools, setAvailableTools] = useState<string[]>([]);
+  const [historyNotice, setHistoryNotice] = useState<string | null>(null);
   const [settings, setSettings] = useState<AssistantSettings | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
 
@@ -90,13 +100,23 @@ export function useSchoolChat() {
 
   const fetchChatState = useCallback(async () => {
     const res = await fetch("/api/chat/conversations", { cache: "no-store" });
-    if (!res.ok) throw new Error("Failed to load chat.");
+    if (!res.ok) {
+      setCapabilities([]);
+      setAvailableTools([]);
+      setMessages([]);
+      setLastRunId(null);
+      throw new Error("Failed to load chat.");
+    }
     const data = (await res.json()) as {
       conversations: ConversationListItem[];
       capabilities: string[];
+      availableTools: string[];
+      historyNotice?: string;
       config: AssistantSettings;
     };
     setCapabilities(data.capabilities);
+    setAvailableTools(Array.isArray(data.availableTools) ? data.availableTools : []);
+    setHistoryNotice(data.historyNotice ?? null);
     setSettings((prev) => ({ ...(prev ?? {}), ...data.config }));
     return data;
   }, []);
@@ -105,7 +125,11 @@ export function useSchoolChat() {
     const res = await fetch(`/api/chat/conversations/${conversationId}`, {
       cache: "no-store",
     });
-    if (!res.ok) throw new Error("Failed to load conversation.");
+    if (!res.ok) {
+      setMessages([]);
+      setLastRunId(null);
+      throw new Error("This conversation is unavailable with your current access. Start a new chat.");
+    }
     const data = (await res.json()) as {
       conversation: {
         messages: ChatMessage[];
@@ -133,7 +157,7 @@ export function useSchoolChat() {
 
     ensureConversationRef.current = (async () => {
       const data = await fetchChatState();
-      const existingConversationId = data.conversations[0]?.id;
+      const existingConversationId = data.conversations.find((conversation) => conversation.status === "active")?.id;
 
       if (existingConversationId) {
         setActiveConversationId(existingConversationId);
@@ -167,26 +191,6 @@ export function useSchoolChat() {
     });
   }, [ensureConversation]);
 
-  const persistAssistantMessage = useCallback(
-    async (conversationId: string, message: ChatMessage) => {
-      await fetch(`/api/chat/conversations/${conversationId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          role: message.role,
-          content:
-            message.parts
-              .filter((part) => part.type === "text")
-              .map((part) => part.text)
-              .join("") ||
-            message.content ||
-            "",
-          parts: message.parts,
-        }),
-      });
-    },
-    [],
-  );
 
   const sendInput = useCallback(
     async (
@@ -352,10 +356,6 @@ export function useSchoolChat() {
           },
         );
 
-        if (assistantMsg.parts.length > 0) {
-          await persistAssistantMessage(conversationId, assistantMsg);
-        }
-
         await fetchChatState();
         await loadConversation(conversationId);
       } catch (err: unknown) {
@@ -371,7 +371,6 @@ export function useSchoolChat() {
       ensureConversation,
       fetchChatState,
       loadConversation,
-      persistAssistantMessage,
     ],
   );
 
@@ -381,6 +380,23 @@ export function useSchoolChat() {
     },
     [sendInput],
   );
+
+  const startNewConversation = useCallback(async () => {
+    if (status === "loading" || status === "streaming") return;
+    setStatus("loading");
+    setError(null);
+    try {
+      await fetchChatState();
+      const conversationId = await createCanonicalConversation();
+      setMessages([]);
+      setLastRunId(null);
+      setActiveConversationId(conversationId);
+      setStatus("idle");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "A new chat could not be started.");
+      setStatus("error");
+    }
+  }, [status, fetchChatState, createCanonicalConversation]);
 
   const sendWorkflowAction = useCallback(
     async (action: WorkflowAction) => {
@@ -414,6 +430,9 @@ export function useSchoolChat() {
     error,
     isLoading,
     capabilities,
+    availableTools,
+    historyNotice,
+    startNewConversation,
     settings,
     lastRunId,
     sendMessage,

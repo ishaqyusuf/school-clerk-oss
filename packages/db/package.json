@@ -26,6 +26,7 @@
     "with-env": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local --"
   },
   "dependencies": {
+    "@school-clerk/utils": "workspace:*",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@prisma/client-runtime-utils": "^7.8.0",

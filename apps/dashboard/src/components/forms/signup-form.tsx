@@ -44,6 +44,8 @@ import { Badge } from "@school-clerk/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@school-clerk/ui/select";
 import { toast } from "@school-clerk/ui/use-toast";
 import { QuickFill } from "@/components/quick-fill";
+import { SignupCompletion } from "./signup-completion";
+import type { SignupCompletion as SignupCompletionResult } from "@/features/signup/completion-types";
 
 const trustPoints = [
   "Tenant-ready school workspace in minutes",
@@ -56,6 +58,7 @@ type SignupFormProps = {
 };
 
 export default function SignupForm({ hostSuffix }: SignupFormProps) {
+  const [completion, setCompletion] = useState<SignupCompletionResult | null>(null);
   const [isDomainValid, setIsDomainValid] = useState(false);
   const [locale] = useState(() => {
     if (typeof window !== "undefined") {
@@ -79,7 +82,7 @@ export default function SignupForm({ hostSuffix }: SignupFormProps) {
       institutionType: "k12",
       adminName: "",
       email: "",
-      password: "lorem-ipsum",
+      password: "",
       studentCount: "",
       country: "",
       phone: "",
@@ -98,16 +101,15 @@ export default function SignupForm({ hostSuffix }: SignupFormProps) {
     onSuccess({ data }) {
       if (!data) return;
 
-      window.location.assign(
-        data.onboardingLoginUrl || data.onboardingUrl || data.loginUrl,
-      );
+      form.setValue("password", "");
+      setCompletion(data);
     },
     onError({ error }) {
       toast({
-        title: "We couldn’t create your workspace",
+        title: "We couldn’t confirm signup",
         description:
           error.serverError ||
-          "Please review your details and try again.",
+          "Review your details. If the request lost its connection, try signing in or check your inbox before submitting signup again.",
         variant: "destructive",
       });
     },
@@ -139,6 +141,8 @@ export default function SignupForm({ hostSuffix }: SignupFormProps) {
 
     createSchool.execute(values);
   });
+
+  if (completion) return <SignupCompletion result={completion} />;
 
   return (
     <div className="grid min-h-screen lg:grid-cols-[1.02fr_0.98fr]">
@@ -439,6 +443,9 @@ export default function SignupForm({ hostSuffix }: SignupFormProps) {
                             <Input
                               {...field}
                               type="password"
+                              autoComplete="new-password"
+                              maxLength={128}
+                              className="min-h-11"
                               placeholder="At least 8 characters"
                               disabled={createSchool.isExecuting}
                             />

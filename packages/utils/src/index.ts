@@ -113,8 +113,8 @@ export function sum<T>(array?: T[], key: keyof T | undefined = undefined) {
       .reduce((sum, val) => (sum || 0) + (val as number), 0) || 0
   );
 }
-export function arToEn(arabicNum) {
-  const arabicToEnglishMap = {
+export function arToEn(arabicNum: string) {
+  const arabicToEnglishMap: Record<string, string> = {
     "٠": "0",
     "١": "1",
     "٢": "2",
@@ -146,21 +146,21 @@ export function getInitials(value: string) {
 
   return formatted.charAt(0);
 }
-export const enToAr = function (v) {
-  return String(v).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[d]);
+export const enToAr = function (v: unknown) {
+  return String(v).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩".charAt(Number(d)));
 };
 export function percent(score: any, total: any, def = 0) {
   if (!score || !total) return def;
   return Math.round((Number(score) / Number(total)) * 100);
 }
 
-export function timeLog(...data) {
+export function timeLog(...data: unknown[]) {
   console.log("");
   console.log(`${new Date().toISOString()}`);
   console.log(data);
   console.log("---");
 }
-export function consoleLog(title = "Log", ...data) {
+export function consoleLog(title = "Log", ...data: unknown[]) {
   const now = new Date().toISOString();
   const divider = "═".repeat(40);
 
@@ -287,7 +287,7 @@ export function transformFilterDateToQuery(dateParts: string[]) {
   return null;
 }
 
-export function withdraw(amount, balance) {}
+export function withdraw(amount: number, balance: number) {}
 export function selectOptions<T>(
   data: T[],
   labelKey: keyof T,
@@ -315,9 +315,9 @@ export function uniqueList<T>(
 export async function timeout(ms = 1000) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-export function isArrayParser(parser) {
+export function isArrayParser(parser: { parse: (value: string) => unknown } | undefined) {
   try {
-    const result = parser.parse("test"); // dummy input
+    const result = parser?.parse("test"); // dummy input
     return Array.isArray(result);
   } catch {
     return false;

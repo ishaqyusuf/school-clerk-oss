@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
-import { useTRPC } from "@/trpc/client";
+import { useNotificationUnreadCount } from "@/hooks/use-notifications";
 import { Avatar, AvatarFallback, AvatarImage } from "@school-clerk/ui/avatar";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
@@ -15,7 +15,6 @@ import {
 } from "@school-clerk/ui/dropdown-menu";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useLocalTenantHref } from "@school-clerk/tenant-url/react";
-import { useQuery } from "@tanstack/react-query";
 import { Bell, ChevronDown, LogOut, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
@@ -35,13 +34,10 @@ function getInitials(name?: string, email?: string) {
 
 export function HeaderUserMenu() {
   const auth = useAuth();
-  const trpc = useTRPC();
   const tenantHref = useLocalTenantHref();
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const { data: unreadCount = 0 } = useQuery(
-    trpc.notifications.unreadCount.queryOptions(),
-  );
+  const { unreadCount } = useNotificationUnreadCount();
   const displayName = auth.name || auth.email || "User";
   const secondaryText = auth.role || auth.email;
   const tertiaryText = auth.role ? auth.email : undefined;
@@ -55,7 +51,7 @@ export function HeaderUserMenu() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className="h-9 gap-2 rounded-full border-border/80 bg-background px-1.5 pr-2 shadow-none"
+          className="h-11 gap-2 rounded-full border-border/80 bg-background px-1.5 pr-2 shadow-none md:h-9"
           aria-label="Open account menu"
         >
           <Avatar className="size-7">
@@ -67,7 +63,7 @@ export function HeaderUserMenu() {
           <ChevronDown className="size-3.5 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64 rounded-lg">
+      <DropdownMenuContent align="end" className="w-64 max-w-[calc(100vw-2rem)] rounded-lg">
         <DropdownMenuLabel className="p-0 font-normal">
           <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
             <Avatar className="size-9">
@@ -94,7 +90,7 @@ export function HeaderUserMenu() {
         <DropdownMenuSeparator />
         <div className="md:hidden">
           <DropdownMenuItem asChild>
-            <Link href="/notifications" className="justify-between">
+            <Link href="/notifications" className="min-h-11 justify-between">
               <span className="flex items-center">
                 <Bell className="mr-2 size-4" />
                 Notifications

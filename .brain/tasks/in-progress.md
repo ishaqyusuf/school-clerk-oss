@@ -1,5 +1,35 @@
 # In Progress
 
+### [CORE-002 Tenant Module Controls](2026-09-07-core-002-tenant-module-controls.md)
+- Status: In Progress
+
+### [CORE-001 Institution Configuration](2026-09-07-core-001-institution-configuration.md)
+- Status: In Progress
+
+### [extract review readiness and count model](2026-09-07-extract-review-readiness-and-count-model.md)
+- Status: In Progress
+
+### [replace review tabs with sectioned table shell](2026-09-07-replace-review-tabs-with-sectioned-table-shell.md)
+- Status: In Progress
+
+### [build row cells match picker and row menus](2026-09-07-build-row-cells-match-picker-and-row-menus.md)
+- Status: In Progress
+
+### [wire sectioned review footer to import execution](2026-09-07-wire-sectioned-review-footer-to-import-execution.md)
+- Status: In Progress
+
+### [verify responsive accessible documented import redesign](2026-09-07-verify-responsive-accessible-documented-import-redesign.md)
+- Status: In Progress
+
+### [simplify student import setup screen](2026-09-07-simplify-student-import-setup-screen.md)
+- Status: In Progress
+
+### [Full Pending Work Execution](2026-09-07-pending-work-execution.md)
+- Status: In Progress
+
+### [Restore Workspace Typecheck Baseline](2026-09-07-workspace-typecheck-baseline.md)
+- Status: In Progress
+
 ## Purpose
 
 Tracks tasks currently being worked on.
@@ -93,3 +123,26 @@ Tracks tasks currently being worked on.
 - Created Date: 2026-08-01
 - Current status: Implementation, focused tests, route-manifest checks, formatting, and TypeScript verification are complete. Authenticated browser/UI, keyboard, screen-reader, and visual QA are intentionally paused so the user can begin that phase separately.
 - Blockers: Browser/UI verification is pending by explicit request; no browser automation was run during implementation.
+
+## Logly portfolio integration — 2026-09-07
+
+Source implementation and production `schoolclerk-web` provisioning complete. Package tests and TypeScript validation passed. Consumer deployment and interactive website/native acceptance remain deferred to the owner follow-up. See [feature and rollout contract](../features/logly-analytics.md). No schema change.
+
+## Country heat-map forwarding — 2026-09-07
+
+The shared analytics proxy forwards Vercel's `x-vercel-ip-country` as `x-logly-country` only when `VERCEL=1` and the value is an uppercase two-letter code. Logly enforces its exact ISO whitelist; invalid/missing values remain unknown. Browser-supplied `x-logly-country` and raw IP headers are not forwarded. The same edge metadata applies to independently scoped native routes where present. No body field, IP/GPS storage, user identity or consumer database change. Counts reflect the delivery network; old events remain unknown. Focused package tests and TypeScript checks pass; consumer deployment and owner-deferred live acceptance remain outstanding.
+
+## Daarul Hadith teacher registration and assessment QA — 2026-09-27
+
+Local schema and service workflow are implemented. Focused registration,
+assessment route, workbook, and print checks passed. Local passwordless account
+selection was explicitly approved and verified with existing teacher/admin
+accounts. Authenticated browser QA passed teacher submission, pending roster,
+admin approval and rejection, suggestion display, score preservation, rejected
+roster exclusion, and report sheet loading. Two synthetic students and their
+one score were removed. Follow-up: verify teacher score entry with reliable
+browser targeting; exercise attendance save using a single-student-safe path.
+Candidate suggestions currently include broad surname matches, including a
+different-gender synthetic student observed in QA; rank exact name matches
+first and make weaker matches clearer before wider rollout.
+Production schema rollout remains outside this local-only QA round.

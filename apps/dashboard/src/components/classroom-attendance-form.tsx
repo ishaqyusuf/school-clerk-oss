@@ -5,6 +5,7 @@ import {
   useAcademicDataDirection,
 } from "@/components/academic-data-direction/provider";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
+import { useAuth } from "@/hooks/use-auth";
 import {
   type AttendanceScope,
   type AttendanceStatus,
@@ -34,7 +35,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Save } from "lucide-react";
+import { Plus, Save } from "lucide-react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import {
@@ -152,7 +153,8 @@ function AttendanceFormContent({
   const academicDataDirection = useAcademicDataDirection();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { setParams } = useClassroomParams();
+  const { setParams, viewClassroomId } = useClassroomParams();
+  const auth = useAuth();
   const [title, setTitle] = useState("Daily attendance");
   const [attendanceDate, setAttendanceDate] = useState(todayAttendanceDate);
   const [scope, setScope] = useState<AttendanceScope>("GENERAL");
@@ -171,6 +173,7 @@ function AttendanceFormContent({
   const [visibleRosterCount, setVisibleRosterCount] = useState(
     ROSTER_RENDER_BATCH_SIZE,
   );
+  const previousRosterRef = useRef<{ departmentId?: string | null; keys: Set<string> } | null>(null);
   const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
     rootMargin: "400px",
   });
@@ -262,6 +265,16 @@ function AttendanceFormContent({
   const hasMoreRoster = visibleRoster.length < roster.length;
 
   useEffect(() => {
+    if (!rosterData) return;
+    const previous = previousRosterRef.current;
+    if (previous?.departmentId === departmentId) {
+      const addedIndex = roster.findLastIndex((student) => !previous.keys.has(student.attendanceKey));
+      if (addedIndex >= 0) setVisibleRosterCount((current) => Math.max(current, addedIndex + 1));
+    }
+    previousRosterRef.current = { departmentId, keys: new Set(roster.map((student) => student.attendanceKey)) };
+  }, [departmentId, roster, rosterData]);
+
+  useEffect(() => {
     if (!loadMoreInView || !hasMoreRoster) return;
 
     setVisibleRosterCount((current) =>
@@ -277,9 +290,7 @@ function AttendanceFormContent({
       ),
     [academicDataDirection, roster],
   );
-  const allStudentsMarked =
-    roster.length > 0 &&
-    roster.every((student) => Boolean(statusMap[student.attendanceKey]));
+  const markedRoster = roster.filter((student) => Boolean(statusMap[student.attendanceKey]));
 
   const onSuccess = async () => {
     idempotencyRequestRef.current = null;
@@ -369,8 +380,8 @@ function AttendanceFormContent({
     } else if (isRosterError) {
       nextFieldErrors.roster =
         "The classroom roster could not be loaded. Try again.";
-    } else if (!allStudentsMarked) {
-      nextFieldErrors.roster = "Select a status for every student.";
+    } else if (markedRoster.length === 0) {
+      nextFieldErrors.roster = "Select a status for at least one student.";
     }
 
     setFieldErrors(nextFieldErrors);
@@ -388,7 +399,7 @@ function AttendanceFormContent({
           : undefined,
       periodLabel: periodLabel.trim() || undefined,
       scope: details.data.scope,
-      students: roster.map((student) => ({
+      students: markedRoster.map((student) => ({
         studentTermFormId: student.attendanceKey,
         status: statusMap[student.attendanceKey]!,
         comment: allowsAttendanceRemark(statusMap[student.attendanceKey])
@@ -556,6 +567,18 @@ function AttendanceFormContent({
           }}
         />
         <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+          {inline && !attendanceId && viewClassroomId === departmentId && (auth.role === "Admin" || auth.role === "ADMIN") ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isPending}
+              onClick={() => setParams({ secondaryTab: "student-form" })}
+            >
+              <Plus className="size-4" />
+              Add student
+            </Button>
+          ) : null}
           <AttendanceBulkActions
             disabled={isRosterLoading || isRosterError || roster.length === 0}
             onApply={applyBulkStatus}
@@ -614,9 +637,9 @@ function AttendanceFormContent({
         total={roster.length}
       />
 
-      {roster.length > 0 && !allStudentsMarked ? (
-        <p className="text-sm text-amber-700">
-          Select a status for every student before saving.
+      {roster.length > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {markedRoster.length} of {roster.length} students marked. You can save partial attendance; unmarked students stay unmarked.
         </p>
       ) : null}
       {fieldErrors.roster ? (

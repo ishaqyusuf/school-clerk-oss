@@ -16,7 +16,7 @@ import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
 import { cn } from "@school-clerk/ui/cn";
 import { useAuth } from "@/hooks/use-auth";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Select,
   SelectContent,
@@ -27,6 +27,11 @@ import {
 import { Spinner } from "@school-clerk/ui/spinner";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { StudentDuplicateAlert } from "./student-duplicate-alert";
+import { useDeleteStudent } from "@/hooks/use-delete-student";
+import { useRemoveStudentTerms } from "@/hooks/use-remove-student-terms";
+import { useMoveStudentTerms } from "@/hooks/use-move-student-terms";
+import { toast } from "@school-clerk/ui/use-toast";
+import { useRouter } from "next/navigation";
 
 function fullClassName(term?: {
   classDisplayName?: string | null;
@@ -189,7 +194,7 @@ function Content({}) {
                             : "border-border bg-muted text-muted-foreground"
                         )}
                       >
-                        {term.studentTermId ? "Enrolled" : "Not enrolled"}
+                        {term.enrollmentState === "enrolled" ? "Enrolled" : term.enrollmentState === "not-enrolled" ? "Not enrolled" : "Needs review"}
                       </span>
                     </button>
                   );
@@ -253,6 +258,7 @@ function canManageStudents(role?: string | null) {
 
 function StudentManagementActions() {
   const svc = useStudentOverviewSheet();
+  const router = useRouter();
   const auth = useAuth();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -263,16 +269,7 @@ function StudentManagementActions() {
   const [selectedClassroomDepartmentId, setSelectedClassroomDepartmentId] =
     useState(currentClassroomDepartmentId);
 
-  useEffect(() => {
-    setSelectedClassroomDepartmentId(currentClassroomDepartmentId);
-  }, [currentClassroomDepartmentId]);
-
   const canManage = canManageStudents(auth.role);
-  const { data: classrooms, isLoading: isLoadingClassrooms } = useQuery(
-    trpc.classrooms.getClassroomsForSession.queryOptions(term?.termSessionId, {
-      enabled: canManage && Boolean(term?.termSessionId),
-    }),
-  );
 
   const invalidateStudentData = () => {
     if (studentId) {
@@ -289,60 +286,35 @@ function StudentManagementActions() {
     svc.refresh();
   };
 
-  const deleteStudentMutation = useMutation(
-    trpc.students.deleteStudent.mutationOptions({
-      onSuccess() {
-        invalidateStudentData();
-        if (svc.isSheetMode) {
-          setParams(null);
-        }
-      },
-      meta: {
-        toastTitle: {
-          error: "Unable to delete student",
-          loading: "Deleting student...",
-          success: "Student deleted.",
-        },
-      },
-    }),
-  );
+  const deleteStudentMutation = useDeleteStudent(studentId, () => {
+    if (svc.isSheetMode) setParams(null);
+    else router.push("/students/list");
+  });
 
-  const deleteTermSheetMutation = useMutation(
-    trpc.students.deleteTermSheet.mutationOptions({
-      onSuccess() {
-        if (term?.termId) {
-          svc.selectTerm(term.termId, null);
-        }
-        invalidateStudentData();
-      },
-      meta: {
-        toastTitle: {
-          error: "Unable to delete term sheet",
-          loading: "Deleting term sheet...",
-          success: "Term sheet deleted.",
-        },
-      },
-    }),
-  );
+  const deleteTermSheetMutation = useRemoveStudentTerms({
+    contextKey: JSON.stringify([studentId, term?.termId, term?.studentTermId]),
+    onSuccess() {
+      if (term?.termId) svc.selectTerm(term.termId, null);
+      invalidateStudentData();
+    },
+  });
 
-  const changeClassMutation = useMutation(
-    trpc.students.changeStudentClass.mutationOptions({
-      onSuccess() {
-        invalidateStudentData();
-      },
-      meta: {
-        toastTitle: {
-          error: "Unable to change class",
-          loading: "Changing class...",
-          success: "Student class changed.",
-        },
-      },
-    }),
-  );
+  const changeClassMutation = useMoveStudentTerms({
+    studentTermFormIds: term?.enrollmentState === "enrolled" && term.studentTermId ? [term.studentTermId] : [],
+    classroomDepartmentId: selectedClassroomDepartmentId,
+    contextKey: JSON.stringify([studentId, term?.termId, term?.termSessionId]),
+    onSuccess(result) {
+      toast({ title: result.count ? "Class placement updated" : "Already in class", description: `${result.count} moved; ${result.alreadyInClass} already in the selected class.` });
+      invalidateStudentData();
+    },
+  });
+  useEffect(() => {
+    setSelectedClassroomDepartmentId("");
+  }, [changeClassMutation.selectionKey, currentClassroomDepartmentId]);
 
   if (!canManage || !studentId) return null;
 
-  const hasTermSheet = Boolean(term?.studentTermId);
+  const hasTermSheet = term?.enrollmentState === "enrolled" && Boolean(term.studentTermId);
   const hasClassChange =
     hasTermSheet &&
     selectedClassroomDepartmentId &&
@@ -350,6 +322,7 @@ function StudentManagementActions() {
   const isDeletingStudent = deleteStudentMutation.isPending;
   const isDeletingTermSheet = deleteTermSheetMutation.isPending;
   const isChangingClass = changeClassMutation.isPending;
+  const isChangingRecords = isDeletingStudent || isDeletingTermSheet || isChangingClass;
 
   return (
     <Card className="rounded-xl border-border shadow-sm">
@@ -386,14 +359,14 @@ function StudentManagementActions() {
               <Select
                 value={selectedClassroomDepartmentId}
                 onValueChange={setSelectedClassroomDepartmentId}
-                disabled={!hasTermSheet || isLoadingClassrooms}
+                disabled={!hasTermSheet || !changeClassMutation.data || isChangingRecords}
               >
-                <SelectTrigger>
+                <SelectTrigger className="min-h-11" aria-label="Destination class">
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(classrooms?.data ?? []).map((classroom) => (
-                    <SelectItem key={classroom.id} value={classroom.id}>
+                  {(changeClassMutation.data?.classrooms ?? []).map((classroom) => (
+                    <SelectItem className="min-h-11 whitespace-normal" key={classroom.id} value={classroom.id}>
                       {classroom.displayName}
                     </SelectItem>
                   ))}
@@ -401,15 +374,14 @@ function StudentManagementActions() {
               </Select>
               <Button
                 type="button"
-                disabled={!hasClassChange || isChangingClass}
+                className="min-h-11"
+                disabled={!hasClassChange || !changeClassMutation.ready || isChangingRecords}
                 onClick={() => {
-                  if (!term?.studentTermId || !selectedClassroomDepartmentId) {
+                  if (term?.enrollmentState !== "enrolled" || !term.studentTermId || !selectedClassroomDepartmentId) {
                     return;
                   }
-                  changeClassMutation.mutate({
-                    studentTermFormId: term.studentTermId,
-                    classroomDepartmentId: selectedClassroomDepartmentId,
-                  });
+                  if (!changeClassMutation.ready || !window.confirm("Move this term enrollment and its session default to the selected class? Other terms and linked history remain unchanged; fees, scores and attendance are not remapped.")) return;
+                  changeClassMutation.submit();
                 }}
               >
                 {isChangingClass ? (
@@ -425,6 +397,13 @@ function StudentManagementActions() {
                 Select an enrolled term before changing class.
               </p>
             ) : null}
+            <p className="mt-2 break-words text-xs text-muted-foreground">Changing class updates this term's placement and its session default. Other terms, scores, attendance and finance history are retained; fees are not recalculated.</p>
+            <p className="mt-2 break-words text-xs text-muted-foreground">Existing scores and attendance keep their original class links; they are not remapped into the destination's subjects or registers.</p>
+            {hasTermSheet && changeClassMutation.optionsLoading ? <p role="status" className="mt-2 text-sm text-muted-foreground">Loading current class destinations…</p> : null}
+            {hasTermSheet && changeClassMutation.optionsError ? <p role="alert" className="mt-2 break-words text-sm text-destructive">{changeClassMutation.optionsError}</p> : null}
+            {changeClassMutation.data?.classrooms.length === 0 ? <p role="status" className="mt-2 text-sm text-muted-foreground">No destination classes are available in this session.</p> : null}
+            {hasTermSheet ? <Button type="button" variant="outline" className="mt-2 min-h-11 whitespace-normal" disabled={!changeClassMutation.canRefresh || isChangingRecords} onClick={changeClassMutation.refresh}>Refresh destinations</Button> : null}
+            {changeClassMutation.error ? <p role="alert" className="mt-2 break-words text-sm text-destructive">{changeClassMutation.error} Refresh to check the placement before retrying if the response was interrupted.</p> : null}
           </div>
 
           <div className="grid gap-2 rounded-lg border border-destructive/20 p-3">
@@ -432,13 +411,13 @@ function StudentManagementActions() {
             <Button
               type="button"
               variant="outline"
-              className="justify-start gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              disabled={!hasTermSheet || isDeletingTermSheet}
+              className="min-h-11 justify-start gap-2 whitespace-normal border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={!hasTermSheet || isChangingRecords || !deleteTermSheetMutation.ready}
               onClick={() => {
-                if (!term?.studentTermId) return;
+                if (!deleteTermSheetMutation.ready || term?.enrollmentState !== "enrolled" || !term.studentTermId) return;
                 if (
                   !window.confirm(
-                    "Delete this student's selected term sheet? This will remove the student from the selected term.",
+                    "Remove this student's selected term enrollment? Financial and assessment history is retained, and outstanding balances are not cancelled.",
                   )
                 ) {
                   return;
@@ -453,20 +432,22 @@ function StudentManagementActions() {
               )}
               Delete current term sheet
             </Button>
+            {deleteTermSheetMutation.error ? <p role="alert" className="break-words text-sm text-destructive">{deleteTermSheetMutation.error.message}</p> : null}
             <Button
               type="button"
               variant="outline"
-              className="justify-start gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              disabled={isDeletingStudent}
+              className="min-h-11 justify-start gap-2 whitespace-normal border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={isChangingRecords || !deleteStudentMutation.ready}
               onClick={() => {
+                if (!deleteStudentMutation.ready || isChangingRecords) return;
                 if (
                   !window.confirm(
-                    "Delete this student and their active academic records?",
+                    "Archive this student and their active academic records? Financial, assessment and guardian history is retained. Outstanding balances will not be cancelled.",
                   )
                 ) {
                   return;
                 }
-                deleteStudentMutation.mutate({ studentId });
+                void deleteStudentMutation.submit();
               }}
             >
               {isDeletingStudent ? (
@@ -476,6 +457,9 @@ function StudentManagementActions() {
               )}
               Delete student
             </Button>
+            {deleteStudentMutation.error ? (
+              <p role="alert" className="break-words text-sm text-destructive">{deleteStudentMutation.error} Refresh the directory if the response was interrupted.</p>
+            ) : null}
           </div>
         </div>
       </CardContent>

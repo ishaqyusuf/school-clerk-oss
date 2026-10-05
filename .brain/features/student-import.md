@@ -2,6 +2,12 @@
 
 ## Purpose
 
+Latest update (ADR-0062): name guide, preview and dedicated reference reads now require current import authority and validated academic/ledger scope. Inconsistent history labels are withheld; multiple exact names require review. Setup/review use provider clients and the dedicated reference endpoint, with a visible 500-row preview limit. Full identity/term-scoped draft/query/callback recovery, execution bounds, provider recovery and all browser/mobile/behavioral verification remain unfinished. The following paragraph records the preceding backend milestones.
+
+2026-09-22 implementation slices: interactive execution/start/job reads require fresh Admin/Registrar + Students/Academics/Finance. Workers derive scope/creator from active stored jobs; per-row transactions repeat authority and owned/open targets. Job+rows creation is atomic; owner-only reads gate browser tokens (ADR-0059). Persisted rows lock job then row and commit domain changes with terminal receipts; legacy RUNNING rows require review and progress preserves terminal jobs (ADR-0060). Shared execution schema/types now live in utils; DB-owned row execution/job processing replace API-owned worker behavior. Canonical/session/term ancestry and shared fee checks reject ambiguous links or retained/unbound charges without repair/adoption (ADR-0061). Drain old worker versions before rollout. UI is unchanged; all tests/mobile/browser verification are deferred. Preview/guide/read coverage, scoped responsive import client, schema bounds and provider recovery remain unfinished.
+
+The historical `/migration` tool is separate from this reviewed import workflow. Its unowned 1445/1446 Posts datasets are currently gated pending an explicit school binding or retirement decision; see [legacy student migration](legacy-student-migration.md) and ADR-0050. That containment does not remove or complete this feature's remaining implementation/verification work.
+
 Allow school operators to import multiple students from pasted text data, assign rows to one or more active-session classrooms, verify rows against existing records, surface matches or suspected typo matches, resolve gender, and execute selected import/enrollment actions safely.
 
 ## Admission Classification
@@ -118,6 +124,15 @@ Musa Garba, M
 - Rows with no exact match and no high-confidence suspected match default to ready-to-import.
 
 ## Review And Resolution UI
+
+### Implementation update — 2026-09-07 (verification deferred)
+
+- The modal index owns URL state, data loading, parsing and draft persistence; `setup-form.tsx` owns setup presentation/schema and `review-footer.tsx` owns review counts/readiness/actions, following Midday's folder-owned import steps.
+- Setup waits for classroom and name-guide data, offers retry on failed reference reads and counts distinct warning lines. Defaults stack below 400px, status wraps instead of horizontal scrolling, inputs use phone-sized controls and footers account for safe-area insets.
+- Review defaults collapse on phones. The review body scrolls above a persistent footer showing total, checked, executable, blocked, unchecked and skipped counts for the selected classroom scope. The existing skipped-only completion path remains available.
+- Desktop row columns use flexible minimum widths rather than fixed wide content minima. Mobile name/gender/action/search controls are enlarged. Imported/importing rows disable their editing fieldset.
+- A single match now opens the candidate picker too; compact labels remain unchanged. Picker height is capped against the dynamic viewport. Section checked counts exclude already-imported rows, matching footer semantics, and long blocked-line summaries are abbreviated.
+- All automated, browser, mobile, visual and accessibility verification of these changes is intentionally deferred to the final user-resumed phase. Responsive implementation is not a claim of verified device behavior.
 
 ### Sectioned Review
 
@@ -278,16 +293,19 @@ Report-sheet and finance query keys are parameterized per classroom/student and 
 
 - Large selected-row batch execution is durable: the dashboard creates a `StudentImportJob` and queues the `process-student-import-job` Trigger.dev task instead of waiting for every row inside one HTTP request.
 - Job rows persist the reviewed execution payload per line number, including row-level classroom, resolved gender, selected action, and selected existing student id.
-- The worker processes pending rows in bounded 25-row chunks and reuses the same `executeStudentImport` business path for each row, preserving duplicate checks, matched-student validation, term-sheet creation/reuse, current-term classroom conflict handling, and fee-history application. Aggregate progress counters are refreshed after each chunk.
-- The Trigger task entrypoint statically imports the Prisma client source and shared API student import processor, so Trigger's temporary build can trace the worker dependencies instead of resolving source-tree-relative runtime `.js` paths.
-- Completed job rows are final for retry/resume purposes. A retry only processes pending/running rows and recomputes aggregate counters from persisted row results so completed rows are not double-counted.
+- The worker processes row IDs in bounded 25-row chunks. A DB-owned helper reloads the locked job/row, rechecks creator access, and invokes the shared transaction-local `executeStudentImportRow` operation using the stored payload/scope. Domain writes and terminal result commit together. Aggregate counters are refreshed under the job lock after each chunk and at completion, using the live total and preserving all terminal job states.
+- The Trigger task entrypoint imports Prisma and DB-owned processing through the public `@school-clerk/db` package. It no longer depends on API internals or private DB source paths; API dispatch and browser token issuance remain separate. Trigger packaging validation is deferred.
+- Terminal job rows are final for retry/resume purposes. New workers only execute PENDING rows; they never commit an intermediate RUNNING row. Legacy RUNNING rows may already have committed domain changes and instead fail with manual-review guidance, retaining any stored student/term evidence. An uncertain response triggers a locked receipt read before failure persistence, never blind domain replay. FAILED/CANCELLED/completed jobs are not automatically resumed. This is not cross-job or direct-request idempotency; old workers must be drained before rollout.
 - Job status values are `PENDING`, `RUNNING`, `COMPLETED`, `COMPLETED_WITH_FAILURES`, `FAILED`, and `CANCELLED`.
 - Row status values are `PENDING`, `RUNNING`, `CREATED`, `KEPT`, `UPDATED`, `SKIPPED`, and `FAILED`.
 - The dashboard progress panel shows processed/total rows, created students, kept matches, updated matches, term sheets created, skipped rows, failed rows, and failed-line reasons. It polls persisted job state and can reopen an active or recent job after refresh/modal reopen.
 
 ## Files
 
-- `apps/api/src/db/queries/students.ts`: `verifyStudentImport`, `executeStudentImport`, and student import helpers.
+- `packages/utils/src/student-import-schema.ts`: shared execution schema and result types.
+- `packages/db/src/student-import-execution.ts`: canonical/enrollment/fee checks and transaction-local row execution.
+- `packages/db/src/student-import-processing.ts`: persisted-job processing; `student-import-job-rows.ts` owns receipts/progress.
+- `apps/api/src/db/queries/students.ts`: preview/direct/start/read orchestration and compatibility exports.
 - `apps/api/src/trpc/routers/students.routes.ts`: tRPC wiring.
 - `apps/dashboard/src/components/modals/student-import/index.tsx`: classroom/global gender start screen and import guide fetch.
 - `apps/dashboard/src/components/modals/student-import/parser.ts`: input parsing, delimiter handling, and Arabic-aware guided fallback.

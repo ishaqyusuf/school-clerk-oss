@@ -1,5 +1,79 @@
 # Database Relationships
 
+## Import canonical/enrollment/fee ancestry — 2026-09-22
+
+No schema/FK change. Import creates new canonical students and then explicit directly linked session/term forms in one transaction. Matched identities are locked; current-term references are discovered by direct ID or parent student ID. One active owned session parent is required, and inconsistent/duplicate references reject. Valid null direct term IDs can reuse their proven parent without backfill. Shared fee preparation validates attached charge ancestry, while retained/unbound selected-student/term charges prevent creating or adopting another enrollment. Existing unchanged admission preserves fees; changes reconcile protected history. No archive revival, class move, identity repair or live data operation. ADR-0061; behavioral verification deferred.
+
+## Import job/row receipt boundary — 2026-09-22
+
+No schema/FK change. Lock StudentImportJob before its exact StudentImportJobRow, reload persisted scope/payload, and commit domain writes plus terminal studentId/termSheetCreated/reason/completedAt outcome together. Fresh locked recovery preserves already committed receipts, and aggregate snapshots share the job lock. Legacy RUNNING rows retain any existing student/term evidence but fail for manual review without replay or data repair. Terminal jobs never resume via aggregation. This protects one persisted row with new workers only; drain old worker versions before rollout. ADR-0060; no live data operation or behavioral verification.
+
+## Profile correction and guardian links — 2026-09-08
+
+No schema/FK changes. Profile/gender updates lock one owned canonical student. Changed gender discovers active terms through both direct/parent links, validates ancestry, preserves closed academic/ledger charges and prepares open forms through the shared fee integrity/locking helper. Fees/profile/contact/link changes commit together. No parent/term identity repair or historical demographic snapshot is introduced. Guardian edits require one consistent active link, preserve archived contacts and all logins, avoid shared-contact rewrite, and soft-remove only the selected student relationship. Existing contact reuse never reactivates archived records. ADR-0058; no live data operations or verification.
+
+## Admission classification and fee ownership — 2026-09-08
+
+No FK/schema change. Selected StudentTermForms must agree with owned active canonical student/parent/session/term/classroom ancestry, without silent direct-student-ID repair. Classification and all selected fee reconciliation share one Serializable transaction. Active FinanceCharge references must agree with student/form/session/term and owned stream/item/original class; exact selected student/term charges lacking a form link require review rather than adoption. Cancellation is restricted to unallocated, ledger-unlinked, zero-paid DRAFT/PENDING automatic/selected charges with repeated ownership predicates. Other financial and parent/class/history relationships remain untouched. ADR-0057; no live operation or verification.
+
+## Class-change term/session placement — 2026-09-08
+
+No FK/schema changes. A new move updates selected owned StudentTermForm.classroomDepartmentId and the corresponding owned StudentSessionForm default within one Serializable transaction, preserving every other term form's direct placement. Validate the unique active student/session parent and scalar parent-linked children, including archived links, before shared-default updates. Matching no-op forms do not independently overwrite a default altered by a later term move. No canonical ID repair, new enrollment, fee repricing or assessment/attendance relation reassignment. Original class-bound history remains linked to its original structures; later projections may require separate review. See ADR-0055; no live mutation or behavioral verification ran.
+
+## Guarded term-detail projection — 2026-09-08
+
+No FK/schema change or data repair. The preview validates StudentTermForm → StudentSessionForm/Students and SchoolSession/SessionTerm/ClassRoomDepartment ancestry before owned student content. Assessment/attendance projections require matching class/term and same-school subject or attendance parents. FinanceCharge matches the owned student/form/session/term and stream; FinancePaymentAllocation follows those charges to owned student payments/streams and exposes only allocated amount, not an entire cross-term receipt. Active-reference count mismatches withhold that section, without exposing mismatched IDs. Restricted domains perform no reads; archived rows are outside the bounded preview. See ADR-0054; all behavioral verification deferred.
+
+## Selected term-form archive — 2026-09-08
+
+No FK/schema change. The shared term-removal service validates canonical student, session form, academic term and school session ownership/ID agreement for every requested row before archiving. Canonical students are locked in sorted order and selected active StudentTermForm rows are soft-deleted atomically with exact counts; previously archived valid rows are counted separately. Parent StudentSessionForm, Students, other terms and financial/assessment/attendance/guardian records are retained. No ID backfill or balance cancellation; closed active terms reject the batch. See ADR-0052; no live action or verification ran.
+
+## Atomic student archive — 2026-09-08
+
+No FK/schema change. `softDeleteStudent` locks the exact school-owned Students row, resolves active StudentSessionForm references and StudentTermForm references directly or through owned session forms, and rejects contradictory/null-school ownership before writes. Canonical and selected owned academic rows receive one deletedAt timestamp in a Serializable transaction with affected-count checks. No student-ID backfill, hard delete, restoration or implicit cleanup of already-archived partial state. Guardians, assessment/attendance and financial relations remain stored without cancellation. Repeat completed archives return already-deleted. See ADR-0051; no live operation or verification ran.
+
+## Registration linkage — 2026-09-08
+
+No FK/schema change. The new registration path writes canonical student IDs directly into StudentSessionForm and StudentTermForm, with identical school/session/classroom ancestry after validating every selected term. It creates no academic rows for canonical-only registration. Guardian reuse requires the same-school live identity; archived collisions are read explicitly and rejected, without restoring or modifying the contact shared by other wards. These writes and initial-term fees/payments share one Serializable API transaction. Existing malformed/legacy rows are not repaired; global uniqueness and other writers remain outside this slice. See ADR-0049; no live database action or testing performed.
+
+## Legacy staff-login matching guard — 2026-09-07
+
+No FK/schema change: StaffProfile remains email-linked to User. New DB-owned identity helpers resolve one active previous-email user within the account; incoming-email collisions are checked globally, and ambiguous/shared identities are not automatically reassigned. Serializable staff saves include identity, credential/session and assignment changes. Email changes clear legacy StaffProfile/User and credential Account passwords before requiring new setup. Status updates match original staff/school/account/email and preserve completed rows. This does not establish global database email uniqueness or cover every legacy writer; see ADR-0030. No runtime operations/tests ran.
+
+## Atomic staff onboarding — 2026-09-07
+
+Application-level Verification proof binds StaffProfile, User, school and account plus current email/role; no FK/schema changes. Exactly one active credential Account must belong to that User. Completion consumes proof/setup capability and updates that account password, matching pending staff profile, exact user name/email verification and stored sessions in one serializable transaction. No bulk email-based identity update remains in the completion action. This does not resolve staff-save email collision/reassignment semantics or validate every cached-session consumer. See ADR-0029; no runtime writes/tests ran.
+
+## Notification feed ownership — 2026-09-07
+
+API delivery now uses a separate DB-owned live context: the selected school belongs to an active non-purging account; initiating Session/User and recipient User belong to that account; current preference matches school/user/type. In-app creation reuses existing NotificationContact and NotificationRecipient relations inside the same transaction as context/policy checks. No FK/schema change or runtime operation. Existing globally unique user-contact collisions are not reassigned across schools; a failed contact create rolls back this channel. Email reads current context twice but its provider call is outside a DB transaction.
+
+No schema/FK changes. `Notification.schoolProfileId` and allowed type are combined with either an active `NotificationRecipient` whose active contact matches user/school, or legacy `Notification.userId` when no such recipient exists. Existing user contacts are looked up without creation. Recipient status takes precedence; null is unread. DB-owned transactional read/all-read writes retain the same parent/recipient scope, preserving hidden rows and their status. Client cache and send-time coverage remain pending; no runtime data operations or tests ran.
+
+## Conversation access envelope — 2026-09-07
+
+`AssistantConversation.meta.historyAccess` governs access to its opaque prose and related `AssistantMessage`, `AssistantRun`, `AssistantToolExecution` and linked feedback projections. It conservatively records tools available to runs and requires the full set under current permissions. DB row locks serialize scope expansion/appends and permitted content queries; no FK/schema changes. Legacy records remain unchanged but unclassified. Independently scoped committed tool receipt reads remain available when that tool's current permission allows them. No live data writes/backfill/deletion or tests ran.
+
+## Atomic AI mutation result linkage — 2026-09-07
+
+Domain changes, deletion of the corresponding `Verification` approval, scoped `AssistantToolExecution` completion/output and the completion `Activity` now share one transaction in all five mutation tools. Activity metadata records the execution reference/output; output receipt version 1 distinguishes the new atomic contract from historical completed logs. Recovery queries follow `AssistantRun`/`AssistantConversation` owner and tenant relationships and current tool access. No schema/FK changes or data backfill; runtime proof remains deferred.
+
+## AI mutation approval scope — 2026-09-07
+
+`Verification` approval records use an application-enforced namespace/school/user/conversation binding and a signed-token digest, not new foreign keys. DB helpers resolve the matching `AssistantRun` and active owned `AssistantConversation` before issuing/consuming. Enrollment, payment, inventory creation/issuance and assessment writes consume approval in their own transaction, so rollback preserves both sides. Signed v2 payloads additionally bind academic session/term. No schema changes or data operations were run; post-commit audit/receipt recovery remains follow-up work.
+
+## Enrollment Parent Identity Ownership
+
+- `EnrollmentApplicationParent.linkedUserId` remains a scalar bridge. Public setup must prove recorded-email ownership and match the current application/school/account before setting it; approval must resolve it to a non-deleted, email-verified Parent with matching tenant/email.
+- `Guardians.userId` is not inferred from application phone/name. Conditional linking preserves existing ownership and refuses an unlinked guardian with other active wards. Such collisions require staff resolution. Historical links are not automatically deleted or reassigned.
+- One-use email capability consumption and account/parent/guardian writes occur in a serializable transaction. This changes write policy, not Prisma relationships. Verification is deferred; see [ADR-0024](../decisions/ADR-0024-enrollment-parent-email-proof.md).
+
+## Tenant Module Configuration
+
+- `SchoolProfile` 1:0..1 `SchoolModuleConfiguration`, enforced by the unique school foreign key. Hard deletion of a school cascades to its configuration; disabling a module does not delete any domain records.
+- `updatedByUserId` is a scalar last-actor audit reference, not an authorization grant. Normal reads/writes scope through the active non-deleted school's account; explicit platform operations require platform authorization before calling DB helpers.
+- The single revision covers both enabled-set edits and entitlement edits, preventing a stale school-admin save from racing a platform grant/revocation. A zero-row compare-and-swap update must be handled as a conflict/unavailable record by the API.
+
 ## Admission And Finance Applicability
 
 - `Students` → `StudentTermForm` remains one-to-many; admission classification
@@ -155,3 +229,12 @@ Describes entity relationships and cardinality constraints.
 - QA classification belongs to `SaasAccount` and therefore covers its schools,
   users, domains, and school-owned aggregates.
 - `QaPurgeRun` deliberately has no account relation.
+
+## Teacher student registration review — 2026-09-27
+
+- A provisional `Students` row owns a `StudentSessionForm` and a pending
+  `StudentTermForm` for the teacher's authorized classroom and term.
+- The term form remains the stable key for attendance and assessment work.
+  On approval with an existing identity, its `studentId` and score record
+  student IDs move to the matched same-school student; the provisional student
+  is soft-deleted. Rejection retains the rows but excludes active recording.

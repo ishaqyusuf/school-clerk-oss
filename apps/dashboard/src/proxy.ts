@@ -1,4 +1,5 @@
-import { prisma } from "@school-clerk/db";
+import { prisma, resolveTenantWorkspace } from "@school-clerk/db";
+import { parseWorkspaceCookie, workspaceCookieOptions, workspaceCookieSelection, type AuthCookie } from "./utils/workspace-cookie";
 import {
   buildTenantRedirectUrl,
   getTenantUrlHeaderNames,
@@ -15,28 +16,6 @@ import {
 } from "./utils/tenant-domain-context";
 import { getDashboardTenantUrlConfig } from "./utils/tenant-url-config";
 
-type TenantWorkspaceCookie = {
-  domain: string;
-  sessionId?: string;
-  schoolId?: string;
-  termId?: string;
-  sessionTitle?: string;
-  termTitle?: string;
-  auth?: {
-    bearerToken: string;
-    userId: string;
-  };
-  remembered?: boolean;
-};
-
-const workspaceSessionMaxAge = 60 * 60 * 24 * 30;
-const workspaceCookieOptions = {
-  httpOnly: true,
-  maxAge: workspaceSessionMaxAge,
-  path: "/",
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
-};
 const protectedProxyHeaderNames = [
   "x-user-id",
   "x-session-token",
@@ -140,40 +119,25 @@ export default async function proxy(req: NextRequest) {
     headers: req.headers,
   });
 
-  const sessionTenantAccess = await getSessionTenantAccess({
-    userId: session?.user?.id,
-    tenantDomain,
-  });
-  const existingTenantSessionCookieValue = getTenantWorkspaceCookieValue(
-    req,
-    canonicalSlug,
-  );
-  const hasExistingTenantSessionCookie = hasUsableTenantWorkspaceCookie({
-    session,
-    tenantSlug: canonicalSlug,
-    value: existingTenantSessionCookieValue,
-  });
-  const recoveredTenantSessionCookie =
-    session && sessionTenantAccess !== false && !hasExistingTenantSessionCookie
-      ? await resolveTenantWorkspaceCookie({
-          existingCookieValue: existingTenantSessionCookieValue,
-          session,
-          tenantSlug: canonicalSlug,
-        })
-      : null;
-  const hasTenantSessionCookie =
-    hasExistingTenantSessionCookie || Boolean(recoveredTenantSessionCookie);
-  const withRecoveredTenantSessionCookie = <T extends NextResponse>(
-    response: T,
-  ) => {
-    if (canonicalSlug && recoveredTenantSessionCookie) {
-      response.cookies.set(
-        getTenantWorkspaceCookieName(canonicalSlug),
-        recoveredTenantSessionCookie,
-        workspaceCookieOptions,
-      );
+  const existingTenantSessionCookieValue = getTenantWorkspaceCookieValue(req, canonicalSlug);
+  const recoveredTenantSessionCookie = session
+    ? await resolveTenantWorkspaceCookie({
+        existingCookieValue: existingTenantSessionCookieValue,
+        session,
+        tenantSlug: canonicalSlug,
+      })
+    : null;
+  const hasTenantSessionCookie = Boolean(recoveredTenantSessionCookie);
+  const sessionTenantAccess = session ? hasTenantSessionCookie : null;
+  const withRecoveredTenantSessionCookie = <T extends NextResponse>(response: T) => {
+    if (canonicalSlug && recoveredTenantSessionCookie &&
+      recoveredTenantSessionCookie !== existingTenantSessionCookieValue) {
+      response.cookies.set(getTenantWorkspaceCookieName(canonicalSlug), recoveredTenantSessionCookie,
+        workspaceCookieOptions(parseWorkspaceCookie(recoveredTenantSessionCookie)?.remembered === true));
+    } else if (canonicalSlug && existingTenantSessionCookieValue && !recoveredTenantSessionCookie) {
+      response.cookies.set(getTenantWorkspaceCookieName(canonicalSlug), "",
+        { ...workspaceCookieOptions(false), maxAge: 0 });
     }
-
     return response;
   };
 
@@ -384,40 +348,18 @@ function createDashboardProxyHeaders({
     requestHeaders.set(tenantHeaderNames.accountId, tenantDomain.saasAccountId);
   }
 
-  if (canonicalSlug && recoveredTenantSessionCookie) {
+  if (canonicalSlug) {
     requestHeaders.set(
       "cookie",
       appendCookieHeader(
         req.headers.get("cookie"),
         getTenantWorkspaceCookieName(canonicalSlug),
-        recoveredTenantSessionCookie,
+        recoveredTenantSessionCookie ?? null,
       ),
     );
   }
 
   return requestHeaders;
-}
-
-async function getSessionTenantAccess({
-  userId,
-  tenantDomain,
-}: {
-  userId?: string;
-  tenantDomain: TenantDomainContext | null;
-}) {
-  if (!userId || !tenantDomain?.saasAccountId) return null;
-
-  const user = await prisma.user.findFirst({
-    where: {
-      id: userId,
-      deletedAt: null,
-    },
-    select: {
-      saasAccountId: true,
-    },
-  });
-
-  return user?.saasAccountId === tenantDomain.saasAccountId;
 }
 
 function getRequestHost(req: NextRequest) {
@@ -436,35 +378,6 @@ function getHrefPathname(href: string) {
   }
 }
 
-function hasUsableTenantWorkspaceCookie({
-  session,
-  tenantSlug,
-  value,
-}: {
-  session: Awaited<ReturnType<typeof auth.api.getSession>>;
-  tenantSlug?: string | null;
-  value?: string | null;
-}) {
-  if (!value) return false;
-
-  try {
-    const cookie = JSON.parse(value) as TenantWorkspaceCookie;
-
-    return Boolean(
-      tenantSlug &&
-      cookie?.schoolId &&
-      cookie?.domain === tenantSlug &&
-      cookie?.auth?.userId &&
-      cookie?.auth?.bearerToken &&
-      (!session?.user?.id || cookie.auth.userId === session.user.id) &&
-      (!session?.session?.token ||
-        cookie.auth.bearerToken === session.session.token),
-    );
-  } catch {
-    return false;
-  }
-}
-
 function getTenantWorkspaceCookieName(tenantSlug: string) {
   return `${tenantSlug}-session-cookie`;
 }
@@ -479,141 +392,39 @@ function getTenantWorkspaceCookieValue(
   );
 }
 
-function parseTenantWorkspaceCookie(value?: string | null) {
-  if (!value) return {} as TenantWorkspaceCookie;
-
-  try {
-    return JSON.parse(value) as TenantWorkspaceCookie;
-  } catch {
-    return {} as TenantWorkspaceCookie;
-  }
-}
-
 function appendCookieHeader(
   cookieHeader: string | null,
   name: string,
-  value: string,
+  value: string | null,
 ) {
-  const encodedValue = encodeURIComponent(value);
-  const nextCookie = `${name}=${encodedValue}`;
+  const nextCookie = value === null ? null : `${name}=${encodeURIComponent(value)}`;
   const existingCookies = (cookieHeader ?? "")
     .split(";")
     .map((cookie) => cookie.trim())
     .filter(Boolean)
     .filter((cookie) => !cookie.startsWith(`${name}=`));
 
-  return [...existingCookies, nextCookie].join("; ");
-}
-
-function findCurrentDatedTerm<
-  T extends {
-    startDate: Date | null;
-    endDate: Date | null;
-    createdAt?: Date | null;
-  },
->(terms: T[], now = new Date()) {
-  const startedTerms = terms.filter(
-    (term) => term.startDate && term.startDate <= now,
-  );
-  const activeBoundedTerm = startedTerms
-    .filter((term) => term.endDate && term.endDate >= now)
-    .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0];
-
-  if (activeBoundedTerm) return activeBoundedTerm;
-
-  return (
-    startedTerms
-      .filter((term) => !term.endDate)
-      .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0] ??
-    null
-  );
+  return (nextCookie ? [...existingCookies, nextCookie] : existingCookies).join("; ");
 }
 
 async function resolveTenantWorkspaceCookie({
-  existingCookieValue,
-  session,
-  tenantSlug,
+  existingCookieValue, session, tenantSlug,
 }: {
   existingCookieValue?: string | null;
   session: NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
   tenantSlug?: string | null;
 }) {
-  const bearerToken = session.session?.token;
-  const userId = session.user?.id;
-
-  if (!tenantSlug || !bearerToken || !userId) return null;
-
-  const existingCookie = parseTenantWorkspaceCookie(existingCookieValue);
-  const school = await prisma.schoolProfile.findFirst({
-    where: {
-      deletedAt: null,
-      subDomain: tenantSlug,
-    },
-    select: {
-      id: true,
-      sessions: {
-        where: {
-          deletedAt: null,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        select: {
-          id: true,
-          title: true,
-          terms: {
-            where: {
-              deletedAt: null,
-            },
-            select: {
-              id: true,
-              title: true,
-              sessionId: true,
-              startDate: true,
-              endDate: true,
-              createdAt: true,
-            },
-            orderBy: {
-              createdAt: "desc",
-            },
-          },
-        },
-      },
-    },
+  const token = session.session.token;
+  const userId = session.user.id;
+  if (!tenantSlug || !token || !userId) return null;
+  const existing = parseWorkspaceCookie(existingCookieValue);
+  const workspace = await resolveTenantWorkspace(prisma, {
+    token, userId, tenantSlug,
+    selection: workspaceCookieSelection(existing, { domain: tenantSlug, token, userId }),
   });
-
-  if (!school) return null;
-
-  const termProfiles = school.sessions.flatMap((schoolSession) =>
-    schoolSession.terms.map((term) => ({
-      ...term,
-      sessionId: schoolSession.id,
-      sessionTitle: schoolSession.title,
-    })),
-  );
-  const selectedTerm = termProfiles.find(
-    (term) => term.id === existingCookie.termId,
-  );
-  const term =
-    selectedTerm ?? findCurrentDatedTerm(termProfiles) ?? termProfiles[0];
-  const schoolSession =
-    school.sessions.find((item) => item.id === term?.sessionId) ||
-    school.sessions.find((item) => item.id === existingCookie.sessionId) ||
-    school.sessions[0];
-  const nextCookie: TenantWorkspaceCookie = {
-    ...existingCookie,
-    auth: {
-      bearerToken,
-      userId,
-    },
-    domain: tenantSlug,
-    remembered: existingCookie.remembered !== false,
-    schoolId: school.id,
-    sessionId: schoolSession?.id,
-    sessionTitle: schoolSession?.title ?? existingCookie.sessionTitle,
-    termId: term?.id,
-    termTitle: term?.title ?? existingCookie.termTitle,
+  if (!workspace) return null;
+  const nextCookie: AuthCookie = {
+    ...workspace, auth: { bearerToken: token, userId }, remembered: existing?.remembered === true,
   };
-
   return JSON.stringify(nextCookie);
 }

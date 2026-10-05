@@ -5,14 +5,13 @@ import { PageDataMeta, PageItemData } from "@/types";
 import { whereStudents } from "@/utils/query.students";
 import { SearchParamsType } from "@/utils/search-params";
 import { studentDisplayName } from "@/utils/utils";
-import { DEFAULT_STUDENT_NAME_FORMAT } from "@school-clerk/utils/student-name";
 
 import { prisma } from "@school-clerk/db";
-import { getAuthCookie } from "./cookies/auth-cookie";
+import { DashboardAccessError, requireDashboardModules } from "@/lib/module-access";
 
 export type StudentData = PageItemData<typeof getStudentsListAction>;
 export async function getStudentListPageAction(query: SearchParamsType = {}) {
-  const profile = await getAuthCookie();
+  const { profile } = await requireDashboardModules(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"], ["Admin", "Registrar"]);
   query.sessionId = profile.sessionId;
 	return await getStudentsListAction(query, profile.schoolId);
 }
@@ -20,13 +19,12 @@ export async function getStudentsListAction(
 	query: SearchParamsType = {},
 	schoolId?: string,
 ) {
-	const resolvedSchoolId = schoolId ?? (await getAuthCookie()).schoolId;
-	const studentNameFormat = resolvedSchoolId
-		? await getDashboardStudentNameFormat(resolvedSchoolId)
-		: DEFAULT_STUDENT_NAME_FORMAT;
+  const { profile } = await requireDashboardModules(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"], ["Admin", "Registrar"]);
+  if (schoolId && schoolId !== profile.schoolId) throw new DashboardAccessError(403, "The requested school does not match this workspace.");
+  const studentNameFormat = await getDashboardStudentNameFormat(profile.schoolId);
   const where = whereStudents(query);
   const students = await prisma.students.findMany({
-    where,
+    where: { AND: [where, { schoolProfileId: profile.schoolId, deletedAt: null }] },
     select: {
       id: true,
       name: true,
@@ -38,6 +36,8 @@ export async function getStudentsListAction(
       sessionForms: {
         where: {
           schoolSessionId: query.sessionId,
+          schoolProfileId: profile.schoolId,
+          deletedAt: null,
         },
         select: {
           id: true,
@@ -57,6 +57,8 @@ export async function getStudentsListAction(
           termForms: {
             where: {
               sessionTermId: query?.termId,
+              schoolProfileId: profile.schoolId,
+              deletedAt: null,
             },
             take: 1,
             select: {
@@ -83,8 +85,8 @@ export async function getStudentsListAction(
 				{
 					termForms: [termForm] = [],
 					id,
-					classroomDepartment,
-				},
+          classroomDepartment,
+        } = {},
 			] = student.sessionForms;
       const classRoom = classroomDepartment?.classRoom;
       const className = classRoom?.name;

@@ -15,6 +15,7 @@ export async function getActiveAttendanceRoster({
 		where: {
 			classroomDepartmentId: departmentId,
 			deletedAt: null,
+			registrationReviewStatus: { not: "REJECTED" },
 			schoolProfileId,
 			sessionTermId: activeTermId,
 			student: {

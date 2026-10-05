@@ -3,18 +3,14 @@ import type { TRPCContext } from "@api/trpc/init";
 import type { EnrollmentQuery } from "@api/trpc/schemas/schemas";
 import type { PageFilterData } from "@api/type";
 import { composeQuery } from "@api/utils";
-import {
-  type EntrollStudentToTerm,
-	entrollStudentToTermSchema,
-} from "@school-clerk/assessment-results";
+import type { EntrollStudentToTerm } from "@school-clerk/assessment-results";
 import type { Prisma } from "@school-clerk/db";
 import {
 	type StudentNameFormat,
 	type StudentNameParts,
 	formatStudentName,
 } from "@school-clerk/utils/student-name";
-import { assertAcademicTermWritable } from "./academic-term-setup";
-import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
+import { enrollStudentToTerm } from "./student-term-enrollment";
 
 export { entrollStudentToTermSchema } from "@school-clerk/assessment-results";
 
@@ -29,7 +25,7 @@ export async function enrollmentsIndex(
   }
   const _where = whereEnrollments(input);
   // console.log({ _where, input });
-  const qd = await composeQueryData(input, _where, model);
+  const qd = await composeQueryData({}, _where, model);
   const { response, searchMeta, where } = qd;
   const termFormWhere = whereTermForm(input);
   const list = await model.findMany({
@@ -228,53 +224,6 @@ entrollStudentToTerm: publicProcedure
         return entrollStudentToTerm(props.ctx.db, props.input);
       }),
 */
-export async function entrollStudentToTerm(
-  ctx: TRPCContext,
-	data: EntrollStudentToTerm,
-) {
-  const { db, profile } = ctx;
-  await assertAcademicTermWritable(ctx, data.sessionTermId);
-  return db.$transaction(async (tx) => {
-		const student = await tx.students.findFirstOrThrow({
-			where: { id: data.studentId, schoolProfileId: profile.schoolId },
-			select: { gender: true },
-		});
-    // return { profile };
-    if (!data.studentSessionFormId) {
-      const ssf = await tx.studentSessionForm.create({
-        data: {
-          schoolProfileId: profile.schoolId,
-          schoolSessionId: data.schoolSessionId,
-          studentId: data.studentId,
-          classroomDepartmentId: data.classroomDepartmentId,
-        },
-      });
-      data.studentSessionFormId = ssf.id;
-    }
-    const termForm = await tx.studentTermForm.create({
-      data: {
-        classroomDepartmentId: data.classroomDepartmentId,
-        schoolSessionId: data.schoolSessionId,
-        studentId: data.studentId,
-        sessionTermId: data.sessionTermId,
-        schoolProfileId: profile.schoolId,
-        studentSessionFormId: data.studentSessionFormId!,
-        admissionType: "RETURNING",
-      },
-    });
-
-    if (data.classroomDepartmentId) {
-      await applyFeeHistoriesToStudentTermForm(tx, {
-        schoolProfileId: profile.schoolId,
-        studentId: data.studentId,
-        studentTermFormId: termForm.id,
-        schoolSessionId: data.schoolSessionId,
-        sessionTermId: data.sessionTermId,
-        classroomDepartmentId: data.classroomDepartmentId,
-        admissionType: "RETURNING",
-				studentGender: student.gender,
-      });
-    }
-    // throw new Error("CREATED DEBUG!");
-  });
+export async function entrollStudentToTerm(ctx: TRPCContext, data: EntrollStudentToTerm) {
+  return enrollStudentToTerm(ctx, data);
 }

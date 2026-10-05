@@ -1,561 +1,88 @@
 "use server";
 
-import { headers } from "next/headers";
 import type z from "zod";
-
-import {
-	ensureNotificationContact,
-	getQaClassificationForOwner,
-	prisma,
-} from "@school-clerk/db";
-import {
-	SignupVerificationEmail,
-	WorkspaceReadyEmail,
-	render,
-} from "@school-clerk/email";
-import { createNotificationFromType } from "@school-clerk/notifications";
-import {
-	formatTenantEmailFrom,
-	formatTenantEmailSubject,
-	getEmailDeliveryRoutes,
-	slugify,
-} from "@school-clerk/utils";
-
-import { auth } from "@/auth/server";
-import {
-	getInstitutionType,
-	isInstitutionTypeEnabled,
-} from "@/features/signup/institution-types";
-import {
-	buildDashboardTenantUrl,
-	buildSchoolSiteUrl,
-} from "@/features/signup/tenant-urls";
+import { issueSignupEmailVerification } from "@school-clerk/auth/signup-email-verification";
+import { createSchoolOwnerAccount } from "@school-clerk/auth/school-signup";
+import { getSignupCompletionContext, prisma } from "@school-clerk/db";
+import { normalizeInstitutionType } from "@school-clerk/utils/institution-config";
+import { getInstitutionType, isInstitutionTypeEnabled } from "@/features/signup/institution-types";
+import { buildDashboardTenantUrl, buildSchoolSiteUrl } from "@/features/signup/tenant-urls";
+import { notifySignupCompletion, sendSignupWorkspaceEmail } from "@/features/signup/completion";
+import type { SignupSetupStatus } from "@/features/signup/completion-types";
+import { sendSignupVerificationEmail } from "@/features/signup/verification-email";
 import { provisionSchoolVercelDomains } from "@/utils/domain";
-import { isTenantDomainTableMissing } from "@/utils/tenant-domain-context";
 import { actionClient } from "./safe-action";
 import { createSignupSchema } from "./schema";
 
 const signupSchema = createSignupSchema({});
 export type SignupInput = z.infer<typeof signupSchema>;
 
-const RESERVED_SUBDOMAINS = new Set([
-	"admin",
-	"api",
-	"app",
-	"dashboard",
-	"demo",
-	"docs",
-	"help",
-	"login",
-	"school-clerk",
-	"school-clerk-dashboard",
-	"sign-in",
-	"sign-up",
-	"staff",
-	"support",
-	"www",
-]);
-
-function normalizeEmail(email: string) {
-	return email.trim().toLowerCase();
-}
-
-function normalizeSubdomain(value: string) {
-	return value.trim().toLowerCase();
-}
-
-function parseStudentCount(value?: string | null) {
-	const normalized = value?.trim();
-	if (!normalized) return null;
-
-	const digits = normalized.replace(/[^\d]/g, "");
-	if (!digits) return null;
-
-	const parsed = Number.parseInt(digits, 10);
-	return Number.isFinite(parsed) ? parsed : null;
-}
-
-async function findExistingSignupDomain(domainName: string) {
-	try {
-		return await prisma.tenantDomain.findFirst({
-			where: {
-				deletedAt: null,
-				OR: [{ subdomain: domainName }, { customDomain: domainName }],
-			},
-			select: { id: true },
-		});
-	} catch (error) {
-		if (!isTenantDomainTableMissing(error)) {
-			throw error;
-		}
-
-		return prisma.schoolProfile.findFirst({
-			where: {
-				deletedAt: null,
-				subDomain: domainName,
-			},
-			select: { id: true },
-		});
-	}
-}
-
-async function hasTenantDomainTable() {
-	try {
-		await prisma.tenantDomain.findFirst({
-			select: { id: true },
-			take: 1,
-		});
-		return true;
-	} catch (error) {
-		if (isTenantDomainTableMissing(error)) {
-			return false;
-		}
-
-		throw error;
-	}
-}
-
-async function sendSignupSuccessEmail({
-	to,
-	schoolName,
-	onboardingUrl,
-	siteUrl,
-	workspaceUrl,
-}: {
-	to: string;
-	schoolName: string;
-	onboardingUrl: string;
-	siteUrl: string;
-	workspaceUrl: string;
-}) {
-	const [route] = getEmailDeliveryRoutes(to);
-	if (!route) throw new Error("At least one email recipient is required.");
-	if (route.transport === "console") {
-		console.info("[signup] email captured by console delivery", {
-			recipient: route.originalRecipient,
-		});
-		return;
-	}
-	const apiKey = process.env.RESEND_API_KEY;
-	const from = formatTenantEmailFrom({
-		fallbackFrom: process.env.RESEND_FROM_EMAIL,
-		schoolName,
-	});
-
-	if (!apiKey) {
-		console.warn(`[signup] resend api key missing; email not sent to ${to}`);
-		return;
-	}
-	const html = await render(
-		WorkspaceReadyEmail({
-			onboardingUrl,
-			schoolName,
-			siteUrl,
-			workspaceUrl,
-		}),
-	);
-
-	const response = await fetch("https://api.resend.com/emails", {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			from,
-			to: [route.recipient],
-			subject: `${route.qaRouted ? `[QA: ${route.originalRecipient}] ` : ""}${formatTenantEmailSubject(
-				{
-					message: "workspace is ready",
-					schoolName,
-				},
-			)}`,
-			headers: route.qaRouted
-				? { "X-QA-Original-Recipient": route.originalRecipient }
-				: undefined,
-			html,
-		}),
-	});
-
-	if (!response.ok) {
-		const errorText = await response.text();
-		throw new Error(`Failed to send signup email: ${errorText}`);
-	}
-}
-
-async function createEmailVerificationUrl({
-	dashboardUrl,
-	userId,
-}: {
-	dashboardUrl: string;
-	userId: string;
-}) {
-	const token = crypto.randomUUID();
-
-	await prisma.verification.deleteMany({
-		where: {
-			identifier: {
-				startsWith: "email-verification:",
-			},
-			value: userId,
-			deletedAt: null,
-		},
-	});
-
-	await prisma.verification.create({
-		data: {
-			identifier: `email-verification:${token}`,
-			value: userId,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
-		},
-	});
-
-	const verificationUrl = new URL("/verify-email", dashboardUrl);
-	verificationUrl.searchParams.set("token", token);
-
-	return verificationUrl.toString();
-}
-
-async function sendSignupVerificationEmail({
-	to,
-	schoolName,
-	verificationUrl,
-}: {
-	to: string;
-	schoolName: string;
-	verificationUrl: string;
-}) {
-	const [route] = getEmailDeliveryRoutes(to);
-	if (!route) throw new Error("At least one email recipient is required.");
-	if (route.transport === "console") {
-		console.info("[signup] email captured by console delivery", {
-			recipient: route.originalRecipient,
-		});
-		return;
-	}
-	const apiKey = process.env.RESEND_API_KEY;
-	const from = formatTenantEmailFrom({
-		fallbackFrom: process.env.RESEND_FROM_EMAIL,
-		schoolName,
-	});
-
-	if (!apiKey) {
-		console.warn(
-			`[signup] resend api key missing; verification email not sent to ${to}`,
-		);
-		return;
-	}
-	const html = await render(
-		SignupVerificationEmail({
-			schoolName,
-			verificationUrl,
-		}),
-	);
-
-	const response = await fetch("https://api.resend.com/emails", {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			from,
-			to: [route.recipient],
-			subject: `${route.qaRouted ? `[QA: ${route.originalRecipient}] ` : ""}${formatTenantEmailSubject(
-				{
-					message: "verify your account",
-					schoolName,
-				},
-			)}`,
-			headers: route.qaRouted
-				? { "X-QA-Original-Recipient": route.originalRecipient }
-				: undefined,
-			html,
-		}),
-	});
-
-	if (!response.ok) {
-		const errorText = await response.text();
-		throw new Error(`Failed to send signup verification email: ${errorText}`);
-	}
-}
-
-async function createSignupSuccessNotification(input: {
-	schoolName: string;
-	schoolProfileId: string;
-	userId: string;
-}) {
-	const notification = createNotificationFromType("signup_success", {
-		onboardingPath: "/onboarding/welcome",
-		schoolName: input.schoolName,
-		workspacePath: "/",
-	});
-
-	if (!notification.channels.includes("in_app")) {
-		return;
-	}
-
-	await prisma.$transaction(async (tx) => {
-		const recipientContact = await ensureNotificationContact(tx, {
-			displayName: null,
-			role: "user",
-			schoolProfileId: input.schoolProfileId,
-			userId: input.userId,
-		});
-
-		await tx.notification.create({
-			data: {
-				action: notification.action ?? undefined,
-				body: notification.body,
-				content: notification.body,
-				headline: notification.title,
-				link: notification.link,
-				schoolProfileId: input.schoolProfileId,
-				subject: notification.title,
-				title: notification.title,
-				type: notification.type,
-				userId: input.userId,
-				recipients: {
-					create: {
-						recipientContactId: recipientContact.id,
-					},
-				},
-			},
-		});
-	});
-}
-
 export const createSaasProfileAction = actionClient
-	.schema(signupSchema)
-	.action(async ({ parsedInput: input }) => {
-		const institutionType = getInstitutionType(input.institutionType);
+  .schema(signupSchema)
+  .action(async ({ parsedInput: input }) => {
+    const institutionType = getInstitutionType(input.institutionType);
+    if (!institutionType || !isInstitutionTypeEnabled(input.institutionType)) {
+      throw new Error("Choose an institution type released for self-service signup.");
+    }
+    const canonicalInstitutionType = normalizeInstitutionType(input.institutionType);
+    if (!canonicalInstitutionType) throw new Error("Institution type is not configured for onboarding.");
 
-		if (!institutionType) {
-			throw new Error("Unknown institution type selected.");
-		}
+    const domainName = input.domainName.trim().toLowerCase();
+    const email = input.email.trim().toLowerCase();
+    const onboardingPath = "/onboarding/welcome";
+    // Resolve all handoff configuration before committing a new account.
+    const dashboardUrl = buildDashboardTenantUrl(domainName);
+    const siteUrl = buildSchoolSiteUrl(domainName);
+    const onboardingUrl = buildDashboardTenantUrl(domainName, onboardingPath);
+    const loginUrl = buildDashboardTenantUrl(domainName, "/login");
+    const onboardingLoginUrl = new URL(loginUrl);
+    onboardingLoginUrl.searchParams.set("email", email);
+    onboardingLoginUrl.searchParams.set("return_to", onboardingPath);
 
-		if (!isInstitutionTypeEnabled(input.institutionType)) {
-			throw new Error(
-				`${institutionType.label} onboarding is not enabled yet. Please choose a released institution type.`,
-			);
-		}
+    const school = await createSchoolOwnerAccount({ ...input, institutionType: canonicalInstitutionType });
+    const scope = { schoolId: school.schoolId, accountId: school.accountId, userId: school.userId };
+    const setupStatus: SignupSetupStatus = {
+      domains: "not-requested", verificationEmail: "needs-attention",
+      workspaceEmail: "needs-attention", notification: "needs-attention",
+    };
 
-		const email = normalizeEmail(input.email);
-		const domainName = normalizeSubdomain(input.domainName);
+    if (process.env.NODE_ENV === "production" && !new URL(siteUrl).hostname.endsWith(".localhost")) {
+      try {
+        await provisionSchoolVercelDomains({
+          dashboardDomain: new URL(dashboardUrl).hostname,
+          siteDomain: new URL(siteUrl).hostname,
+          assertCurrent: async () => {
+            const current = await getSignupCompletionContext(prisma, scope);
+            if (!current || current.school.subDomain !== domainName) throw new Error("Signup scope changed.");
+          },
+        });
+        setupStatus.domains = "submitted";
+      } catch {
+        setupStatus.domains = "needs-attention";
+      }
+    }
 
-		if (RESERVED_SUBDOMAINS.has(domainName)) {
-			throw new Error("That subdomain is reserved. Please choose another one.");
-		}
+    try {
+      const proof = await issueSignupEmailVerification({ userId: school.userId, schoolId: school.schoolId, email });
+      setupStatus.verificationEmail = (await sendSignupVerificationEmail(proof)).status;
+    } catch {
+      setupStatus.verificationEmail = "needs-attention";
+    }
+    try {
+      setupStatus.workspaceEmail = await sendSignupWorkspaceEmail(scope);
+    } catch {
+      setupStatus.workspaceEmail = "needs-attention";
+    }
+    try {
+      setupStatus.notification = await notifySignupCompletion(scope);
+    } catch {
+      setupStatus.notification = "needs-attention";
+    }
 
-		const [domainTaken, emailTaken] = await Promise.all([
-			findExistingSignupDomain(domainName),
-			prisma.user.findFirst({
-				where: {
-					deletedAt: null,
-					email,
-				},
-				select: { id: true },
-			}),
-		]);
-
-		if (domainTaken) {
-			throw new Error("That subdomain is already taken.");
-		}
-
-		if (emailTaken) {
-			throw new Error("An account with that email already exists.");
-		}
-
-		const tenantDomainTableAvailable = await hasTenantDomainTable();
-
-		const school = await prisma.$transaction(async (tx) => {
-			const account = await tx.saasAccount.create({
-				data: {
-					email,
-					name: input.adminName.trim(),
-					phoneNo: input.phone?.trim() || null,
-					...getQaClassificationForOwner(email),
-				},
-			});
-
-			const profile = await tx.schoolProfile.create({
-				data: {
-					name: input.institutionName.trim(),
-					slug: slugify(input.institutionName),
-					subDomain: domainName,
-					institutionType: input.institutionType,
-					studentCountEstimate: parseStudentCount(input.studentCount),
-					country: input.country?.trim() || null,
-					educationSystem: input.educationSystem?.trim() || null,
-					curriculumType: input.curriculumType?.trim() || null,
-					languageOfInstruction: input.languageOfInstruction?.trim() || null,
-					accountId: account.id,
-				},
-			});
-
-			if (tenantDomainTableAvailable) {
-				await tx.tenantDomain.create({
-					data: {
-						subdomain: domainName,
-						isPrimary: true,
-						isVerified: true,
-						schoolProfileId: profile.id,
-						saasAccountId: account.id,
-					},
-				});
-			}
-
-			return {
-				accountId: account.id,
-				schoolId: profile.id,
-				schoolName: profile.name,
-				subDomain: profile.subDomain,
-			};
-		});
-
-		let createdUserId: string | null = null;
-
-		try {
-			const requestHeaders = new Headers(await headers());
-			const signUpResponse = await auth.api.signUpEmail({
-				body: {
-					email,
-					name: input.adminName.trim(),
-					password: input.password,
-					role: "ADMIN",
-				},
-				headers: requestHeaders,
-			});
-
-			createdUserId = signUpResponse?.user?.id ?? null;
-
-			if (!createdUserId) {
-				throw new Error("Could not create the admin account.");
-			}
-
-			await prisma.user.update({
-				where: {
-					id: createdUserId,
-				},
-				data: {
-					saasAccountId: school.accountId,
-					phoneNo: input.phone?.trim() || null,
-				},
-			});
-		} catch (error) {
-			await prisma.$transaction(async (tx) => {
-				if (createdUserId) {
-					await tx.account.deleteMany({
-						where: {
-							userId: createdUserId,
-						},
-					});
-					await tx.user.deleteMany({
-						where: {
-							id: createdUserId,
-						},
-					});
-				}
-
-				if (tenantDomainTableAvailable) {
-					await tx.tenantDomain.deleteMany({
-						where: {
-							saasAccountId: school.accountId,
-						},
-					});
-				}
-				await tx.schoolProfile.deleteMany({
-					where: {
-						accountId: school.accountId,
-					},
-				});
-				await tx.saasAccount.deleteMany({
-					where: {
-						id: school.accountId,
-					},
-				});
-			});
-
-			throw error;
-		}
-
-		if (!createdUserId) {
-			throw new Error("Could not create the admin account.");
-		}
-
-		const dashboardUrl = buildDashboardTenantUrl(school.subDomain);
-		const siteUrl = buildSchoolSiteUrl(school.subDomain);
-		const onboardingPath = "/onboarding/welcome";
-		const onboardingUrl = buildDashboardTenantUrl(
-			school.subDomain,
-			onboardingPath,
-		);
-		const loginUrl = buildDashboardTenantUrl(school.subDomain, "/login");
-		const onboardingLoginUrl = new URL(loginUrl);
-		onboardingLoginUrl.searchParams.set("email", email);
-		onboardingLoginUrl.searchParams.set("return_to", onboardingPath);
-
-		if (
-			process.env.NODE_ENV === "production" &&
-			!new URL(siteUrl).host.endsWith("vercel.app")
-		) {
-			try {
-				await provisionSchoolVercelDomains({
-					dashboardDomain: new URL(dashboardUrl).host,
-					siteDomain: new URL(siteUrl).host,
-				});
-			} catch (error) {
-				console.error("[signup] Failed to provision Vercel domains", error);
-			}
-		}
-
-		try {
-			const verificationUrl = await createEmailVerificationUrl({
-				dashboardUrl,
-				userId: createdUserId,
-			});
-			await sendSignupVerificationEmail({
-				to: email,
-				schoolName: school.schoolName,
-				verificationUrl,
-			});
-		} catch (error) {
-			console.error("[signup] Failed to send signup verification email", error);
-		}
-
-		try {
-			await sendSignupSuccessEmail({
-				to: email,
-				schoolName: school.schoolName,
-				onboardingUrl,
-				siteUrl,
-				workspaceUrl: dashboardUrl,
-			});
-		} catch (error) {
-			console.error("[signup] Failed to send signup success email", error);
-		}
-
-		try {
-			await createSignupSuccessNotification({
-				schoolName: school.schoolName,
-				schoolProfileId: school.schoolId,
-				userId: createdUserId,
-			});
-		} catch (error) {
-			console.error("[signup] Failed to create signup notification", error);
-		}
-
-		return {
-			email,
-			institutionType: institutionType.label,
-			loginUrl,
-			onboardingUrl,
-			onboardingLoginUrl: onboardingLoginUrl.toString(),
-			schoolName: school.schoolName,
-			subDomain: school.subDomain,
-			siteUrl,
-			workspaceUrl: dashboardUrl,
-			devOnboardingUrl:
-				process.env.NODE_ENV !== "production" ? onboardingUrl : null,
-		};
-	});
+    return {
+      email, institutionType: institutionType.label, loginUrl, onboardingUrl,
+      onboardingLoginUrl: onboardingLoginUrl.toString(), schoolName: school.schoolName,
+      subDomain: school.subDomain, siteUrl, workspaceUrl: dashboardUrl, setupStatus,
+      devOnboardingUrl: process.env.NODE_ENV !== "production" ? onboardingUrl : null,
+    };
+  });

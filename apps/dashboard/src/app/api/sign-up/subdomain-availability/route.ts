@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { prisma } from "@school-clerk/db";
+import { getSignupDomainCollision, hasSignupDomainTable, prisma } from "@school-clerk/db";
 
 import {
   getInstitutionType,
   isInstitutionTypeEnabled,
 } from "@/features/signup/institution-types";
 import { getSignupPreviewSuffix } from "@/features/signup/tenant-urls";
-import { isTenantDomainTableMissing } from "@/utils/tenant-domain-context";
 
 const RESERVED_SUBDOMAINS = new Set([
   "admin",
@@ -28,7 +27,7 @@ const RESERVED_SUBDOMAINS = new Set([
 ]);
 
 function isValidSubdomain(value: string) {
-  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value);
+  return value.length >= 2 && /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value);
 }
 
 export async function GET(request: Request) {
@@ -63,37 +62,17 @@ export async function GET(request: Request) {
     });
   }
 
-  if (institutionType && !isInstitutionTypeEnabled(institutionType.id)) {
+  if (!institutionType || !isInstitutionTypeEnabled(institutionType.id)) {
     return NextResponse.json({
       available: false,
       hostSuffix: getSignupPreviewSuffix(),
-      reason: `${institutionType.label} is not enabled for self-serve signup yet.`,
+      reason: institutionType ? `${institutionType.label} is not enabled for self-serve signup yet.` : "Choose a released institution type.",
     });
   }
 
-  let existing: { id: string } | null = null;
-
-  try {
-    existing = await prisma.tenantDomain.findFirst({
-      where: {
-        deletedAt: null,
-        OR: [{ subdomain: value }, { customDomain: value }],
-      },
-      select: { id: true },
-    });
-  } catch (error) {
-    if (!isTenantDomainTableMissing(error)) {
-      throw error;
-    }
-
-    existing = await prisma.schoolProfile.findFirst({
-      where: {
-        deletedAt: null,
-        subDomain: value,
-      },
-      select: { id: true },
-    });
-  }
+  const existing = await getSignupDomainCollision(prisma, {
+    domainName: value, domainTableAvailable: await hasSignupDomainTable(prisma),
+  });
 
   return NextResponse.json({
     available: !existing,

@@ -23,6 +23,7 @@ const config = {
   reactStrictMode: true,
   /** Enables hot reloading for local packages without a build step */
   transpilePackages: [
+    "@school-clerk/events",
     "@school-clerk/ui",
     "@school-clerk/api",
     "@school-clerk/tenant-url",

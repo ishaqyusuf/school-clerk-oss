@@ -39,9 +39,7 @@ export const createAcadSessionSchema = z.object({
 export const deleteSchema = z.object({
 	id: z.string(),
 });
-export const deleteStudentSchema = z.object({
-	studentId: z.string(),
-});
+export { deleteStudentSchema } from "@school-clerk/utils/student-delete-schema";
 export const studentFeePaymentSchema = z.object({
 	studentFeeId: z.string(),
 	amount: z.number(),
@@ -157,7 +155,9 @@ export const createStaffSchema = z
 	});
 
 export const completeStaffOnboardingSchema = z.object({
-	staffId: z.string(),
+	token: z.string().min(1).max(256),
+	newPassword: z.string().min(8).max(128),
+	staffId: z.string().min(1).max(200),
 	email: z.string().email(),
 	name: z.string().min(1),
 	title: z.string().optional(),
@@ -247,40 +247,43 @@ export const createClassroomSchema = z.object({
 });
 export const createSignupSchema = (_t?: unknown) =>
 	z.object({
-		institutionName: z.string().min(2, {
+		institutionName: z.string().trim().min(2, {
 			message: "Institution name must be at least 2 characters.",
-		}),
+		}).max(200),
 		institutionType: z.string({
 			required_error: "Please select an institution type.",
 		}),
-		adminName: z.string().min(2, {
+		adminName: z.string().trim().min(2, {
 			message: "Name must be at least 2 characters.",
-		}),
-		email: z.string().email({
+		}).max(200),
+		email: z.string().trim().email({
 			message: "Please enter a valid email address.",
-		}),
+		}).max(320),
 		password: z.string().min(8, {
 			message: "Password must be at least 8 characters.",
-		}),
+		}).max(128),
 		studentCount: z
 			.string()
+			.trim().max(30)
 			// .min(1, {
 			//   message: "Please enter approximate number of students.",
 			// })
 			.optional(),
 		country: z
 			.string()
+			.trim().max(200)
 			// .min(1, {
 			//   message: "Please select your country/region.",
 			// })
 			.optional(),
-		phone: z.string().optional(),
-		educationSystem: z.string().optional(),
-		curriculumType: z.string().optional(),
-		languageOfInstruction: z.string().optional(),
+		phone: z.string().trim().max(40).optional(),
+		educationSystem: z.string().trim().max(200).optional(),
+		curriculumType: z.string().trim().max(200).optional(),
+		languageOfInstruction: z.string().trim().max(200).optional(),
 		// Add to the schema (inside createSignupSchema function)
 		domainName: z
 			.string()
+			.trim()
 			.min(2, {
 				message: "Subdomain must be at least 2 characters.",
 			})

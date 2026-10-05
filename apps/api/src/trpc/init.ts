@@ -8,17 +8,19 @@ import { TRPCError, initTRPC } from "@trpc/server";
 import type { Context } from "hono";
 import superjson from "superjson";
 import { withPrimaryReadAfterWrite } from "./middleware/primary-read-after-write";
+import { requireSchoolModules } from "@api/lib/module-access";
+import type { ModuleId } from "@school-clerk/utils/module-config";
 
 export type TRPCContext = {
   //   session: Session | null;
   //   supabase: SupabaseClient;
   db: Database;
   profile: {
-    sessionId?;
-    schoolId?;
-    termId?;
-    authSessionId?;
-    domain?;
+    sessionId?: string;
+    schoolId?: string;
+    termId?: string;
+    authSessionId?: string;
+    domain?: string;
     studentNameFormat?: StudentNameFormat;
   };
   currentUser?: {
@@ -121,6 +123,8 @@ export async function findAuthSessionByBearer(
 export function getAuthSessionWhere(authSessionId: string) {
   return {
     deletedAt: null,
+    expiresAt: { gt: new Date() },
+    user: { deletedAt: null },
     OR: [{ id: authSessionId }, { token: authSessionId }],
   };
 }
@@ -168,6 +172,20 @@ export const publicProcedure = t.procedure.use(withPrimaryDbMiddleware);
 export const authenticatedProcedure = publicProcedure.use(
   requireAuthMiddleware,
 );
+
+export function moduleProcedure(
+  requiredModules: readonly ModuleId[],
+  options: { roles?: readonly string[] } = {},
+) {
+  return authenticatedProcedure.use(async (opts) => {
+    if (options.roles && !options.roles.some((role) => role.toUpperCase() === opts.ctx.currentUser?.role?.toUpperCase())) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Your role cannot access this module operation." });
+    }
+    await requireSchoolModules(opts.ctx, requiredModules);
+    return opts.next();
+  });
+}
+
 export const platformAdminProcedure = authenticatedProcedure.use(
   t.middleware(async (opts) => {
     const currentUser = opts.ctx.currentUser;

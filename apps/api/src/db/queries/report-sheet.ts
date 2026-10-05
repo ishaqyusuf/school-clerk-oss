@@ -1,5 +1,6 @@
 import type { TRPCContext } from "@api/trpc/init";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import {
   assertTeacherCanAccessClassroomDepartment,
   getTeacherAcademicAccess,
@@ -17,6 +18,13 @@ export async function getClassroomReportSheet(
   ctx: TRPCContext,
   query: GetClassroomReportSheetSchema
 ) {
+  const schoolId = ctx.profile.schoolId;
+  if (!schoolId) throw new TRPCError({ code: "UNAUTHORIZED", message: "School context is required." });
+  const term = await ctx.db.sessionTerm.findFirst({
+    where: { id: query.sessionTermId, schoolId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!term) throw new TRPCError({ code: "NOT_FOUND", message: "Report term not found." });
   await assertTeacherCanAccessClassroomDepartment(
     ctx,
     query.departmentId,
@@ -28,9 +36,11 @@ export async function getClassroomReportSheet(
   );
 
   const { db } = ctx;
-  const department = await db.classRoomDepartment.findUniqueOrThrow({
+  const department = await db.classRoomDepartment.findFirst({
     where: {
       id: query.departmentId,
+      schoolProfileId: schoolId,
+      deletedAt: null,
     },
     select: {
       departmentName: true,
@@ -116,12 +126,16 @@ export async function getClassroomReportSheet(
         where: {
           sessionTermId: query.sessionTermId,
           deletedAt: null,
+          registrationReviewStatus: { not: "REJECTED" },
           student: {
             deletedAt: null,
+            schoolProfileId: schoolId,
           },
+          schoolProfileId: schoolId,
         },
         select: {
           id: true,
+          registrationReviewStatus: true,
           classroomDepartmentId: true,
           student: {
             select: {
@@ -136,6 +150,8 @@ export async function getClassroomReportSheet(
       },
     },
   });
+
+  if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "Report classroom not found." });
 
   // const duplicateTermSheets =
   department.studentTermForms.map((stf) => {

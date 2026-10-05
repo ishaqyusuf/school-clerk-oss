@@ -4,37 +4,12 @@ import { createAuthClient } from "better-auth/react";
 
 const authPath = "/api/auth";
 
-function getOriginFromHost(host: string, protocol: "http" | "https") {
-  const trimmedHost = host.trim().replace(/\/+$/, "");
-
-  if (!trimmedHost) return null;
-
-  try {
-    const url = new URL(
-      /^https?:\/\//i.test(trimmedHost)
-        ? trimmedHost
-        : `${protocol}://${trimmedHost}`,
-    );
-
-    return url.origin;
-  } catch {
-    return null;
-  }
-}
-
 function getAuthBaseUrl() {
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}${authPath}`;
-  }
-
-  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-  const host =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.VERCEL_URL ||
-    "school-clerk-dashboard.localhost";
-  const origin = getOriginFromHost(host, protocol);
-
-  return `${origin ?? `http://school-clerk-dashboard.localhost`}${authPath}`;
+  // Browser calls stay on the actual tenant origin. Server reads use auth/server;
+  // this client does not invent a localhost, preview or demo origin during SSR.
+  return typeof window === "undefined"
+    ? undefined
+    : new URL(authPath, window.location.origin).toString();
 }
 
 export const authClient = createAuthClient({

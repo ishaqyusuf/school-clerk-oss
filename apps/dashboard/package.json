@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- PORTLESS_WILDCARD=1 PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-${DASHBOARD_PORT:-2200}} portless school-clerk-dashboard next dev --turbopack",
     "dev:prod": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode prod -- next dev --turbopack -p ${SCHOOL_CLERK_DASHBOARD_PROD_PORT:-2205}",
-    "build": "bun next build --turbopack",
+    "build": "bun --cwd ../../packages/db run db:generate && bun next build --turbopack",
     "clean": "git clean -xdf .next .turbo node_modules",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -95,15 +95,18 @@
     "use-debounce": "^10.0.3",
     "vaul": "0.9.0",
     "zod": "3.25.64",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.8",
+    "@school-clerk/events": "workspace:*"
   },
   "devDependencies": {
     "@school-clerk/tsconfig": "workspace:*",
+    "@tailwindcss/postcss": "^4.1.17",
     "@types/dot-object": "^2.1.6",
     "@types/node": "^24.7.2",
     "@types/papaparse": "^5.5.2",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.1",
+    "tailwindcss": "^4.1.17",
     "typescript": "^5.9.2",
     "vercel": "^48.2.9"
   }

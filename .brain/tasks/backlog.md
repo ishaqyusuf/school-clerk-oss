@@ -45,23 +45,11 @@ Prioritized list of tasks not yet started.
 - Dependencies: DOC-004
 - Owner: TBD
 
-## Task Item
-- ID: CORE-001
-- Title: Design and implement institution type configuration
-- Type: feature
-- Priority: P0
-- Scope: Add canonical `institutionType` enum, tenant config storage, read/write API, and validation rules.
-- Dependencies: ADR-0002
-- Owner: TBD
+### [CORE-001 Institution Configuration](2026-09-07-core-001-institution-configuration.md)
+- Status: In Progress (moved to the active task ledger; verification deferred)
 
-## Task Item
-- ID: CORE-002
-- Title: Implement module enable/disable engine per tenant
-- Type: feature
-- Priority: P0
-- Scope: Add module flags, UI gating, API/service authorization checks, and onboarding defaults by institution type.
-- Dependencies: CORE-001
-- Owner: TBD
+### [CORE-002 Tenant Module Controls](2026-09-07-core-002-tenant-module-controls.md)
+- Status: In Progress
 
 ## Task Item
 - ID: CORE-003

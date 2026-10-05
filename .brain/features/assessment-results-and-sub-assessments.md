@@ -41,6 +41,8 @@ Make classroom assessment recording, classroom result review, student result pri
 
 ## APIs
 
+- 2026-09-07 boundary hardening (untested): result PDF requires live school/account ownership, Reports module and Admin/Registrar/Teacher role; requests contain 1–200 unique term forms and reject any missing/out-of-school batch. It calls the protected report API instead of a private actor-less query. The report service validates school-owned term/classroom/roster data and retains teacher assignment checks. Browser/mobile/PDF and authorization verification remain deferred.
+
 - `assessments.getClassroomReportSheet` should return subjects for the selected classroom and selected term.
 - Result/report queries should preserve assessment order by `index`.
 - Report data should expose enough structure to distinguish standalone assessments, grouped parents, and children.
@@ -162,3 +164,18 @@ Make classroom assessment recording, classroom result review, student result pri
 
 - Should total subject printable weight be required to equal 100%, or only warned when it does not?
 - Should zero-weight assessments remain visible in classroom result review, or only in recording screens?
+
+## Teacher registration review integration — 2026-09-27
+
+Assessment recording can add a pending student directly from the selected
+classroom/term. Pending students can receive scores and show a review badge.
+Matching on approval preserves score values/history on the same term form.
+Rejected students are excluded from score entry, workbooks, public recording,
+and report printing. Focused assessment route and print/workbook tests passed.
+Signed-in Daarul Hadith browser QA confirmed direct add from score entry,
+pending score save, score preservation after approval, rejected roster
+exclusion, and report sheet load with Print and Export controls. The two
+synthetic students and one score were removed afterward. The classroom picker
+empty-state copy was corrected to prompt selection when classrooms exist.
+Teacher score saving and the browser print dialog were not exercised in this
+round; browser automation targeted adjacent cells in the RTL teacher table.

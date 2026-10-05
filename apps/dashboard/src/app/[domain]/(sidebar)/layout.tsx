@@ -2,11 +2,12 @@ import { getAuthCookie } from "@/actions/cookies/auth-cookie";
 import { getSession } from "@/auth/server";
 import { GlobalModals } from "@/components/modals/global-modals";
 import { NavLayoutClient } from "@/components/nav-layout-client";
+import { NotificationScopeProvider } from "@/components/notifications/notification-scope-provider";
 import { GlobalSheets } from "@/components/sheets/global-sheets";
 import { StudentNameFormatProvider } from "@/components/student-name-format/provider";
 import { resolveDashboardAcademicDataDirection } from "@/lib/academic-data-direction/server";
 import { getDashboardStudentNameFormat } from "@/lib/student-name-format/server";
-import { HydrateClient } from "@/trpc/server";
+import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { Button } from "@school-clerk/ui/button";
 import {
@@ -63,12 +64,15 @@ export default async function LayoutNew({ children }) {
   const [academicDataDirection, studentNameFormat] = await Promise.all([
     resolveDashboardAcademicDataDirection(cookie.schoolId),
     getDashboardStudentNameFormat(cookie.schoolId),
+    batchPrefetch([trpc.schoolSettings.getModules.queryOptions({ schoolId: cookie.schoolId })]),
   ]);
 
   return (
     <HydrateClient>
       <StudentNameFormatProvider format={studentNameFormat}>
+        <NotificationScopeProvider schoolId={cookie.schoolId} userId={session?.user?.id ?? null}>
         <NavLayoutClient
+          schoolId={cookie.schoolId}
           academicDataDirection={academicDataDirection.direction}
           initialRole={
             (session?.user as { role?: string | null } | undefined)?.role ??
@@ -82,6 +86,7 @@ export default async function LayoutNew({ children }) {
           <GlobalSheets />
           <GlobalModals />
         </Suspense>
+        </NotificationScopeProvider>
       </StudentNameFormatProvider>
     </HydrateClient>
   );

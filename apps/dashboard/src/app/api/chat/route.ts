@@ -1,8 +1,10 @@
 import { getTeacherWorkspaceAction } from "@/actions/get-teacher-workspace";
 import {
 	assistantMessagesToUiMessages,
+	assertAssistantToolAccess,
 	buildConfirmationToken,
 	completeAssistantRun,
+	consumeConfirmation,
 	createAssistantRun,
 	createAssistantToolExecution,
 	ensureAssistantConfig,
@@ -23,12 +25,15 @@ import {
 	buildSchoolAiSystemPrompt,
 	createSchoolAiTools,
 	getAiModelSelection,
+	getSchoolAiAvailableToolNames,
+	type AiMessagePart,
 } from "@school-clerk/ai";
-import { convertToModelMessages, streamText } from "ai";
-import { NextResponse } from "next/server";
+import { consumeStream, convertToModelMessages, streamText } from "ai";
+import { after, NextResponse } from "next/server";
 
 export async function POST(req: Request) {
 	const context = await getAssistantSessionContext();
+	if (context instanceof Response) return context;
 	if (!context?.schoolId || !context.userId) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
@@ -40,7 +45,9 @@ export async function POST(req: Request) {
 	const allowedCapabilities = getAllowedCapabilities({
 		role: context.role,
 		config,
+		moduleAccess: context.moduleAccess,
 	});
+	const availableTools = getSchoolAiAvailableToolNames(context.moduleAccess, allowedCapabilities);
 
 	if (!config.enabled) {
 		return NextResponse.json(
@@ -72,6 +79,8 @@ export async function POST(req: Request) {
 		conversationId: body.conversationId,
 		schoolId: context.schoolId,
 		userId: context.userId,
+		availableTools,
+		mode: "extend",
 	});
 
 	if (!conversation) {
@@ -88,6 +97,7 @@ export async function POST(req: Request) {
 		conversationId: conversation.id,
 		schoolId: context.schoolId,
 		userId: context.userId,
+		availableTools,
 		role: "user",
 		content: userMessage.content,
 		parts: [{ type: "text", text: userMessage.content, state: "done" }],
@@ -137,11 +147,24 @@ export async function POST(req: Request) {
 		userName: context.userName,
 		config,
 		runId: run.id,
+		moduleAccess: context.moduleAccess,
 		studentNameFormat,
 	};
 
+	let confirmationUsed = false;
 	const tools = createSchoolAiTools(routeContext, {
+		assertToolAccess: (input) => assertAssistantToolAccess(routeContext, input),
+		isUserConfirmed: (input) => {
+			const approved = !confirmationUsed && parsedInput.kind === "workflow" &&
+			parsedInput.action.type === "confirm-tool" &&
+			parsedInput.action.toolName === input.toolName &&
+			parsedInput.action.confirmationToken === input.confirmationToken &&
+			JSON.stringify(parsedInput.action.actionInput) === JSON.stringify(input.actionInput);
+			if (approved) confirmationUsed = true;
+			return approved;
+		},
 		buildConfirmationToken,
+		consumeConfirmation,
 		createAssistantToolExecution,
 		finishAssistantToolExecution,
 		getTeacherWorkspaceSummary: getTeacherWorkspaceAction,
@@ -167,7 +190,18 @@ export async function POST(req: Request) {
 		}),
 		messages: modelMessages,
 		tools,
-		onFinish: async ({ usage, finishReason, response, text }) => {
+		onFinish: async ({ usage, finishReason, response, text, steps }) => {
+			const parts: AiMessagePart[] = steps.flatMap((step) => [
+				...(step.text ? [{ type: "text" as const, text: step.text, state: "done" as const }] : []),
+				...step.toolResults.map((result) => ({
+					type: "tool-invocation" as const, toolName: result.toolName, toolCallId: result.toolCallId,
+					state: "output-available" as const, input: result.input, output: result.output,
+				})),
+			]);
+			if (parts.length) await saveAssistantMessage({
+				conversationId: conversation.id, schoolId: context.schoolId, userId: context.userId,
+				availableTools, role: "assistant", content: steps.map((step) => step.text).filter(Boolean).join("\n"), parts,
+			});
 			await completeAssistantRun({
 				runId: run.id,
 				status: finishReason === "error" ? "failed" : "completed",
@@ -194,7 +228,9 @@ export async function POST(req: Request) {
 		},
 	});
 
-	const response = result.toUIMessageStreamResponse();
+	const response = result.toUIMessageStreamResponse({
+		consumeSseStream: ({ stream }) => { after(consumeStream({ stream })); },
+	});
 	response.headers.set("x-school-clerk-conversation-id", conversation.id);
 	response.headers.set("x-school-clerk-run-id", run.id);
 	response.headers.set("x-school-clerk-provider", provider);

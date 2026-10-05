@@ -24,6 +24,8 @@ import { useStudentFormContext } from "../students/form-context";
 
 import { QuickFill } from "@/components/quick-fill";
 import { useAuth } from "@/hooks/use-auth";
+import { useStudentFeePreview } from "@/hooks/use-student-fee-preview";
+import { useStudentRegistrationPolicy } from "@/hooks/use-student-registration-policy";
 import { FindAndEnroll } from "../find-and-enroll";
 
 const currencyFormatter = new Intl.NumberFormat("en-NG", {
@@ -32,7 +34,7 @@ const currencyFormatter = new Intl.NumberFormat("en-NG", {
 	maximumFractionDigits: 2,
 });
 
-export function Form() {
+export function Form({ onEnrolled }: { onEnrolled?: () => void } = {}) {
 	const { control, getValues, watch, setValue } = useStudentFormContext();
 	const trpc = useTRPC();
 
@@ -98,6 +100,7 @@ export function Form() {
 		selectedMainClass.departments.length <= 5;
 
 	const auth = useAuth();
+	const registrationPolicy = useStudentRegistrationPolicy();
 	const name = watch("name");
 	const classRoomId = watch("classRoomId");
 	const admissionType = watch("admissionType");
@@ -115,24 +118,15 @@ export function Form() {
 		}
 	}, [classRoomId, classList?.data, selectedMainClassId]);
 
-	const { data: applicableFeesPreview } = useQuery(
-		trpc.academics.previewApplicableFeeHistories.queryOptions(
-			{
-				sessionTermId: auth?.profile?.termId || "",
-				classroomDepartmentId: classRoomId || null,
-				admissionType,
-        studentGender,
-			},
-			{
-        enabled: Boolean(auth?.profile?.termId && classRoomId && studentGender),
-			},
-		),
-	);
+	const { data: applicableFeesPreview, isLoading: isLoadingFeePreview, isError: isFeePreviewError, retry: retryFeePreview } = useStudentFeePreview({
+		sessionTermId: auth.profile?.termId || "", classroomDepartmentId: classRoomId || null,
+		admissionType, studentGender,
+	}, Boolean(studentGender) && registrationPolicy.billingEnabled);
 
 	useEffect(() => {
 		setValue("selectedOptionalFeeItemIds", []);
 		setValue("feePayments", []);
-  }, [admissionType, classRoomId, studentGender, setValue]);
+  }, [admissionType, classRoomId, studentGender, registrationPolicy.billingEnabled, setValue]);
 
 	useEffect(() => {
 		if (!applicableFeesPreview) return;
@@ -191,7 +185,7 @@ export function Form() {
 				</div>
 			)}
 			<FormInput name="name" label="First Name" control={control} />
-			<FindAndEnroll query={name} />
+			<FindAndEnroll query={name} onSelect={onEnrolled} />
 			<div className="grid grid-cols-2 gap-4">
 				<FormInput name="surname" label="Surname" control={control} />
 				<FormInput name="otherName" label="Other Name" control={control} />
@@ -284,7 +278,7 @@ export function Form() {
 					titleKey="displayName"
 				/>
 			)}
-			<div className="rounded-lg border border-border">
+			{registrationPolicy.billingEnabled ? <div className="rounded-lg border border-border">
 				<div className="border-b px-4 py-3">
 					<h4 className="text-sm font-semibold">Fees & payments</h4>
 					<p className="mt-1 text-xs text-muted-foreground">
@@ -298,7 +292,11 @@ export function Form() {
 						<p className="px-1 py-3 text-sm text-muted-foreground">
 							Select a classroom to see its preset fees.
 						</p>
-					) : !applicableFeesPreview?.length ? (
+					) : isLoadingFeePreview ? <p role="status" className="px-1 py-3 text-sm text-muted-foreground">Loading fee preview…</p>
+						: isFeePreviewError || !applicableFeesPreview ? <div role="alert" className="space-y-2 px-1 py-3 text-sm">
+							<p className="break-words text-muted-foreground">Fee preview is unavailable. Confirm the selected term and workspace, then retry. This is not a zero-fee estimate.</p>
+							<Button type="button" variant="outline" className="min-h-11 w-full sm:w-auto" onClick={retryFeePreview}>Retry fee preview</Button>
+						</div> : !applicableFeesPreview.length ? (
 						<p className="px-1 py-3 text-sm text-muted-foreground">
 							No active term fees match this classroom and admission status.
 						</p>
@@ -423,8 +421,8 @@ export function Form() {
 					)}
 				</div>
 
-				{totalPayingNow > 0 && canReceivePayments && (
-					<div className="grid grid-cols-2 gap-4 border-t p-4">
+				{applicableFeesPreview && totalPayingNow > 0 && canReceivePayments && (
+					<div className="grid grid-cols-1 gap-4 border-t p-4 sm:grid-cols-2">
 						<FormSelect
 							control={control}
 							name="paymentDetails.method"
@@ -442,7 +440,7 @@ export function Form() {
 							label="Payment Date"
 							name="paymentDetails.paymentDate"
 						/>
-						<div className="col-span-2">
+						<div className="sm:col-span-2">
 							<FormInput
 								name="paymentDetails.reference"
 								label="Payment Reference (Optional)"
@@ -483,6 +481,9 @@ export function Form() {
 				)}
 			</div>
 
+			: <p className="text-sm text-muted-foreground">{registrationPolicy.ready
+        ? "Finance is not enabled for this school. Registration will not assign fees or record payments."
+        : registrationPolicy.isError ? "School registration settings could not be loaded. Refresh before saving." : "Checking school registration settings…"}</p>}
 			<div className="">
 				<CollapseForm label="Parent">
 					<FormInput name="guardian.name" label="Name" control={control} />

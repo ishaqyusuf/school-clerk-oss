@@ -115,7 +115,7 @@ export function StudentOverviewSheetHeader({
                   <Menu
                     noSize
                     Trigger={
-                      <button className="inline-flex min-w-0 max-w-full items-center gap-1 transition-colors hover:text-primary">
+                      <button className="inline-flex min-h-11 min-w-0 max-w-full items-center gap-1 transition-colors hover:text-primary">
                         <GraduationCap className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate">
                           {current.term} {current.departmentName}
@@ -136,7 +136,7 @@ export function StudentOverviewSheetHeader({
                           ) : undefined
                         }
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex min-h-11 min-w-0 flex-wrap items-center gap-2">
                           <div
                             className={cn(
                               "size-2 rounded-full",
@@ -145,7 +145,8 @@ export function StudentOverviewSheetHeader({
                                 : "bg-muted-foreground/40",
                             )}
                           />
-                          <span className="whitespace-nowrap">{term.term}</span>
+                          <span className="min-w-0 break-words">{term.term}</span>
+                          {term.enrollmentState === "unavailable" ? <span className="text-xs text-muted-foreground">Needs review</span> : null}
                         </div>
                       </Menu.Item>
                     ))}

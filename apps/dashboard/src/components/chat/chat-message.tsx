@@ -18,8 +18,8 @@ type Props = {
 
 function ResultCard({ value }: { value: unknown }) {
   return (
-    <div className="w-full rounded-xl border bg-card p-3 text-xs text-muted-foreground">
-      <pre className="overflow-x-auto whitespace-pre-wrap">
+    <div className="min-w-0 w-full rounded-xl border bg-card p-3 text-xs text-muted-foreground">
+      <pre className="overflow-x-auto whitespace-pre-wrap break-words">
         {JSON.stringify(value, null, 2)}
       </pre>
     </div>
@@ -32,23 +32,27 @@ function ConfirmationCard({
   confirmationToken,
   actionInput,
   onConfirm,
+  isLoading,
 }: {
   toolName: string;
   summary: string;
   confirmationToken: string;
   actionInput: Record<string, unknown>;
   onConfirm: (action: WorkflowAction) => void;
+  isLoading?: boolean;
 }) {
   return (
-    <div className="w-full rounded-xl border bg-card p-4">
-      <p className="text-sm font-medium">{summary}</p>
+    <div className="min-w-0 w-full rounded-xl border bg-card p-4">
+      <p className="break-words text-sm font-medium">{summary}</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        Review the action before confirming. The AI will execute it immediately
-        after confirmation.
+        Review the action before confirming. Approval expires after 10 minutes;
+        an expired or changed action requires a fresh review.
       </p>
       <Button
-        className="mt-3"
+        type="button"
+        className="mt-3 min-h-11 w-full sm:w-auto"
         size="sm"
+        disabled={isLoading}
         onClick={() =>
           onConfirm({
             type: "confirm-tool",
@@ -74,10 +78,10 @@ export function ChatMessage({
   const isUser = message.role === "user";
 
   return (
-    <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex min-w-0 w-full ${isUser ? "justify-end" : "justify-start"}`}>
       <div
         className={[
-          "flex max-w-[88%] flex-col gap-2",
+          "flex min-w-0 max-w-[88%] flex-col gap-2",
           isUser ? "items-end" : "items-start",
         ].join(" ")}
       >
@@ -87,7 +91,7 @@ export function ChatMessage({
               <div
                 key={i}
                 className={[
-                  "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+                  "min-w-0 break-words rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
                   isUser
                     ? "rounded-br-sm bg-primary text-primary-foreground"
                     : "rounded-bl-sm bg-muted text-foreground",
@@ -119,6 +123,7 @@ export function ChatMessage({
                   confirmationToken={result.confirmationToken}
                   actionInput={result.actionInput}
                   onConfirm={onWorkflowAction}
+                  isLoading={isLoading}
                 />
               );
             }

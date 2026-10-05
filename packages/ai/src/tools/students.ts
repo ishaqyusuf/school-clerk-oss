@@ -13,6 +13,8 @@ export function createStudentTools(
 	helpers: SchoolAiToolHelpers,
 ) {
 	const {
+		completeMutation,
+		consumeMutationConfirmation,
 		finishAssistantToolExecution,
 		getTeacherWorkspaceSummary,
 		guardCapability,
@@ -24,7 +26,7 @@ export function createStudentTools(
 	return {
 		searchStudents: tool({
 			description:
-				"Search for students by name. Returns matching students and current-term enrollment/payment context.",
+				"Search for students by name. Returns matching students and current-term enrollment context. Balances require the separate finance tool.",
 			inputSchema: z.object({
 				query: z.string().describe("Student name or partial name"),
 			}),
@@ -84,7 +86,7 @@ export function createStudentTools(
 							fullName: studentDisplayName(s, ctx.studentNameFormat),
 							classroom,
 							termFormId: termForm?.id ?? null,
-							totalPending: 0,
+							totalPending: null,
 							isEnrolledThisTerm: !!termForm,
 						};
 					});
@@ -205,14 +207,14 @@ export function createStudentTools(
 
 				try {
 					if (
-						!isConfirmedMutation({
+						!(await isConfirmedMutation({
 							ctx,
 							toolName: "enrollStudent",
 							confirmationToken,
 							actionInput,
-						})
+						}))
 					) {
-						const output = requiresConfirmationResult({
+						const output = await requiresConfirmationResult({
 							ctx,
 							toolName: "enrollStudent",
 							summary: `Enroll ${actionInput.studentName} into ${actionInput.classroomName}?`,
@@ -235,99 +237,69 @@ export function createStudentTools(
 						return output;
 					}
 
-					const existing = await prisma.studentTermForm.findFirst({
-						where: {
-							studentId: actionInput.studentId,
-							sessionTermId: ctx.termId,
-							deletedAt: null,
-						},
-						select: { id: true },
-					});
-
-					if (existing) {
-						await prisma.studentTermForm.update({
-							where: { id: existing.id },
-							data: {
-								classroomDepartmentId: actionInput.classroomDepartmentId,
-							},
-						});
-
-						const output = {
-							success: true,
-							action: "updated",
-							studentName: actionInput.studentName,
-							classroomName: actionInput.classroomName,
-						};
-						await recordAssistantActivity({
-							schoolId: ctx.schoolId,
-							userId: ctx.userId,
-							userName: ctx.userName,
-							type: "assistant_action_completed",
-							title: "AI updated student enrollment",
-							description: `${actionInput.studentName} moved to ${actionInput.classroomName}.`,
-							meta: { toolName: "enrollStudent", actionInput, output },
-						});
-						await finishAssistantToolExecution({
-							toolExecutionId: guarded.executionId,
-							status: "completed",
-							output,
-						});
-						return output;
-					}
-
-					let sessionForm = await prisma.studentSessionForm.findFirst({
-						where: {
-							studentId: actionInput.studentId,
-							schoolSessionId: ctx.sessionId ?? undefined,
-							deletedAt: null,
-						},
-						select: { id: true },
-					});
-
-					if (!sessionForm) {
-						sessionForm = await prisma.studentSessionForm.create({
-							data: {
-								schoolProfileId: ctx.schoolId,
-								schoolSessionId: ctx.sessionId ?? undefined,
-								studentId: actionInput.studentId,
-								classroomDepartmentId: actionInput.classroomDepartmentId,
+					const { termId, sessionId } = ctx;
+					if (!termId || !sessionId) throw new Error("Select a school session and term before enrolling a student.");
+					const output = await prisma.$transaction(async (tx) => {
+						await consumeMutationConfirmation(tx, { toolName: "enrollStudent", confirmationToken, actionInput });
+						const [student, classroom, term] = await Promise.all([
+							tx.students.findFirst({
+								where: { id: actionInput.studentId, schoolProfileId: ctx.schoolId, deletedAt: null },
+								select: { id: true },
+							}),
+							tx.classRoomDepartment.findFirst({
+								where: { id: actionInput.classroomDepartmentId, schoolProfileId: ctx.schoolId, deletedAt: null,
+									classRoom: { schoolProfileId: ctx.schoolId, schoolSessionId: sessionId, deletedAt: null } },
+								select: { id: true },
+							}),
+							tx.sessionTerm.findFirst({
+								where: { id: termId, sessionId, schoolId: ctx.schoolId, deletedAt: null },
+								select: { id: true },
+							}),
+						]);
+						if (!student || !classroom || !term) throw new Error("The student, classroom or term is unavailable in this workspace.");
+						const existing = await tx.studentTermForm.findFirst({
+							where: {
+								studentId: student.id, schoolProfileId: ctx.schoolId,
+								schoolSessionId: sessionId, sessionTermId: termId, deletedAt: null,
 							},
 							select: { id: true },
 						});
-					}
-
-					await prisma.studentTermForm.create({
-						data: {
-							classroomDepartmentId: actionInput.classroomDepartmentId,
-							schoolSessionId: ctx.sessionId ?? undefined,
-							studentId: actionInput.studentId,
-							sessionTermId: ctx.termId ?? undefined,
-							schoolProfileId: ctx.schoolId,
-							studentSessionFormId: sessionForm.id,
-              admissionType: "RETURNING",
-						},
-					});
-
-					const output = {
-						success: true,
-						action: "enrolled",
-						studentName: actionInput.studentName,
-						classroomName: actionInput.classroomName,
-					};
-					await recordAssistantActivity({
-						schoolId: ctx.schoolId,
-						userId: ctx.userId,
-						userName: ctx.userName,
-						type: "assistant_action_completed",
-						title: "AI enrolled student",
-						description: `${actionInput.studentName} enrolled into ${actionInput.classroomName}.`,
-						meta: { toolName: "enrollStudent", actionInput, output },
-					});
-					await finishAssistantToolExecution({
-						toolExecutionId: guarded.executionId,
-						status: "completed",
-						output,
-					});
+						if (existing) {
+							await tx.studentTermForm.update({
+								where: { id: existing.id, schoolProfileId: ctx.schoolId, deletedAt: null },
+								data: { classroomDepartmentId: classroom.id },
+							});
+						} else {
+							let sessionForm = await tx.studentSessionForm.findFirst({
+								where: { studentId: student.id, schoolProfileId: ctx.schoolId, schoolSessionId: sessionId, deletedAt: null },
+								select: { id: true },
+							});
+							if (!sessionForm) {
+								sessionForm = await tx.studentSessionForm.create({
+									data: {
+										schoolProfileId: ctx.schoolId, schoolSessionId: sessionId,
+										studentId: student.id, classroomDepartmentId: classroom.id,
+									},
+									select: { id: true },
+								});
+							}
+							await tx.studentTermForm.create({
+								data: {
+									classroomDepartmentId: classroom.id, schoolSessionId: sessionId,
+									studentId: student.id, sessionTermId: termId, schoolProfileId: ctx.schoolId,
+									studentSessionFormId: sessionForm.id, admissionType: "RETURNING",
+								},
+							});
+						}
+						return completeMutation(tx, {
+							executionId: guarded.executionId, toolName: "enrollStudent",
+							title: existing ? "AI updated student enrollment" : "AI enrolled student",
+							description: `${actionInput.studentName} enrolled into ${actionInput.classroomName}.`,
+							output: { success: true, action: existing ? "updated" : "enrolled",
+								studentId: student.id, studentName: actionInput.studentName,
+								classroomDepartmentId: classroom.id, classroomName: actionInput.classroomName },
+						});
+					}, { isolationLevel: "Serializable" });
 					return output;
 				} catch (error) {
 					await finishAssistantToolExecution({

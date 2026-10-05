@@ -4,6 +4,7 @@ import {
 	normalizeNavigationRole,
 } from "@school-clerk/navigation";
 import type { LocalSearchItem, SearchItem } from "./search-types";
+import type { ModuleId } from "@school-clerk/utils/module-config";
 
 const DEFAULT_PAGE_KEYS = new Set([
 	"dashboard-home",
@@ -288,12 +289,14 @@ export function getLocalSearchResults(params: {
 	limit?: number;
 	query: string;
 	role?: string | null;
+	tenantModules?: readonly ModuleId[];
 }) {
+	if (!["ADMIN", "TEACHER", "ACCOUNTANT", "REGISTRAR", "HR", "STAFF", "SUPPORT", "PARENT"].includes(params.role?.trim().toUpperCase() ?? "")) return [];
 	const normalizedQuery = params.query
 		.trim()
 		.toLowerCase()
 		.replace(/\s+/g, " ");
-	const resolvedNavigation = resolveDashboardNavigation(params.role);
+	const resolvedNavigation = resolveDashboardNavigation(params.role, { tenantModules: params.tenantModules ?? [] });
 	const navigation = mapNavItems(resolvedNavigation);
 	const allowedHrefs = new Set(navigation.map((item) => item.href));
 	const actions = quickActions.filter(

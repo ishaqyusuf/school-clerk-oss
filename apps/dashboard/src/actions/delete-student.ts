@@ -1,58 +1,30 @@
 "use server";
 
-import { transaction } from "@/utils/db";
-import { z } from "zod";
-
-import { prisma } from "@school-clerk/db";
-
-import { studentChanged } from "./cache/cache-control";
+import { revalidatePath } from "next/cache";
+import { prisma, softDeleteStudent, StudentDeletionError } from "@school-clerk/db";
+import { deleteStudentSchema, type DeleteStudentInput } from "@school-clerk/utils/student-delete-schema";
+import { requireDashboardModules } from "@/lib/module-access";
 import { actionClient } from "./safe-action";
-import { deleteStudentSchema } from "./schema";
-import { revalidateTag } from "next/cache";
 
-export type Data = z.infer<typeof deleteStudentSchema>;
-export async function deleteStudent(data: Data, tx: typeof prisma = prisma) {
-  const r = await tx.students.update({
-    where: {
-      id: data.studentId,
-    },
-    data: {
-      deletedAt: new Date(),
-      termForms: {
-        updateMany: {
-          where: {},
-          data: {
-            deletedAt: new Date(),
-          },
-        },
-      },
-      sessionForms: {
-        updateMany: {
-          where: {},
-          data: {
-            deletedAt: new Date(),
-          },
-        },
-      },
-    },
-    select: {
-      sessionForms: {
-        select: {
-          classroomDepartmentId: true,
-        },
-      },
-    },
-  });
-  r?.sessionForms?.map((s) => {
-    // // revalidateTag(`classroom_students_${s.classroomDepartmentId}`);
-  });
+export type Data = DeleteStudentInput;
+
+export async function deleteStudent(input: DeleteStudentInput) {
+  const data = deleteStudentSchema.parse(input);
+  const context = await requireDashboardModules(["STUDENT_MANAGEMENT"], ["Admin", "Registrar"]);
+  let result: Awaited<ReturnType<typeof softDeleteStudent>>;
+  try {
+    result = await softDeleteStudent(prisma, {
+      schoolId: context.profile.schoolId, userId: context.user.id, bearer: context.authSessionId,
+    }, data);
+  } catch (error) {
+    if (error instanceof StudentDeletionError) throw error;
+    throw new Error("Student deletion could not be completed. Refresh the directory to check the record before trying again.");
+  }
+  // Invalidate only after the shared transaction has committed.
+  revalidatePath("/students/list");
+  return result;
 }
+
 export const deleteStudentAction = actionClient
   .schema(deleteStudentSchema)
-  .action(async ({ parsedInput: data }) => {
-    return await transaction(async (tx) => {
-      const resp = await deleteStudent(data, tx);
-      studentChanged();
-      return resp;
-    });
-  });
+  .action(async ({ parsedInput }) => deleteStudent(parsedInput));

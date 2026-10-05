@@ -4,6 +4,7 @@ import { AssessmentPublicLinksPanel } from "@/components/assessment-public-links
 import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
 import { AssessmentWorkbooksDialog } from "@/components/assessment-workbooks-dialog";
 import { SubjectAssessments } from "@/components/subject-assessments";
+import { SubmitClassStudentSheet } from "@/components/students/submit-class-student-sheet";
 import {
   buildResultRows,
   filterResultStudents,
@@ -373,6 +374,12 @@ export function AssessmentRecordingResultsTable({
             </DropdownMenu>
             {!publicToken ? (
               <>
+                <SubmitClassStudentSheet
+                  classrooms={[{ id: departmentId, displayName: selectedClassroom?.displayName ?? "Current classroom" }]}
+                  initialClassroomId={departmentId}
+                  termId={termId}
+                  label="Add student"
+                />
                 <AssessmentWorkbooksDialog
                   departmentId={departmentId}
                   termId={termId}
@@ -478,6 +485,7 @@ export function AssessmentRecordingResultsTable({
                       <StudentGenderBadge
                         gender={row.student.student?.gender}
                       />
+                      {row.student.registrationReviewStatus === "PENDING" ? <Badge variant="warning" className="h-5 shrink-0 px-1.5 text-[10px]">Pending</Badge> : null}
                     </div>
                   </TableCell>
                   {row.subjectTotals.map((subjectTotal) => (

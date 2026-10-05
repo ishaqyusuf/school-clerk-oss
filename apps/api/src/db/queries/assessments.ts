@@ -343,13 +343,15 @@ export async function getSubjectAssessmentRecordings(
   await assertTeacherCanAccessDepartmentSubject(
     ctx,
     query.deparmentSubjectId,
-    ds.sessionTermId,
+    ds.sessionTermId ?? undefined,
   );
 
   const studentTermForms = await db.studentTermForm.findMany({
     where: {
       sessionTermId: ds?.sessionTermId,
       classroomDepartmentId: ds.classRoomDepartmentId,
+      deletedAt: null,
+      registrationReviewStatus: { not: "REJECTED" },
       student: {
         deletedAt: null,
       },
@@ -489,6 +491,7 @@ export async function updateAssessmentScore(
     where: {
       id: data.studentTermId,
       deletedAt: null,
+      registrationReviewStatus: { not: "REJECTED" },
     },
     select: {
       classroomDepartmentId: true,

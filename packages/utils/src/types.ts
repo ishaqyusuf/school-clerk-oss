@@ -1,6 +1,6 @@
 export type PageFilterData<TValue = string> = {
   value?: TValue;
-  icon?;
+  icon?: string;
   type: "checkbox" | "input" | "date" | "date-range";
   label?: string;
   options?: {

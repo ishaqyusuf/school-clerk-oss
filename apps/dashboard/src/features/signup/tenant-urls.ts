@@ -1,105 +1,46 @@
-import {
-  buildSignupUrl,
-  resolveDashboardAppRootDomain,
-  resolveRootHostFromCurrentHost,
-  type RuntimeUrlConfig,
-} from "@school-clerk/utils";
+import "server-only";
+import { buildTenantAuthUrl, parseAuthOrigin, resolveAuthConfiguration } from "@school-clerk/utils/auth-url";
 
-function normalizeHost(value?: string | null) {
-  return value?.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "") || "";
+function dashboardOrigin() {
+  return resolveAuthConfiguration({
+    nodeEnv: process.env.NODE_ENV, authUrl: process.env.BETTER_AUTH_URL,
+    dashboardUrl: process.env.DASHBOARD_APP_URL, publicAppUrl: process.env.NEXT_PUBLIC_APP_URL,
+    appRootDomain: process.env.APP_ROOT_DOMAIN,
+  }).baseUrl;
 }
 
-function stripDashboardHostPrefix(host: string) {
-  return host.startsWith("dashboard.") ? host.slice("dashboard.".length) : host;
-}
-
-export function getSchoolSiteRootDomain() {
-  const explicitRoot = normalizeHost(
-    process.env.SCHOOL_SITE_ROOT_DOMAIN ?? process.env.APP_ROOT_DOMAIN,
-  );
-
-  if (explicitRoot) {
-    return stripDashboardHostPrefix(explicitRoot);
+function siteOrigin() {
+  const configured = (process.env.SCHOOL_SITE_ROOT_DOMAIN ??
+    (process.env.NODE_ENV === "production" ? process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_ROOT_DOMAIN : process.env.APP_ROOT_DOMAIN))?.trim();
+  const root = configured ? parseAuthOrigin(configured.includes("://") ? configured : `https://${configured}`) : null;
+  if (!root || root.hostname === "localhost" || root.hostname.includes(":") ||
+    /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(root.hostname) || root.hostname.endsWith(".vercel.app")) {
+    throw new Error("A tenant-capable HTTPS school-site origin is required.");
   }
-
-  const publicHost = normalizeHost(process.env.NEXT_PUBLIC_APP_URL);
-  if (publicHost) {
-    return stripDashboardHostPrefix(publicHost);
+  root.hostname = root.hostname.replace(/^dashboard\./, "");
+  if (["school-clerk.localhost", "school-clerk-dashboard.localhost"].includes(root.hostname)) {
+    root.hostname = "school-clerk-site.localhost";
   }
-
-  return "school-clerk.com";
+  return root;
 }
 
-export function getDashboardRuntimeUrlConfig(): RuntimeUrlConfig {
-  const appRootDomain =
-    process.env.DASHBOARD_ROOT_DOMAIN ?? process.env.APP_ROOT_DOMAIN;
-  const productionRootDomain =
-    process.env.DASHBOARD_PRODUCTION_ROOT_DOMAIN ??
-    process.env.NEXT_PUBLIC_APP_URL;
+export function getSchoolSiteRootDomain() { return siteOrigin().host; }
+export function getSignupHostSuffix() { return getSchoolSiteRootDomain(); }
+export function getSignupPreviewSuffix() { return getSignupHostSuffix(); }
 
-  return {
-    appPort: process.env.DASHBOARD_PORT ?? process.env.PORT ?? 2200,
-    appRootDomain,
-    portlessRootDomain:
-      process.env.DASHBOARD_PORTLESS_ROOT_DOMAIN ?? appRootDomain,
-    productionRootDomain,
-    publicUrl: process.env.DASHBOARD_PUBLIC_URL ?? process.env.NEXT_PUBLIC_URL,
-    defaultProtocol: process.env.NODE_ENV === "production" ? "https" : "http",
-    isProduction: process.env.NODE_ENV === "production",
-  };
-}
-
-export function buildDashboardSignupUrl(options?: {
-  currentHost?: string | null;
-  currentProtocol?: string | null;
-  currentUrl?: string | null;
+export function buildDashboardSignupUrl(_options?: {
+  currentHost?: string | null; currentProtocol?: string | null; currentUrl?: string | null;
 }) {
-  return buildSignupUrl({
-    ...options,
-    config: getDashboardRuntimeUrlConfig(),
-    path: process.env.DASHBOARD_SIGNUP_PATH ?? "/sign-up",
-  });
+  return new URL("/sign-up", dashboardOrigin()).toString();
 }
 
-export function getSignupHostSuffix() {
-  return getSchoolSiteRootDomain();
+export function buildSchoolSiteUrl(subdomain: string) {
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(subdomain)) throw new Error("Invalid school slug.");
+  const root = siteOrigin();
+  root.hostname = `${subdomain}.${root.hostname}`;
+  return root.toString();
 }
 
-export function getSignupPreviewSuffix() {
-  if (process.env.NODE_ENV !== "production") {
-    return getSignupHostSuffix();
-  }
-
-  return getSchoolSiteRootDomain();
-}
-
-function normalizePath(path = "") {
-  return path ? (path.startsWith("/") ? path : `/${path}`) : "";
-}
-
-export function buildSchoolSiteUrl(subdomain: string, path = "") {
-  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-  const rootHost = getSchoolSiteRootDomain();
-  const host = `${subdomain}.${rootHost}`;
-
-  return `${protocol}://${host}${normalizePath(path)}`;
-}
-
-export function buildDashboardTenantUrl(subdomain: string, path = "") {
-  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-
-  if (process.env.NODE_ENV === "production") {
-    const host = `dashboard.${subdomain}.${getSchoolSiteRootDomain()}`;
-    return `${protocol}://${host}${normalizePath(path)}`;
-  }
-
-  const config = getDashboardRuntimeUrlConfig();
-  const rootHost = resolveRootHostFromCurrentHost(
-    resolveDashboardAppRootDomain(
-      config.portlessRootDomain ?? config.appRootDomain,
-    ),
-    config,
-  );
-
-  return `${protocol}://${subdomain}.${rootHost}${normalizePath(path)}`;
+export function buildDashboardTenantUrl(subdomain: string, path: "" | "/" | "/login" | "/onboarding/welcome" = "") {
+  return buildTenantAuthUrl({ baseUrl: dashboardOrigin(), tenantSlug: subdomain, path: path || "/" });
 }

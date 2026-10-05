@@ -1,5 +1,5 @@
 "use server";
-import { prisma } from "@school-clerk/db";
+import { prisma, resolveTenantWorkspace } from "@school-clerk/db";
 import {
   getTenantUrlHeaderNames,
   resolveTenantUrlContext,
@@ -7,77 +7,19 @@ import {
 import { auth } from "@/auth/server";
 import { findTenantDomainByCustomDomain } from "@/utils/tenant-domain-context";
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config";
+import {
+  emptyWorkspaceCookie, parseWorkspaceCookie, workspaceCookieOptions, workspaceCookieSelection,
+  type AuthCookie,
+} from "@/utils/workspace-cookie";
 import { cookies, headers } from "next/headers";
+import { z } from "zod";
 
-export interface AuthCookie {
-  domain: string;
-  sessionId?: string;
-  schoolId?: string;
-  termId?: string;
-  sessionTitle?: string;
-  termTitle?: string;
-  auth: {
-    bearerToken: string;
-    userId: string;
-  };
-  remembered?: boolean;
-}
-const getCookieName = (domain) => `${domain}-session-cookie`;
-const workspaceSessionMaxAge = 60 * 60 * 24 * 30;
-const workspaceCookieOptions = (remembered = true) => ({
-  httpOnly: true,
-  maxAge: remembered ? workspaceSessionMaxAge : undefined,
-  path: "/",
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
-});
+export type { AuthCookie } from "@/utils/workspace-cookie";
 
-function parseAuthCookie(value?: string) {
-  if (!value) return {} as AuthCookie;
-
-  try {
-    return JSON.parse(value) as AuthCookie;
-  } catch {
-    return {} as AuthCookie;
-  }
-}
+const getCookieName = (domain: string) => `${domain}-session-cookie`;
 
 async function readWorkspaceCookie(domain: string) {
-  const cookieStore = await cookies();
-  return parseAuthCookie(cookieStore.get(getCookieName(domain))?.value);
-}
-
-function isUsableWorkspaceCookie(profile: AuthCookie, domain: string) {
-  return Boolean(
-    profile?.schoolId &&
-      profile?.domain === domain &&
-      profile?.auth?.bearerToken &&
-      profile?.auth?.userId,
-  );
-}
-
-function findCurrentDatedTerm<
-  T extends {
-    startDate: Date | null;
-    endDate: Date | null;
-    createdAt?: Date | null;
-  },
->(terms: T[], now = new Date()) {
-  const startedTerms = terms.filter(
-    (term) => term.startDate && term.startDate <= now,
-  );
-  const activeBoundedTerm = startedTerms
-    .filter((term) => term.endDate && term.endDate >= now)
-    .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0];
-
-  if (activeBoundedTerm) return activeBoundedTerm;
-
-  return (
-    startedTerms
-      .filter((term) => !term.endDate)
-      .sort((a, b) => b.startDate!.getTime() - a.startDate!.getTime())[0] ??
-    null
-  );
+  return parseWorkspaceCookie((await cookies()).get(getCookieName(domain))?.value);
 }
 
 export async function getTenantDomain() {
@@ -114,213 +56,89 @@ export async function getTenantDomain() {
 
   return { domain: "" };
 }
-export async function getAuthCookie() {
+export async function getAuthCookie(): Promise<AuthCookie> {
   const { domain } = await getTenantDomain();
-  const profile = await readWorkspaceCookie(domain);
-  const requestHeaders = await headers();
-  const session = await auth.api.getSession({
-    headers: requestHeaders,
-  });
-  const bearerToken = session?.session?.token;
-  const userId = session?.user?.id;
-
-  if (!bearerToken || !userId) return profile;
-
-  if (
-    isUsableWorkspaceCookie(profile, domain) &&
-    profile.auth.userId === userId &&
-    profile.auth.bearerToken === bearerToken
-  ) {
-    return profile;
-  }
-
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.session.token || !session.user.id) return emptyWorkspaceCookie(domain);
   return resolveTenantAuthCookie({
-    authCookie: profile,
-    bearerToken,
+    authCookie: await readWorkspaceCookie(domain),
+    bearerToken: session.session.token,
     domain,
-    userId,
+    userId: session.user.id,
   });
 }
-export async function resetCookie({
-  bearerToken,
-  userId,
-  redirectUrl = null,
-  rememberMe = true,
-}) {
-  const { domain } = await getTenantDomain();
-  let authCookie = await readWorkspaceCookie(domain);
-  authCookie = await resolveTenantAuthCookie({
-    authCookie,
-    bearerToken,
-    domain,
-    rememberMe,
-    userId,
-  });
 
-  const cookie = await cookies();
-  const cookieName = getCookieName(domain);
-  cookie.set(
-    cookieName,
-    JSON.stringify(authCookie),
-    workspaceCookieOptions(authCookie.remembered !== false),
-  );
-  // if (redirectUrl) redirect(redirectUrl);
-  return authCookie;
+export async function resetCookie(input: {
+  bearerToken: string; userId: string; redirectUrl?: string | null; rememberMe?: boolean;
+}) {
+  const parsed = z.object({
+    bearerToken: z.string().min(1).max(512),
+    userId: z.string().min(1).max(200),
+    rememberMe: z.boolean().default(true),
+  }).parse(input);
+  const { domain } = await getTenantDomain();
+  // A successful sign-in can set new auth cookies during this same request.
+  // Validate the supplied opaque bearer against storage, not an old request's
+  // signed cookie or the caller's user ID alone. This sets no Better Auth cookie.
+  const profile = await resolveTenantAuthCookie({
+    authCookie: await readWorkspaceCookie(domain),
+    bearerToken: parsed.bearerToken,
+    userId: parsed.userId,
+    domain,
+    rememberMe: parsed.rememberMe,
+  });
+  const cookieStore = await cookies();
+  cookieStore.set(getCookieName(domain), profile.schoolId ? JSON.stringify(profile) : "",
+    profile.schoolId ? workspaceCookieOptions(profile.remembered === true)
+      : { ...workspaceCookieOptions(false), maxAge: 0 });
+  return profile;
 }
 
 async function resolveTenantAuthCookie({
-  authCookie,
-  bearerToken,
-  domain,
-  rememberMe = authCookie.remembered !== false,
-  userId,
+  authCookie, bearerToken, domain, userId, rememberMe = authCookie?.remembered === true,
 }: {
-  authCookie: AuthCookie;
-  bearerToken: string;
-  domain: string;
-  rememberMe?: boolean;
-  userId: string;
-}) {
-  const [school, user] = await Promise.all([
-    prisma.schoolProfile.findFirst({
-      where: {
-        deletedAt: null,
-        subDomain: domain,
-      },
-      select: {
-        id: true,
-        accountId: true,
-        sessions: {
-          where: {
-            deletedAt: null,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-          // take: 1,
-          select: {
-            id: true,
-            title: true,
-            terms: {
-              // take: 1,
-              where: {
-                deletedAt: null,
-                startDate: {
-                  not: null,
-                },
-              },
-              select: {
-                id: true,
-                title: true,
-                sessionId: true,
-                startDate: true,
-                endDate: true,
-                createdAt: true,
-              },
-              orderBy: {
-                createdAt: "desc",
-              },
-            },
-          },
-        },
-      },
-    }),
-    prisma.user.findFirst({
-      where: {
-        id: userId,
-        deletedAt: null,
-      },
-      select: {
-        saasAccountId: true,
-      },
-    }),
-  ]);
-
-  if (
-    school?.accountId &&
-    user?.saasAccountId &&
-    school.accountId !== user.saasAccountId
-  ) {
-    return {
-      domain,
-      auth: {
-        bearerToken,
-        userId,
-      },
-      remembered: rememberMe,
-    } as AuthCookie;
-  }
-
-  const selectedSession =
-    school?.sessions.find((session) => session.id === authCookie?.sessionId) ??
-    school?.sessions[0];
-  const termProfiles =
-    selectedSession?.terms.map((term) => ({
-      ...term,
-      sessionId: selectedSession.id,
-      sessionTitle: selectedSession.title,
-    })) ?? [];
-  const selectedTerm = termProfiles.find(
-    (term) => term.id === authCookie?.termId,
-  );
-  const term =
-    selectedTerm ?? findCurrentDatedTerm(termProfiles) ?? termProfiles[0];
-  const session = selectedSession;
-
-  authCookie = {
-    ...authCookie,
-    domain: domain,
-    sessionId: session?.id,
-    termId: term?.id,
-    schoolId: school?.id,
-    sessionTitle: session?.title ?? authCookie?.sessionTitle,
-    termTitle: term?.title ?? authCookie?.termTitle,
-    auth: {
-      bearerToken,
-      userId,
-    },
-    remembered: rememberMe,
-  };
-  return authCookie;
+  authCookie: AuthCookie | null; bearerToken: string; domain: string; userId: string; rememberMe?: boolean;
+}): Promise<AuthCookie> {
+  const workspace = await resolveTenantWorkspace(prisma, {
+    token: bearerToken, userId, tenantSlug: domain,
+    selection: workspaceCookieSelection(authCookie, { domain, token: bearerToken, userId }),
+  });
+  return workspace ? { ...workspace, auth: { bearerToken, userId }, remembered: rememberMe }
+    : emptyWorkspaceCookie(domain);
 }
 
 export async function clearAuthCookie() {
   const { domain } = await getTenantDomain();
-  const cookie = await cookies();
-  cookie.set(getCookieName(domain), "", {
-    ...workspaceCookieOptions(false),
-    maxAge: 0,
-  });
+  (await cookies()).set(getCookieName(domain), "", { ...workspaceCookieOptions(false), maxAge: 0 });
 }
 
 export async function switchSessionTerm(
-  input:
-    | string
-    | {
-        termId?: string | null;
-        termTitle?: string | null;
-        sessionId?: string | null;
-        sessionTitle?: string | null;
-      },
-  tx = null,
+  input: string | {
+    termId?: string | null; termTitle?: string | null;
+    sessionId?: string | null; sessionTitle?: string | null;
+  },
+  _tx: unknown = null,
 ) {
-  const { termId, termTitle, sessionId, sessionTitle } =
-    typeof input === "string" ? { termId: input } : input;
-  const { domain } = await getTenantDomain();
-
-  const cookie = await cookies();
-  const cookieName = getCookieName(domain);
-  let authCookie = await getAuthCookie();
-  authCookie = {
-    ...authCookie,
-    termId: termId ?? authCookie.termId,
-    termTitle: termTitle ?? authCookie.termTitle,
-    sessionId: sessionId ?? authCookie.sessionId,
-    sessionTitle: sessionTitle ?? authCookie.sessionTitle,
+  const selection = z.object({
+    termId: z.string().min(1).max(200).nullish(),
+    sessionId: z.string().min(1).max(200).nullish(),
+  }).refine((value) => Boolean(value.termId || value.sessionId), {
+    message: "Select an academic session or term.",
+  }).parse(typeof input === "string" ? { termId: input } : input);
+  const profile = await getAuthCookie();
+  if (!profile.schoolId || !profile.auth.userId || !profile.auth.bearerToken) {
+    throw new Error("A signed-in school workspace is required.");
+  }
+  const workspace = await resolveTenantWorkspace(prisma, {
+    token: profile.auth.bearerToken, userId: profile.auth.userId, tenantSlug: profile.domain,
+    strictSelection: true,
+    selection: { schoolId: profile.schoolId, termId: selection.termId ?? undefined,
+      sessionId: selection.sessionId ?? undefined },
+  });
+  if (!workspace) throw new Error("The selected academic session or term is unavailable in this school.");
+  const nextCookie: AuthCookie = {
+    ...workspace, auth: profile.auth, remembered: profile.remembered === true,
   };
-  cookie.set(
-    cookieName,
-    JSON.stringify(authCookie),
-    workspaceCookieOptions(authCookie.remembered !== false),
-  );
+  (await cookies()).set(getCookieName(profile.domain), JSON.stringify(nextCookie),
+    workspaceCookieOptions(nextCookie.remembered));
 }

@@ -112,6 +112,7 @@ export function ClassroomAttendanceRoster({
         <table className="block w-full text-start text-sm md:table">
           <thead className="hidden border-b bg-muted/50 md:table-header-group">
             <tr>
+              <th scope="col" dir="ltr" className="w-12 px-4 py-3 font-semibold">No.</th>
               <th className="px-4 py-3 font-semibold">Student</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               {showRemarksColumn ? (
@@ -120,7 +121,7 @@ export function ClassroomAttendanceRoster({
             </tr>
           </thead>
           <tbody className="block divide-y md:table-row-group">
-            {students.map((student) => {
+            {students.map((student, index) => {
               const selectedStatus = statusMap[student.attendanceKey];
               const showRemark = allowsAttendanceRemark(selectedStatus);
               return (
@@ -132,11 +133,15 @@ export function ClassroomAttendanceRoster({
                       ATTENDANCE_STATUS_STYLES[selectedStatus]?.row,
                   )}
                 >
+                  <td className="hidden px-4 py-3 tabular-nums text-muted-foreground md:table-cell" dir="ltr">
+                    {index + 1}
+                  </td>
                   <td
-                    className="block p-0 font-medium md:table-cell md:px-4 md:py-3"
+                    className="flex items-baseline gap-2 p-0 font-medium md:table-cell md:px-4 md:py-3"
                     dir="auto"
                   >
-                    {student.studentName}
+                    <span className="shrink-0 tabular-nums text-muted-foreground md:hidden" dir="ltr">{index + 1}.</span>
+                    <span dir="auto">{student.studentName}</span>
                   </td>
                   <td className="block p-0 md:table-cell md:min-w-72 md:px-4 md:py-3">
                     <AttendanceStatusPicker
@@ -204,7 +209,7 @@ function AttendanceStatusPicker({
       variant="outline"
       size="sm"
       dir="ltr"
-      value={selectedStatus}
+      value={selectedStatus ?? ""}
       aria-label={`Attendance status for ${student.studentName}`}
       className="grid w-full grid-cols-3 md:flex md:w-auto"
       onValueChange={(value) => {

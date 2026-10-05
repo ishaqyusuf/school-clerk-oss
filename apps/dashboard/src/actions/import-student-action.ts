@@ -1,6 +1,7 @@
 "use server";
 
-import { StudentRecord } from "@/app/[domain]/migration/data";
+import { requireLegacyMigrationAccess } from "@/lib/legacy-migration-access";
+import type { StudentRecord } from "@/app/[domain]/migration/data";
 import { getAuthCookie } from "./cookies/auth-cookie";
 import { prisma } from "@school-clerk/db";
 import { transaction } from "@/utils/db";
@@ -20,6 +21,7 @@ export async function importStudentAction(
     departmentId: string;
   }
 ) {
+  await requireLegacyMigrationAccess();
   const postId = data.paymentData?.storePayments?.postId;
   const profile = await getAuthCookie();
   const prevTermId = profile?.termId;

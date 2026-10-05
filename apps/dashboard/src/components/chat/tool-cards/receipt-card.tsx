@@ -1,7 +1,6 @@
 "use client";
 
-import { Badge } from "@school-clerk/ui/badge";
-import { CheckCircle2, Package, UserRound } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 type EnrollmentReceipt = {
   type: "enrollment";
@@ -32,11 +31,11 @@ type Props = {
 
 export function ReceiptCard({ data }: Props) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+    <div className="flex min-w-0 w-full items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
       <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600">
         <CheckCircle2 className="h-4 w-4" />
       </div>
-      <div className="flex flex-col gap-0.5">
+      <div className="flex min-w-0 flex-col gap-0.5 break-words">
         {data.type === "enrollment" && (
           <>
             <p className="text-sm font-semibold text-green-800">

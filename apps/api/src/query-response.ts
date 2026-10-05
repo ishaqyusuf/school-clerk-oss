@@ -1,15 +1,20 @@
 import type { PageDataMeta } from "./type";
 
-export async function queryResponse<T>(
+type PaginationQuery = { size?: number | null; cursor?: string | number | null };
+type CountModel<TWhere> = {
+  count: (args: { where?: TWhere }) => PromiseLike<number>;
+};
+
+export async function queryResponse<T, TWhere>(
   data: T[],
   {
     query,
     model,
     where,
   }: {
-    query?;
-    model?;
-    where?;
+    query?: PaginationQuery;
+    model?: CountModel<TWhere>;
+    where?: TWhere;
   }
 ) {
   let meta = {} as PageDataMeta;
@@ -21,7 +26,7 @@ export async function queryResponse<T>(
     });
     const size = query?.size || 20;
     meta.count = count;
-    let cursor = (+query?.cursor || 0) + size;
+    let cursor = (Number(query?.cursor) || 0) + size;
 
     meta.cursor = cursor < count ? String(cursor) : null;
     meta.hasNextPage = cursor < count;
@@ -39,10 +44,10 @@ export function queryMeta(query?: any) {
   const multiSorts = query.sort?.split(",");
   const orderBy =
     multiSorts?.length > 1
-      ? multiSorts.map((ms) => {
+      ? multiSorts.map((ms: string) => {
           const [sort, _sortOrder] = ms.split(".");
           return {
-            [sort]: _sortOrder || "desc",
+            [sort ?? "createdAt"]: _sortOrder || "desc",
           };
         })
       : {
@@ -56,7 +61,11 @@ export function queryMeta(query?: any) {
     orderBy,
   };
 }
-export async function composeQueryData(query, where, model) {
+export async function composeQueryData<TWhere, TModel extends CountModel<TWhere>>(
+  query: PaginationQuery,
+  where: TWhere,
+  model: TModel,
+) {
   const md = await queryResponse([], {
     query,
     model,

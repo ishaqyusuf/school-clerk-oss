@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- PORTLESS_WILDCARD=1 PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-${MARKETING_PORT:-2300}} portless school-clerk next dev --turbopack",
-    "build": "bun next build --turbopack",
+    "build": "bun --cwd ../../packages/db run db:generate && bun next build --turbopack",
     "start": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode prod -- next start",
     "lint": "eslint"
   },
@@ -16,7 +16,8 @@
     "react-dom": "^19.2.0",
     "next": "^16.3.0",
     "@school-clerk/ui": "workspace:*",
-    "lucide-react": "^0.544.0"
+    "lucide-react": "^0.544.0",
+    "@school-clerk/events": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

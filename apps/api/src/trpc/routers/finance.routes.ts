@@ -48,9 +48,9 @@ import {
 	verifyPaymentImport,
 } from "../../db/queries/payment-import";
 import {
-	type TRPCContext,
-	authenticatedProcedure,
-	createTRPCRouter,
+  type TRPCContext,
+  createTRPCRouter,
+  moduleProcedure,
 } from "../init";
 import {
 	financeAccountDetailsSchema,
@@ -457,34 +457,37 @@ function normalizeLegacyChargeInput(
 	};
 }
 
-export const financeRouter = createTRPCRouter({
-	overview: authenticatedProcedure.query(({ ctx }) => getFinanceOverview(ctx)),
+const financeProcedure = moduleProcedure(["BILLING_FINANCE"]);
+const studentFinanceProcedure = moduleProcedure(["BILLING_FINANCE", "STUDENT_MANAGEMENT"]);
 
-	getWorkspaceSummary: authenticatedProcedure
+export const financeRouter = createTRPCRouter({
+	overview: financeProcedure.query(({ ctx }) => getFinanceOverview(ctx)),
+
+	getWorkspaceSummary: financeProcedure
 		.input(financeWorkspaceQuerySchema)
 		.query(({ ctx, input }) => getFinanceWorkspaceSummary(ctx, input)),
 
-	getAccounts: authenticatedProcedure
+	getAccounts: financeProcedure
 		.input(financeWorkspaceQuerySchema)
 		.query(({ ctx, input }) => getFinanceAccounts(ctx, input)),
 
-	getAccountDetails: authenticatedProcedure
+	getAccountDetails: financeProcedure
 		.input(financeAccountDetailsSchema)
 		.query(({ ctx, input }) => getFinanceAccountDetails(ctx, input)),
 
-	verifyPaymentImport: authenticatedProcedure
+	verifyPaymentImport: studentFinanceProcedure
 		.input(verifyPaymentImportSchema)
 		.mutation(({ ctx, input }) => verifyPaymentImport(ctx, input)),
 
-	startPaymentImportJob: authenticatedProcedure
+	startPaymentImportJob: studentFinanceProcedure
 		.input(startPaymentImportJobSchema)
 		.mutation(({ ctx, input }) => startPaymentImportJob(ctx, input)),
 
-	getPaymentImportJob: authenticatedProcedure
+	getPaymentImportJob: studentFinanceProcedure
 		.input(getPaymentImportJobSchema)
 		.query(({ ctx, input }) => getPaymentImportJob(ctx, input)),
 
-	retryPaymentImportJob: authenticatedProcedure
+	retryPaymentImportJob: studentFinanceProcedure
 		.input(retryPaymentImportJobSchema)
 		.mutation(({ ctx, input }) => {
 			if (!input.jobId) {
@@ -496,47 +499,47 @@ export const financeRouter = createTRPCRouter({
 			return retryPaymentImportJob(ctx, { jobId: input.jobId });
 		}),
 
-	getTermLedger: authenticatedProcedure
+	getTermLedger: financeProcedure
 		.input(financeTermLedgerQuerySchema)
 		.query(({ ctx, input }) => getFinanceTermLedger(ctx, input)),
 
-	getTermAccountStatement: authenticatedProcedure
+	getTermAccountStatement: financeProcedure
 		.input(financeTermAccountStatementSchema)
 		.query(({ ctx, input }) => getFinanceTermAccountStatement(ctx, input)),
 
-	getProjectAccountSummary: authenticatedProcedure
+	getProjectAccountSummary: financeProcedure
 		.input(financeProjectAccountSummarySchema)
 		.query(({ ctx, input }) => getFinanceProjectAccountSummary(ctx, input)),
 
-	getStaffFinanceHistory: authenticatedProcedure
+	getStaffFinanceHistory: financeProcedure
 		.input(financeStaffHistorySchema)
 		.query(({ ctx, input }) => getFinanceStaffHistory(ctx, input)),
 
-	getPayeeHistory: authenticatedProcedure
+	getPayeeHistory: financeProcedure
 		.input(financePayeeHistorySchema)
 		.query(({ ctx, input }) => getFinancePayeeHistory(ctx, input)),
 
-	previewTermClose: authenticatedProcedure
+	previewTermClose: financeProcedure
 		.input(financeTermCloseSchema)
 		.query(({ ctx, input }) => previewFinanceTermClose(ctx, input)),
 
-	closeTermLedger: authenticatedProcedure
+	closeTermLedger: financeProcedure
 		.input(financeTermCloseSchema)
 		.mutation(({ ctx, input }) => closeFinanceTermLedger(ctx, input)),
 
-	reopenTermLedger: authenticatedProcedure
+	reopenTermLedger: financeProcedure
 		.input(financeTermCloseSchema)
 		.mutation(({ ctx, input }) => reopenFinanceTermLedger(ctx, input)),
 
-	getStreams: authenticatedProcedure
+	getStreams: financeProcedure
 		.input(financeStreamQuerySchema)
 		.query(({ ctx, input }) => listFinanceStreams(ctx, input)),
 
-	getStreamDetails: authenticatedProcedure
+	getStreamDetails: financeProcedure
 		.input(financeStreamDetailsSchema)
 		.query(async ({ ctx, input }) => getFinanceStreamDetails(ctx, input)),
 
-	createStream: authenticatedProcedure
+	createStream: financeProcedure
 		.input(streamCompatInput)
 		.mutation(({ ctx, input }) =>
 			upsertFinanceStream(ctx, {
@@ -554,50 +557,50 @@ export const financeRouter = createTRPCRouter({
 			}),
 		),
 
-	createItem: authenticatedProcedure
+	createItem: financeProcedure
 		.input(financeItemInputSchema)
 		.mutation(({ ctx, input }) => upsertFinanceItem(ctx, input)),
 
-	getPayees: authenticatedProcedure
+	getPayees: financeProcedure
 		.input(financePayeeQuerySchema)
 		.query(({ ctx, input }) => listFinancePayees(ctx, input)),
-	upsertPayee: authenticatedProcedure
+	upsertPayee: financeProcedure
 		.input(financePayeeInputSchema)
 		.mutation(({ ctx, input }) => upsertFinancePayee(ctx, input)),
-	upsertPayrollStructure: authenticatedProcedure
+	upsertPayrollStructure: financeProcedure
 		.input(financePayrollStructureInputSchema)
 		.mutation(({ ctx, input }) => upsertFinancePayrollStructure(ctx, input)),
-	createPayrollObligation: authenticatedProcedure
+	createPayrollObligation: financeProcedure
 		.input(financePayrollObligationInputSchema)
 		.mutation(({ ctx, input }) => createFinancePayrollObligation(ctx, input)),
-	recordPurchase: authenticatedProcedure
+	recordPurchase: financeProcedure
 		.input(financePurchaseInputSchema)
 		.mutation(({ ctx, input }) => recordFinancePurchase(ctx, input)),
-	cancelPurchase: authenticatedProcedure
+	cancelPurchase: financeProcedure
 		.input(financePurchaseCancellationSchema)
 		.mutation(({ ctx, input }) => cancelFinancePurchase(ctx, input)),
 
-	getItems: authenticatedProcedure
+	getItems: financeProcedure
 		.input(itemListInput)
 		.query(({ ctx, input }) => listFinanceItems(ctx, input)),
 
-	createCharge: authenticatedProcedure
+	createCharge: financeProcedure
 		.input(financeChargeInputSchema)
 		.mutation(({ ctx, input }) => createFinanceCharge(ctx, input)),
 
-	getCharges: authenticatedProcedure
+	getCharges: financeProcedure
 		.input(chargeListInput)
 		.query(({ ctx, input }) => listFinanceCharges(ctx, input)),
 
-	recordPayment: authenticatedProcedure
+	recordPayment: financeProcedure
 		.input(financePaymentInputSchema)
 		.mutation(({ ctx, input }) => recordFinancePayment(ctx, input)),
 
-	getPayments: authenticatedProcedure
+	getPayments: financeProcedure
 		.input(z.object({ payerType: z.string().optional().nullable() }).optional())
 		.query(({ ctx, input }) => listFinancePayments(ctx, input)),
 
-	transferFunds: authenticatedProcedure
+	transferFunds: financeProcedure
 		.input(transferCompatInput)
 		.mutation(({ ctx, input }) =>
 			transferFinanceFunds(ctx, {
@@ -615,21 +618,21 @@ export const financeRouter = createTRPCRouter({
 			}),
 		),
 
-	getInternalTransfers: authenticatedProcedure
+	getInternalTransfers: financeProcedure
 		.input(optionalCompatInput)
 		.query(({ ctx }) => listFinanceTransfers(ctx)),
 
-	getLedgerEntries: authenticatedProcedure.query(({ ctx }) =>
+	getLedgerEntries: financeProcedure.query(({ ctx }) =>
 		listFinanceLedgerEntries(ctx),
 	),
 
-	getStudentStatement: authenticatedProcedure
+	getStudentStatement: studentFinanceProcedure
 		.input(financeStudentQueryCompatSchema)
 		.query(async ({ ctx, input }) =>
 			getStudentFinanceStatement(ctx, normalizeStudentQuery(input, ctx)),
 		),
 
-	getFinanceIntegrityReport: authenticatedProcedure
+	getFinanceIntegrityReport: financeProcedure
 		.input(optionalCompatInput)
 		.query(async ({ ctx }) => {
 			requireFinanceReadAccess(ctx);
@@ -802,7 +805,7 @@ export const financeRouter = createTRPCRouter({
 			};
 		}),
 
-	getFinanceReports: authenticatedProcedure
+	getFinanceReports: financeProcedure
 		.input(optionalCompatInput)
 		.query(async ({ ctx }) => {
 			requireFinanceReadAccess(ctx);
@@ -1023,10 +1026,10 @@ export const financeRouter = createTRPCRouter({
 			};
 		}),
 
-	getBillables: authenticatedProcedure
+	getBillables: financeProcedure
 		.input(itemListInput)
 		.query(({ ctx, input }) => listFinanceItems(ctx, input)),
-	createBillable: authenticatedProcedure
+	createBillable: financeProcedure
 		.input(legacyItemInput)
 		.mutation(({ ctx, input }) =>
 			upsertFinanceItem(ctx, {
@@ -1049,16 +1052,16 @@ export const financeRouter = createTRPCRouter({
 			}),
 		),
 
-	getBills: authenticatedProcedure
+	getBills: financeProcedure
 		.input(chargeListInput)
 		.query(({ ctx, input }) => listFinanceCharges(ctx, input)),
-	createBill: authenticatedProcedure
+	createBill: financeProcedure
 		.input(legacyChargeInput)
 		.mutation(({ ctx, input }) =>
 			createFinanceCharge(ctx, normalizeLegacyChargeInput(input, "SCHOOL")),
 		),
 
-	receiveStudentPayment: authenticatedProcedure
+	receiveStudentPayment: studentFinanceProcedure
 		.input(legacyPaymentInput)
 		.mutation(({ ctx, input }) =>
 			input.chargeId
@@ -1071,10 +1074,10 @@ export const financeRouter = createTRPCRouter({
 					)
 				: recordLegacyStudentPayment(ctx, input),
 		),
-	receiveStudentPaymentSimple: authenticatedProcedure
+	receiveStudentPaymentSimple: studentFinanceProcedure
 		.input(financeSimpleStudentPaymentInputSchema)
 		.mutation(({ ctx, input }) => receiveStudentPaymentSimple(ctx, input)),
-	payStaffBill: authenticatedProcedure
+	payStaffBill: financeProcedure
 		.input(legacyPaymentInput)
 		.mutation(({ ctx, input }) =>
 			(input.chargeId ?? input.billId)
@@ -1087,7 +1090,7 @@ export const financeRouter = createTRPCRouter({
 					)
 				: resetPaymentPayload,
 		),
-	payServiceBill: authenticatedProcedure
+	payServiceBill: financeProcedure
 		.input(legacyPaymentInput)
 		.mutation(({ ctx, input }) =>
 			(input.chargeId ?? input.billId)
@@ -1101,12 +1104,12 @@ export const financeRouter = createTRPCRouter({
 				: resetPaymentPayload,
 		),
 
-	getReceivePaymentData: authenticatedProcedure
+	getReceivePaymentData: studentFinanceProcedure
 		.input(financeStudentQueryCompatSchema)
 		.query(async ({ ctx, input }) =>
 			getStudentFinanceStatement(ctx, normalizeStudentQuery(input, ctx)),
 		),
-	getReceivePaymentOptions: authenticatedProcedure
+	getReceivePaymentOptions: studentFinanceProcedure
 		.input(financeReceivePaymentOptionsSchema)
 		.query(async ({ ctx, input }) =>
 			getReceivePaymentOptions(ctx, {
@@ -1114,7 +1117,7 @@ export const financeRouter = createTRPCRouter({
 				paidForStudentTermFormId: input.paidForStudentTermFormId,
 			}),
 		),
-	getStudentPayments: authenticatedProcedure
+	getStudentPayments: studentFinanceProcedure
 		.input(financeStudentQueryCompatSchema)
 		.query(async ({ ctx, input }) => {
 			const statement = await getStudentFinanceStatement(
@@ -1124,15 +1127,15 @@ export const financeRouter = createTRPCRouter({
 			return statement.charges.flatMap((charge) => charge.payments);
 		}),
 
-	getServicePayments: authenticatedProcedure
+	getServicePayments: financeProcedure
 		.input(chargeListInput)
 		.query(async ({ ctx, input }) =>
 			listFinanceCharges(ctx, { ...input, staffProfileId: null }),
 		),
-	getPayroll: authenticatedProcedure
+	getPayroll: financeProcedure
 		.input(chargeListInput)
 		.query(({ ctx, input }) => listFinanceCharges(ctx, input)),
-	createStaffBill: authenticatedProcedure
+	createStaffBill: financeProcedure
 		.input(legacyChargeInput)
 		.mutation(({ ctx, input }) =>
 			createFinanceCharge(
@@ -1143,36 +1146,36 @@ export const financeRouter = createTRPCRouter({
 				),
 			),
 		),
-	createServicePayment: authenticatedProcedure
+	createServicePayment: financeProcedure
 		.input(legacyChargeInput)
 		.mutation(({ ctx, input }) =>
 			createFinanceCharge(ctx, normalizeLegacyChargeInput(input, "SCHOOL")),
 		),
 
-	getStaff: authenticatedProcedure.query(({ ctx }) => listFinanceStaff(ctx)),
-	searchStudentsForPayment: authenticatedProcedure
+	getStaff: financeProcedure.query(({ ctx }) => listFinanceStaff(ctx)),
+	searchStudentsForPayment: studentFinanceProcedure
 		.input(financeSearchInputSchema)
 		.query(({ ctx, input }) => searchFinanceStudents(ctx, input)),
 
-	cancelInternalTransfer: authenticatedProcedure
+	cancelInternalTransfer: financeProcedure
 		.input(optionalCompatInput)
 		.mutation(() => resetPayload),
-	addFund: authenticatedProcedure
+	addFund: financeProcedure
 		.input(optionalCompatInput)
 		.mutation(() => resetPayload),
-	withdrawFund: authenticatedProcedure
+	withdrawFund: financeProcedure
 		.input(optionalCompatInput)
 		.mutation(() => resetPayload),
-	repayBillOwing: authenticatedProcedure
+	repayBillOwing: financeProcedure
 		.input(optionalCompatInput)
 		.mutation(() => resetPayload),
-	cancelServiceBillPayment: authenticatedProcedure
+	cancelServiceBillPayment: financeProcedure
 		.input(optionalCompatInput)
 		.mutation(() => resetPayload),
-	cancelStaffBillPayment: authenticatedProcedure
+	cancelStaffBillPayment: financeProcedure
 		.input(optionalCompatInput)
 		.mutation(() => resetPayload),
-	reverseStudentPayment: authenticatedProcedure
+	reverseStudentPayment: studentFinanceProcedure
 		.input(
 			z.object({
 				paymentId: z.string(),
@@ -1192,36 +1195,36 @@ export const financeRouter = createTRPCRouter({
 				paymentId: input.paymentId,
 			});
 		}),
-	generateBillsFromBillables: authenticatedProcedure
+	generateBillsFromBillables: financeProcedure
 		.input(optionalCompatInput)
 		.mutation(() => resetPayload),
-	backfillBillSettlements: authenticatedProcedure
+	backfillBillSettlements: financeProcedure
 		.input(optionalCompatInput)
 		.mutation(() => resetPayload),
-	getTransactions: authenticatedProcedure.query(async ({ ctx }) =>
+	getTransactions: financeProcedure.query(async ({ ctx }) =>
 		listFinanceTransactions(ctx),
 	),
-	getStudentPurchaseSuggestions: authenticatedProcedure
+	getStudentPurchaseSuggestions: studentFinanceProcedure
 		.input(optionalCompatInput)
 		.query(({ ctx }) => listFinanceItems(ctx, { excludeType: "SALARY" })),
-	createStudentPurchase: authenticatedProcedure
+	createStudentPurchase: studentFinanceProcedure
 		.input(legacyChargeInput)
 		.mutation(({ ctx, input }) =>
 			createFinanceCharge(ctx, normalizeLegacyChargeInput(input, "STUDENT")),
 		),
-	getCollectionSummary: authenticatedProcedure
+	getCollectionSummary: studentFinanceProcedure
 		.input(optionalCompatInput)
 		.query(({ ctx }) => listFinanceCharges(ctx, { status: "PAID" })),
-	getCollectionStudents: authenticatedProcedure
+	getCollectionStudents: studentFinanceProcedure
 		.input(chargeListInput)
 		.query(({ ctx, input }) => listFinanceCharges(ctx, input)),
-	deleteBillable: authenticatedProcedure
+	deleteBillable: financeProcedure
 		.input(optionalCompatInput)
 		.mutation(() => ({ ...resetPayload, title: "Deleted" })),
-	waiveFee: authenticatedProcedure
+	waiveFee: financeProcedure
 		.input(optionalCompatInput)
 		.mutation(() => resetPayload),
-	applyDiscount: authenticatedProcedure
+	applyDiscount: financeProcedure
 		.input(optionalCompatInput)
 		.mutation(() => resetPayload),
 });

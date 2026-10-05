@@ -1,10 +1,15 @@
 import { z } from "@hono/zod-openapi";
-import { createTRPCRouter, publicProcedure } from "../init";
+import {
+  createTRPCRouter,
+  moduleProcedure,
+} from "../init";
+
+const inventoryProcedure = moduleProcedure(["INVENTORY_ASSETS"], { roles: ["Admin", "Accountant"] });
 
 export const inventoryRouter = createTRPCRouter({
 	// ── Items ───────────────────────────────────────────────────────────────────
 
-	getItems: publicProcedure
+	getItems: inventoryProcedure
 		.input(
 			z.object({
 				type: z
@@ -61,7 +66,7 @@ export const inventoryRouter = createTRPCRouter({
 			return result;
 		}),
 
-	createItem: publicProcedure
+	createItem: inventoryProcedure
 		.input(
 			z.object({
 				id: z.string().optional().nullable(),
@@ -109,7 +114,7 @@ export const inventoryRouter = createTRPCRouter({
 			});
 		}),
 
-	deleteItem: publicProcedure
+	deleteItem: inventoryProcedure
 		.input(z.object({ id: z.string() }))
 		.mutation(async ({ input, ctx }) => {
 			const inventory = ctx.db.inventory as any;
@@ -125,7 +130,7 @@ export const inventoryRouter = createTRPCRouter({
 
 	// ── Issuances ───────────────────────────────────────────────────────────────
 
-	issueItem: publicProcedure
+	issueItem: inventoryProcedure
 		.input(
 			z.object({
 				inventoryId: z.string(),
@@ -172,7 +177,7 @@ export const inventoryRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	getIssuanceHistory: publicProcedure
+	getIssuanceHistory: inventoryProcedure
 		.input(
 			z.object({
 				inventoryId: z.string().optional().nullable(),

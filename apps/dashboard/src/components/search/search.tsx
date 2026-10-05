@@ -1,9 +1,8 @@
 "use client";
 
-import { useAuth } from "@/hooks/use-auth";
+import { useGlobalSearch } from "@/hooks/use-global-search";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useSearchStore } from "@/store/search";
-import { useTRPC } from "@/trpc/client";
 import {
 	Command,
 	CommandEmpty,
@@ -13,7 +12,6 @@ import {
 	CommandList,
 	CommandSeparator,
 } from "@school-clerk/ui/command";
-import { useQuery } from "@tanstack/react-query";
 import {
 	GraduationCap,
 	Loader2,
@@ -21,6 +19,7 @@ import {
 	Sparkles,
 	UserRound,
 	Users,
+	X,
 } from "lucide-react";
 import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -44,8 +43,6 @@ function groupIcon(group: SearchItem["group"]) {
 
 export function SearchPanel() {
 	const router = useRouter();
-	const trpc = useTRPC();
-	const auth = useAuth();
 	const setOpen = useSearchStore((state) => state.setOpen);
 	const [query, setQuery] = useState("");
 	const debouncedQuery = useDebounce(query, 220);
@@ -54,6 +51,7 @@ export function SearchPanel() {
 		.trim()
 		.toLowerCase()
 		.replace(/\s+/g, " ");
+	const search = useGlobalSearch(normalizedQuery);
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => inputRef.current?.focus(), 30);
@@ -62,30 +60,18 @@ export function SearchPanel() {
 
 	const localResults = useMemo(
 		() =>
-			getLocalSearchResults({
+			search.scope ? getLocalSearchResults({
 				limit: normalizedQuery ? 8 : 10,
 				query: normalizedQuery,
-				role: auth.role,
-			}),
-		[auth.role, normalizedQuery],
-	);
-
-	const remoteQuery = useQuery(
-		trpc.search.global.queryOptions(
-			{
-				limit: 10,
-				query: normalizedQuery,
-			},
-			{
-				enabled: normalizedQuery.length >= 2,
-				staleTime: 20_000,
-			},
-		),
+				role: search.scope.role,
+				tenantModules: search.scope.effectiveModules,
+			}) : [],
+		[search.scope, normalizedQuery],
 	);
 
 	const remoteResults = useMemo<SearchItem[]>(
 		() =>
-			(remoteQuery.data || []).map((item) => ({
+			search.records.map((item) => ({
 				href: item.href,
 				id: item.id,
 				group: item.group,
@@ -94,7 +80,7 @@ export function SearchPanel() {
 				title: item.title,
 				type: item.type,
 			})),
-		[remoteQuery.data],
+		[search.records],
 	);
 
 	const groupedResults = useMemo(() => {
@@ -118,6 +104,7 @@ export function SearchPanel() {
 	const hasResults = groupedResults.length > 0;
 
 	const handleSelect = (href: string) => {
+		if (!search.scope || !groupedResults.some((entry) => entry.items.some((item) => item.href === href))) return;
 		setOpen(false);
 		setQuery("");
 		router.push(href);
@@ -125,27 +112,42 @@ export function SearchPanel() {
 
 	return (
 		<div className="overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
-			<Command shouldFilter={false} className="h-[520px]">
-				<div className="flex items-center border-b border-border px-3">
-					<Search className="size-4 text-muted-foreground" />
+			<Command shouldFilter={false} className="h-[min(520px,calc(100dvh-4rem))]">
+				<div className="flex shrink-0 items-center border-b border-border px-3 [&_[cmdk-input-wrapper]]:min-w-0">
+					<Search className="size-4 shrink-0 text-muted-foreground" />
 					<CommandInput
 						ref={inputRef}
-						className="h-12"
+						className="h-12 min-w-0"
+						maxLength={100}
+						aria-label="Search permitted pages and records"
 						onValueChange={setQuery}
 						placeholder="Find pages, students, classrooms, staff..."
 						value={query}
 					/>
-					{remoteQuery.isFetching ? (
-						<Loader2 className="size-4 animate-spin text-muted-foreground" />
+					{search.pending ? (
+						<Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
 					) : null}
+					<button type="button" aria-label="Close search" onClick={() => setOpen(false)} className="flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
+						<X className="size-4" aria-hidden="true" />
+					</button>
 				</div>
 
-				<CommandList className="max-h-[468px]">
+				<CommandList className="min-h-0 max-h-none flex-1 overflow-y-auto overscroll-contain" aria-busy={search.pending}>
+					{search.error ? (
+						<div role="alert" className="space-y-2 px-4 py-6 text-sm">
+							<p>Search could not confirm your workspace access. Retry, or reload the page if you changed schools or accounts.</p>
+							<button type="button" onClick={() => void search.retry()} className="min-h-11 rounded-md border px-4 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">Retry search</button>
+						</div>
+					) : search.pending ? (
+						<div role="status" className="px-4 py-6 text-sm text-muted-foreground">Checking permitted search results…</div>
+					) : null}
+					{!search.error && !search.pending ? (
 					<CommandEmpty className="px-4 py-8 text-sm text-muted-foreground">
 						{normalizedQuery.length >= 2
-							? "No matching pages, students, classrooms, or staff were found."
-							: "Type at least 2 characters to search students, classrooms, and staff."}
+							? "No matching permitted pages or records were found."
+							: "Type at least 2 characters to search permitted records."}
 					</CommandEmpty>
+					) : null}
 
 					{groupedResults.map((entry, index) => (
 						<div key={entry.group}>
@@ -156,9 +158,9 @@ export function SearchPanel() {
 										key={`${item.group}-${item.id}`}
 										onSelect={() => handleSelect(item.href)}
 										value={`${item.title} ${item.subtitle || ""} ${item.group}`}
-										className="flex items-center gap-3 rounded-md px-3 py-3"
+										className="flex min-h-11 items-center gap-3 rounded-md px-3 py-3"
 									>
-										<div className="flex size-9 items-center justify-center rounded-lg border border-border bg-muted/40">
+										<div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40">
 											{groupIcon(item.group)}
 										</div>
 										<div className="min-w-0 flex-1">
@@ -171,7 +173,7 @@ export function SearchPanel() {
 												</div>
 											) : null}
 										</div>
-										<div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+										<div className="hidden shrink-0 text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:block">
 											{item.group}
 										</div>
 									</CommandItem>
@@ -180,9 +182,9 @@ export function SearchPanel() {
 						</div>
 					))}
 
-					{!hasResults && normalizedQuery.length < 2 ? (
+					{!search.error && !search.pending && !hasResults && normalizedQuery.length < 2 ? (
 						<div className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
-							Top pages and quick actions are shown immediately. Record search
+							Permitted pages and quick actions appear after access is checked. Record search
 							starts after 2 characters.
 						</div>
 					) : null}

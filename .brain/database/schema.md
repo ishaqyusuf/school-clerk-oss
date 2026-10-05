@@ -1,5 +1,63 @@
 # Database Schema
 
+## 2026-09-07 Bound Password Recovery
+
+No Prisma change. Framework `reset-password:<token>` Verification rows must now have an additional `password-recovery:v1:<userId>:<SHA-256(token)>` proof with JSON user/email/account/credential ID and matching expiry. Exact lookup requires one current token and one current proof; legacy unbound rows are not automatically trusted or backfilled. A Serializable completion transaction consumes both rows, updates the exact canonical Account credential, clears legacy User.password, invalidates other same-user recovery proofs and soft-revokes stored sessions. Rollback restores all writes together. No live tokens, backfill, migration or DB command ran. See ADR-0033; concurrency and rollout verification deferred.
+
+## 2026-09-07 Staff Invitation Identity/Credential Resolution
+
+No Prisma change. Existing email-linked StaffProfile/User data is treated as ambiguous unless canonical email resolves uniquely, including archived-user collision detection and same-account shared staff checks. Existing Account rows are queried by credential provider and userId OR canonical accountId; only one non-deleted, correctly owned canonical row is accepted. Missing credentials are created inside the Serializable invitation issuance transaction; conflicting or archived rows are never upsert-reassigned/reactivated. Public completion includes canonical accountId in its credential update predicate. No live identity repair, backfill, DB command or schema rollout occurred. See ADR-0032; all verification remains deferred.
+
+## 2026-09-07 Atomic Staff Onboarding Proof
+
+No Prisma change. New staff setup uses two existing Verification rows: `staff-password-setup:<SHA-256(token)>` holds user ID; `id: staff-onboarding:<staffId>` stores the latest bound staff/user/school/account/email/role proof with hashed `staff-onboarding:v1:` identifier. Both expire after 24 hours and are created together. Proof replacement supersedes older links. Completion consumes both rows with exact credential/profile/user updates and Session soft deletion in one serializable transaction. No raw setup secret in these identifiers, no legacy backfill and no runtime data/schema operations. This supersedes generic reset-token reuse for newly issued staff links in the earlier delivery note. See ADR-0029; verification deferred.
+
+## 2026-09-07 Staff Invitation Delivery Binding
+
+No Prisma change. Existing Verification rows now support a `staff-invitation-delivery:v1:` namespace with expiring JSON containing school/account/staff/user/actor IDs, email, role, tenant slug and SHA-256 URL digest. Worker payload references the row ID and exact URL; validation also requires the existing live `reset-password:<token>` Verification value to match that user. These are application-level bindings, not new foreign keys. No rows were created by the agent, no backfill or schema operation ran, and runtime verification remains deferred. See ADR-0028.
+
+## 2026-09-07 Notification Feed Query Policy
+
+No Prisma changes or database operations. New DB-owned feed helpers use existing Notification/NotificationRecipient/NotificationContact relationships for consistent tenant/type/recipient filtering and transactional status writes. Nullable recipient status is interpreted as unread. Session queries now require unexpired sessions and non-deleted users. Hidden history is preserved; reads do not provision contacts. See ADR-0027; all runtime verification remains deferred.
+
+## 2026-09-07 AI History Access Metadata
+
+- Reuses `AssistantConversation.meta.historyAccess` with `{ version: 1, toolNames[] }`; no schema change. Newly created records capture current available tools; pre-run expansion unions new tools under an owned row lock. Scope never shrinks automatically. Legacy/malformed/duplicate metadata is unclassified and withheld without data deletion/backfill.
+- Owned row-lock helpers check metadata before title/message/run/analytics reads and serialize transcript appends with scope expansion. List/analytics callbacks use only IDs from the exact rows locked and permitted. Server-generated assistant text/tool parts are the trusted append source; client transcript POST is retired. See ADR-0026; no DB operations or behavioral verification ran.
+
+## 2026-09-07 Atomic AI Mutation Receipts
+
+- Reuses `AssistantToolExecution.output/status/completedAt` and `Activity`; no schema change. Completed mutation output includes `receipt: { version: 1, executionId, completedAt }`. The scoped started execution is completed and activity created inside the domain/approval transaction; failure rolls back all writes. Late error updates skip completed executions.
+- Recovery queries match owner/school/run/conversation, allowed tool names, completed mutation status and receipt version. They select outputs/reference/time only, not input or approval tokens. Legacy outputs are not retroactively labeled atomic receipts. No live data actions, schema pushes or behavioral verification ran.
+
+## 2026-09-07 AI Mutation Approval Capabilities
+
+- Reuses `Verification`; no Prisma schema/client generation/push change. `id` is `assistant-confirmation:v2:<random-256-bit-id>`, `identifier` is a serialized namespace/school/user/conversation tuple, `value` is the SHA-256 digest of the signed token, and `expiresAt` matches its ten-minute expiry. Raw token/input is not stored in this capability row.
+- DB helpers validate the owned active run/conversation before issuance and consumption. Issuance is create-only, never upsert. Each of the five mutation transactions deletes the exact unexpired approval before domain writes; missing/used rows deny execution, and rollback restores consumption together with domain writes. Wall-clock expiry is rechecked after a possible delete lock wait.
+- Existing approval tokens are not backfilled; unversioned/v1 tokens require a fresh preview. Expired records may be removed by normal verification retention without granting access; there is no requirement to retain a consumed-row tombstone. No cleanup or live token creation/consumption was executed by the agent. See [ADR-0025](../decisions/ADR-0025-ai-tool-authorization-and-confirmation.md).
+
+## 2026-09-07 Enrollment Parent Setup Capabilities
+
+- Reuses existing `Verification`, `User`, `Account`, `EnrollmentApplicationParent` and `Guardians` tables; no Prisma schema change or push in this slice.
+- `Verification.id` uses `enrollment-parent-setup:<parentId>` for per-parent resend coordination. `identifier` stores that namespace plus a SHA-256 token digest, never the raw token. `value` stores validated application/code/parent/school/account/email scope; expiry is 30 minutes. Explicit confirmation consumes the row atomically with identity linking; a failed delivery deletes only its matching attempted token.
+- New parent users are email-verified through the challenge and do not receive an unverified phone-login value. Missing credential initialization is conditional; established passwords are not overwritten. Current `User.email` has no uniqueness constraint: serializable setup protects this flow, but legacy/general auth duplicate-email behavior needs a broader audit before rollout.
+- See [ADR-0024](../decisions/ADR-0024-enrollment-parent-email-proof.md). No live tokens/accounts/links were created by the agent and no behavioral verification ran.
+
+## 2026-09-07 Tenant Module Configuration
+
+- Additive `SchoolModuleConfiguration` model: unique `schoolProfileId`, `version` (1), `revision` (0), canonical `enabledModules[]` and `entitledModules[]` string arrays, `updatedByUserId`, and creation/update timestamps.
+- A school may have zero or one configuration. Missing configuration is unconfigured, not an enabled-all or disabled-all record. No existing tenant is adopted or reclassified by adding this model.
+- Shared utils schemas enforce canonical values, supported version, unique array entries and revision inputs. The resolver intersects requested/granted capabilities and checks transitive dependencies.
+- Scoped DB writes include the school ownership predicate and expected version/revision; initial creation uses a scoped relation connect and the unique school constraint. Runtime procedures/enforcement remain in progress.
+- See [ADR-0023](../decisions/ADR-0023-tenant-module-policy-resolution.md) and [CORE-002](../tasks/2026-09-07-core-002-tenant-module-controls.md) for rollout status; do not infer deployed readiness from this schema declaration.
+
+## 2026-09-07 Institution Classification Compatibility
+
+- `SchoolProfile.institutionType` remains the existing nullable `String` column; no Prisma/schema rollout or bulk conversion was performed in CORE-001.
+- New settings and released signup writes use the shared strict canonical contract, including combined `K12`. DB-owned helpers in `packages/db/src/institution-config.ts` select/update non-deleted schools with an explicit account or authorized platform scope.
+- Legacy lowercase and known aliases normalize on read. Unknown strings remain unchanged and display as unclassified in settings. Public website rendering retains its historical K12 fallback without persisting it.
+- See [ADR-0022](../decisions/ADR-0022-canonical-institution-type-compatibility.md). Database-enum conversion needs a later explicit data inventory and conversion plan; this stage enforces the application boundary only.
+
 ## 2026-08-02 Finance Item Gender Audience
 
 - `FinanceItem.studentGenderAudience` uses `FinanceStudentGenderAudience` with
@@ -492,3 +550,21 @@ The composite assessment public-link lookup index on `schoolProfileId`, `session
   purge-start timestamp; all owned schools inherit this boundary.
 - Global `QaPurgeRun` stores actor, timestamps, status, aggregate workspace,
   school, record, and file counts, plus error category only.
+# Staff invitation generation follow-up (2026-09-07, no schema change)
+
+Existing Verification and StaffProfile rows now support atomic capability/latest-proof/PENDING issuance. A conditional write to the exact unexpired latest proof holds a row lock through queue-failure status or direct in-app notification persistence. No expiry extension, migration or new table is introduced. Resend timestamps represent issuance, not email delivery. See ADR-0031; concurrency/rollback is untested and all database operations remain deferred for this slice.
+# Signup email verification record contract — 2026-09-08
+
+School signup (ADR-0041) reuses existing SaasAccount, SchoolProfile, TenantDomain, User and Account models in one Serializable transaction. New owner has role Admin, emailVerified=false, password=null and saasAccountId set at creation; canonical credential stores the Better Auth hash with providerId=credential and accountId=userId. No Session is created by signup. Explicit empty `deletedAt` filters intentionally include archived records in collision reads despite the client extension; normal live reads retain their default. No schema/DB operation or global email-uniqueness constraint added.
+
+Self-service reissue also reuses `Verification` ID `signup-email-reissue:<userId>`, identifier `signup-email-reissue:v1`, value = acting user ID and expiry = next allowed issuance (60 seconds). A Serializable transaction reads current live owner/session/school context and cooldown, then replaces the proof and cooldown together. Expired cooldown rows are reused, not bulk-cleaned. A delivery failure does not remove the cooldown. No schema/DB operation was performed.
+
+Existing `Verification` storage is reused without a Prisma schema change. New signup proofs use deterministic ID `signup-email:<userId>`, identifier `signup-email:v1:<SHA256(token)>`, 24-hour expiry and canonical JSON `{ userId, email, accountId, schoolId, tenantSlug, role }`. Issuance replaces this user's prior proof; completion consumes the exact ID/identifier/value/live expiry and conditionally verifies the matching live user in a Serializable transaction. Legacy `email-verification:<uuid>` records remain stored but are no longer accepted by the app page/action. No DB operation or automatic backfill/deletion was run. See ADR-0040; concurrency/rollback verification remains deferred.
+
+## Teacher student registration review — 2026-09-27
+
+`StudentTermForm` has `registrationReviewStatus` (`APPROVED` default,
+`PENDING`, `REJECTED`), requester/reviewer user IDs, reviewed timestamp and
+review note. The school/status/term index supports review and active-roster
+queries. Existing term forms remain approved by default. Local schema push
+succeeded; production push is pending this local QA round.

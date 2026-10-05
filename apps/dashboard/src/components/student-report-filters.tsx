@@ -8,10 +8,11 @@ import { Field, Item, Select } from "@school-clerk/ui/composite";
 import { Menu } from "@school-clerk/ui/custom/menu";
 import { Label } from "@school-clerk/ui/label";
 import { Separator } from "@school-clerk/ui/separator";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { ExternalLinkIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ExternalLinkIcon, MoreHorizontal } from "lucide-react";
 import { Fragment } from "react";
-import { _trpc } from "./static-trpc";
+import { useTRPC } from "@/trpc/client";
+import { useRemoveStudentTerms } from "@/hooks/use-remove-student-terms";
 import { ThemeSwitch } from "./theme-switch";
 
 export function StudentReportFilter({
@@ -25,23 +26,17 @@ export function StudentReportFilter({
 	const formatStudentName = useStudentNameFormatter();
   const { setFilters, filters } = useStudentReportFilterParams();
   const ctx = useReportPageContext();
-  const trpc = _trpc!;
+  const trpc = useTRPC();
 	const { data: terms } = useQuery(
 		trpc.academics.getReportTerms.queryOptions(),
 	);
-  const { mutate: deleteTermForm, isPending: isDeleting } = useMutation(
-    trpc.students.deleteTermSheet.mutationOptions({
-      onSuccess(data, variables, onMutateResult, context) {},
-      onError(error, variables, onMutateResult, context) {},
-      meta: {
-        toastTitle: {
-          error: "Unable to complete",
-          loading: "Processing...",
-          success: "Done!.",
-        },
-      },
-		}),
-  );
+  const removal = useRemoveStudentTerms({
+    contextKey: JSON.stringify([filters.termId, filters.departmentId, filters.printOrder, filters.activeDepts]),
+    onSuccess(_result, selection) {
+      setFilters({ printOrder: (filters.printOrder ?? []).filter((id) => !selection.ids.includes(id)) });
+    },
+  });
+  const { mutate: deleteTermForm, isPending: isDeleting } = removal;
 
   const printOrder = filters.printOrder ?? [];
 
@@ -100,6 +95,7 @@ export function StudentReportFilter({
 
   const controls = (
     <>
+      {removal.error ? <p role="alert" className="break-words text-sm text-destructive">{removal.error.message}</p> : null}
       <Field.Group
         className={
           controlsOnly
@@ -230,16 +226,19 @@ export function StudentReportFilter({
                   </Item.Description>
                 </Item.Content>
                 <Item.Actions dir="ltr">
-                  <Menu triggerSize="xs" variant="secondary">
+                  <Menu Trigger={<Button variant="secondary" size="icon" className="size-11" aria-label="Student report actions"><MoreHorizontal className="size-4" /></Button>}>
                     <Menu.Item
+                      className="min-h-11"
+                      disabled={!removal.ready || isDeleting}
                       onClick={(e) => {
+                        if (!removal.ready || !tf?.id || isDeleting || !window.confirm("Remove this student from the selected term? Financial and assessment history is retained, and outstanding balances are not cancelled.")) return;
                         deleteTermForm({
                           id: tf?.id,
                         });
                       }}
                       icon="Delete"
                     >
-                      Delete
+                      Remove from term
                     </Menu.Item>
                   </Menu>
                 </Item.Actions>

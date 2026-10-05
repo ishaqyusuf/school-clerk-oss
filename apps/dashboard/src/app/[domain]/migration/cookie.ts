@@ -1,11 +1,13 @@
 "use server";
 
+import { requireLegacyMigrationAccess } from "@/lib/legacy-migration-access";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
-import { Gender } from "@school-clerk/db";
+import type { Gender } from "@school-clerk/db";
 
 export async function loadCookie() {
+  await requireLegacyMigrationAccess();
   const c = await cookies();
   const d = c.get("migration")?.value;
   return JSON.parse(d || ("{}" as any)) satisfies {
@@ -14,6 +16,7 @@ export async function loadCookie() {
   };
 }
 export async function cookieChanged(value) {
+  await requireLegacyMigrationAccess();
   //   const c = loadCookie();
   //   c[k] = val;
   const _c = await cookies();
@@ -22,12 +25,14 @@ export async function cookieChanged(value) {
 }
 
 export async function loadGenders() {
+  await requireLegacyMigrationAccess();
   const c = await cookies();
   const d = c.get("genders")?.value;
 
   return JSON.parse(d || ("{}" as any)) satisfies { [name in string]: Gender };
 }
 export async function setGender(name, gender) {
+  await requireLegacyMigrationAccess();
   const genders = await loadGenders();
   genders[name] = gender;
   const c = await cookies();

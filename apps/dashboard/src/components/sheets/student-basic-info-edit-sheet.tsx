@@ -1,7 +1,5 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-
-import { _trpc } from "@/components/static-trpc";
+import { useStudentOverviewQuery } from "@/hooks/use-student-overview-query";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { SheetHeader, SheetTitle } from "@school-clerk/ui/sheet";
 import Sheet from "@school-clerk/ui/custom/sheet";
@@ -9,20 +7,12 @@ import { Skeleton } from "@school-clerk/ui/skeleton";
 import { StudentBasicInfoEditAction } from "../forms/student-basic-info-edit-action";
 import { StudentBasicInfoForm } from "../forms/student-basic-info-form";
 import { FormContext } from "../students/form-context";
+import { StudentOverviewReadState } from "../students/student-overview-read-state";
 
 export function StudentBasicInfoEditSheet() {
   const { studentEditId, setParams } = useStudentParams();
   const isOpen = Boolean(studentEditId);
-  const { data, isLoading } = useQuery(
-    _trpc.students.overview.queryOptions(
-      {
-        studentId: studentEditId || "",
-      },
-      {
-        enabled: isOpen,
-      },
-    ),
-  );
+  const { data, isLoading, refetch } = useStudentOverviewQuery(studentEditId || null);
   const defaultValues = useMemo(() => {
     const student = data?.student;
 
@@ -54,7 +44,7 @@ export function StudentBasicInfoEditSheet() {
   if (!isOpen) return null;
 
   return (
-    <FormContext defaultValues={defaultValues}>
+    <FormContext key={data ? `${data.scope.schoolId}:${data.scope.userId}:${data.scope.loginSessionId}:${data.student.id}` : "unavailable"} defaultValues={defaultValues}>
       <Sheet
         floating
         rounded
@@ -67,10 +57,10 @@ export function StudentBasicInfoEditSheet() {
           <SheetTitle>Edit Student Information</SheetTitle>
         </SheetHeader>
         <Sheet.Content className="flex flex-col gap-2">
-          {isLoading ? <EditStudentSkeleton /> : <StudentBasicInfoForm />}
+          {isLoading ? <EditStudentSkeleton /> : data ? <StudentBasicInfoForm /> : <StudentOverviewReadState pending={false} onRetry={refetch} />}
         </Sheet.Content>
         <Sheet.Footer className="shrink-0 border-t bg-background py-3">
-          {studentEditId ? (
+          {studentEditId && data ? (
             <StudentBasicInfoEditAction
               studentId={studentEditId}
               onSuccess={close}

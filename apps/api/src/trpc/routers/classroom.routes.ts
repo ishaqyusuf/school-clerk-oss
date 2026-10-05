@@ -4,7 +4,10 @@ import {
   nestedClassroomDepartmentListOrderBy,
   type Prisma,
 } from "@school-clerk/db";
-import { createTRPCRouter, publicProcedure } from "../init";
+import {
+  createTRPCRouter,
+  moduleProcedure,
+} from "../init";
 import { classroomQuerySchema, questionQuerySchema } from "../schemas/schemas";
 
 import { loadQuestions } from "@api/db/queries/questions";
@@ -158,8 +161,10 @@ async function syncClassroomSubjects({
   }
 }
 
+const classroomProcedure = moduleProcedure(["ACADEMIC_PROGRAMS"]);
+
 export const classroomRouter = createTRPCRouter({
-  createClassroom: publicProcedure
+  createClassroom: classroomProcedure
     .input(createClassroomSchema)
     .mutation(async ({ input, ctx }) => {
       const { sessionId, schoolId, termId } = ctx.profile;
@@ -329,7 +334,7 @@ export const classroomRouter = createTRPCRouter({
         });
       });
     }),
-  getClassroomStructure: publicProcedure
+  getClassroomStructure: classroomProcedure
     .input(z.object({ classRoomId: z.string() }))
     .query(async ({ input, ctx }) => {
       const classRoom = await ctx.db.classRoom.findUniqueOrThrow({
@@ -440,7 +445,7 @@ export const classroomRouter = createTRPCRouter({
         })(),
       };
     }),
-  updateClassroomLevel: publicProcedure
+  updateClassroomLevel: classroomProcedure
     .input(
       z.object({
         classRoomId: z.string(),
@@ -459,7 +464,7 @@ export const classroomRouter = createTRPCRouter({
         },
       });
     }),
-  moveClassroomStreams: publicProcedure
+  moveClassroomStreams: classroomProcedure
     .input(
       z.object({
         sourceClassRoomId: z.string(),
@@ -571,7 +576,7 @@ export const classroomRouter = createTRPCRouter({
       });
     }),
 
-  deleteClassroomDepartment: publicProcedure
+  deleteClassroomDepartment: classroomProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input, ctx }) => {
       return ctx.db.$transaction(async (tx) => {
@@ -602,7 +607,7 @@ export const classroomRouter = createTRPCRouter({
       });
     }),
 
-  all: publicProcedure
+  all: classroomProcedure
     .input(classroomQuerySchema)
     .query(async ({ input, ctx }) => {
       if (!input.schoolSessionId && !input.sessionTermId) {
@@ -611,7 +616,7 @@ export const classroomRouter = createTRPCRouter({
       const result = await getClassrooms(ctx, input);
       return result;
     }),
-  deleteClassroomTermDepartment: publicProcedure
+  deleteClassroomTermDepartment: classroomProcedure
     .input(z.object({ departmentId: z.string() }))
     .mutation(async ({ input, ctx }) => {
       const result = await ctx.db.classRoomDepartment.update({
@@ -625,24 +630,24 @@ export const classroomRouter = createTRPCRouter({
       });
       return result;
     }),
-  getClassroomOverview: publicProcedure
+  getClassroomOverview: classroomProcedure
     .input(getClassroomOverviewSchema)
     .query(async (props) => {
       return getClassroomOverview(props.ctx, props.input);
     }),
-  getClassroomsForSession: publicProcedure
+  getClassroomsForSession: classroomProcedure
     .input(z.string())
     .query(async ({ input, ctx }) => {
       return getClassrooms(ctx, {
         schoolSessionId: input,
       });
     }),
-  getCurrentSessionClassroom: publicProcedure.query(async ({ input, ctx }) => {
+  getCurrentSessionClassroom: classroomProcedure.query(async ({ input, ctx }) => {
     return getClassrooms(ctx, {
       schoolSessionId: ctx.profile.sessionId,
     });
   }),
-  getSchoolClassNames: publicProcedure.query(async ({ ctx }) => {
+  getSchoolClassNames: classroomProcedure.query(async ({ ctx }) => {
     const classRooms = await ctx.db.classRoom.findMany({
       where: {
         deletedAt: null,
@@ -659,7 +664,7 @@ export const classroomRouter = createTRPCRouter({
     return classRooms;
   }),
 
-  getSchoolStreamStructures: publicProcedure.query(async ({ ctx }) => {
+  getSchoolStreamStructures: classroomProcedure.query(async ({ ctx }) => {
     const classrooms = await ctx.db.classRoom.findMany({
       where: {
         deletedAt: null,
@@ -716,7 +721,7 @@ export const classroomRouter = createTRPCRouter({
   }),
 
   /** Copy all classrooms from a previous session into the current session. */
-  importFromPreviousSession: publicProcedure
+  importFromPreviousSession: classroomProcedure
     .input(z.object({ fromSessionId: z.string() }))
     .mutation(async ({ input, ctx }) => {
       const { db, profile } = ctx;
@@ -782,7 +787,7 @@ export const classroomRouter = createTRPCRouter({
     }),
 
   /** Register a single classroom (by name) from an old session into the current session. */
-  registerClassroomForSession: publicProcedure
+  registerClassroomForSession: classroomProcedure
     .input(
       z.object({
         className: z.string(),
@@ -840,7 +845,7 @@ export const classroomRouter = createTRPCRouter({
         },
       });
     }),
-  getForm: publicProcedure
+  getForm: classroomProcedure
     .input(
       z.object({
         postId: z.number().optional(),
@@ -850,7 +855,7 @@ export const classroomRouter = createTRPCRouter({
       const result = await loadQuestions(ctx, input);
       return result?.[0];
     }),
-  test: publicProcedure.query(async ({ input, ctx: { db } }) => {
+  test: classroomProcedure.query(async ({ input, ctx: { db } }) => {
     return {
       id: 1,
     };

@@ -8,6 +8,30 @@ Midday table migration completed: 2026-07-28
 
 ## Overview
 
+### Profile and gender corrections — 2026-09-08, implemented but untested
+
+Basic editor and gender API now share live-authorized atomic profile/guardian/open-term-fee updates. Closed-term fees are preserved; canonical demographics can still appear changed in reports that use current identity. Missing/ambiguous academic links and unsafe shared/login-bound guardian changes require review rather than partial saves. No contacts are resurrected and no login is reassigned. The shared-guardian editing location/confirmation choice is pending (ADR-0058).
+
+The editor and reusable gender control use a scoped provider mutation hook with no retry/offline queue, current-view callbacks, shared record/finance/report invalidation and visible recovery. Footer/control copy explains financial effects; narrow-screen save layout, labelled 44px controls and wrapping errors are written. All browser/mobile/keyboard/visual checks remain deferred; no claim that the reusable gender control is currently mounted elsewhere. Import reconciliation and broader portfolio work stay open.
+
+### Admission classification — 2026-09-08, implemented but untested
+
+Single/bulk classification delegates to a fresh-authorized, whole-batch Serializable service. Admin/Registrar need Students, Academics and Finance; closed academic terms/ledgers, missing ancestry, duplicates and unbound historical charges require review rather than partial updates. Classification and fee reconciliation are atomic; paid/manual/waived/allocated/ledger-linked records remain (ADR-0057).
+
+Directory confirmation uses a scoped single-flight hook, no retry/offline queue, current-context callbacks and student/finance invalidation. It retains errors, explains fee additions/cancellations/protected history, blocks incomplete/oversized selections and competing bulk actions, and provides labelled touch controls and wrapping recovery text. Success distinguishes changed/already-classified rows and fee counts. Browser/mobile/keyboard/visual verification remains deferred. Gender/basic-profile/import writers and wider finance boundaries remain open.
+
+### Shared deletion — 2026-09-08, implemented but untested
+
+Directory and overview deletion now use a shared scope-bound single-flight hook and a DB-owned Serializable soft-delete service, also used by the dashboard server action (ADR-0051). Fresh Admin/Registrar + Students access is required; affected active academic rows additionally require Academics. Conflicting ownership or partial archived state is surfaced for review. Canonical and related academic archives are atomic; guardians, assessments, attendance and financial records remain, and balances are not cancelled.
+
+Confirmation copy explains retention, row errors keep the dialog open, controls wrap with 44px targets, and overview shows inline recovery before closing its sheet/returning to the directory on success. No retry or offline mutation queue is used. Relevant caches are invalidated and late responses cannot navigate a changed scope/student. These are source changes, not verified browser/mobile behavior. Separate term deletion, class movement and the full portfolio remain unfinished; all tests are deferred.
+
+### Registration boundary — 2026-09-08, implemented but untested
+
+Registration now uses a dedicated live-authorized API transaction and DB-owned target/guardian/persistence helpers (ADR-0049). Admin/Registrar require Students; selecting a class also requires Academics + Finance; receiving a payment additionally requires the existing Admin finance-writer permission. All terms must be open and owned by the selected school/session/classroom. No-class registration creates only the canonical student/optional guardian. Guardian identity collisions are surfaced rather than revived or silently changed. Student/academic/charge/payment writes roll back together, and fees retain initial-term-only behavior.
+
+The create sheet resets its draft/results on school, user, login session or academic selection change, withholds unavailable identity, and submits a matching scope. Footer status/errors wrap with 44px actions and interrupted-request guidance. Preview readiness remains mandatory for enrollment/payment submission. No browser/mobile verification is claimed. Legacy create/import/repair writers and remaining CORE-002 coverage are still open; all testing remains deferred.
+
 The canonical student directory is `/students/list`; `/students` preserves its
 query string and redirects there. The page uses the shared dashboard table core
 and a single virtualized table surface rather than separate grid and list
@@ -105,3 +129,17 @@ The directory header remains server-rendered. Its URL-backed import and
 enrollment action buttons declare leaf-level client boundaries before invoking
 `nuqs` hooks, preventing client hook execution during the Server Component
 render while keeping the rest of the header out of the client bundle.
+
+## Attendance quick registration — 2026-10-05
+
+The administrator classroom attendance recorder reuses the existing secondary student form, preselecting classroom, session and term. Its existing name search can enroll a suggested student; creation and enrollment both close the secondary sheet and refresh attendance/classroom counts. The attendance draft remains mounted. The secondary form has stable defaults and is keyed to school/user/login-session/academic/classroom context. Ordinary directory registration keeps its success/payment controls. Live authorization and scope guards remain in force. Daarul Hadith administrator QA passed both creation and suggested-record enrollment with immediate attendance refresh. See ADR-0064 and ADR-0065.
+
+## Registration without Finance and mobile birth date — 2026-10-05
+
+Classroom registration/enrollment requires Student Management and Academics. Live effective Finance access controls fee preview and automatic fee application. Without Finance, the form hides fee/payment controls, skips preview and explains that registration creates no financial entries; the server rejects any optional fees or payment entries. Unknown/unconfigured module policy blocks submission. Finance-enabled behavior retains existing fee/payment checks. Six focused registration-policy tests pass; no entitlement/module setting or schema changed.
+
+The shared student form opts its date-of-birth control into a shadcn Drawer on mobile (<768 px), with accessible title/description, month/year selectors, future dates disabled and Cancel. Picking a date updates the field and closes only the calendar. Desktop keeps its popover. Verified at 390 × 844 and 1280 × 900.
+
+## Shared compact calendars — 2026-10-05
+
+Calendar presentation now comes from shared CalendarPopover: shadcn bottom sheet on mobile and popover on desktop. FormDate defaults to this behavior everywhere; attendance, date ranges and date filters reuse it. Shared native date Inputs also open the mobile sheet while retaining form events/constraints. Mobile layout uses more width, larger day buttons and tighter header/week/footer spacing. Date ranges show one month on mobile. See ADR-0066 for boundaries and verification.

@@ -7,7 +7,7 @@ export function ErrorFallback({
   error,
   reset,
 }: {
-  error?: Error & { digest?: string };
+  error?: unknown;
   reset?: () => void;
 }) {
   const router = useRouter();

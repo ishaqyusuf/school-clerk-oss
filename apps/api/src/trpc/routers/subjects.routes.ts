@@ -17,22 +17,23 @@ import {
   subjectOverviewSchema,
 } from "../../db/queries/subjects";
 import {
-  authenticatedProcedure,
   createTRPCRouter,
-  publicProcedure,
+  moduleProcedure,
 } from "../init";
 import {
   getAllSubjectsSchema,
   getClassroomSubjectsSchema,
   getSubjectsSchema,
 } from "../schemas/students";
+const subjectProcedure = moduleProcedure(["COURSES_SUBJECTS"]);
+
 export const subjectsRouter = createTRPCRouter({
-  getSubjectCatalog: authenticatedProcedure
+  getSubjectCatalog: subjectProcedure
     .input(getSubjectsSchema)
     .query(async (props) => {
       return getSubjectCatalog(props.ctx, props.input);
     }),
-  getSubjects: publicProcedure.input(getSubjectsSchema).query(async (props) => {
+  getSubjects: subjectProcedure.input(getSubjectsSchema).query(async (props) => {
     await props.ctx.db.subject.updateMany({
       where: {
         title: `حفظ القرآن`,
@@ -43,40 +44,40 @@ export const subjectsRouter = createTRPCRouter({
     });
     return getSubjects(props.ctx, props.input);
   }),
-  all: publicProcedure.input(getAllSubjectsSchema).query(async (q) => {
+  all: subjectProcedure.input(getAllSubjectsSchema).query(async (q) => {
     return await getAllSubjects(q.ctx, q.input);
   }),
-  byClassroom: publicProcedure
+  byClassroom: subjectProcedure
     .input(getClassroomSubjectsSchema)
     .query(async ({ input, ctx }) => {
       return await getClassroomSubjects(ctx, input);
     }),
-  deleteClassSubject: publicProcedure
+  deleteClassSubject: subjectProcedure
     .input(deleteClassSubjectSchema)
     .mutation(async (props) => {
       return deleteClassSubject(props.ctx, props.input);
     }),
-  getQuickAddSubjects: publicProcedure
+  getQuickAddSubjects: subjectProcedure
     .input(getQuickAddSubjectsSchema)
     .query(async (props) => {
       return getQuickAddSubjects(props.ctx, props.input);
     }),
-  saveSubject: publicProcedure
+  saveSubject: subjectProcedure
     .input(saveSubjectSchema)
     .mutation(async (props) => {
       return saveSubject(props.ctx, props.input);
     }),
-  importSubjects: publicProcedure
+  importSubjects: subjectProcedure
     .input(importSubjectsSchema)
     .mutation(async (props) => {
       return importSubjects(props.ctx, props.input);
     }),
-  overview: publicProcedure
+  overview: subjectProcedure
     .input(subjectOverviewSchema)
     .query(async (props) => {
       return overview(props.ctx, props.input);
     }),
-  formData: publicProcedure.input(formDataSchema).query(async (props) => {
+  formData: subjectProcedure.input(formDataSchema).query(async (props) => {
     return formData(props.ctx, props.input);
   }),
 });

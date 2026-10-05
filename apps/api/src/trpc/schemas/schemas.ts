@@ -65,14 +65,19 @@ export const enrollmentQuerySchema = z.object({
 export type EnrollmentQuery = z.infer<typeof enrollmentQuerySchema>;
 
 export const getStudentOverviewSchema = z.object({
-  studentId: z.string(),
-  termSheetId: z.string().optional().nullable(),
-  termId: z.string().optional().nullable(),
+  studentId: z.string().min(1).max(200),
+  termSheetId: z.string().min(1).max(200).optional().nullable(),
+  termId: z.string().min(1).max(200).optional().nullable(),
+  viewScope: z.object({
+    schoolId: z.string().min(1).max(200),
+    userId: z.string().min(1).max(200),
+    loginSessionId: z.string().min(1).max(200),
+  }).optional(),
 });
 export type GetStudentOverviewSchema = z.infer<typeof getStudentOverviewSchema>;
 
 export const getStudentTermsListSchema = z.object({
-  studentId: z.string(),
+  studentId: z.string().min(1).max(200),
 });
 export type GetStudentTermListSchema = z.infer<
   typeof getStudentTermsListSchema

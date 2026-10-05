@@ -4,8 +4,8 @@ import { put } from "@vercel/blob";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createElement } from "react";
+import { requireEnrollmentModules } from "./module-access";
 
-import { initAuth } from "@school-clerk/auth";
 import { prisma } from "@school-clerk/db";
 import { AdmissionSubmissionEmail } from "@school-clerk/email";
 import { render } from "@school-clerk/email/render";
@@ -15,7 +15,6 @@ import {
 	formatTenantEmailFrom,
 	formatTenantEmailSubject,
 	getEmailDeliveryRoutes,
-	resolveDashboardAppRootDomain,
 } from "@school-clerk/utils";
 
 const ACTIVE_APPLICATION_STATUSES = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"];
@@ -184,21 +183,6 @@ function assertClassAgeRequirement(input: {
 	}
 }
 
-function getDashboardOrigin(subDomain: string) {
-	const appRoot = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
-	const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-
-	if (process.env.NODE_ENV === "production") {
-		const rootDomain = appRoot.startsWith("dashboard.")
-			? appRoot.slice("dashboard.".length)
-			: appRoot;
-
-		return `${protocol}://dashboard.${subDomain}.${rootDomain}`;
-	}
-
-	return `${protocol}://${subDomain}.${appRoot}`;
-}
-
 function getSubmissionUrl(input: {
 	applicationId: string;
 	code: string;
@@ -296,36 +280,6 @@ async function sendAdmissionSubmissionEmail(input: {
 	}
 }
 
-function getAuthForSchoolSite() {
-	const appRoot = resolveDashboardAppRootDomain(process.env.APP_ROOT_DOMAIN);
-	const baseUrl =
-		process.env.NODE_ENV === "production"
-			? `https://${process.env.NEXT_PUBLIC_APP_URL}`
-			: `http://${appRoot}`;
-
-	return initAuth({
-		baseUrl,
-		productionUrl: `https://${process.env.NEXT_PUBLIC_APP_URL ?? "turbo.t3.gg"}`,
-		secret: process.env.BETTER_AUTH_SECRET,
-	});
-}
-
-async function findApplication(id: string, code: string) {
-	return (prisma as any).enrollmentApplication.findFirst({
-		where: {
-			id,
-			deletedAt: null,
-			enrollmentLink: {
-				code,
-				deletedAt: null,
-			},
-		},
-		include: {
-			schoolProfile: true,
-			parents: { where: { deletedAt: null } },
-		},
-	});
-}
 
 async function assertCapacity(link: any, classRoomDepartmentId: string) {
 	const baseWhere = {
@@ -434,6 +388,7 @@ export async function submitEnrollmentApplication(
 	if (!link) {
 		throw new Error("This enrollment link is no longer available.");
 	}
+	await requireEnrollmentModules(link.schoolProfileId);
 
 	const now = new Date();
 	if (link.opensAt && link.opensAt > now) {
@@ -556,6 +511,7 @@ export async function submitEnrollmentApplication(
 	}[] = [];
 
 	for (const upload of documentUploads) {
+		await requireEnrollmentModules(link.schoolProfileId);
 		uploadedDocuments.push({
 			requirementId: upload.requirementId,
 			...(await uploadDocument({
@@ -568,6 +524,7 @@ export async function submitEnrollmentApplication(
 		});
 	}
 
+	await requireEnrollmentModules(link.schoolProfileId);
 	const application = await db.enrollmentApplication.create({
 		data: {
 			id: applicationId,
@@ -629,108 +586,4 @@ export async function submitEnrollmentApplication(
 	}
 
 	redirect(`/enroll/${code}?submitted=${application.id}`);
-}
-
-export async function setupEnrollmentParentPassword(
-	code: string,
-	formData: FormData,
-) {
-	const applicationId = textValue(formData, "applicationId");
-	const email = normalizeEmail(formData.get("email"));
-	const password = textValue(formData, "password");
-	const application = await findApplication(applicationId, code);
-
-	assertValidEmail(email, "A valid email address is required.");
-	if (password.length < 8) {
-		throw new Error("Password must be at least 8 characters.");
-	}
-
-	if (!application) {
-		throw new Error("Enrollment application not found.");
-	}
-
-	const primaryParent =
-		application.parents.find((parent: any) => parent.isPrimary) ??
-		application.parents[0];
-
-	if (!primaryParent) {
-		throw new Error("Primary parent information was not found.");
-	}
-
-	const existingUser = await prisma.user.findFirst({
-		where: {
-			deletedAt: null,
-			saasAccountId: application.schoolProfile.accountId,
-			OR: [{ email }, { phoneNo: normalizePhone(primaryParent.phone) }],
-		},
-		select: {
-			id: true,
-			accounts: { select: { password: true } },
-		},
-	});
-
-	if (existingUser?.accounts.some((account) => Boolean(account.password))) {
-		await (prisma as any).enrollmentApplicationParent.update({
-			where: { id: primaryParent.id },
-			data: { linkedUserId: existingUser.id },
-		});
-		redirect(
-			`${getDashboardOrigin(application.schoolProfile.subDomain)}/login`,
-		);
-	}
-
-	if (existingUser) {
-		const token = crypto.randomUUID();
-		await prisma.verification.create({
-			data: {
-				identifier: `reset-password:${token}`,
-				value: existingUser.id,
-				expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
-			},
-		});
-		await (prisma as any).enrollmentApplicationParent.update({
-			where: { id: primaryParent.id },
-			data: { linkedUserId: existingUser.id, email },
-		});
-
-		const resetUrl = new URL(
-			`${getDashboardOrigin(application.schoolProfile.subDomain)}/reset-password`,
-		);
-		resetUrl.searchParams.set("token", token);
-		resetUrl.searchParams.set("email", email);
-		redirect(resetUrl.toString());
-	}
-
-	const requestHeaders = new Headers(await headers());
-	const auth = getAuthForSchoolSite();
-	const signUp = await auth.api.signUpEmail({
-		body: {
-			email,
-			password,
-			name: primaryParent.name,
-			role: "Parent",
-		},
-		headers: requestHeaders,
-	});
-	const userId = signUp?.user?.id;
-
-	if (!userId) {
-		throw new Error("Could not create parent login.");
-	}
-
-	await prisma.user.update({
-		where: { id: userId },
-		data: {
-			saasAccountId: application.schoolProfile.accountId,
-			phoneNo: normalizePhone(primaryParent.phone),
-			role: "Parent",
-		},
-	});
-
-	await (prisma as any).enrollmentApplicationParent.update({
-		where: { id: primaryParent.id },
-		data: { linkedUserId: userId, email },
-	});
-
-	redirect(`/enroll/${code}?submitted=${applicationId}&parentReady=1`);
 }

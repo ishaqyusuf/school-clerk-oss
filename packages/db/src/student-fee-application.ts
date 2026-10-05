@@ -103,6 +103,7 @@ async function findCandidateFinanceItems(
 	return tx.financeItem.findMany({
 		where: {
 			schoolProfileId: input.schoolProfileId,
+			stream: { schoolProfileId: input.schoolProfileId, deletedAt: null },
 			deletedAt: null,
 			isActive: true,
 			OR: [
@@ -327,21 +328,37 @@ export async function reconcileFeeHistoriesForStudentTermForm(
 	);
 
 	const application = await applyFeeHistoriesToStudentTermForm(tx, input);
-	const staleUnpaidIds = existingCharges
+	const staleCharges = existingCharges
 		.filter(
 			(charge) =>
 				charge.itemId &&
 				!applicableItemIds.has(charge.itemId) &&
 				(charge.assignmentSource === "REQUIRED_AUTO" ||
-					charge.assignmentSource === "OPTIONAL_SELECTED") &&
-				Number(charge.amountPaid) <= 0,
-		)
+					charge.assignmentSource === "OPTIONAL_SELECTED"),
+		);
+	const staleUnpaidIds = staleCharges
+		.filter((charge) => Number(charge.amountPaid) === 0)
 		.map((charge) => charge.id);
 
 	let cancelled = 0;
 	if (staleUnpaidIds.length) {
 		const result = await tx.financeCharge.updateMany({
-			where: { id: { in: staleUnpaidIds } },
+			where: {
+				id: { in: staleUnpaidIds },
+				schoolProfileId: input.schoolProfileId,
+				studentId: input.studentId,
+				studentTermFormId: input.studentTermFormId,
+				payerType: "STUDENT",
+				deletedAt: null,
+				cancelledAt: null,
+				schoolSessionId: input.schoolSessionId,
+				sessionTermId: input.sessionTermId,
+				status: { in: ["DRAFT", "PENDING"] },
+				amountPaid: 0,
+				assignmentSource: { in: ["REQUIRED_AUTO", "OPTIONAL_SELECTED"] },
+				allocations: { none: { deletedAt: null } },
+				ledgerEntries: { none: { deletedAt: null } },
+			},
 			data: {
 				status: "CANCELLED",
 				collectionStatus: "NOT_REQUIRED",
@@ -352,5 +369,5 @@ export async function reconcileFeeHistoriesForStudentTermForm(
 		cancelled = result.count;
 	}
 
-	return { ...application, cancelled };
+	return { ...application, cancelled, retained: staleCharges.length - cancelled };
 }

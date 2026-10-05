@@ -1,8 +1,13 @@
 import { getParentOverview } from "@api/db/queries/enrollment-links";
-import { authenticatedProcedure, createTRPCRouter } from "../init";
+import {
+  createTRPCRouter,
+  moduleProcedure,
+} from "../init";
+
+const parentProcedure = moduleProcedure(["PARENT_PORTAL"]);
 
 export const parentsRouter = createTRPCRouter({
-  overview: authenticatedProcedure.query(({ ctx }) => {
+  overview: parentProcedure.query(({ ctx }) => {
     return getParentOverview(ctx);
   }),
 });

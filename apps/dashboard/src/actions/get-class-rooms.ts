@@ -6,16 +6,19 @@ import { SearchParamsType } from "@/utils/search-params";
 import { classroomDepartmentListOrderBy, prisma } from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 
-import { getAuthCookie } from "./cookies/auth-cookie";
+import { requireDashboardModules } from "@/lib/module-access";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
 export type ClassRoomPageItem = PageItemData<typeof getClassRooms>;
 export async function getClassRooms(params: SearchParamsType) {
-  const profile = await getAuthCookie();
+  const { profile } = await requireDashboardModules(["ACADEMIC_PROGRAMS", "STUDENT_MANAGEMENT"], ["Admin", "Registrar"]);
 
   const classRooms = await prisma.classRoomDepartment.findMany({
     where: {
       id: !params?.departmentId ? undefined : params.departmentId,
+      schoolProfileId: profile.schoolId,
+      deletedAt: null,
       classRoom: {
         schoolSessionId: profile?.sessionId,
         name: params.className ? params.className : undefined,
@@ -69,13 +72,17 @@ export async function getClassRooms(params: SearchParamsType) {
   };
 }
 
-export async function updateClassroomDepartmentGrade(id, departmentLevel) {
+export async function updateClassroomDepartmentGrade(id: string, departmentLevel: number) {
+  const { profile } = await requireDashboardModules(["ACADEMIC_PROGRAMS"], ["Admin", "Registrar"]);
+  const input = z.object({ id: z.string().min(1), departmentLevel: z.number().finite() }).parse({ id, departmentLevel });
   await prisma.classRoomDepartment.update({
     where: {
-      id,
+      id: input.id,
+      schoolProfileId: profile.schoolId,
+      deletedAt: null,
     },
     data: {
-      departmentLevel,
+      departmentLevel: input.departmentLevel,
     },
   });
   revalidatePath("/academic/classes");

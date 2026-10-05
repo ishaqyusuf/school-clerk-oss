@@ -1,4 +1,7 @@
-import { authenticatedProcedure, createTRPCRouter } from "../init";
+import {
+  createTRPCRouter,
+  moduleProcedure,
+} from "../init";
 import {
   getStudents,
   getStudent,
@@ -36,6 +39,7 @@ import {
   getStudentImportJobSchema,
   getStudentImportJob,
   getImportNameGuide,
+  getStudentImportReference,
 } from "../../db/queries/students";
 import {
   studentDuplicateScopeSchema,
@@ -46,225 +50,168 @@ import {
 } from "../../db/queries/student-duplicates";
 import { getStudentOverviewSchema } from "../schemas/schemas";
 import { getStudentsSchema } from "../schemas/students";
-import { studentsOverview } from "@api/db/queries/students.overview";
-import { getStudentTermsList } from "@api/db/queries/academic-terms";
-import { TRPCError } from "@trpc/server";
+import { studentsOverview, studentAcademicsOverview } from "@api/db/queries/students.overview";
+import { getStudentTermDetailsSchema } from "@api/schemas/student-term-details";
+import { readStudentTermDetails } from "@api/db/queries/student-term-details";
+import { readStudentClassChangeOptions } from "@api/db/queries/student-class-change";
+import { studentClassChangeOptionsSchema } from "@school-clerk/utils/student-class-change-schema";
+import { z } from "zod";
+import {
+  submitClassStudentSchema,
+  submitClassStudent,
+  listClassStudentRequests,
+  getClassStudentMatches,
+  reviewClassStudentSchema,
+  reviewClassStudent,
+} from "../../db/queries/teacher-student-requests";
+const studentProcedure = moduleProcedure(["STUDENT_MANAGEMENT"]);
+const studentAcademicProcedure = moduleProcedure(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"], { roles: ["Admin", "Registrar"] });
+const studentAdmissionProcedure = moduleProcedure(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS", "BILLING_FINANCE"], { roles: ["Admin", "Registrar"] });
+
 export const studentsRouter = createTRPCRouter({
-  filters: authenticatedProcedure.query(async ({ input, ctx }) => {
+  submitClassStudent: moduleProcedure(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"], { roles: ["Teacher", "Admin", "Registrar"] })
+    .input(submitClassStudentSchema)
+    .mutation(({ ctx, input }) => submitClassStudent(ctx, input)),
+  classStudentRequests: moduleProcedure(["STUDENT_MANAGEMENT"], { roles: ["Admin", "Registrar"] })
+    .query(({ ctx }) => listClassStudentRequests(ctx)),
+  classStudentMatches: moduleProcedure(["STUDENT_MANAGEMENT"], { roles: ["Admin", "Registrar"] })
+    .input(z.object({ studentTermFormId: z.string().min(1) }))
+    .query(({ ctx, input }) => getClassStudentMatches(ctx, input.studentTermFormId)),
+  reviewClassStudent: moduleProcedure(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"], { roles: ["Admin", "Registrar"] })
+    .input(reviewClassStudentSchema)
+    .mutation(({ ctx, input }) => reviewClassStudent(ctx, input)),
+  filters: studentProcedure.query(async ({ input, ctx }) => {
     return getStudentsQueryParams(ctx);
   }),
-  index: authenticatedProcedure
+  index: studentProcedure
     .input(getStudentsSchema)
     .query(async ({ input, ctx }) => {
       return getStudents(ctx, input);
     }),
-  getStudent: authenticatedProcedure
+  getStudent: studentProcedure
     .input(getStudentsSchema)
     .query(async ({ input, ctx }) => {
       return getStudent(ctx, input);
     }),
-  createStudent: authenticatedProcedure
+  createStudent: moduleProcedure(["STUDENT_MANAGEMENT"], { roles: ["Admin", "Registrar"] })
     .input(createStudentSchema)
     .mutation(async (props) => {
       return createStudent(props.ctx, props.input);
     }),
-  deleteStudent: authenticatedProcedure
+  deleteStudent: moduleProcedure(["STUDENT_MANAGEMENT"], { roles: ["Admin", "Registrar"] })
     .input(deleteStudentSchema)
     .mutation(async (props) => {
       return deleteStudent(props.ctx, props.input);
     }),
-  deleteTermSheet: authenticatedProcedure
+  deleteTermSheet: studentAcademicProcedure
     .input(deleteTermSheetSchema)
     .mutation(async (props) => {
       return deleteTermSheet(props.ctx, props.input);
     }),
-  changeStudentClass: authenticatedProcedure
+  classChangeOptions: studentAcademicProcedure
+    .input(studentClassChangeOptionsSchema)
+    .query(({ ctx, input }) => readStudentClassChangeOptions(ctx, input)),
+  changeStudentClass: studentAcademicProcedure
     .input(changeStudentClassSchema)
     .mutation(async (props) => {
       return changeStudentClass(props.ctx, props.input);
     }),
-  bulkDeleteTermSheets: authenticatedProcedure
+  bulkDeleteTermSheets: studentAcademicProcedure
     .input(bulkDeleteTermSheetsSchema)
     .mutation(async (props) => {
       return bulkDeleteTermSheets(props.ctx, props.input);
     }),
-  bulkChangeClass: authenticatedProcedure
+  bulkChangeClass: studentAcademicProcedure
     .input(bulkChangeStudentClassSchema)
     .mutation(async (props) => {
       return bulkChangeStudentClass(props.ctx, props.input);
     }),
-  setAdmissionType: authenticatedProcedure
+  setAdmissionType: studentAdmissionProcedure
     .input(setStudentAdmissionTypeSchema)
     .mutation((props) => setStudentAdmissionType(props.ctx, props.input)),
-  bulkSetAdmissionType: authenticatedProcedure
+  bulkSetAdmissionType: studentAdmissionProcedure
     .input(bulkSetStudentAdmissionTypeSchema)
     .mutation((props) => bulkSetStudentAdmissionType(props.ctx, props.input)),
-  updateStudentBasicProfile: authenticatedProcedure
+  updateStudentBasicProfile: moduleProcedure(["STUDENT_MANAGEMENT"], { roles: ["Admin", "Registrar"] })
     .input(updateStudentBasicProfileSchema)
     .mutation(async (props) => {
       return updateStudentBasicProfile(props.ctx, props.input);
     }),
-  changeGender: authenticatedProcedure
+  changeGender: moduleProcedure(["STUDENT_MANAGEMENT"], { roles: ["Admin", "Registrar"] })
     .input(changeStudentGenderSchema)
     .mutation(async (props) => {
       return changeStudentGender(props.ctx, props.input);
     }),
-  executeStudentImport: authenticatedProcedure
+  executeStudentImport: studentAdmissionProcedure
     .input(executeStudentImportSchema)
     .mutation(async (props) => {
       return executeStudentImport(props.ctx, props.input);
     }),
-  startStudentImportJob: authenticatedProcedure
+  startStudentImportJob: studentAdmissionProcedure
     .input(startStudentImportJobSchema)
     .mutation(async (props) => {
       return startStudentImportJob(props.ctx, props.input);
     }),
-  getStudentImportJob: authenticatedProcedure
+  getStudentImportJob: studentAdmissionProcedure
     .input(getStudentImportJobSchema)
     .query(async (props) => {
       return getStudentImportJob(props.ctx, props.input);
     }),
-  analytics: authenticatedProcedure
+  analytics: studentProcedure
     .input(studentsAnalyticsSchema)
     .query(async (props) => {
       return studentsAnalytics(props.ctx, props.input);
     }),
-  duplicateGroups: authenticatedProcedure
+  duplicateGroups: studentProcedure
     .input(studentDuplicateScopeSchema)
     .query(async (props) => {
       return getStudentDuplicateGroups(props.ctx, props.input);
     }),
-  previewDuplicateMerge: authenticatedProcedure
+  previewDuplicateMerge: studentProcedure
     .input(studentDuplicateMergePreviewSchema)
     .query(async (props) => {
       return previewStudentDuplicateMerge(props.ctx, props.input);
     }),
-  mergeDuplicates: authenticatedProcedure
+  mergeDuplicates: studentProcedure
     .input(studentDuplicateMergePreviewSchema)
     .mutation(async (props) => {
       return mergeStudentDuplicates(props.ctx, props.input);
     }),
-  academicsOverview: authenticatedProcedure
+  academicsOverview: studentAcademicProcedure
     .input(getStudentOverviewSchema)
     .query(async ({ ctx, input }) => {
-      // if (!input.termSheetId) return null;
-
-      const student = await getStudent(ctx, { studentId: input.studentId });
-      const termHistory = await getStudentTermsList(ctx, {
-        studentId: input.studentId,
-      });
-      const term = termHistory.find((t) => t.termId === input.termId);
-
-      return {
-        id: null,
-        termHistory,
-        student,
-        term,
-      };
+      return studentAcademicsOverview(ctx, input);
     }),
-  overview: authenticatedProcedure
+  overview: studentAcademicProcedure
     .input(getStudentOverviewSchema)
     .query(async (props) => {
       return studentsOverview(props.ctx, props.input);
     }),
-  getStudentPaymentHistory: authenticatedProcedure.query(
+  getStudentPaymentHistory: studentProcedure.query(
     async ({ ctx, input }) => {
       // return getStudentPaymentHistory(ctx, input);
     },
   ),
-  studentsRecentRecord: authenticatedProcedure
+  studentsRecentRecord: studentProcedure
     .input(studentsRecentRecordSchema)
     .query(async (props) => {
       return studentsRecentRecord(props.ctx, props.input);
     }),
-  getImportNameGuide: authenticatedProcedure.query(async (props) => {
+  getStudentImportReference: studentAdmissionProcedure.query(({ ctx }) => getStudentImportReference(ctx)),
+  getImportNameGuide: studentAdmissionProcedure.query(async (props) => {
     return getImportNameGuide(props.ctx);
   }),
-  verifyStudentImport: authenticatedProcedure
+  verifyStudentImport: studentAdmissionProcedure
     .input(verifyStudentImportSchema)
     .query(async (props) => {
       return verifyStudentImport(props.ctx, props.input);
     }),
-  verifyStudentImportBatch: authenticatedProcedure
+  verifyStudentImportBatch: studentAdmissionProcedure
     .input(verifyStudentImportSchema)
     .mutation(async (props) => {
       return verifyStudentImport(props.ctx, props.input);
     }),
-  getTermFormDetails: authenticatedProcedure
-    .input(deleteTermSheetSchema) // reuse { id: string }
-    .query(async ({ ctx, input }) => {
-      const { db } = ctx;
-      const schoolProfileId = ctx.profile.schoolId;
-      if (!schoolProfileId) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "A school workspace is required.",
-        });
-      }
-      const form = await db.studentTermForm.findFirst({
-        where: {
-          id: input.id,
-          schoolProfileId,
-          deletedAt: null,
-          student: {
-            schoolProfileId,
-            deletedAt: null,
-          },
-        },
-        include: {
-          student: { select: { name: true, surname: true, otherName: true } },
-          classroomDepartment: { select: { departmentName: true } },
-          sessionTerm: { select: { title: true } },
-          assessmentRecords: {
-            select: {
-              id: true,
-              obtained: true,
-              classSubjectAssessment: {
-                select: {
-                  title: true,
-                  departmentSubject: {
-                    select: { subject: { select: { title: true } } },
-                  },
-                },
-              },
-            },
-          },
-          attendanceList: {
-            select: { id: true, isPresent: true, createdAt: true },
-          },
-        },
-      });
-      if (!form) return null;
-      return {
-        id: form.id,
-        student: form.student,
-        classroom: form.classroomDepartment?.departmentName ?? null,
-        term: form.sessionTerm?.title ?? null,
-        counts: {
-          assessmentRecords: form.assessmentRecords.filter(
-            (r) => r.obtained !== null,
-          ).length,
-          studentFees: 0,
-          payments: 0,
-          attendance: form.attendanceList.length,
-        },
-        assessmentRecords: form.assessmentRecords
-          .filter((r) => r.obtained !== null)
-          .map((r) => ({
-            id: r.id,
-            obtained: r.obtained,
-            assessmentTitle: r.classSubjectAssessment?.title ?? null,
-            subjectTitle:
-              r.classSubjectAssessment?.departmentSubject?.subject?.title ??
-              null,
-          })),
-        studentFees: [],
-        payments: [],
-        attendance: form.attendanceList.map((a) => ({
-          id: a.id,
-          status: a.isPresent ? "PRESENT" : "ABSENT",
-          date: a.createdAt,
-        })),
-      };
-    }),
+  getTermFormDetails: studentAcademicProcedure
+    .input(getStudentTermDetailsSchema)
+    .query(({ ctx, input }) => readStudentTermDetails(ctx, input)),
 });

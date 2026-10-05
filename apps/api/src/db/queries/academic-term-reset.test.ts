@@ -114,7 +114,7 @@ function createContext({
 										queryInFlight = true;
 										await Promise.resolve();
 										try {
-											return await method(...args);
+											return await Reflect.apply(method, undefined, args);
 										} finally {
 											queryInFlight = false;
 										}

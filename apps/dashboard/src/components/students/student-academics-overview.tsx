@@ -15,6 +15,9 @@ import { selectOptions } from "@school-clerk/utils";
 import { Card, CardContent } from "@school-clerk/ui/card";
 import { Badge } from "@school-clerk/ui/badge";
 import { GraduationCap, Layers3, Info } from "lucide-react";
+import { StudentHistoryUnavailable } from "./student-history-unavailable";
+import { useStudentFeePreview } from "@/hooks/use-student-fee-preview";
+import { Button } from "@school-clerk/ui/button";
 
 function fullClassName(term?: {
   classDisplayName?: string | null;
@@ -34,8 +37,14 @@ function Content({}) {
   const svc = useStudentOverviewSheet();
   if (!svc?.overviewData?.student?.id) return null;
 
-  if (!svc.activeStudentTerm?.studentTermId) return <NotEntrolled />;
   const term = svc.activeStudentTerm;
+  if (!term) return <p className="break-words p-4 text-sm text-muted-foreground">No available academic term is selected. Ask an administrator to review the school terms.</p>;
+  if (term.enrollmentState === "unavailable") return <StudentHistoryUnavailable onRefresh={svc.refresh} />;
+  if (term.enrollmentState === "not-enrolled") {
+    if (!svc.overviewData.capabilities.enroll) return <p className="break-words p-4 text-sm text-muted-foreground">Enrollment is unavailable because this workflow applies term fees and requires Finance access. Ask an administrator to review module access.</p>;
+    return <NotEntrolled key={`${svc.studentId}:${term.termId}`} />;
+  }
+  if (term.enrollmentState !== "enrolled" || !term.studentTermId) return <StudentHistoryUnavailable onRefresh={svc.refresh} />;
 
   return (
     <div className="max-w-full space-y-4 overflow-x-hidden animate-in fade-in slide-in-from-bottom-2 duration-500 sm:space-y-6">
@@ -134,7 +143,7 @@ function NotEntrolled() {
       sessionTermId: term?.termId,
       // termId: term?.termId,
 
-      classroomDepartmentId: term?.departmentId,
+      classroomDepartmentId: term?.departmentId ?? undefined,
       // classroomId: term?.classroomId,
       studentSessionFormId: term?.studentSessionId,
     },
@@ -148,13 +157,14 @@ function NotEntrolled() {
     isPending,
   } = useMutation(
     trpc.academics.entrollStudentToTerm.mutationOptions({
+      retry: false,
       onSuccess() {
         svc.refresh();
       },
       meta: {
         toastTitle: {
           loading: "Enrolling...",
-          success: "Enrolled",
+          success: "Enrollment confirmed",
           error: "Unable to complete!",
         },
       },
@@ -162,6 +172,9 @@ function NotEntrolled() {
   );
   useDebugToast("Enrollment Form", enrolledData, error);
   const onSubmit = (formData: typeof entrollStudentToTermSchema._type) => {
+    if (isPending || isLoadingFeePreview || isFeePreviewError || !applicableFeesPreview ||
+      !svc.overviewData?.capabilities.enroll || term?.enrollmentState !== "not-enrolled" || formData.studentId !== svc.overviewData.student.id ||
+      formData.sessionTermId !== term.termId || formData.schoolSessionId !== term.termSessionId) return;
     mutate(formData);
   };
   const { data: classrooms } = useQuery(
@@ -170,30 +183,21 @@ function NotEntrolled() {
     }),
   );
   const selectedClassroomDepartmentId = form.watch("classroomDepartmentId");
-  const { data: applicableFeesPreview } = useQuery(
-    trpc.academics.previewApplicableFeeHistories.queryOptions(
-      {
-        sessionTermId: term?.termId || "",
-        classroomDepartmentId: selectedClassroomDepartmentId || null,
-        admissionType: "RETURNING",
-        studentGender: svc.overviewData!.student!.gender,
-      },
-      {
-        enabled: Boolean(term?.termId),
-      },
-    ),
-  );
+  const { data: applicableFeesPreview, isLoading: isLoadingFeePreview, isError: isFeePreviewError, retry: retryFeePreview } = useStudentFeePreview({
+    sessionTermId: term?.termId || "", classroomDepartmentId: selectedClassroomDepartmentId || null,
+    admissionType: "RETURNING", studentGender: svc.overviewData!.student!.gender,
+  });
 
   // build nice student not enrolled for this term card, with enrollement formˆ
   return (
-    <div className="min-h-[50vh] flex flex-col justify-center items-center">
+    <div className="flex min-w-0 w-full flex-col items-center justify-center gap-4 px-4 py-6 sm:px-0">
       {/* {JSON.stringify(term)} */}
-      <h1>Student not enrolled for this term</h1>
+      <h3 className="break-words text-sm font-medium">Student not enrolled for this term</h3>
       <Form {...form}>
-        <form className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
+        <form className="grid w-full min-w-0 max-w-lg gap-4" onSubmit={form.handleSubmit(onSubmit)}>
           <FormCombobox
             control={form.control}
-            label={"Fee"}
+            label={"Classroom"}
             name="classroomDepartmentId"
             comboProps={{
               onCreate(value) {},
@@ -253,21 +257,28 @@ function NotEntrolled() {
           <Menu.Item>Enrollment Fee</Menu.Item>
         </Menu> */}
           {/* add form select, onselect update classroomId and departmentId */}
-          <SubmitButton isSubmitting={isPending}>Enroll</SubmitButton>
+          <SubmitButton className="min-h-11" disabled={term?.enrollmentState !== "not-enrolled" || !selectedClassroomDepartmentId || isLoadingFeePreview || isFeePreviewError || !applicableFeesPreview} isSubmitting={isPending}>Enroll</SubmitButton>
+          {error ? <p role="alert" className="break-words text-sm text-destructive">Enrollment could not be confirmed. Refresh history before trying again; an existing matching enrollment will not be charged again by this action.</p> : null}
           <div className="rounded-lg border border-border p-3">
             <h4 className="text-sm font-medium">
-              Fees that will be applied on save
+              Applicable fees
             </h4>
-            {!applicableFeesPreview?.length ? (
+            {!selectedClassroomDepartmentId ? <p className="mt-2 text-sm text-muted-foreground">Select a classroom to preview fees.</p>
+              : isLoadingFeePreview ? <p role="status" className="mt-2 text-sm text-muted-foreground">Loading fee preview…</p>
+              : isFeePreviewError || !applicableFeesPreview ? <div role="alert" className="mt-2 space-y-2 text-sm">
+                <p className="break-words text-destructive">Fee preview is unavailable. Retry, or refresh history before enrolling.</p>
+                <Button type="button" variant="outline" className="min-h-11 w-full sm:w-auto" onClick={retryFeePreview}>Retry fee preview</Button>
+              </div>
+              : !applicableFeesPreview.length ? (
               <p className="mt-2 text-sm text-muted-foreground">
                 No active term fees match this class selection.
               </p>
             ) : (
-              <ul className="mt-2 space-y-2">
+              <ul className="mt-2 min-w-0 space-y-2">
                 {applicableFeesPreview.map((fee) => (
                   <li key={fee.feeHistoryId} className="rounded-md border p-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium">{fee.title}</span>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="min-w-0 break-words font-medium">{fee.title}</span>
                       <span className="text-sm">
                         {new Intl.NumberFormat("en-NG", {
                           style: "currency",
@@ -275,6 +286,9 @@ function NotEntrolled() {
                         }).format(fee.amount)}
                       </span>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      {fee.collectable ? "Required: applied on enrollment." : "Optional: not selected by this enrollment action."}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {fee.description || "No description"}
                     </p>

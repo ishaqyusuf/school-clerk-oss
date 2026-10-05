@@ -1,5 +1,6 @@
 "use server";
 
+import { requireLegacyMigrationAccess } from "@/lib/legacy-migration-access";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { transaction } from "@/utils/db";
 import { z } from "zod";
@@ -17,6 +18,7 @@ export async function createStudent(
   data: CreateClassRoom,
   tx: typeof prisma = prisma
 ) {
+  await requireLegacyMigrationAccess();
   const profile = await getAuthCookie();
   const student = await tx.students.create({
     data: {
@@ -105,6 +107,7 @@ export async function createStudent(
 export const createStudentAction = actionClient
   .schema(createStudentSchema)
   .action(async ({ parsedInput: data }) => {
+    await requireLegacyMigrationAccess();
     const student = await transaction(async (tx) => {
       if (!data?.guardian?.name) data.guardian = null;
       const student = await createStudent(data, tx);

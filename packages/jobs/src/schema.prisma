@@ -1251,6 +1251,12 @@ enum StudentTermAdmissionType {
     RETURNING
 }
 
+enum StudentRegistrationReviewStatus {
+    APPROVED
+    PENDING
+    REJECTED
+}
+
 model StudentSessionForm {
     id                    String               @id @default(uuid())
     student               Students?            @relation(fields: [studentId], references: [id])
@@ -1290,9 +1296,15 @@ model StudentTermForm {
     classroomDepartment   ClassRoomDepartment? @relation(fields: [classroomDepartmentId], references: [id])
     classroomDepartmentId String?
     admissionType          StudentTermAdmissionType @default(UNCLASSIFIED)
+    registrationReviewStatus StudentRegistrationReviewStatus @default(APPROVED)
+    registrationRequestedByUserId String?
+    registrationReviewedByUserId String?
+    registrationReviewedAt DateTime? @db.Timestamp(0)
+    registrationReviewNote String?
     financeCharges        FinanceCharge[]
 
     @@index([schoolProfileId, sessionTermId, admissionType])
+    @@index([schoolProfileId, registrationReviewStatus, sessionTermId])
 }
 
 // ---- classroom.prisma ----
@@ -1709,6 +1721,7 @@ model SchoolProfile {
   academicDataDirectionMode AcademicDataDirectionMode @default(AUTO)
   studentNameFormat       StudentNameFormat     @default(FIRST_SURNAME_OTHER)
   institutionType         String?
+  moduleConfiguration     SchoolModuleConfiguration?
   studentCountEstimate    Int?
   country                 String?
   educationSystem         String?
@@ -1772,6 +1785,19 @@ model SchoolProfile {
   financePurchases               FinancePurchase[]
 
   @@unique([name, subDomain, slug, deletedAt])
+}
+
+model SchoolModuleConfiguration {
+  id                String   @id @default(uuid())
+  schoolProfileId   String   @unique
+  version           Int      @default(1)
+  revision          Int      @default(0)
+  enabledModules    String[] @default([])
+  entitledModules   String[] @default([])
+  updatedByUserId   String?
+  createdAt         DateTime @default(now()) @db.Timestamp(0)
+  updatedAt         DateTime @updatedAt
+  schoolProfile     SchoolProfile @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
 }
 
 enum AcademicDataDirectionMode {

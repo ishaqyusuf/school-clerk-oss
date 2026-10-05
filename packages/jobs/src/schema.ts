@@ -59,12 +59,8 @@ export type CreateSalesDispatchSchemaTask = z.infer<
   typeof createSalesDispatchSchemaTask
 >;
 export const sendStaffInvitationEmailSchema = z.object({
+  deliveryId: z.string().min(1),
   ctaHref: z.string().url(),
-  email: z.string().email(),
-  invitedByName: z.string().optional().nullable(),
-  roleLabel: z.string().min(1),
-  schoolName: z.string().min(1),
-  staffName: z.string().min(1),
 });
 export type SendStaffInvitationEmailPayload = z.infer<
   typeof sendStaffInvitationEmailSchema

@@ -11,6 +11,8 @@ interface SendEmailProps {
 	from: string;
 	to: string | string[];
 	content: ReactElement;
+	beforeSend?: () => Promise<boolean>;
+	idempotencyKey?: string;
 	successLog?: string;
 	errorLog?: string;
 	task: {
@@ -23,13 +25,19 @@ export async function sendEmail({
 	from,
 	to,
 	content,
+	beforeSend,
+	idempotencyKey,
 	errorLog,
 	successLog,
 }: SendEmailProps) {
 	const html = await render(content);
 	const routes = getEmailDeliveryRoutes(to);
 
-	for (const route of routes) {
+	for (const [routeIndex, route] of routes.entries()) {
+		if (beforeSend && !(await beforeSend())) {
+			logger.info("email delivery skipped: current authorization unavailable");
+			return { skipped: true };
+		}
 		if (route.transport === "console") {
 			logger.info("email captured by console delivery", {
 				originalRecipient: route.originalRecipient,
@@ -38,6 +46,7 @@ export async function sendEmail({
 			continue;
 		}
 
+		const deliveryKey = idempotencyKey ? `${idempotencyKey}:${routeIndex}` : undefined;
 		const response = await resend.emails.send({
 			subject: route.qaRouted
 				? `[QA: ${route.originalRecipient}] ${subject}`
@@ -45,7 +54,7 @@ export async function sendEmail({
 			from,
 			to: route.recipient,
 			headers: {
-				"X-Entity-Ref-ID": nanoid(),
+				"X-Entity-Ref-ID": deliveryKey ?? nanoid(),
 				...(route.qaRouted
 					? { "X-QA-Original-Recipient": route.originalRecipient }
 					: {}),
@@ -53,7 +62,7 @@ export async function sendEmail({
 			html: route.qaRouted
 				? `<p><strong>QA routed for ${route.originalRecipient}</strong></p>${html}`
 				: html,
-		});
+		}, deliveryKey ? { idempotencyKey: deliveryKey } : undefined);
 		if (response.error) {
 			logger.error(errorLog || "email failed to send", {
 				error: response.error,
@@ -64,4 +73,5 @@ export async function sendEmail({
 		}
 	}
 	logger.info(successLog || "email sent");
+	return { skipped: false };
 }

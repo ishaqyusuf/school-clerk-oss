@@ -18,9 +18,11 @@ export function useAuth(props?: Props) {
   // const profile = useAsyncMemo(async () => {
   //   return await getAuthCookie();
   // },[])
-  const { data: profile, isLoading } = useSWR("/api/profile", fetcher);
+  const { data: profile, isLoading, error: profileError } = useSWR("/api/profile", fetcher);
   return {
     isPending,
+    isProfileLoading: isLoading,
+    isProfileError: !!profileError,
     sessionId: data?.session?.id,
     // termId: data?.session?.term
     id: data?.user?.id,

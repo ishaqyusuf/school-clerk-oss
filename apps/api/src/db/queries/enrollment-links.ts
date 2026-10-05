@@ -6,7 +6,7 @@ import type {
 } from "@api/trpc/schemas/enrollment-links";
 import { AdmissionApprovalEmail } from "@school-clerk/email";
 import { render } from "@school-clerk/email/render";
-import { compareClassroomDepartments } from "@school-clerk/db";
+import { createOrUpdateEnrollmentGuardian, compareClassroomDepartments, EnrollmentParentAccessError } from "@school-clerk/db";
 import {
 	formatStudentName,
 	formatTenantEmailFrom,
@@ -963,44 +963,34 @@ export async function approveEnrollmentApplication(
 			});
 		}
 
-		const linkedUser = primaryParent
+		const accountId = ctx.currentUser?.saasAccountId;
+		if (!accountId) throw new TRPCError({ code: "FORBIDDEN", message: "School account membership is required." });
+		const linkedUser = primaryParent.linkedUserId
 			? await txDb.user.findFirst({
 					where: {
+						id: primaryParent.linkedUserId,
 						deletedAt: null,
-						saasAccountId: ctx.currentUser?.saasAccountId ?? undefined,
-						OR: [
-							...(primaryParent.email
-								? [{ email: primaryParent.email.toLowerCase() }]
-								: []),
-							{ phoneNo: normalizePhone(primaryParent.phone) },
-						],
+						saasAccountId: accountId,
+						email: { equals: primaryParent.email.trim().toLowerCase(), mode: "insensitive" },
+						emailVerified: true,
+						role: { equals: "parent", mode: "insensitive" },
 					},
 					select: { id: true },
 				})
 			: null;
-
-		const guardian = primaryParent
-			? await txDb.guardians.upsert({
-					where: {
-						name_phone_schoolProfileId: {
-							name: primaryParent.name,
-							phone: normalizePhone(primaryParent.phone),
-							schoolProfileId,
-						},
-					},
-					create: {
-						name: primaryParent.name,
-						phone: normalizePhone(primaryParent.phone),
-						phone2: normalizePhone(primaryParent.phone2),
-						schoolProfileId,
-						userId: linkedUser?.id ?? null,
-					},
-					update: {
-						phone2: normalizePhone(primaryParent.phone2),
-						...(linkedUser?.id ? { userId: linkedUser.id } : {}),
-					},
-				})
-			: null;
+		if (primaryParent.linkedUserId && !linkedUser) {
+			throw new TRPCError({ code: "CONFLICT", message: "The parent login must be verified or reviewed before approval." });
+		}
+		const guardian = await createOrUpdateEnrollmentGuardian(txDb, {
+			schoolId: schoolProfileId, name: primaryParent.name,
+			phone: normalizePhone(primaryParent.phone), phone2: normalizePhone(primaryParent.phone2),
+			userId: linkedUser?.id ?? null,
+		}).catch((error: unknown) => {
+			if (error instanceof EnrollmentParentAccessError) {
+				throw new TRPCError({ code: "CONFLICT", message: error.message });
+			}
+			throw error;
+		});
 		const admissionLetterTemplate =
 			await resolveAdmissionLetterTemplateForSchool(
 				txDb,

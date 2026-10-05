@@ -1,4 +1,7 @@
-import { authenticatedProcedure, createTRPCRouter } from "../init";
+import {
+  createTRPCRouter,
+  moduleProcedure,
+} from "../init";
 import {
   academicTermIdSchema,
   academicTermResetSchema,
@@ -40,11 +43,9 @@ import {
   getClassroomDepartments,
   getClassroomsSchema,
 } from "@api/db/queries/classroom";
-import {
-	applicableStudentAudiences,
-	applicableStudentGenderAudiences,
-	compareClassroomDepartments,
-} from "@school-clerk/db";
+import { compareClassroomDepartments } from "@school-clerk/db";
+import { previewApplicableFeeHistoriesSchema } from "@api/schemas/student-fee-preview";
+import { previewApplicableFeeHistories } from "@api/db/queries/student-fee-preview";
 import {
   entrollStudentToTerm,
   entrollStudentToTermSchema,
@@ -63,13 +64,6 @@ import {
   subDays,
 } from "date-fns";
 import { z } from "zod";
-
-const previewApplicableFeeHistoriesSchema = z.object({
-  sessionTermId: z.string(),
-  classroomDepartmentId: z.string().optional().nullable(),
-  admissionType: z.enum(["UNCLASSIFIED", "NEW_ADMISSION", "RETURNING"]),
-	studentGender: z.enum(["Male", "Female"]),
-});
 
 function findCurrentDatedTerm<
   T extends {
@@ -95,8 +89,10 @@ function findCurrentDatedTerm<
   );
 }
 
+const academicProcedure = moduleProcedure(["ACADEMIC_PROGRAMS"]);
+
 export const academicsRouter = createTRPCRouter({
-  getReportTerms: authenticatedProcedure
+  getReportTerms: academicProcedure
     .input(z.object({}).optional())
     .query(async ({ ctx }) => {
       if (!ctx.profile.sessionId) return [];
@@ -144,7 +140,7 @@ export const academicsRouter = createTRPCRouter({
         endDate: term.endDate,
       }));
     }),
-  dashboard: authenticatedProcedure.input(z.object({})).query(async (props) => {
+  dashboard: academicProcedure.input(z.object({})).query(async (props) => {
     const { ctx, input } = props;
     const db = ctx.db;
     // return dashboard(props.ctx, props.input);
@@ -303,23 +299,23 @@ export const academicsRouter = createTRPCRouter({
       }),
     };
   }),
-  updateTermMetadata: authenticatedProcedure
+  updateTermMetadata: academicProcedure
     .input(updateAcademicTermMetadataSchema)
     .mutation(({ ctx, input }) => updateAcademicTermMetadata(ctx, input)),
-  getStudentTermsList: authenticatedProcedure
+  getStudentTermsList: moduleProcedure(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"], { roles: ["Admin", "Registrar"] })
     .input(getStudentTermsListSchema)
     .query(async (props) => {
       return getStudentTermsList(props.ctx, props.input);
     }),
-  createAcademicSession: authenticatedProcedure
+  createAcademicSession: academicProcedure
     .input(createAcademicSessionSchema)
     .mutation(async (props) => {
       return createAcademicSession(props.ctx, props.input);
     }),
-  updateSessionMetadata: authenticatedProcedure
+  updateSessionMetadata: academicProcedure
     .input(updateAcademicSessionMetadataSchema)
     .mutation(({ ctx, input }) => updateAcademicSessionMetadata(ctx, input)),
-  createAcademicTerm: authenticatedProcedure
+  createAcademicTerm: academicProcedure
     .input(
       z.object({
         currentTermId: z.string(),
@@ -337,10 +333,10 @@ export const academicsRouter = createTRPCRouter({
         endDate: input.endDate ? new Date(input.endDate) : null,
       }),
     ),
-  createTermDraft: authenticatedProcedure
+  createTermDraft: academicProcedure
     .input(createAcademicTermDraftSchema)
     .mutation(({ ctx, input }) => createAcademicTermDraft(ctx, input)),
-  getTermSetupContext: authenticatedProcedure
+  getTermSetupContext: academicProcedure
     .input(
       academicTermIdSchema.extend({
         previousTermId: z.string().optional().nullable(),
@@ -352,33 +348,33 @@ export const academicsRouter = createTRPCRouter({
         previousTermId: input.previousTermId,
       }),
     ),
-  previewTermSetup: authenticatedProcedure
+  previewTermSetup: academicProcedure
     .input(academicTermSetupSelectionSchema)
     .query(({ ctx, input }) => previewAcademicTermSetup(ctx, input)),
-  applyTermSetup: authenticatedProcedure
+  applyTermSetup: academicProcedure
     .input(academicTermSetupApplySchema)
     .mutation(({ ctx, input }) => applyAcademicTermSetup(ctx, input)),
-  previewTermActivation: authenticatedProcedure
+  previewTermActivation: academicProcedure
     .input(academicTermIdSchema)
     .query(({ ctx, input }) =>
       previewAcademicTermActivation(ctx, { termId: input.termId! }),
     ),
-  activateTerm: authenticatedProcedure
+  activateTerm: academicProcedure
     .input(academicTermIdSchema)
     .mutation(({ ctx, input }) =>
       activateAcademicTerm(ctx, { termId: input.termId! }),
     ),
-  closeTerm: authenticatedProcedure
+  closeTerm: academicProcedure
     .input(academicTermIdSchema)
     .mutation(({ ctx, input }) =>
       closeAcademicTerm(ctx, { termId: input.termId! }),
     ),
-  previewTermReset: authenticatedProcedure
+  previewTermReset: academicProcedure
     .input(academicTermIdSchema)
     .query(({ ctx, input }) =>
       previewAcademicTermReset(ctx, { termId: input.termId! }),
     ),
-  resetTerm: authenticatedProcedure
+  resetTerm: academicProcedure
     .input(academicTermResetSchema)
     .mutation(({ ctx, input }) =>
       resetAcademicTerm(ctx, {
@@ -386,91 +382,20 @@ export const academicsRouter = createTRPCRouter({
         confirmation: input.confirmation!,
       }),
     ),
-  entrollStudentToTerm: authenticatedProcedure
+  entrollStudentToTerm: moduleProcedure(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"], { roles: ["Admin", "Registrar"] })
     .input(entrollStudentToTermSchema)
     .mutation(async (props) => {
       return entrollStudentToTerm(props.ctx, props.input);
     }),
-  getClassrooms: authenticatedProcedure
+  getClassrooms: academicProcedure
     .input(getClassroomsSchema)
     .query(async (props) => {
       return getClassroomDepartments(props.ctx, props.input);
     }),
-  previewApplicableFeeHistories: authenticatedProcedure
+  previewApplicableFeeHistories: moduleProcedure(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS", "BILLING_FINANCE"], { roles: ["Admin", "Registrar"] })
     .input(previewApplicableFeeHistoriesSchema)
-    .query(async ({ ctx, input }) => {
-      const term = await ctx.db.sessionTerm.findFirst({
-        where: {
-          id: input.sessionTermId,
-          schoolId: ctx.profile.schoolId,
-          deletedAt: null,
-        },
-        select: { sessionId: true },
-      });
-      if (!term) return [];
-      const items = await ctx.db.financeItem.findMany({
-        where: {
-          schoolProfileId: ctx.profile.schoolId,
-          deletedAt: null,
-          isActive: true,
-          AND: [
-            {
-              OR: [
-                { schoolSessionId: term.sessionId },
-                { schoolSessionId: null },
-              ],
-            },
-            {
-              OR: [
-                { sessionTermId: input.sessionTermId },
-                { sessionTermId: null },
-              ],
-            },
-            {
-							studentAudience: {
-								in: applicableStudentAudiences(input.admissionType),
-							},
-						},
-						{
-							studentGenderAudience: {
-								in: applicableStudentGenderAudiences(input.studentGender),
-							},
-            },
-            {
-              OR: [
-                { applicableClasses: { none: { deletedAt: null } } },
-                ...(input.classroomDepartmentId
-                  ? [
-                      {
-                        applicableClasses: {
-                          some: {
-                            deletedAt: null,
-                            classRoomDepartmentId: input.classroomDepartmentId,
-                          },
-                        },
-                      },
-                    ]
-                  : []),
-              ],
-            },
-          ],
-        },
-        include: { stream: true },
-        orderBy: [{ collectable: "desc" }, { name: "asc" }],
-      });
-      return items.map((item) => ({
-        feeHistoryId: item.id,
-        title: item.name,
-        amount: Number(item.amount),
-        description: item.description,
-        scope: input.classroomDepartmentId ? "Classroom or school" : "School",
-        streamName: item.stream.name,
-        collectable: item.collectable,
-        studentAudience: item.studentAudience,
-				studentGenderAudience: item.studentGenderAudience,
-      }));
-    }),
-  migrateTermData: authenticatedProcedure
+    .query(({ ctx, input }) => previewApplicableFeeHistories(ctx, input)),
+  migrateTermData: academicProcedure
     .input(
       z.object({
         termId: z.string(),
@@ -498,7 +423,7 @@ export const academicsRouter = createTRPCRouter({
         idempotencyKey: `legacy-${input.termId}-${input.previousTermId}`,
       }),
     ),
-  getSessionPrefill: authenticatedProcedure
+  getSessionPrefill: academicProcedure
     .input(z.object({}))
     .query(async ({ ctx }) => {
       const db = ctx.db;
@@ -547,7 +472,7 @@ export const academicsRouter = createTRPCRouter({
         })),
       };
     }),
-  getPromotionStudents: authenticatedProcedure
+  getPromotionStudents: academicProcedure
     .input(
       z.object({
         lastTermId: z.string(),
@@ -742,7 +667,7 @@ export const academicsRouter = createTRPCRouter({
         },
       };
     }),
-  getPromotionClassrooms: authenticatedProcedure
+  getPromotionClassrooms: academicProcedure
     .input(
       z.object({
         lastTermId: z.string(),
@@ -858,7 +783,7 @@ export const academicsRouter = createTRPCRouter({
         },
       };
     }),
-  getStudentTermPerformance: authenticatedProcedure
+  getStudentTermPerformance: academicProcedure
     .input(z.object({ studentId: z.string(), termId: z.string() }))
     .query(async ({ ctx, input }) => {
       const db = ctx.db;
@@ -903,7 +828,7 @@ export const academicsRouter = createTRPCRouter({
       });
       return termForm;
     }),
-  batchPromote: authenticatedProcedure
+  batchPromote: academicProcedure
     .input(
       z.object({
         studentIds: z.array(z.string()),
@@ -1130,7 +1055,7 @@ export const academicsRouter = createTRPCRouter({
         };
       });
     }),
-  reversePromotion: authenticatedProcedure
+  reversePromotion: academicProcedure
     .input(z.object({ studentIds: z.array(z.string()), termId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await requireAcademicAdmin(ctx);

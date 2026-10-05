@@ -1,7 +1,7 @@
 import { Arabic } from "@/components/arabic";
-import { _qc, _trpc } from "@/components/static-trpc";
+import { useTRPC } from "@/trpc/client";
 import { useStudentNameFormatter } from "@/components/student-name-format/provider";
-import { SubmitButton } from "@/components/submit-button";
+import { StudentImportReviewFooter } from "./review-footer";
 import type { RouterOutputs } from "@api/trpc/routers/_app";
 import { Alert, AlertDescription, AlertTitle } from "@school-clerk/ui/alert";
 import { Badge, badgeVariants } from "@school-clerk/ui/badge";
@@ -25,7 +25,7 @@ import {
 import { Progress } from "@school-clerk/ui/progress";
 import { Separator } from "@school-clerk/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import {
   AlertCircle,
@@ -89,9 +89,9 @@ type VerifyResult =
   RouterOutputs["students"]["verifyStudentImport"]["results"][number];
 type MatchCandidate = NonNullable<VerifyResult["fullMatch"]>;
 type ExistingStudent =
-  RouterOutputs["students"]["studentsRecentRecord"]["students"][number];
+  RouterOutputs["students"]["getStudentImportReference"]["students"][number];
 type ClassDepartment =
-  RouterOutputs["students"]["studentsRecentRecord"]["classDepartments"][number];
+  RouterOutputs["students"]["getStudentImportReference"]["classDepartments"][number];
 type ExecuteResult = RouterOutputs["students"]["executeStudentImport"];
 type StudentImportJob = NonNullable<
   RouterOutputs["students"]["getStudentImportJob"]
@@ -172,6 +172,8 @@ export function ImportActivity({
   onPhaseChange,
   isActive = true,
 }: Props) {
+	const _trpc = useTRPC();
+	const _qc = useQueryClient();
 	const formatStudentName = useStudentNameFormatter();
   const [classroomDeptId, setClassroomDeptId] = useState<string>(
     () => savedDraft?.classroomDeptId || "",
@@ -191,6 +193,7 @@ export function ImportActivity({
     useState<Record<number, string>>(
       () => savedDraft?.manualClassroomDepartmentIds || {},
     );
+  const [showReviewDefaults, setShowReviewDefaults] = useState(false);
   const [checkedRows, setCheckedRows] = useState<Record<number, boolean>>(
     () => savedDraft?.checkedRows || {},
   );
@@ -236,12 +239,14 @@ export function ImportActivity({
   const clearedCleanDraftResultKeyRef = useRef<string | null>(null);
 
   const {
-    data: records,
+    data: referenceRecords,
     refetch: refetchRecentRecords,
     isPending: isRecentRecordsPending,
+    isError: isReferenceRecordsError,
   } = useQuery(
-    _trpc.students.studentsRecentRecord.queryOptions({}, { enabled: isActive }),
+    _trpc.students.getStudentImportReference.queryOptions(undefined, { enabled: isActive, retry: false, staleTime: 0, refetchOnMount: "always" }),
   );
+  const records = isReferenceRecordsError ? undefined : referenceRecords;
 
   const manualClassroomRequiredLineNumbers = useMemo(
     () =>
@@ -317,7 +322,7 @@ export function ImportActivity({
     mutate: verifyStudents,
     error: verificationError,
     reset: resetVerification,
-  } = useMutation(_trpc.students.verifyStudentImportBatch.mutationOptions());
+  } = useMutation(_trpc.students.verifyStudentImportBatch.mutationOptions({ retry: false, networkMode: "always" }));
 
   useEffect(() => {
     if (!isActive) {
@@ -507,6 +512,8 @@ export function ImportActivity({
     reset: resetStartImportJob,
   } = useMutation(
     _trpc.students.startStudentImportJob.mutationOptions({
+      retry: false,
+      networkMode: "always",
       onSuccess(job) {
         setActiveImportJobId(job.id);
       },
@@ -566,7 +573,10 @@ export function ImportActivity({
   const { mutate: executeSingleRow, reset: resetSingleRowMutation } =
     useMutation(
       _trpc.students.executeStudentImport.mutationOptions({
+        retry: false,
+        networkMode: "always",
         onSuccess(result, variables) {
+          _qc.invalidateQueries({ queryKey: _trpc.students.getStudentImportReference.queryKey() });
           _qc.invalidateQueries({
             queryKey: _trpc.students.index.infiniteQueryKey(),
           });
@@ -1156,6 +1166,7 @@ export function ImportActivity({
     if (!displayedImportJobFinal || !displayedImportJob) return;
     if (lastInvalidatedImportJobId === displayedImportJob.id) return;
 
+    _qc.invalidateQueries({ queryKey: _trpc.students.getStudentImportReference.queryKey() });
     _qc.invalidateQueries({
       queryKey: _trpc.students.index.infiniteQueryKey(),
     });
@@ -1296,8 +1307,24 @@ export function ImportActivity({
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       {!showExecutionOnly ? (
-        <div className="rounded-md border bg-background">
-          <div className="grid gap-3 p-3 lg:grid-cols-[minmax(16rem,24rem)_minmax(14rem,18rem)_auto_minmax(0,1fr)] lg:items-end">
+        <div className="shrink-0 border-b bg-background">
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-11 w-full justify-start whitespace-normal text-left sm:hidden"
+            aria-expanded={showReviewDefaults}
+            aria-controls="student-import-review-defaults"
+            onClick={() => setShowReviewDefaults((visible) => !visible)}
+          >
+            {showReviewDefaults ? "Hide import defaults" : "Classroom, admission status and review actions"}
+          </Button>
+          <div
+            id="student-import-review-defaults"
+            className={cn(
+              "gap-3 p-3 sm:grid sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end",
+              showReviewDefaults ? "grid" : "hidden",
+            )}
+          >
             <div className="flex min-w-0 flex-col gap-1.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Fallback Classroom
@@ -1308,7 +1335,7 @@ export function ImportActivity({
                   setClassroomDeptId(value);
                 }}
               >
-                <Select.Trigger className="h-9 w-full bg-background">
+                <Select.Trigger className="h-11 w-full min-w-0 bg-background sm:h-9">
                   <Select.Value
                     placeholder={
                       isRecentRecordsPending
@@ -1379,58 +1406,9 @@ export function ImportActivity({
               ) : null}
             </div>
 
-            <div className="flex flex-col gap-2 lg:items-end">
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground lg:justify-end">
-                <Badge variant="secondary">{selectedRowCount} checked</Badge>
-                <Badge variant="outline">{executableRowCount} executable</Badge>
-                {skippedBeforeExecution > 0 ? (
-                  <Badge variant="outline">
-                    {skippedBeforeExecution} skipped
-                  </Badge>
-                ) : null}
-                {attentionRows.length > 0 ? (
-                  <Badge
-                    variant="outline"
-                    className="border-amber-300 text-amber-700"
-                  >
-                    <AlertTriangle className="mr-1 size-3" />
-                    {attentionRows.length} attention
-                  </Badge>
-                ) : null}
-                {reviewModel.counts.blockedCheckedRows > 0 ? (
-                  <Badge
-                    variant="outline"
-                    className="border-red-200 text-red-600"
-                  >
-                    {reviewModel.counts.blockedCheckedRows} checked blocked
-                  </Badge>
-                ) : null}
-                {reviewModel.counts.uncheckedRows > 0 ? (
-                  <Badge variant="outline">
-                    {reviewModel.counts.uncheckedRows} unchecked
-                  </Badge>
-                ) : null}
-              </div>
-              <SubmitButton
-                isSubmitting={isExecutingBatch}
-                disabled={!reviewModel.canStartImport || isVerifying}
-                onClick={executeAll}
-                className="h-9 w-full justify-center font-medium sm:w-auto"
-                type="button"
-              >
-                <Import className="mr-2 size-4" />
-                {isExecutingBatch ? "Importing..." : importActionLabel}
-              </SubmitButton>
-            </div>
+
           </div>
-          {reviewModel.disabledReason ? (
-            <div className="border-t bg-amber-50/60 px-3 py-2 text-[11px] font-medium text-amber-800 dark:bg-amber-950/15 dark:text-amber-200">
-              <div className="flex items-center gap-1.5">
-                <AlertTriangle className="size-3.5 shrink-0" />
-                <span>{reviewModel.disabledReason}</span>
-              </div>
-            </div>
-          ) : null}
+
         </div>
       ) : null}
 
@@ -1704,6 +1682,15 @@ export function ImportActivity({
               </div>
             </div>
           )}
+          <StudentImportReviewFooter
+            counts={reviewModel.counts}
+            disabledReason={reviewModel.disabledReason}
+            isVerifying={isVerifying}
+            isExecuting={isExecutingBatch}
+            canStartImport={reviewModel.canStartImport}
+            actionLabel={importActionLabel}
+            onExecute={executeAll}
+          />
         </>
       ) : null}
     </div>
@@ -2350,7 +2337,7 @@ function RowsList({
   return (
     <div className="divide-y border-y bg-background">
       {rows.map((row) => (
-        <RowCard
+        <StudentImportReviewRow
           key={row.lineNumber}
           row={row}
           classroomOptions={classroomOptions}
@@ -2389,7 +2376,7 @@ function RowsList({
   );
 }
 
-function RowCard({
+function StudentImportReviewRow({
   row,
   classroomOptions,
   decision,
@@ -2512,13 +2499,15 @@ function RowCard({
     Boolean(singleRowError);
 
   return (
-    <div
+    <fieldset
+      disabled={imported || importing}
+      aria-label={`Student import line ${row.lineNumber}`}
       className={cn(
-        "bg-background text-xs",
+        "min-w-0 bg-background text-xs",
         isBlocked && "bg-amber-50/30 dark:bg-amber-950/10",
       )}
     >
-      <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-2 gap-y-2 px-3 py-2 lg:grid-cols-[2rem_2.75rem_minmax(18rem,1.45fr)_minmax(13rem,0.9fr)_15rem] lg:items-center lg:gap-3">
+      <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-2 gap-y-2 px-3 py-2 lg:grid-cols-[2rem_2.75rem_minmax(0,1.45fr)_minmax(0,0.9fr)_minmax(0,1fr)] lg:items-center lg:gap-3">
         <div className="col-start-1 row-start-1 flex items-start justify-center pt-1 lg:col-auto lg:row-auto lg:pt-0">
           <Checkbox
             checked={checked}
@@ -2526,7 +2515,7 @@ function RowCard({
               onCheckedChange(row.lineNumber, value === true)
             }
             aria-label={`Include line ${row.lineNumber} in import`}
-            className="bg-background"
+            className="size-5 bg-background"
           />
         </div>
 
@@ -2640,7 +2629,7 @@ function RowCard({
 
         <div
           className={cn(
-            "col-span-2 row-start-4 grid min-w-0 grid-cols-[minmax(0,1fr)_2rem_2rem] items-start gap-1 rounded-md border bg-muted/20 p-1 lg:col-auto lg:row-auto",
+            "col-span-2 row-start-4 grid min-w-0 grid-cols-[minmax(0,1fr)_2.75rem_2.75rem] sm:grid-cols-[minmax(0,1fr)_2rem_2rem] items-start gap-1 rounded-md border bg-muted/20 p-1 lg:col-auto lg:row-auto",
             getActionSelectorBorderClass(statusLabel, isSkipped),
           )}
         >
@@ -2652,7 +2641,7 @@ function RowCard({
               }
               disabled={imported || importing}
             >
-              <Select.Trigger className="h-8 w-full border-0 bg-background text-xs shadow-none">
+              <Select.Trigger className="h-11 w-full min-w-0 border-0 bg-background text-sm shadow-none sm:h-8 sm:text-xs">
                 <Select.Value placeholder="Select action" />
               </Select.Trigger>
               <Select.Content>
@@ -2684,7 +2673,7 @@ function RowCard({
               }
               disabled={imported || importing}
             >
-              <Select.Trigger className="mt-1 h-8 w-full border-0 bg-background text-xs shadow-none">
+              <Select.Trigger className="mt-1 h-11 w-full min-w-0 border-0 bg-background text-sm shadow-none sm:h-8 sm:text-xs">
                 <Select.Value />
               </Select.Trigger>
               <Select.Content>
@@ -2704,7 +2693,7 @@ function RowCard({
             type="button"
             variant={showSearch ? "secondary" : "ghost"}
             size="sm"
-            className="h-8 w-8 bg-background px-0"
+            className="h-11 w-11 bg-background px-0 sm:h-8 sm:w-8"
             onClick={() => setShowSearch(true)}
             aria-label={`Search existing students for line ${row.lineNumber}`}
           >
@@ -2716,7 +2705,7 @@ function RowCard({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 bg-background px-0"
+                className="h-11 w-11 bg-background px-0 sm:h-8 sm:w-8"
                 aria-label={`More actions for line ${row.lineNumber}`}
               >
                 <MoreHorizontal className="size-4" />
@@ -2804,7 +2793,7 @@ function RowCard({
           </div>
         </div>
       ) : null}
-    </div>
+    </fieldset>
   );
 }
 
@@ -2852,18 +2841,6 @@ function MatchSummaryPopover({
     </div>
   );
 
-  if (candidates.length <= 1) {
-    return (
-      <div
-        className={cn(
-          "min-w-0 rounded-md border bg-background px-2.5 py-2",
-          getMatchSelectorBorderClass(matchStatus, needsExistingMatch),
-        )}
-      >
-        {summary}
-      </div>
-    );
-  }
 
   return (
     <Popover>
@@ -2871,7 +2848,7 @@ function MatchSummaryPopover({
         <button
           type="button"
           className={cn(
-            "min-w-0 rounded-md border bg-background px-2.5 py-2 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "min-h-11 w-full min-w-0 rounded-md border bg-background px-2.5 py-2 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             getMatchSelectorBorderClass(matchStatus, needsExistingMatch),
           )}
         >
@@ -2898,12 +2875,12 @@ function MatchSummaryPopover({
             </Badge>
           ) : null}
         </div>
-        <div className="grid max-h-80 gap-2 overflow-y-auto">
+        <div className="grid max-h-[min(20rem,50dvh)] gap-2 overflow-y-auto overscroll-contain">
           {candidates.map((candidate) => (
             <CandidateCard
               key={candidate.id}
               candidate={candidate}
-              selected={decision?.existingStudentId === candidate.id}
+              selected={(decision?.existingStudentId || (candidates.length === 1 ? primaryCandidate?.id : null)) === candidate.id}
               onSelect={() => onCandidateChange(candidate.id)}
             />
           ))}
@@ -2970,7 +2947,7 @@ function NamePartControl({
         }}
       >
         <Select.Trigger
-          className="h-5 min-w-0 max-w-[12rem] border-0 bg-transparent p-0 text-left text-xs font-medium shadow-none focus:ring-0"
+          className="h-9 min-w-0 max-w-[10rem] border-0 bg-transparent p-0 text-left text-sm font-medium shadow-none sm:h-5 sm:max-w-[12rem] sm:text-xs"
           aria-label={`Update ${label.toLowerCase()} structure`}
         >
           <Select.Value placeholder={value} />
@@ -2991,7 +2968,7 @@ function NamePartControl({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-5 w-5 px-0"
+          className="h-9 w-9 px-0 sm:h-5 sm:w-5"
           onClick={onReset}
           aria-label={`Reset ${label.toLowerCase()} split`}
         >
@@ -3117,7 +3094,7 @@ function ClassroomSelect({
 }) {
   return (
     <Select value={value} onValueChange={onValueChange}>
-      <Select.Trigger className={cn("h-8 bg-background text-xs", className)}>
+      <Select.Trigger aria-label="Assign classroom" className={cn("h-11 min-w-0 bg-background text-sm sm:h-8 sm:text-xs", className)}>
         <Select.Value placeholder="Assign classroom" />
       </Select.Trigger>
       <Select.Content className="max-h-72 overflow-y-auto">
@@ -3156,7 +3133,7 @@ function GenderToggle({
       }}
       className={cn(
         "grid grid-cols-2 justify-start rounded-md",
-        compact ? "w-[4.25rem]" : "w-full",
+        compact ? "w-[5.5rem] sm:w-[4.25rem]" : "w-full",
         missing && "ring-1 ring-red-300 dark:ring-red-900",
       )}
     >
@@ -3165,7 +3142,7 @@ function GenderToggle({
         aria-label="Set row gender to Male"
         className={cn(
           "min-w-0 bg-background",
-          compact ? "h-6 px-2" : "h-8",
+          compact ? "h-11 px-2 sm:h-6" : "h-11 sm:h-8",
           missing &&
             "border-red-300 text-red-700 dark:border-red-900 dark:text-red-300",
         )}
@@ -3177,7 +3154,7 @@ function GenderToggle({
         aria-label="Set row gender to Female"
         className={cn(
           "min-w-0 bg-background",
-          compact ? "h-6 px-2" : "h-8",
+          compact ? "h-11 px-2 sm:h-6" : "h-11 sm:h-8",
           missing &&
             "border-red-300 text-red-700 dark:border-red-900 dark:text-red-300",
         )}
@@ -3996,7 +3973,8 @@ function studentToMatchCandidate(
     isCurrentTermMatch,
     isCurrentClassroomMatch: student.classroomDepartmentId === classroomDeptId,
     confidence: 100,
-    reason: "Selected from existing students",
+    reason: student.historyNeedsReview ? "Selected student has academic history requiring review." : "Selected from existing students",
+    historyNeedsReview: student.historyNeedsReview,
   };
 }
 

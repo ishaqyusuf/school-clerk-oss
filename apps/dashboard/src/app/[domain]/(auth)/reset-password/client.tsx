@@ -90,19 +90,21 @@ export function Client() {
 
 	const completeOnboarding = useAction(completeStaffOnboardingAction, {
 		onSuccess() {
+			form.resetField("password");
 			toast.success("Onboarding completed. You can now sign in.");
-			router.push("/login");
+			router.replace("/login");
 		},
 		onError({ error }) {
 			setIsLoading(false);
 			setError(
 				error.serverError ||
-					"We saved your password, but could not finish onboarding.",
+					"Could not confirm onboarding completion. Try signing in before repeating the request, or ask your school for a new invitation.",
 			);
 		},
 	});
 
 	const handleSubmit = form.handleSubmit(async (values) => {
+		if (isLoading) return;
 		if (!token) {
 			setError(getTokenStatusMessage("missing", isOnboardingFlow));
 			return;
@@ -112,6 +114,21 @@ export function Client() {
 		setError("");
 
 		try {
+			if (isOnboardingFlow && staffId) {
+				completeOnboarding.execute({
+					token,
+					newPassword: values.password,
+					staffId,
+					email: values.email,
+					name: values.name,
+					title: values.title,
+					phone: values.phone,
+					phone2: values.phone2,
+					address: values.address,
+				});
+				return;
+			}
+
 			const tokenStatus = await getPasswordResetTokenStatus(token);
 
 			if (tokenStatus.status !== "valid") {
@@ -132,19 +149,6 @@ export function Client() {
 					isOnboardingFlow,
 				);
 				throw new Error(message);
-			}
-
-			if (isOnboardingFlow && staffId) {
-				completeOnboarding.execute({
-					staffId,
-					email: values.email,
-					name: values.name,
-					title: values.title,
-					phone: values.phone,
-					phone2: values.phone2,
-					address: values.address,
-				});
-				return;
 			}
 
 			toast.success("Password updated. You can now sign in.");
@@ -179,7 +183,7 @@ export function Client() {
 						<CardContent>
 							{error ? (
 								<Alert className="mb-4" variant="destructive">
-									<AlertDescription>{error}</AlertDescription>
+									<AlertDescription className="break-words">{error}</AlertDescription>
 								</Alert>
 							) : null}
 
@@ -195,11 +199,11 @@ export function Client() {
 									<div className="relative">
 										<Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 										<Input
-											disabled
+											readOnly
 											id="email"
 											type="email"
 											{...form.register("email")}
-											className="pl-10"
+											className="min-h-11 pl-10"
 											required
 										/>
 									</div>
@@ -265,13 +269,18 @@ export function Client() {
 											type={showPassword ? "text" : "password"}
 											placeholder="Choose a password"
 											{...form.register("password")}
-											className="pl-10 pr-10"
+											className="min-h-11 pl-10 pr-14"
+											minLength={8}
+											maxLength={128}
+											autoComplete="new-password"
 											required
 										/>
 										<button
 											type="button"
 											onClick={() => setShowPassword(!showPassword)}
-											className="absolute right-3 top-1/2 -translate-y-1/2 transform text-gray-400 hover:text-gray-600"
+											aria-label={showPassword ? "Hide password" : "Show password"}
+											aria-pressed={showPassword}
+											className="absolute right-1 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
 										>
 											{showPassword ? (
 												<EyeOff className="h-4 w-4" />
@@ -282,7 +291,11 @@ export function Client() {
 									</div>
 								</div>
 
-								<Button type="submit" className="w-full" disabled={isLoading}>
+								{isOnboardingFlow ? <p className="text-sm text-muted-foreground">
+									Your password and profile are saved together after the invitation is verified.
+									Older invitations may require your school to issue a new link.
+								</p> : null}
+								<Button type="submit" className="min-h-11 w-full whitespace-normal" disabled={isLoading}>
 									{isLoading
 										? "Submitting..."
 										: isOnboardingFlow

@@ -4,10 +4,10 @@ import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { DropdownMenu } from "@school-clerk/ui/composite";
 import { cn } from "@school-clerk/ui/cn";
-import { useMutation } from "@tanstack/react-query";
 import { Mars, Venus } from "lucide-react";
 
-import { _qc, _trpc } from "@/components/static-trpc";
+import { useUpdateStudentProfile } from "@/hooks/use-update-student-profile";
+import { toast } from "@school-clerk/ui/use-toast";
 
 type Gender = "Male" | "Female";
 
@@ -27,41 +27,30 @@ export function StudentGenderCell({
   onUpdated,
 }: Props) {
   const normalizedGender = gender === "Male" || gender === "Female" ? gender : null;
-  const { mutate: changeGender, isPending } = useMutation(
-    _trpc.students.changeGender.mutationOptions({
-      onSuccess() {
-        _qc.invalidateQueries({
-          queryKey: _trpc.students.index.infiniteQueryKey(),
-        });
-        _qc.invalidateQueries({
-          queryKey: _trpc.assessments.getClassroomReportSheet.queryKey({}),
-        });
-        onUpdated?.();
-      },
-      meta: {
-        toastTitle: {
-          error: "Unable to update gender",
-          loading: "Updating...",
-          success: "Gender updated.",
-        },
-      },
-    }),
-  );
+  const update = useUpdateStudentProfile({ studentId: studentId || "", contextKey: JSON.stringify([normalizedGender, disabled]),
+    onSuccess(result) {
+      toast({ title: "Gender updated", description: `Open-term fees reconciled; ${result.preservedTermFormIds.length} closed-term fee histories preserved.` });
+      onUpdated?.();
+    },
+  });
 
   const updateGender = (nextGender: Gender) => {
-    if (!studentId || disabled || normalizedGender === nextGender) return;
-    changeGender({ id: studentId, gender: nextGender });
+    if (!studentId || disabled || normalizedGender === nextGender || !update.ready || update.isPending) return;
+    if (!window.confirm("Update gender and reconcile eligible open-term fees? Closed-term fees, paid/allocated and manual charges are retained.")) return;
+    void update.save({ gender: nextGender });
   };
 
   return (
+    <div className="min-w-0 space-y-1">
     <DropdownMenu>
       <DropdownMenu.Trigger asChild>
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          disabled={!studentId || disabled || isPending}
-          className="h-8 min-w-[84px] justify-start gap-1.5 px-2"
+          disabled={!studentId || disabled || update.isPending || !update.ready}
+          aria-label={`Change student gender; current value ${normalizedGender ?? "unset"}`}
+          className="min-h-11 min-w-[84px] justify-start gap-1.5 px-2"
         >
           {normalizedGender === "Female" ? (
             <Venus className="size-3.5 text-pink-600" />
@@ -83,18 +72,22 @@ export function StudentGenderCell({
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align={align}>
         <DropdownMenu.Item
-          disabled={normalizedGender === "Male"}
+          className="min-h-11"
+          disabled={normalizedGender === "Male" || update.isPending || !update.ready}
           onSelect={() => updateGender("Male")}
         >
           Set as Male
         </DropdownMenu.Item>
         <DropdownMenu.Item
-          disabled={normalizedGender === "Female"}
+          className="min-h-11"
+          disabled={normalizedGender === "Female" || update.isPending || !update.ready}
           onSelect={() => updateGender("Female")}
         >
           Set as Female
         </DropdownMenu.Item>
       </DropdownMenu.Content>
     </DropdownMenu>
+    {update.error ? <p role="alert" className="max-w-xs whitespace-normal break-words text-xs text-destructive">{update.error} Check the profile and fees before retrying an interrupted response.</p> : null}
+    </div>
   );
 }

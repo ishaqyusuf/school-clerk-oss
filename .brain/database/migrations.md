@@ -1,5 +1,13 @@
 # Migrations
 
+## 2026-09-07: Tenant Module Configuration (Partial Rollout)
+
+- Additive `SchoolModuleConfiguration` model, unique per school, with version/revision, requested/granted module arrays and actor/timestamps. The schema addition does not provision grants or alter existing domain records.
+- `bun run db:generate` succeeded using Prisma 7.8.0; `bun run db:push --local` succeeded. Local service startup was owned by the shared database command.
+- `bun run db:push --prod` was attempted but exited because production confirmation requires an interactive terminal. Production was not changed by this attempt. Complete the same guarded command interactively and review its target/changes; do not bypass the confirmation or force data loss.
+- No migration file, preview push, destructive flag, or behavioral test was run. Runtime activation and legacy/default provisioning remain CORE-002 work. See [CORE-002](../tasks/2026-09-07-core-002-tenant-module-controls.md) and [ADR-0023](../decisions/ADR-0023-tenant-module-policy-resolution.md).
+- Rollback boundary: keep the unused additive table while application enforcement is inactive. Do not drop populated configuration records; export/review them before any future schema removal.
+
 ## Migration Entry
 
 - Date: 2026-08-04
@@ -442,3 +450,9 @@ Change log for database schema migrations and rollout notes.
 - Adds account QA lifecycle fields and global purge receipts.
 - Per repository policy, schema changes use guarded `db:push --local` and
   `db:push --prod`; no migration file is authored for this feature.
+
+## Teacher student registration review — 2026-09-27
+
+`StudentTermForm` review fields and index were applied with
+`bun run db:push --local`. No migration file was created. Production push is
+pending because the requested verification uses the local database only.

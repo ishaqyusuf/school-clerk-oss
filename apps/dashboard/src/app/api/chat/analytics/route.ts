@@ -1,17 +1,17 @@
 import {
-  ensureAssistantConfig,
   getAssistantAnalytics,
-  getAssistantSessionContext,
+  getAssistantHistoryContext,
 } from "@/lib/assistant/server";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const context = await getAssistantSessionContext();
+  const context = await getAssistantHistoryContext();
+  if (context instanceof Response) return context;
   if (!context?.schoolId || !context.userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const config = await ensureAssistantConfig(context.schoolId);
+  const config = context.config;
   if (!config.analyticsEnabled) {
     return NextResponse.json({ error: "Analytics disabled" }, { status: 403 });
   }
@@ -19,7 +19,8 @@ export async function GET() {
   const analytics = await getAssistantAnalytics({
     schoolId: context.schoolId,
     userId: context.userId,
+    availableTools: context.availableTools,
   });
 
-  return NextResponse.json({ analytics });
+  return NextResponse.json({ analytics }, { headers: { "Cache-Control": "private, no-store" } });
 }

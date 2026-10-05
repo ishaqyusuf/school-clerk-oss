@@ -82,7 +82,7 @@ const prismaClientSingleton = () => {
 };
 
 type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>;
-type ConfiguredPrismaClient = NonNullable<PrismaClientSingleton>;
+export type ConfiguredPrismaClient = NonNullable<PrismaClientSingleton>;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: ConfiguredPrismaClient | undefined;

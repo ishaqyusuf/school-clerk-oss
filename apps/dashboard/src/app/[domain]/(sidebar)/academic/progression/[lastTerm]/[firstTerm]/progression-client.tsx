@@ -52,6 +52,7 @@ import { toast } from "@school-clerk/ui/use-toast";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { useTRPC } from "@/trpc/client";
+import { useRemoveStudentTerms } from "@/hooks/use-remove-student-terms";
 import { StudentPerformanceModal } from "../../../promotion/[lastTerm]/[firstTerm]/student-performance-modal";
 
 interface Props {
@@ -595,12 +596,12 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
     }),
   );
 
-  const deleteTermFormMutation = useMutation(
-    trpc.students.deleteTermSheet.mutationOptions({
-      onSuccess() {
+  const deleteTermFormMutation = useRemoveStudentTerms({
+    contextKey: JSON.stringify([lastTermId, firstTermId, sourceClassroomId]),
+      onSuccess(data) {
         toast({
-          title: "Removed",
-          description: "The term record was removed successfully.",
+          title: data.count ? "Removed" : "Already removed",
+          description: data.count ? "The term enrollment has been archived." : "This enrollment was already archived; no new removal was needed.",
         });
         invalidateStudents();
       },
@@ -611,17 +612,13 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
           variant: "destructive",
         });
       },
-    }),
-  );
-  const bulkDeleteTermFormsMutation = useMutation(
-    trpc.students.bulkDeleteTermSheets.mutationOptions({
+  });
+  const bulkDeleteTermFormsMutation = useRemoveStudentTerms({
+    contextKey: JSON.stringify([lastTermId, firstTermId, sourceClassroomId, [...selectedTermFormIds].sort()]),
       onSuccess(data) {
         toast({
-          title: "Removed",
-          description:
-            data.count === 1
-              ? "The selected term record was removed successfully."
-              : `${data.count} term records were removed successfully.`,
+          title: data.count ? "Removed" : "Already removed",
+          description: `${data.count} enrollment records archived; ${data.alreadyDeleted} were already archived.`,
         });
         setSelected(new Set());
         setBatchDeleteOpen(false);
@@ -634,8 +631,12 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
           variant: "destructive",
         });
       },
-    }),
-  );
+  });
+  useEffect(() => {
+    setBatchDeleteOpen(false);
+    setSelected(new Set());
+  }, [bulkDeleteTermFormsMutation.workspaceKey, lastTermId, firstTermId, sourceClassroomId]);
+
   const doProgress = (
     mode: ProgressMode,
     studentIds: string[],
@@ -711,9 +712,10 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
   };
 
   const removeTermRecord = (student: { termFormId: string; name: string }) => {
+    if (!deleteTermFormMutation.ready || deleteTermFormMutation.isPending) return;
     if (
       !window.confirm(
-        `Remove ${student.name} from the previous-term class list? This deletes the term record.`,
+        `Remove ${student.name} from the previous-term class list? Financial, assessment and attendance history is retained; outstanding balances are not cancelled.`,
       )
     ) {
       return;
@@ -723,12 +725,13 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
   };
 
   const removeSelectedTermRecords = () => {
-    if (!selectedTermFormIds.length) return;
+    if (!bulkDeleteTermFormsMutation.ready || bulkDeleteTermFormsMutation.isPending || !selectedTermFormIds.length || selectedTermFormIds.length > 100 || selectedTermFormIds.length !== selectedCount) return;
     bulkDeleteTermFormsMutation.mutate({ ids: selectedTermFormIds });
   };
 
   return (
     <div className="space-y-6">
+      {deleteTermFormMutation.error ? <p role="alert" className="break-words text-sm text-destructive">{deleteTermFormMutation.error.message} Refresh to check the record before trying again if the response was interrupted.</p> : null}
       {meta ? (
         <div className="flex flex-wrap items-center gap-2 px-1 text-sm text-muted-foreground">
           <span className="font-medium text-foreground">Student progression</span>
@@ -934,8 +937,9 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
               <Button
                 size="sm"
                 variant="destructive"
+                className="min-h-11 whitespace-normal"
                 disabled={
-                  selectedCount === 0 || bulkDeleteTermFormsMutation.isPending
+                  !bulkDeleteTermFormsMutation.ready || selectedCount === 0 || bulkDeleteTermFormsMutation.isPending
                 }
                 onClick={() => setBatchDeleteOpen(true)}
               >
@@ -1149,7 +1153,8 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="text-muted-foreground hover:text-destructive"
+                            className="min-h-11 text-muted-foreground hover:text-destructive"
+                            disabled={!deleteTermFormMutation.ready || deleteTermFormMutation.isPending}
                             onClick={() =>
                               removeTermRecord({
                                 termFormId: student.termFormId,
@@ -1294,7 +1299,8 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-muted-foreground hover:text-destructive"
+                        className="min-h-11 text-muted-foreground hover:text-destructive"
+                        disabled={!deleteTermFormMutation.ready || deleteTermFormMutation.isPending}
                         onClick={() =>
                           removeTermRecord({
                             termFormId: student.termFormId,
@@ -1330,7 +1336,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
           }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
@@ -1348,7 +1354,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                 </p>
                 <p>
                   Their term records will be soft-deleted, and this action cannot
-                  be undone from this screen.
+                  be undone from this screen. Financial, assessment and attendance history remains; outstanding balances are not cancelled. The batch is removed together or no records are changed.
                 </p>
                 <div className="rounded-lg border bg-muted/40 p-3">
                   <p className="font-medium text-foreground">Students</p>
@@ -1365,16 +1371,18 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {bulkDeleteTermFormsMutation.error ? <p role="alert" className="break-words text-sm text-destructive">{bulkDeleteTermFormsMutation.error.message}</p> : null}
+          {(!bulkDeleteTermFormsMutation.ready || selectedTermFormIds.length !== selectedCount || selectedCount > 100) ? <p role="status" className="break-words text-sm text-muted-foreground">Refresh the workspace and select between 1 and 100 available enrollment records. Unavailable selections are not partially submitted.</p> : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkDeleteTermFormsMutation.isPending}>
+            <AlertDialogCancel className="min-h-11" disabled={bulkDeleteTermFormsMutation.isPending}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="min-h-11 whitespace-normal bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={
-                selectedCount === 0 || bulkDeleteTermFormsMutation.isPending
+                !bulkDeleteTermFormsMutation.ready || selectedCount === 0 || selectedCount > 100 || selectedTermFormIds.length !== selectedCount || bulkDeleteTermFormsMutation.isPending
               }
-              onClick={removeSelectedTermRecords}
+              onClick={(event) => { event.preventDefault(); removeSelectedTermRecords(); }}
             >
               {bulkDeleteTermFormsMutation.isPending
                 ? "Deleting..."

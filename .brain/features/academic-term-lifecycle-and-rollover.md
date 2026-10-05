@@ -102,12 +102,14 @@ term's setup route. Calendar validation is visible and accessible.
 
 Closed-term guards reject:
 
+- single and bulk same-session student class changes (ADR-0055 implementation; verification deferred);
 - assessment creation, deletion, reordering, and authenticated score entry;
 - signed workbook assessment imports;
 - public-link score entry;
 - AI assessment score entry;
 - attendance creation and deletion;
-- manual student enrollment into the term.
+- manual student enrollment into the term;
+- single and bulk student term-enrollment removal (ADR-0052 implementation; verification deferred).
 
 New attendance sessions store `sessionTermId` directly so closure checks and historical attribution do not depend only on their student rows.
 

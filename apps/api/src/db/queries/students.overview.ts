@@ -1,87 +1,33 @@
 import type { TRPCContext } from "@api/trpc/init";
 import type { GetStudentOverviewSchema } from "@api/trpc/schemas/schemas";
-import { getStudentTermsList } from "./academic-terms";
-import { studentDisplayName } from "./enrollment-query";
+import { readStudentAcademicOverview } from "./student-academic-read";
 
-export async function studentsOverview(
-  ctx: TRPCContext,
-  query: GetStudentOverviewSchema,
-) {
-  const { termSheetId, studentId } = query;
-  const [termSheet, studentRecord, studentTerms] = await Promise.all([
-    ctx.db.studentTermForm.findFirst({
-      where: termSheetId
-        ? {
-            id: termSheetId,
-            studentId,
-            schoolProfileId: ctx.profile.schoolId,
-            deletedAt: null,
-          }
-        : {
-            studentId,
-            schoolProfileId: ctx.profile.schoolId,
-            deletedAt: null,
-          },
-      select: {
-        id: true,
-      },
-    }),
-    ctx.db.students.findFirstOrThrow({
-      where: {
-        id: studentId,
-        schoolProfileId: ctx.profile.schoolId,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        name: true,
-        surname: true,
-        otherName: true,
-        dob: true,
-        gender: true,
-        guardians: {
-          where: {
-            deletedAt: null,
-          },
-          orderBy: {
-            createdAt: "asc",
-          },
-          take: 1,
-          select: {
-            guardian: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-                phone2: true,
-              },
-            },
-          },
-        },
-      },
-    }),
-    getStudentTermsList(ctx, {
-      studentId,
-    }),
-  ]);
+export async function studentsOverview(ctx: TRPCContext, query: GetStudentOverviewSchema) {
+  const { id, student, studentTerms, scope, capabilities } = await readStudentAcademicOverview(ctx, query);
+  return { id, student, studentTerms, scope, capabilities };
+}
 
-  const student = {
-    id: studentRecord.id,
-    name: studentRecord.name,
-    surname: studentRecord.surname,
-    otherName: studentRecord.otherName,
-    dob: studentRecord.dob,
-    gender: studentRecord.gender,
-    guardian: studentRecord.guardians[0]?.guardian ?? null,
-		studentName: studentDisplayName(
-			studentRecord,
-			ctx.profile.studentNameFormat,
-		),
-  };
-
+export async function studentAcademicsOverview(ctx: TRPCContext, query: GetStudentOverviewSchema) {
+  const result = await readStudentAcademicOverview(ctx, query);
+  const { student, studentTerms: termHistory } = result;
+  const selected = termHistory.find((term) => term.studentTermId === result.id);
   return {
-    id: termSheet?.id,
-    student,
-    studentTerms,
+    id: null,
+    termHistory,
+    term: termHistory.find((term) => term.termId === query.termId),
+    student: {
+      id: student.id, gender: student.gender, dob: student.dob, createdAt: student.createdAt,
+      studentName: student.studentName,
+      department: Array.from(new Set([selected?.className, selected?.departmentName].filter(Boolean))).join(" "),
+      departmentId: selected?.departmentId ?? undefined,
+      classId: selected?.classroomId ?? undefined,
+      termFormId: selected?.studentTermId ?? undefined,
+      termFormSessionTermId: selected?.termId ?? undefined,
+      admissionType: result.selectedAdmissionType,
+      status: selected?.studentTermId ? "enrolled" : termHistory.some((term) => term.enrollmentState === "unavailable")
+        ? "unavailable" : "not enrolled",
+      guardianName: student.guardian?.name ?? null,
+      guardianPhone: student.guardian?.phone ?? null,
+    },
   };
 }

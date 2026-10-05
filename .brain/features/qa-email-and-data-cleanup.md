@@ -1,5 +1,14 @@
 # QA email and data cleanup
 
+- Development quick-login is enabled for existing active users of the current
+  school only in a development runtime using the local database profile, a
+  loopback PostgreSQL URL, and a loopback request host. Explicit
+  `SCHOOL_CLERK_ENABLE_DEV_QUICK_LOGIN=false` disables it. List, action and
+  direct endpoint recheck school/account/user eligibility; no account is
+  classified or adopted by this path. Teacher and admin sign-in were verified
+  in the Daarul Hadith local browser QA. See ADR-0034. Password prefill from
+  URL query parameters remains removed.
+
 - SchoolClerk email boundaries in auth, enrollment, notifications, signup, staff
   invitations, and jobs use one hybrid per-recipient route contract.
 - Ordinary recipients are console-only outside production and live in

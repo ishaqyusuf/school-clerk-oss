@@ -36,6 +36,7 @@ export type ModuleKey =
 	| (string & {});
 
 export type InstitutionType =
+	| "K12"
 	| "PRESCHOOL"
 	| "PRIMARY"
 	| "SECONDARY"

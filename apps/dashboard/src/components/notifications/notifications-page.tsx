@@ -1,7 +1,6 @@
 "use client";
 
-import { useTRPC } from "@/trpc/client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNotificationFeed, useNotificationReadActions } from "@/hooks/use-notifications";
 import { Bell, CheckCheck } from "lucide-react";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useSearchParams } from "next/navigation";
@@ -24,87 +23,47 @@ function formatDate(dateInput?: Date | string | null) {
 }
 
 export function NotificationsPageClient() {
-	const trpc = useTRPC();
-	const qc = useQueryClient();
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const onlyUnread = searchParams.get("filter") === "unread";
 
-	const { data: notifications = [] } = useQuery(
-		trpc.notifications.list.queryOptions({
-			onlyUnread,
-			take: 100,
-		}),
-	);
-
+	const { notifications, isPending: feedPending, isError: feedError, refetch } = useNotificationFeed(100, onlyUnread);
 	const unreadCount = notifications.filter((notification) => !notification.isRead).length;
-
-	const invalidate = () => {
-		qc.invalidateQueries({
-			queryKey: trpc.notifications.unreadCount.queryKey(),
-		});
-		qc.invalidateQueries({
-			queryKey: trpc.notifications.list.queryKey({
-				onlyUnread: false,
-				take: 100,
-			}),
-		});
-		qc.invalidateQueries({
-			queryKey: trpc.notifications.list.queryKey({
-				onlyUnread: true,
-				take: 100,
-			}),
-		});
-		qc.invalidateQueries({
-			queryKey: trpc.notifications.list.queryKey({
-				onlyUnread: false,
-				take: 5,
-			}),
-		});
-	};
-
-	const { mutate: markAllRead, isPending } = useMutation(
-		trpc.notifications.markAllRead.mutationOptions({
-			onSuccess: invalidate,
-		}),
-	);
-	const { mutate: markRead } = useMutation(
-		trpc.notifications.markRead.mutationOptions({
-			onSuccess: invalidate,
-		}),
-	);
+	const { markRead, markAllRead, markReadPending, markAllPending: isPending, markReadError, markAllError } = useNotificationReadActions();
 
 	return (
 		<div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
 			<div className="flex flex-wrap items-start justify-between gap-4">
-				<div>
-					<div className="mt-2 flex items-center gap-3">
+				<div className="min-w-0">
+					<div className="mt-2 flex flex-wrap items-center gap-3">
 						<h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
-						{unreadCount > 0 ? <Badge>{unreadCount} unread</Badge> : null}
+						{!feedError && unreadCount > 0 ? <Badge>{unreadCount} unread in this list</Badge> : null}
 					</div>
 					<p className="mt-1 text-sm text-muted-foreground">
-						{notifications.length} notification
-						{notifications.length === 1 ? "" : "s"}
+						Notifications available with your current access. Older or unavailable
+						module notifications may be hidden.
 					</p>
 				</div>
 
-				<div className="flex items-center gap-2">
-					{unreadCount > 0 ? (
+				<div className="flex flex-wrap items-center gap-2">
+					{!feedError && unreadCount > 0 ? (
 						<Button
 							variant="outline"
 							size="sm"
 							type="button"
-							disabled={isPending}
+							className="min-h-11"
+							disabled={isPending || markReadPending}
 							onClick={() => markAllRead()}
 						>
 							<CheckCheck className="mr-2 h-4 w-4" />
-							Mark all read
+							{isPending ? "Marking…" : "Mark available read"}
 						</Button>
 					) : null}
 					<div className="flex items-center gap-1 rounded-md border border-input text-sm">
 						<Link
 							href="/notifications"
-							className={`rounded-l-md px-3 py-1.5 transition-colors ${
+							aria-current={!onlyUnread ? "page" : undefined}
+							className={`inline-flex min-h-11 items-center rounded-l-md px-3 py-1.5 transition-colors ${
 								onlyUnread
 									? "text-muted-foreground hover:text-foreground"
 									: "bg-primary text-primary-foreground"
@@ -114,7 +73,8 @@ export function NotificationsPageClient() {
 						</Link>
 						<Link
 							href="/notifications?filter=unread"
-							className={`rounded-r-md px-3 py-1.5 transition-colors ${
+							aria-current={onlyUnread ? "page" : undefined}
+							className={`inline-flex min-h-11 items-center rounded-r-md px-3 py-1.5 transition-colors ${
 								onlyUnread
 									? "bg-primary text-primary-foreground"
 									: "text-muted-foreground hover:text-foreground"
@@ -126,14 +86,28 @@ export function NotificationsPageClient() {
 				</div>
 			</div>
 
-			{notifications.length === 0 ? (
+			{markAllError || markReadError ? (
+				<p role="alert" className="text-sm text-destructive">
+					Could not update read status. Refresh the list before trying again.
+				</p>
+			) : null}
+			{feedError ? (
+				<div role="alert" className="flex flex-wrap items-center gap-3 text-sm">
+					<p>Notifications could not be loaded. Your access may have changed.</p>
+					<Button type="button" variant="outline" className="min-h-11" onClick={() => void refetch()}>
+						Refresh
+					</Button>
+				</div>
+			) : feedPending ? (
+				<p role="status" className="text-sm text-muted-foreground">Loading notifications…</p>
+			) : notifications.length === 0 ? (
 				<Card className="py-20 text-center">
 					<CardContent className="flex flex-col items-center gap-3">
 						<div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
 							<Bell className="h-6 w-6 text-muted-foreground" />
 						</div>
 						<p className="text-muted-foreground">
-							{onlyUnread ? "No unread notifications." : "No notifications yet."}
+							{onlyUnread ? "No unread notifications available with your current access." : "No notifications available with your current access."}
 						</p>
 					</CardContent>
 				</Card>
@@ -155,7 +129,7 @@ export function NotificationsPageClient() {
 									</div>
 									<div className="min-w-0 flex-1">
 										<div className="flex items-start justify-between gap-2">
-											<p className="text-sm font-medium text-foreground">
+											<p className="min-w-0 break-words text-sm font-medium text-foreground">
 												{notification.title}
 											</p>
 											{!notification.isRead ? (
@@ -163,11 +137,11 @@ export function NotificationsPageClient() {
 											) : null}
 										</div>
 										{notification.body ? (
-											<p className="mt-1 text-sm text-muted-foreground">
+											<p className="mt-1 break-words text-sm text-muted-foreground">
 												{notification.body}
 											</p>
 										) : null}
-										<div className="mt-2 flex items-center gap-3">
+										<div className="mt-2 flex flex-wrap items-center gap-3">
 											<p className="text-xs text-muted-foreground">
 												{formatDate(notification.createdAt)}
 											</p>
@@ -178,6 +152,8 @@ export function NotificationsPageClient() {
 												<Button
 													variant="ghost"
 													size="xs"
+													className="min-h-11"
+													disabled={isPending || markReadPending}
 													type="button"
 													onClick={() =>
 														markRead({ notificationId: notification.id })
@@ -191,7 +167,7 @@ export function NotificationsPageClient() {
 											<Button
 												variant="link"
 												size="sm"
-												className="mt-2 h-auto p-0 text-xs"
+												className="mt-2 h-auto min-h-11 max-w-full whitespace-normal break-words p-0 text-left text-xs"
 												type="button"
 												onClick={() => {
 													if (!notification.isRead) {
