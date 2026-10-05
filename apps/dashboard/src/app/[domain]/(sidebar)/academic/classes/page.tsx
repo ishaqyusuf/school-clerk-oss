@@ -24,7 +24,7 @@ type Props = {
 export default async function Page(props: Props) {
 	const searchParams = await props.searchParams;
 	const filter = loadClassroomFilterParams(searchParams);
-	await batchPrefetch([
+	batchPrefetch([
 		trpc.academics.getClassrooms.infiniteQueryOptions({
 			...filter,
 		}),

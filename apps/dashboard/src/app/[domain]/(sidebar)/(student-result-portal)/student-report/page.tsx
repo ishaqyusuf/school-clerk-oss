@@ -1,4 +1,4 @@
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { getServerWorkspace as getAuthCookie } from "@/trpc/request-context";
 import { getStudentReportCookie } from "@/actions/cookies/student-report";
 import { StudentReportView } from "./student-report-view";
 import { resolveDashboardAcademicDataDirection } from "@/lib/academic-data-direction/server";

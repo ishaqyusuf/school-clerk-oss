@@ -20,7 +20,7 @@ export default async function Page(props: Props) {
 	const searchParams = await props.searchParams;
 	const { classDepartmentId, subjectId } = loadQuestionsParams(searchParams);
 
-	await batchPrefetch([
+	batchPrefetch([
 		trpc.questions.all.queryOptions({
 			classDepartmentId,
 			subjectId,

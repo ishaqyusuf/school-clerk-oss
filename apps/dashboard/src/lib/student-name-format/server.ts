@@ -1,6 +1,6 @@
 import "server-only";
 
-import { prisma } from "@school-clerk/db";
+import { getDashboardSettings } from "@/lib/dashboard-settings";
 import {
 	type StudentNameFormat,
 	normalizeStudentNameFormat,
@@ -9,15 +9,7 @@ import {
 export async function getDashboardStudentNameFormat(
 	schoolProfileId: string,
 ): Promise<StudentNameFormat> {
-	const school = await prisma.schoolProfile.findFirst({
-		where: {
-			id: schoolProfileId,
-			deletedAt: null,
-		},
-		select: {
-			studentNameFormat: true,
-		},
-	});
+	const school = await getDashboardSettings(schoolProfileId);
 
 	return normalizeStudentNameFormat(school?.studentNameFormat);
 }

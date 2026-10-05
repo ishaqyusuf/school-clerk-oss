@@ -1,5 +1,5 @@
 import { getTeacherWorkspaceAction } from "@/actions/get-teacher-workspace";
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { getServerWorkspace as getAuthCookie } from "@/trpc/request-context";
 import { SubmitClassStudentSheet } from "@/components/students/submit-class-student-sheet";
 import { TeacherAssessmentWorkspace } from "@/components/teachers/teacher-assessment-workspace";
 import { TeacherAttendanceWorkspace } from "@/components/teachers/teacher-attendance-workspace";

@@ -52,6 +52,7 @@
 		"./responsive": "./src/responsive.ts",
 		"./format": "./src/format.ts",
 		"./query-response": "./src/query-response.ts",
-		"./types": "./src/types.ts"
+		"./types": "./src/types.ts",
+		"./server-performance": "./src/server-performance.ts"
 	}
 }

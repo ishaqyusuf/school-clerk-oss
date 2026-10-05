@@ -1,5 +1,7 @@
 import { Prisma, PrismaClient } from "./generated/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { InstrumentedPool } from "./pool";
+import { logPerformance } from "@school-clerk/utils/server-performance";
 
 function normalizePgConnectionString(connectionString: string) {
   const url = new URL(connectionString);
@@ -39,7 +41,18 @@ const prismaClientSingleton = () => {
     return null;
   }
 
-  const adapter = new PrismaPg({ connectionString });
+  const pool = new InstrumentedPool({
+    connectionString, max: 6, min: 0,
+    connectionTimeoutMillis: 5_000, idleTimeoutMillis: 10_000,
+    keepAlive: true, allowExitOnIdle: true,
+  });
+  pool.on("error", () => console.error("Database pool idle connection error"));
+  const adapter = new PrismaPg(pool, { disposeExternalPool: true });
+  const databaseHost = new URL(connectionString).hostname;
+  const provider = databaseHost.endsWith(".neon.tech") ? "neon"
+    : databaseHost.includes("supabase") ? "supabase" : "postgresql";
+  console.info("[database-runtime]", JSON.stringify({ provider, host: databaseHost,
+    region: process.env.VERCEL_REGION ?? null, poolMax: 6, connectionTimeoutMs: 5_000 }));
 
   return new PrismaClient({
     adapter,
@@ -53,6 +66,17 @@ const prismaClientSingleton = () => {
         : ["error"],
   }).$extends({
     query: {
+      $allOperations: async ({ model, operation, args, query }) => {
+        const startedAt = performance.now();
+        try {
+          return await query(args);
+        } finally {
+          logPerformance("db.operation", startedAt, {
+            model: model ?? "raw", operation,
+            poolTotal: pool.totalCount, poolIdle: pool.idleCount, poolWaiting: pool.waitingCount,
+          });
+        }
+      },
       $allModels: {
         async findFirst({ args, model, query }) {
           if (!softDeletableModels.has(model)) return query(args);

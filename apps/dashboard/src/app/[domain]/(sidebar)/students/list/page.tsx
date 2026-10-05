@@ -41,7 +41,7 @@ export default async function Page(props: Props) {
 			: null;
 	const initialSettings = await getInitialTableSettings("students");
 
-	await batchPrefetch([
+	batchPrefetch([
 		trpc.students.index.infiniteQueryOptions({
 			...filter,
 			sort: normalizedSort,

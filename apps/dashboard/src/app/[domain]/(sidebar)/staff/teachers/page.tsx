@@ -12,7 +12,7 @@ export default async function Page({ searchParams, params }) {
 	const searchQuery = searchParamsCache.parse(await searchParams);
 	const { search, status } = searchQuery;
 
-	await batchPrefetch([
+	batchPrefetch([
 		trpc.staff.getStaffList.queryOptions({
 			...(search ? { q: search } : {}),
 			...(status

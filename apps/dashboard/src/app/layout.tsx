@@ -28,6 +28,8 @@ const lora = Lora({
 
 export const metadata = constructMetadata();
 
+export const maxDuration = 60;
+
 // const fontSans = FontSans({
 //   subsets: ["latin"],
 //   variable: "--font-sans",

@@ -26,7 +26,7 @@ export function FinanceAccountActionsSheet() {
 			pageSize: 100,
 			accountTypes: [],
 			health: [],
-		}),
+		}, { enabled: isOpen }),
 	);
 	const close = () =>
 		setParams({

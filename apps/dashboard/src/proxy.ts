@@ -1,4 +1,5 @@
 import { prisma, resolveTenantWorkspace } from "@school-clerk/db";
+import { getPerformanceRequestId, measurePerformance, withPerformanceContext } from "@school-clerk/utils/server-performance";
 import { parseWorkspaceCookie, workspaceCookieOptions, workspaceCookieSelection, type AuthCookie } from "./utils/workspace-cookie";
 import {
   buildTenantRedirectUrl,
@@ -31,6 +32,11 @@ export const config = {
 };
 
 export default async function proxy(req: NextRequest) {
+  const requestId = crypto.randomUUID();
+  return withPerformanceContext(requestId, () => measurePerformance("proxy.total", () => handleProxy(req, requestId)));
+}
+
+async function handleProxy(req: NextRequest, requestId: string) {
   const host = getRequestHost(req);
   const url = req.nextUrl;
   const tenantUrlConfig = getDashboardTenantUrlConfig();
@@ -46,6 +52,7 @@ export default async function proxy(req: NextRequest) {
   );
   const baseRequestHeaders = createDashboardProxyHeaders({
     req,
+    requestId,
     tenantHeaderNames,
     tenantUrlContext,
   });
@@ -57,14 +64,14 @@ export default async function proxy(req: NextRequest) {
   let tenantDomain: TenantDomainContext | null = null;
 
   if (canonicalSlug) {
-    tenantDomain = await findTenantDomainBySubdomain(canonicalSlug);
+    tenantDomain = await measurePerformance("proxy.tenant", () => findTenantDomainBySubdomain(canonicalSlug!));
   }
 
   if (!canonicalSlug && !isAppRootHost) {
     const bareHost = tenantUrlContext.customDomainLookupHost;
 
     if (bareHost) {
-      const record = await findTenantDomainByCustomDomain(bareHost);
+      const record = await measurePerformance("proxy.custom-domain", () => findTenantDomainByCustomDomain(bareHost));
       if (record?.subdomain) {
         canonicalSlug = record.subdomain;
         tenantDomain = record;
@@ -115,17 +122,17 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/sign-up", req.url));
   }
 
-  const session = await auth.api.getSession({
+  const session = await measurePerformance("proxy.session", () => auth.api.getSession({
     headers: req.headers,
-  });
+  }));
 
   const existingTenantSessionCookieValue = getTenantWorkspaceCookieValue(req, canonicalSlug);
   const recoveredTenantSessionCookie = session
-    ? await resolveTenantWorkspaceCookie({
+    ? await measurePerformance("proxy.workspace", () => resolveTenantWorkspaceCookie({
         existingCookieValue: existingTenantSessionCookieValue,
         session,
         tenantSlug: canonicalSlug,
-      })
+      }))
     : null;
   const hasTenantSessionCookie = Boolean(recoveredTenantSessionCookie);
   const sessionTenantAccess = session ? hasTenantSessionCookie : null;
@@ -235,6 +242,7 @@ export default async function proxy(req: NextRequest) {
       canonicalSlug,
       recoveredTenantSessionCookie,
       req,
+      requestId,
       tenantDomain,
       tenantHeaderNames,
       tenantUrlContext,
@@ -293,6 +301,7 @@ function createDashboardProxyHeaders({
   canonicalSlug,
   recoveredTenantSessionCookie,
   req,
+  requestId,
   tenantDomain,
   tenantHeaderNames,
   tenantUrlContext,
@@ -300,11 +309,13 @@ function createDashboardProxyHeaders({
   canonicalSlug?: string | null;
   recoveredTenantSessionCookie?: string | null;
   req: NextRequest;
+  requestId: string;
   tenantDomain?: TenantDomainContext | null;
   tenantHeaderNames: ReturnType<typeof getTenantUrlHeaderNames>;
   tenantUrlContext: ReturnType<typeof resolveTenantUrlContext>;
 }) {
   const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-request-id", getPerformanceRequestId(requestId));
   const protectedHeaders = [
     ...protectedProxyHeaderNames,
     tenantHeaderNames.domain,

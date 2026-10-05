@@ -2,6 +2,7 @@ import { toast } from "@school-clerk/ui/use-toast";
 import {
   MutationCache,
   QueryClient,
+  isServer,
   defaultShouldDehydrateQuery,
 } from "@tanstack/react-query";
 import superjson from "superjson";
@@ -11,6 +12,12 @@ export function makeQueryClient() {
     defaultOptions: {
       queries: {
         staleTime: 60 * 1000,
+        retry: isServer ? false : (failureCount, error) => {
+          const status = "status" in error ? error.status : undefined;
+          const code = "data" in error && error.data && typeof error.data === "object" && "code" in error.data ? error.data.code : undefined;
+          if (status === 401 || code === "UNAUTHORIZED" || code === "FORBIDDEN") return false;
+          return failureCount < 2;
+        },
       },
       dehydrate: {
         serializeData: superjson.serialize,

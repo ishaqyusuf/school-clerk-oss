@@ -1,13 +1,6 @@
-import { useTRPC } from "@/trpc/client";
-import { useDebugToast } from "./use-debug-console";
 import { authClient } from "@/auth/client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAsyncMemo } from "use-async-memo";
-import { AuthCookie, getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { loadWorkspaceProfile } from "@/lib/workspace-profile";
 import useSWR from "swr";
-
-const fetcher = (url: string) =>
-  fetch(url).then((r) => r.json() as any as AuthCookie);
 
 interface Props {
   required: boolean;
@@ -15,10 +8,7 @@ interface Props {
 export function useAuth(props?: Props) {
   const { required } = props || {};
   const { data, isPending, error: sessionError } = authClient.useSession();
-  // const profile = useAsyncMemo(async () => {
-  //   return await getAuthCookie();
-  // },[])
-  const { data: profile, isLoading, error: profileError } = useSWR("/api/profile", fetcher);
+  const { data: profile, isLoading, error: profileError } = useSWR("/api/profile", loadWorkspaceProfile);
   return {
     isPending,
     isSessionError: !!sessionError,

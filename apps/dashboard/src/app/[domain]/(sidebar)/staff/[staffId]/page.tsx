@@ -10,7 +10,7 @@ type Props = {
 export default async function Page(props: Props) {
 	const { staffId } = await props.params;
 
-	await batchPrefetch([
+	batchPrefetch([
 		trpc.staff.getFormData.queryOptions({
 			staffId,
 		}),

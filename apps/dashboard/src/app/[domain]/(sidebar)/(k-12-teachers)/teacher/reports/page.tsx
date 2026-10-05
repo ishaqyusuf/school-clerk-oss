@@ -1,4 +1,4 @@
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { getServerWorkspace as getAuthCookie } from "@/trpc/request-context";
 import { getTeacherWorkspaceAction } from "@/actions/get-teacher-workspace";
 import { TeacherReportSheet } from "@/components/teachers/teacher-report-sheet";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";

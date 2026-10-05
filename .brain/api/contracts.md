@@ -300,3 +300,7 @@ request fails with conflict.
 ## Student registration Finance boundary — 2026-10-05
 
 Student registration and `academics.entrollStudentToTerm` require live Student Management and Academics access for classroom enrollment. Finance is optional for ordinary enrollment: automatic fees run only when live effective Finance is enabled. Registration rejects optional-fee/payment entries when Finance is disabled. Finance-enabled preview/payment authorization, tenant/class/session/term ownership, open-term checks and transactional validation remain required. The client uses school-scoped module policy to hide financial controls and block unavailable policy; server transaction checks are authoritative. See ADR-0065. No schema change.
+
+## Workspace profile performance — 2026-10-05
+
+`/api/profile` keeps the canonical AuthCookie success shape and private/no-store responses. Missing identity is 401; transient resolution failure is 503, not proof of expiry. Browser concurrent reads share an in-flight promise only. No stored-session, tenant/module/record authorization change. See ADR-0068; release verification in progress.

@@ -7,6 +7,7 @@ import {
 import { TRPCError, initTRPC } from "@trpc/server";
 import type { Context } from "hono";
 import superjson from "superjson";
+import { getPerformanceRequestId, logPerformance, withPerformanceContext } from "@school-clerk/utils/server-performance";
 import { withPrimaryReadAfterWrite } from "./middleware/primary-read-after-write";
 import { requireSchoolModules } from "@api/lib/module-access";
 import type { ModuleId } from "@school-clerk/utils/module-config";
@@ -15,6 +16,7 @@ export type TRPCContext = {
   //   session: Session | null;
   //   supabase: SupabaseClient;
   db: Database;
+  requestId?: string;
   profile: {
     sessionId?: string;
     schoolId?: string;
@@ -37,6 +39,8 @@ export const createTRPCContext = async (
   _: unknown,
   c: Context,
 ): Promise<TRPCContext> => {
+  const startedAt = performance.now();
+  const requestId = getPerformanceRequestId(c.req.header("x-request-id"));
   const authSessionId = c.req.header("Authorization")?.split(" ")[1];
   const appRootDomain = resolveDashboardAppRootDomain(
     process.env.APP_ROOT_DOMAIN,
@@ -50,7 +54,7 @@ export const createTRPCContext = async (
   )?.split("|");
   const db = prisma;
   const schoolSettings = schoolId
-    ? await db.schoolProfile.findFirst({
+    ? await withPerformanceContext(requestId, () => db.schoolProfile.findFirst({
         where: {
           id: schoolId,
           deletedAt: null,
@@ -58,7 +62,7 @@ export const createTRPCContext = async (
         select: {
           studentNameFormat: true,
         },
-      })
+      }))
     : null;
   const profile = {
     termId,
@@ -71,8 +75,10 @@ export const createTRPCContext = async (
     ),
   };
 
+  logPerformance("trpc.context", startedAt, { requestId });
   return {
     db,
+    requestId,
     profile,
   };
 };
@@ -168,7 +174,21 @@ const requireAuthMiddleware = t.middleware(async (opts) => {
 //   });
 // });
 
-export const publicProcedure = t.procedure.use(withPrimaryDbMiddleware);
+const timingMiddleware = t.middleware((opts) =>
+  withPerformanceContext(opts.ctx.requestId ?? crypto.randomUUID(), async () => {
+    const startedAt = performance.now();
+    try {
+      const result = await opts.next();
+      logPerformance("trpc.procedure", startedAt, { path: opts.path, type: opts.type, ok: result.ok });
+      return result;
+    } catch (error) {
+      logPerformance("trpc.procedure", startedAt, { path: opts.path, type: opts.type, ok: false });
+      throw error;
+    }
+  }),
+);
+
+export const publicProcedure = t.procedure.use(timingMiddleware).use(withPrimaryDbMiddleware);
 export const authenticatedProcedure = publicProcedure.use(
   requireAuthMiddleware,
 );

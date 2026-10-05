@@ -87,3 +87,7 @@ password sign-in remains available. The server action and direct auth endpoint
 recheck tenant/user eligibility before issuing a session. The Daarul Hadith
 picker displayed four existing accounts, and browser QA signed in as a teacher
 and an admin through this local shortcut. See [ADR-0034](../decisions/ADR-0034-local-qa-quick-login.md).
+
+## Request performance — 2026-10-05
+
+Server components share canonical workspace and signed-session resolution within a render only. Workspace preference mutation actions retain live independent validation. SWR and browser tRPC share concurrent `/api/profile` reads and discard the completed promise; transient failures do not imply sign-out. See ADR-0068. Implementation local; release and post-fix tenant measurements pending.

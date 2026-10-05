@@ -14,8 +14,8 @@ import {
 import { cache } from "react";
 import superjson from "superjson";
 import { makeQueryClient } from "./query-client";
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
-import { headers } from "next/headers";
+import { getServerRequestContext } from "./request-context";
+import { logPerformance } from "@school-clerk/utils/server-performance";
 
 // IMPORTANT: Create a stable getter for the query client that
 //            will return the same client during the same request.
@@ -29,7 +29,7 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
         url: "/api/trpc",
         transformer: superjson as any,
         async fetch(input, init) {
-          const requestHeaders = await headers();
+          const { requestHeaders, requestId } = await getServerRequestContext();
           const host =
             requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
           const protocol =
@@ -47,11 +47,19 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
             ? url
             : `${protocol}://${host}${url}`;
 
-          return fetch(resolvedUrl, init);
+          const startedAt = performance.now();
+          const timeoutSignal = AbortSignal.timeout(8_000);
+          const signal = init?.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
+          try {
+            return await fetch(resolvedUrl, { ...init, signal });
+          } finally {
+            logPerformance("ssr.trpc.fetch", startedAt, { requestId });
+          }
         },
         async headers() {
-          const cook = await getAuthCookie();
+          const { profile: cook, requestId } = await getServerRequestContext();
           return {
+            "x-request-id": requestId,
             Authorization: `Bearer ${cook?.auth?.bearerToken}`,
             "x-ttss-id": [cook?.termId, cook?.sessionId, cook?.schoolId]?.join(
               "|"
@@ -78,30 +86,16 @@ export function HydrateClient(props: { children: React.ReactNode }) {
   );
 }
 
-export function prefetch<T extends ReturnType<TRPCQueryOptions<any>>>(
-  queryOptions: T
-) {
+export function prefetch<T extends ReturnType<TRPCQueryOptions<any>>>(queryOptions: T) {
   const queryClient = getQueryClient();
-
-  if (queryOptions.queryKey[1]?.type === "infinite") {
-    return queryClient.prefetchInfiniteQuery(queryOptions as any);
-  } else {
-    return queryClient.prefetchQuery(queryOptions);
-  }
+  const pending = queryOptions.queryKey[1]?.type === "infinite"
+    ? queryClient.prefetchInfiniteQuery(queryOptions as any)
+    : queryClient.prefetchQuery(queryOptions);
+  void pending.catch(() => {
+    // Hydrated query error boundaries own the visible failure state.
+  });
 }
 
-export async function batchPrefetch<T extends ReturnType<TRPCQueryOptions<any>>>(
-  queryOptionsArray: T[]
-) {
-  const queryClient = getQueryClient();
-
-  await Promise.allSettled(
-    queryOptionsArray.map((queryOptions) => {
-      if (queryOptions.queryKey[1]?.type === "infinite") {
-        return queryClient.prefetchInfiniteQuery(queryOptions as any);
-      }
-
-      return queryClient.prefetchQuery(queryOptions);
-    })
-  );
+export function batchPrefetch<T extends ReturnType<TRPCQueryOptions<any>>>(queryOptionsArray: T[]) {
+  for (const queryOptions of queryOptionsArray) prefetch(queryOptions);
 }

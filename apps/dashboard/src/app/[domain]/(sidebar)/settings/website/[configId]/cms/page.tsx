@@ -1,4 +1,4 @@
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { getServerWorkspace as getAuthCookie } from "@/trpc/request-context";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { Button } from "@school-clerk/ui/button";
 import {

@@ -8,6 +8,7 @@ import {
 	createAcademicDirectionFallback,
 } from "@school-clerk/db";
 import { prisma } from "@school-clerk/db";
+import { getDashboardSettings } from "@/lib/dashboard-settings";
 import { unstable_cache } from "next/cache";
 
 const getCachedAcademicDataDirectionAnalysis = unstable_cache(
@@ -22,10 +23,7 @@ const getCachedAcademicDataDirectionAnalysis = unstable_cache(
 async function getAcademicDataDirectionMode(
 	schoolProfileId: string,
 ): Promise<AcademicDataDirectionMode | null> {
-	const school = await prisma.schoolProfile.findFirst({
-		where: { id: schoolProfileId, deletedAt: null },
-		select: { academicDataDirectionMode: true },
-	});
+	const school = await getDashboardSettings(schoolProfileId);
 
 	return school
 		? (school.academicDataDirectionMode as AcademicDataDirectionMode)

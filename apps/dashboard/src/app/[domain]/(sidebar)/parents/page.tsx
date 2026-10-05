@@ -16,7 +16,7 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function Page() {
-  await batchPrefetch([trpc.parents.overview.queryOptions()]);
+  batchPrefetch([trpc.parents.overview.queryOptions()]);
 
   return (
     <HydrateClient>

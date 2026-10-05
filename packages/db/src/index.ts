@@ -61,3 +61,4 @@ export * from "./student-import-execution";
 export * from "./student-import-processing";
 export * from "./student-import-reference";
 export { StudentFeeReconciliationError } from "./student-fee-reconciliation";
+export * from "./dashboard-stats";

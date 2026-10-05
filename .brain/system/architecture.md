@@ -168,3 +168,7 @@ Tracks architectural patterns, boundaries, and major design choices.
 ## Configured Prisma transaction typing — 2026-10-05
 
 DatabaseTransaction is inferred from the configured extended client's interactive transaction callback. Shared database helpers use it rather than the generated base Prisma.TransactionClient, whose model-delegate generic signatures differ after the soft-delete extension. This changes TypeScript contracts only; runtime transactions/authorization remain unchanged. Database package typecheck passes after this repair, which removes the Vercel Turbo database-build blocker. Vercel build tasks declare auth, analytics, email, jobs and provider config inputs for correct cache/environment propagation.
+
+## Dashboard request performance — 2026-10-05
+
+Render-scoped canonical workspace/settings reads, optional pending-query hydration and streamed dashboard totals reduce repeated blocking work. Critical navigation module data remains awaited to keep server/client markup consistent. PrismaPg now owns a bounded six-connection pool with 5s acquisition/connect timeout and operation/pool timing; no schema change. Browser profile consumers share concurrent reads only, distinguishing transient 503 from expired 401. Request IDs correlate proxy/render/API/query stages without credentials or SQL arguments. See [ADR-0068](../decisions/ADR-0068-dashboard-request-performance.md). Local verification is recorded there; production release and post-fix timing remain outstanding.

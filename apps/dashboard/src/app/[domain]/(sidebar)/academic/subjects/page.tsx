@@ -24,7 +24,7 @@ type Props = {
 export default async function Page(props) {
 	const searchParams = await props.searchParams;
 	const filter = loadSubjectFilterParams(searchParams);
-	await batchPrefetch([
+	batchPrefetch([
 		trpc.subjects.getSubjectCatalog.infiniteQueryOptions({
 			...filter,
 		}),

@@ -1,5 +1,5 @@
 import { getSession } from "@/auth/server";
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { getServerWorkspace as getAuthCookie } from "@/trpc/request-context";
 import { AcademicDataDirectionSettingsCard } from "@/components/academic-data-direction/settings-card";
 import { SchoolInformationSettingsCard } from "@/components/settings/school-information-settings-card";
 import { StudentNameFormatSettingsCard } from "@/components/student-name-format/settings-card";

@@ -1,4 +1,4 @@
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { getServerWorkspace as getAuthCookie } from "@/trpc/request-context";
 import {
   archiveWebsiteDraftAction,
   createWebsiteDraftAction,

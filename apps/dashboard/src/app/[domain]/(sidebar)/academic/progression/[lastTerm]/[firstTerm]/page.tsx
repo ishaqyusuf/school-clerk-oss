@@ -15,7 +15,7 @@ interface PageProps {
 export default async function Page({ params }: PageProps) {
   const { lastTerm, firstTerm } = await params;
 
-  await batchPrefetch([
+  batchPrefetch([
     trpc.academics.getPromotionClassrooms.queryOptions({
       lastTermId: lastTerm,
       firstTermId: firstTerm,

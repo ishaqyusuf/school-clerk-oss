@@ -7,7 +7,7 @@ import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 
 export default async function Page() {
-  await batchPrefetch([trpc.inventory.getItems.queryOptions({})]);
+  batchPrefetch([trpc.inventory.getItems.queryOptions({})]);
 
   return (
     <HydrateClient>

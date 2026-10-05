@@ -7,7 +7,7 @@ import { makeQueryClient } from "./query-client";
 import { useState } from "react";
 import { createTRPCClient, httpBatchLink, loggerLink } from "@trpc/client";
 import superjson from "superjson";
-import type { AuthCookie } from "@/utils/workspace-cookie";
+import { loadWorkspaceProfile, WorkspaceProfileError } from "@/lib/workspace-profile";
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
 
 let browserQueryClient: QueryClient;
@@ -52,15 +52,17 @@ export function TRPCReactProvider(
           async headers() {
             // Server prefetch owns SSR reads; this link only loads browser context.
             if (isServer) return {};
-            const response = await fetch("/api/profile", { cache: "no-store" });
-            if (response.status === 401) {
-              const login = new URL("/login", window.location.origin);
-              login.searchParams.set("return_to", window.location.pathname + window.location.search);
-              window.location.replace(login);
-              throw new Error("Your session has ended. Please sign in again.");
+            let cook;
+            try {
+              cook = await loadWorkspaceProfile();
+            } catch (error) {
+              if (error instanceof WorkspaceProfileError && error.status === 401) {
+                const login = new URL("/login", window.location.origin);
+                login.searchParams.set("return_to", window.location.pathname + window.location.search);
+                window.location.replace(login);
+              }
+              throw error;
             }
-            if (!response.ok) throw new Error("Unable to load your school workspace.");
-            const cook: AuthCookie = await response.json();
             return {
               Authorization: `Bearer ${cook?.auth?.bearerToken}`,
               "x-ttss-id": [

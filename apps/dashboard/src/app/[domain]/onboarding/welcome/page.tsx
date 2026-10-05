@@ -1,7 +1,7 @@
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { ArrowRight, CheckCircle2, Globe, Sparkles } from "lucide-react";
 
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { getServerWorkspace as getAuthCookie } from "@/trpc/request-context";
 import { buildDashboardTenantUrl } from "@/features/signup/tenant-urls";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";

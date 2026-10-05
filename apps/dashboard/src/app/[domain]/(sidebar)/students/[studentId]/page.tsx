@@ -1,6 +1,6 @@
 import { StudentOverviewPageClient } from "@/components/students/student-overview-page-client";
 import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server";
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { getServerWorkspace as getAuthCookie } from "@/trpc/request-context";
 import { auth } from "@/auth/server";
 import { headers } from "next/headers";
 
@@ -15,7 +15,7 @@ export default async function Page(props: Props) {
   const profile = await getAuthCookie();
   const session = await auth.api.getSession({ headers: await headers() });
   if (profile.schoolId && session?.session.id && session.user.id === profile.auth?.userId) {
-    await batchPrefetch([
+    batchPrefetch([
       trpc.students.overview.queryOptions({
         studentId,
         viewScope: { schoolId: profile.schoolId, userId: session.user.id, loginSessionId: session.session.id },

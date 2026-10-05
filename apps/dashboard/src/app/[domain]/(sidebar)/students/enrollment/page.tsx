@@ -1,4 +1,4 @@
-import { getAuthCookie } from "@/actions/cookies/auth-cookie";
+import { getServerWorkspace as getAuthCookie } from "@/trpc/request-context";
 import { ErrorFallback } from "@/components/error-fallback";
 import { EnrollmentManagementClient } from "@/components/enrollment/enrollment-management-client";
 import { TableSkeleton } from "@/components/tables/skeleton";
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }) {
 }
 export default async function Page() {
 	const cookie = await getAuthCookie();
-	await batchPrefetch([
+	batchPrefetch([
 		trpc.enrollmentLinks.listLinks.queryOptions(),
 		trpc.enrollmentLinks.getApplications.queryOptions({}),
 		trpc.classrooms.getCurrentSessionClassroom.queryOptions(),

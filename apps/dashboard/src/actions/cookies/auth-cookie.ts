@@ -4,7 +4,8 @@ import {
   getTenantUrlHeaderNames,
   resolveTenantUrlContext,
 } from "@school-clerk/tenant-url";
-import { auth } from "@/auth/server";
+import { getSession } from "@/auth/server";
+import { measurePerformance } from "@school-clerk/utils/server-performance";
 import { findTenantDomainByCustomDomain } from "@/utils/tenant-domain-context";
 import { getDashboardTenantUrlConfig } from "@/utils/tenant-url-config";
 import {
@@ -58,7 +59,7 @@ export async function getTenantDomain() {
 }
 export async function getAuthCookie(): Promise<AuthCookie> {
   const { domain } = await getTenantDomain();
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await measurePerformance("workspace.session", getSession);
   if (!session?.session.token || !session.user.id) return emptyWorkspaceCookie(domain);
   return resolveTenantAuthCookie({
     authCookie: await readWorkspaceCookie(domain),
@@ -99,10 +100,10 @@ async function resolveTenantAuthCookie({
 }: {
   authCookie: AuthCookie | null; bearerToken: string; domain: string; userId: string; rememberMe?: boolean;
 }): Promise<AuthCookie> {
-  const workspace = await resolveTenantWorkspace(prisma, {
+  const workspace = await measurePerformance("workspace.resolve", () => resolveTenantWorkspace(prisma, {
     token: bearerToken, userId, tenantSlug: domain,
     selection: workspaceCookieSelection(authCookie, { domain, token: bearerToken, userId }),
-  });
+  }));
   return workspace ? { ...workspace, auth: { bearerToken, userId }, remembered: rememberMe }
     : emptyWorkspaceCookie(domain);
 }
