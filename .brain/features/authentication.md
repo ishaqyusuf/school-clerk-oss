@@ -10,6 +10,8 @@ Remembered sessions and workspace cookies now have a 365-day rolling lifetime wi
 
 Recovery release 9448527 is Ready / Current on production dashboard domains (Vercel deployment 8WdDK9gKDcgm7hKYVz28GLW3dqPj). Local browser use renewed the stored admin session to 365 remaining days; an unsigned production request to `/academic/classes` redirected to the tenant login with its return path. Navigation tests: 23 passed; Logly tests: 8 passed. Broad typechecking retains existing site-nav/shared errors, and auth typechecking retains the database inferred-never error. Production module-dependent classroom acceptance remains pending the owner's module-adoption choice and authenticated production sign-in.
 
+Owner-approved Daarul Hadith module adoption subsequently completed. Live authenticated production module/classroom API reads succeeded (HTTP 200, seven classrooms). Automation's browser remains unsigned in production, so no authenticated production UI claim is made.
+
 `packages/auth/src/access.ts` owns Better Auth request adapters; `packages/db/src/auth-access.ts` owns identity, live-session and parent-phone reads. Dashboard actions orchestrate. Password verification, signed cookies and callbacks remain framework-owned. See [ADR-0037](../decisions/ADR-0037-live-auth-session-and-password-identity.md).
 
 - Password sign-in requires unique canonical identity/credential, active account and no pending staff setup. Identity/password/role changes around session creation deny issuance and trigger exact-new-session cleanup.

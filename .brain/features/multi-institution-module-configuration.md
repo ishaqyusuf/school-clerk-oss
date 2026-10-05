@@ -1,6 +1,12 @@
 # Multi-Institution Module Configuration
 
 ## Purpose
+
+### Production Daarul Hadith restoration — 2026-10-05
+
+The owner approved restoring academic, student, staff and Finance access after the initial production rollout left legacy configuration missing. Created version 1 / revision 0 configuration for school e1a750b6-c8f1-48ec-a4a4-cca0464a6055, scoped to its active account and exact daarulhadith slug. Enabled and entitled sets contain STUDENT_MANAGEMENT, STAFF_MANAGEMENT, ACADEMIC_PROGRAMS, COURSES_SUBJECTS, ATTENDANCE, ASSESSMENT_AND_EXAMS, RESULTS_AND_REPORTS, BILLING_FINANCE and ASSIGNMENTS. All nine resolve effective with no dependency issues. No existing configuration was overwritten; no role, identity or academic/finance records changed.
+
+Live authenticated production API verification using an existing school Admin session returned HTTP 200 / configured for schoolSettings.getModules and HTTP 200 / seven classroom records for academics.getClassrooms. Browser/sidebar state needs refresh to invalidate the previously missing configuration. This adoption is specific to Daarul Hadith, not a default grant for other schools.
 Defines how modules are enabled or disabled per tenant based on institution type and business plan.
 
 ## How To Use
