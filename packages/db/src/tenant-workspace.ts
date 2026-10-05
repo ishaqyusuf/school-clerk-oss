@@ -1,6 +1,7 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 
-type WorkspaceDatabase = Pick<Prisma.TransactionClient, "session" | "schoolProfile">;
+type WorkspaceDatabase = Pick<DatabaseTransaction, "session" | "schoolProfile">;
 export type WorkspaceSelection = { schoolId?: string; sessionId?: string; termId?: string };
 
 function currentDatedTerm<T extends { startDate: Date | null; endDate: Date | null }>(terms: T[]) {

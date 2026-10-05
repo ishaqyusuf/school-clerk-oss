@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import { createHash } from "node:crypto";
 import type { Prisma } from "./generated/client";
 import { getStaffCredentialAccount, getStaffInvitationIdentity } from "./staff-login-identity";
@@ -6,7 +7,7 @@ type StaffProof = {
   staffId: string; userId: string; schoolId: string; accountId: string;
   email: string; role: string;
 };
-type OnboardingDatabase = Pick<Prisma.TransactionClient,
+type OnboardingDatabase = Pick<DatabaseTransaction,
   "verification" | "staffProfile" | "user" | "account" | "session">;
 
 export function staffOnboardingIdentifier(token: string) {
@@ -19,7 +20,7 @@ export function staffPasswordSetupIdentifier(token: string) {
 
 // Hold this conditional row write inside the caller's transaction through its
 // side effect. A competing issuance/consumption must acquire the same row lock.
-export async function lockStaffOnboardingProof(db: Pick<Prisma.TransactionClient, "verification">,
+export async function lockStaffOnboardingProof(db: Pick<DatabaseTransaction, "verification">,
   input: { staffId: string; token: string }) {
   const locked = await db.verification.updateMany({
     where: { id: `staff-onboarding:${input.staffId}`, identifier: staffOnboardingIdentifier(input.token),
@@ -29,7 +30,7 @@ export async function lockStaffOnboardingProof(db: Pick<Prisma.TransactionClient
   return locked.count === 1;
 }
 
-export function createStaffOnboardingProof(db: Pick<Prisma.TransactionClient, "verification">,
+export function createStaffOnboardingProof(db: Pick<DatabaseTransaction, "verification">,
   proof: StaffProof, token: string, expiresAt: Date) {
   const id = `staff-onboarding:${proof.staffId}`;
   const data = { identifier: staffOnboardingIdentifier(token), value: JSON.stringify(proof), expiresAt, deletedAt: null };

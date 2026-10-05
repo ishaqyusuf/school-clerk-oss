@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import { Prisma } from "./generated/client";
 import type { Database } from "./prisma";
 
@@ -20,7 +21,7 @@ export function assistantHistoryMetadata(toolNames: string[]) {
 export async function withAssistantConversationAccess<T>(
   db: Database,
   scope: HistoryScope & { conversationId: string; mode?: "read" | "extend" | "append" },
-  operation: (tx: Prisma.TransactionClient) => Promise<T>,
+  operation: (tx: DatabaseTransaction) => Promise<T>,
 ): Promise<T | null> {
   return db.$transaction(async (tx) => {
     const locked = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "AssistantConversation"
@@ -55,7 +56,7 @@ export async function withAssistantConversationAccess<T>(
 
 export async function withAssistantHistoryList<T>(
   db: Database, scope: HistoryScope,
-  operation: (tx: Prisma.TransactionClient, conversationIds: string[]) => Promise<T>,
+  operation: (tx: DatabaseTransaction, conversationIds: string[]) => Promise<T>,
 ) {
   return db.$transaction(async (tx) => {
     // Shared locks prevent a concurrent run from broadening scope between its

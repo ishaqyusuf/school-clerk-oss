@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { UpdateStudentBasicProfileInput } from "@school-clerk/utils/student-profile-schema";
 import type { Prisma } from "./generated/client";
 import { StudentFeeReconciliationError } from "./student-fee-reconciliation";
@@ -7,7 +8,7 @@ function conflict(message: string): never {
 }
 
 // The caller owns live authorization, the student lock and the Serializable transaction.
-export async function updateStudentProfileGuardian(tx: Prisma.TransactionClient, schoolId: string, studentId: string,
+export async function updateStudentProfileGuardian(tx: DatabaseTransaction, schoolId: string, studentId: string,
   input: UpdateStudentBasicProfileInput["data"]["guardian"]) {
   if (input === undefined) return false;
   const links = await tx.studentGuardians.findMany({

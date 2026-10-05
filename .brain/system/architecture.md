@@ -164,3 +164,7 @@ Tracks architectural patterns, boundaries, and major design choices.
 - [ADR-0002: Multi-Institution Configurable Module Architecture](/Users/M1PRO/Documents/code/school-clerk/brain/decisions/ADR-0002-multi-institution-configurable-module-architecture.md)
 - [ADR-0005: Prisma 7 Default Runtime and Generated Client](/Users/M1PRO/Documents/code/school-clerk/brain/decisions/ADR-0005-prisma-7-default-runtime-and-generated-client.md)
 - [ADR-0007: Durable Student Import Background Jobs](/Users/M1PRO/Documents/code/school-clerk/brain/decisions/ADR-0007-durable-student-import-background-jobs.md)
+
+## Configured Prisma transaction typing — 2026-10-05
+
+DatabaseTransaction is inferred from the configured extended client's interactive transaction callback. Shared database helpers use it rather than the generated base Prisma.TransactionClient, whose model-delegate generic signatures differ after the soft-delete extension. This changes TypeScript contracts only; runtime transactions/authorization remain unchanged. Database package typecheck passes after this repair, which removes the Vercel Turbo database-build blocker. Vercel build tasks declare auth, analytics, email, jobs and provider config inputs for correct cache/environment propagation.

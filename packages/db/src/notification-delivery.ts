@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 import { ensureNotificationContact } from "./notification-contacts";
 
@@ -11,10 +12,10 @@ export type NotificationDeliveryScope = {
   audienceRoles?: readonly string[];
 };
 
-type DeliveryDatabase = Pick<Prisma.TransactionClient,
+type DeliveryDatabase = Pick<DatabaseTransaction,
   "schoolProfile" | "session" | "user" | "notificationPreference">;
 
-export function listNotificationAudienceUserIds(db: Pick<Prisma.TransactionClient, "user">, input: {
+export function listNotificationAudienceUserIds(db: Pick<DatabaseTransaction, "user">, input: {
   accountId: string; roles: readonly string[];
 }) {
   return db.user.findMany({
@@ -52,7 +53,7 @@ export async function getNotificationDeliveryRecipient(db: DeliveryDatabase, sco
 }
 
 export async function createDeliveredUserNotification(
-  db: Pick<Prisma.TransactionClient, "notification" | "notificationContact">,
+  db: Pick<DatabaseTransaction, "notification" | "notificationContact">,
   context: NonNullable<Awaited<ReturnType<typeof getNotificationDeliveryRecipient>>>,
   input: Pick<Prisma.NotificationUncheckedCreateInput, "action" | "body" | "link" | "subject" | "title" | "type"> & {
     tags?: { tagName: string; tagValue: string }[];

@@ -115,6 +115,8 @@ function requirePrismaClient(): ConfiguredPrismaClient {
 }
 
 export type Database = ConfiguredPrismaClient;
+/** Transaction client inferred from the configured soft-delete extension. */
+export type DatabaseTransaction = Parameters<Parameters<Database["$transaction"]>[0]>[0];
 
 export const prisma = new Proxy({} as Database, {
   get(_target, property, receiver) {

@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import { describe, expect, test } from "bun:test";
 import { createStudentSchema } from "@school-clerk/utils/student-create-schema";
 import type { Prisma } from "./generated/client";
@@ -15,7 +16,7 @@ function transaction({ finance = false, academics = true, configured = true } = 
     classRoomDepartment: { findFirst: async () => ({ id: "class-1" }) },
     financeItem: { findMany: async () => { previewReads++; return []; } },
   };
-  return { tx: tx as unknown as Prisma.TransactionClient, previewReads: () => previewReads };
+  return { tx: tx as unknown as DatabaseTransaction, previewReads: () => previewReads };
 }
 
 const actor = { schoolId: "school-1", userId: "user-1", bearer: "bearer-1" };

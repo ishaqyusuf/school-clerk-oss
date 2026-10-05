@@ -1,8 +1,9 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 import { ensureNotificationContact } from "./notification-contacts";
 
 export type SignupCompletionScope = { schoolId: string; accountId: string; userId: string };
-type CompletionDatabase = Pick<Prisma.TransactionClient, "user" | "schoolProfile" | "notificationPreference" | "notification" | "notificationContact">;
+type CompletionDatabase = Pick<DatabaseTransaction, "user" | "schoolProfile" | "notificationPreference" | "notification" | "notificationContact">;
 
 export async function getSignupCompletionContext(db: CompletionDatabase, scope: SignupCompletionScope) {
   const school = await db.schoolProfile.findFirst({ where: {

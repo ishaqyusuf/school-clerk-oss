@@ -1,6 +1,7 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 
-export async function getStudentAcademicReadContext(db: Prisma.TransactionClient, input: {
+export async function getStudentAcademicReadContext(db: DatabaseTransaction, input: {
   schoolId: string; userId: string; bearer: string;
 }) {
   const session = await db.session.findFirst({
@@ -24,7 +25,7 @@ export async function getStudentAcademicReadContext(db: Prisma.TransactionClient
   return school ? { school, role: session.user.role, loginSessionId: session.id } : null;
 }
 
-export async function getStudentAcademicRecords(db: Prisma.TransactionClient, input: {
+export async function getStudentAcademicRecords(db: DatabaseTransaction, input: {
   schoolId: string; studentId: string;
 }) {
   const { schoolId, studentId } = input;

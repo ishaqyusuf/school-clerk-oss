@@ -33,3 +33,11 @@ Analytics production variables were added successfully to verified Vercel projec
 ## Country heat-map forwarding — 2026-09-07
 
 The shared analytics proxy forwards Vercel's `x-vercel-ip-country` as `x-logly-country` only when `VERCEL=1` and the value is an uppercase two-letter code. Logly enforces its exact ISO whitelist; invalid/missing values remain unknown. Browser-supplied `x-logly-country` and raw IP headers are not forwarded. The same edge metadata applies to independently scoped native routes where present. No body field, IP/GPS storage, user identity or consumer database change. Counts reflect the delivery network; old events remain unknown. Focused package tests and TypeScript checks pass; consumer deployment and owner-deferred live acceptance remain outstanding.
+
+## Combined main release — 2026-10-05
+
+Both `codex/logly-dashboard-release` (8c00cd6) and `codex/logly-marketing-release` (eb66317) are ancestors of main through merge 2ba757c. Their shared analytics source matches the integrated package, including Logly Next ^0.2.1 and country forwarding; dashboard, marketing and school-site retain their providers/routes. Commit d71f918 includes all pending workspace changes; 3cbec56 adds explicit Vercel upload exclusions for env files and generated artifacts. Dashboard/marketing builds now generate Prisma from their cloud-safe build scripts, with no dependency on the sibling local infrastructure checkout.
+
+Local schema was already synchronized; prescribed production schema push succeeded without destructive flags. Eight focused analytics tests pass. Full suite: 470 passed, 41 failures and one Playwright/Bun collection error; root typecheck retains shared errors. These results do not establish full release-assurance gate success.
+
+Vercel production builds were dispatched to the verified existing projects `schoolclerk-dashboard` and `schoolify`, with domain promotion held until Ready verification. Dashboard has all four production Logly variable names configured. No separate school-site project exists among the authenticated team's project inventory. Deployment readiness, promotion and live analytics acceptance are being verified in this rollout.

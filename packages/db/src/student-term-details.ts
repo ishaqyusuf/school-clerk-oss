@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 
 const previewLimit = 50;
@@ -20,7 +21,7 @@ type Target = {
   sessionId: string; termId: string; departmentId: string | null;
 };
 
-async function assessmentPreview(db: Prisma.TransactionClient, target: Target, allowed: boolean) {
+async function assessmentPreview(db: DatabaseTransaction, target: Target, allowed: boolean) {
   type Row = { id: number; obtained: number | null; assessmentTitle: string | null; subjectTitle: string | null };
   if (!allowed) return withheld<Row>("restricted");
   if (!target.departmentId) return withheld<Row>("unavailable");
@@ -49,7 +50,7 @@ async function assessmentPreview(db: Prisma.TransactionClient, target: Target, a
   })) } satisfies Section<Row>;
 }
 
-async function attendancePreview(db: Prisma.TransactionClient, target: Target, allowed: boolean) {
+async function attendancePreview(db: DatabaseTransaction, target: Target, allowed: boolean) {
   type Row = { id: string; status: string; date: Date | null };
   if (!allowed) return withheld<Row>("restricted");
   if (!target.departmentId) return withheld<Row>("unavailable");
@@ -83,7 +84,7 @@ async function attendancePreview(db: Prisma.TransactionClient, target: Target, a
   })) } satisfies Section<Row>;
 }
 
-async function financePreview(db: Prisma.TransactionClient, target: Target, allowed: boolean) {
+async function financePreview(db: DatabaseTransaction, target: Target, allowed: boolean) {
   type Charge = { id: string; title: string; amount: string; status: string };
   type Allocation = { id: string; amount: string; date: Date; paymentStatus: string };
   const hidden = (status: "restricted" | "unavailable") => ({
@@ -129,7 +130,7 @@ async function financePreview(db: Prisma.TransactionClient, target: Target, allo
   };
 }
 
-export async function getStudentTermDetailRecords(db: Prisma.TransactionClient, input: {
+export async function getStudentTermDetailRecords(db: DatabaseTransaction, input: {
   schoolId: string; id: string;
   access: { assessments: boolean; attendance: boolean; finance: boolean };
 }) {

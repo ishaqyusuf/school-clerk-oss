@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import { studentImportRowSchema, type StudentImportRow, type ImportRowResult } from "@school-clerk/utils/student-import-schema";
 import { normalizeStudentDuplicateNameKey } from "@school-clerk/utils/student-duplicate-name";
 import { Prisma, type Students } from "./generated/client";
@@ -11,7 +12,7 @@ function conflict(message: string): never {
   throw new StudentImportAccessError("CONFLICT", message);
 }
 
-async function requireScope(tx: Prisma.TransactionClient, authority: StudentImportAuthority, scope: ImportScope, classroomId: string) {
+async function requireScope(tx: DatabaseTransaction, authority: StudentImportAuthority, scope: ImportScope, classroomId: string) {
   const access = await requireStudentImportAccess(tx, authority);
   if (scope.schoolId !== access.schoolId || (access.jobScope &&
     (scope.sessionId !== access.jobScope.sessionId || scope.termId !== access.jobScope.termId))) {
@@ -20,7 +21,7 @@ async function requireScope(tx: Prisma.TransactionClient, authority: StudentImpo
   await requireStudentImportTarget(tx, scope, [classroomId]);
 }
 
-async function assertUniqueClassName(tx: Prisma.TransactionClient, scope: ImportScope, classroomId: string,
+async function assertUniqueClassName(tx: DatabaseTransaction, scope: ImportScope, classroomId: string,
   name: { name: string; surname?: string | null; otherName?: string | null }, excludeId?: string) {
   const formScope = { schoolProfileId: scope.schoolId, sessionTermId: scope.termId,
     classroomDepartmentId: classroomId, deletedAt: null };
@@ -40,7 +41,7 @@ async function assertUniqueClassName(tx: Prisma.TransactionClient, scope: Import
   }
 }
 
-async function ensureEnrollment(tx: Prisma.TransactionClient, authority: StudentImportAuthority, scope: ImportScope,
+async function ensureEnrollment(tx: DatabaseTransaction, authority: StudentImportAuthority, scope: ImportScope,
   student: { id: string; gender: "Male" | "Female" }, classroomId: string, admissionType: NonNullable<StudentImportRow["admissionType"]>) {
   const parents = await tx.studentSessionForm.findMany({
     where: { studentId: student.id, deletedAt: {}, OR: [
@@ -125,7 +126,7 @@ async function ensureEnrollment(tx: Prisma.TransactionClient, authority: Student
 }
 
 /** Only inside the caller's Serializable transaction (and queued-row receipt transaction). */
-export async function executeStudentImportRow(tx: Prisma.TransactionClient, authority: StudentImportAuthority,
+export async function executeStudentImportRow(tx: DatabaseTransaction, authority: StudentImportAuthority,
   scope: ImportScope, rawRow: StudentImportRow, classroomId: string): Promise<ImportRowResult> {
   const row = studentImportRowSchema.parse(rawRow);
   await requireScope(tx, authority, scope, classroomId);

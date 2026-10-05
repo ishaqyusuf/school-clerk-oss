@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 import type { Database } from "./prisma";
 
@@ -31,7 +32,7 @@ function feedWhere(scope: NotificationFeedScope, onlyUnread = false): Prisma.Not
   };
 }
 
-export async function getNotificationFeedContactId(db: Pick<Prisma.TransactionClient, "notificationContact">, scope: {
+export async function getNotificationFeedContactId(db: Pick<DatabaseTransaction, "notificationContact">, scope: {
   schoolId: string; userId: string;
 }) {
   const contact = await db.notificationContact.findFirst({
@@ -41,7 +42,7 @@ export async function getNotificationFeedContactId(db: Pick<Prisma.TransactionCl
   return contact?.id ?? null;
 }
 
-export async function listSchoolNotifications(db: Pick<Prisma.TransactionClient, "notification">, scope: NotificationFeedScope,
+export async function listSchoolNotifications(db: Pick<DatabaseTransaction, "notification">, scope: NotificationFeedScope,
   input: { onlyUnread: boolean; take: number }) {
   const rows = await db.notification.findMany({
     where: feedWhere(scope, input.onlyUnread),
@@ -53,7 +54,7 @@ export async function listSchoolNotifications(db: Pick<Prisma.TransactionClient,
   }));
 }
 
-export function countUnreadSchoolNotifications(db: Pick<Prisma.TransactionClient, "notification">, scope: NotificationFeedScope) {
+export function countUnreadSchoolNotifications(db: Pick<DatabaseTransaction, "notification">, scope: NotificationFeedScope) {
   return db.notification.count({ where: feedWhere(scope, true) });
 }
 

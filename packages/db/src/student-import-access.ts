@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 import { canAccessModules, resolveModuleAccess } from "@school-clerk/utils/module-config";
 import { getStudentAcademicReadContext } from "./student-academic-read";
@@ -12,7 +13,7 @@ export class StudentImportAccessError extends Error {
   }
 }
 
-export async function requireStudentImportAccess(db: Prisma.TransactionClient, authority: StudentImportAuthority) {
+export async function requireStudentImportAccess(db: DatabaseTransaction, authority: StudentImportAuthority) {
   let schoolId: string;
   let userId: string;
   let role: string | null | undefined;
@@ -56,7 +57,7 @@ export async function requireStudentImportAccess(db: Prisma.TransactionClient, a
   return { schoolId, userId, loginSessionId, jobScope };
 }
 
-export async function requireStudentImportAcademicScope(db: Prisma.TransactionClient, scope: {
+export async function requireStudentImportAcademicScope(db: DatabaseTransaction, scope: {
   schoolId: string; sessionId: string; termId: string;
 }) {
   const term = await db.sessionTerm.findFirst({
@@ -72,7 +73,7 @@ export async function requireStudentImportAcademicScope(db: Prisma.TransactionCl
   if (closed) throw new StudentImportAccessError("CONFLICT", "This term ledger is closed. Import cannot change its fees.");
 }
 
-export async function requireStudentImportTarget(db: Prisma.TransactionClient, scope: {
+export async function requireStudentImportTarget(db: DatabaseTransaction, scope: {
   schoolId: string; sessionId: string; termId: string;
 }, classroomIds: string[]) {
   await requireStudentImportAcademicScope(db, scope);

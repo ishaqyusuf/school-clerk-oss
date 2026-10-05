@@ -1,8 +1,9 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 import { createHash } from "node:crypto";
 import { getStaffCredentialAccount } from "./staff-login-identity";
 
-type RecoveryDatabase = Pick<Prisma.TransactionClient, "user" | "account" | "staffProfile" | "verification" | "session">;
+type RecoveryDatabase = Pick<DatabaseTransaction, "user" | "account" | "staffProfile" | "verification" | "session">;
 
 function recoveryProofPrefix(userId: string) {
   return `password-recovery:v1:${userId}:`;

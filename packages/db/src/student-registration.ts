@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import { canAccessModules, resolveModuleAccess } from "@school-clerk/utils/module-config";
 import type { CreateStudentInput } from "@school-clerk/utils/student-create-schema";
 import type { Prisma } from "./generated/client";
@@ -15,7 +16,7 @@ type RegistrationSelection = { schoolSessionId: string | null; sessionTermId: st
 type RegistrationGuardian = { id: string } | { create: { name: string; phone: string; phone2: string | null; schoolProfileId: string } } | null;
 
 // Preparation and persistence must share the caller's Serializable transaction.
-export async function prepareStudentRegistration(tx: Prisma.TransactionClient, actor: {
+export async function prepareStudentRegistration(tx: DatabaseTransaction, actor: {
   schoolId: string; userId: string; bearer: string;
 }, selection: RegistrationSelection, input: CreateStudentInput) {
   const context = await getStudentAcademicReadContext(tx, actor);
@@ -116,7 +117,7 @@ export async function prepareStudentRegistration(tx: Prisma.TransactionClient, a
 
 type PreparedRegistration = Awaited<ReturnType<typeof prepareStudentRegistration>>;
 
-export async function createPreparedStudentRegistration(tx: Prisma.TransactionClient, prepared: PreparedRegistration, input: CreateStudentInput) {
+export async function createPreparedStudentRegistration(tx: DatabaseTransaction, prepared: PreparedRegistration, input: CreateStudentInput) {
   const student = await tx.students.create({ data: {
     schoolProfileId: prepared.schoolId, name: input.name, surname: input.surname,
     otherName: input.otherName, gender: input.gender, dob: input.dob,

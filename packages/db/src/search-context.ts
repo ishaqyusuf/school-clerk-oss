@@ -1,10 +1,11 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 
 export type SearchIdentity = {
   schoolId: string; userId: string; loginSessionId: string; sessionId: string | null;
 };
 
-export async function getSearchContext(db: Pick<Prisma.TransactionClient, "session" | "schoolProfile" | "schoolSession">,
+export async function getSearchContext(db: Pick<DatabaseTransaction, "session" | "schoolProfile" | "schoolSession">,
   input: SearchIdentity & { bearer: string }) {
   const login = await db.session.findFirst({ where: {
     id: input.loginSessionId, userId: input.userId, deletedAt: null, expiresAt: { gt: new Date() },

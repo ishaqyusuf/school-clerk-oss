@@ -1,8 +1,9 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { StudentClassChangeError } from "./student-class-change";
 
-export async function getStudentClassChangeOptions(db: Prisma.TransactionClient, input: {
+export async function getStudentClassChangeOptions(db: DatabaseTransaction, input: {
   schoolId: string; studentTermFormIds: string[];
 }) {
   const { schoolId } = input;

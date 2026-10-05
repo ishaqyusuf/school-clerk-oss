@@ -1,7 +1,8 @@
+import type { DatabaseTransaction } from "./prisma";
 import { createHash } from "node:crypto";
 import type { Prisma } from "./generated/client";
 
-type VerificationDatabase = Pick<Prisma.TransactionClient, "user" | "schoolProfile" | "verification" | "session">;
+type VerificationDatabase = Pick<DatabaseTransaction, "user" | "schoolProfile" | "verification" | "session">;
 
 function parseIdentity(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;

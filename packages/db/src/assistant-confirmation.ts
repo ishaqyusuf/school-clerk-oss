@@ -1,7 +1,8 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 
 export type AssistantConfirmationTransaction = Pick<
-  Prisma.TransactionClient,
+  DatabaseTransaction,
   "verification" | "assistantRun"
 >;
 

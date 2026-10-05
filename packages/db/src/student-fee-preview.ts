@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 import { applicableStudentAudiences, applicableStudentGenderAudiences, type AdmissionType, type StudentGender } from "./student-fee-application";
 
@@ -8,7 +9,7 @@ export class StudentFeePreviewError extends Error {
   }
 }
 
-export async function getStudentFeePreview(db: Prisma.TransactionClient, input: {
+export async function getStudentFeePreview(db: DatabaseTransaction, input: {
   schoolId: string; sessionTermId: string; classroomDepartmentId?: string | null;
   admissionType: AdmissionType; studentGender: StudentGender;
 }) {

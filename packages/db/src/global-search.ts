@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import { Prisma } from "./generated/client";
 
 function buildStudentSearchSql(params: {
@@ -162,7 +163,7 @@ function buildClassroomSearchSql(params: {
 
 
 export type SearchReadPolicy = { students: boolean; staff: boolean; classrooms: boolean; classroomStudents: boolean };
-export async function searchGlobalRecords(db: Pick<Prisma.TransactionClient, "$queryRaw">, input: {
+export async function searchGlobalRecords(db: Pick<DatabaseTransaction, "$queryRaw">, input: {
   schoolId: string; sessionId: string | null; query: string; limit: number; policy: SearchReadPolicy;
 }) {
   const similarityThreshold = input.query.length >= 10 ? 0.2 : input.query.length >= 6 ? 0.24 : 0.28;

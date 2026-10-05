@@ -146,3 +146,7 @@ Candidate suggestions currently include broad surname matches, including a
 different-gender synthetic student observed in QA; rank exact name matches
 first and make weaker matches clearer before wider rollout.
 Production schema rollout remains outside this local-only QA round.
+
+## Combined main and Logly Vercel release — 2026-10-05
+
+All pending changes committed/pushed to main. Both Logly branches reconciled and recorded as ancestors. Production schema synchronized. Dashboard/marketing cloud-safe builds and env-file upload exclusions committed. Awaiting Vercel build readiness/promotion and live acceptance. Analytics tests pass; broad suite/typecheck failures remain documented in features/logly-analytics.md. Separate school-site Vercel target is absent.

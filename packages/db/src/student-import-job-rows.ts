@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import { Prisma, type StudentImportJob, type StudentImportJobRow } from "./generated/client";
 import type { Database } from "./prisma";
 import { requireStudentImportAccess, StudentImportAccessError } from "./student-import-access";
@@ -17,7 +18,7 @@ function isTerminalRow(row: StudentImportJobRow) {
   return row.status !== "PENDING" && row.status !== "RUNNING";
 }
 
-async function lockJob(tx: Prisma.TransactionClient, jobId: string) {
+async function lockJob(tx: DatabaseTransaction, jobId: string) {
   const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
     SELECT id FROM "StudentImportJob"
     WHERE id = ${jobId} AND "deletedAt" IS NULL FOR UPDATE
@@ -29,7 +30,7 @@ async function lockJob(tx: Prisma.TransactionClient, jobId: string) {
   return job;
 }
 
-async function lockRow(tx: Prisma.TransactionClient, jobId: string, rowId: string) {
+async function lockRow(tx: DatabaseTransaction, jobId: string, rowId: string) {
   const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
     SELECT id FROM "StudentImportJobRow"
     WHERE id = ${rowId} AND "jobId" = ${jobId} AND "deletedAt" IS NULL FOR UPDATE
@@ -41,7 +42,7 @@ async function lockRow(tx: Prisma.TransactionClient, jobId: string, rowId: strin
   return row;
 }
 
-function saveOutcome(tx: Prisma.TransactionClient, row: StudentImportJobRow, outcome: StudentImportRowOutcome) {
+function saveOutcome(tx: DatabaseTransaction, row: StudentImportJobRow, outcome: StudentImportRowOutcome) {
   return tx.studentImportJobRow.update({
     where: { id: row.id },
     data: {
@@ -60,7 +61,7 @@ const legacyRunningReason = "This row was left RUNNING by an older worker and ma
 export async function settleStudentImportJobRow(
   db: Database,
   target: { jobId: string; rowId: string },
-  execute: (tx: Prisma.TransactionClient, job: StudentImportJob, row: StudentImportJobRow) => Promise<StudentImportRowOutcome>,
+  execute: (tx: DatabaseTransaction, job: StudentImportJob, row: StudentImportJobRow) => Promise<StudentImportRowOutcome>,
 ): Promise<StudentImportJobRow | null> {
   try {
     return await db.$transaction(async (tx) => {

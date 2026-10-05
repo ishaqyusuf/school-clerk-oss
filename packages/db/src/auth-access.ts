@@ -1,8 +1,9 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 import { getPasswordRecoveryIdentity } from "./password-recovery";
 import { getStaffCredentialAccount } from "./staff-login-identity";
 
-type AuthAccessDatabase = Pick<Prisma.TransactionClient,
+type AuthAccessDatabase = Pick<DatabaseTransaction,
   "user" | "account" | "staffProfile" | "verification" | "session" | "schoolProfile">;
 
 export async function getPasswordSignInIdentity(db: AuthAccessDatabase, email: string,

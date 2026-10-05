@@ -1,6 +1,7 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 
-export type AssistantMutationTransaction = Pick<Prisma.TransactionClient, "assistantToolExecution" | "activity">;
+export type AssistantMutationTransaction = Pick<DatabaseTransaction, "assistantToolExecution" | "activity">;
 export type AssistantMutationScope = {
   executionId: string;
   runId: string;
@@ -43,7 +44,7 @@ export async function completeAssistantMutation(tx: AssistantMutationTransaction
 }
 
 export async function getAssistantRunReceipts(
-  db: Pick<Prisma.TransactionClient, "assistantRun" | "assistantToolExecution">,
+  db: Pick<DatabaseTransaction, "assistantRun" | "assistantToolExecution">,
   params: { runId: string; schoolId: string; userId: string; toolNames: string[] },
 ) {
   const run = await db.assistantRun.findFirst({

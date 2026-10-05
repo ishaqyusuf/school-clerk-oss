@@ -1,6 +1,7 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 
-type OriginDatabase = Pick<Prisma.TransactionClient, "schoolProfile" | "tenantDomain">;
+type OriginDatabase = Pick<DatabaseTransaction, "schoolProfile" | "tenantDomain">;
 
 export async function getActiveAuthTenantDomain(db: OriginDatabase, slug: string) {
   if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(slug)) return null;

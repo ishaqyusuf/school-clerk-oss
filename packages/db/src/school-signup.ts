@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import { Prisma } from "./generated/client";
 import { getQaClassificationForOwner } from "./qa-maintenance";
 
@@ -8,7 +9,7 @@ export type SchoolSignupRecordsInput = {
   curriculumType: string | null; languageOfInstruction: string | null;
 };
 
-export async function hasSignupDomainTable(db: Pick<Prisma.TransactionClient, "tenantDomain">) {
+export async function hasSignupDomainTable(db: Pick<DatabaseTransaction, "tenantDomain">) {
   try {
     await db.tenantDomain.findFirst({ select: { id: true } });
     return true;
@@ -19,7 +20,7 @@ export async function hasSignupDomainTable(db: Pick<Prisma.TransactionClient, "t
   }
 }
 
-export async function getSignupDomainCollision(db: Pick<Prisma.TransactionClient, "schoolProfile" | "tenantDomain">,
+export async function getSignupDomainCollision(db: Pick<DatabaseTransaction, "schoolProfile" | "tenantDomain">,
   input: { domainName: string; domainTableAvailable: boolean }) {
   const school = await db.schoolProfile.findFirst({ where: { deletedAt: {},
     subDomain: { equals: input.domainName, mode: "insensitive" } }, select: { id: true } });
@@ -31,7 +32,7 @@ export async function getSignupDomainCollision(db: Pick<Prisma.TransactionClient
 }
 
 // Caller owns one Serializable transaction; never merge or restore an identity.
-export async function createSchoolSignupRecords(db: Prisma.TransactionClient,
+export async function createSchoolSignupRecords(db: DatabaseTransaction,
   input: SchoolSignupRecordsInput, options: { domainTableAvailable: boolean }) {
   // The shared client hides soft-deleted rows unless deletedAt is explicit.
   const [user, domain] = await Promise.all([

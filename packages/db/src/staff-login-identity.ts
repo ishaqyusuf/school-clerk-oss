@@ -1,6 +1,7 @@
+import type { DatabaseTransaction } from "./prisma";
 import type { Prisma } from "./generated/client";
 
-type IdentityDatabase = Pick<Prisma.TransactionClient, "user" | "staffProfile" | "account" | "session">;
+type IdentityDatabase = Pick<DatabaseTransaction, "user" | "staffProfile" | "account" | "session">;
 
 // Email linkage is legacy, not proof of a durable Staff-to-User relationship.
 // Password setup must not choose a winner among conflicting histories.
@@ -55,7 +56,7 @@ export async function ensureStaffCredentialAccount(db: Pick<IdentityDatabase, "a
   return created.id;
 }
 
-export function updateStaffInvitationStatus(db: Pick<Prisma.TransactionClient, "staffProfile">, input: {
+export function updateStaffInvitationStatus(db: Pick<DatabaseTransaction, "staffProfile">, input: {
   staffId: string; schoolId: string; accountId: string; email: string;
   status: "PENDING" | "FAILED"; error?: string | null; resent?: boolean;
 }) {

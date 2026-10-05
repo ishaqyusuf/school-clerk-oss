@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import { Prisma } from "./generated/client";
 import { getStudentAcademicReadContext } from "./student-academic-read";
 
@@ -13,7 +14,7 @@ function conflict(message = "Enrollment or fee ownership needs review. No studen
 }
 
 // Call only inside the authorized caller's Serializable transaction.
-export async function prepareStudentTermFeeReconciliation(tx: Prisma.TransactionClient, actor: {
+export async function prepareStudentTermFeeReconciliation(tx: DatabaseTransaction, actor: {
   schoolId: string; userId: string; bearer: string;
 }, studentTermFormIds: string[]) {
   return prepareAuthorizedStudentTermFeeReconciliation(tx, {
@@ -28,7 +29,7 @@ export async function prepareStudentTermFeeReconciliation(tx: Prisma.Transaction
 
 // Internal DB helper: the authorized caller supplies its live post-lock check.
 // Not exported from the package barrel; jobs must not fabricate a browser session.
-export async function prepareAuthorizedStudentTermFeeReconciliation(tx: Prisma.TransactionClient, access: {
+export async function prepareAuthorizedStudentTermFeeReconciliation(tx: DatabaseTransaction, access: {
   schoolId: string; recheckAccess: () => Promise<void>;
 }, studentTermFormIds: string[]) {
   const schoolId = access.schoolId;

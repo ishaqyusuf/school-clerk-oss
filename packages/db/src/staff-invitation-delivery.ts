@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "./prisma";
 import { createHash, randomUUID } from "node:crypto";
 import type { Prisma } from "./generated/client";
 import { staffOnboardingIdentifier, staffPasswordSetupIdentifier } from "./staff-onboarding";
@@ -8,14 +9,14 @@ type InvitationBinding = {
   schoolId: string; accountId: string; staffId: string; userId: string;
   actorUserId: string; email: string; role: string; tenantSlug: string; urlDigest: string;
 };
-type InvitationDatabase = Pick<Prisma.TransactionClient,
+type InvitationDatabase = Pick<DatabaseTransaction,
   "verification" | "schoolProfile" | "staffProfile" | "user" | "account" | "notificationPreference">;
 
 function digest(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-export async function createStaffInvitationDelivery(db: Pick<Prisma.TransactionClient, "verification">,
+export async function createStaffInvitationDelivery(db: Pick<DatabaseTransaction, "verification">,
   input: Omit<InvitationBinding, "urlDigest"> & { ctaHref: string; expiresAt: Date }) {
   const { ctaHref, expiresAt, ...binding } = input;
   const receipt = await db.verification.create({
