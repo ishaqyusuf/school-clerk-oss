@@ -1,4 +1,5 @@
 import { withSentryConfig } from "@sentry/nextjs";
+import type { NextConfig } from "next";
 
 const localDashboardHosts = [
   "school-clerk.localhost",
@@ -18,7 +19,7 @@ const localDashboardOrigins = [
 ];
 
 /** @type {import("next").NextConfig} */
-const config = {
+const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   /** Enables hot reloading for local packages without a build step */
@@ -68,7 +69,8 @@ const config = {
       },
     ];
   },
-  output: "standalone",
+  // Vercel's adapter packages the server; standalone output is for self-hosting.
+  output: process.env.VERCEL === "1" ? undefined : "standalone",
 };
 
 // module.exports = nextConfig;
