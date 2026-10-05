@@ -202,7 +202,7 @@ export function initAuth(options: {
 			},
 		},
 		session: {
-			expiresIn: 60 * 60 * 24 * 30,
+			expiresIn: 60 * 60 * 24 * 365,
 			updateAge: 60 * 60 * 24,
 			cookieCache: {
 				enabled: false,

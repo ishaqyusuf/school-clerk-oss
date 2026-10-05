@@ -3,7 +3,7 @@ import { ErrorFallback } from "@/components/error-fallback";
 import { DataTable } from "@/components/tables/classrooms/data-table";
 import { TableSkeleton } from "@/components/tables/skeleton";
 import { loadClassroomFilterParams } from "@/hooks/use-classroom-filter-params";
-import { batchPrefetch, trpc } from "@/trpc/server";
+import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server";
 import { buildTenantPageMetadata } from "@/utils/tenant-page-metadata";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
@@ -30,6 +30,7 @@ export default async function Page(props: Props) {
 		}),
 	]);
 	return (
+		<HydrateClient>
 		<div className="py-4 space-y-6">
 			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 				<div>
@@ -46,5 +47,6 @@ export default async function Page(props: Props) {
 				</Suspense>
 			</ErrorBoundary>
 		</div>
+		</HydrateClient>
 	);
 }

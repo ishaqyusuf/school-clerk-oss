@@ -14,6 +14,7 @@ function getAuthBaseUrl() {
 
 export const authClient = createAuthClient({
   baseURL: getAuthBaseUrl(),
+  sessionOptions: { refetchInterval: 300, refetchOnWindowFocus: true },
   $InferAuth: {} as Auth["options"],
   plugins: [inferAdditionalFields<Auth>()],
 });

@@ -14,13 +14,14 @@ interface Props {
 }
 export function useAuth(props?: Props) {
   const { required } = props || {};
-  const { data, isPending } = authClient.useSession();
+  const { data, isPending, error: sessionError } = authClient.useSession();
   // const profile = useAsyncMemo(async () => {
   //   return await getAuthCookie();
   // },[])
   const { data: profile, isLoading, error: profileError } = useSWR("/api/profile", fetcher);
   return {
     isPending,
+    isSessionError: !!sessionError,
     isProfileLoading: isLoading,
     isProfileError: !!profileError,
     sessionId: data?.session?.id,

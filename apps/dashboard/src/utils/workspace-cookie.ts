@@ -30,7 +30,7 @@ export function parseWorkspaceCookie(value?: string | null): AuthCookie | null {
 
 export function workspaceCookieOptions(remembered = false) {
   return { httpOnly: true, secure: true, path: "/", sameSite: "lax" as const,
-    maxAge: remembered ? 60 * 60 * 24 * 30 : undefined };
+    maxAge: remembered ? 60 * 60 * 24 * 365 : undefined };
 }
 
 export function workspaceCookieSelection(cookie: AuthCookie | null, input: {

@@ -4,6 +4,10 @@ Status: Implementation in progress; verification deferred by user.
 
 ## Ownership and behavior
 
+### Rolling persistence and expiry recovery — 2026-10-05
+
+Remembered sessions and workspace cookies now have a 365-day rolling lifetime with daily renewal. Browser session reads refresh every five minutes and on focus. Signed-out/expired protected layouts and shell session reads redirect to login; profile HTTP reads return 401 for missing identity, and tRPC uses that route rather than a server action during initial rendering. Sign-out/revocation and live stored-session checks remain intact; browser data clearing or a year without renewal still requires login. Existing expired sessions are not revived. See ADR-0067. Local classroom/navigation verification passed; production acceptance pending module adoption.
+
 `packages/auth/src/access.ts` owns Better Auth request adapters; `packages/db/src/auth-access.ts` owns identity, live-session and parent-phone reads. Dashboard actions orchestrate. Password verification, signed cookies and callbacks remain framework-owned. See [ADR-0037](../decisions/ADR-0037-live-auth-session-and-password-identity.md).
 
 - Password sign-in requires unique canonical identity/credential, active account and no pending staff setup. Identity/password/role changes around session creation deny issuance and trigger exact-new-session cleanup.

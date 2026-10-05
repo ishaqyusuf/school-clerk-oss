@@ -149,4 +149,8 @@ Production schema rollout remains outside this local-only QA round.
 
 ## Combined main and Logly Vercel release — 2026-10-05
 
+### Production dashboard recovery and persistent sessions
+
+Automatic Git deployment later assigned production dashboard domains (deployment 2PdCcHmb2GFWrG4xLeBBBegxYFTa). Daarul Hadith still has null module configuration, explaining missing links. Owner module-adoption choice pending; no grants inferred. Rollback to the older working release was rejected by Vercel Hobby rollback depth. Classroom SSR logs additionally exposed a browser tRPC server-action call; fixed with HTTP profile reads and page-level hydration. Rolling remembered sessions and clean expiry redirects implemented; local classroom/navigation browser check and 23 navigation tests pass. Awaiting repaired Vercel build, module adoption and live acceptance. See ADR-0067 and authentication feature.
+
 All pending changes committed/pushed to main. Both Logly branches reconciled and recorded as ancestors. Production schema synchronized. Marketing is Ready/live on school-clerk.com; live analytics POST returned 202. Dashboard is Ready/staged at deployment 7Da41Xm9HxeXeM7CGuqcLkckYZ4D (983ae81). Awaiting owner choice to adopt local Daarul Hadith module settings in production (Finance disabled) or retain staged dashboard; canonical promotion and dashboard live acceptance remain unfinished. Cloud-safe builds, upload exclusions and Vercel adapter-output fix committed. Analytics tests pass; broad suite/typecheck failures remain documented in features/logly-analytics.md. Separate school-site Vercel target is absent.

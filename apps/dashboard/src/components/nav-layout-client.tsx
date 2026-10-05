@@ -45,6 +45,13 @@ export function NavLayoutClient({
   const pathName = usePathname();
   const tenantUrl = useTenantUrl();
   const tenantHref = useLocalTenantHref();
+  useEffect(() => {
+    if (!auth.isPending && !auth.isSessionError && !auth.id) {
+      const login = new URL(tenantHref("/login"), window.location.origin);
+      login.searchParams.set("return_to", window.location.pathname + window.location.search);
+      window.location.replace(login);
+    }
+  }, [auth.isPending, auth.isSessionError, auth.id, tenantHref]);
   const productPathName = tenantUrl?.context.productPath ?? pathName;
   const navigationRole = auth.role ?? initialRole;
   const navigation = useMemo(

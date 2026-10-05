@@ -19,9 +19,12 @@ import {
 } from "@school-clerk/ui/card";
 import { AlertTriangle } from "lucide-react";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 
 export default async function LayoutNew({ children }) {
-  const [cookie, session] = await Promise.all([getAuthCookie(), getSession()]);
+  const session = await getSession();
+  if (!session) redirect("/login");
+  const cookie = await getAuthCookie();
   if (!cookie?.schoolId) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4 py-8">
