@@ -25,7 +25,9 @@ const protectedProxyHeaderNames = [
   "x-pathname",
 ];
 
+// Database-backed tenant/session checks must run near the production database.
 export const config = {
+  regions: ["iad1"],
   matcher: [
     "/((?!api/|_next/|_static/|__nextjs|_vercel|fonts/|[\\w-]+\\.\\w+).*)",
   ],
