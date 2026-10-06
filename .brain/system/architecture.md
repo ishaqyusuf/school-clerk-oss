@@ -178,3 +178,7 @@ Dashboard proxy performance (2026-10-06): production runtime continues to report
 ## Regional tenant entry gate — 2026-10-06
 
 The global dashboard Proxy now makes one private authenticated HTTP call to `/api/internal/tenant-routing` (nodejs, iad1). Its server-only facade owns the unchanged live tenant/session/workspace routing policy. Proxy no longer imports Prisma or Better Auth; server-action entry checks remain in force. HMAC authenticates original metadata and binds the response to that request, with bounded bodies, freshness, no-store and fail-closed transport. The pg pool registers with official Vercel Fluid lifecycle support under VERCEL=1; existing pool/TLS limits remain. See ADR-0069. Production handler/database iad1 and global Proxy fra1 are verified in 4a8001e. Startup/HTTP transport overhead remains; isolated authenticated Chrome performance acceptance is pending. ADR-0068 timings describe the previous deployment.
+
+## Regional routing verification completed —2026-10-06
+
+Dashboard warm Chrome Load0.906/2.210/0.962s: median0.962s vs2.07s, observed53.5% reduction. Classes3.540/0.919/1.030s: median1.030s vs2.44s, observed57.8% reduction. Bounded warm acceptance is now complete and supersedes the earlier pending timing note. Global Proxy stays global; handler/database iad1 remains verified. Startup/transport and sporadic application elapsed-time stalls remain separate follow-ups, with no query/provider/schema settings changed. ADR-0069.

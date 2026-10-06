@@ -166,3 +166,7 @@ Approved implementation, release and timed production verification are complete.
 ## Regional tenant routing and pool lifecycle — 2026-10-06
 
 Owner requested implementation of the remaining latency phases. Existing routing/auth/workspace policy moves behind a bounded authenticated iad1 API call; global proxy keeps the live entry gate for server actions. Implementation released as4a8001e. 63 tests, build/lint/DB typecheck and local/live access/data checks pass, with existing broad failures recorded. Handler/database region iad1 is verified. Isolated authenticated warm Chrome comparison remains open because a separate active EwaTrade QA chat interrupts native timing; pause authorization for that chat was requested. Startup/transport overhead remains and no speed gain is established. No school/financial writes, schema/provider switch or paid upgrade. ADR-0069.
+
+## Regional routing task completion update —2026-10-06
+
+The previously pending regional tenant routing and pool lifecycle implementation/release/warm comparison is complete. Dashboard warm Chrome Load0.906/2.210/0.962s: median0.962s vs2.07s, observed53.5% reduction. Classes3.540/0.919/1.030s: median1.030s vs2.44s, observed57.8% reduction. See tasks/done.md and ADR-0069. Startup and the separate73.2s application elapsed /student-report outlier remain follow-ups in backlog; other task records and their states are unchanged.
