@@ -27,13 +27,14 @@ const protectedProxyHeaderNames = [
 
 // Database-backed tenant/session checks must run near the production database.
 export const config = {
+  runtime: "nodejs",
   regions: ["iad1"],
   matcher: [
     "/((?!api/|_next/|_static/|__nextjs|_vercel|fonts/|[\\w-]+\\.\\w+).*)",
   ],
 };
 
-export default async function proxy(req: NextRequest) {
+export default async function middleware(req: NextRequest) {
   const requestId = crypto.randomUUID();
   return withPerformanceContext(requestId, () => measurePerformance("proxy.total", () => handleProxy(req, requestId)));
 }
