@@ -1,7 +1,7 @@
 # ADR-0068: Dashboard request performance
 
 Date: 2026-10-05
-Status: Deployed; regional proxy follow-up in progress
+Status: Implemented; direct concurrency follow-up and production verification in progress
 
 ## Decision
 
@@ -36,3 +36,5 @@ Fluid Compute was enabled and saved in schoolclerk-dashboard settings, then conf
 Regional follow-up: Vercel rejected the src/proxy.ts functions override before compilation because its function-pattern validator does not recognize Proxy. Use Next.js Proxy’s supported config.regions = ["iad1"] instead; the installed Next schema and static-info parser explicitly preserve this setting. Deployment f6e3fcc was Ready, but runtime logs still report proxy region fra1: config.regions alone is not honored by the deployment adapter. Add the documented Vercel per-function region override using src/**/*.ts so the function-pattern validator matches existing TypeScript API functions as well as the proxy; APIs already use iad1. Verify actual runtime region before claiming success. This places database-backed tenant checks alongside the production Neon database and API functions when honored. Preserve every existing tenant/session/workspace check and cookie rule; change only execution location. Confirm the actual proxy region and timings after the follow-up deployment before declaring the recurring latency resolved.
 
 Compatibility follow-up: the Vercel CLI validator also rejects src/**/*.ts; its installed source only exempts Next patterns beginning pages/, src/pages, app/, src/app/, middleware or src/middleware. Rename the unchanged routing/auth implementation to the supported legacy src/middleware.ts entry point, explicitly retain runtime=nodejs, and configure this recognized source in vercel.json with regions=["iad1"]. The Next.js legacy file convention is deprecated but supported; no tenant/session check is removed. Actual runtime region and timings must still be verified.
+
+Runtime outcome and direct follow-up (2026-10-06): 98cce19 deployed Ready but proxy logs still report fra1 and 1–2s total. Restore proxy.ts and remove ineffective regional overrides. Independent tenant/session proxy reads run concurrently only for normal tenant subdomains; app-root and custom-domain behavior remains intact. Workspace authentication and duplicate-domain candidate reads also start concurrently. Source comparison confirms all three database query filters and every downstream session, unique-domain, account/school ancestry, cookie, redirect/header and strict academic selection guard are unchanged. Eleven isolated fixture tests pass, including concurrent execution, absent/expired session, mismatched account, duplicate domain, failed ancestry, foreign school/academic selections and database failures. No role/permission/membership or credential change occurs.

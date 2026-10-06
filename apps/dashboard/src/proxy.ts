@@ -25,16 +25,13 @@ const protectedProxyHeaderNames = [
   "x-pathname",
 ];
 
-// Database-backed tenant/session checks must run near the production database.
 export const config = {
-  runtime: "nodejs",
-  regions: ["iad1"],
   matcher: [
     "/((?!api/|_next/|_static/|__nextjs|_vercel|fonts/|[\\w-]+\\.\\w+).*)",
   ],
 };
 
-export default async function middleware(req: NextRequest) {
+export default async function proxy(req: NextRequest) {
   const requestId = crypto.randomUUID();
   return withPerformanceContext(requestId, () => measurePerformance("proxy.total", () => handleProxy(req, requestId)));
 }
@@ -65,9 +62,22 @@ async function handleProxy(req: NextRequest, requestId: string) {
   const isAppRootHost =
     tenantUrlContext.isAppRootHost && !tenantUrlContext.tenantSlug;
   let tenantDomain: TenantDomainContext | null = null;
+  let resolvedSession: { value: Awaited<ReturnType<typeof auth.api.getSession>> } | undefined;
 
   if (canonicalSlug) {
-    tenantDomain = await measurePerformance("proxy.tenant", () => findTenantDomainBySubdomain(canonicalSlug!));
+    const tenantSlug = canonicalSlug;
+    const tenantLookup = () => measurePerformance("proxy.tenant", () => findTenantDomainBySubdomain(tenantSlug));
+    if (canonicalSlug === "app" || canonicalSlug.startsWith("app.")) {
+      tenantDomain = await tenantLookup();
+    } else {
+      // Both reads are independent. Authorization still awaits the live workspace checks below.
+      const [domainRecord, session] = await Promise.all([
+        tenantLookup(),
+        measurePerformance("proxy.session", () => auth.api.getSession({ headers: req.headers })),
+      ]);
+      tenantDomain = domainRecord;
+      resolvedSession = { value: session };
+    }
   }
 
   if (!canonicalSlug && !isAppRootHost) {
@@ -125,9 +135,9 @@ async function handleProxy(req: NextRequest, requestId: string) {
     return NextResponse.redirect(new URL("/sign-up", req.url));
   }
 
-  const session = await measurePerformance("proxy.session", () => auth.api.getSession({
-    headers: req.headers,
-  }));
+  const session = resolvedSession
+    ? resolvedSession.value
+    : await measurePerformance("proxy.session", () => auth.api.getSession({ headers: req.headers }));
 
   const existingTenantSessionCookieValue = getTenantWorkspaceCookieValue(req, canonicalSlug);
   const recoveredTenantSessionCookie = session

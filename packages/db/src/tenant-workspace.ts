@@ -20,16 +20,20 @@ export async function resolveTenantWorkspace(db: WorkspaceDatabase, input: {
 }) {
   if (!input.token || input.token.length > 512 || !input.userId || input.userId.length > 200 ||
     !input.tenantSlug || input.tenantSlug.length > 253) return null;
-  const authentication = await db.session.findFirst({ where: {
-    token: input.token, userId: input.userId, deletedAt: null, expiresAt: { gt: new Date() },
-    user: { deletedAt: null, tenant: { deletedAt: null, qaPurgeStartedAt: null } },
-  }, select: { id: true, user: { select: { saasAccountId: true } } } });
+  // These reads have no dependency on each other. Keep the ancestry check below
+  // authoritative, including session validity and duplicate-domain rejection.
+  const [authentication, candidates] = await Promise.all([
+    db.session.findFirst({ where: {
+      token: input.token, userId: input.userId, deletedAt: null, expiresAt: { gt: new Date() },
+      user: { deletedAt: null, tenant: { deletedAt: null, qaPurgeStartedAt: null } },
+    }, select: { id: true, user: { select: { saasAccountId: true } } } }),
+    db.schoolProfile.findMany({ where: {
+      subDomain: input.tenantSlug, deletedAt: null,
+      account: { deletedAt: null, qaPurgeStartedAt: null },
+    }, select: { id: true, accountId: true }, take: 2 }),
+  ]);
   const accountId = authentication?.user.saasAccountId;
   if (!authentication || !accountId) return null;
-  const candidates = await db.schoolProfile.findMany({ where: {
-    subDomain: input.tenantSlug, deletedAt: null,
-    account: { deletedAt: null, qaPurgeStartedAt: null },
-  }, select: { id: true, accountId: true }, take: 2 });
   const candidate = candidates[0];
   if (candidates.length !== 1 || !candidate || candidate.accountId !== accountId) return null;
   const school = await db.schoolProfile.findFirst({ where: {
