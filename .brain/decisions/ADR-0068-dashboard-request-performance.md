@@ -1,7 +1,7 @@
 # ADR-0068: Dashboard request performance
 
 Date: 2026-10-05
-Status: Implemented and locally verified; approved release in progress
+Status: Deployed; regional proxy follow-up in progress
 
 ## Decision
 
@@ -23,12 +23,14 @@ Reference: Midday customers route, server prefetch/request context, API timing m
 
 Chrome production baseline: authenticated Daarul Hadith dashboard warm reload DOMContentLoaded 2.09s/load 2.12s; four profile reads including 4.34s; classroom DOMContentLoaded 3.40s/load 3.46s. These are individual observations with normal cache and no throttling, not aggregate latency claims. Focused tests: 38 passed; DB and utilities typechecks, focused lint and the dashboard production build passed. Live local dashboard stats returned zero for wrong-school and wrong-session inputs. Chrome showed seven classrooms and 185/3/7 dashboard counts; sign-out and protected-route redirection passed. Corrected local classroom reload measured DOMContentLoaded 1.14s/load 2.15s with no new hydration error; development and production timings are not comparable. Existing form Fragment warnings, ineffective classroom text filtering, broad workspace typecheck errors and two failures in the unchanged teacher-authorization suite remain reported limitations.
 
-Vercel read-only Neon plans: tenant lookup execution 0.032ms; nonexistent session-token probe 0.042ms; representative student-count aggregate actual time 0.280ms (editor round trip 1329ms). No index is justified by these samples. Actual production function DATABASE_URL remains unconfirmed until runtime diagnostics are deployed.
+Vercel read-only Neon plans: tenant lookup execution 0.032ms; nonexistent session-token probe 0.042ms; representative student-count aggregate actual time 0.280ms (editor round trip 1329ms). No index is justified by these samples. The deployed runtime diagnostics confirm the pooled Neon US East hostname; API functions execute in iad1. Proxy logs instead show fra1, with roughly 1–2s total and a SchoolProfile operation at 1288ms. This regional database round trip remains a material bottleneck.
 
-Production release gate fails with missing signed provider evidence key. Commit authorization and release collector/protected configuration are requested; Fluid Compute enabling was rejected by automatic approval review pending explicit owner approval. Changes are not committed or deployed. Comparable production post-fix timing remains outstanding.
+Commit 6e39eeb deployed successfully as dpl_7yxJLmSLRiccVwnTzTwR6qV9sxms and serves the Daarulhadith production tenant. The initial post-release dashboard load measured DOMContentLoaded 8.87s/load 8.92s; subsequent warm samples were 2.52/2.55s and 2.96/2.98s. The initial sample may include new deployment cold starts; warmth is not proven. Two profile requests replace the four-request baseline. No dashboard speedup is claimed from these observations.
 
 Authenticated GitHub release readback confirms the missing-key blocker also affects CI: production and repository secret/variable name lists are empty, and run 37338713056 for current HEAD 515202b8b24e9149c7ae3e8a31a99117bb29ca13 failed with the same unavailable signing-key message. No GitHub configuration was changed or secret value read.
 
 Owner approval — 2026-10-05: the owner approved the pending commit/release actions and explicitly instructed “ignore release gate.” This exception applies to this performance release. The repository verifier and CI checks remain unchanged; no signed evidence is fabricated. Production deployment and comparable tenant timing proceed under this direct owner instruction. Fluid Compute approval is included in the pending approved settings change.
 
-Fluid Compute was enabled and saved in schoolclerk-dashboard settings, then confirmed persisted after a Chrome reload. A new deployment is still required to apply it. No region, provider URL, school record or financial transaction was changed.
+Fluid Compute was enabled and saved in schoolclerk-dashboard settings, then confirmed persisted after a Chrome reload. Deployment 6e39eeb applies this approved setting. No provider URL, school record or financial transaction was changed.
+
+Regional follow-up: apps/dashboard/vercel.json places src/proxy.ts in iad1, alongside the production Neon database and API functions, using Vercel’s documented per-function regions override. Preserve every existing tenant/session/workspace check and cookie rule; change only execution location. Confirm the actual proxy region and timings after the follow-up deployment before declaring the recurring latency resolved.
