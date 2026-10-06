@@ -162,3 +162,7 @@ All pending changes committed/pushed to main. Both Logly branches reconciled and
 ## Dashboard performance — completed 2026-10-06
 
 Approved implementation, release and timed production verification are complete. See tasks/done.md and ADR-0068. Further regional/startup optimisation is tracked separately in tasks/backlog.md. This does not change other pending task states.
+
+## Regional tenant routing and pool lifecycle — 2026-10-06
+
+Owner requested implementation of the remaining latency phases. Existing routing/auth/workspace policy moves behind a bounded authenticated iad1 API call; global proxy keeps the live entry gate for server actions. Transport tests, existing tenancy guards, local/production Chrome checks, runtime timings and lifecycle integration are in progress. No school/financial writes, schema/provider switch or paid upgrade. ADR-0069.

@@ -213,3 +213,7 @@ active attendance, scoring and print surfaces.
 ## Student registration Finance boundary — 2026-10-05
 
 Student registration and `academics.entrollStudentToTerm` require live Student Management and Academics access for classroom enrollment. Finance is optional for ordinary enrollment: automatic fees run only when live effective Finance is enabled. Registration rejects optional-fee/payment entries when Finance is disabled. Finance-enabled preview/payment authorization, tenant/class/session/term ownership, open-term checks and transactional validation remain required. The client uses school-scoped module policy to hide financial controls and block unavailable policy; server transaction checks are authoritative. See ADR-0065. No schema change.
+
+## Regional entry validation — 2026-10-06
+
+Routing transport proof authenticates the internal caller only. The regional resolver still checks live Better Auth identity, stored session, account-owned school, unique domain, workspace ancestry and strict academic selection exactly as the former Proxy. Direct server actions retain the matched-route entry gate and their existing guards. Missing/invalid transport fails closed without clearing valid browser identity or synthesizing an access grant. API/tRPC/module/record permission rules are unchanged. No cross-request cached identity is introduced. ADR-0069.

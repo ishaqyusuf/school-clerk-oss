@@ -304,3 +304,7 @@ Student registration and `academics.entrollStudentToTerm` require live Student M
 ## Workspace profile performance — 2026-10-05
 
 `/api/profile` keeps the canonical AuthCookie success shape and private/no-store responses. Missing identity is 401; transient resolution failure is 503, not proof of expiry. Browser concurrent reads share an in-flight promise only. No stored-session, tenant/module/record authorization change. See ADR-0068; application b8fbbcd is deployed and production verification is complete with documented regional/startup and broad-check limitations.
+
+## Regional routing transport — 2026-10-06
+
+Version 1 request binds UUID requestId, issuedAt, original URL/method and header tuples under purpose-separated HMAC-SHA256 derived from the existing server auth secret. Maximum request is 65,536 bytes; freshness is 30 seconds. Version 1 response carries status (200–399) and header tuples, capped at 131,072 bytes and signed with the requesting proof plus exact payload. Independent Set-Cookie entries, middleware forwarding/rewrite headers and return_to redirects are preserved. Outbound destination is a validated configured application-root origin or fixed configured custom-domain/preview origin. Proxy allows eight seconds and returns private/no-store 503 on unavailable or invalid transport. No auth/session decision is cached across requests; public API contracts are unchanged. ADR-0069.

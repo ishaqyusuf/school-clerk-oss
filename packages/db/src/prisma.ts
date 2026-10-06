@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient } from "./generated/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { InstrumentedPool } from "./pool";
+import { attachDatabasePool } from "@vercel/functions";
 import { logPerformance } from "@school-clerk/utils/server-performance";
 
 function normalizePgConnectionString(connectionString: string) {
@@ -46,6 +47,7 @@ const prismaClientSingleton = () => {
     connectionTimeoutMillis: 5_000, idleTimeoutMillis: 10_000,
     keepAlive: true, allowExitOnIdle: true,
   });
+  if (process.env.VERCEL === "1") attachDatabasePool(pool);
   pool.on("error", () => console.error("Database pool idle connection error"));
   const adapter = new PrismaPg(pool, { disposeExternalPool: true });
   const databaseHost = new URL(connectionString).hostname;

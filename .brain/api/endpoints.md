@@ -154,3 +154,7 @@ Existing student academic read endpoints now return explicit per-term enrollment
 ## Student registration Finance boundary — 2026-10-05
 
 Student registration and `academics.entrollStudentToTerm` require live Student Management and Academics access for classroom enrollment. Finance is optional for ordinary enrollment: automatic fees run only when live effective Finance is enabled. Registration rejects optional-fee/payment entries when Finance is disabled. Finance-enabled preview/payment authorization, tenant/class/session/term ownership, open-term checks and transactional validation remain required. The client uses school-scoped module policy to hide financial controls and block unavailable policy; server transaction checks are authoritative. See ADR-0065. No schema change.
+
+## Internal regional tenant routing — 2026-10-06
+
+`POST /api/internal/tenant-routing` is a private nodejs/iad1 facade for the existing dashboard entry policy. It accepts signed original request metadata, validates proof before DB work, then returns a signed next/rewrite/redirect decision. Unsigned/stale/tampered/oversized requests return 403; resolution failure returns 503. Neither result is cacheable. This endpoint does not accept school mutations or grant bearer authority. ADR-0069.

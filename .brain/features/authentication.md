@@ -91,3 +91,7 @@ and an admin through this local shortcut. See [ADR-0034](../decisions/ADR-0034-l
 ## Request performance — 2026-10-05
 
 Server components share canonical workspace and signed-session resolution within a render only. Workspace preference mutation actions retain live independent validation. SWR and browser tRPC share concurrent `/api/profile` reads and discard the completed promise; transient failures do not imply sign-out. See ADR-0068. Deployed in application b8fbbcd and verified on the production tenant. Independent stored-session/domain reads overlap with all account/school/session/term guards unchanged; 11 concurrency/negative fixture tests pass. No cross-request identity reuse.
+
+## Regional tenant routing — 2026-10-06
+
+The existing tenant/auth/workspace entry policy executes inside an authenticated iad1 facade, reached by one global Proxy HTTP call. The original resolver and cookie reconstruction rules are preserved, including custom domains, public/share paths, role defaults, login return_to and server-action entry. Transport errors return retryable 503, never an expiry redirect or authorization grant. Local Chrome sign-in, seven classroom rows, dashboard counts, form open/cancel, sign-out and protected-route redirect pass. Production timing/region checks remain pending. ADR-0069.
