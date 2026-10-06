@@ -1,7 +1,7 @@
 # ADR-0069: Regional tenant routing validation
 
 Date: 2026-10-06
-Status: Implementation and verification in progress
+Status: Implementation released; performance acceptance pending
 
 ## Decision
 
@@ -18,3 +18,9 @@ Use official Fluid Compute pool lifecycle support for the existing pg pool only 
 ## Verification
 
 Transport negative/fidelity tests, existing live-workspace negative tests, local tenant/login/action/profile behavior, package/broad typechecks, lint, optimized build, production runtime regions and timed Chrome tenant reloads are required. Old application b8fbbcd baseline: dashboard median load 2.07s, classrooms 2.44s over three samples, proxy slow totals roughly 1.4–1.9s in Europe. Warm/cold observations remain separate. Owner's existing performance-release approval and explicit gate waiver apply; verifier/CI remain unchanged.
+
+## Released evidence — 2026-10-06
+
+Application 4a8001e / dpl_s5wsk4AZeDnaHxvdiU1DFeWKaePX is Ready and assigned to production tenant domains. 63 focused tests, Biome, optimized build and DB typecheck pass. Dashboard retains exactly the 97 baseline diagnostic locations/codes; root typecheck has existing shared failures. Compiled Proxy trace has no Prisma/Better Auth dependency. Local Chrome login/logout/protected redirect, dashboard/class data, client navigation and form open/cancel pass. Production counts184/3/7, seven classroom rows, client navigation and no test-tab console errors are verified. Unsigned internal requests403, signed-out classroom307 return_to. A deployment-specific 15-minute 5xx query returned zero records. No school/financial writes.
+
+Actual handler/database region is iad1; global Proxy remains fra1. One correlated post-deploy sample: routing.total1132.46ms, regional fetch3067.41ms, Proxy total3090.33ms. Connection acquisition1136.45–1312.76ms with waiting0 leaves startup/transport overhead; no pool saturation claim. Three signed-out HTTP samples0.931/0.714/0.752s are not authenticated page timings. Authenticated Chrome comparison was interrupted by a separate active EwaTrade QA chat; first post-deploy10.19s and one later4.59s dashboard load are incomplete observations, excluded from a before/after claim. Performance acceptance remains open until isolated three-sample page measurements. No speed improvement or controlled cold verification is claimed.
