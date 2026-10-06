@@ -90,4 +90,4 @@ and an admin through this local shortcut. See [ADR-0034](../decisions/ADR-0034-l
 
 ## Request performance — 2026-10-05
 
-Server components share canonical workspace and signed-session resolution within a render only. Workspace preference mutation actions retain live independent validation. SWR and browser tRPC share concurrent `/api/profile` reads and discard the completed promise; transient failures do not imply sign-out. See ADR-0068. Implementation local; release and post-fix tenant measurements pending.
+Server components share canonical workspace and signed-session resolution within a render only. Workspace preference mutation actions retain live independent validation. SWR and browser tRPC share concurrent `/api/profile` reads and discard the completed promise; transient failures do not imply sign-out. See ADR-0068. Deployed in application b8fbbcd and verified on the production tenant. Independent stored-session/domain reads overlap with all account/school/session/term guards unchanged; 11 concurrency/negative fixture tests pass. No cross-request identity reuse.

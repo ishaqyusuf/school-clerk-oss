@@ -303,4 +303,4 @@ Student registration and `academics.entrollStudentToTerm` require live Student M
 
 ## Workspace profile performance — 2026-10-05
 
-`/api/profile` keeps the canonical AuthCookie success shape and private/no-store responses. Missing identity is 401; transient resolution failure is 503, not proof of expiry. Browser concurrent reads share an in-flight promise only. No stored-session, tenant/module/record authorization change. See ADR-0068; release verification in progress.
+`/api/profile` keeps the canonical AuthCookie success shape and private/no-store responses. Missing identity is 401; transient resolution failure is 503, not proof of expiry. Browser concurrent reads share an in-flight promise only. No stored-session, tenant/module/record authorization change. See ADR-0068; application b8fbbcd is deployed and production verification is complete with documented regional/startup and broad-check limitations.

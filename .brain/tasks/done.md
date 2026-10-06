@@ -815,3 +815,11 @@ Documentation impact: features/attendance.md, features/student-directory.md, api
 ## Reusable compact mobile calendars — 2026-10-05
 
 Completed shared CalendarPopover/CalendarInput integration for FormDate, attendance dates, native date inputs, range pickers and date filters. Tightened calendar padding/week gaps, kept large day buttons, and reduced mobile ranges to one month. Student/attendance sheets, native controlled updates, range selection and desktop Popover verified. 14 focused tests and narrow compilation pass; broad typecheck retains existing diagnostics. Brain impact: attendance.md, student-directory.md, ADR-0066 and this task record updated. No API/database changes.
+
+## Dashboard request performance — 2026-10-06
+
+Owner-approved Midday-guided performance work is deployed in application b8fbbcd / dpl_DwkAHwnAqa4Dm6HyrjXkuZdybrqL. Render-scoped canonical workspace/settings, optional query streaming, critical navigation hydration, in-flight profile sharing, concurrent independent tenant/session/domain reads, bounded pool/fetch waits, scalar timing/provider/region logs, static favicon redirect, tenant/session count scoping and closed-sheet query suppression are implemented. Fluid Compute is saved/enabled. The owner waived the release gate for this release; signing/CI configuration is unchanged.
+
+Validation: 49 focused tests, DB/utilities typechecks, focused lint and optimized dashboard build pass. Three production warm reloads give dashboard median load 2.07s (range 1.63–3.55s) and classroom median 2.44s (range 2.14–3.20s), versus earlier single 2.12s / 3.46s baselines. Counts 184/3/7 and seven classroom rows render. Payment sheet opens/cancels; no record/financial submissions. No new dashboard console errors and zero deployment-specific HTTP 5xx records in the final 15-minute query. These are bounded observations.
+
+Broad typechecks and two unchanged teacher-authorization checks fail; no blanket all-checks claim. Proxy remains in Europe while Neon/API execute in US East, and no controlled cold sample exists. Further optimisation is in backlog. Brain impact: ADR-0068, architecture.md, api/contracts.md, features/authentication.md, tasks/in-progress.md, tasks/done.md, tasks/backlog.md. No schema/provider URL change.

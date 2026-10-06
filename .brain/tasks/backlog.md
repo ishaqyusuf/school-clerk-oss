@@ -131,3 +131,9 @@ Prioritized list of tasks not yet started.
 - Scope: Add tenant resolution, published configuration loading, template renderer resolution, live tenant data merging, and public multi-page rendering in `apps/school-site`.
 - Dependencies: WEB-002, WEB-003
 - Owner: TBD
+
+## Dashboard regional and connection-startup latency — 2026-10-06
+
+Follow-up to completed ADR-0068 performance release. Production proxy still executes in fra1/lhr1 while managed Neon and API/render functions are in US East. Regional config/legacy middleware attempts did not move it. Slow proxy totals of roughly 1.4–1.9s and connection-acquisition overhead remain; pool saturation and slow SQL have not been established.
+
+Inventory proxy/prefetch request frequency and correlate stages by request ID. Review a regional handler boundary for tenant and stored-session resolution that preserves every auth/ancestry/cookie/academic guard. Measure naturally idle versus warm connection startup before proposing a supported deployment change. Do not bypass validation or add indexes from the tiny sampled plans. Repeat same-tenant warm samples and naturally cold observations separately; two-second useful-data readiness is a target, not a current guarantee. No provider switch, paid upgrade or schema change is part of the completed release.
