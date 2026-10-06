@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "src/**/*.ts": {
+      "regions": [
+        "iad1"
+      ]
+    }
+  }
+}
