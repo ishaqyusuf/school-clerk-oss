@@ -182,14 +182,14 @@ function Content({
 
         <TabsContent value="sessions" className="mt-0 flex flex-col gap-6">
           {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+          <div data-summary-grid className="grid grid-cols-3 gap-2 sm:gap-4">
             <div className="flex min-w-0 flex-col justify-between rounded-xl border border-border bg-card p-3 shadow-sm transition-colors hover:border-primary/30 sm:p-5">
               <div className="mb-2 flex items-start justify-between sm:mb-4">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground sm:text-sm">
+                  <p data-summary-label className="text-xs font-medium text-muted-foreground sm:text-sm">
                     Total Sessions
                   </p>
-                  <h3 className="mt-1 text-xl font-bold text-foreground sm:text-3xl">
+                  <h3 data-summary-value className="mt-1 text-xl font-bold text-foreground sm:text-3xl">
                     {totalSessions}
                   </h3>
                 </div>
@@ -197,7 +197,7 @@ function Content({
                   <Calendar className="h-5 w-5" />
                 </div>
               </div>
-              <p className="hidden text-xs text-muted-foreground sm:block">
+              <p data-summary-label className="hidden text-xs text-muted-foreground sm:block">
                 {totalStudents} total records
               </p>
             </div>
@@ -205,10 +205,10 @@ function Content({
             <div className="flex min-w-0 flex-col justify-between rounded-xl border border-border bg-card p-3 shadow-sm transition-colors hover:border-emerald-500/30 sm:p-5">
               <div className="mb-2 flex items-start justify-between sm:mb-4">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground sm:text-sm">
+                  <p data-summary-label className="text-xs font-medium text-muted-foreground sm:text-sm">
                     Average Attended
                   </p>
-                  <h3 className="mt-1 text-xl font-bold text-emerald-600 dark:text-emerald-400 sm:text-3xl">
+                  <h3 data-summary-value className="mt-1 text-xl font-bold text-emerald-600 dark:text-emerald-400 sm:text-3xl">
                     {avgPresent}%
                   </h3>
                 </div>
@@ -216,7 +216,7 @@ function Content({
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
               </div>
-              <p className="hidden items-center text-xs text-emerald-600 dark:text-emerald-400 sm:flex">
+              <p data-summary-label className="hidden items-center text-xs text-emerald-600 dark:text-emerald-400 sm:flex">
                 <TrendingUp className="h-3.5 w-3.5 mr-1" /> {totalPresent} total
                 attended
               </p>
@@ -225,10 +225,10 @@ function Content({
             <div className="flex min-w-0 flex-col justify-between rounded-xl border border-border bg-card p-3 shadow-sm transition-colors hover:border-red-500/30 sm:p-5">
               <div className="mb-2 flex items-start justify-between sm:mb-4">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground sm:text-sm">
+                  <p data-summary-label className="text-xs font-medium text-muted-foreground sm:text-sm">
                     Average Absent
                   </p>
-                  <h3 className="mt-1 text-xl font-bold text-red-500 dark:text-red-400 sm:text-3xl">
+                  <h3 data-summary-value className="mt-1 text-xl font-bold text-red-500 dark:text-red-400 sm:text-3xl">
                     {avgAbsent}%
                   </h3>
                 </div>
@@ -236,7 +236,7 @@ function Content({
                   <XCircle className="h-5 w-5" />
                 </div>
               </div>
-              <p className="hidden text-xs text-muted-foreground sm:block">
+              <p data-summary-label className="hidden text-xs text-muted-foreground sm:block">
                 {totalAbsent} total absent
               </p>
             </div>

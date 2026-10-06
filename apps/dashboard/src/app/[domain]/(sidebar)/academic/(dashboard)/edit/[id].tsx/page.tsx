@@ -65,27 +65,27 @@ const SessionDetails = ({}) => {
       </div>
 
       {/* Stats Summary */}
-      <div className="hidden md:grid md:grid-cols-3 gap-4">
+      <div data-summary-grid className="hidden md:grid md:grid-cols-3 gap-4">
         <Card className="p-6 flex flex-col justify-center">
-          <p className="text-muted-foreground text-sm font-medium mb-1">
+          <p data-summary-label className="text-muted-foreground text-sm font-medium mb-1">
             Session Duration
           </p>
-          <p className="text-2xl font-bold tracking-tight">285 Days</p>
+          <p data-summary-value className="text-2xl font-bold tracking-tight">285 Days</p>
         </Card>
         <Card className="p-6 flex flex-col justify-center">
-          <p className="text-muted-foreground text-sm font-medium mb-1">
+          <p data-summary-label className="text-muted-foreground text-sm font-medium mb-1">
             Current Status
           </p>
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-sm shadow-green-200 dark:shadow-none"></span>
-            <p className="text-2xl font-bold tracking-tight">In Progress</p>
+            <p data-summary-value className="text-2xl font-bold tracking-tight">In Progress</p>
           </div>
         </Card>
         <Card className="p-6 flex flex-col justify-center border-l-4 border-l-primary">
-          <p className="text-muted-foreground text-sm font-medium mb-1">
+          <p data-summary-label className="text-muted-foreground text-sm font-medium mb-1">
             Active Term
           </p>
-          <p className="text-2xl font-bold text-primary tracking-tight">
+          <p data-summary-value className="text-2xl font-bold text-primary tracking-tight">
             1st Term
           </p>
         </Card>

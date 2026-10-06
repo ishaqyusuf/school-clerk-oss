@@ -1,5 +1,7 @@
 "use client";
 
+import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -675,7 +677,7 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
       ) : (
         <>
           {/* Stats */}
-          <div className="hidden md:grid md:grid-cols-4 gap-4">
+          <div data-summary-grid className="hidden md:grid md:grid-cols-4 gap-4">
             <StatCard
               icon={<Users className="h-5 w-5 text-primary" />}
               label="Total Students"
@@ -714,7 +716,7 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <Select
+              <MobileFilterButton values={{ status: statusFilter }} groups={[{ key: "status", label: "Status", resetValue: "all", options: ["all", "promoted", "pending"].map((value) => ({ value, label: value === "all" ? "All statuses" : value })) }]} onApply={(draft) => { setStatusFilter(draft.status as StatusFilter); }} /><div className="hidden md:block"><Select
                 value={statusFilter}
                 onValueChange={(v) => setStatusFilter(v as StatusFilter)}
               >
@@ -726,7 +728,7 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
                   <SelectItem value="promoted">Promoted</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                 </SelectContent>
-              </Select>
+              </Select></div>
             </div>
             <div className="flex gap-2">
               <Button
@@ -1461,8 +1463,8 @@ function StatCard({
     >
       <div className="shrink-0">{icon}</div>
       <div>
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <p className="text-xl font-black tracking-tight">{value}</p>
+        <p data-summary-label className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p data-summary-value className="text-xl font-black tracking-tight">{value}</p>
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs";
 import { type TableSettings, getColumnIds } from "@/utils/table-settings";
 import type { GetStudentsSchema } from "@api/trpc/schemas/students";
 import { Table, TableBody } from "@school-clerk/ui/table";
+import { cn } from "@school-clerk/ui/cn";
 import { useTableScroll } from "@school-clerk/ui/hooks/use-table-scroll";
 import { closestCenter, DndContext } from "@dnd-kit/core";
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
@@ -22,7 +23,11 @@ import {
 	type RowSelectionState,
 	useReactTable,
 } from "@tanstack/react-table";
-import { type VirtualItem, useVirtualizer } from "@tanstack/react-virtual";
+import {
+	type VirtualItem,
+	useVirtualizer,
+	useWindowVirtualizer,
+} from "@tanstack/react-virtual";
 import {
 	useCallback,
 	useDeferredValue,
@@ -54,6 +59,7 @@ interface Props {
 	className?: string;
 	initialSettings?: Partial<TableSettings>;
 	singlePage?: boolean;
+	scrollMode?: "container" | "page";
 	/** Retained for classroom embeds; the shared student directory now always renders a table. */
 	grid?: boolean;
 }
@@ -75,6 +81,7 @@ export function DataTable({
 	defaultFilters,
 	initialSettings,
 	singlePage,
+	scrollMode = "page",
 	onCreate,
 }: Props) {
 	const trpc = useTRPC();
@@ -84,6 +91,9 @@ export function DataTable({
 	const deferredSearch = useDeferredValue(filter.q);
 	const { setParams } = useStudentParams();
 	const parentRef = useRef<HTMLDivElement>(null);
+	const bodyRef = useRef<HTMLTableSectionElement>(null);
+	const pageScrollRef = useRef<Window | null>(null);
+	const [scrollMargin, setScrollMargin] = useState(0);
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 	const setColumns = useStudentsTableStore((state) => state.setColumns);
 	const bindShowColumnDividers = useStudentsTableStore(
@@ -162,12 +172,43 @@ export function DataTable({
 		startFromColumn: 2,
 	});
 	const rows = table.getRowModel().rows;
-	const rowVirtualizer = useVirtualizer({
+	const containerVirtualizer = useVirtualizer({
 		count: rows.length,
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => ROW_HEIGHT,
 		overscan: 10,
+		enabled: scrollMode === "container",
 	});
+	const pageVirtualizer = useWindowVirtualizer({
+		count: rows.length,
+		estimateSize: () => ROW_HEIGHT,
+		overscan: 10,
+		scrollMargin,
+		enabled: scrollMode === "page",
+	});
+	const rowVirtualizer =
+		scrollMode === "page" ? pageVirtualizer : containerVirtualizer;
+
+	useEffect(() => {
+		if (scrollMode !== "page") return;
+		pageScrollRef.current = window;
+		const measure = () => {
+			if (bodyRef.current) {
+				setScrollMargin(
+					bodyRef.current.getBoundingClientRect().top + window.scrollY,
+				);
+			}
+		};
+		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(document.body);
+		window.addEventListener("resize", measure);
+		return () => {
+			observer.disconnect();
+			window.removeEventListener("resize", measure);
+			pageScrollRef.current = null;
+		};
+	}, [scrollMode, rows.length]);
 
 	useEffect(() => {
 		setColumns(table.getAllLeafColumns());
@@ -181,8 +222,8 @@ export function DataTable({
 		setRowSelection({});
 	}, [filter, sortParams.sort]);
 
-	useInfiniteScroll<HTMLDivElement>({
-		scrollRef: parentRef,
+	useInfiniteScroll<HTMLDivElement | Window>({
+		scrollRef: scrollMode === "page" ? pageScrollRef : parentRef,
 		rowVirtualizer,
 		rowCount: rows.length,
 		hasNextPage: singlePage ? false : hasNextPage,
@@ -242,10 +283,20 @@ export function DataTable({
 						parentRef.current = element;
 						tableScroll.containerRef.current = element;
 					}}
-					className="overflow-auto overscroll-contain border-x border-b border-border scrollbar-hide"
-					style={{
-						height: "calc(100vh - 350px + var(--header-offset, 0px))",
-					}}
+					data-student-table-scroll={scrollMode}
+					className={cn(
+						"border-x border-b border-border scrollbar-hide",
+						scrollMode === "page"
+							? "overflow-x-auto"
+							: "overflow-auto overscroll-contain",
+					)}
+					style={
+						scrollMode === "container"
+							? {
+									height: "calc(100vh - 350px + var(--header-offset, 0px))",
+								}
+							: undefined
+					}
 				>
 					<DndContext
 						id="students-table-dnd"
@@ -261,6 +312,7 @@ export function DataTable({
 								showColumnDividers={showColumnDividers}
 							/>
 							<TableBody
+								ref={bodyRef}
 								className="block border-0"
 								style={{
 									height: `${rowVirtualizer.getTotalSize()}px`,
@@ -275,7 +327,9 @@ export function DataTable({
 										<VirtualRow
 											key={row.id}
 											row={row}
-											virtualStart={virtualRow.start}
+											virtualStart={
+												virtualRow.start - rowVirtualizer.options.scrollMargin
+											}
 											rowHeight={ROW_HEIGHT}
 											getStickyStyle={getStickyStyle}
 											getStickyClassName={getStickyClassName}

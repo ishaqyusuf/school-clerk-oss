@@ -1,5 +1,7 @@
 "use client";
 
+import { SummaryNumber } from "@/components/summary-number";
+
 import { NumberInput } from "../currency-input";
 import {
   Card,
@@ -86,19 +88,26 @@ export default function Client({ data }: Props) {
     <div className="space-y-6 py-4">
       <h1 className="text-2xl font-bold tracking-tight">Finance Overview</h1>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+      <div data-summary-grid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
         {cards.map((c) => (
           <Card key={c.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardHeader data-summary-header className="flex flex-row items-center justify-between pb-2">
+              <CardTitle data-summary-label className="text-sm font-medium text-muted-foreground">
                 {c.label}
               </CardTitle>
               <c.icon className={`h-4 w-4 ${c.color}`} />
             </CardHeader>
-            <CardContent>
-              <p className={`text-2xl font-bold ${c.color}`}>
-                <NumberInput value={c.value} prefix="NGN " />
-              </p>
+            <CardContent data-summary-body>
+              <div data-summary-value className={`text-2xl font-bold ${c.color}`}>
+                <SummaryNumber
+                  value={c.value}
+                  currencyDisplay="code"
+                  minimumFractionDigits={0}
+                  maximumFractionDigits={2}
+                >
+                  <NumberInput value={c.value} prefix="NGN " />
+                </SummaryNumber>
+              </div>
             </CardContent>
           </Card>
         ))}

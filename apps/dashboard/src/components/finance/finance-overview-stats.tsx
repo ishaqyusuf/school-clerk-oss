@@ -17,17 +17,17 @@ function Stat({
 }) {
 	return (
 		<Card>
-			<Card.Header className="flex flex-row items-center justify-between space-y-0 pb-2">
-				<Card.Title className="text-sm font-medium">{label}</Card.Title>
+			<Card.Header data-summary-header className="flex flex-row items-center justify-between space-y-0 pb-2">
+				<Card.Title data-summary-label className="text-sm font-medium">{label}</Card.Title>
 				<div className="rounded-md bg-muted p-2">
 					<Icon className="h-4 w-4 text-muted-foreground" />
 				</div>
 			</Card.Header>
-			<Card.Content>
-				<div className="text-2xl font-bold tracking-tight">
+			<Card.Content data-summary-body>
+				<div data-summary-value className="text-2xl font-bold tracking-tight">
 					<MoneyValue value={value} />
 				</div>
-				<p className="mt-2 text-xs text-muted-foreground">{helper}</p>
+				<p data-summary-label className="mt-2 text-xs text-muted-foreground">{helper}</p>
 			</Card.Content>
 		</Card>
 	);
@@ -43,7 +43,7 @@ type FinanceOverviewStatsProps = {
 
 export function FinanceOverviewStats({ summary }: FinanceOverviewStatsProps) {
 	return (
-		<div className="grid gap-4 md:grid-cols-3">
+		<div data-summary-grid className="grid gap-4 md:grid-cols-3">
 			<Stat
 				label="Money In"
 				value={summary.totalCredit}

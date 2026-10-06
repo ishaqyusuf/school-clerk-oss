@@ -173,3 +173,10 @@ Current threshold:
 ## Notes
 - This is an operational trust layer on top of the existing finance transaction system.
 - The next hardening step should be true automated regression coverage and deeper reconciliation assertions across reports and exports.
+
+## Shared mobile filters — 2026-10-06
+
+Existing list filters use the [shared mobile filter sheet](mobile-search-filters.md)
+below 768px, with draft/Apply/Reset and desktop controls retained. Coverage and
+verification limits are recorded in the linked task record. Domain query schemas,
+permissions and data writes are unchanged.

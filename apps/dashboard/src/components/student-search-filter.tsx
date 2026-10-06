@@ -32,7 +32,7 @@ function Content() {
 	const ctx = useSearchFilterContext();
 	const { shouldFetch } = ctx;
 	const trpc = useTRPC();
-	const { data: trpcFilterData } = useQuery({
+	const { data: trpcFilterData, isLoading, isError, refetch } = useQuery({
 		enabled: shouldFetch,
 		...trpc.students.filters.queryOptions(),
 	});
@@ -47,7 +47,14 @@ function Content() {
 	return (
 		<>
 			<SearchFilter
+				className="max-md:flex-col max-md:items-stretch max-md:gap-2 max-md:space-x-0 max-md:[&>form]:w-full"
 				filterList={filterList}
+        hasFilterSource
+        loading={isLoading}
+        error={isError ? "Could not load student filters." : undefined}
+        onRetry={() => { void refetch(); }}
+        resolveMobileFilters={(draft) => filterTermsBySession((trpcFilterData ?? []) as PageFilterData[], draft.sessionId as string | null)}
+        onDraftOptionSelected={(draft, filter, option) => getEnrollmentFilterSelectionUpdate({ filterKey: filter.value, option, currentFilters: draft, filterList: (trpcFilterData ?? []) as PageFilterData[] })}
 				placeholder="Search students..."
 				onOptionSelected={(filter, option) => {
 					const update = getEnrollmentFilterSelectionUpdate({

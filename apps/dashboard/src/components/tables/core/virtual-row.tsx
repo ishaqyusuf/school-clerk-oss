@@ -103,6 +103,7 @@ function VirtualRowInner<TData>({
                                 "border-e",
                             cellClassName,
                             isActions && "justify-center",
+                            columnId === "select" && "justify-center px-0",
                         )}
                         style={cellStyle}
                         onClick={() => {
@@ -111,7 +112,13 @@ function VirtualRowInner<TData>({
                             }
                         }}
                     >
-                        <div className="w-full overflow-hidden truncate">
+                        <div
+                            className={cn(
+                                "w-full overflow-hidden truncate",
+                                columnId === "select" &&
+                                    "flex items-center justify-center",
+                            )}
+                        >
                             {flexRender(
                                 cell.column.columnDef.cell,
                                 cell.getContext(),

@@ -332,7 +332,7 @@ export function FinanceWorkspaceTable({
 
 	return (
 		<>
-			<div className="hidden overflow-auto border md:block">
+			<div className="hidden overflow-x-auto border md:block">
 				<Table className="min-w-[1180px]">
 					<TableHeader className="sticky top-0 z-10 bg-sidebar-accent">
 						<TableRow className="hover:bg-transparent">

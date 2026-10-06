@@ -1,5 +1,7 @@
 "use client";
 
+import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
+
 import { useTRPC } from "@/trpc/client";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
@@ -87,7 +89,21 @@ function CollectionStudentsContent({ classroomId, classroomName, onBack }: Props
       </div>
 
       {/* Status filter chips */}
-      <div className="flex gap-2 flex-wrap">
+      <MobileFilterButton
+        values={{ status: statusFilter }}
+        groups={[
+          {
+            key: "status",
+            label: "Collection status",
+            resetValue: "ALL",
+            options: STATUS_FILTERS,
+          },
+        ]}
+        onApply={(draft) => {
+          setStatusFilter(draft.status as CollectionStatus);
+        }}
+      />
+<div className="hidden flex-wrap gap-2 md:flex">
         {STATUS_FILTERS.map((f) => (
           <Button
             key={f.value}

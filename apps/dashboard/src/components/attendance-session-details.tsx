@@ -115,7 +115,7 @@ export function AttendanceSessionDetails(
               {sessionAttendanceRate}% attended
             </Badge>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div data-summary-grid className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatCard label="Students" value={session.total} tone="default" />
             <StatCard label="Present" value={session.present} tone="success" />
             <StatCard label="Late" value={session.late} tone="warning" />
@@ -211,10 +211,10 @@ function StatCard({
     <div className="border bg-background px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p data-summary-label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {label}
           </p>
-          <p className={`mt-1 text-2xl font-semibold ${toneClassName}`}>
+          <p data-summary-value className={`mt-1 text-2xl font-semibold ${toneClassName}`}>
             {value}
           </p>
         </div>

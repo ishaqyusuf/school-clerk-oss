@@ -81,17 +81,17 @@ function TeacherStatGrid({
 	}>;
 }) {
 	return (
-		<div className="hidden border-y bg-background md:grid md:grid-cols-4">
+		<div data-summary-grid className="hidden border-y bg-background md:grid md:grid-cols-4">
 			{stats.map((item) => (
 				<div
 					key={item.label}
 					className="flex items-center justify-between gap-4 border-border px-4 py-4 md:border-r last:border-r-0"
 				>
 					<div>
-						<p className="text-sm font-medium text-muted-foreground">
+						<p data-summary-label className="text-sm font-medium text-muted-foreground">
 							{item.label}
 						</p>
-						<div className="mt-1 text-2xl font-semibold tracking-tight">
+						<div data-summary-value className="mt-1 text-2xl font-semibold tracking-tight">
 							{item.value}
 						</div>
 					</div>

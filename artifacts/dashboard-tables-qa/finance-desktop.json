@@ -1,0 +1,55 @@
+{
+  "checks": [
+    {
+      "dx": 0.25,
+      "dy": 0,
+      "label": "Select all samples"
+    },
+    {
+      "dx": 0.25,
+      "dy": 0,
+      "label": "Select sample"
+    },
+    {
+      "dx": 0.25,
+      "dy": 0,
+      "label": "Select sample"
+    },
+    {
+      "dx": 0.25,
+      "dy": 0,
+      "label": "Select sample"
+    }
+  ],
+  "nested": [],
+  "pageHeight": 6618,
+  "tables": [
+    {
+      "height": 1529,
+      "parentHeight": 1529,
+      "parentScroll": 1529,
+      "rows": 40
+    },
+    {
+      "height": 229,
+      "parentHeight": 229,
+      "parentScroll": 229,
+      "rows": 4
+    },
+    {
+      "height": 2285,
+      "parentHeight": 2285,
+      "parentScroll": 2285,
+      "rows": 40
+    },
+    {
+      "height": 2169,
+      "parentHeight": 2169,
+      "parentScroll": 2169,
+      "rows": 40
+    }
+  ],
+  "url": "/table-layout-qa",
+  "width": 1280,
+  "y": 0
+}

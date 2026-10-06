@@ -1,5 +1,7 @@
 "use client";
 
+import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
+
 import { AssessmentPublicLinksPanel } from "@/components/assessment-public-links-panel";
 import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
 import { AssessmentWorkbooksDialog } from "@/components/assessment-workbooks-dialog";
@@ -291,7 +293,43 @@ export function AssessmentRecordingResultsTable({
             <span className="text-xs text-muted-foreground">
               Click a subject to update assessments.
             </span>
-            {classrooms.length ? (
+<MobileFilterButton
+	values={{ classroom: departmentId, subjects: subjectFilterIds }}
+	groups={[
+		...(classrooms.length && onClassroomChange
+			? [
+					{
+						key: "classroom",
+						label: "Classroom",
+						resetValue: classrooms[0]?.id,
+						options: classrooms.map((classroom) => ({
+							value: classroom.id,
+							label:
+								classroom.displayName ??
+								classroom.departmentName ??
+								"Classroom",
+						})),
+					},
+				]
+			: []),
+		{
+			key: "subjects",
+			label: "Subjects",
+			multiple: true,
+			resetValue: [],
+			options: allSubjects.map((subject) => ({
+				value: subject.id,
+				label: subject.subject.title ?? "Subject",
+			})),
+		},
+	]}
+	onApply={(draft) => {
+		setSubjectFilterIds(draft.subjects as string[]);
+		if (draft.classroom && draft.classroom !== departmentId)
+			onClassroomChange?.(String(draft.classroom));
+	}}
+/>
+<div className="hidden items-center gap-2 md:flex">            {classrooms.length ? (
               <DropdownMenu dir="ltr">
                 <DropdownMenu.Trigger asChild>
                   <Button
@@ -372,6 +410,7 @@ export function AssessmentRecordingResultsTable({
                 ))}
               </DropdownMenu.Content>
             </DropdownMenu>
+</div>
             {!publicToken ? (
               <>
                 <SubmitClassStudentSheet

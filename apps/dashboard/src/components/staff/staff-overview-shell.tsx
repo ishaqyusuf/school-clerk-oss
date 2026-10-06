@@ -284,7 +284,7 @@ export function StaffOverviewShell({
 						</div>
 					</div>
 
-					<div className="grid min-w-full gap-3 sm:min-w-80 sm:grid-cols-2 lg:min-w-96">
+					<div data-summary-grid className="grid min-w-full gap-3 sm:min-w-80 sm:grid-cols-2 lg:min-w-96">
 						<QuickInfoCard
 							icon={School}
 							label="Classrooms"
@@ -335,7 +335,7 @@ export function StaffOverviewShell({
 
 			{resolvedTab === "overview" ? (
 				<div className="space-y-6">
-					<div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
+					<div data-summary-grid className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
 						<MetricCard
 							icon={IdCard}
 							label="Staff ID"
@@ -731,16 +731,16 @@ function QuickInfoCard({
 		<div className="border border-border bg-muted/30 p-4">
 			<div className="flex items-start justify-between gap-3">
 				<div>
-					<p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+					<p data-summary-label className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
 						{label}
 					</p>
-					<p className="mt-2 text-lg font-semibold text-foreground">{value}</p>
+					<p data-summary-value className="mt-2 text-lg font-semibold text-foreground">{value}</p>
 				</div>
 				<div className="bg-background p-2 text-primary">
 					<Icon className="h-4 w-4" />
 				</div>
 			</div>
-			<p className="mt-2 text-sm text-muted-foreground">{helper}</p>
+			<p data-summary-label className="mt-2 text-sm text-muted-foreground">{helper}</p>
 		</div>
 	);
 }
@@ -770,13 +770,13 @@ function MetricCard({
 					<Icon className="h-5 w-5" />
 				</div>
 				<div>
-					<p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+					<p data-summary-label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
 						{label}
 					</p>
-					<p className="text-sm font-bold text-foreground">{value}</p>
+					<p data-summary-label className="text-sm font-bold text-foreground">{value}</p>
 				</div>
 			</div>
-			<p className="text-sm text-muted-foreground">{helper}</p>
+			<p data-summary-label className="text-sm text-muted-foreground">{helper}</p>
 		</div>
 	);
 }
@@ -859,7 +859,7 @@ function StaffOverviewSkeleton({
 							<Skeleton className="h-4 w-80" />
 						</div>
 					</div>
-					<div className="grid gap-3 sm:grid-cols-2">
+					<div data-summary-grid className="grid gap-3 sm:grid-cols-2">
 						<Skeleton className="h-24 w-full sm:w-44" />
 						<Skeleton className="h-24 w-full sm:w-44" />
 					</div>
@@ -870,7 +870,7 @@ function StaffOverviewSkeleton({
 				<Skeleton className="h-8 w-28" />
 				<Skeleton className="h-8 w-28" />
 			</div>
-			<div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
+			<div data-summary-grid className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
 				{metricSkeletonKeys.map((key) => (
 					<Skeleton key={key} className="h-28 w-full" />
 				))}

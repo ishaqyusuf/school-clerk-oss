@@ -69,18 +69,18 @@ function Content() {
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 sm:space-y-6">
       {/* Attendance Stats Grid */}
-      <div className="hidden md:grid md:grid-cols-3 gap-4">
+      <div data-summary-grid className="hidden md:grid md:grid-cols-3 gap-4">
         {/* Attendance Rate Card */}
         <Card className="bg-card rounded-xl shadow-sm">
-          <CardContent className="p-5 flex items-center justify-between">
+          <CardContent data-summary-body className="p-5 flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
+              <p data-summary-label className="text-sm font-medium text-muted-foreground">
                 Attendance Rate
               </p>
-              <p className="text-3xl font-bold text-foreground mt-1">
+              <p data-summary-value className="text-3xl font-bold text-foreground mt-1">
                 {percentage}%
               </p>
-              <p className="text-xs text-green-600 mt-2 flex items-center gap-1 font-medium">
+              <p data-summary-label className="text-xs text-green-600 mt-2 flex items-center gap-1 font-medium">
                 <TrendingUp className="w-3.5 h-3.5" />
                 {present + late} of {eligible} eligible sessions
               </p>
@@ -93,15 +93,15 @@ function Content() {
 
         {/* Days Absent Card */}
         <Card className="bg-card rounded-xl shadow-sm">
-          <CardContent className="p-5 flex items-center justify-between">
+          <CardContent data-summary-body className="p-5 flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
+              <p data-summary-label className="text-sm font-medium text-muted-foreground">
                 Days Absent
               </p>
-              <p className="text-3xl font-bold text-foreground mt-1">
+              <p data-summary-value className="text-3xl font-bold text-foreground mt-1">
                 {absent}
               </p>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p data-summary-label className="text-xs text-muted-foreground mt-2">
                 Total school days: {total}
               </p>
             </div>
@@ -113,15 +113,15 @@ function Content() {
 
         {/* Status Card */}
         <Card className="bg-card rounded-xl shadow-sm">
-          <CardContent className="p-5 flex items-center justify-between">
+          <CardContent data-summary-body className="p-5 flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
+              <p data-summary-label className="text-sm font-medium text-muted-foreground">
                 Status
               </p>
-              <p className="text-3xl font-bold text-foreground mt-1">
+              <p data-summary-value className="text-3xl font-bold text-foreground mt-1">
                 {percentage >= 75 ? "Good" : "At Risk"}
               </p>
-              <p
+              <p data-summary-label
                 className={`text-xs mt-2 flex items-center gap-1 font-medium ${
                   percentage >= 75 ? "text-green-600" : "text-orange-600"
                 }`}

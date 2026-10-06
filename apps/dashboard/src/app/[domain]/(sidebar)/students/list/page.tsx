@@ -70,7 +70,7 @@ export default async function Page(props: Props) {
 						<Suspense
 							fallback={<StudentsSkeleton initialSettings={initialSettings} />}
 						>
-							<DataTable initialSettings={initialSettings} />
+							<DataTable initialSettings={initialSettings} scrollMode="page" />
 						</Suspense>
 					</ErrorBoundary>
 				</div>

@@ -60,10 +60,10 @@ export function AcademicSummaryCards({
 			: null;
 
 	return (
-		<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+		<div data-summary-grid className="grid grid-cols-1 gap-6 md:grid-cols-3">
 			<Card.Root className="flex flex-col gap-4 p-6">
 				<div className="flex items-start justify-between gap-2">
-					<span className="text-sm font-medium text-muted-foreground">
+					<span data-summary-label className="text-sm font-medium text-muted-foreground">
 						Current Session Status
 					</span>
 					<div className="flex items-center gap-2">
@@ -92,27 +92,27 @@ export function AcademicSummaryCards({
 						</Badge>
 					</div>
 				</div>
-				<p className="text-2xl font-bold tracking-tight">
+				<p data-summary-value className="text-2xl font-bold tracking-tight">
 					{currentSession?.name ?? "No active session"}
 				</p>
 				<div className="flex items-center gap-2 text-muted-foreground">
 					<TrendingUp className="h-4 w-4" />
-					<span className="text-xs font-bold uppercase">
+					<span data-summary-label className="text-xs font-bold uppercase">
 						{currentTerm ? `${currentTerm.title} in progress` : "Not started"}
 					</span>
 				</div>
 			</Card.Root>
 
 			<Card className="flex flex-col gap-4 p-6">
-				<span className="text-sm font-medium text-muted-foreground">
+				<span data-summary-label className="text-sm font-medium text-muted-foreground">
 					Total Terms Created
 				</span>
-				<p className="text-2xl font-bold tracking-tight">
+				<p data-summary-value className="text-2xl font-bold tracking-tight">
 					{totalTerms} {totalTerms === 1 ? "Term" : "Terms"} Recorded
 				</p>
 				<div className="flex items-center gap-2 text-muted-foreground">
 					<History className="h-4 w-4" />
-					<span className="text-xs font-medium">
+					<span data-summary-label className="text-xs font-medium">
 						Across {sessionCount} {sessionCount === 1 ? "session" : "sessions"}
 					</span>
 				</div>
@@ -120,7 +120,7 @@ export function AcademicSummaryCards({
 
 			<Card className="flex flex-col gap-4 p-6">
 				<div className="flex items-start justify-between gap-2">
-					<span className="text-sm font-medium text-muted-foreground">
+					<span data-summary-label className="text-sm font-medium text-muted-foreground">
 						Days Remaining {currentTerm ? `(${currentTerm.title})` : ""}
 					</span>
 					{currentTerm && canManageAcademics ? (
@@ -145,7 +145,7 @@ export function AcademicSummaryCards({
 						</Button>
 					) : null}
 				</div>
-				<p className="text-2xl font-bold tracking-tight">
+				<p data-summary-value className="text-2xl font-bold tracking-tight">
 					{daysRemaining === null
 						? "No end date"
 						: `${daysRemaining} ${daysRemaining === 1 ? "Day" : "Days"} Left`}

@@ -24,6 +24,7 @@ function Content({ departmentId, sessionTermId }) {
       />
       <ClassroomStudentHeader />
       <DataTable
+        scrollMode="container"
         className="md:grid-cols-2 lg:grid-cols-2"
         grid
         onCreate={() => {

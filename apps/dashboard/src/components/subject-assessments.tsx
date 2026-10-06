@@ -229,7 +229,7 @@ export function SubjectAssessments(props: Props) {
         >
           <Accordion.Item className="border-none" value="general">
             <Accordion.Content>
-              <div className="hidden border-y border-border md:grid md:grid-cols-4">
+              <div data-summary-grid className="hidden border-y border-border md:grid md:grid-cols-4">
                 <StatCard
                   icon={FileText}
                   label="Score items"
@@ -624,8 +624,8 @@ function StatCard({
           <Icon className="size-5" />
         </div>
         <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="text-2xl font-semibold text-foreground">{value}</p>
+          <p data-summary-label className="text-sm text-muted-foreground">{label}</p>
+          <p data-summary-value className="text-2xl font-semibold text-foreground">{value}</p>
         </div>
       </div>
     </div>

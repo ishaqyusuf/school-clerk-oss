@@ -41,6 +41,7 @@ export const {
   }
   return {
     shouldFetch,
+    isMultiple: (key: string) => isArrayParser(filterSchema?.[key]),
     optionSelected,
     isFocused,
     setIsFocused,

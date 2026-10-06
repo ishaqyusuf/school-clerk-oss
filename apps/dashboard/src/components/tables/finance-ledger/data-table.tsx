@@ -60,7 +60,7 @@ export function DataTable({ data }: Props) {
 					<NoResults onClear={() => setColumnFilters([])} />
 				</div>
 			) : (
-				<div className="overflow-auto overscroll-x-none">
+				<div className="overflow-x-auto overscroll-x-none">
 					<Table className="min-w-[860px]">
 						<TableHeader>
 							{table.getHeaderGroups().map((headerGroup) => (

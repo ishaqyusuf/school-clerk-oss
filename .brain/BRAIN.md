@@ -42,3 +42,6 @@ Central index for project knowledge used by humans and AI collaborators.
 - `plot-keys`: `/Users/M1PRO/Documents/code/plot-keys`
 - `halaal-coperative`: `/Users/M1PRO/Documents/code/halaal-coperative`
 - `after-service`: `/Users/M1PRO/Documents/code/micro-startups/after-service`
+
+- [Shared mobile search filters](./features/mobile-search-filters.md)
+- [Dashboard table scrolling and selection](./features/dashboard-tables.md)

@@ -1,9 +1,13 @@
 "use client";
 
+import { MobileFilterSheet, FilterMenuTrigger, type FilterValues } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
+import { DateRangeFilter } from "./date-range-filter";
+import { formatDateFilterLabel } from "./date-filter-model";
+import { filterGroupSummary } from "./mobile-filter-model";
 import { CalendarPopover } from "@school-clerk/ui/calendar-popover";
 import { useIsMobile } from "@school-clerk/ui/hooks/use-mobile";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useHotkeys } from "react-hotkeys-hook";
 
@@ -53,6 +57,10 @@ interface Props {
 	filters?;
 	setFilters?;
 	SearchTips?;
+	hasFilterSource?: boolean;
+	loading?: boolean;
+	error?: string;
+	onRetry?: () => void;
 }
 export function SearchFilter({
 	trpcRoute,
@@ -63,14 +71,14 @@ export function SearchFilter({
 	trpQueryOptions = undefined,
 	placeholder = "Search ...",
 }) {
-	const { data: trpcFilterData } = useQuery({
+	const { data: trpcFilterData, isLoading, isError, refetch } = useQuery({
 		queryKey: ["search-filter", "static"],
 		queryFn: async () => [],
 		enabled: !filterList?.length && !!trpcRoute,
 		...(trpcRoute?.queryOptions?.(trpQueryOptions) || {}),
 	});
 
-	const resolvedFilterList = filterList ?? (trpcFilterData as PageFilterData[]);
+	const resolvedFilterList = filterList.length ? filterList : (trpcFilterData as PageFilterData[] | undefined) ?? [];
 	return (
 		<SearchFilterProvider
 			args={[
@@ -84,6 +92,10 @@ export function SearchFilter({
 			<SearchFilterTRPC
 				placeholder={placeholder}
 				filterList={resolvedFilterList}
+        hasFilterSource={Boolean(trpcRoute)}
+        loading={isLoading}
+        error={isError ? "Could not load filters." : undefined}
+        onRetry={() => { void refetch(); }}
 				{...{ filters, setFilters }}
 			/>
 		</SearchFilterProvider>
@@ -93,13 +105,8 @@ export function SearchFilterTRPC({
 	placeholder,
 	defaultSearch = {},
 	filterList,
-	SearchTips,
+	SearchTips, hasFilterSource, loading, error, onRetry,
 }: Props) {
-	const [prompt, setPrompt] = useState("");
-	const inputRef = useRef<HTMLInputElement>(null);
-
-	const [streaming, setStreaming] = useState(false);
-
 	const {
 		isFocused,
 		isOpen,
@@ -107,18 +114,28 @@ export function SearchFilterTRPC({
 		shouldFetch,
 		filters,
 		setFilters,
+		isMultiple,
 		optionSelected,
 	} = useSearchFilterContext();
+	const mobileCalendar = useIsMobile();
+	const [prompt, setPrompt] = useState(() => { const key = Object.keys(filters ?? {}).find(isSearchKey); return key ? String(filters[key] ?? "") : ""; });
+	const inputRef = useRef<HTMLInputElement>(null);
+	const filterTriggerRef = useRef<HTMLButtonElement>(null);
+
+	const [streaming, setStreaming] = useState(false);
+
+
 	useHotkeys(
 		"esc",
 		() => {
+			if (mobileCalendar || isOpen) return;
 			setPrompt("");
 			setFilters(null);
 			setIsOpen(false);
 		},
 		{
 			enableOnFormTags: true,
-			enabled: Boolean(prompt),
+			enabled: Boolean(prompt) && !isOpen && !mobileCalendar,
 		},
 	);
 
@@ -169,14 +186,16 @@ export function SearchFilterTRPC({
 			([key, value]) => value !== null && !isSearchKey(key),
 		).length > 0;
 
-	const mobileCalendar = useIsMobile();
+	const previousMobile = useRef(mobileCalendar);
+	useEffect(() => { if (previousMobile.current !== mobileCalendar) setIsOpen(false); previousMobile.current = mobileCalendar; }, [mobileCalendar]);
 	const __filters = (filterList || [])?.filter((a) => !isSearchKey(a.value));
 
 	return (
-		<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-			<div className="flex items-center space-x-4">
+		<>
+		<DropdownMenu open={!mobileCalendar && isOpen} onOpenChange={setIsOpen}>
+			<div className="flex w-full flex-col items-stretch gap-2 md:w-auto md:flex-row md:items-center md:gap-4">
 				<form
-					className="relative"
+					className="relative w-full md:w-auto"
 					onSubmit={(e) => {
 						e.preventDefault();
 						handleSubmit();
@@ -186,7 +205,8 @@ export function SearchFilterTRPC({
 					<Input
 						ref={inputRef}
 						placeholder={placeholder}
-						className="w-full pl-9 pr-8 md:w-[350px]"
+						aria-label={placeholder || "Search"}
+						className="w-full pl-9 pr-12 md:w-[350px]"
 						value={prompt}
 						onChange={handleSearch}
 						autoComplete="off"
@@ -195,22 +215,26 @@ export function SearchFilterTRPC({
 						spellCheck="false"
 					/>
 					{!SearchTips || <SearchTip>{SearchTips}</SearchTip>}
-					<DropdownMenuTrigger
+					<FilterMenuTrigger mobile={mobileCalendar}
 						// className={cn(__filters.length || "hidden")}
-						asChild
 					>
 						<button
-							onClick={() => setIsOpen((prev) => !prev)}
+							ref={filterTriggerRef}
+              hidden={!__filters.length && !hasFilterSource && !loading && !error}
+							aria-label="Search filters"
+							aria-haspopup={mobileCalendar ? "dialog" : "menu"}
+							aria-expanded={isOpen}
+							onClick={() => { if (mobileCalendar) setIsOpen(true); }}
 							type="button"
 							className={cn(
-								"absolute right-3 top-[10px] z-10 opacity-50 transition-opacity duration-300 hover:opacity-100",
+								"absolute right-0 top-0 z-10 flex size-11 items-center justify-center opacity-50 transition-opacity hover:opacity-100",
 								hasValidFilters && "opacity-100",
 								isOpen && "opacity-100",
 							)}
 						>
 							<Icons.Filter className="size-4" />
 						</button>
-					</DropdownMenuTrigger>
+					</FilterMenuTrigger>
 				</form>
 				<FilterList
 					loading={streaming}
@@ -303,6 +327,12 @@ export function SearchFilterTRPC({
 				))}
 			</DropdownMenuContent>
 		</DropdownMenu>
+
+      {mobileCalendar && <MobileFilterSheet open={isOpen} onOpenChange={setIsOpen} triggerRef={filterTriggerRef} values={filters} groups={__filters.map((f) => ({ key: String(f.value), label: f.label || String(f.value).split(".").join(" "), options: f.options, multiple: isMultiple(f.value), type: f.type }))} onApply={setFilters} loading={loading} error={error} onRetry={onRetry}
+        summary={(group, value) => group.type === "date-range" ? formatDateFilterLabel(value) || "All dates" : filterGroupSummary(group, value)}
+        renderGroup={(group, value, update) => group.type === "date-range" ? <DateRangeFilter mobile value={value} onChange={(next) => update({ [group.key]: next })} /> : undefined}
+      />}
+		</>
 	);
 }
 interface CalendarFilterProps {
@@ -348,9 +378,7 @@ function CalendarFilter({ filter }: CalendarFilterProps) {
 					{daysFilters.map((df) => (
 						<TableRow
 							onClick={(e) => {
-								setFilters({
-									[filter.value]: [df],
-								});
+								setFilters({ [filter.value]: [df] });
 							}}
 							key={df}
 						>
@@ -394,9 +422,7 @@ function CalendarFilter({ filter }: CalendarFilterProps) {
 							: "-",
 					];
 					console.log([value, filter]);
-					setFilters({
-						[filter.value]: value, //.join(","),
-					});
+					setFilters({ [filter.value]: value });
 				}}
 			/>
 		</div>

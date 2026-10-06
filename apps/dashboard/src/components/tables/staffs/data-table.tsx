@@ -232,7 +232,7 @@ export function DataTable({ search, status }: Props) {
 
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="hidden border-y bg-muted/20 md:grid md:grid-cols-2 xl:grid-cols-4">
+			<div data-summary-grid className="hidden border-y bg-muted/20 md:grid md:grid-cols-2 xl:grid-cols-4">
 				<StatCard
 					label="Total staff"
 					value={data.stats.total}
@@ -314,8 +314,9 @@ export function DataTable({ search, status }: Props) {
 						<MiddaySearchFilter
 							placeholder="Search by name or email"
 							filterSchema={staffPageQuery}
+              filterList={[{ value: "status" as import("@/types").PageFilterData["value"], type: "checkbox", label: "Status", options: STATUS_OPTIONS.filter((option) => option.value !== "all") }]}
 						/>
-						<div className="flex flex-wrap gap-2">
+						<div className="hidden flex-wrap gap-2 md:flex">
 							{STATUS_OPTIONS.map((option) => (
 								<Button
 									key={option.value}
@@ -677,13 +678,13 @@ function StatCard({
 	return (
 		<div className="flex items-start justify-between gap-4 border-border px-4 py-3 md:border-r last:border-r-0">
 			<div className="min-w-0 space-y-1">
-				<p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+				<p data-summary-label className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
 					{label}
 				</p>
-				<div className="text-2xl font-semibold tracking-tight">
+				<div data-summary-value className="text-2xl font-semibold tracking-tight">
 					{value}
 				</div>
-				<p className="text-xs text-muted-foreground">{helper}</p>
+				<p data-summary-label className="text-xs text-muted-foreground">{helper}</p>
 			</div>
 			<div className="mt-0.5 text-muted-foreground">
 				<Icon className="h-4 w-4" />

@@ -110,15 +110,15 @@ function Content() {
                 </div>
               </div>
 
-              <div className="hidden gap-3 md:grid md:grid-cols-3">
+              <div data-summary-grid className="hidden gap-3 md:grid md:grid-cols-3">
                 <div className="rounded-2xl border border-border bg-muted/30 p-4">
                   <div className="flex items-center gap-3">
                     <div className="rounded-xl bg-emerald-100 p-2 text-emerald-700">
                       <Layers3 className="size-5" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Assessments</p>
-                      <p className="text-2xl font-semibold">{assessmentCount}</p>
+                      <p data-summary-label className="text-sm text-muted-foreground">Assessments</p>
+                      <p data-summary-value className="text-2xl font-semibold">{assessmentCount}</p>
                     </div>
                   </div>
                 </div>
@@ -128,8 +128,8 @@ function Content() {
                       <BarChart3 className="size-5" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Submissions</p>
-                      <p className="text-2xl font-semibold">{totalSubmissions}</p>
+                      <p data-summary-label className="text-sm text-muted-foreground">Submissions</p>
+                      <p data-summary-value className="text-2xl font-semibold">{totalSubmissions}</p>
                     </div>
                   </div>
                 </div>
@@ -139,8 +139,8 @@ function Content() {
                       <GraduationCap className="size-5" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Weight</p>
-                      <p className="text-2xl font-semibold">{totalWeight}%</p>
+                      <p data-summary-label className="text-sm text-muted-foreground">Weight</p>
+                      <p data-summary-value className="text-2xl font-semibold">{totalWeight}%</p>
                     </div>
                   </div>
                 </div>

@@ -56,18 +56,18 @@ function Content({}) {
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 sm:space-y-6">
-      <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
+      <div data-summary-grid className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
         <Card className="rounded-xl border-border shadow-sm">
-          <CardContent className="p-5">
+          <CardContent data-summary-body className="p-5">
             <div className="mb-3 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <IdCard className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <p data-summary-label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Student ID
                 </p>
-                <p className="text-sm font-bold text-foreground font-mono">
+                <p data-summary-label className="text-sm font-bold text-foreground font-mono">
                   {student?.id ? student.id.slice(0, 8) : "--"}
                 </p>
               </div>
@@ -76,16 +76,16 @@ function Content({}) {
         </Card>
 
         <Card className="rounded-xl border-border shadow-sm">
-          <CardContent className="p-5">
+          <CardContent data-summary-body className="p-5">
             <div className="mb-3 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
                 <GraduationCap className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <p data-summary-label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Current Class
                 </p>
-                <p className="text-sm font-bold text-foreground">
+                <p data-summary-label className="text-sm font-bold text-foreground">
                   {fullClassName(currentTerm)}
                 </p>
               </div>
@@ -94,16 +94,16 @@ function Content({}) {
         </Card>
 
         <Card className="rounded-xl border-border shadow-sm">
-          <CardContent className="p-5">
+          <CardContent data-summary-body className="p-5">
             <div className="mb-3 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                 <CalendarDays className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <p data-summary-label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Current Term
                 </p>
-                <p className="text-sm font-bold text-foreground">
+                <p data-summary-label className="text-sm font-bold text-foreground">
                   {currentTerm?.term || "--"}
                 </p>
               </div>
@@ -112,16 +112,16 @@ function Content({}) {
         </Card>
 
         <Card className="rounded-xl border-border shadow-sm">
-          <CardContent className="p-5">
+          <CardContent data-summary-body className="p-5">
             <div className="mb-3 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                 <User className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <p data-summary-label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Gender
                 </p>
-                <p className="text-sm font-bold text-foreground">
+                <p data-summary-label className="text-sm font-bold text-foreground">
                   {student?.gender || "--"}
                 </p>
               </div>

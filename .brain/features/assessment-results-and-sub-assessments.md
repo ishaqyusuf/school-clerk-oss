@@ -108,6 +108,7 @@ Make classroom assessment recording, classroom result review, student result pri
 - Assessment recording and classroom result review rosters share the same default student ordering: `Male` students first, then `Female` students, then alphabetic display names within each gender group.
 - Assessment recording and classroom result review show gender as a compact `M` / `F` badge beside the student name instead of using a separate Gender column, keeping score and report review focused on marks.
 - Classroom result review uses a flat, compact header and combines serial number, student name, and gender badge in the sticky Student column.
+- Classroom result review grows with the document instead of using a capped vertical table viewport. Wide score columns retain horizontal scrolling, and selection checkboxes use the shared centered table-column layout. See [dashboard tables](dashboard-tables.md).
 - Classroom result review shows each student's term-scoped report print status as `Pending print` or the latest confirmed print date. The shared page filter can show all, printed, or pending students, and bulk selection applies to the visible filtered roster.
 - Browser Print and Print v2/PDF do not record history automatically. After the print action starts or the native print dialog closes, staff explicitly confirm whether the selected term forms should be appended to `ReportPrintLog`; declining records nothing.
 - Classroom result review uses the shared Midday-style search filter as its single control surface for student-name search, term selection, classroom selection, and subject multi-select; active filter tags flow in a wrapping horizontal row while report-specific print-selection state remains preserved.
@@ -179,3 +180,10 @@ synthetic students and one score were removed afterward. The classroom picker
 empty-state copy was corrected to prompt selection when classrooms exist.
 Teacher score saving and the browser print dialog were not exercised in this
 round; browser automation targeted adjacent cells in the RTL teacher table.
+
+## Shared mobile filters — 2026-10-06
+
+Existing list filters use the [shared mobile filter sheet](mobile-search-filters.md)
+below 768px, with draft/Apply/Reset and desktop controls retained. Coverage and
+verification limits are recorded in the linked task record. Domain query schemas,
+permissions and data writes are unchanged.

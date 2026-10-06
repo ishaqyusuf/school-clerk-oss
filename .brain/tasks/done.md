@@ -1,5 +1,25 @@
 # Done
 
+## Shared dashboard table scrolling and checkbox alignment — 2026-10-06
+
+Owner requested extending the Students fix to other table pages. Removed the
+classroom result vertical height cap, made page mode/natural grid height the
+shared defaults, and centered standalone native/legacy checkbox columns plus
+virtual selection cells and skeletons. Finance wrappers keep horizontal
+overflow without a vertical cap. Classroom sheet explicitly retains container
+mode. In-app desktop/mobile and synthetic finance component checks passed;
+existing broad typecheck failures remain. See ADR-0073,
+`features/dashboard-tables.md` and `artifacts/dashboard-tables-qa/README.md`.
+
+## Student directory page scrolling and checkbox alignment — 2026-10-06
+
+Owner-requested current-page fix completed. `/students/list` uses window-based
+virtualization and infinite loading with one vertical document scroll; classroom
+embeds retain container mode. Header and row selection checkboxes are centred.
+In-app desktop/mobile scroll, loading, resize, selection and search-recovery
+checks passed. Existing broad typecheck/lint failures remain documented.
+See ADR-0072 and `artifacts/student-scroll-qa/README.md`.
+
 ## Release assurance source integration (Ticket 12)
 
 - Date: 2026-09-26
@@ -831,3 +851,31 @@ Implementation4a8001e is released: unchanged live tenant/session/workspace entry
 Dashboard warm Chrome Load0.906/2.210/0.962s: median0.962s vs2.07s, observed53.5% reduction. Classes3.540/0.919/1.030s: median1.030s vs2.44s, observed57.8% reduction. Both owner-approved EwaTrade Chrome pauses lifted and inspector closed. Each accepted load had two profile200 responses; seven classroom rows, expected184/3/7 counts, no test-tab errors and zero records in the deployment-specific15-minute5xx query. These are three accepted loads per page from one authenticated tenant/browser, with normal cache and no throttling, not an SLA or exact useful-data readiness measurement. One focus-change1.06s sample was excluded; first-after-inactivity Dashboard5.20s was separate. No forced cold test, paid/provider/schema change or school/financial write.
 
 A separate /student-report request recorded SchoolProfile.findFirst73196.98ms and workspace.resolve73218.77ms application elapsed, HTTP200. This does not establish73s SQL execution or pool saturation. Read-only production snapshot: zero lock waiters, two idle clients, one SchoolProfile row, small tenant lookup execution0.030ms, local connection acquisition1452ms. Inherited statement/lock timeouts0. Diagnostic used a local5s statement timeout in READ ONLY and rolled back; application settings unchanged. Historical network/lifecycle/SQL cause is unresolved. This completion covers implementation/release/bounded warm verification; it does not claim every latency issue fixed. Brain impact: ADR-0069, architecture, authentication, API endpoints/contracts/permissions and task tracking. No database schema/relationship change.
+
+## Compact mobile dashboard summaries and student toolbar — 2026-10-06
+
+Implemented the approved two-column mobile summary contract across 39 existing
+groups, including custom summaries, previously hidden metrics and matching
+loading states. Full values wrap; theme tokens and desktop layouts are retained.
+Also fixed the student search/actions toolbar's unused mobile width. Source
+coverage audit and representative in-app browser mobile/desktop QA are complete;
+finance presentation used real-component fixtures because the local tenant's
+Finance module is disabled. Existing broad typecheck/lint failures are recorded
+in the QA report. No commit, deploy, schema or school-data change.
+See [feature](../features/dashboard-summaries.md),
+[ADR-0070](../decisions/ADR-0070-compact-mobile-dashboard-summaries.md), and
+`artifacts/mobile-summary-qa/README.md`.
+
+## Shared mobile filter sheets — 2026-10-06
+
+Implemented approved Expandable groups option 02 through one shared UI component
+and audited list-filter adapters across students, staff, academics, reports,
+finance, inventory, collections, migration and import review. Draft/Apply/Reset,
+search retention and desktop behavior are documented in
+[the task record](2026-10-06-shared-mobile-filter-sheets.md). Seventeen tests and
+focused lint pass; 320px/390px/desktop and representative live adapters verified.
+Broad TypeScript retains 97 existing dashboard diagnostics. Finance is disabled
+in the local tenant; source coverage and fixture limits are explicit. No commit,
+push, deployment, schema, permission or school-data change. Brain impact:
+mobile-search-filters.md, ADR-0071, task record, affected feature links, BRAIN.md
+and this completion entry.

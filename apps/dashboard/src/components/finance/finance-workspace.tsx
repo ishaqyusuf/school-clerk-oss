@@ -1,5 +1,7 @@
 "use client";
 
+import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
+
 import {
 	FinanceColumnVisibility,
 	FinanceWorkspaceTable,
@@ -60,15 +62,15 @@ function SummaryCard({
 }) {
 	return (
 		<Card className="rounded-none shadow-none">
-			<Card.Header className="flex flex-row items-start justify-between space-y-0 pb-2">
+			<Card.Header data-summary-header className="flex flex-row items-start justify-between space-y-0 pb-2">
 				<div>
-					<Card.Title className="text-sm font-medium">{label}</Card.Title>
-					<p className="mt-1 text-xs text-muted-foreground">{helper}</p>
+					<Card.Title data-summary-label className="text-sm font-medium">{label}</Card.Title>
+					<p data-summary-label className="mt-1 text-xs text-muted-foreground">{helper}</p>
 				</div>
 				<Icon className="h-4 w-4 text-muted-foreground" />
 			</Card.Header>
-			<Card.Content>
-				<p className="text-2xl font-semibold tracking-tight tabular-nums">
+			<Card.Content data-summary-body>
+				<p data-summary-value className="text-2xl font-semibold tracking-tight tabular-nums">
 					{money.format(value)}
 				</p>
 			</Card.Content>
@@ -92,7 +94,7 @@ export function FinanceWorkspace() {
 				event.preventDefault();
 				document.getElementById("finance-account-search")?.focus();
 			}
-			if (event.key === "Escape" && hasFilters) {
+			if (event.key === "Escape" && hasFilters && !document.querySelector('[role="dialog"]')) {
 				setFilter({ q: null, accountTypes: null, health: null });
 			}
 		};
@@ -156,7 +158,7 @@ export function FinanceWorkspace() {
 				</div>
 			</header>
 
-			<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+			<div data-summary-grid className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
 				<SummaryCard
 					label="Money In"
 					value={summary.moneyIn}
@@ -228,7 +230,44 @@ export function FinanceWorkspace() {
 								}
 							/>
 						</div>
-						<Select
+						<MobileFilterButton
+							values={filter}
+							groups={[
+								{
+									key: "period",
+									label: "Period",
+									resetValue: "term",
+									options: [
+										{ value: "term", label: "This term" },
+										{ value: "session", label: "This session" },
+										{ value: "all", label: "All time" },
+									],
+								},
+								{
+									key: "accountTypes",
+									label: "Account type",
+									multiple: true,
+									options: [
+										{ value: "CREDIT", label: "Incoming" },
+										{ value: "DEBIT", label: "Outgoing" },
+									],
+								},
+								{
+									key: "health",
+									label: "Health",
+									multiple: true,
+									options: [
+										{ value: "healthy", label: "Healthy" },
+										{ value: "needs_funding", label: "Needs funding" },
+										{ value: "deficit", label: "Deficit" },
+										{ value: "no_activity", label: "No activity" },
+									],
+								},
+							]}
+							onApply={(draft) => setFilter(draft)}
+						/>
+<div className="hidden gap-2 md:flex">
+<Select
 							value={filter.period}
 							onValueChange={(period) =>
 								setFilter({ period: period as "term" | "session" | "all" })
@@ -289,6 +328,7 @@ export function FinanceWorkspace() {
 								<SelectItem value="no_activity">No activity</SelectItem>
 							</SelectContent>
 						</Select>
+</div>
 						<FinanceColumnVisibility
 							visible={visibleColumns}
 							setVisible={setVisibleColumns}

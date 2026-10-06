@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "./summary-cards.css";
+@import "./dashboard-tables.css";
 @source "../../../**/*.{ts,tsx}";
 /* @tailwind components; */
 /* @tailwind utilities; */

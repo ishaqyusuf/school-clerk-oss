@@ -1,5 +1,7 @@
 "use client";
 
+import { SummaryNumber } from "@/components/summary-number";
+
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { CheckCircle2, Download, ShieldCheck, TriangleAlert } from "lucide-react";
@@ -45,10 +47,17 @@ function downloadCsv(filename: string, rows: ExportRow[]) {
 function MetricCard({ label, value }: { label: string; value: number }) {
 	return (
 		<div className="rounded-md border bg-background p-4">
-			<p className="text-muted-foreground text-sm">{label}</p>
-			<p className="mt-3 text-2xl font-semibold">
-				<NumberInput value={value} prefix="NGN " />
-			</p>
+			<p data-summary-label className="text-muted-foreground text-sm">{label}</p>
+			<div data-summary-value className="mt-3 text-2xl font-semibold">
+				<SummaryNumber
+					value={value}
+					currencyDisplay="code"
+					minimumFractionDigits={0}
+					maximumFractionDigits={2}
+				>
+					<NumberInput value={value} prefix="NGN " />
+				</SummaryNumber>
+			</div>
 		</div>
 	);
 }
@@ -95,7 +104,7 @@ export function FinanceReconciliationView() {
 				</Button>
 			</div>
 
-			<div className="hidden gap-3 md:grid md:grid-cols-3">
+			<div data-summary-grid className="hidden gap-3 md:grid md:grid-cols-3">
 				<MetricCard label="Credits" value={integrity.totals.totalCredit} />
 				<MetricCard label="Debits" value={integrity.totals.totalDebit} />
 				<MetricCard label="Balance" value={integrity.totals.totalBalance} />

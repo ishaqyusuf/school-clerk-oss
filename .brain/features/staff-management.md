@@ -49,3 +49,10 @@ Track staff directory, invite onboarding, role access, and teacher assignment be
 - `brain/api/contracts.md`
 - `brain/api/permissions.md`
 - `brain/database/schema.md`
+
+## Shared mobile filters — 2026-10-06
+
+Existing list filters use the [shared mobile filter sheet](mobile-search-filters.md)
+below 768px, with draft/Apply/Reset and desktop controls retained. Coverage and
+verification limits are recorded in the linked task record. Domain query schemas,
+permissions and data writes are unchanged.

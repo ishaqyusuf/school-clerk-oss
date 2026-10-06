@@ -1,5 +1,7 @@
 "use client";
 
+import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
+
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseAsString, useQueryStates } from "nuqs";
@@ -315,10 +317,10 @@ function StatCard({
     <Card className="p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p data-summary-label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {label}
           </p>
-          <p className="mt-2 text-2xl font-black tracking-tight">{value}</p>
+          <p data-summary-value className="mt-2 text-2xl font-black tracking-tight">{value}</p>
         </div>
         <div className={`rounded-full p-2 ${bg}`}>{icon}</div>
       </div>
@@ -821,7 +823,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
         </Card>
       ) : (
         <>
-          <div className="hidden gap-4 md:grid md:grid-cols-3 xl:grid-cols-5">
+          <div data-summary-grid className="hidden gap-4 md:grid md:grid-cols-3 xl:grid-cols-5">
             <StatCard
               label="Total Students"
               value={String(total)}
@@ -865,7 +867,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                   onChange={(event) => setSearch(event.target.value)}
                 />
               </div>
-              <Select
+              <MobileFilterButton values={{ status: statusFilter }} groups={[{ key: "status", label: "Status", resetValue: "all", options: ["all", "promoted", "repeated", "undecided"].map((value) => ({ value, label: value === "all" ? "All statuses" : value })) }]} onApply={(draft) => { setStatusFilter(draft.status as StatusFilter); }} /><div className="hidden md:block"><Select
                 value={statusFilter}
                 onValueChange={(value) => setStatusFilter(value as StatusFilter)}
               >
@@ -878,7 +880,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                   <SelectItem value="repeated">Repeated</SelectItem>
                   <SelectItem value="undecided">Undecided</SelectItem>
                 </SelectContent>
-              </Select>
+              </Select></div>
             </div>
 
             <div className="flex flex-wrap gap-2">

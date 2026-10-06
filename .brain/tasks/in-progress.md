@@ -1,5 +1,13 @@
 # In Progress
 
+## Student screen mockup review — 2026-10-06
+
+Saved for later by owner instruction on 2026-10-06. Three responsive alternatives
+remain available for owner review: Focused roster
+(agent recommendation), School register, and Operations desk. Implementation
+is deferred by owner instruction until after review. See
+[design review](../plans/2026-10-06-student-screen-design-review.md).
+
 ### [CORE-002 Tenant Module Controls](2026-09-07-core-002-tenant-module-controls.md)
 - Status: In Progress
 

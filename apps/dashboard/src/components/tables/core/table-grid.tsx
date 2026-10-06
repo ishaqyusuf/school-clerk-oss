@@ -20,14 +20,15 @@ export function TableGrid<TData>({
 	renderItem,
 	className,
 	contentClassName,
-	height = "calc(100vh - 240px + var(--header-offset, 0px))",
+	height,
 	isFetchingNextPage = false,
 }: TableGridProps<TData>) {
 	return (
 		<div
 			ref={scrollRef}
 			className={cn(
-				"overflow-auto overscroll-contain border-b border-l border-r border-border scrollbar-hide",
+				"border-b border-l border-r border-border scrollbar-hide",
+				height ? "overflow-auto overscroll-contain" : "overflow-x-auto",
 				className,
 			)}
 			style={{ height }}

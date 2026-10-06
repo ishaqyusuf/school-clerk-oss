@@ -587,25 +587,25 @@ export function EnrollmentManagementClient({
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div data-summary-grid className="grid gap-4 md:grid-cols-3">
         <Card className="rounded-lg">
-          <CardHeader className="pb-2">
-            <CardDescription>Active links</CardDescription>
-            <CardTitle>{links.filter((link: any) => link.status === "ACTIVE").length}</CardTitle>
+          <CardHeader data-summary-header className="pb-2">
+            <CardDescription data-summary-label>Active links</CardDescription>
+            <CardTitle data-summary-value>{links.filter((link: any) => link.status === "ACTIVE").length}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="rounded-lg">
-          <CardHeader className="pb-2">
-            <CardDescription>Pending applications</CardDescription>
-            <CardTitle>
+          <CardHeader data-summary-header className="pb-2">
+            <CardDescription data-summary-label>Pending applications</CardDescription>
+            <CardTitle data-summary-value>
               {applications.filter((row: any) => row.status === "SUBMITTED").length}
             </CardTitle>
           </CardHeader>
         </Card>
         <Card className="rounded-lg">
-          <CardHeader className="pb-2">
-            <CardDescription>Approved</CardDescription>
-            <CardTitle>
+          <CardHeader data-summary-header className="pb-2">
+            <CardDescription data-summary-label>Approved</CardDescription>
+            <CardTitle data-summary-value>
               {applications.filter((row: any) => row.status === "APPROVED").length}
             </CardTitle>
           </CardHeader>

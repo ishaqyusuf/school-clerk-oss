@@ -313,30 +313,30 @@ export function WebsiteCmsClient({
         value={JSON.stringify(resources)}
       />
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div data-summary-grid className="grid gap-3 md:grid-cols-4">
         <div className="rounded-lg border bg-muted/30 p-4">
-          <p className="text-sm font-medium">
+          <p data-summary-label className="text-sm font-medium">
             {counts.announcements} announcements
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p data-summary-label className="text-xs text-muted-foreground">
             Header strip and homepage announcement blocks.
           </p>
         </div>
         <div className="rounded-lg border bg-muted/30 p-4">
-          <p className="text-sm font-medium">{counts.blogPosts} blog posts</p>
-          <p className="text-xs text-muted-foreground">
+          <p data-summary-label className="text-sm font-medium">{counts.blogPosts} blog posts</p>
+          <p data-summary-label className="text-xs text-muted-foreground">
             Homepage blog block, blog page, and blog details.
           </p>
         </div>
         <div className="rounded-lg border bg-muted/30 p-4">
-          <p className="text-sm font-medium">{counts.events} events</p>
-          <p className="text-xs text-muted-foreground">
+          <p data-summary-label className="text-sm font-medium">{counts.events} events</p>
+          <p data-summary-label className="text-xs text-muted-foreground">
             Events page and event details.
           </p>
         </div>
         <div className="rounded-lg border bg-muted/30 p-4">
-          <p className="text-sm font-medium">{counts.resources} resources</p>
-          <p className="text-xs text-muted-foreground">
+          <p data-summary-label className="text-sm font-medium">{counts.resources} resources</p>
+          <p data-summary-label className="text-xs text-muted-foreground">
             Resources page and resource details.
           </p>
         </div>

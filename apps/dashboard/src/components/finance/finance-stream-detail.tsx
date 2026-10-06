@@ -25,10 +25,10 @@ function StreamStat({
 	return (
 		<div className="rounded-md border bg-background p-4">
 			<div className="flex items-center justify-between gap-3">
-				<p className="text-sm text-muted-foreground">{label}</p>
+				<p data-summary-label className="text-sm text-muted-foreground">{label}</p>
 				<Icon className="h-4 w-4 text-muted-foreground" />
 			</div>
-			<p className="mt-3 text-2xl font-semibold">
+			<p data-summary-value className="mt-3 text-2xl font-semibold">
 				<MoneyValue value={value} />
 			</p>
 		</div>
@@ -69,7 +69,7 @@ export function FinanceStreamDetail({ streamId }: FinanceStreamDetailProps) {
 				</p>
 			</div>
 
-			<div className="hidden gap-3 md:grid md:grid-cols-3">
+			<div data-summary-grid className="hidden gap-3 md:grid md:grid-cols-3">
 				<StreamStat label="Credit" value={data.totalIn} icon={ArrowUpRight} />
 				<StreamStat label="Debit" value={data.totalOut} icon={ArrowDownRight} />
 				<StreamStat label="Balance" value={data.balance} icon={Wallet} />

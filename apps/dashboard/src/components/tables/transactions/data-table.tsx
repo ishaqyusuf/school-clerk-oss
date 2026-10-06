@@ -1,5 +1,7 @@
 "use client";
 
+import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
+
 import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 import { useTRPC } from "@/trpc/client";
 import { Badge } from "@school-clerk/ui/badge";
@@ -136,7 +138,7 @@ export function DataTable() {
             </div>
           </div>
 
-          <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
+          <div data-summary-grid className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Total transactions"
               value={String(stats.total)}
@@ -188,7 +190,27 @@ export function DataTable() {
           </div>
 
           <div>
-            <select
+            <MobileFilterButton
+              values={{ type: typeFilter }}
+              groups={[
+                {
+                  key: "type",
+                  label: "Transaction type",
+                  resetValue: "all",
+                  options: [
+                    { value: "all", label: "All types" },
+                    { value: "credit", label: "Credit" },
+                    { value: "debit", label: "Debit" },
+                    { value: "transfer-out", label: "Transfer out" },
+                  ],
+                },
+              ]}
+              onApply={(draft) => {
+                setTypeFilter(String(draft.type));
+              }}
+            />
+<div className="hidden md:block">
+<select
               className="h-10 w-full cursor-pointer rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               value={typeFilter}
               onChange={(e) => {
@@ -199,11 +221,11 @@ export function DataTable() {
               <option value="credit">Credit</option>
               <option value="debit">Debit</option>
               <option value="transfer-out">Transfer out</option>
-            </select>
+            </select></div>
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 hidden flex-wrap gap-2 md:flex">
           {[
             { label: "All transactions", value: "all" },
             { label: "Credits", value: "credit" },
@@ -292,16 +314,16 @@ function StatCard({
 }) {
   return (
     <Card className="rounded-2xl border-border shadow-sm">
-      <CardContent className="p-5">
+      <CardContent data-summary-body className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <p data-summary-label className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               {label}
             </p>
-						<p className="mt-2 text-2xl font-semibold text-foreground">
+						<p data-summary-value className="mt-2 text-2xl font-semibold text-foreground">
 							{value}
 						</p>
-            <p className="mt-2 text-sm text-muted-foreground">{helper}</p>
+            <p data-summary-label className="mt-2 text-sm text-muted-foreground">{helper}</p>
           </div>
           <div
             className={cn(

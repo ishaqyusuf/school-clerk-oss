@@ -116,7 +116,7 @@ export function DataTable({
 					<NoResults onClear={() => setColumnFilters([])} />
 				</div>
 			) : (
-				<div className="overflow-auto overscroll-x-none">
+				<div className="overflow-x-auto overscroll-x-none">
 					<Table className="min-w-[920px]">
 						<TableHeader className="block border-0 bg-background">
 							{table.getHeaderGroups().map((headerGroup) => (

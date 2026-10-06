@@ -1,5 +1,7 @@
 "use client";
 
+import { SummaryNumber } from "@/components/summary-number";
+
 import { useMemo } from "react";
 import { useState, Suspense } from "react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
@@ -109,53 +111,53 @@ function Content() {
       </div>
 
       {/* Stats */}
-      <div className="hidden md:grid md:grid-cols-4 gap-4">
+      <div data-summary-grid className="hidden md:grid md:grid-cols-4 gap-4">
         <Card className="p-6 flex flex-col gap-2">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-sm font-medium text-muted-foreground">Total Paid (This Term)</p>
+            <p data-summary-label className="text-sm font-medium text-muted-foreground">Total Paid (This Term)</p>
             <CheckCircle2 className="text-green-600 h-5 w-5" />
           </div>
-          <p className="text-2xl font-bold">
-            <AnimatedNumber value={totalPaid} currency="NGN" />
+          <p data-summary-value className="text-2xl font-bold">
+            <SummaryNumber value={totalPaid} currency="NGN" />
           </p>
-          <p className="text-green-600 text-xs font-semibold flex items-center gap-1">
+          <p data-summary-label className="text-green-600 text-xs font-semibold flex items-center gap-1">
             <TrendingUp className="h-3.5 w-3.5" /> {paid.length} payments processed
           </p>
         </Card>
 
         <Card className="p-6 flex flex-col gap-2">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-sm font-medium text-muted-foreground">Unpaid Expenses</p>
+            <p data-summary-label className="text-sm font-medium text-muted-foreground">Unpaid Expenses</p>
             <AlertTriangle className="text-amber-500 h-5 w-5" />
           </div>
-          <p className="text-2xl font-bold">
-            <AnimatedNumber value={totalPending} currency="NGN" />
+          <p data-summary-value className="text-2xl font-bold">
+            <SummaryNumber value={totalPending} currency="NGN" />
           </p>
-          <p className="text-amber-600 text-xs font-semibold flex items-center gap-1">
+          <p data-summary-label className="text-amber-600 text-xs font-semibold flex items-center gap-1">
             <AlertTriangle className="h-3.5 w-3.5" /> {pending.length} pending
           </p>
         </Card>
 
         <Card className="p-6 flex flex-col gap-2">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-sm font-medium text-muted-foreground">Service Payments</p>
+            <p data-summary-label className="text-sm font-medium text-muted-foreground">Service Payments</p>
             <Clock className="text-muted-foreground h-5 w-5" />
           </div>
-          <p className="text-2xl font-bold">{bills.length} Total</p>
-          <p className="text-muted-foreground text-xs font-semibold">
+          <p data-summary-value className="text-2xl font-bold">{bills.length} Total</p>
+          <p data-summary-label className="text-muted-foreground text-xs font-semibold">
             {cancelled.length} cancelled
           </p>
         </Card>
 
         <Card className="p-6 flex flex-col gap-2">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-sm font-medium text-muted-foreground">Outstanding Owing</p>
+            <p data-summary-label className="text-sm font-medium text-muted-foreground">Outstanding Owing</p>
             <Wallet className="text-amber-600 h-5 w-5" />
           </div>
-          <p className="text-2xl font-bold">
-            <AnimatedNumber value={totalOwing} currency="NGN" />
+          <p data-summary-value className="text-2xl font-bold">
+            <SummaryNumber value={totalOwing} currency="NGN" />
           </p>
-          <p className="text-amber-600 text-xs font-semibold">{owing.length} expenses owing</p>
+          <p data-summary-label className="text-amber-600 text-xs font-semibold">{owing.length} expenses owing</p>
         </Card>
       </div>
 

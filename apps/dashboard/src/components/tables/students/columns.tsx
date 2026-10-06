@@ -59,7 +59,7 @@ export const columns: ColumnDef<Item>[] = [
 			headerLabel: "Select",
 			skeleton: { type: "checkbox" },
 			className:
-				"w-[50px] min-w-[50px] bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-secondary z-30 justify-center",
+				"w-[50px] min-w-[50px] px-0 bg-background group-hover:bg-[#F2F1EF] group-hover:dark:bg-secondary z-30 justify-center",
 		},
 		header: ({ table }) => (
 			<Checkbox
@@ -77,12 +77,14 @@ export const columns: ColumnDef<Item>[] = [
 			/>
 		),
 		cell: ({ row }) => (
-			<Checkbox
-				aria-label={`Select ${row.original.studentName}`}
-				checked={row.getIsSelected()}
-				onCheckedChange={(value) => row.toggleSelected(value === true)}
-				onClick={(event) => event.stopPropagation()}
-			/>
+			<div className="flex w-full items-center justify-center">
+				<Checkbox
+					aria-label={`Select ${row.original.studentName}`}
+					checked={row.getIsSelected()}
+					onCheckedChange={(value) => row.toggleSelected(value === true)}
+					onClick={(event) => event.stopPropagation()}
+				/>
+			</div>
 		),
 	},
 	{

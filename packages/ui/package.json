@@ -25,6 +25,8 @@
 		"./nav/*": "./src/components/nav/*.tsx",
 		"./nav/utils": "./src/components/nav/utils.ts",
 		"./search-filter/*": "./src/components/custom/search-filter/*.tsx",
+		"./search-filter/date-filter-model": "./src/components/custom/search-filter/date-filter-model.ts",
+		"./search-filter/mobile-filter-model": "./src/components/custom/search-filter/mobile-filter-model.ts",
 		"./search-filter": "./src/components/custom/search-filter/index.tsx",
 		"./hooks/*": "./src/hooks/*.ts",
 		"./controls/*": "./src/components/controls/*.tsx",

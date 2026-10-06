@@ -143,3 +143,40 @@ The shared student form opts its date-of-birth control into a shadcn Drawer on m
 ## Shared compact calendars — 2026-10-05
 
 Calendar presentation now comes from shared CalendarPopover: shadcn bottom sheet on mobile and popover on desktop. FormDate defaults to this behavior everywhere; attendance, date ranges and date filters reuse it. Shared native date Inputs also open the mobile sheet while retaining form events/constraints. Mobile layout uses more width, larger day buttons and tighter header/week/footer spacing. Date ranges show one month on mobile. See ADR-0066 for boundaries and verification.
+
+## Compact summaries and mobile toolbar — 2026-10-06
+
+The directory's four totals and three duplicate-check metrics follow the shared
+[responsive summary contract](dashboard-summaries.md). The existing Affected
+metric is now visible on mobile, spanning both columns as the third card.
+Below 768px, search fills the available width, active filter chips wrap beneath
+it, and Approvals plus the three icon actions fill the following row with 44px
+controls. Desktop search width and action alignment are retained. The shared
+search filter accepts an optional layout class, has an accessible filter-button
+name and caps its popup to the viewport. Search/filter/query behavior and
+permissions remain unchanged. In-app browser checks exercised search and
+filters at 320/390px in both themes and verified the existing 1280px layout.
+
+## One page scroll and centred selection — 2026-10-06
+
+The directory opts into page scrolling: vertical gestures over the roster move
+the document and load additional cursor pages near the visible row range's end.
+Rows remain virtualized using the window viewport and measured table-body
+offset. The table grows in height and retains horizontal scrolling for wide
+columns. Page scrolling is now the default; the classroom overview sheet
+explicitly requests container scrolling. See the shared
+[dashboard table contract](dashboard-tables.md) and ADR-0073.
+Selection checkboxes are centred consistently in their 50px header/row column.
+
+In-app browser checks passed at 320px, 390px and 1280px: zero nested vertical
+scrollers, successive cursor loads, non-empty virtual rows after scrolling and
+resizing, single/all selection, indeterminate state, deselection, no-result search
+and recovery. See ADR-0072 and `artifacts/student-scroll-qa/README.md` for the
+scoped Midday adaptation and validation limits. No API or permission changes.
+
+## Shared mobile filters — 2026-10-06
+
+Existing list filters use the [shared mobile filter sheet](mobile-search-filters.md)
+below 768px, with draft/Apply/Reset and desktop controls retained. Coverage and
+verification limits are recorded in the linked task record. Domain query schemas,
+permissions and data writes are unchanged.

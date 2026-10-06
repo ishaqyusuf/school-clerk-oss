@@ -1,4 +1,5 @@
 import { Arabic } from "@/components/arabic";
+import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
 import { useTRPC } from "@/trpc/client";
 import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 import { StudentImportReviewFooter } from "./review-footer";
@@ -2104,7 +2105,22 @@ function ClassroomBreakdownStrip({
           {breakdown.length} classroom{breakdown.length === 1 ? "" : "s"}
         </span>
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      {canFilter && <MobileFilterButton
+        values={{ classroom: activeFilterId }}
+        groups={[
+          {
+            key: "classroom",
+            label: "Classroom",
+            resetValue: "all",
+            options: [
+              { value: "all", label: "All classrooms" },
+              ...breakdown.map((item) => ({ value: item.id, label: item.label })),
+            ],
+          },
+        ]}
+        onApply={(draft) => onFilterChange?.(String(draft.classroom))}
+      />}
+      <div className={cn("flex flex-wrap gap-1.5", canFilter && "hidden md:flex")}>
         {canFilter
           ? renderFilterBadge({ id: "all", label: "All", ...totals })
           : null}

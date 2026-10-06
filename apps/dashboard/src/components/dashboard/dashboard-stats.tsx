@@ -53,17 +53,17 @@ export async function DashboardStats({
 	return (
 		<>
 			{/* Stat cards */}
-			<div className="grid gap-4 sm:grid-cols-3">
+			<div data-summary-grid className="grid gap-4 sm:grid-cols-3">
 				{statCards.map((s) => (
 					<Card key={s.key}>
-						<CardHeader className="flex flex-row items-center justify-between pb-2">
-							<CardTitle className="text-sm font-medium text-muted-foreground">
+						<CardHeader data-summary-header className="flex flex-row items-center justify-between pb-2">
+							<CardTitle data-summary-label className="text-sm font-medium text-muted-foreground">
 								{s.title}
 							</CardTitle>
 							<s.icon className="h-4 w-4 text-muted-foreground" />
 						</CardHeader>
-						<CardContent>
-							<p className="text-3xl font-bold">{stats[s.key]}</p>
+						<CardContent data-summary-body>
+							<p data-summary-value className="text-3xl font-bold">{stats[s.key]}</p>
 							<Link
 								href={s.href}
 								className="mt-1 text-xs text-primary hover:underline"
@@ -140,18 +140,18 @@ export async function DashboardStats({
 
 export function DashboardStatsSkeleton() {
 	return (
-		<div
+		<div data-summary-grid
 			className="grid gap-4 sm:grid-cols-3"
 			aria-label="Loading dashboard totals"
 		>
 			{statCards.map((stat) => (
 				<Card key={stat.key}>
-					<CardHeader>
-						<CardTitle className="text-sm font-medium text-muted-foreground">
+					<CardHeader data-summary-header>
+						<CardTitle data-summary-label className="text-sm font-medium text-muted-foreground">
 							{stat.title}
 						</CardTitle>
 					</CardHeader>
-					<CardContent>
+					<CardContent data-summary-body>
 						<Skeleton className="h-9 w-20" />
 						<Skeleton className="mt-2 h-4 w-16" />
 					</CardContent>

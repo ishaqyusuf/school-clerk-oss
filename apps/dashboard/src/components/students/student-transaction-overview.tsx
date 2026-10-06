@@ -1,5 +1,7 @@
 "use client";
 
+import { SummaryNumber } from "@/components/summary-number";
+
 import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
 import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
 import { useTRPC } from "@/trpc/client";
@@ -398,22 +400,22 @@ function Content() {
 			</Collapsible>
 
 			{/* Summary Cards */}
-			<div className="hidden md:grid md:grid-cols-3 gap-4">
+			<div data-summary-grid className="hidden md:grid md:grid-cols-3 gap-4">
 				{/* Total Invoiced */}
 				<Card className="bg-card rounded-xl shadow-sm">
-					<CardContent className="p-5">
+					<CardContent data-summary-body className="p-5">
 						<div className="flex items-center gap-3 mb-2">
 							<div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
 								<Receipt className="w-4 h-4" />
 							</div>
-							<p className="text-muted-foreground text-sm font-medium">
+							<p data-summary-label className="text-muted-foreground text-sm font-medium">
 								Total Invoiced
 							</p>
 						</div>
-						<p className="text-foreground text-2xl font-bold">
-							<AnimatedNumber value={summary.totalDue} currency="NGN" />
+						<p data-summary-value className="text-foreground text-2xl font-bold">
+							<SummaryNumber value={summary.totalDue} currency="NGN" />
 						</p>
-						<p className="text-xs text-muted-foreground mt-1">
+						<p data-summary-label className="text-xs text-muted-foreground mt-1">
 							All fees and charges in this term
 						</p>
 					</CardContent>
@@ -421,17 +423,17 @@ function Content() {
 
 				{/* Total Paid */}
 				<Card className="bg-card rounded-xl shadow-sm">
-					<CardContent className="p-5">
+					<CardContent data-summary-body className="p-5">
 						<div className="flex items-center gap-3 mb-2">
 							<div className="h-8 w-8 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-600 dark:text-green-400">
 								<Wallet className="w-4 h-4" />
 							</div>
-							<p className="text-muted-foreground text-sm font-medium">
+							<p data-summary-label className="text-muted-foreground text-sm font-medium">
 								Total Paid
 							</p>
 						</div>
-						<p className="text-foreground text-2xl font-bold">
-							<AnimatedNumber value={receivedTotal} currency="NGN" />
+						<p data-summary-value className="text-foreground text-2xl font-bold">
+							<SummaryNumber value={receivedTotal} currency="NGN" />
 						</p>
 						<div className="w-full bg-muted h-1.5 rounded-full mt-2 overflow-hidden">
 							<div
@@ -439,7 +441,7 @@ function Content() {
 								style={{ width: `${paidPercentage}%` }}
 							/>
 						</div>
-						<p className="text-xs text-muted-foreground mt-1">
+						<p data-summary-label className="text-xs text-muted-foreground mt-1">
 							{successfulPayments.length} recorded payment
 							{successfulPayments.length === 1 ? "" : "s"}
 						</p>
@@ -449,19 +451,19 @@ function Content() {
 				{/* Outstanding */}
 				<Card className="bg-card rounded-xl shadow-sm border-red-100 dark:border-red-900/30 relative overflow-hidden">
 					<div className="absolute right-0 top-0 h-full w-1 bg-red-500" />
-					<CardContent className="p-5">
+					<CardContent data-summary-body className="p-5">
 						<div className="flex items-center gap-3 mb-2">
 							<div className="h-8 w-8 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-600 dark:text-red-400">
 								<AlertTriangle className="w-4 h-4" />
 							</div>
-							<p className="text-muted-foreground text-sm font-medium">
+							<p data-summary-label className="text-muted-foreground text-sm font-medium">
 								Outstanding
 							</p>
 						</div>
-						<p className="text-red-600 dark:text-red-400 text-2xl font-bold">
-							<AnimatedNumber value={summary.totalPending} currency="NGN" />
+						<p data-summary-value className="text-red-600 dark:text-red-400 text-2xl font-bold">
+							<SummaryNumber value={summary.totalPending} currency="NGN" />
 						</p>
-						<p className="text-xs text-red-500 mt-1 font-medium">Balance due</p>
+						<p data-summary-label className="text-xs text-red-500 mt-1 font-medium">Balance due</p>
 					</CardContent>
 				</Card>
 			</div>

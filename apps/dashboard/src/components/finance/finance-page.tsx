@@ -32,7 +32,7 @@ export async function FinancePage({ searchParams = {} }: FinancePageProps) {
 			<div className="flex flex-col gap-6">
 				<PageTitle>Finance</PageTitle>
 				<ErrorBoundary errorComponent={ErrorFallback}>
-					<Suspense fallback={<FinanceOverviewSkeleton />}>
+					<Suspense fallback={<FinanceOverviewSkeleton summaryCount={4} />}>
 						<FinanceWorkspace />
 					</Suspense>
 				</ErrorBoundary>

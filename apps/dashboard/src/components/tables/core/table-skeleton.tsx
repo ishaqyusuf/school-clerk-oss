@@ -120,7 +120,7 @@ export function TableSkeleton<TData>({
         <div className={cn("w-full", className)} dir={direction}>
             <div
                 className={cn(
-                    "overflow-auto overscroll-x-none scrollbar-hide",
+                    "overflow-x-auto overscroll-x-none scrollbar-hide",
                     !isEmpty &&
                         "md:border-l md:border-r md:border-b md:border-border",
                 )}
@@ -179,7 +179,11 @@ export function TableSkeleton<TData>({
                                 return (
                                     <TableHead
                                         key={columnId}
-                                        className={headerClassName}
+                                        className={cn(
+                                            headerClassName,
+                                            columnId === "select" &&
+                                                "justify-center px-0",
+                                        )}
                                         style={{
                                             ...HEADER_CELL_BACKGROUND_STYLE,
                                             width,
@@ -248,6 +252,7 @@ export function TableSkeleton<TData>({
                                         ),
                                         isActions &&
                                             "md:sticky bg-background z-10 justify-center",
+                                        columnId === "select" && "justify-center px-0",
                                     );
 
                                     return (

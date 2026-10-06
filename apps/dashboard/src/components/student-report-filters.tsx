@@ -1,3 +1,6 @@
+"use client";
+
+import { MobileFilterButton, FilterChoices, type FilterValues, type MobileFilterGroup } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
 import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
 import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 import { useReportPageContext } from "@/hooks/use-report-page";
@@ -96,6 +99,56 @@ export function StudentReportFilter({
   const controls = (
     <>
       {removal.error ? <p role="alert" className="break-words text-sm text-destructive">{removal.error.message}</p> : null}
+      <MobileFilterButton
+        values={filters}
+        groups={[
+          {
+            key: "termId",
+            label: "Term",
+            options: (terms ?? []).map((term) => ({
+              value: term.id,
+              label: term.label,
+            })),
+          },
+          {
+            key: "departmentId",
+            label: "Classroom",
+            options: (allowedClassroomIds
+              ? ctx?.classRooms?.filter((room) =>
+                  allowedClassroomIds.includes(room.id),
+                )
+              : ctx?.classRooms
+            )?.map((room) => ({
+              value: room.id,
+              label: room.displayName ?? room.departmentName ?? "Classroom",
+            })),
+          },
+        ]}
+        onSelectOption={(draft, group, option) =>
+          group.key === "termId"
+            ? { termId: option.value || null, departmentId: null }
+            : null
+        }
+        renderGroup={(group, value, update, draft) =>
+          group.key === "departmentId" ? (
+            <DraftReportClassrooms
+              group={group}
+              value={value}
+              termId={draft.termId as string | null}
+              allowedIds={allowedClassroomIds}
+              onChange={update}
+            />
+          ) : undefined
+        }
+        onApply={(draft) =>
+          setFilters({
+            ...draft,
+            ...(draft.termId !== filters.termId
+              ? { printOrder: [], activeDepts: [] }
+              : {}),
+          })
+        }
+      />
       <Field.Group
         className={
           controlsOnly
@@ -103,7 +156,7 @@ export function StudentReportFilter({
             : undefined
         }
       >
-        <Field className="min-w-0">
+        <Field className="hidden min-w-0 md:block">
           <Field.Label>Term</Field.Label>
           <Select
             value={filters.termId}
@@ -129,7 +182,7 @@ export function StudentReportFilter({
             </Select.Content>
           </Select>
         </Field>
-        <Field className="min-w-0">
+        <Field className="hidden min-w-0 md:block">
           <Field.Label>Classroom</Field.Label>
           <Select
             dir="ltr"
@@ -249,4 +302,13 @@ export function StudentReportFilter({
       </Item.Group>
     </div>
   );
+}
+
+function DraftReportClassrooms({ group, value, termId, allowedIds, onChange }: { group: MobileFilterGroup; value: unknown; termId: string | null; allowedIds?: string[]; onChange: (patch: FilterValues) => void }) {
+  const trpc = useTRPC();
+  const { data, isLoading, isError, refetch } = useQuery(trpc.classrooms.all.queryOptions({ sessionTermId: termId }, { enabled: Boolean(termId) }));
+  const rooms = allowedIds ? data?.data?.filter((room) => allowedIds.includes(room.id)) : data?.data;
+  if (!termId) return <p className="text-sm text-muted-foreground">Choose a term to see classrooms.</p>;
+  if (isError) return <div role="alert"><p>Could not load classrooms.</p><Button type="button" variant="outline" onClick={() => { void refetch(); }}>Retry</Button></div>;
+  return <FilterChoices group={{ ...group, loading: isLoading, options: rooms?.map((room) => ({ value: room.id, label: room.displayName ?? room.departmentName ?? "Classroom" })) }} value={value} onSelect={(option) => onChange({ departmentId: option.value || null })} />;
 }

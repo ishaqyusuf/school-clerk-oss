@@ -1,5 +1,7 @@
 "use client";
 
+import { SummaryNumber } from "@/components/summary-number";
+
 import { useTRPC } from "@/trpc/client";
 import { Badge } from "@school-clerk/ui/badge";
 import {
@@ -58,64 +60,64 @@ export function CollectionsDashboard() {
   return (
     <div className="flex flex-col gap-6">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <div data-summary-grid className="grid grid-cols-2 gap-4 md:grid-cols-5">
         <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground font-normal">
+          <CardHeader data-summary-header className="pb-1">
+            <CardTitle data-summary-label className="text-xs text-muted-foreground font-normal">
               Total Billed
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="font-mono text-lg font-semibold">
-              <AnimatedNumber value={totalBilled} />
+          <CardContent data-summary-body>
+            <div data-summary-value className="font-mono text-lg font-semibold">
+              <SummaryNumber value={totalBilled} />
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground font-normal">
+          <CardHeader data-summary-header className="pb-1">
+            <CardTitle data-summary-label className="text-xs text-muted-foreground font-normal">
               Total Collected
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="font-mono text-lg font-semibold text-green-600">
-              <AnimatedNumber value={totalPaid} />
+          <CardContent data-summary-body>
+            <div data-summary-value className="font-mono text-lg font-semibold text-green-600">
+              <SummaryNumber value={totalPaid} />
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground font-normal">
+          <CardHeader data-summary-header className="pb-1">
+            <CardTitle data-summary-label className="text-xs text-muted-foreground font-normal">
               Outstanding
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="font-mono text-lg font-semibold text-orange-600">
-              <AnimatedNumber value={totalPending} />
+          <CardContent data-summary-body>
+            <div data-summary-value className="font-mono text-lg font-semibold text-orange-600">
+              <SummaryNumber value={totalPending} />
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground font-normal">
+          <CardHeader data-summary-header className="pb-1">
+            <CardTitle data-summary-label className="text-xs text-muted-foreground font-normal">
               Collection Rate
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent data-summary-body>
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              <span className="text-lg font-semibold">{overallRate}%</span>
+              <span data-summary-value className="text-lg font-semibold">{overallRate}%</span>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground font-normal">
+          <CardHeader data-summary-header className="pb-1">
+            <CardTitle data-summary-label className="text-xs text-muted-foreground font-normal">
               Overdue Rows
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="font-mono text-lg font-semibold text-red-600">
+          <CardContent data-summary-body>
+            <div data-summary-value className="font-mono text-lg font-semibold text-red-600">
               {totalOverdue}
             </div>
             <div className="text-xs text-muted-foreground">Rows past due date</div>

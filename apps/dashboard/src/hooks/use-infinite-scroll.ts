@@ -4,10 +4,10 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { type RefObject, useEffect } from "react";
 
 interface UseInfiniteScrollProps<
-	TScrollElement extends HTMLElement = HTMLElement,
+	TScrollElement extends HTMLElement | Window = HTMLElement,
 > {
 	scrollRef: RefObject<TScrollElement | null>;
-	rowVirtualizer: Virtualizer<TScrollElement, Element>;
+	rowVirtualizer: Pick<Virtualizer<TScrollElement, Element>, "getVirtualItems">;
 	rowCount: number;
 	hasNextPage: boolean;
 	isFetchingNextPage: boolean;
@@ -16,7 +16,7 @@ interface UseInfiniteScrollProps<
 }
 
 export function useInfiniteScroll<
-	TScrollElement extends HTMLElement = HTMLElement,
+	TScrollElement extends HTMLElement | Window = HTMLElement,
 >({
 	scrollRef,
 	rowVirtualizer,

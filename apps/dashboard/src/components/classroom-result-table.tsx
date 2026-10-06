@@ -884,7 +884,7 @@ export function ClassroomResultTable({
 							terms={terms}
 						/>
 					</div>
-					<div className="overflow-auto max-h-[calc(100vh-250px)]">
+					<div className="overflow-x-auto">
 						<Table dir={isRtl ? "rtl" : "ltr"}>
 							<TableHeader className="sticky top-0 z-20">
 								<TableRow>

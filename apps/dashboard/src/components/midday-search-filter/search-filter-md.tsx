@@ -1,5 +1,7 @@
 "use client";
 
+import { MobileFilterSheet, FilterMenuTrigger, type FilterValues } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
+import { filterGroupSummary } from "@school-clerk/ui/search-filter/mobile-filter-model";
 import { CalendarPopover } from "@school-clerk/ui/calendar-popover";
 import { useIsMobile } from "@school-clerk/ui/hooks/use-mobile";
 
@@ -30,16 +32,14 @@ import { Icon } from "@school-clerk/ui/custom/icons";
 import { SelectTag } from "../select-tag";
 import { FilterList } from "./filter-list";
 import { getSearchKey, isSearchKey, searchIcons } from "./search-utils";
-import { Calendar } from "@school-clerk/ui/calendar";
+import { DateRangeFilter } from "@school-clerk/ui/search-filter/date-range-filter";
 import { useSearchFilterContext } from "@/hooks/use-search-filter";
-import { daysFilters } from "@school-clerk/utils/constants";
 import {
-	dateFilterValueToSelection,
-	dateRangeSelectionToFilterValue,
-	normalizeDateFilterValue,
+	formatDateFilterLabel,
 } from "./date-filter-model";
 
 interface Props {
+	className?: string;
 	// filters;
 	// setFilters;
 	defaultSearch?;
@@ -48,21 +48,25 @@ interface Props {
 	trpcFilter?;
 	filterSchema?;
 	onOptionSelected?: (filter: PageFilterData, option: any) => boolean;
+	hasFilterSource?: boolean;
+	debounceSearch?: boolean;
+	loading?: boolean;
+	error?: string;
+	onRetry?: () => void;
+	resolveMobileFilters?: (draft: FilterValues) => PageFilterData[];
+	onDraftOptionSelected?: (draft: FilterValues, filter: PageFilterData, option: any) => FilterValues | null;
 	onFilterRemove?: (filterKey: string) => Record<string, unknown> | null;
 }
 
 export function SearchFilter({
+	className,
 	placeholder,
 	defaultSearch = {},
 	filterList,
 	onOptionSelected,
 	onFilterRemove,
+	hasFilterSource, debounceSearch, loading, error, onRetry, resolveMobileFilters, onDraftOptionSelected,
 }: Props) {
-	const [prompt, setPrompt] = useState("");
-	const inputRef = useRef<HTMLInputElement>(null);
-
-	const [streaming, setStreaming] = useState(false);
-
 	const {
 		isFocused,
 		isOpen,
@@ -70,18 +74,30 @@ export function SearchFilter({
 		shouldFetch,
 		filters,
 		setFilters,
+		isMultiple,
 		optionSelected,
 	} = useSearchFilterContext();
+	const mobileCalendar = useIsMobile();
+	const [prompt, setPrompt] = useState(() => { const key = Object.keys(filters ?? {}).find(isSearchKey); return key ? String(filters[key] ?? "") : ""; });
+	const debouncedPrompt = useDebounce(prompt, 1500);
+	const searchMounted = useRef(false);
+	const inputRef = useRef<HTMLInputElement>(null);
+	const filterTriggerRef = useRef<HTMLButtonElement>(null);
+
+	const [streaming, setStreaming] = useState(false);
+
+
 	useHotkeys(
 		"esc",
 		() => {
+			if (mobileCalendar || isOpen) return;
 			setPrompt("");
 			setFilters(defaultSearch);
 			setIsOpen(false);
 		},
 		{
 			enableOnFormTags: true,
-			enabled: Boolean(prompt),
+			enabled: Boolean(prompt) && !isOpen && !mobileCalendar,
 		},
 	);
 
@@ -94,6 +110,11 @@ export function SearchFilter({
 		evt.preventDefault();
 		setIsOpen((prev) => !prev);
 	});
+
+	useEffect(() => {
+    if (!searchMounted.current) { searchMounted.current = true; return; }
+    if (debounceSearch) { const key = getSearchKey(filters); if (key) setFilters({ [key]: debouncedPrompt || null }); }
+  }, [debouncedPrompt]);
 
 	const handleSearch = (evt: React.ChangeEvent<HTMLInputElement>) => {
 		const value = evt.target.value;
@@ -121,13 +142,16 @@ export function SearchFilter({
 			([key, value]) => value !== null && !isSearchKey(key),
 		).length > 0;
 
-	const mobileCalendar = useIsMobile();
+	const previousMobile = useRef(mobileCalendar);
+	useEffect(() => { if (previousMobile.current !== mobileCalendar) setIsOpen(false); previousMobile.current = mobileCalendar; }, [mobileCalendar]);
 	const __filters = (filterList || [])?.filter((a) => !isSearchKey(a.value));
+	const toGroups = (definitions: PageFilterData[]) => definitions.filter((f) => !isSearchKey(f.value)).map((f) => ({ key: String(f.value), label: f.label || String(f.value).split(".").join(" "), options: f.options, multiple: isMultiple(f.value), type: f.type }));
 	return (
-		<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-			<div className="flex items-center space-x-4">
+		<>
+		<DropdownMenu open={!mobileCalendar && isOpen} onOpenChange={setIsOpen}>
+			<div className={cn("flex w-full flex-col items-stretch gap-2 md:w-auto md:flex-row md:items-center md:gap-4", className)}>
 				<form
-					className="relative"
+					className="relative w-full md:w-auto"
 					onSubmit={(e) => {
 						e.preventDefault();
 						handleSubmit();
@@ -137,7 +161,8 @@ export function SearchFilter({
 					<Input
 						ref={inputRef}
 						placeholder={placeholder}
-						className="w-full pl-9 pr-8 md:w-[350px]"
+						aria-label={placeholder || "Search"}
+						className="w-full pl-9 pr-12 md:w-[350px]"
 						value={prompt}
 						onChange={handleSearch}
 						autoComplete="off"
@@ -145,22 +170,26 @@ export function SearchFilter({
 						autoCorrect="off"
 						spellCheck="false"
 					/>
-					<DropdownMenuTrigger
+					<FilterMenuTrigger mobile={mobileCalendar}
 						// className={cn(__filters.length || "hidden")}
-						asChild
 					>
 						<button
-							onClick={() => setIsOpen((prev) => !prev)}
+							ref={filterTriggerRef}
+              hidden={!__filters.length && !loading && !error && !hasFilterSource}
+							aria-haspopup={mobileCalendar ? "dialog" : "menu"}
+							aria-expanded={isOpen}
+							aria-label="Search filters"
+							onClick={() => { if (mobileCalendar) setIsOpen(true); }}
 							type="button"
 							className={cn(
-								"absolute right-3 top-[10px] z-10 opacity-50 transition-opacity duration-300 hover:opacity-100",
+								"absolute right-0 top-0 z-10 flex size-11 items-center justify-center opacity-50 transition-opacity hover:opacity-100",
 								hasValidFilters && "opacity-100",
 								isOpen && "opacity-100",
 							)}
 						>
 							<Icons.Filter className="size-4" />
 						</button>
-					</DropdownMenuTrigger>
+					</FilterMenuTrigger>
 				</form>
 				<FilterList
 					loading={streaming}
@@ -178,7 +207,7 @@ export function SearchFilter({
 				/>
 			</div>
 			<DropdownMenuContent
-				className={cn("w-[350px]")}
+				className={cn("w-[350px] max-w-[calc(100vw-2rem)]")}
 				sideOffset={19}
 				alignOffset={-11}
 				side="bottom"
@@ -282,47 +311,48 @@ export function SearchFilter({
 				))}
 			</DropdownMenuContent>
 		</DropdownMenu>
-	);
-}
 
-type DateRangeFilterProps = {
-	value: unknown;
-	onChange: (value: string[] | null) => void;
-};
-
-function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
-	const normalizedValue = normalizeDateFilterValue(value);
-	const activePreset =
-		normalizedValue.length === 1 &&
-		daysFilters.includes(normalizedValue[0] as (typeof daysFilters)[number])
-			? normalizedValue[0]
-			: null;
-
-	return (
-		<div className="flex max-w-[min(95vw,42rem)] flex-col sm:flex-row">
-			<div className="grid min-w-40 grid-cols-2 gap-1 border-b p-2 sm:grid-cols-1 sm:border-r sm:border-b-0">
-				{daysFilters.map((preset) => (
-					<Button
-						key={preset}
-						type="button"
-						variant="ghost"
-						size="sm"
-						className={cn(
-							"justify-start capitalize",
-							activePreset === preset && "bg-accent font-medium",
-						)}
-						onClick={() => onChange([preset])}
-					>
-						{preset}
-					</Button>
-				))}
-			</div>
-			<Calendar
-				mode="range"
-				initialFocus
-				selected={dateFilterValueToSelection(value)}
-				onSelect={(range) => onChange(dateRangeSelectionToFilterValue(range))}
-			/>
-		</div>
+      {mobileCalendar && <MobileFilterSheet
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        triggerRef={filterTriggerRef}
+        values={filters}
+        groups={toGroups(__filters)}
+        onApply={setFilters}
+        loading={loading}
+        error={error}
+        onRetry={onRetry}
+        resolveGroups={
+          resolveMobileFilters
+            ? (draft) => toGroups(resolveMobileFilters(draft))
+            : undefined
+        }
+        onSelectOption={(draft, group, option) =>
+          option.value === ""
+            ? (onFilterRemove?.(group.key) ?? null)
+            : (onDraftOptionSelected?.(
+                draft,
+                (resolveMobileFilters?.(draft) ?? __filters).find(
+                  (f) => f.value === group.key,
+                )!,
+                option,
+              ) ?? null)
+        }
+        summary={(group, value) =>
+          group.type === "date-range"
+            ? formatDateFilterLabel(value) || "All dates"
+            : filterGroupSummary(group, value)
+        }
+        renderGroup={(group, value, update) =>
+          group.type === "date-range" ? (
+            <DateRangeFilter
+              value={value}
+              onChange={(next) => update({ [group.key]: next })}
+              mobile
+            />
+          ) : undefined
+        }
+      />}
+		</>
 	);
 }

@@ -11,7 +11,7 @@ export function StudentHeader() {
 			<div className="min-w-0 flex-1">
 				<StudentSearchFilter />
 			</div>
-			<div className="flex shrink-0 items-center gap-2">
+			<div className="grid grid-cols-[minmax(0,1fr)_2.75rem_2.75rem_2.75rem] items-center gap-2 md:flex md:shrink-0 max-md:[&>button]:h-11 max-md:[&>button]:w-full max-md:[&>a]:h-11">
 				<Button asChild variant="outline"><Link href="/students/approvals">Approvals</Link></Button>
 				<StudentsColumnVisibility />
 				<OpenStudentImport />

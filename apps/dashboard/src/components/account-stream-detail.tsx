@@ -1,5 +1,9 @@
 "use client";
 
+import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
+
+import { SummaryNumber } from "@/components/summary-number";
+
 import { useMemo, useState } from "react";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
@@ -417,88 +421,88 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 				/>
 			)}
 
-			<div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
+			<div data-summary-grid className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-4">
 				<Card className="p-5">
 					<div className="flex items-center justify-between">
-						<p className="text-sm font-medium text-muted-foreground">
+						<p data-summary-label className="text-sm font-medium text-muted-foreground">
 							Available Balance
 						</p>
 						<div className="rounded-lg bg-blue-100 p-2 text-blue-600">
 							<Wallet className="h-5 w-5" />
 						</div>
 					</div>
-					<div className="mt-3 text-2xl font-bold">
-						<AnimatedNumber value={data.balance} currency="NGN" />
+					<div data-summary-value className="mt-3 text-2xl font-bold">
+						<SummaryNumber value={data.balance} currency="NGN" />
 					</div>
-					<p className="mt-1 text-xs text-muted-foreground">
+					<p data-summary-label className="mt-1 text-xs text-muted-foreground">
 						Net movement inside this stream
 					</p>
 				</Card>
 
 				<Card className="p-5">
 					<div className="flex items-center justify-between">
-						<p className="text-sm font-medium text-muted-foreground">
+						<p data-summary-label className="text-sm font-medium text-muted-foreground">
 							Projected Balance
 						</p>
 						<div className="rounded-lg bg-amber-100 p-2 text-amber-600">
 							<Wallet className="h-5 w-5" />
 						</div>
 					</div>
-					<div className="mt-3 text-2xl font-bold">
-						<AnimatedNumber value={data.projectedBalance} currency="NGN" />
+					<div data-summary-value className="mt-3 text-2xl font-bold">
+						<SummaryNumber value={data.projectedBalance} currency="NGN" />
 					</div>
-					<p className="mt-1 text-xs text-muted-foreground">
+					<p data-summary-label className="mt-1 text-xs text-muted-foreground">
 						Available balance after open bills
 					</p>
 				</Card>
 
 				<Card className="p-5">
 					<div className="flex items-center justify-between">
-						<p className="text-sm font-medium text-muted-foreground">
+						<p data-summary-label className="text-sm font-medium text-muted-foreground">
 							Total Inflow
 						</p>
 						<div className="rounded-lg bg-emerald-100 p-2 text-emerald-600">
 							<TrendingUp className="h-5 w-5" />
 						</div>
 					</div>
-					<div className="mt-3 text-2xl font-bold">
-						<AnimatedNumber value={data.totalIn} currency="NGN" />
+					<div data-summary-value className="mt-3 text-2xl font-bold">
+						<SummaryNumber value={data.totalIn} currency="NGN" />
 					</div>
-					<p className="mt-1 text-xs text-muted-foreground">
+					<p data-summary-label className="mt-1 text-xs text-muted-foreground">
 						Successful credits and transfers in
 					</p>
 				</Card>
 
 				<Card className="p-5">
 					<div className="flex items-center justify-between">
-						<p className="text-sm font-medium text-muted-foreground">
+						<p data-summary-label className="text-sm font-medium text-muted-foreground">
 							Total Outflow
 						</p>
 						<div className="rounded-lg bg-rose-100 p-2 text-rose-600">
 							<TrendingDown className="h-5 w-5" />
 						</div>
 					</div>
-					<div className="mt-3 text-2xl font-bold">
-						<AnimatedNumber value={data.totalOut} currency="NGN" />
+					<div data-summary-value className="mt-3 text-2xl font-bold">
+						<SummaryNumber value={data.totalOut} currency="NGN" />
 					</div>
-					<p className="mt-1 text-xs text-muted-foreground">
+					<p data-summary-label className="mt-1 text-xs text-muted-foreground">
 						Expenses, debits, and transfers out
 					</p>
 				</Card>
 
 				<Card className="p-5">
 					<div className="flex items-center justify-between">
-						<p className="text-sm font-medium text-muted-foreground">
+						<p data-summary-label className="text-sm font-medium text-muted-foreground">
 							Open Bills
 						</p>
 						<div className="rounded-lg bg-amber-100 p-2 text-amber-600">
 							<ReceiptText className="h-5 w-5" />
 						</div>
 					</div>
-					<div className="mt-3 text-2xl font-bold">
-						<AnimatedNumber value={data.pendingBills} currency="NGN" />
+					<div data-summary-value className="mt-3 text-2xl font-bold">
+						<SummaryNumber value={data.pendingBills} currency="NGN" />
 					</div>
-					<p className="mt-1 text-xs text-muted-foreground">
+					<p data-summary-label className="mt-1 text-xs text-muted-foreground">
 						{data.pendingBillsCount} unpaid bills, latest{" "}
 						{lastTransaction?.transactionDate
 							? format(new Date(lastTransaction.transactionDate), "dd MMM yyyy")
@@ -558,7 +562,33 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 							onChange={(event) => setSearch(event.target.value)}
 						/>
 					</div>
-					<select
+					<MobileFilterButton
+						values={{ status: statusFilter }}
+						groups={[
+							{
+								key: "status",
+								label: "Status",
+								resetValue: "all",
+								options: [
+									"all",
+									"pending",
+									"owing",
+									"success",
+									"draft",
+									"failed",
+									"cancelled",
+								].map((value) => ({
+									value,
+									label: value === "all" ? "All statuses" : value,
+								})),
+							},
+						]}
+						onApply={(draft) => {
+							setStatusFilter(String(draft.status));
+						}}
+					/>
+<div className="hidden md:block">
+<select
 						className="h-10 min-w-[180px] rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
 						value={statusFilter}
 						onChange={(event) => setStatusFilter(event.target.value)}
@@ -570,7 +600,7 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 						<option value="draft">Draft</option>
 						<option value="failed">Failed</option>
 						<option value="cancelled">Cancelled</option>
-					</select>
+					</select></div>
 				</div>
 			</Card>
 

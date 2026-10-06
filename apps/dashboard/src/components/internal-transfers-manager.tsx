@@ -1,5 +1,7 @@
 "use client";
 
+import { SummaryNumber } from "@/components/summary-number";
+
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { format } from "date-fns";
@@ -80,7 +82,7 @@ export function InternalTransfersManager() {
 								cancel transfers that were posted in error.
 							</p>
 						</div>
-						<div className="grid gap-4 sm:grid-cols-3">
+						<div data-summary-grid className="grid gap-4 sm:grid-cols-3">
 							<StatCard
 								label="Transfers"
 								value={String(transfers.length)}
@@ -88,7 +90,7 @@ export function InternalTransfersManager() {
 							/>
 							<StatCard
 								label="Volume"
-								value={<AnimatedNumber value={totalVolume} currency="NGN" />}
+								value={<SummaryNumber value={totalVolume} currency="NGN" />}
 								helper="Total movement between streams"
 							/>
 							<StatCard
@@ -243,9 +245,9 @@ function StatCard({
 }) {
 	return (
 		<div className="rounded-2xl border bg-background p-4">
-			<p className="text-sm font-medium text-muted-foreground">{label}</p>
-			<div className="mt-2 text-2xl font-semibold tracking-tight">{value}</div>
-			<p className="mt-1 text-xs text-muted-foreground">{helper}</p>
+			<p data-summary-label className="text-sm font-medium text-muted-foreground">{label}</p>
+			<div data-summary-value className="mt-2 text-2xl font-semibold tracking-tight">{value}</div>
+			<p data-summary-label className="mt-1 text-xs text-muted-foreground">{helper}</p>
 		</div>
 	);
 }

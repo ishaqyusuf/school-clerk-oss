@@ -1,5 +1,9 @@
 "use client";
 
+import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
+
+import { SummaryNumber } from "@/components/summary-number";
+
 import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
 import { useTRPC } from "@/trpc/client";
 import { Badge } from "@school-clerk/ui/badge";
@@ -136,7 +140,24 @@ function Content() {
 					</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-3">
-					<div className="flex gap-2">
+					<MobileFilterButton
+						values={{ period: filter }}
+						groups={[
+							{
+								key: "period",
+								label: "Period",
+								resetValue: "term",
+								options: [
+									{ value: "term", label: "This term" },
+									{ value: "session", label: "This session" },
+								],
+							},
+						]}
+						onApply={(draft) => {
+							setFilter(draft.period as "term" | "session");
+						}}
+					/>
+<div className="hidden gap-2 md:flex">
 						<Button
 							variant={filter === "term" ? "default" : "outline"}
 							size="sm"
@@ -205,7 +226,7 @@ function Content() {
 			</div>
 
 			{/* KPI Stats */}
-			<div className="hidden md:grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+			<div data-summary-grid className="hidden md:grid md:grid-cols-2 xl:grid-cols-4 gap-4">
 				<Card className="p-6 flex flex-col justify-between">
 					<div className="flex justify-between items-start">
 						<div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg text-green-600 dark:text-green-400">
@@ -219,11 +240,11 @@ function Content() {
 						</Badge>
 					</div>
 					<div className="mt-4">
-						<p className="text-sm font-medium text-muted-foreground">
+						<p data-summary-label className="text-sm font-medium text-muted-foreground">
 							Total Inflow
 						</p>
-						<h3 className="text-2xl font-bold tracking-tight mt-1">
-							<AnimatedNumber value={totalInflow} currency="NGN" />
+						<h3 data-summary-value className="text-2xl font-bold tracking-tight mt-1">
+							<SummaryNumber value={totalInflow} currency="NGN" />
 						</h3>
 					</div>
 				</Card>
@@ -241,11 +262,11 @@ function Content() {
 						</Badge>
 					</div>
 					<div className="mt-4">
-						<p className="text-sm font-medium text-muted-foreground">
+						<p data-summary-label className="text-sm font-medium text-muted-foreground">
 							Total Outflow
 						</p>
-						<h3 className="text-2xl font-bold tracking-tight mt-1">
-							<AnimatedNumber value={totalOutflow} currency="NGN" />
+						<h3 data-summary-value className="text-2xl font-bold tracking-tight mt-1">
+							<SummaryNumber value={totalOutflow} currency="NGN" />
 						</h3>
 					</div>
 				</Card>
@@ -263,11 +284,11 @@ function Content() {
 						</Badge>
 					</div>
 					<div className="mt-4">
-						<p className="text-sm font-medium text-muted-foreground">
+						<p data-summary-label className="text-sm font-medium text-muted-foreground">
 							Net Position
 						</p>
-						<h3 className="text-2xl font-bold tracking-tight mt-1">
-							<AnimatedNumber value={Math.abs(netPosition)} currency="NGN" />
+						<h3 data-summary-value className="text-2xl font-bold tracking-tight mt-1">
+							<SummaryNumber value={Math.abs(netPosition)} currency="NGN" />
 						</h3>
 					</div>
 				</Card>
@@ -278,17 +299,17 @@ function Content() {
 							<AlertCircle className="h-5 w-5" />
 						</div>
 						<Badge variant="outline" className="text-xs">
-							<AnimatedNumber value={totalPendingBills} currency="NGN" />
+							<SummaryNumber value={totalPendingBills} currency="NGN" />
 						</Badge>
 					</div>
 					<div className="mt-4">
-						<p className="text-sm font-medium text-muted-foreground">
+						<p data-summary-label className="text-sm font-medium text-muted-foreground">
 							Pending Bills
 						</p>
-						<h3 className="text-2xl font-bold tracking-tight mt-1">
-							<AnimatedNumber value={totalPendingBills} currency="NGN" />
+						<h3 data-summary-value className="text-2xl font-bold tracking-tight mt-1">
+							<SummaryNumber value={totalPendingBills} currency="NGN" />
 						</h3>
-						<p className="mt-1 text-xs text-muted-foreground">
+						<p data-summary-label className="mt-1 text-xs text-muted-foreground">
 							across {streams.length} active streams
 						</p>
 					</div>
@@ -304,11 +325,11 @@ function Content() {
 						</Badge>
 					</div>
 					<div className="mt-4">
-						<p className="text-sm font-medium text-muted-foreground">
+						<p data-summary-label className="text-sm font-medium text-muted-foreground">
 							Outstanding Owing
 						</p>
-						<h3 className="text-2xl font-bold tracking-tight mt-1">
-							<AnimatedNumber value={totalOwing} currency="NGN" />
+						<h3 data-summary-value className="text-2xl font-bold tracking-tight mt-1">
+							<SummaryNumber value={totalOwing} currency="NGN" />
 						</h3>
 					</div>
 				</Card>

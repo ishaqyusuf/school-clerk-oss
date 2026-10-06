@@ -1,5 +1,7 @@
 "use client";
 
+import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
+
 import { Icons } from "@school-clerk/ui/custom/icons";
 import { Menu } from "@/components/menu";
 import { generateRandomString } from "@/utils/utils";
@@ -34,7 +36,31 @@ export function Filter({ config, classes, terms }: Props) {
   ];
   const r = useMigrationStore();
   return (
-    <div className="flex min-w-max max-w-sm justify-end gap-4">
+    <><MobileFilterButton
+      values={config ?? {}}
+      groups={[
+        ...__filters.map((filter) => ({
+          key: filter.cookieKey,
+          label: filter.label,
+          options: filter.options.map((value) => ({ value, label: value })),
+        })),
+        {
+          key: "term",
+          label: "Term",
+          options: (terms ?? []).map((value) => ({ value, label: value })),
+        },
+        {
+          key: "class",
+          label: "Class",
+          options: (classes ?? []).map((value) => ({ value, label: value })),
+        },
+      ]}
+      onApply={(draft) => {
+        cookieChanged({ ...config, ...draft });
+        r.update("refreshToken", generateRandomString());
+      }}
+    />
+<div className="hidden min-w-max max-w-sm justify-end gap-4 md:flex">
       {__filters.map((f) => (
         <Menu
           key={f.label}
@@ -120,6 +146,6 @@ export function Filter({ config, classes, terms }: Props) {
           </Menu.Item>
         ))}
       </Menu>
-    </div>
+    </div></>
   );
 }

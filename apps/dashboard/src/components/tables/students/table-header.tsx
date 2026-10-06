@@ -141,6 +141,7 @@ export function DataTableHeader<TData>({
 														"group/header relative flex h-full items-center border-t border-border bg-background px-4",
 													),
 											divider && "border-e",
+											columnId === "select" && "justify-center px-0",
 											isActions && "md:end-0",
 										)}
 										style={style}

@@ -1,5 +1,7 @@
 "use client";
 
+import { SummaryNumber } from "@/components/summary-number";
+
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useEffect, useState, Suspense } from "react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
@@ -152,35 +154,35 @@ function Content() {
       </div>
 
       {/* Stats */}
-      <div className="hidden md:grid md:grid-cols-4 gap-4">
+      <div data-summary-grid className="hidden md:grid md:grid-cols-4 gap-4">
         <Card className="p-6 flex flex-col gap-2">
           <div className="flex justify-between items-start">
-            <p className="text-muted-foreground text-sm font-medium">Total Disbursed</p>
+            <p data-summary-label className="text-muted-foreground text-sm font-medium">Total Disbursed</p>
             <div className="text-primary"><Activity className="h-5 w-5" /></div>
           </div>
-          <p className="text-3xl font-bold">
-            <AnimatedNumber value={totalPaid} currency="NGN" />
+          <p data-summary-value className="text-3xl font-bold">
+            <SummaryNumber value={totalPaid} currency="NGN" />
           </p>
-          <p className="text-emerald-600 text-sm font-semibold flex items-center gap-1">
+          <p data-summary-label className="text-emerald-600 text-sm font-semibold flex items-center gap-1">
             <TrendingUp className="h-4 w-4" /> {paid.length} payments made
           </p>
         </Card>
 
         <Card className="p-6 flex flex-col gap-2">
           <div className="flex justify-between items-start">
-            <p className="text-muted-foreground text-sm font-medium">Staff Count</p>
+            <p data-summary-label className="text-muted-foreground text-sm font-medium">Staff Count</p>
             <div className="text-primary"><Users className="h-5 w-5" /></div>
           </div>
-          <p className="text-3xl font-bold">{bills.length} Bills</p>
-          <p className="text-muted-foreground text-sm font-medium">{pending.length} pending payments</p>
+          <p data-summary-value className="text-3xl font-bold">{bills.length} Bills</p>
+          <p data-summary-label className="text-muted-foreground text-sm font-medium">{pending.length} pending payments</p>
         </Card>
 
         <Card className="p-6 flex flex-col gap-2">
           <div className="flex justify-between items-start">
-            <p className="text-muted-foreground text-sm font-medium">Processing Progress</p>
+            <p data-summary-label className="text-muted-foreground text-sm font-medium">Processing Progress</p>
             <div className="text-primary"><Activity className="h-5 w-5" /></div>
           </div>
-          <p className="text-3xl font-bold">{processedPct}%</p>
+          <p data-summary-value className="text-3xl font-bold">{processedPct}%</p>
           <div className="w-full bg-secondary h-2 rounded-full overflow-hidden mt-1">
             <div className="bg-primary h-full rounded-full transition-all duration-500" style={{ width: `${processedPct}%` }} />
           </div>
@@ -188,13 +190,13 @@ function Content() {
 
         <Card className="p-6 flex flex-col gap-2">
           <div className="flex justify-between items-start">
-            <p className="text-muted-foreground text-sm font-medium">Outstanding Owing</p>
+            <p data-summary-label className="text-muted-foreground text-sm font-medium">Outstanding Owing</p>
             <div className="text-amber-600"><AlertTriangle className="h-5 w-5" /></div>
           </div>
-          <p className="text-3xl font-bold">
-            <AnimatedNumber value={totalOwing} currency="NGN" />
+          <p data-summary-value className="text-3xl font-bold">
+            <SummaryNumber value={totalOwing} currency="NGN" />
           </p>
-          <p className="text-amber-600 text-sm font-semibold">{owing.length} paid with owing</p>
+          <p data-summary-label className="text-amber-600 text-sm font-semibold">{owing.length} paid with owing</p>
         </Card>
       </div>
 

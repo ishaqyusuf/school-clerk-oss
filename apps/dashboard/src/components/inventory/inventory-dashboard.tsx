@@ -1,5 +1,9 @@
 "use client";
 
+import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
+
+import { SummaryNumber } from "@/components/summary-number";
+
 import { useTRPC } from "@/trpc/client";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
@@ -82,40 +86,40 @@ export function InventoryDashboard() {
   return (
     <div className="flex flex-col gap-6">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+      <div data-summary-grid className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground font-normal">
+          <CardHeader data-summary-header className="pb-1">
+            <CardTitle data-summary-label className="text-xs text-muted-foreground font-normal">
               Total Items
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-lg font-semibold flex items-center gap-2">
+          <CardContent data-summary-body>
+            <div data-summary-value className="text-lg font-semibold flex items-center gap-2">
               <Package className="h-4 w-4 text-muted-foreground" />
               {totalItems}
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground font-normal">
+          <CardHeader data-summary-header className="pb-1">
+            <CardTitle data-summary-label className="text-xs text-muted-foreground font-normal">
               Stock Value
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="font-mono text-lg font-semibold">
-              <AnimatedNumber value={totalValue} />
+          <CardContent data-summary-body>
+            <div data-summary-value className="font-mono text-lg font-semibold">
+              <SummaryNumber value={totalValue} />
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground font-normal">
+          <CardHeader data-summary-header className="pb-1">
+            <CardTitle data-summary-label className="text-xs text-muted-foreground font-normal">
               Low Stock Alerts
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-lg font-semibold flex items-center gap-2">
+          <CardContent data-summary-body>
+            <div data-summary-value className="text-lg font-semibold flex items-center gap-2">
               {lowStockCount > 0 ? (
                 <>
                   <AlertTriangle className="h-4 w-4 text-orange-500" />
@@ -131,7 +135,24 @@ export function InventoryDashboard() {
 
       {/* Controls */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex gap-2 flex-1 flex-wrap">
+        <MobileFilterButton
+          values={{ type: typeFilter }}
+          groups={[
+            {
+              key: "type",
+              label: "Item type",
+              resetValue: "ALL",
+              options: types.map((value) => ({
+                value,
+                label: value === "ALL" ? "All" : (TYPE_LABELS[value] ?? value),
+              })),
+            },
+          ]}
+          onApply={(draft) => {
+            setTypeFilter(String(draft.type));
+          }}
+        />
+<div className="hidden flex-1 flex-wrap gap-2 md:flex">
           {types.map((t) => (
             <Button
               key={t}

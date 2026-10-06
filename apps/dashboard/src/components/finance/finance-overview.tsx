@@ -95,17 +95,17 @@ export function FinanceOverview({
 				</Button>
 			</div>
 
-			<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+			<div data-summary-grid className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 				<Card>
-					<Card.Header className="pb-2">
-						<Card.Title className="flex items-center gap-2 text-sm font-medium">
+					<Card.Header data-summary-header className="pb-2">
+						<Card.Title data-summary-label className="flex items-center gap-2 text-sm font-medium">
 							<ReceiptText className="h-4 w-4 text-muted-foreground" />
 							Student Receivables
 						</Card.Title>
 					</Card.Header>
-					<Card.Content>
-						<p className="text-2xl font-bold">Review</p>
-						<p className="mt-1 text-xs text-muted-foreground">
+					<Card.Content data-summary-body>
+						<p data-summary-value className="text-2xl font-bold">Review</p>
+						<p data-summary-label className="mt-1 text-xs text-muted-foreground">
 							Open student balances before collecting payments.
 						</p>
 						<Button variant="link" className="h-auto px-0" asChild>
@@ -114,17 +114,17 @@ export function FinanceOverview({
 					</Card.Content>
 				</Card>
 				<Card>
-					<Card.Header className="pb-2">
-						<Card.Title className="flex items-center gap-2 text-sm font-medium">
+					<Card.Header data-summary-header className="pb-2">
+						<Card.Title data-summary-label className="flex items-center gap-2 text-sm font-medium">
 							<FileText className="h-4 w-4 text-muted-foreground" />
 							Pending Payables
 						</Card.Title>
 					</Card.Header>
-					<Card.Content>
-						<div className="text-2xl font-bold">
+					<Card.Content data-summary-body>
+						<div data-summary-value className="text-2xl font-bold">
 							<MoneyValue value={pendingPayables} />
 						</div>
-						<p className="mt-1 text-xs text-muted-foreground">
+						<p data-summary-label className="mt-1 text-xs text-muted-foreground">
 							{pendingPayablesCount} open payable
 							{pendingPayablesCount === 1 ? "" : "s"} across accounts.
 						</p>
@@ -134,14 +134,14 @@ export function FinanceOverview({
 					</Card.Content>
 				</Card>
 				<Card>
-					<Card.Header className="pb-2">
-						<Card.Title className="flex items-center gap-2 text-sm font-medium">
+					<Card.Header data-summary-header className="pb-2">
+						<Card.Title data-summary-label className="flex items-center gap-2 text-sm font-medium">
 							<Wallet className="h-4 w-4 text-muted-foreground" />
 							Account Risk
 						</Card.Title>
 					</Card.Header>
-					<Card.Content>
-						<p className="text-2xl font-bold">{accountsAtRisk}</p>
+					<Card.Content data-summary-body>
+						<p data-summary-value className="text-2xl font-bold">{accountsAtRisk}</p>
 						<div className="mt-1 text-xs text-muted-foreground">
 							Accounts with negative projected balance.
 							<div className="mt-1">
@@ -154,15 +154,15 @@ export function FinanceOverview({
 					</Card.Content>
 				</Card>
 				<Card>
-					<Card.Header className="pb-2">
-						<Card.Title className="flex items-center gap-2 text-sm font-medium">
+					<Card.Header data-summary-header className="pb-2">
+						<Card.Title data-summary-label className="flex items-center gap-2 text-sm font-medium">
 							<AlertCircle className="h-4 w-4 text-muted-foreground" />
 							Reconciliation
 						</Card.Title>
 					</Card.Header>
-					<Card.Content>
-						<p className="text-2xl font-bold">{activeBillables}</p>
-						<p className="mt-1 text-xs text-muted-foreground">
+					<Card.Content data-summary-body>
+						<p data-summary-value className="text-2xl font-bold">{activeBillables}</p>
+						<p data-summary-label className="mt-1 text-xs text-muted-foreground">
 							Active account-linked billables to keep aligned.
 						</p>
 						<Button variant="link" className="h-auto px-0" asChild>
