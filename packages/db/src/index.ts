@@ -53,6 +53,7 @@ export * from "./student-term-removal";
 export * from "./student-term-details";
 export * from "./student-class-change";
 export * from "./student-class-change-options";
+export * from "./student-suggestions";
 export * from "./student-admission-type";
 export * from "./student-profile-update";
 export * from "./student-import-access";

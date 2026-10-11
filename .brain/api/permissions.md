@@ -217,3 +217,7 @@ Student registration and `academics.entrollStudentToTerm` require live Student M
 ## Regional entry validation — 2026-10-06
 
 Routing transport proof authenticates the internal caller only. The regional resolver still checks live Better Auth identity, stored session, account-owned school, unique domain, workspace ancestry and strict academic selection exactly as the former Proxy. Direct server actions retain the matched-route entry gate and their existing guards. Missing/invalid transport fails closed without clearing valid browser identity or synthesizing an access grant. API/tRPC/module/record permission rules are unchanged. No cross-request cached identity is introduced. ADR-0069.
+
+## Student form suggestions — 2026-10-11
+
+`students.suggestions` inherits authenticated live Student Management module access and only reads live same-school identities/guardians/current academic relations. Optional client scope is checked against profile, user and live login session; the current term must be live and school/session-owned. Edit class and enrollment controls are Admin/Registrar only and reuse existing authoritative mutation role/module/tenant/academic guards. No new write permission.

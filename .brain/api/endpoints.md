@@ -158,3 +158,7 @@ Student registration and `academics.entrollStudentToTerm` require live Student M
 ## Internal regional tenant routing — 2026-10-06
 
 `POST /api/internal/tenant-routing` is a private nodejs/iad1 facade for the existing dashboard entry policy. It accepts signed original request metadata, validates proof before DB work, then returns a signed next/rewrite/redirect decision. Unsigned/stale/tampered/oversized requests return 403; resolution failure returns 503. Neither result is cacheable. This endpoint does not accept school mutations or grant bearer authority. ADR-0069.
+
+## Student form suggestions — 2026-10-11
+
+`students.suggestions` is a Student Management authenticated, tenant/profile-scoped name query with ranked cursor pages, identity details, and current-term class/review status. Existing class-change and enrollment mutations are reused. See [Student form suggestions](../features/student-form-suggestions.md) and ADR-0075.

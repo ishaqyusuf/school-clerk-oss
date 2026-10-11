@@ -308,3 +308,7 @@ Student registration and `academics.entrollStudentToTerm` require live Student M
 ## Regional routing transport — 2026-10-06
 
 Version 1 request binds UUID requestId, issuedAt, original URL/method and header tuples under purpose-separated HMAC-SHA256 derived from the existing server auth secret. Maximum request is 65,536 bytes; freshness is 30 seconds. Version 1 response carries status (200–399) and header tuples, capped at 131,072 bytes and signed with the requesting proof plus exact payload. Independent Set-Cookie entries, middleware forwarding/rewrite headers and return_to redirects are preserved. Outbound destination is a validated configured application-root origin or fixed configured custom-domain/preview origin. Proxy allows eight seconds and returns private/no-store 503 on unavailable or invalid transport. No auth/session decision is cached across requests; public API contracts are unchanged. ADR-0069.
+
+## Student form suggestions — 2026-10-11
+
+`students.suggestions` accepts trimmed name/surname/otherName (max 200 each; at least one >=2 characters), pageSize 1–25/default5, bounded bucket:offset cursor, and optional school/user/login-session/academic-session/term view scope. Returns data records (identity, match strength, current-term status/class, editable approved term-form ID) and meta count/matchingCount/cursor. Exact/all-field matches precede partials before paging. Server derives tenant/academic scope and rejects stale supplied view scope. See [feature contract](../features/student-form-suggestions.md).

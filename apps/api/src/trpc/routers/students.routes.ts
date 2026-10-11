@@ -56,6 +56,8 @@ import { readStudentTermDetails } from "@api/db/queries/student-term-details";
 import { readStudentClassChangeOptions } from "@api/db/queries/student-class-change";
 import { studentClassChangeOptionsSchema } from "@school-clerk/utils/student-class-change-schema";
 import { z } from "zod";
+import { studentSuggestionsSchema } from "@api/schemas/student-suggestions";
+import { readStudentSuggestions } from "@api/db/queries/student-suggestions";
 import {
   submitClassStudentSchema,
   submitClassStudent,
@@ -69,6 +71,9 @@ const studentAcademicProcedure = moduleProcedure(["STUDENT_MANAGEMENT", "ACADEMI
 const studentAdmissionProcedure = moduleProcedure(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS", "BILLING_FINANCE"], { roles: ["Admin", "Registrar"] });
 
 export const studentsRouter = createTRPCRouter({
+  suggestions: studentProcedure
+    .input(studentSuggestionsSchema)
+    .query(({ ctx, input }) => readStudentSuggestions(ctx, input)),
   submitClassStudent: moduleProcedure(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"], { roles: ["Teacher", "Admin", "Registrar"] })
     .input(submitClassStudentSchema)
     .mutation(({ ctx, input }) => submitClassStudent(ctx, input)),

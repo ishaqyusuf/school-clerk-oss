@@ -102,6 +102,8 @@ export function Form({ onEnrolled }: { onEnrolled?: () => void } = {}) {
 	const auth = useAuth();
 	const registrationPolicy = useStudentRegistrationPolicy();
 	const name = watch("name");
+	const surname = watch("surname");
+	const otherName = watch("otherName");
 	const classRoomId = watch("classRoomId");
 	const admissionType = watch("admissionType");
   const studentGender = watch("gender");
@@ -184,11 +186,13 @@ export function Form({ onEnrolled }: { onEnrolled?: () => void } = {}) {
 					<QuickFill name="student" args={{ mainClassrooms }} />
 				</div>
 			)}
-			<FormInput name="name" label="First Name" control={control} />
-			<FindAndEnroll query={name} onSelect={onEnrolled} />
 			<div className="grid grid-cols-2 gap-4">
+				<FormInput name="name" label="First Name" control={control} />
 				<FormInput name="surname" label="Surname" control={control} />
-				<FormInput name="otherName" label="Other Name" control={control} />
+			</div>
+			<FormInput name="otherName" label="Other Name (optional)" control={control} />
+			<FindAndEnroll names={{ name, surname, otherName }} onSelect={onEnrolled} />
+			<div className="grid grid-cols-2 gap-4">
 				<FormSelect
 					name="gender"
 					label="Gender"

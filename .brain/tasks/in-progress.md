@@ -178,3 +178,7 @@ Owner requested implementation of the remaining latency phases. Existing routing
 ## Regional routing task completion update —2026-10-06
 
 The previously pending regional tenant routing and pool lifecycle implementation/release/warm comparison is complete. Dashboard warm Chrome Load0.906/2.210/0.962s: median0.962s vs2.07s, observed53.5% reduction. Classes3.540/0.919/1.030s: median1.030s vs2.44s, observed57.8% reduction. See tasks/done.md and ADR-0069. Startup and the separate73.2s application elapsed /student-report outlier remain follow-ups in backlog; other task records and their states are unchanged.
+
+## Student form 01 suggestions — 2026-10-11
+
+Direction 01 implemented with shared shadcn, all-name ranked pagination, default-checked search disable, independent collapse, enrolled class editing and draft preservation. Focused tests and component desktop/mobile QA pass. Clean candidate optimized build and DB typecheck pass; final workspace dashboard typecheck retains the same 119 existing diagnostics with none added. Clean full dashboard checking exhausted its memory limit. Full HTTPS app QA through required cmux and production release remain pending. Production signed-evidence gate currently unavailable; unrelated assistant changes excluded from candidate. See [implementation contract](../plans/2026-10-11-student-form-implementation.md).
