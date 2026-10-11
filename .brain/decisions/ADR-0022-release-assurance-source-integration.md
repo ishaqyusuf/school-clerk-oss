@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted for source integration; hosted activation pending.
+Superseded on 11 October 2026 by [ADR-0076](ADR-0076-shared-release-command.md).
+The historical decision below is retained for context.
 
 ## Context
 

@@ -24,11 +24,12 @@ Defines implementation standards for consistency, maintainability, and reliabili
 - Validate all external inputs.
 - Handle errors explicitly.
 - Add logging at critical boundaries.
-- Inspect Preview or Production obligations with
-  `bun run release:status --env preview|production`. Treat `release:status` as
-  advisory; `bun run release:check --env preview|production` must remain
-  fail-closed unless fresh signed provider evidence proves every required
-  target for the exact Git revision.
+- Inspect release obligations with `bun release status --preview|--production`
+  and provider-resolved plans with `bun release plan --preview|--production`.
+  Use the same shared release engine as EwaTrade. Require a clean production
+  candidate, exact-commit provider readiness and post-release smoke testing.
+  Record only evidence-backed adoption baselines; do not mark unknown work as
+  released. See ADR-0076 for the replacement of signed-evidence release assurance.
 
 ## Multi-Tenancy Standards
 

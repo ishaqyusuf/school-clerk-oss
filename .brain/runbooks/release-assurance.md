@@ -1,50 +1,51 @@
-# Release assurance runbook
+# Shared release runbook
 
-## Before activation
+Uses EwaTrade's shared `infra release` engine through the sibling
+`../local-infra-kit` checkout. Provider CLIs use the operator's existing login.
 
-1. Create protected GitHub `preview` and `production` environments with
-   separate evidence-envelope and HMAC secrets.
-2. Require `release-assurance-preview` on pull requests to `main` and
-   `release-assurance-production` before a Production promotion is accepted.
-3. Set the four School Clerk Vercel project-ID variables and the Trigger
-   project reference in both protected environments. Do not invent a project
-   mapping: unprovisioned Marketing, school-site, or API targets stay blocked.
-4. Install a trusted collector that queries Neon, Vercel, and Trigger through
-   authenticated read APIs and signs one fresh, exact-revision envelope.
-5. Prove isolated Preview database configuration. School Clerk policy forbids
-   a Preview schema push unless the user explicitly authorizes it, and
-   Production must never substitute for Preview.
-6. Configure Vercel promotion holds for schema-changing Production releases.
-7. Prove Trigger Preview ownership, or obtain a protected, exact-revision,
-   short-lived waiver. Never point Preview verification at Production jobs.
+1. Prepare a clean committed candidate, preserving unrelated workspace work.
+2. Test the changed behavior and inspect the exact diff.
+3. For schema changes, first run `bun run db:push --local`. Production release
+   subsequently uses `bun run db:push --prod`; retain target fingerprint and
+   data-loss confirmations. Preview schema push is not configured.
+4. Run `bun release plan --production` on main (or at a detached HEAD exactly
+   matching origin/main). Check project ownership, environment drift and actions.
+5. Run `bun release --production --yes` only for an authorized production release.
+   The command pushes code, waits for Vercel and deploys changed jobs.
+6. Verify production behavior and run `bun release status --production`.
 
-## Local operator flow
+## First migration baseline
 
-```bash
-bun run release:plan --env preview
-bun run release:status --env preview
-```
+Missing tags conservatively mean changed. `bun release mark --only <component>`
+records already-released work without deployment; use it only with actual provider
+or schema evidence, at the commit the evidence supports. Never mark an unknown
+component to silence a release obligation. Current provider inventory confirms
+Dashboard and Marketing at d6f43f0 before this release. Production database state
+and jobs need independent verification or their normal guarded deployment.
 
-The commands are read-only and explain what the current diff requires. Repeat
-with `--env production` for a Production candidate. After authorized operators
-perform the listed effects through existing guarded commands, protected CI
-runs `release:check` with signed evidence. The verification workflow itself
-does not push the database or deploy an app.
+## Failures
 
-## Failure interpretation
+Vercel ERROR/CANCELED, missing exact-commit deployment, failed database push or
+failed jobs command stops release. Successful tags remain recorded, allowing
+resume. A Git push can already make READY web apps live before a later jobs
+failure: report partial release explicitly. Tags are progress records, not a
+substitute for application smoke tests.
 
-- Missing baseline: the planner conservatively requires the target.
-- Missing provider mapping: provision or confirm that target before activation.
-- Missing, stale, or wrong-revision signature: do not release.
-- Database proof missing: dependent web and jobs targets cannot pass.
-- Vercel deployment not active for the claimed revision: hold promotion.
-- Preview jobs unsupported: provision isolation or use the protected waiver;
-  never fall back to Production.
+The retired `.release` snapshot, evidence verifier, manifest, CI workflow and
+associated tests are removed. Historical ADR-0022 remains marked superseded.
+API ships with Dashboard; school-site has no hosted project in the confirmed
+inventory. Preview excludes database and jobs until explicitly configured.
 
-## Current source boundary
+## Adoption evidence — 11 October 2026
 
-The manifest models Database, Dashboard, Marketing, school-site, API, and jobs.
-Only `schoolclerk-dashboard` was found in the authenticated Vercel inventory.
-The remaining web mappings, isolated Preview database, trusted collector,
-GitHub protection, Vercel holds, and Trigger Preview policy are activation work,
-not implicit effects of this source integration.
+Authenticated Vercel inventory confirms Dashboard and Marketing at d6f43f0.
+A read-only Prisma diff from live Production to this committed schema reports
+only removal of newer assistant objects/columns absent from the candidate.
+All candidate schema objects already exist; student-form work changes no schema.
+Record database baseline at d6f43f0 while preserving the newer live assistant
+objects. Do not run a schema push from this candidate: it would roll back those
+objects. Jobs have no verified adoption baseline and must deploy normally.
+
+The jobs script resolves the installed `trigger` binary with `bunx --no-install`
+instead of assuming package-local node_modules layout; Production is explicit.
+No new provider dependency is installed by this release command.

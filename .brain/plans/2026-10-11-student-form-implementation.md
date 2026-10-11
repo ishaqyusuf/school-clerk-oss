@@ -36,3 +36,19 @@ Thin existing form composition and API router; network orchestration in hooks; D
 - [ ] Production release and post-deploy smoke. Vercel identity is confirmed. `release:status --env production` reports missing baselines; `release:check --env production` exits 2: signed provider evidence key unavailable. Existing latest GitHub release-assurance runs also failed. Gate remains unchanged; no production deployment/promotion claimed.
 
 A clean detached release checkout under `/private/tmp/school-clerk-student-form-release` contains only this task's application files over d6f43f0. Main workspace's unrelated assistant/schema/lock changes are excluded. No schema push is required for this task.
+
+## Release flow migration — 11 October 2026
+
+Owner requested replacing the old gate with EwaTrade's current release flow.
+The same shared entrypoint and engine are configured (ADR-0076). The old signing
+blocker is superseded, not waived. Shared engine tests: 32 pass/129 assertions;
+School Clerk release/student tests: 13 pass/42 assertions; release config Biome
+and diff checks pass. Marketing optimized build passes. Trigger CLI login owns
+the confirmed School Clerk project. Existing component desktop/mobile QA and
+dashboard optimized build evidence above remain valid. Production deploy/smoke
+are pending at the time of this candidate commit.
+
+Read-only production schema diff found newer assistant objects already present.
+This candidate has no schema changes and must not push its older schema; verified
+adoption records preserve those unrelated objects. Actual hosted Dashboard and
+Marketing baseline is d6f43f0. Jobs have no adoption baseline and deploy normally.

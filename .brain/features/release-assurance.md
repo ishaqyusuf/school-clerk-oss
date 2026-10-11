@@ -1,44 +1,47 @@
-# Release Assurance
+# Shared release command
 
-## Scope
+School Clerk uses the same `bun release` entrypoint and shared
+`local-infra-kit/src/release-flow` implementation as EwaTrade. The owner requested
+migration and production release on 11 October 2026. This supersedes the signed
+provider-evidence system in ADR-0022; historical source remains in Git.
 
-`release.manifest.json` covers the Prisma schema, Dashboard, Marketing,
-tenant school-site, API, and Trigger jobs for Preview and Production. Mobile
-is absent. `bun run release:plan --env preview|production --json` and
-`bun run release:status --env preview|production --json` give advisory local
-plans. `bun run release:check --env preview|production` runs the pinned,
-verification-only provider gate.
+## Behavior
 
-## Provider evidence
+- `bun release` infers Production on main and Preview on other branches.
+- `bun release plan --production` resolves providers and prints a dry run.
+- `bun release status --production` reports changed components.
+- `bun release env --production` audits provider environment variable names.
+- The shared engine requires committed, clean production source; checks remote
+  ancestry; uses a lock per environment; pushes Git only after before-push steps;
+  and waits for Vercel READY at the exact commit, project, environment and branch.
+- Successful components advance `release/<environment>/<component>` Git tags.
+  A failed component stops the release; subsequent runs resume unfinished parts.
+- Environment audits follow EwaTrade's shared implementation: they report drift.
+  Do not interpret an empty/missing setting report as proof of runtime health.
 
-The adapter accepts a fresh HMAC-signed envelope bound to `school-clerk`,
-environment, and exact Git revision. It must include provider-corroborated
-receipts, current target fingerprints, live state, Vercel deployment/domain/
-promotion data, and Trigger deployment or protected Preview waiver data.
-Protected CI uses environment-scoped `SCHOOL_CLERK_RELEASE_EVIDENCE_ENVELOPE`
-and `SCHOOL_CLERK_RELEASE_EVIDENCE_HMAC_KEY`. A protected collector must produce
-the envelope from authenticated provider reads; no collector is installed by
-this source integration. For local tests only, a file may be supplied through
-`SCHOOL_CLERK_RELEASE_EVIDENCE_FILE` inside the checkout.
+## School Clerk targets
 
-The CI environment must also set the four `SCHOOL_CLERK_VERCEL_*_PROJECT_ID`
-variables and `SCHOOL_CLERK_TRIGGER_PROJECT_REF`. Only the Dashboard project
-(`schoolclerk-dashboard`, `prj_oSG2ATBE1Mobp3P989VG6B2mTQ5B`) was confirmed
-through authenticated, read-only Vercel inspection during integration. CI
-rejects missing mappings. The Trigger Preview target is unsupported until isolated
-worker ownership is configured or a protected, expiring waiver is provided.
+`release.config.ts` defines database, dashboard (`schoolclerk-dashboard`),
+marketing (`schoolify`) and production Trigger jobs. Vercel project roots and
+Git repository ownership were confirmed through authenticated inventory.
+The dashboard includes `apps/api` through the workspace dependency closure and
+serves tRPC at `/api/trpc`. There is no separately hosted API or school-site
+project in the current team inventory. Do not fabricate a successful release of
+these undeployed standalone source surfaces or map them to unrelated projects.
+School Clerk currently has no configured Expo release surface.
 
-## Activation blockers
+## Database and jobs policy
 
-- Confirm Marketing, school-site, and API Vercel projects, exact deployment
-  domains, and hosted Preview/Production database wiring. The local profile
-  files declare distinct database URL identities, while authenticated Vercel
-  inspection found only the Dashboard project in the accessible team.
-- Install an authenticated provider evidence collector and protected signing
-  key. An HMAC envelope alone cannot establish provider truth if the signer
-  relies on handwritten claims.
-- Protect GitHub Preview/Production environments, require their release checks,
-  and configure Vercel promotion holds for schema-changing Production releases.
-- Provision isolated Trigger Preview jobs or approve an exact-revision,
-  expiring protected waiver. The repository's existing deploy script targets
-  Production only.
+Database changes use only `bun run db:push --local` and `bun run db:push --prod`.
+The release config includes the production database command before Git push;
+local verification must precede it. Database is excluded from Preview to respect
+the owner's prohibition on preview pushes. No migration files or destructive
+force flags are introduced. Shared database target-fingerprint and Prisma
+confirmation safeguards remain active.
+
+Jobs use the existing production deploy command. Preview is excluded because no
+isolated Preview worker is configured. This exclusion never sends Preview work
+to Production. Add isolated targets only after provisioning and authorization.
+
+See [runbook](../runbooks/release-assurance.md) and
+[ADR-0076](../decisions/ADR-0076-shared-release-command.md).
