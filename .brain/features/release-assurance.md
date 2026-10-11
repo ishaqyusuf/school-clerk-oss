@@ -45,3 +45,37 @@ to Production. Add isolated targets only after provisioning and authorization.
 
 See [runbook](../runbooks/release-assurance.md) and
 [ADR-0076](../decisions/ADR-0076-shared-release-command.md).
+
+## Production release verified — 11 October 2026
+
+Application and release migration commit: `8ab727c84981acd9cc8f21e3f90a063856ef1466`.
+Dashboard `dpl_3smuwBqdeg5GvR15WpUwS5XGTiLd` and Marketing
+`dpl_8ppJFiMw21xwsfenuFpLZ3MghbqH` are READY for that exact Git SHA,
+with existing production aliases assigned. Trigger project
+`proj_wiixtfwfyigtsruijbqd` deployed version `20261011.1`, deployment
+`kt7yktps`, with five detected tasks. The shared release exited zero and
+`bun release status --production` reports nothing to release.
+
+The initial Vercel polling call failed on temporary DNS resolution after Git
+push; the unchanged shared command resumed successfully without another code
+push. Component success tags are published; archive/release-assurance-v1 preserves
+the old source. Database baseline stays at d6f43f0; no schema or school-record
+write occurred and newer unrelated assistant database objects were preserved.
+
+Authenticated production Chrome verification: default-checked suggestions;
+first-name search produced 18 live matches; Show more displayed 10 of 18;
+surname refinement ranked the one combined match above 18 partial matches;
+current class and Edit action were visible. The class dialog loaded the current
+class, disabled unchanged Save, and Cancel preserved draft names. Collapse left
+search checked; unchecking displayed the off state even after changing a name;
+rechecking restored latest-name results. No console errors were captured. No
+student create, enrollment or class-change mutation was submitted. Production
+screenshot: `.scratch/student-form-qa/production.jpg` in the working checkout.
+
+Focused validation: 32 shared release-flow tests (129 assertions), 13 project
+tests (42 assertions), Biome and diff checks, optimized Dashboard and Marketing
+builds. Earlier desktop/mobile component QA verified mutation and error paths
+with fictional transport. Full workspace typecheck retains pre-existing errors;
+clean full Dashboard checking hit its memory limit. Local HTTPS full-app QA was
+unavailable because cmux was closed; authenticated live suggestion-flow checks
+above provide the production smoke evidence.

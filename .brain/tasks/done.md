@@ -879,3 +879,16 @@ in the local tenant; source coverage and fixture limits are explicit. No commit,
 push, deployment, schema, permission or school-data change. Brain impact:
 mobile-search-filters.md, ADR-0071, task record, affected feature links, BRAIN.md
 and this completion entry.
+
+## Student-form suggestions and shared release migration — 2026-10-11
+
+Direction 01 is released and production smoke verified. School Clerk uses the
+exact EwaTrade shared release entrypoint/engine with its actual hosted targets
+and standing database/Preview rules. Old signed-evidence tooling is retired.
+Application commit 8ab727c; Dashboard/Marketing exact-SHA READY with production
+aliases; Trigger version 20261011.1, five tasks. Shared status: nothing to release.
+45 focused tests, builds/lint and component desktop/mobile QA pass. Authenticated
+live name/surname ranking, pagination, checkbox/collapse and class-dialog cancel
+pass with no console errors or school-record mutations. Existing typecheck
+failures/memory limits and unavailable local cmux QA are recorded honestly.
+See student-form-suggestions.md, release-assurance.md and ADR-0076.
