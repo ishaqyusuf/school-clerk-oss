@@ -88,3 +88,16 @@ snippets
 !.env.*.example
 !**/.env.*.example
 
+
+# Local project memory, design/review material, and agent state (matches ewatrade).
+# Keep .github/, .release/ source and .vercelignore tracked.
+.brain/
+.design/
+.designs/
+.scratch/
+.claude/
+.codex/
+.agents/
+/output/
+/outputs/
+/artifacts/
