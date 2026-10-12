@@ -1,5 +1,5 @@
 import { buildTenantPageMetadata } from "@/utils/tenant-page-metadata";
-import { getLocalLoginSchool, listLocalLoginUsers, prisma } from "@school-clerk/db";
+import { getLocalLoginSchool, isLocalQaEmail, listLocalLoginUsers, prisma } from "@school-clerk/db";
 import { isDevelopmentQuickLoginEnabled, isLocalDevelopmentDatabase, isLoopbackRequestHost } from "@school-clerk/auth/development";
 import { headers } from "next/headers";
 import { buildDashboardSignupUrl } from "@/features/signup/tenant-urls";
@@ -35,8 +35,10 @@ export default async function Page({ params, searchParams }) {
     ? await getLocalLoginSchool(prisma, domain) : null;
   const localLoginUsers = localLoginSchool
     ? await listLocalLoginUsers(prisma, localLoginSchool.id) : [];
+  // Passwordless sign-in is limited to local QA identities (`bun run --cwd
+  // packages/db db:qa-emails` moves every local email to the QA domain).
   const quickLoginUsers = isDevelopmentQuickLoginEnabled() && isLocalHost
-    ? localLoginUsers : [];
+    ? localLoginUsers.filter((user) => isLocalQaEmail(user.email)) : [];
 
   return (
     <Client

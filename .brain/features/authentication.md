@@ -99,3 +99,14 @@ The existing tenant/auth/workspace entry policy executes inside an authenticated
 ## Regional auth performance verification completed —2026-10-06
 
 Dashboard warm Chrome Load0.906/2.210/0.962s: median0.962s vs2.07s, observed53.5% reduction. Classes3.540/0.919/1.030s: median1.030s vs2.44s, observed57.8% reduction. Six accepted loads each returned two profile200 responses; expected184/3/7 counts, seven classroom rows and no test-tab console errors verified. Both approved EwaTrade Chrome pauses lifted, inspector closed. This completes the previously pending warm timing acceptance; auth/ancestry/cookie rules remain unchanged. These are three accepted loads per page from one authenticated tenant/browser, with normal cache and no throttling, not an SLA or exact useful-data readiness measurement. One focus-change1.06s sample was excluded; first-after-inactivity Dashboard5.20s was separate. No forced cold test, paid/provider/schema change or school/financial write. ADR-0069.
+
+## Local QA identities — 2026-10-12
+
+Every local email is rewritten to `@ishaq.qa.test` (`bun run --cwd packages/db db:qa-emails`, local-only and idempotent; run it after each `db:sync`). Passwordless quick sign-in is limited to those QA identities. Picking a QA account on the login page signs in straight away, with no Password field. Verified on 2026-10-12:
+
+- The login page lists the four QA accounts.
+- The quick-login endpoint returns 200 for a QA Teacher and 403 for an unknown user.
+- The login form's server action signed in the QA Teacher without a password, landing on `/teacher`. The Admin was signed back in the same way.
+
+See [ADR-0079](../decisions/ADR-0079-local-qa-identities.md).
+

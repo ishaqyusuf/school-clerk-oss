@@ -2,7 +2,7 @@
 
 ## Classroom overview sheet: section rail — 2026-10-12
 
-The owner chose 02 Section rail from `artifacts/classroom-sheet-v2-workshop`, and it is implemented locally. Component tests and a typecheck of the changed files pass. Live browser QA at desktop and phone widths passed on the local stack after layout fixes. Committed on branch `classroom-section-rail` (not pushed). Live Teacher and Registrar checks are still open. See [feature](../features/classroom-overview.md) and [ADR-0078](../decisions/ADR-0078-classroom-section-rail.md).
+The owner chose 02 Section rail from `artifacts/classroom-sheet-v2-workshop`, and it is implemented locally. Component tests and a typecheck of the changed files pass. Live browser QA at desktop and phone widths passed on the local stack after layout fixes. Committed on `main` (not pushed). Teacher was verified live through local QA login (ADR-0079); Registrar is still untested because the local data has no Registrar. See [feature](../features/classroom-overview.md) and [ADR-0078](../decisions/ADR-0078-classroom-section-rail.md).
 
 ## Design-system workshop — 2026-10-09
 

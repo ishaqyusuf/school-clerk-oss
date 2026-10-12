@@ -61,6 +61,6 @@ Opens from the Classrooms table (`?viewClassroomId=…&classroomTab=…`). The l
   - A stalled first load seen during QA was the hidden browser pane (requestAnimationFrame never fires), not the app; a visible tab loads the sheet directly.
 - **Attendance taps**: no toast per tap, and tap again to clear in new sessions. Verified live.
 - **Role review (code)**: the rail's queries have no role restriction beyond the module, and Payments shows "Unavailable" if charges are refused. Admin-only deletes and manager-only student actions use the existing role helpers.
-- **Not covered**: live Teacher and Registrar sessions (no QA accounts available).
+- **Teacher (live, via QA login)**: the sheet loads with the same rail. The student row menu offers only View details; subjects have no delete; Attendance works. Registrar is not covered because the local data has no Registrar user.
 - **Left as is**: the four stat cards in `SubjectAssessments`. They are shared with three other screens and already hidden on phones.
 - **Workshop reference**: `artifacts/classroom-sheet-v2-workshop/02-rail/`.

@@ -46,3 +46,7 @@ non-loopback requests remain ineligible. No account role or classification is
 changed. Browser QA completed passwordless sign-in for an existing teacher and
 admin. This extension supersedes the earlier QA-only/default-off decision for
 the local development profile; the historical rationale above is retained.
+
+## Amended by ADR-0079 — 2026-10-12
+
+Passwordless eligibility is limited again to QA identities, now the local `@ishaq.qa.test` domain. A local script moves every email to that domain. See [ADR-0079](ADR-0079-local-qa-identities.md).

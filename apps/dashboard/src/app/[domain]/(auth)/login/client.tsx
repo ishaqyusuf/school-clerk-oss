@@ -119,9 +119,10 @@ export function Client({
   const [selectedQuickLoginUserId, setSelectedQuickLoginUserId] = useState(
     initialQuickLoginUserId,
   );
-  const selectedUserCanQuickLogin = quickLoginUsers.some(
+  const selectedQuickLoginUser = quickLoginUsers.find(
     (user) => user.id === selectedQuickLoginUserId,
   );
+  const selectedUserCanQuickLogin = Boolean(selectedQuickLoginUser);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(initialError);
@@ -140,6 +141,24 @@ export function Client({
     markFieldFilled();
   };
 
+  // Local QA accounts sign in as soon as they are picked (no password).
+  const quickSignIn = async (user: QuickLoginUser) => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.set("email", user.email);
+      formData.set("userId", user.id);
+      formData.set("returnTo", returnTo ?? "");
+      if (form.getValues("rememberMe")) formData.set("rememberMe", "on");
+      // The action redirects on success and on handled failures.
+      await loginWithPasswordAction(formData);
+    } catch {
+      setError("Unable to sign in with quick login right now.");
+      setIsLoading(false);
+    }
+  };
+
   const selectQuickLoginUser = (user: QuickLoginUser) => {
     setSelectedQuickLoginUserId(user.id);
     form.setValue("email", user.email, {
@@ -153,6 +172,9 @@ export function Client({
       shouldValidate: false,
     });
     markFieldFilled();
+    if (quickLoginUsers.some((candidate) => candidate.id === user.id)) {
+      void quickSignIn(user);
+    }
   };
 
   const submitCredentials = async ({
@@ -418,46 +440,49 @@ export function Client({
                     </Field>
                   )}
 
-                  <Field>
-                    <div className="flex items-center justify-between gap-4">
-                      <FieldLabel htmlFor="password">Password</FieldLabel>
-                      <Link
-                        href="/forgot-password"
-                        className="text-sm font-medium text-primary hover:text-primary/80"
-                      >
-                        Forgot password?
-                      </Link>
-                    </div>
-                    <InputGroup>
-                      <InputGroupAddon>
-                        <Lock />
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder={
-                          selectedUserCanQuickLogin
-                            ? "Not required for quick login"
-                            : "Enter your password"
-                        }
-                        autoComplete="current-password"
-                        required={!selectedUserCanQuickLogin}
-                        {...passwordField}
-                        defaultValue=""
-                      />
-                      <InputGroupAddon align="inline-end">
-                        <InputGroupButton
-                          onClick={() => setShowPassword(!showPassword)}
-                          aria-label={
-                            showPassword ? "Hide password" : "Show password"
-                          }
-                          size="icon-xs"
+                  {/* Local QA accounts sign in by selection alone. */}
+                  {selectedUserCanQuickLogin ? null : (
+                    <Field>
+                      <div className="flex items-center justify-between gap-4">
+                        <FieldLabel htmlFor="password">Password</FieldLabel>
+                        <Link
+                          href="/forgot-password"
+                          className="text-sm font-medium text-primary hover:text-primary/80"
                         >
-                          {showPassword ? <EyeOff /> : <Eye />}
-                        </InputGroupButton>
-                      </InputGroupAddon>
-                    </InputGroup>
-                  </Field>
+                          Forgot password?
+                        </Link>
+                      </div>
+                      <InputGroup>
+                        <InputGroupAddon>
+                          <Lock />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder={
+                            selectedUserCanQuickLogin
+                              ? "Not required for quick login"
+                              : "Enter your password"
+                          }
+                          autoComplete="current-password"
+                          required={!selectedUserCanQuickLogin}
+                          {...passwordField}
+                          defaultValue=""
+                        />
+                        <InputGroupAddon align="inline-end">
+                          <InputGroupButton
+                            onClick={() => setShowPassword(!showPassword)}
+                            aria-label={
+                              showPassword ? "Hide password" : "Show password"
+                            }
+                            size="icon-xs"
+                          >
+                            {showPassword ? <EyeOff /> : <Eye />}
+                          </InputGroupButton>
+                        </InputGroupAddon>
+                      </InputGroup>
+                    </Field>
+                  )}
 
                   <Field orientation="horizontal">
                     <input
@@ -492,7 +517,9 @@ export function Client({
                     className="w-full flex-row gap-2"
                     isSubmitting={isLoading}
                   >
-                    Sign in
+                    {selectedUserCanQuickLogin
+                      ? `Sign in as ${selectedQuickLoginUser?.name || selectedQuickLoginUser?.email}`
+                      : "Sign in"}
                     <ArrowRight data-icon="inline-end" />
                   </SubmitButton>
                 </FieldGroup>
@@ -559,7 +586,7 @@ function DevEmailCombobox({
       <FieldLabel htmlFor="email">Local account picker</FieldLabel>
       <FieldDescription className="break-words">
         {passwordlessAvailable
-          ? "Select an existing account for this school to sign in on the local development database."
+          ? "Local QA: pick an @ishaq.qa.test account to sign in without a password."
           : "Select an existing account for this school, then enter its password to sign in."}
       </FieldDescription>
       <Popover open={open} onOpenChange={setOpen}>

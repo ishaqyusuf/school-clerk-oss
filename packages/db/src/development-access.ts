@@ -3,6 +3,13 @@ import type { ConfiguredPrismaClient } from "./prisma";
 
 type DevelopmentDatabase = Pick<ConfiguredPrismaClient, "schoolProfile" | "user">;
 
+/** Local QA identities (see local-qa-emails.ts). Only these can use passwordless local login. */
+export const LOCAL_QA_EMAIL_DOMAIN = "ishaq.qa.test";
+
+export function isLocalQaEmail(email: string | null | undefined) {
+  return !!email && email.trim().toLowerCase().endsWith(`@${LOCAL_QA_EMAIL_DOMAIN}`);
+}
+
 export function getDevelopmentLoginSchool(db: DevelopmentDatabase, domain: string) {
   return db.schoolProfile.findFirst({
     where: { subDomain: domain, deletedAt: null,
@@ -13,6 +20,7 @@ export function getDevelopmentLoginSchool(db: DevelopmentDatabase, domain: strin
 
 function developmentUserWhere(schoolId: string): Prisma.UserWhereInput {
   return { deletedAt: null,
+    email: { endsWith: `@${LOCAL_QA_EMAIL_DOMAIN}`, mode: "insensitive" },
     tenant: { deletedAt: null, qaPurgeStartedAt: null,
     schools: { some: { id: schoolId, deletedAt: null } } } };
 }
