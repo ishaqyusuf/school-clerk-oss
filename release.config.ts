@@ -4,6 +4,9 @@ const team = "team_BV5rgKHJH4fMyFL1YfscZIZK";
 
 export default {
 	project: "school-clerk",
+	// A busy checkout releases from a clean copy of HEAD; the db package imports
+	// its git-ignored generated client, which the jobs deploy bundles.
+	cleanCheckout: { prepare: ["bun run db:generate"] },
 	components: [
 		{
 			name: "database",
