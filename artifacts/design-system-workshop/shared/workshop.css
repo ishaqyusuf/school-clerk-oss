@@ -1,0 +1,11 @@
+/* Workshop chrome only — never part of the product design. Neutral so it doesn't bias a direction. */
+.ws-pill { position: fixed; z-index: 200; left: 12px; bottom: 12px; display: flex; align-items: center; gap: 2px; max-width: calc(100vw - 24px); padding: 4px; border-radius: 999px; background: rgb(20 20 20 / .88); color: #f4f4f4; font: 500 12px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; box-shadow: 0 8px 24px rgb(0 0 0 / .25); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); overflow-x: auto; scrollbar-width: none; }
+.ws-pill::-webkit-scrollbar { display: none; }
+.ws-pill a, .ws-pill-btn { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; color: inherit; text-decoration: none; white-space: nowrap; background: none; border: 0; font: inherit; cursor: pointer; }
+.ws-pill a:hover, .ws-pill-btn:hover { background: rgb(255 255 255 / .12); }
+.ws-pill a[aria-current="page"] { background: #f4f4f4; color: #141414; }
+.ws-pill-dir { font-weight: 650; }
+.ws-pill-links { display: inline-flex; gap: 2px; padding: 0 4px; margin: 0 2px; border-left: 1px solid rgb(255 255 255 / .18); border-right: 1px solid rgb(255 255 255 / .18); }
+.ws-pill-x { font-size: 16px; padding: 0 8px; }
+.ws-pill :focus-visible { outline: 2px solid #8ab4ff; outline-offset: 1px; }
+@media (max-width: 520px) { .ws-pill-dir { display: none; } }

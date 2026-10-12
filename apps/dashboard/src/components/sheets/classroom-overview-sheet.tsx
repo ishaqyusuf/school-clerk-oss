@@ -1,9 +1,6 @@
 import Sheet from "@school-clerk/ui/custom/sheet";
-import {
-  Tabs as TabsBase,
-  TabsContent,
-} from "@school-clerk/ui/tabs";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
+import { useSubjectParams } from "@/hooks/use-subject-params";
 import { useAuth } from "@/hooks/use-auth";
 import { ClassroomStudents } from "../classroom-students";
 import { ClassroomSubject } from "../classroom-subjects";
@@ -18,22 +15,8 @@ import { StudentFormAction } from "../forms/student-form-action";
 import { ClassroomSubjectOverviewSecondary } from "../classroom-subject-secondary-overview";
 import { ClassroomAttendance } from "../classroom-attendance";
 import { ClassroomAttendanceForm } from "../classroom-attendance-form";
-import { Badge } from "@school-clerk/ui/badge";
-import { Button } from "@school-clerk/ui/button";
-import {
-  Users,
-  Calendar,
-  BookOpen,
-  Banknote,
-  BarChart3,
-  FileText,
-  Receipt,
-} from "lucide-react";
-import { cn } from "@school-clerk/ui/cn";
-import { AnimatedNumber } from "../animated-number";
-import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
+import { FileText } from "lucide-react";
 import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
 import {
@@ -43,40 +26,66 @@ import {
   SelectValue,
 } from "@school-clerk/ui/select";
 import { ClassroomSelectTrigger } from "../classroom-select-trigger";
+import { AttendanceDraftProvider } from "../attendance-draft-context";
+import {
+  ClassroomSectionBar,
+  ClassroomSectionHeader,
+  ClassroomSectionRail,
+  classroomSections,
+  resolveClassroomSection,
+  type ClassroomSection,
+} from "../classroom-overview/classroom-section-nav";
+import { ClassroomPayments } from "../classroom-overview/classroom-payments";
+import { useClassroomMetrics } from "../classroom-overview/use-classroom-metrics";
 
 export function ClassroomOverviewSheet({}) {
   const { setParams, ...params } = useClassroomParams();
   const { viewClassroomId } = params;
   const isOpen = Boolean(params.viewClassroomId);
+  const auth = useAuth();
+  const attendanceDraftKey = JSON.stringify([
+    auth.id,
+    auth.sessionId,
+    auth.profile?.schoolId,
+    auth.profile?.sessionId,
+    auth.profile?.termId,
+    viewClassroomId,
+  ]);
+  const section = resolveClassroomSection(params.classroomTab);
+  const sectionLabel = classroomSections.find(
+    (item) => item.value === section,
+  )?.label;
   return (
-    <Sheet
-      primarySize="3xl"
-      secondarySize="5xl"
-      open={isOpen}
-      onOpenChange={() => setParams(null)}
-      onCloseSecondary={() => setParams({ secondaryTab: null })}
-      sheetName="student-overview"
-      secondaryOpened={!!params.secondaryTab}
+    <AttendanceDraftProvider
+      key={attendanceDraftKey}
+      departmentId={viewClassroomId}
     >
-      <ErrorBoundary errorComponent={ErrorFallback}>
-        <Suspense fallback={<LoadingSkeleton />}>
-          <Content />
-        </Suspense>
-      </ErrorBoundary>
-    </Sheet>
+      {/* Section rail layout: details replace the section page in place, so the
+          sheet keeps one width (ADR-0078). */}
+      <Sheet
+        primarySize="4xl"
+        secondaryLayout="replace"
+        secondaryBackLabel={sectionLabel}
+        hideClose
+        open={isOpen}
+        onOpenChange={() => setParams(null)}
+        onCloseSecondary={() => setParams({ secondaryTab: null })}
+        sheetName="classroom-overview"
+        secondaryOpened={!!params.secondaryTab}
+      >
+        <ErrorBoundary errorComponent={ErrorFallback}>
+          <Suspense fallback={<LoadingSkeleton />}>
+            <Content />
+          </Suspense>
+        </ErrorBoundary>
+      </Sheet>
+    </AttendanceDraftProvider>
   );
 }
 
-const tabItems = [
-  { value: "students", label: "Students", icon: Users },
-  { value: "attendance", label: "Attendance", icon: Calendar },
-  { value: "subjects", label: "Subjects", icon: BookOpen },
-  { value: "payments", label: "Payments", icon: Banknote },
-  { value: "performance", label: "Performance", icon: BarChart3 },
-] as const;
-
 export function Content({}) {
   const { setParams, ...params } = useClassroomParams();
+  const { setParams: setSubjectParams } = useSubjectParams();
   const { viewClassroomId } = params;
   const isOpen = !!params.viewClassroomId;
   const trpc = useTRPC();
@@ -93,418 +102,144 @@ export function Content({}) {
   const { data: classroomOptionsData } = useSuspenseQuery(
     trpc.classrooms.getCurrentSessionClassroom.queryOptions(),
   );
+  const session = classRoom?.classRoom?.session;
+  const metrics = useClassroomMetrics({
+    departmentId: viewClassroomId,
+    sessionId: session?.id,
+    termId: session?.term?.id,
+    studentCount: classRoom?._count?.studentSessionForms ?? 0,
+  });
   if (!isOpen) return null;
 
-  const studentCount = classRoom?._count?.studentSessionForms ?? 0;
-  const sessionTitle = classRoom?.classRoom?.session?.title;
+  const section = resolveClassroomSection(params.classroomTab);
   const classroomOptions = classroomOptionsData?.data ?? [];
-
-  return (
-    <>
-      <Sheet.MultiContent className="bg-background">
-        {/* Header Section */}
-        <Sheet.Header className="bg-card border-b border-border pb-4">
-          <Sheet.Title>
-            <Sheet.PrimaryContent>
-              <div className="flex items-center gap-3">
-                <Select
-                  value={viewClassroomId ?? ""}
-                  onValueChange={(nextClassroomId) =>
-                    setParams({
-                      attendanceSessionId: null,
-                      secondaryTab: null,
-                      subjectOverviewId: null,
-                      viewClassroomId: nextClassroomId,
-                    })
-                  }
-                >
-                  <ClassroomSelectTrigger
-                    aria-label="Switch classroom"
-                    className="h-auto min-w-0 max-w-[min(70vw,28rem)] gap-2 rounded-none border-0 bg-transparent p-0 text-xl font-bold tracking-tight shadow-none focus:ring-0"
-                  >
-                    <SelectValue placeholder="Select a classroom" />
-                  </ClassroomSelectTrigger>
-                  <SelectContent className="max-h-80">
-                    {classroomOptions.map((classroom) => (
-                      <SelectItem key={classroom.id} value={classroom.id}>
-                        <span dir="auto">{classroom.displayName}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {sessionTitle && (
-                  <Badge
-                    variant="outline"
-                    className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800"
-                  >
-                    {sessionTitle}
-                  </Badge>
-                )}
-              </div>
-            </Sheet.PrimaryContent>
-          </Sheet.Title>
-          <Sheet.Description asChild>
-            <Sheet.PrimaryContent>
-              <div className="flex flex-col gap-4 mt-2">
-                <p className="text-muted-foreground text-sm flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Class: {classRoom?.classRoom?.name}
-                </p>
-                {/* Stats Row */}
-                <div className="flex gap-6">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Students
-                    </span>
-                    <span className="text-xl font-bold text-foreground">
-                      {studentCount}
-                    </span>
-                  </div>
-                  <div className="w-px h-10 bg-border" />
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Attendance
-                    </span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
-                        --
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-px h-10 bg-border" />
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Class Avg
-                    </span>
-                    <span className="text-xl font-bold text-foreground">
-                      --
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Sheet.PrimaryContent>
-          </Sheet.Description>
-        </Sheet.Header>
-        <Sheet.PrimaryContent>
-          {/* Tab Navigation */}
-          <nav className="border-b border-border px-2">
-            <div className="flex gap-4 overflow-x-auto no-scrollbar">
-              {tabItems.map((tab) => {
-                const isActive = params?.classroomTab === tab.value;
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.value}
-                    onClick={() =>
-                      setParams({ classroomTab: tab.value as any })
-                    }
-                    className={cn(
-                      "flex items-center gap-2 border-b-2 py-3 text-sm font-medium transition-all whitespace-nowrap",
-                      isActive
-                        ? "border-primary text-primary font-semibold"
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{tab.label}</span>
-                    {tab.value === "students" ? (
-                      <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
-                        {studentCount}
-                      </Badge>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </nav>
-          <Sheet.ScrollArea className="flex flex-col gap-2">
-            <TabsBase value={params?.classroomTab}>
-              <TabsContent value="students" className="h-screen">
-                <ClassroomStudents
-                  departmentId={viewClassroomId}
-                  sessionTermId={classRoom?.classRoom?.session?.term?.id}
-                />
-              </TabsContent>
-              <TabsContent value="subjects" className="h-screen">
-                <ClassroomSubject departmentId={viewClassroomId} />
-              </TabsContent>
-              <TabsContent value="attendance" className="h-screen">
-                <ClassroomAttendance departmentId={viewClassroomId} />
-              </TabsContent>
-              <TabsContent value="payments" className="h-screen">
-                <ClassroomPayments
-                  departmentId={viewClassroomId}
-                  sessionId={classRoom?.classRoom?.session?.id}
-                  termId={classRoom?.classRoom?.session?.term?.id}
-                />
-              </TabsContent>
-              <TabsContent value="performance" className="h-screen">
-                <ComingSoonPlaceholder tab="Performance" />
-              </TabsContent>
-            </TabsBase>
-          </Sheet.ScrollArea>
-        </Sheet.PrimaryContent>
-        <StudentForm
-          schoolSessionId={classRoom?.classRoom?.session?.id}
-          sessionTermId={classRoom?.classRoom?.session?.term?.id}
-        />
-        <ClassroomSubjectSecondaryForm />
-        <ClassroomSubjectOverviewSecondary />
-        <ClassroomAttendanceForm />
-      </Sheet.MultiContent>
-    </>
+  const currentClassroom = classroomOptions.find(
+    (classroom) => classroom.id === viewClassroomId,
   );
-}
+  const classTitle =
+    currentClassroom?.displayName || classRoom?.classRoom?.name || "Classroom";
+  const termLabel = [session?.term?.title, session?.title]
+    .filter(Boolean)
+    .join(" · ");
 
-type ClassroomPaymentCharge = {
-  id: string;
-  title: string;
-  amount: number;
-  amountPaid: number;
-  outstanding: number;
-  status: string;
-  collectionStatus?: string | null;
-  studentName?: string | null;
-  student?: { id: string; name?: string | null; surname?: string | null; otherName?: string | null } | null;
-  stream?: { name?: string | null } | null;
-};
-
-function ClassroomPayments({
-  departmentId,
-  sessionId,
-  termId,
-}: {
-  departmentId?: string | null;
-  sessionId?: string | null;
-  termId?: string | null;
-}) {
-  const trpc = useTRPC();
-  const { setParams: setPaymentParams } = useReceivePaymentParams();
-  const { data = [], isLoading } = useQuery(
-    trpc.finance.getCharges.queryOptions(
-      {
-        classroomDepartmentId: departmentId || null,
-        sessionId: sessionId || null,
-        termId: termId || null,
-        payerType: "STUDENT",
-      },
-      { enabled: Boolean(departmentId) },
-    ),
-  );
-  const charges = data as ClassroomPaymentCharge[];
-  const totals = useMemo(() => {
-    return charges.reduce(
-      (summary, charge) => {
-        summary.billed += Number(charge.amount || 0);
-        summary.paid += Number(charge.amountPaid || 0);
-        summary.outstanding += Math.max(Number(charge.outstanding || 0), 0);
-        if (Number(charge.outstanding || 0) <= 0) summary.paidCharges += 1;
-        if (Number(charge.outstanding || 0) > 0) summary.openCharges += 1;
-        return summary;
-      },
-      { billed: 0, paid: 0, outstanding: 0, paidCharges: 0, openCharges: 0 },
-    );
-  }, [charges]);
-  const collectionRate =
-    totals.billed > 0 ? Math.round((totals.paid / totals.billed) * 100) : 0;
-  const sortedCharges = useMemo(
-    () =>
-      [...charges].sort(
-        (a, b) => Number(b.outstanding || 0) - Number(a.outstanding || 0),
-      ),
-    [charges],
-  );
-
-  const openPaymentSheet = (charge?: ClassroomPaymentCharge) => {
-    setPaymentParams({
-      receivePayment: true,
-      receivePaymentStudentId: charge?.student?.id ?? null,
-      receivePaymentStudentName: charge?.student?.id
-        ? null
-        : charge?.studentName ?? null,
+  // Leaving a detail also drops the subject workspace's own URL state.
+  const clearSubjectWorkspace = () =>
+    setSubjectParams({ openSubjectSecondaryId: null, subjectTab: null });
+  const selectSection = (next: ClassroomSection) => {
+    clearSubjectWorkspace();
+    setParams({
+      classroomTab: next,
+      secondaryTab: null,
+      attendanceSessionId: null,
+      attendanceView: null,
     });
   };
+  const closeSheet = () => setParams(null);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 p-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-        </div>
-        <Skeleton className="h-40" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4 p-4 animate-in fade-in">
-      <div className="grid grid-cols-2 gap-3">
-        <PaymentStat label="Billed" value={totals.billed} />
-        <PaymentStat label="Received" value={totals.paid} tone="success" />
-        <PaymentStat label="Outstanding" value={totals.outstanding} tone="warning" />
-        <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Collection
-          </p>
-          <div className="mt-2 flex items-end gap-2">
-            <span className="text-2xl font-semibold">{collectionRate}%</span>
-            <span className="pb-1 text-xs text-muted-foreground">
-              {totals.paidCharges}/{charges.length} paid
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold">Student charges</h3>
-          <p className="text-xs text-muted-foreground">
-            {totals.openCharges} outstanding, {totals.paidCharges} settled
-          </p>
-        </div>
-        <Button size="sm" className="gap-2" onClick={() => openPaymentSheet()}>
-          <Banknote className="h-4 w-4" />
-          Receive payment
-        </Button>
-      </div>
-
-      {sortedCharges.length ? (
-        <div className="divide-y rounded-lg border bg-card">
-          {sortedCharges.map((charge) => {
-            const isPaid = Number(charge.outstanding || 0) <= 0;
-            return (
-              <div
-                key={charge.id}
-                className="flex items-center gap-3 p-3"
-              >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                  <Receipt className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium">
-                      {charge.studentName || "Student"}
-                    </p>
-                    <PaymentStatusBadge
-                      status={isPaid ? "PAID" : charge.collectionStatus || charge.status}
-                    />
-                  </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {[charge.title, charge.stream?.name].filter(Boolean).join(" · ")}
-                  </p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p
-                    className={cn(
-                      "text-sm font-semibold",
-                      isPaid ? "text-emerald-600" : "text-orange-600",
-                    )}
-                  >
-                    <AnimatedNumber
-                      value={isPaid ? charge.amountPaid : charge.outstanding}
-                      currency="NGN"
-                      maximumFractionDigits={0}
-                    />
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    paid{" "}
-                    <AnimatedNumber
-                      value={charge.amountPaid}
-                      currency="NGN"
-                      maximumFractionDigits={0}
-                    />
-                  </p>
-                </div>
-                {!isPaid ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openPaymentSheet(charge)}
-                  >
-                    Record
-                  </Button>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="rounded-lg border bg-card p-6 text-center">
-          <Receipt className="mx-auto h-8 w-8 text-muted-foreground" />
-          <h3 className="mt-3 text-sm font-semibold">No student charges</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Payments recorded for this classroom will appear here.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PaymentStat({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: number;
-  tone?: "default" | "success" | "warning";
-}) {
-  return (
-    <div className="rounded-lg border bg-card p-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p
-        className={cn(
-          "mt-2 text-xl font-semibold",
-          tone === "success" && "text-emerald-600",
-          tone === "warning" && "text-orange-600",
-        )}
-      >
-        <AnimatedNumber
-          value={value}
-          currency="NGN"
-          maximumFractionDigits={0}
-        />
-      </p>
-    </div>
-  );
-}
-
-function PaymentStatusBadge({ status }: { status?: string | null }) {
-  const normalized = (status || "PENDING").replace(/_/g, " ").toLowerCase();
-  const isPaid = status === "PAID" || status === "COLLECTED";
-  return (
-    <Badge
-      variant={isPaid ? "success" : "outline"}
-      className={cn(
-        "h-5 rounded-none px-1.5 text-[10px]",
-        !isPaid && "border-orange-300 text-orange-700",
-      )}
+  const switcher = (
+    <Select
+      value={viewClassroomId ?? ""}
+      onValueChange={(nextClassroomId) => {
+        clearSubjectWorkspace();
+        setParams({
+          attendanceSessionId: null,
+          attendanceView: null,
+          secondaryTab: null,
+          subjectOverviewId: null,
+          viewClassroomId: nextClassroomId,
+        });
+      }}
     >
-      {isPaid ? "paid" : normalized}
-    </Badge>
+      <ClassroomSelectTrigger
+        aria-label="Switch classroom"
+        className="h-auto min-w-0 max-w-full gap-2 rounded-none border-0 bg-transparent p-0 text-base font-semibold tracking-tight shadow-none focus:ring-0"
+      >
+        <SelectValue placeholder="Select a classroom" />
+      </ClassroomSelectTrigger>
+      <SelectContent className="max-h-80">
+        {classroomOptions.map((classroom) => (
+          <SelectItem key={classroom.id} value={classroom.id}>
+            <span dir="auto">{classroom.displayName}</span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+  const navProps = {
+    active: section,
+    metrics,
+    onSelect: selectSection,
+    onClose: closeSheet,
+    switcher,
+    termLabel,
+  };
+
+  return (
+    <Sheet.MultiContent className="flex-col bg-background lg:flex-row">
+      <Sheet.Title className="sr-only">{classTitle}</Sheet.Title>
+      <Sheet.Description className="sr-only">
+        {termLabel ? `Classroom overview for ${termLabel}` : "Classroom overview"}
+      </Sheet.Description>
+      <ClassroomSectionRail {...navProps} />
+      <Sheet.PrimaryContent>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ClassroomSectionBar {...navProps} />
+          {/* Radix wraps viewport content in a display:table box that grows to its
+              widest child; keep it block so wide tables scroll inside the page. */}
+          <Sheet.ScrollArea className="px-4 pt-4 lg:px-6 lg:pt-5 [&_[data-radix-scroll-area-viewport]>div]:!block">
+
+            {section === "students" ? (
+              <ClassroomStudents
+                departmentId={viewClassroomId}
+                sessionTermId={session?.term?.id}
+                studentCount={metrics.students.count}
+              />
+            ) : section === "subjects" ? (
+              <ClassroomSubject departmentId={viewClassroomId} />
+            ) : section === "attendance" ? (
+              <ClassroomAttendance
+                departmentId={viewClassroomId}
+                layout="workspace"
+              />
+            ) : section === "payments" ? (
+              <ClassroomPayments
+                departmentId={viewClassroomId}
+                sessionId={session?.id}
+                termId={session?.term?.id}
+              />
+            ) : (
+              <PerformanceComingSoon />
+            )}
+          </Sheet.ScrollArea>
+        </div>
+      </Sheet.PrimaryContent>
+      <StudentForm
+        schoolSessionId={session?.id}
+        sessionTermId={session?.term?.id}
+      />
+      <ClassroomSubjectSecondaryForm />
+      <ClassroomSubjectOverviewSecondary />
+      <ClassroomAttendanceForm />
+    </Sheet.MultiContent>
   );
 }
 
-function ComingSoonPlaceholder({ tab }: { tab: string }) {
+function PerformanceComingSoon() {
   return (
-    <div className="mt-8 mb-4 animate-in fade-in">
-      <div className="rounded-lg bg-blue-50 dark:bg-blue-900/10 p-4 border border-blue-100 dark:border-blue-900/30 flex gap-4 items-start">
-        <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-full text-blue-600 dark:text-blue-300">
-          <FileText className="h-6 w-6" />
+    <div className="flex flex-col gap-4">
+      <ClassroomSectionHeader
+        title="Performance"
+        description="Class average and result trends for the current term."
+      />
+      <div className="flex items-start gap-4 rounded-lg border border-border bg-card p-4">
+        <div className="rounded-full bg-muted p-2 text-muted-foreground">
+          <FileText className="size-5" />
         </div>
         <div>
-          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-200">
-            {tab} Coming Soon
-          </h4>
-          <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
-            {tab} data for this classroom will be available once the feature is
-            configured for the current term.
+          <h3 className="text-sm font-semibold">Performance is coming soon</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Performance data for this classroom will be available once the
+            feature is configured for the current term.
           </p>
         </div>
       </div>
@@ -524,11 +259,17 @@ function StudentForm({ schoolSessionId, sessionTermId }) {
   const scopeKey = JSON.stringify([auth.profile?.schoolId, auth.id, auth.sessionId, auth.profile?.sessionId, auth.profile?.termId, schoolSessionId, sessionTermId, ctx.viewClassroomId]);
   const scopeReady = !auth.isPending && !auth.isProfileLoading && !auth.isProfileError &&
     !!auth.id && !!auth.sessionId && !!auth.profile?.schoolId && auth.profile.auth?.userId === auth.id;
-  const onSaved = () => {
+  const refreshClassroom = () => {
     queryClient.invalidateQueries({ queryKey: trpc.attendance.getAttendanceRoster.queryKey({ departmentId: ctx.viewClassroomId || "-" }) });
     queryClient.invalidateQueries({ queryKey: trpc.classrooms.getCurrentSessionClassroom.queryKey() });
     queryClient.invalidateQueries({ queryKey: trpc.classrooms.getClassroomOverview.queryKey({ departmentId: ctx.viewClassroomId || "-" }) });
-    ctx.setParams({ secondaryTab: null });
+  };
+  const closeForm = () => ctx.setParams({ secondaryTab: null });
+  // From the attendance recorder, saving returns straight to the (preserved) register.
+  const fromAttendance = ctx.classroomTab === "attendance";
+  const onSaved = () => {
+    refreshClassroom();
+    closeForm();
   };
   if (ctx.secondaryTab != "student-form") return null;
   return (
@@ -548,9 +289,13 @@ function StudentForm({ schoolSessionId, sessionTermId }) {
         </Sheet.SecondaryHeader>
         <Sheet.Content>
           {scopeReady ? <FormContext key={scopeKey} defaultValues={defaultValues}>
-            <Form onEnrolled={ctx.classroomTab === "attendance" ? onSaved : undefined} />
+            <Form onEnrolled={fromAttendance ? onSaved : undefined} />
             <Sheet.SecondaryFooter>
-              <StudentFormAction onSaved={ctx.classroomTab === "attendance" ? onSaved : undefined} />
+              <StudentFormAction
+                onCreated={refreshClassroom}
+                onSaved={fromAttendance ? onSaved : undefined}
+                onClose={closeForm}
+              />
             </Sheet.SecondaryFooter>
           </FormContext> : <p role="status">Loading your registration workspace…</p>}
         </Sheet.Content>
@@ -560,33 +305,28 @@ function StudentForm({ schoolSessionId, sessionTermId }) {
 }
 function LoadingSkeleton() {
   return (
-    <>
-      <Sheet.Header>
-        <Sheet.Title>
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-7 w-48" />
-            <Skeleton className="h-5 w-24 rounded-full" />
-          </div>
-        </Sheet.Title>
-        <Sheet.Description asChild>
-          <div className="flex flex-col gap-4 mt-2">
-            <Skeleton className="h-4 w-40" />
-            <div className="flex gap-6">
-              <Skeleton className="h-12 w-20" />
-              <Skeleton className="h-12 w-20" />
-              <Skeleton className="h-12 w-20" />
+    <div className="flex flex-1 flex-col lg:flex-row">
+      <Sheet.Title className="sr-only">Loading classroom</Sheet.Title>
+      <div className="hidden w-56 shrink-0 flex-col gap-3 border-r border-border bg-muted/40 p-4 lg:flex">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-3 w-24" />
+        <div className="mt-4 flex flex-col gap-4">
+          {classroomSections.map((item) => (
+            <div key={item.value} className="flex flex-col gap-1.5">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-3 w-20" />
             </div>
-          </div>
-        </Sheet.Description>
-      </Sheet.Header>
-      <Skeleton className="h-10 w-full" />
-      <div className="grid grid-cols-6 gap-4 p-4">
-        <Skeleton className="h-36 col-span-6" />
-        <Skeleton className="h-8 col-span-3" />
-        <Skeleton className="h-8 col-span-3" />
-        <Skeleton className="h-8 col-span-4" />
-        <Skeleton className="h-8 col-span-2" />
+          ))}
+        </div>
       </div>
-    </>
+      <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-4 w-56" />
+        <Skeleton className="h-9 w-full" />
+        {Array.from({ length: 6 }).map((_, index) => (
+          <Skeleton key={index} className="h-12 w-full" />
+        ))}
+      </div>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Prisma, prisma } from "@school-clerk/db";
+import { prisma } from "@school-clerk/db";
 import { tool } from "ai";
 import { z } from "zod";
 import {
@@ -216,107 +216,14 @@ export function createFinanceTools(
 					}
 
 					const output = await prisma.$transaction(async (tx) => {
-						await consumeMutationConfirmation(tx, { toolName: "receiveStudentPayment", confirmationToken, actionInput });
-						const termForm = await tx.studentTermForm.findFirstOrThrow({
-							where: {
-								id: actionInput.studentTermFormId,
-								studentId: actionInput.studentId,
-								schoolProfileId: ctx.schoolId,
-								deletedAt: null,
-							},
-							select: { id: true },
+						await consumeMutationConfirmation(tx, {
+							toolName: "receiveStudentPayment",
+							confirmationToken,
+							actionInput,
 						});
-
-						const paymentIds: string[] = [];
-
-						for (const allocation of actionInput.allocations) {
-							const charge = await tx.financeCharge.findFirstOrThrow({
-								where: {
-									id: allocation.studentFeeId,
-									schoolProfileId: ctx.schoolId,
-									studentId: actionInput.studentId,
-									studentTermFormId: termForm.id,
-									status: { notIn: ["CANCELLED", "WAIVED"] },
-								},
-								select: {
-									id: true,
-									title: true,
-									payerType: true,
-									studentId: true,
-									staffProfileId: true,
-									streamId: true,
-									amount: true,
-									amountPaid: true,
-									stream: { select: { accountType: true } },
-								},
-							});
-
-							const chargeAmount = Number(charge.amount ?? 0);
-							const currentPaid = Number(charge.amountPaid ?? 0);
-							const pendingAmount = Math.max(0, chargeAmount - currentPaid);
-
-							if (pendingAmount < allocation.amountToPay) {
-								throw new Error(
-									`Cannot allocate more than the remaining balance for ${allocation.feeTitle}.`,
-								);
-							}
-
-							const amount = new Prisma.Decimal(allocation.amountToPay);
-							const payment = await tx.financePayment.create({
-								data: {
-									schoolProfileId: ctx.schoolId,
-									streamId: charge.streamId,
-									payerType: charge.payerType,
-									studentId: charge.studentId,
-									staffProfileId: charge.staffProfileId,
-									amount,
-									paymentDate: new Date(),
-									method: actionInput.paymentMethod,
-									note: `AI payment for ${charge.title || allocation.feeTitle}`,
-									receivedById: ctx.userId,
-								},
-								select: { id: true },
-							});
-
-							await tx.financePaymentAllocation.create({
-								data: {
-									paymentId: payment.id,
-									chargeId: charge.id,
-									amount,
-								},
-							});
-
-							const nextPaid = currentPaid + allocation.amountToPay;
-							const nextStatus =
-								nextPaid >= chargeAmount ? "PAID" : "PARTIALLY_PAID";
-
-							await tx.financeCharge.update({
-								where: { id: charge.id },
-								data: {
-									amountPaid: { increment: allocation.amountToPay },
-									status: nextStatus,
-								},
-							});
-
-							await tx.financeLedgerEntry.create({
-								data: {
-									schoolProfileId: ctx.schoolId,
-									streamId: charge.streamId,
-									direction:
-										charge.stream.accountType === "DEBIT" ? "DEBIT" : "CREDIT",
-									sourceType: "PAYMENT",
-									sourceId: payment.id,
-									amount,
-									occurredAt: new Date(),
-									note: `AI payment for ${charge.title || allocation.feeTitle}`,
-									createdById: ctx.userId,
-									chargeId: charge.id,
-									paymentId: payment.id,
-								},
-							});
-
-							paymentIds.push(payment.id);
-						}
+						if (!helpers.receivePayment)
+							throw new Error("Payment service is unavailable.");
+						const paymentIds = await helpers.receivePayment(tx, actionInput);
 
 						return completeMutation(tx, {
 							executionId: guarded.executionId, toolName: "receiveStudentPayment",

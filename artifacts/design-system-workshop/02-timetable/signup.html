@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create your school · SchoolClerk</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="../shared/shadcn.css">
+<link rel="stylesheet" href="../shared/workshop.css">
+<link rel="stylesheet" href="public.css">
+<script src="../shared/data.js"></script>
+<script src="../shared/icons.js"></script>
+<script src="../shared/workshop.js"></script>
+<script src="signup.js" defer></script>
+</head>
+<body class="pub su" data-phase="signup">
+
+<!-- Workshop note: outside the product UI -->
+<div class="ws-note" role="note">
+  <span>Preview · nothing is sent</span>
+  <button type="button" class="ws-note-btn" id="restart"><i data-icon="rotate-ccw"></i>Restart</button>
+</div>
+
+<!-- =========================== PUBLIC SIGNUP =========================== -->
+<div id="phase-signup">
+  <header class="su-header">
+    <div class="wrap su-header-in">
+      <a class="brand" href="marketing.html">
+        <img class="brand-mark brand-mark--std" src="../shared/brand-mark.svg" alt="School Clerk" width="28" height="28">
+        <img class="brand-mark brand-mark--inv" src="../shared/brand-mark-inverse.svg" alt="School Clerk" width="28" height="28">
+        <span aria-hidden="true">SchoolClerk</span>
+      </a>
+      <p class="su-header-note"><span class="long">Already have a workspace?</span> <a href="#">Sign in</a></p>
+    </div>
+  </header>
+
+  <main class="su-main" id="main">
+    <div class="su-layout">
+      <div class="su-col">
+        <div class="su-intro">
+          <p class="eyebrow">New school workspace</p>
+          <h1 class="su-h1">Create your school</h1>
+          <p class="su-sub">Four short periods. Nothing is reserved until you create the workspace.</p>
+        </div>
+
+        <nav class="stepper-nav" aria-label="Signup progress">
+          <ol class="stepper" id="stepper">
+            <li><button type="button" class="stepper-btn" data-goto="0"><span class="stepper-n">01<i data-icon="check"></i></span><span class="stepper-l">School</span></button></li>
+            <li><button type="button" class="stepper-btn" data-goto="1"><span class="stepper-n">02<i data-icon="check"></i></span><span class="stepper-l">Admin</span></button></li>
+            <li><button type="button" class="stepper-btn" data-goto="2"><span class="stepper-n">03<i data-icon="check"></i></span><span class="stepper-l">Context</span></button></li>
+            <li><button type="button" class="stepper-btn" data-goto="3"><span class="stepper-n">04<i data-icon="check"></i></span><span class="stepper-l">Create</span></button></li>
+          </ol>
+        </nav>
+
+        <details class="su-mini" id="su-mini">
+          <summary><span>Manifest</span><span class="mini-name" id="mini-name"></span><span class="mini-count" id="mini-count">0/6</span><i data-icon="chevron-down" data-size="14"></i></summary>
+          <dl class="mf-rows" data-manifest-rows></dl>
+        </details>
+
+        <!-- 01 School -->
+        <form class="su-step" id="step-0" data-step="0" novalidate aria-labelledby="s0-h">
+          <header class="su-step-head">
+            <p class="eyebrow">Period 01 <span class="sep"></span> School</p>
+            <h2 id="s0-h" tabindex="-1">Tell us about your school</h2>
+            <p>We use this to name your workspace and reserve its addresses.</p>
+          </header>
+          <div class="su-fields">
+            <div class="field">
+              <label class="label" for="f-name">Institution name</label>
+              <input class="input" id="f-name" name="name" autocomplete="organization" placeholder="e.g. Kingsway Academy" aria-describedby="f-name-err" required>
+              <p class="field-error" id="f-name-err" hidden></p>
+            </div>
+
+            <fieldset class="fieldset" style="gap:.6rem">
+              <legend class="label">Institution type</legend>
+              <div class="tiles" id="tiles"></div>
+              <p class="field-description">Only K-12 is open for self-serve signup today. The others are on the way.</p>
+            </fieldset>
+
+            <div class="field">
+              <div class="field-head">
+                <label class="label" for="f-sub">School subdomain</label>
+                <span class="field-optional mono">2–63 · a–z 0–9 -</span>
+              </div>
+              <div class="input-group sub-group" id="sub-group">
+                <span class="input-addon addon-pre">https://</span>
+                <input class="input mono" id="f-sub" name="subdomain" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="63" placeholder="kingsway" aria-describedby="sub-status sub-desc">
+                <span class="input-addon">.school-clerk.com</span>
+              </div>
+              <p class="sub-status" id="sub-status" data-state="idle" aria-live="polite"></p>
+              <p class="field-description" id="sub-desc">Letters, numbers and hyphens. We suggest one from your school’s name.</p>
+              <dl class="addr" id="addr" aria-label="Your school’s addresses">
+                <dt><i data-icon="globe"></i>Website</dt><dd id="addr-site"></dd>
+                <dt><i data-icon="layout-dashboard"></i>Workspace</dt><dd id="addr-dash"></dd>
+              </dl>
+            </div>
+          </div>
+          <div class="su-actions">
+            <span class="spacer"></span>
+            <span class="su-hint"><kbd class="kbd">↵</kbd> continue</span>
+            <button type="submit" class="btn btn-default btn-lg">Continue <i data-icon="arrow-right"></i></button>
+          </div>
+        </form>
+
+        <!-- 02 Admin -->
+        <form class="su-step" id="step-1" data-step="1" novalidate aria-labelledby="s1-h" hidden>
+          <header class="su-step-head">
+            <p class="eyebrow">Period 02 <span class="sep"></span> Admin</p>
+            <h2 id="s1-h" tabindex="-1">Create the administrator account</h2>
+            <p>You’ll be the first administrator. You can invite staff once the workspace exists.</p>
+          </header>
+          <div class="su-fields">
+            <div class="field">
+              <label class="label" for="f-admin">Full name</label>
+              <input class="input" id="f-admin" name="admin" autocomplete="name" placeholder="e.g. Aisha Bello" aria-describedby="f-admin-err" required>
+              <p class="field-error" id="f-admin-err" hidden></p>
+            </div>
+            <div class="field">
+              <label class="label" for="f-email">Work email</label>
+              <input class="input" id="f-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="name@yourschool.edu.ng" aria-describedby="f-email-desc f-email-err" required>
+              <p class="field-description" id="f-email-desc">We send the verification link here.</p>
+              <p class="field-error" id="f-email-err" hidden></p>
+            </div>
+            <div class="field">
+              <label class="label" for="f-phone">Phone <span class="field-optional">Optional</span></label>
+              <input class="input mono" id="f-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+234 803 000 0000" aria-describedby="f-phone-err">
+              <p class="field-error" id="f-phone-err" hidden></p>
+            </div>
+            <div class="field">
+              <label class="label" for="f-pass">Password</label>
+              <div class="input-group" id="pw-group">
+                <input class="input" id="f-pass" name="password" type="password" autocomplete="new-password" maxlength="128" aria-describedby="pw-desc f-pass-err" required>
+                <button type="button" class="pw-toggle" id="pw-toggle" aria-pressed="false" aria-controls="f-pass"><i data-icon="eye" data-size="14"></i><span>Show</span></button>
+              </div>
+              <div class="pw-meta field-description" id="pw-desc">
+                <span class="pw-rule" id="pw-rule" data-ok="false"><i data-icon="circle" data-size="13"></i>8–128 characters</span>
+                <span class="pw-count" id="pw-count" aria-hidden="true">0/8</span>
+              </div>
+              <p class="field-error" id="f-pass-err" hidden></p>
+            </div>
+          </div>
+          <div class="su-actions">
+            <button type="button" class="btn btn-ghost btn-lg btn-back" data-back aria-label="Back"><i data-icon="arrow-left"></i><span class="btn-label">Back</span></button>
+            <span class="spacer"></span>
+            <span class="su-hint"><kbd class="kbd">↵</kbd> continue</span>
+            <button type="submit" class="btn btn-default btn-lg">Continue <i data-icon="arrow-right"></i></button>
+          </div>
+        </form>
+
+        <!-- 03 Context -->
+        <form class="su-step" id="step-2" data-step="2" novalidate aria-labelledby="s2-h" hidden>
+          <header class="su-step-head">
+            <p class="eyebrow">Period 03 <span class="sep"></span> Context · optional</p>
+            <h2 id="s2-h" tabindex="-1">A little context about your school</h2>
+            <p>It helps us suggest sensible defaults during setup. Skip it if you’d rather add this later.</p>
+          </header>
+          <div class="su-fields">
+            <div class="field">
+              <label class="label" for="f-country">Country</label>
+              <select class="select" id="f-country" name="country">
+                <option value="Nigeria" selected>Nigeria</option>
+                <option value="Ghana">Ghana</option>
+                <option value="Another country">Another country</option>
+              </select>
+            </div>
+            <fieldset class="fieldset" style="gap:.5rem">
+              <legend class="label">Student count estimate</legend>
+              <div class="seg seg-mono" style="--n:5">
+                <label><input type="radio" name="size" value="Under 100">&lt; 100</label>
+                <label><input type="radio" name="size" value="100–300">100–300</label>
+                <label><input type="radio" name="size" value="300–700">300–700</label>
+                <label><input type="radio" name="size" value="700–1,500">700–1,500</label>
+                <label><input type="radio" name="size" value="Over 1,500">1,500+</label>
+              </div>
+            </fieldset>
+            <fieldset class="fieldset" style="gap:.5rem">
+              <legend class="label">Education system</legend>
+              <div class="seg" style="--n:5">
+                <label><input type="radio" name="system" value="National">National</label>
+                <label><input type="radio" name="system" value="British">British</label>
+                <label><input type="radio" name="system" value="American">American</label>
+                <label><input type="radio" name="system" value="International">International</label>
+                <label><input type="radio" name="system" value="Hybrid">Hybrid</label>
+              </div>
+            </fieldset>
+            <fieldset class="fieldset" style="gap:.5rem">
+              <legend class="label">Language of instruction</legend>
+              <div class="seg" style="--n:4">
+                <label><input type="radio" name="lang" value="English">English</label>
+                <label><input type="radio" name="lang" value="Arabic">Arabic</label>
+                <label><input type="radio" name="lang" value="French">French</label>
+                <label><input type="radio" name="lang" value="Mixed">Mixed</label>
+              </div>
+            </fieldset>
+            <div class="field">
+              <label class="label" for="f-notes">Curriculum notes <span class="field-optional">Optional</span></label>
+              <textarea class="textarea" id="f-notes" name="notes" rows="3" placeholder="e.g. National curriculum, with Arabic and Islamic Studies from Basic 1"></textarea>
+            </div>
+          </div>
+          <div class="su-actions">
+            <button type="button" class="btn btn-ghost btn-lg btn-back" data-back aria-label="Back"><i data-icon="arrow-left"></i><span class="btn-label">Back</span></button>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-ghost btn-lg" id="skip-context">Skip this step</button>
+            <button type="submit" class="btn btn-default btn-lg">Continue <i data-icon="arrow-right"></i></button>
+          </div>
+        </form>
+
+        <!-- 04 Create -->
+        <form class="su-step" id="step-3" data-step="3" novalidate aria-labelledby="s3-h" hidden>
+          <header class="su-step-head">
+            <p class="eyebrow">Period 04 <span class="sep"></span> Create</p>
+            <h2 id="s3-h" tabindex="-1">Check and create your workspace</h2>
+            <p>This is what will be set up. Edit anything before you create it.</p>
+          </header>
+          <div class="review" id="review"></div>
+          <p class="su-legal">By creating a workspace you agree to the <a href="#">Terms</a> and <a href="#">Privacy Policy</a>.</p>
+          <ol class="su-log su-log-inline" id="su-log" aria-label="Provisioning log" hidden></ol>
+          <div class="su-actions">
+            <button type="button" class="btn btn-ghost btn-lg btn-back" data-back aria-label="Back"><i data-icon="arrow-left"></i><span class="btn-label">Back</span></button>
+            <span class="spacer"></span>
+            <span class="su-hint"><kbd class="kbd">↵</kbd> create</span>
+            <button type="submit" class="btn btn-default btn-lg" id="create-btn">Create workspace</button>
+          </div>
+        </form>
+
+        <!-- Created -->
+        <section class="su-step" id="step-done" aria-labelledby="done-h" hidden>
+          <header class="su-step-head">
+            <p class="eyebrow"><span class="tag tag-success">Created</span> <span id="done-when"></span></p>
+            <h2 id="done-h" tabindex="-1">Your workspace has been created</h2>
+            <p>Here is exactly what happened. Email is reported as the provider tells us — we don’t claim an inbox was reached.</p>
+          </header>
+          <ul class="done-list" id="done-list"></ul>
+          <div class="verify-box">
+            <span><b>Preview</b>Simulates opening the link in the verification email.</span>
+            <button type="button" class="btn btn-outline btn-sm" id="verify-btn">I’ve verified my email (preview)</button>
+          </div>
+          <div class="su-actions">
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-default btn-lg" id="continue-setup">Continue setup <i data-icon="arrow-right"></i></button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Provisioning manifest (≥1100px) -->
+      <aside class="manifest" id="manifest" aria-labelledby="mf-title">
+        <div class="mf-head"><i data-icon="file-text"></i><span id="mf-title">Provisioning manifest</span><span class="tag tag-muted" id="mf-state">Draft</span></div>
+        <div class="mf-school">
+          <span class="mf-tile is-empty" id="mf-tile" aria-hidden="true">—</span>
+          <div style="min-width:0"><span class="mf-name is-empty" id="mf-name">Your school</span><span class="mf-type" id="mf-type">K-12 School</span></div>
+        </div>
+        <div class="mf-rows-wrap">
+          <dl class="mf-rows" data-manifest-rows></dl>
+          <div class="mf-foot"><span id="mf-count">0 of 6 ready</span><span class="mf-meter" id="mf-meter" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+        </div>
+        <ol class="mf-log" id="mf-log" aria-label="Provisioning log" hidden></ol>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<!-- =========================== ONBOARDING (inside the workspace) =========================== -->
+<div id="phase-onboard" class="ob" hidden>
+  <header class="ob-top">
+    <div class="ob-brand">
+      <img src="../shared/brand-mark-inverse.svg" alt="School Clerk" width="22" height="22">
+      <span class="ob-school" id="ob-school">Kingsway Academy</span>
+      <span class="ob-addr" id="ob-addr">dashboard.kingsway.school-clerk.com</span>
+    </div>
+    <ul class="ob-tabs" aria-label="Modules">
+      <li aria-current="page">Setup</li>
+      <li class="is-locked">Overview</li>
+      <li class="is-locked">People</li>
+      <li class="is-locked">Academics</li>
+      <li class="is-locked">Finance</li>
+      <li class="is-locked">Operations</li>
+      <li class="is-locked">Settings</li>
+    </ul>
+    <div class="ob-top-r">
+      <span class="ob-chip" id="ob-chip" title="Current term">No session</span>
+      <span class="ob-avatar" id="ob-avatar" title="Administrator">AB</span>
+    </div>
+  </header>
+
+  <div class="ob-body">
+    <nav class="ob-rail" aria-labelledby="ob-h1">
+      <div class="ob-rail-head">
+        <p class="eyebrow">Workspace setup</p>
+        <h1 class="ob-h1" id="ob-h1">Set up Kingsway Academy</h1>
+        <div class="ob-meter" id="ob-meter" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <p class="ob-progress" id="ob-progress">0 of 5 done</p>
+      </div>
+      <ol class="ob-list" id="ob-list">
+        <li><button type="button" class="ob-item" data-ob="0"><span class="ob-num">01</span><span class="ob-item-l">Welcome</span><span class="ob-st"></span></button></li>
+        <li><button type="button" class="ob-item" data-ob="1"><span class="ob-num">02</span><span class="ob-item-l">Academic session</span><span class="ob-st"></span></button></li>
+        <li><button type="button" class="ob-item" data-ob="2"><span class="ob-num">03</span><span class="ob-item-l">Classrooms</span><span class="ob-st"></span></button></li>
+        <li><button type="button" class="ob-item" data-ob="3"><span class="ob-num">04</span><span class="ob-item-l">General fees</span><span class="ob-st"></span></button></li>
+        <li><button type="button" class="ob-item" data-ob="4"><span class="ob-num">05</span><span class="ob-item-l">Invite staff</span><span class="ob-st"></span></button></li>
+      </ol>
+      <div class="ob-ledger">
+        <div class="ob-ledger-h"><p class="eyebrow">Created so far</p></div>
+        <dl id="ob-ledger"></dl>
+      </div>
+      <div class="ob-rail-foot"><a class="btn btn-ghost btn-sm" href="dashboard.html"><i data-icon="layout-dashboard"></i>Finish later · open dashboard</a></div>
+    </nav>
+
+    <main class="ob-main" id="ob-main">
+
+      <!-- 01 Welcome -->
+      <section class="ob-step" id="ob-0" aria-labelledby="ob-h0">
+        <header class="ob-head">
+          <div>
+            <p class="eyebrow">Setup <span class="sep"></span> 01 / 05</p>
+            <h2 class="ob-title" id="ob-h0" tabindex="-1">Your workspace is live</h2>
+            <p class="ob-desc"><span data-school-name>Kingsway Academy</span> has its own workspace. Four short steps set it up for this term — each one can be skipped and finished later.</p>
+          </div>
+        </header>
+        <div class="ob-panel">
+          <div class="ob-panel-head"><p class="eyebrow">Workspace address</p><span class="tag tag-success">Live</span></div>
+          <div class="ob-panel-body">
+            <div class="url-box"><span class="url" id="ob-url"></span><button type="button" class="btn btn-outline btn-sm" id="copy-url"><i data-icon="copy"></i>Copy</button></div>
+            <p class="field-description" style="margin-top:-.4rem">Public website reserved at <span class="mono" id="ob-site"></span> — set it up later from Settings › Website.</p>
+          </div>
+        </div>
+        <div class="ob-alert" id="ob-verify"></div>
+        <div class="ob-panel">
+          <div class="ob-panel-head"><p class="eyebrow">What’s next</p><span class="meta">4 steps</span></div>
+          <ul class="next-list">
+            <li><button type="button" class="next-row" data-ob="1"><span class="n">02</span><span><strong>Academic session</strong><small>Session dates and its terms</small></span><i data-icon="arrow-right"></i></button></li>
+            <li><button type="button" class="next-row" data-ob="2"><span class="n">03</span><span><strong>Classrooms</strong><small>Classes, arms and subjects</small></span><i data-icon="arrow-right"></i></button></li>
+            <li><button type="button" class="next-row" data-ob="3"><span class="n">04</span><span><strong>General fees</strong><small>Fees every class pays this term</small></span><i data-icon="arrow-right"></i></button></li>
+            <li><button type="button" class="next-row" data-ob="4"><span class="n">05</span><span><strong>Staff invites</strong><small>Teachers, bursar and registrar</small></span><i data-icon="arrow-right"></i></button></li>
+          </ul>
+        </div>
+        <div class="ob-actions">
+          <button type="button" class="btn btn-ghost" id="ob-fresh">Verify email or request a fresh link</button>
+          <span class="spacer"></span>
+          <span class="ob-hint"><kbd class="kbd">⌘</kbd><kbd class="kbd">↵</kbd></span>
+          <button type="button" class="btn btn-default" data-primary id="ob-go-session">Set up academic session <i data-icon="arrow-right"></i></button>
+        </div>
+      </section>
+
+      <!-- 02 Academic session -->
+      <section class="ob-step" id="ob-1" aria-labelledby="ob-h1s" hidden>
+        <header class="ob-head">
+          <div>
+            <p class="eyebrow">Setup <span class="sep"></span> 02 / 05</p>
+            <h2 class="ob-title" id="ob-h1s" tabindex="-1">Academic session</h2>
+            <p class="ob-desc">Set the session dates and its terms. The first term always starts when the session starts.</p>
+          </div>
+        </header>
+        <div class="ob-panel">
+          <div class="ob-panel-head"><p class="eyebrow">Session</p><span class="meta" id="sess-span"></span></div>
+          <div class="ob-panel-body">
+            <div class="field-grid-3">
+              <div class="field">
+                <label class="label" for="ob-title">Session title</label>
+                <input class="input mono" id="ob-title" value="2026/2027" aria-describedby="ob-title-err">
+                <p class="field-error" id="ob-title-err" hidden></p>
+              </div>
+              <div class="field">
+                <label class="label" for="ob-start">Starts</label>
+                <input class="input mono" type="date" id="ob-start" value="2026-09-14" aria-describedby="ob-start-err">
+                <p class="field-error" id="ob-start-err" hidden></p>
+              </div>
+              <div class="field">
+                <label class="label" for="ob-end">Ends</label>
+                <input class="input mono" type="date" id="ob-end" value="2027-07-23" aria-describedby="ob-end-err">
+                <p class="field-error" id="ob-end-err" hidden></p>
+              </div>
+            </div>
+            <label class="switch-row">
+              <input type="checkbox" class="switch" id="ob-terms-on" checked>
+              <span><span class="label">Initialize with terms</span><span class="field-description">Create First, Second and Third Term now. You can rename or add terms.</span></span>
+            </label>
+          </div>
+        </div>
+        <div class="ob-panel">
+          <div class="ob-panel-head"><p class="eyebrow">Timeline</p><span class="meta" id="tl-meta"></span></div>
+          <div class="ob-panel-body"><div class="tl" id="tl"></div></div>
+        </div>
+        <div class="ob-panel" id="terms-panel">
+          <div class="ob-panel-head"><p class="eyebrow">Terms</p><button type="button" class="btn btn-outline btn-sm" id="add-term"><i data-icon="plus"></i>Add term</button></div>
+          <div class="grid-wrap">
+            <table class="grid-table terms-table">
+              <thead><tr><th scope="col" class="cell-idx">#</th><th scope="col">Term</th><th scope="col">Starts</th><th scope="col">Ends</th><th scope="col" class="num">Weeks</th><th scope="col"><span class="sr-only">Remove</span></th></tr></thead>
+              <tbody id="terms-body"></tbody>
+            </table>
+          </div>
+          <p class="field-error" id="terms-err" style="padding:.6rem .875rem" hidden></p>
+        </div>
+        <div class="ob-actions">
+          <button type="button" class="btn btn-ghost btn-back" data-ob-back aria-label="Back"><i data-icon="arrow-left"></i><span class="btn-label">Back</span></button>
+          <span class="spacer"></span>
+          <span class="ob-hint"><kbd class="kbd">⌘</kbd><kbd class="kbd">↵</kbd></span>
+          <button type="button" class="btn btn-default" data-primary id="sess-next">Next <i data-icon="arrow-right"></i></button>
+        </div>
+      </section>
+
+      <!-- 03 Classrooms -->
+      <section class="ob-step" id="ob-2" aria-labelledby="ob-h2" hidden>
+        <header class="ob-head">
+          <div>
+            <p class="eyebrow">Setup <span class="sep"></span> 03 / 05</p>
+            <h2 class="ob-title" id="ob-h2" tabindex="-1">Classrooms</h2>
+            <p class="ob-desc">Add each class with its arms and subjects. Saved classes land in the matrix below — select a cell to add or remove an arm.</p>
+          </div>
+        </header>
+        <div class="ob-panel">
+          <div class="ob-panel-head"><p class="eyebrow">New classroom</p><span class="meta"><kbd class="kbd">↵</kbd> save</span></div>
+          <div class="ob-panel-body">
+            <div class="cls-grid">
+              <div class="field">
+                <label class="label" for="c-name">Class name</label>
+                <input class="input" id="c-name" placeholder="e.g. JSS 2" autocomplete="off" aria-describedby="c-name-desc c-name-err">
+                <p class="field-description" id="c-name-desc">Pick a suggestion or type your own.</p>
+                <p class="field-error" id="c-name-err" hidden></p>
+                <div class="chips" id="c-sugg" role="group" aria-label="Class name suggestions"></div>
+              </div>
+              <div class="field">
+                <label class="label" for="c-level">Class level</label>
+                <input class="input mono" id="c-level" type="number" min="1" max="30" inputmode="numeric" placeholder="11" aria-describedby="c-level-desc">
+                <p class="field-description" id="c-level-desc">Orders promotion.</p>
+              </div>
+            </div>
+
+            <label class="switch-row">
+              <input type="checkbox" class="switch" id="c-sub">
+              <span><span class="label">Sub-class</span><span class="field-description">Split this class into arms or streams.</span></span>
+            </label>
+            <div class="sub-panel" id="c-streams-wrap" hidden>
+              <p class="eyebrow">Arms</p>
+              <div class="chips" role="group" aria-label="Arm presets">
+                <button type="button" class="chip chip-mono" data-preset="A,B,C">A · B · C</button>
+                <button type="button" class="chip" data-preset="Emerald,Gold,Silver">Emerald · Gold · Silver</button>
+              </div>
+              <div class="chips" id="c-streams" aria-live="polite"></div>
+              <div class="chip-add">
+                <label class="sr-only" for="c-stream-input">Add an arm</label>
+                <input class="input" id="c-stream-input" placeholder="Add an arm" autocomplete="off">
+                <button type="button" class="btn btn-outline btn-sm" id="c-stream-add">Add</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <span class="label" id="c-subj-l">Class subjects</span>
+              <div class="chips" id="c-subj" role="group" aria-labelledby="c-subj-l"></div>
+              <div class="chip-add">
+                <label class="sr-only" for="c-subj-input">Add a subject</label>
+                <input class="input" id="c-subj-input" placeholder="Add a subject" autocomplete="off">
+                <button type="button" class="btn btn-outline btn-sm" id="c-subj-add">Add</button>
+              </div>
+            </div>
+
+            <label class="switch-row">
+              <input type="checkbox" class="switch" id="c-fee-on">
+              <span><span class="label">Set fees for this class</span><span class="field-description">Tuition this class pays each term, on top of general fees.</span></span>
+            </label>
+            <div class="sub-panel" id="c-fee-wrap" hidden>
+              <label class="label" for="c-fee">Tuition this term</label>
+              <div class="input-group money-group"><span class="input-addon">₦</span><input class="input mono" id="c-fee" inputmode="numeric" placeholder="185,000" autocomplete="off"></div>
+            </div>
+
+            <div class="save-row">
+              <button type="button" class="btn btn-secondary" id="c-save"><i data-icon="plus"></i>Save classroom</button>
+              <p class="ob-live" id="c-live" role="status"></p>
+            </div>
+          </div>
+        </div>
+        <div class="ob-panel">
+          <div class="ob-panel-head"><p class="eyebrow">Class × arm matrix</p><span class="meta" id="mx-meta">0 classes · 0 arms</span></div>
+          <div class="grid-wrap" id="mx"></div>
+        </div>
+        <div class="ob-actions">
+          <button type="button" class="btn btn-ghost btn-back" data-ob-back aria-label="Back"><i data-icon="arrow-left"></i><span class="btn-label">Back</span></button>
+          <span class="spacer"></span>
+          <span class="ob-hint"><kbd class="kbd">⌘</kbd><kbd class="kbd">↵</kbd></span>
+          <button type="button" class="btn btn-default" data-primary id="cls-next">Next <i data-icon="arrow-right"></i></button>
+        </div>
+      </section>
+
+      <!-- 04 General fees -->
+      <section class="ob-step" id="ob-3" aria-labelledby="ob-h3" hidden>
+        <header class="ob-head">
+          <div>
+            <p class="eyebrow">Setup <span class="sep"></span> 04 / 05</p>
+            <h2 class="ob-title" id="ob-h3" tabindex="-1">General fees</h2>
+            <p class="ob-desc">Fees every class pays this term. Class-specific fees, like tuition, stay with each classroom.</p>
+          </div>
+        </header>
+        <div class="ob-panel">
+          <div class="ob-panel-head"><p class="eyebrow" id="fee-term">First Term · all classes</p><span class="meta" id="fee-meta"></span></div>
+          <div class="ob-panel-body" style="padding-bottom:.75rem">
+            <div class="fee-sugg"><span class="eyebrow">Suggestions</span><div class="chips" id="fee-sugg" role="group" aria-label="Fee suggestions"></div></div>
+          </div>
+          <div class="grid-wrap" style="border-top:1px solid var(--grid-line-strong)">
+            <table class="grid-table fee-table" aria-describedby="fee-hints">
+              <thead><tr><th scope="col" class="cell-idx">#</th><th scope="col">Fee title</th><th scope="col" style="width:9.5rem">Type</th><th scope="col" class="num" style="width:11rem">Amount</th><th scope="col"><span class="sr-only">Remove</span></th></tr></thead>
+              <tbody id="fee-body"></tbody>
+              <tfoot id="fee-foot"></tfoot>
+            </table>
+          </div>
+          <div class="ob-panel-foot">
+            <button type="button" class="btn btn-outline btn-sm" id="fee-add"><i data-icon="plus"></i>Add fee</button>
+            <span class="kbd-hints" id="fee-hints"><span><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd> move</span><span><kbd class="kbd">↵</kbd> next row</span></span>
+          </div>
+          <p class="field-error" id="fee-err" style="padding:0 .875rem .75rem" hidden></p>
+        </div>
+        <div class="ob-actions">
+          <button type="button" class="btn btn-ghost btn-back" data-ob-back aria-label="Back"><i data-icon="arrow-left"></i><span class="btn-label">Back</span></button>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" id="fee-skip">Skip for now</button>
+          <span class="ob-hint"><kbd class="kbd">⌘</kbd><kbd class="kbd">↵</kbd></span>
+          <button type="button" class="btn btn-default" data-primary id="fee-save">Save and continue <i data-icon="arrow-right"></i></button>
+        </div>
+      </section>
+
+      <!-- 05 Invite staff -->
+      <section class="ob-step" id="ob-4" aria-labelledby="ob-h4" hidden>
+        <header class="ob-head">
+          <div>
+            <p class="eyebrow">Setup <span class="sep"></span> 05 / 05</p>
+            <h2 class="ob-title" id="ob-h4" tabindex="-1">Invite staff</h2>
+            <p class="ob-desc">Invite the people who’ll work in <span data-school-name>Kingsway Academy</span>. Each person gets the access their role allows.</p>
+          </div>
+        </header>
+        <div class="ob-panel">
+          <div class="ob-panel-head"><p class="eyebrow">New invitation</p><span class="meta"><kbd class="kbd">⌘</kbd><kbd class="kbd">↵</kbd> send</span></div>
+          <form class="ob-panel-body" id="invite-form" novalidate>
+            <div class="field-grid">
+              <div class="field">
+                <label class="label" for="s-email">Staff email</label>
+                <input class="input" id="s-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="ngozi.eze@yourschool.edu.ng" aria-describedby="s-email-err">
+                <p class="field-error" id="s-email-err" hidden></p>
+              </div>
+              <div class="field">
+                <label class="label" for="s-role">Role</label>
+                <select class="select" id="s-role"></select>
+              </div>
+            </div>
+            <div class="access-panel" id="s-access">
+              <p class="eyebrow">Teacher access</p>
+              <div class="field">
+                <span class="label" id="s-cls-l">Classes</span>
+                <div class="chips" id="s-cls" role="group" aria-labelledby="s-cls-l"></div>
+              </div>
+              <div class="field">
+                <span class="label" id="s-subj-l">Subjects</span>
+                <div class="chips" id="s-subj" role="group" aria-labelledby="s-subj-l"></div>
+              </div>
+            </div>
+            <div><button type="submit" class="btn btn-secondary" data-primary id="s-send"><i data-icon="send"></i>Send invite</button></div>
+          </form>
+          <div class="ob-success" id="s-success" role="status" hidden></div>
+        </div>
+        <div class="ob-panel">
+          <div class="ob-panel-head"><p class="eyebrow">Invitations</p><span class="meta" id="inv-meta">0 sent</span></div>
+          <div class="grid-wrap">
+            <table class="grid-table inv-table">
+              <thead><tr><th scope="col">Email</th><th scope="col">Role</th><th scope="col">Access</th><th scope="col">Status</th></tr></thead>
+              <tbody id="inv-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="ob-actions">
+          <button type="button" class="btn btn-ghost btn-back" data-ob-back aria-label="Back"><i data-icon="arrow-left"></i><span class="btn-label">Back</span></button>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" id="staff-skip">Skip for now</button>
+          <a class="btn btn-default" href="dashboard.html" id="go-dash">Go to dashboard <i data-icon="arrow-right"></i></a>
+        </div>
+      </section>
+
+      <!-- Summary after skipping the last step -->
+      <section class="ob-step" id="ob-5" aria-labelledby="ob-h5" hidden>
+        <header class="ob-head">
+          <div>
+            <p class="eyebrow">Setup <span class="sep"></span> Summary</p>
+            <h2 class="ob-title" id="ob-h5" tabindex="-1"><span data-school-name>Kingsway Academy</span> is ready to use</h2>
+            <p class="ob-desc">Skipped steps stay on the checklist, so you can come back to them whenever you’re ready.</p>
+          </div>
+        </header>
+        <div class="ob-panel">
+          <div class="ob-panel-head"><p class="eyebrow">Setup summary</p><span class="meta" id="sum-meta"></span></div>
+          <dl class="ob-sum" id="ob-sum"></dl>
+        </div>
+        <div class="ob-actions">
+          <span class="spacer"></span>
+          <a class="btn btn-default" href="dashboard.html">Open dashboard <i data-icon="arrow-right"></i></a>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</body>
+</html>

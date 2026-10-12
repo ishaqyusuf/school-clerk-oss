@@ -7,8 +7,9 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
-    }
-  },
+    },
+		"./assistant": "./src/queries/assistant/index.ts"
+	},
   "scripts": {
     "build": "prisma generate && tsc",
     "dev": "rm -rf .cache dist tsc",

@@ -7,6 +7,16 @@ export const overviewNavigationModule: NavModuleDefinition = {
 		{
 			items: [
 				{
+					href: "/assistant",
+					icon: "dashboard",
+					key: "assistant",
+					module: "overview",
+					roles: ["Admin"],
+					section: "main",
+					title: "Assistant",
+					workspace: "admin",
+				},
+				{
 					childPaths: ["/dashboard"],
 					href: "/",
 					icon: "dashboard",

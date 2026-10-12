@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { PrismaInstrumentation } from "@prisma/instrumentation";
 import type { BuildExtension } from "@trigger.dev/build";
-import { syncEnvVars } from "@trigger.dev/build/extensions/core";
+import { additionalFiles, syncEnvVars } from "@trigger.dev/build/extensions/core";
 import { prismaExtension } from "@trigger.dev/build/extensions/prisma";
 import { defineConfig } from "@trigger.dev/sdk";
 
@@ -56,6 +56,7 @@ export default defineConfig({
 	build: {
 		extensions: [
 			generateDatabaseClient,
+ additionalFiles({files:["../pdf/public/fonts/Amiri-Regular.ttf"]}),
 			syncEnvVars(
 				() =>
 					Object.fromEntries(

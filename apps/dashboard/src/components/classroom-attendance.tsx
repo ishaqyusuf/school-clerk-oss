@@ -8,18 +8,28 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
-import { attendanceRate, downloadAttendanceCsv } from "@/lib/attendance";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  attendanceRate,
+  downloadAttendanceCsv,
+  attendanceDateKey,
+  todayAttendanceDate,
+} from "@/lib/attendance";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
 import { TableSkeleton } from "./tables/skeleton";
 import {
+  ArrowLeft,
   Calendar,
+  CalendarCheck,
   CheckCircle2,
+  ClipboardCheck,
   Download,
   TrendingUp,
   XCircle,
 } from "lucide-react";
+import { ClassroomSectionHeader } from "./classroom-overview/classroom-section-nav";
 import {
   ClassroomAttendanceRecorder,
 } from "./classroom-attendance-form";
@@ -32,18 +42,27 @@ import {
   TabsTrigger,
 } from "@school-clerk/ui/tabs";
 
+type AttendanceLayout = "tabs" | "workspace";
+
 export function ClassroomAttendance({
   departmentId,
   sessionPresentation = "sheet",
+  layout = "tabs",
 }: {
   departmentId?: string | null;
   sessionPresentation?: "dialog" | "sheet";
+  /**
+   * "tabs": Mark attendance / Sessions tabs (teacher workspace).
+   * "workspace": classroom sheet page — today + history, recorder on its own page.
+   */
+  layout?: AttendanceLayout;
 }) {
   return (
     <Suspense fallback={<TableSkeleton />}>
       <Content
         departmentId={departmentId}
         sessionPresentation={sessionPresentation}
+        layout={layout}
       />
     </Suspense>
   );
@@ -52,11 +71,16 @@ export function ClassroomAttendance({
 function Content({
   departmentId,
   sessionPresentation,
+  layout,
 }: {
   departmentId?: string | null;
   sessionPresentation: "dialog" | "sheet";
+  layout: AttendanceLayout;
 }) {
-  const { attendanceSessionId, setParams } = useClassroomParams();
+  const { attendanceSessionId, attendanceView, setParams } =
+    useClassroomParams();
+  const auth = useAuth();
+  const isAdmin = auth.role === "Admin" || auth.role === "ADMIN";
   const [dialogAttendanceSessionId, setDialogAttendanceSessionId] = useState<
     string | null
   >(null);
@@ -154,6 +178,138 @@ function Content({
       secondaryTab: "attendance-overview",
     });
   };
+
+  const sessionRows = sessions.map((session) => ({
+    absent: session.absent,
+    attendanceDate: session.attendanceDate,
+    attendanceTitle: session.attendanceTitle,
+    id: session.id,
+    late: session.late,
+    periodLabel: session.periodLabel,
+    present: session.present,
+    rate: Math.round(attendanceRate(session)),
+    staffName: session.staffName,
+    subjectTitle: session.subjectTitle,
+  }));
+  const exportCsv = () =>
+    downloadAttendanceCsv(
+      (report?.rows ?? []) as Array<Record<string, unknown>>,
+      "classroom-attendance.csv",
+    );
+
+  if (layout === "workspace") {
+    if (attendanceView === "take") {
+      return (
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto w-fit gap-1 p-0 text-muted-foreground"
+              onClick={() => setParams({ attendanceView: null })}
+            >
+              <ArrowLeft className="size-3.5" />
+              Attendance
+            </Button>
+            <ClassroomSectionHeader title="Take attendance" />
+          </div>
+          <ClassroomAttendanceRecorder departmentId={departmentId} />
+        </div>
+      );
+    }
+    const today = todayAttendanceDate();
+    const todaysSessions = sessions.filter(
+      (session) => attendanceDateKey(session.attendanceDate) === today,
+    );
+    const todayLabel = new Date(`${today}T00:00:00`).toLocaleDateString(
+      undefined,
+      { weekday: "short", day: "numeric", month: "short" },
+    );
+    const takeAttendance = () => setParams({ attendanceView: "take" });
+    return (
+      <div className="flex min-w-0 flex-col gap-5">
+        <ClassroomSectionHeader
+          title="Attendance"
+          description={
+            totalSessions
+              ? `${totalSessions} session${totalSessions === 1 ? "" : "s"} this term · ${avgPresent}% attended · ${avgAbsent}% absent`
+              : "No sessions recorded this term"
+          }
+          actions={
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2"
+              disabled={!report?.rows.length}
+              onClick={exportCsv}
+            >
+              <Download className="size-4" />
+              <span className="hidden sm:inline">Export CSV</span>
+            </Button>
+          }
+        />
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div
+              className={
+                todaysSessions.length
+                  ? "rounded-md bg-emerald-50 p-2 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  : "rounded-md bg-amber-50 p-2 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+              }
+            >
+              {todaysSessions.length ? (
+                <CalendarCheck className="size-5" />
+              ) : (
+                <Calendar className="size-5" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Today · {todayLabel}</p>
+              <p className="truncate text-sm text-muted-foreground">
+                {todaysSessions.length
+                  ? todaysSessions
+                      .map(
+                        (session) =>
+                          `${session.attendanceTitle || "Attendance"}: ${session.present + session.late} present, ${session.absent} absent`,
+                      )
+                      .join(" · ")
+                  : "Not taken yet"}
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant={todaysSessions.length ? "outline" : "default"}
+            className="gap-2"
+            onClick={takeAttendance}
+          >
+            <ClipboardCheck className="size-4" />
+            {todaysSessions.length ? "Take another" : "Take attendance"}
+          </Button>
+        </div>
+        <div className="flex flex-col gap-3">
+          <h3 className="text-sm font-semibold">Sessions</h3>
+          {sessions.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
+              No attendance records yet. Take attendance to create the first
+              session.
+            </div>
+          ) : (
+            <AttendanceSessionList
+              sessions={sessionRows}
+              isDeleting={isDeletingSession}
+              onDelete={
+                isAdmin
+                  ? (attendanceId) => deleteSession({ attendanceId })
+                  : undefined
+              }
+              onOpen={openAttendanceSession}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -253,12 +409,7 @@ function Content({
                 variant="outline"
                 className="w-full sm:w-auto"
                 disabled={!report?.rows.length}
-                onClick={() =>
-                  downloadAttendanceCsv(
-                    (report?.rows ?? []) as Array<Record<string, unknown>>,
-                    "classroom-attendance.csv",
-                  )
-                }
+                onClick={exportCsv}
               >
                 <Download className="mr-1 h-3.5 w-3.5" />
                 Export CSV
@@ -274,18 +425,7 @@ function Content({
             </div>
           ) : (
             <AttendanceSessionList
-              sessions={sessions.map((session) => ({
-                absent: session.absent,
-                attendanceDate: session.attendanceDate,
-                attendanceTitle: session.attendanceTitle,
-                id: session.id,
-                late: session.late,
-                periodLabel: session.periodLabel,
-                present: session.present,
-                rate: Math.round(attendanceRate(session)),
-                staffName: session.staffName,
-                subjectTitle: session.subjectTitle,
-              }))}
+              sessions={sessionRows}
               isDeleting={isDeletingSession}
               onDelete={(attendanceId) => deleteSession({ attendanceId })}
               onOpen={openAttendanceSession}

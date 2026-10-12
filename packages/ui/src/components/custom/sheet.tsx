@@ -59,15 +59,34 @@ interface Props
   onCloseSecondary?;
   primarySize?: VariantProps<typeof sheetContentVariant>["size"];
   secondarySize?: VariantProps<typeof sheetContentVariant>["size"];
+  /**
+   * "split" (default): on desktop the secondary panel opens beside the primary
+   * content and the sheet widens. "replace": the secondary panel replaces the
+   * primary content at every breakpoint and the sheet keeps its primary size.
+   */
+  secondaryLayout?: "split" | "replace";
+  /** Label shown next to the secondary back button, e.g. the section name. */
+  secondaryBackLabel?: string;
 }
 const { Provider: SheetProvider, useContext: useSheet } = createContextFactory(
-  function (sheetName, secondaryOpened, onCloseSecondary) {
+  function (
+    sheetName,
+    secondaryOpened,
+    onCloseSecondary,
+    secondaryLayout: "split" | "replace" = "split",
+    secondaryBackLabel?: string,
+  ) {
     const isDesktop = useMediaQuery(screens.lg);
+    const replacesPrimary =
+      !!secondaryOpened && (secondaryLayout === "replace" || !isDesktop);
 
     return {
       nodeId: ["csc", sheetName]?.filter(Boolean).join("-"),
       scrollContentId: ["cssc", sheetName]?.filter(Boolean).join("-"),
       secondaryOpened,
+      secondaryLayout,
+      secondaryBackLabel,
+      replacesPrimary,
       isDesktop,
       onCloseSecondary,
     };
@@ -76,7 +95,13 @@ const { Provider: SheetProvider, useContext: useSheet } = createContextFactory(
 export function CustomSheet(props: Props) {
   return (
     <SheetProvider
-      args={[props.sheetName, props.secondaryOpened, props.onCloseSecondary]}
+      args={[
+        props.sheetName,
+        props.secondaryOpened,
+        props.onCloseSecondary,
+        props.secondaryLayout,
+        props.secondaryBackLabel,
+      ]}
     >
       <CustomSheetBase {...props} />
     </SheetProvider>
@@ -93,27 +118,30 @@ function CustomSheetBase({
   secondarySize,
   onCloseSecondary,
   secondaryOpened,
+  secondaryLayout,
+  secondaryBackLabel,
 
   ...props
 }: Props) {
   const sheet = useSheet();
   const { isDesktop } = sheet;
+  const widensForSecondary =
+    isDesktop && secondaryOpened && secondaryLayout !== "replace";
   return (
     <BaseSheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         id={sheet.nodeId}
         {...props}
         className={cn(
-          "p-2 px-4",
+          secondaryLayout === "replace" ? "gap-0 p-0" : "p-2 px-4",
           // "p-0 gap-0 bg-transparent",
           sheetContentVariant({
             ...(props as any),
             floating,
             rounded,
-            size:
-              isDesktop && secondaryOpened
-                ? secondarySize || "5xl"
-                : primarySize || "xl",
+            size: widensForSecondary
+              ? secondarySize || "5xl"
+              : primarySize || "xl",
           })
         )}
       >
@@ -161,7 +189,19 @@ export function CustomSheetContent({
   );
 }
 export function MultiSheetContent({ children = null, className = "" }) {
-  const { secondaryOpened, isDesktop } = useSheet();
+  const { secondaryOpened, isDesktop, secondaryLayout } = useSheet();
+  if (secondaryLayout === "replace") {
+    // Children own the layout; the secondary panel portals in beside them and
+    // PrimaryContent steps aside while it is open.
+    return (
+      <div
+        id="multi-sheet-content"
+        className={cn("flex flex-1 overflow-hidden", className)}
+      >
+        {children}
+      </div>
+    );
+  }
   return (
     <div id="multi-sheet-content" className="flex flex-1 overflow-hidden">
       {!isDesktop && secondaryOpened ? (
@@ -181,8 +221,8 @@ export function MultiSheetContent({ children = null, className = "" }) {
   );
 }
 function PrimaryContent({ children }) {
-  const { secondaryOpened, isDesktop } = useSheet();
-  if (!isDesktop && secondaryOpened) return null;
+  const { replacesPrimary } = useSheet();
+  if (replacesPrimary) return null;
   return children;
 }
 
@@ -194,10 +234,16 @@ function CloseSecondary({}) {
         sheet?.onCloseSecondary();
       }}
       size="sm"
-      className="size-6s p-0s"
+      className="size-6s p-0s gap-1.5"
       variant="secondary"
+      aria-label={
+        sheet?.secondaryBackLabel ? `Back to ${sheet.secondaryBackLabel}` : "Back"
+      }
     >
       <Icons.arrowLeft className="size-4" />
+      {sheet?.secondaryBackLabel ? (
+        <span className="text-xs font-medium">{sheet.secondaryBackLabel}</span>
+      ) : null}
     </Button>
   );
 }
@@ -243,13 +289,26 @@ export function SecondarySheetContent({
   className = null,
   Header = null,
 }) {
+  const { secondaryLayout } = useSheet();
   return (
     <Portal nodeId={"multi-sheet-content"} noDelay>
-      <div className="flex flex-col flex-1 bg-background">
+      <div
+        className={cn(
+          "flex flex-col flex-1 bg-background",
+          secondaryLayout === "replace" && "min-w-0 px-4 pt-2",
+        )}
+      >
         <div className="flex flex-col gap-2" id="secondary-header"></div>
         <CustomSheetContent
           Header={Header}
-          className={cn("flex flex-col", className)}
+          className={cn(
+            "flex flex-col",
+            // Radix wraps viewport content in a display:table box that grows to
+            // its widest child; keep it block so the fixed-width panel never overflows.
+            secondaryLayout === "replace" &&
+              "[&_[data-radix-scroll-area-viewport]>div]:!block",
+            className,
+          )}
         >
           {children}
         </CustomSheetContent>
@@ -286,6 +345,9 @@ export function SecondarySheetHeader({
     </div>
   );
 }
+
+/** Layout state of the nearest CustomSheet (e.g. whether a secondary panel replaces the primary content). */
+export const useCustomSheet = useSheet;
 
 const Sheet = Object.assign(CustomSheet, {
   MultiContent: MultiSheetContent,

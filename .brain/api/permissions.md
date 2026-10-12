@@ -218,6 +218,12 @@ Student registration and `academics.entrollStudentToTerm` require live Student M
 
 Routing transport proof authenticates the internal caller only. The regional resolver still checks live Better Auth identity, stored session, account-owned school, unique domain, workspace ancestry and strict academic selection exactly as the former Proxy. Direct server actions retain the matched-route entry gate and their existing guards. Missing/invalid transport fails closed without clearing valid browser identity or synthesizing an access grant. API/tRPC/module/record permission rules are unchanged. No cross-request cached identity is introduced. ADR-0069.
 
+## Replacement assistant admission — 2026-10-06
+
+Every assistant surface uses live login, account-owned school, exact Admin, current AI_ASSISTANT grant, enabled config and per-tool domain policy. Session/term IDs must belong to the same school and session. Owner-scoped history uses the existing conservative complete tool envelope; no legacy backfill. Scoped receipt recovery can show only currently allowed tools independently of withheld broad history. Proposal execution rechecks admission inside its domain transaction after acquiring the proposal lock. Client context labels/IDs and uploaded text are untrusted. Files and exports require current full-history admission; workers reauthorize before rendering. Settings recovery never expands role or module grants.
+
+Local acceptance provisioning: on explicit owner approval, AI_ASSISTANT was added to enabled and entitled modules for local Daarul Hadith. Existing domain grants were preserved; no production school configuration or role grant changed. This operator action is not an automatic entitlement path in the assistant or settings UI.
+
 ## Student form suggestions — 2026-10-11
 
 `students.suggestions` inherits authenticated live Student Management module access and only reads live same-school identities/guardians/current academic relations. Optional client scope is checked against profile, user and live login session; the current term must be live and school/session-owned. Edit class and enrollment controls are Admin/Registrar only and reuse existing authoritative mutation role/module/tenant/academic guards. No new write permission.

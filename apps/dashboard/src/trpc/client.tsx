@@ -8,7 +8,7 @@ import { useState } from "react";
 import { createTRPCClient, httpBatchLink, loggerLink } from "@trpc/client";
 import superjson from "superjson";
 import { loadWorkspaceProfile, WorkspaceProfileError } from "@/lib/workspace-profile";
-export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
+export const { TRPCProvider, useTRPC, useTRPCClient } = createTRPCContext<AppRouter>();
 
 let browserQueryClient: QueryClient;
 function getQueryClient() {

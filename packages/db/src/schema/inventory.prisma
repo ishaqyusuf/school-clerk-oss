@@ -6,7 +6,7 @@ enum InventoryType {
     OTHER
 }
 
-model Inventory {
+model SchoolInventory {
     id              String        @id @default(uuid())
     title           String
     description     String?
@@ -22,6 +22,7 @@ model Inventory {
     schoolProfileId String
 
     issuances       InventoryIssuance[]
+    @@map("Inventory")
 }
 
 model InventoryIssuance {
@@ -34,7 +35,7 @@ model InventoryIssuance {
     updatedAt   DateTime? @updatedAt
     deletedAt   DateTime? @db.Timestamp(0)
 
-    inventory   Inventory @relation(fields: [inventoryId], references: [id])
+    inventory   SchoolInventory @relation(fields: [inventoryId], references: [id])
     inventoryId String
 
     schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id])

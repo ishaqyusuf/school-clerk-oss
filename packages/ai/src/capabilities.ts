@@ -26,7 +26,7 @@ export const aiCapabilities = [
     module: "students",
     roles: ["Admin", "Registrar"],
     isMutation: true,
-    toolNames: ["listClassrooms", "enrollStudent"],
+    toolNames: ["listClassrooms", "enrollStudent", "moveStudentClass"],
   },
   {
     key: "finance.read",

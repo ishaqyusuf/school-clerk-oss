@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SchoolClerk · Bring the whole school day together</title>
+<meta name="description" content="SchoolClerk connects admissions, classes, attendance, results, fees and families in one workspace, set up around the way your school already runs.">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="../shared/shadcn.css">
+<link rel="stylesheet" href="../shared/workshop.css">
+<link rel="stylesheet" href="public.css">
+<script src="../shared/data.js"></script>
+<script src="../shared/icons.js"></script>
+<script src="../shared/workshop.js"></script>
+<script src="marketing.js" defer></script>
+</head>
+<body class="pub mk">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="mk-header" id="mkHeader">
+  <div class="mk-header-bar">
+    <a class="brand" href="#top">
+      <img class="mark mark-on-light" src="../shared/brand-mark.svg" alt="School Clerk" width="34" height="34">
+      <img class="mark mark-on-dark" src="../shared/brand-mark-inverse.svg" alt="School Clerk" width="34" height="34">
+      <span class="brand-word" aria-hidden="true">SchoolClerk</span>
+    </a>
+    <nav class="mk-nav" aria-label="Main">
+      <a href="#platform">Platform</a>
+      <a href="#workflows">Workflows</a>
+      <a href="#roles">Roles</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="mk-actions">
+      <a class="btn btn-ghost mk-signin" href="#">Sign in</a>
+      <a class="btn btn-outline mk-demo" href="#">Book a demo</a>
+      <a class="btn btn-default mk-header-cta" href="signup.html">Create your school</a>
+      <button class="btn btn-outline btn-icon mk-menu-btn" type="button" id="menuBtn" aria-label="Open menu" aria-controls="mobileMenu" aria-expanded="false"><i data-icon="menu" data-size="18"></i></button>
+    </div>
+  </div>
+</header>
+
+<div class="sheet mk-menu" id="mobileMenu" hidden aria-labelledby="mobileMenuTitle">
+  <div class="sheet-header">
+    <h2 class="sheet-title" id="mobileMenuTitle">Menu</h2>
+    <button class="btn btn-ghost btn-icon overlay-close" type="button" data-close aria-label="Close menu"><i data-icon="x" data-size="18"></i></button>
+  </div>
+  <nav class="sheet-body mk-menu-nav" aria-label="Main, mobile">
+    <a href="#platform" data-close>Platform <i data-icon="arrow-right" data-size="18"></i></a>
+    <a href="#workflows" data-close>Workflows <i data-icon="arrow-right" data-size="18"></i></a>
+    <a href="#roles" data-close>Roles <i data-icon="arrow-right" data-size="18"></i></a>
+    <a href="#pricing" data-close>Pricing <i data-icon="arrow-right" data-size="18"></i></a>
+    <a href="#faq" data-close>FAQ <i data-icon="arrow-right" data-size="18"></i></a>
+  </nav>
+  <div class="sheet-footer mk-menu-foot">
+    <a class="btn btn-default btn-lg" href="signup.html">Create your school <i data-icon="arrow-right"></i></a>
+    <a class="btn btn-outline btn-lg" href="#">Book a demo</a>
+    <a class="btn btn-ghost btn-lg" href="#">Sign in</a>
+  </div>
+</div>
+
+<main id="main">
+  <!-- Hero -->
+  <section class="hero" id="top" aria-labelledby="heroTitle">
+    <div class="wrap hero-copy">
+      <p class="eyebrow" data-c="amber"><span class="sq"></span>One connected system for school operations</p>
+      <h1 class="hero-title" id="heroTitle">Bring the whole school day <span class="hero-together">together<svg class="hero-swash" viewBox="0 0 300 62" aria-hidden="true" focusable="false"><path d="M16 14 L30 28 H256 L270 42"/><circle cx="279" cy="51" r="8"/></svg></span>.</h1>
+      <p class="hero-lede">SchoolClerk keeps admissions, classes, attendance, results, fees and families in one friendly workspace — set up around the way your school already runs.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-default btn-lg" href="signup.html">Create your school <i data-icon="arrow-right"></i></a>
+        <a class="btn btn-outline btn-lg" href="#">Book a demo</a>
+      </div>
+      <ul class="assure" aria-label="What you can count on">
+        <li><span class="assure-tick"><i data-icon="check" data-size="13"></i></span>Guided onboarding</li>
+        <li><span class="assure-tick"><i data-icon="check" data-size="13"></i></span>Flexible school setup</li>
+        <li><span class="assure-tick"><i data-icon="check" data-size="13"></i></span>Role-aware access</li>
+      </ul>
+    </div>
+
+    <div class="collage" id="collage" role="group" aria-labelledby="collageDesc">
+      <p class="sr-only" id="collageDesc">Illustrative interface examples from a sample school: attendance at 92.8% today, a ₦92,500 fee receipt, a draft report card, a message from a parent and the JSS 2 A class roster.</p>
+      <svg class="collage-motif" viewBox="0 0 128 128" aria-hidden="true" focusable="false">
+        <rect class="motif-sq m-1" x="28" y="28" width="28" height="28" rx="8"/>
+        <rect class="motif-sq m-2" x="72" y="28" width="28" height="28" rx="8"/>
+        <rect class="motif-sq m-3" x="28" y="72" width="28" height="28" rx="8"/>
+        <path class="motif-path" d="M53 53 L75 75 H86 L99 88"/>
+        <circle class="motif-halo" cx="100" cy="100" r="15"/>
+        <circle class="motif-end" cx="100" cy="100" r="10"/>
+        <circle class="motif-traveller" cx="0" cy="0" r="4.5"/>
+      </svg>
+      <div class="collage-cards" id="collageCards" aria-hidden="true"></div>
+      <div class="collage-bar">
+        <p class="collage-note">Illustrative interface examples · sample school</p>
+        <div class="collage-ctrl">
+          <button class="btn btn-ghost btn-sm" type="button" id="collagePause"><i data-icon="pause" data-size="14"></i><span>Pause motion</span></button>
+          <button class="btn btn-ghost btn-sm" type="button" id="collageReplay"><i data-icon="rotate-ccw" data-size="14"></i><span>Replay</span></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Institution fit -->
+  <section class="section section-tight" aria-labelledby="fitTitle">
+    <div class="wrap fit">
+      <h2 class="fit-title" id="fitTitle">Shaped around the way your institution runs</h2>
+      <ul class="fit-facts">
+        <li><b>8</b><span>institution<br>models</span></li>
+        <li><b>20+</b><span>operational<br>modules</span></li>
+        <li><b>1</b><span>connected<br>system</span></li>
+      </ul>
+      <ul class="fit-list" id="fitList" aria-label="Institutions SchoolClerk is shaped for"></ul>
+    </div>
+  </section>
+
+  <!-- Platform / modules -->
+  <section class="section" id="platform" aria-labelledby="platformTitle">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow" data-c="sky"><span class="sq"></span>Platform</p>
+          <h2 id="platformTitle">Every office in the school, one workspace</h2>
+        </div>
+        <p class="sec-lede">Turn on the modules you need today and add more as your school grows. Each part of the workspace keeps its own colour, so staff always know where they are.</p>
+      </div>
+      <ul class="mods" id="mods"></ul>
+      <p class="mods-note">Figures in previews come from Kingsway Academy, an illustrative sample school.</p>
+    </div>
+  </section>
+
+  <!-- Workflows -->
+  <section class="section" id="workflows" aria-labelledby="workflowsTitle">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow" data-c="teal"><span class="sq"></span>Workflows</p>
+          <h2 id="workflowsTitle">A school day, connected from gate to ledger</h2>
+        </div>
+        <p class="sec-lede">Information entered once moves on to the next person who needs it — from the admissions desk to the classroom to the bursary.</p>
+      </div>
+      <ol class="day" id="day"></ol>
+    </div>
+  </section>
+
+  <!-- Roles -->
+  <section class="section" id="roles" aria-labelledby="rolesTitle">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow" data-c="violet"><span class="sq"></span>Roles</p>
+          <h2 id="rolesTitle">Everyone sees the part of school they look after</h2>
+        </div>
+        <p class="sec-lede">Access follows each person's role, so the bursar starts with balances, teachers start with their class, and parents see their own children.</p>
+      </div>
+      <div class="tabs-list role-tabs" role="tablist" aria-label="Choose a role" id="roleTabs"></div>
+      <div id="rolePanels"></div>
+    </div>
+  </section>
+
+  <!-- School website moment -->
+  <section class="section" id="website" aria-labelledby="siteTitle">
+    <div class="band">
+      <div class="site-moment">
+        <div class="site-copy">
+          <p class="eyebrow" data-c="sky"><span class="sq"></span>School website</p>
+          <h2 id="siteTitle">Every school gets its own website at <span class="site-addr">kingsway.school-clerk.com</span></h2>
+          <p class="site-lede">Pick a template, tell your school's story and publish. Your public site and your team's workspace share one address.</p>
+          <ul class="site-points">
+            <li><i data-icon="circle-check" data-size="18"></i>Admissions and the parent portal linked in from day one</li>
+            <li><i data-icon="circle-check" data-size="18"></i>Templates you edit section by section, in your own colours</li>
+            <li><i data-icon="circle-check" data-size="18"></i>Drafts stay private until you publish</li>
+          </ul>
+          <div class="addr-chips">
+            <span class="addr-chip"><i data-icon="globe"></i>kingsway.school-clerk.com</span>
+            <span class="addr-chip"><i data-icon="layout-dashboard"></i>dashboard.kingsway.school-clerk.com</span>
+          </div>
+        </div>
+        <figure class="devices" id="devices" aria-labelledby="devicesCap">
+          <figcaption id="devicesCap">Kingsway Academy's site on a laptop and a phone, in the school's own colours.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- Rollout commitments -->
+  <section class="section" id="rollout" aria-labelledby="rolloutTitle">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow" data-c="amber"><span class="sq"></span>Moving over</p>
+          <h2 id="rolloutTitle">Switching systems without the scramble</h2>
+        </div>
+        <p class="sec-lede">Three things we commit to before, during and after your school goes live.</p>
+      </div>
+      <ol class="commit">
+        <li>
+          <span class="commit-when"><span class="tile tile-sm" data-c="teal"><i data-icon="file-up" data-size="15"></i></span>Before go-live</span>
+          <h3>A migration plan for your records</h3>
+          <p>We map your existing student, academic and finance records into SchoolClerk with you, and agree what moves when.</p>
+        </li>
+        <li>
+          <span class="commit-when"><span class="tile tile-sm" data-c="sky"><i data-icon="shield-check" data-size="15"></i></span>Every day</span>
+          <h3>Access that respects your school</h3>
+          <p>Each school keeps its own workspace and configuration, and every staff member sees only what their role allows.</p>
+        </li>
+        <li>
+          <span class="commit-when"><span class="tile tile-sm" data-c="amber"><i data-icon="life-buoy" data-size="15"></i></span>Through rollout</span>
+          <h3>Support while each office settles in</h3>
+          <p>Admissions, the bursary and teachers can start one at a time, with guided setup at a pace your school chooses.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="section" id="pricing" aria-labelledby="pricingTitle">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow" data-c="teal"><span class="sq"></span>Pricing</p>
+          <h2 id="pricingTitle">Priced to the size of your school</h2>
+        </div>
+        <p class="sec-lede">A one-time setup, a monthly platform fee, and add-ons only when you want them. All prices in naira.</p>
+      </div>
+      <ul class="plans" id="plans"></ul>
+      <p class="plans-note">Pricing is sized to the institution and the modules it needs. We confirm your figure before setup begins.</p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq" aria-labelledby="faqTitle">
+    <div class="wrap faq">
+      <div class="faq-side">
+        <p class="eyebrow" data-c="violet"><span class="sq"></span>FAQ</p>
+        <h2 id="faqTitle">Questions schools ask us</h2>
+        <div class="faq-help">
+          <p>Want to see it with your own classes and fees? We'll walk through it with you.</p>
+          <a class="btn btn-outline" href="#">Book a demo</a>
+        </div>
+      </div>
+      <div class="faq-list" id="faqList"></div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="section section-tight" aria-labelledby="ctaTitle">
+    <div class="wrap cta-band">
+      <div>
+        <h2 id="ctaTitle">Ready when your school is.</h2>
+        <p>Create your school's workspace in a few minutes, then set up the session, classes, fees and staff with a guided checklist.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-default btn-lg" href="signup.html">Create your school <i data-icon="arrow-right"></i></a>
+          <a class="btn btn-outline btn-lg" href="#">Book a demo</a>
+        </div>
+      </div>
+      <svg class="cta-motif" viewBox="20 20 92 92" aria-hidden="true" focusable="false">
+        <rect class="cta-sq-1" x="28" y="28" width="28" height="28" rx="8"/>
+        <rect class="cta-sq-2" x="72" y="28" width="28" height="28" rx="8"/>
+        <rect class="cta-sq-3" x="28" y="72" width="28" height="28" rx="8"/>
+        <path class="cta-path" d="m53 53 22 22h11l13 13"/>
+        <circle class="cta-dot" cx="100" cy="100" r="10"/>
+      </svg>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="#top">
+          <img class="mark mark-on-light" src="../shared/brand-mark.svg" alt="School Clerk" width="34" height="34">
+          <img class="mark mark-on-dark" src="../shared/brand-mark-inverse.svg" alt="School Clerk" width="34" height="34">
+          <span class="brand-word" aria-hidden="true">SchoolClerk</span>
+        </a>
+        <p>School operations, one connected system — made for schools in Nigeria and beyond.</p>
+      </div>
+      <nav class="foot-col" aria-labelledby="footProduct">
+        <h2 id="footProduct">Product</h2>
+        <ul>
+          <li><a href="#platform">Platform</a></li>
+          <li><a href="#workflows">Workflows</a></li>
+          <li><a href="#roles">Roles</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+        </ul>
+      </nav>
+      <nav class="foot-col" aria-labelledby="footCompany">
+        <h2 id="footCompany">Company</h2>
+        <ul>
+          <li><a href="#">Contact</a></li>
+          <li><a href="#">Support</a></li>
+        </ul>
+      </nav>
+      <nav class="foot-col" aria-labelledby="footLegal">
+        <h2 id="footLegal">Legal</h2>
+        <ul>
+          <li><a href="#">Terms</a></li>
+          <li><a href="#">Privacy</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="foot-base">
+      <span>© 2026 SchoolClerk</span>
+      <span>Product previews are illustrative interface examples.</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

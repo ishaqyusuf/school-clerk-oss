@@ -297,6 +297,22 @@ export async function overview(ctx: TRPCContext, query: SubjectOverviewSchema) {
     },
   });
 
+  // `_count.studentTermForms` above spans every term (and deleted forms); report
+  // the distinct students enrolled in this subject's term instead.
+  if (subject?.classRoomDepartment && subject.sessionTermId) {
+    const termForms = await db.studentTermForm.findMany({
+      where: {
+        classroomDepartmentId: subject.classRoomDepartment.id,
+        sessionTermId: subject.sessionTermId,
+        deletedAt: null,
+        student: { deletedAt: null },
+      },
+      select: { studentId: true },
+      distinct: ["studentId"],
+    });
+    subject.classRoomDepartment._count.studentTermForms = termForms.length;
+  }
+
   return { subject };
 }
 export async function getAllSubjects(

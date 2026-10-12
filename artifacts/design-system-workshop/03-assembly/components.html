@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Assembly · Components</title>
+<link rel="icon" href="../shared/brand-mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="../shared/shadcn.css">
+<link rel="stylesheet" href="../shared/workshop.css">
+<link rel="stylesheet" href="app.css">
+<script src="../shared/data.js"></script>
+<script src="../shared/icons.js"></script>
+<script src="../shared/workshop.js"></script>
+<script src="components.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="sg-shell">
+  <nav class="card sg-toc" aria-label="Style guide sections">
+    <div class="sb-head">
+      <a class="sb-brand" href="#s-intro">
+        <img class="sb-mark mark-light" src="../shared/brand-mark.svg" alt="School Clerk" width="36" height="36">
+        <img class="sb-mark mark-dark" src="../shared/brand-mark-inverse.svg" alt="School Clerk" width="36" height="36">
+        <span class="sb-school"><strong>Assembly</strong><small>Design system · Direction 03</small></span>
+      </a>
+    </div>
+    <ol id="toc">
+      <li><a href="#s-intro"><span class="tile tile-sm tone-navy" aria-hidden="true"><i data-icon="layers" data-size="13"></i></span>Intent &amp; config</a></li>
+      <li><a href="#s-colour"><span class="tile tile-sm tone-sky" aria-hidden="true"><i data-icon="palette" data-size="13"></i></span>Colour</a></li>
+      <li><a href="#s-type"><span class="tile tile-sm tone-violet" aria-hidden="true"><i data-icon="type" data-size="13"></i></span>Typography</a></li>
+      <li><a href="#s-space"><span class="tile tile-sm tone-teal" aria-hidden="true"><i data-icon="ruler" data-size="13"></i></span>Space, radius &amp; depth</a></li>
+      <li><a href="#s-buttons"><span class="tile tile-sm tone-amber" aria-hidden="true"><i data-icon="mouse-pointer-click" data-size="13"></i></span>Buttons</a></li>
+      <li><a href="#s-forms"><span class="tile tile-sm tone-sky" aria-hidden="true"><i data-icon="text-cursor-input" data-size="13"></i></span>Forms</a></li>
+      <li><a href="#s-status"><span class="tile tile-sm tone-teal" aria-hidden="true"><i data-icon="badge-check" data-size="13"></i></span>Status badges</a></li>
+      <li><a href="#s-tables"><span class="tile tile-sm tone-violet" aria-hidden="true"><i data-icon="table" data-size="13"></i></span>Tables</a></li>
+      <li><a href="#s-overlays"><span class="tile tile-sm tone-slate" aria-hidden="true"><i data-icon="panel-right" data-size="13"></i></span>Sheets &amp; dialogs</a></li>
+      <li><a href="#s-patterns"><span class="tile tile-sm tone-amber" aria-hidden="true"><i data-icon="layout-template" data-size="13"></i></span>Patterns</a></li>
+      <li><a href="#s-rules"><span class="tile tile-sm tone-rose" aria-hidden="true"><i data-icon="flag" data-size="13"></i></span>Do &amp; don’t</a></li>
+    </ol>
+  </nav>
+
+  <main class="sg-main" id="main" tabindex="-1">
+
+    <!-- 1 · Intent & config -->
+    <header class="card sg-hero sg-sec" id="s-intro" aria-labelledby="sg-title">
+      <div class="sg-hero-top">
+        <div>
+          <p class="t-eyebrow is-here">School Clerk · Direction 03</p>
+          <h1 class="t-display" id="sg-title">Assembly</h1>
+        </div>
+        <div class="sg-row" aria-label="Module tiles: Overview, People, Academics, Finance, Operations, Settings" role="img">
+          <span class="tile tile-lg tone-navy"><i data-icon="layout-dashboard" data-size="20"></i></span>
+          <span class="tile tile-lg tone-sky"><i data-icon="users" data-size="20"></i></span>
+          <span class="tile tile-lg tone-violet"><i data-icon="book-open" data-size="20"></i></span>
+          <span class="tile tile-lg tone-teal"><i data-icon="wallet" data-size="20"></i></span>
+          <span class="tile tile-lg tone-amber"><i data-icon="boxes" data-size="20"></i></span>
+          <span class="tile tile-lg tone-slate"><i data-icon="settings" data-size="20"></i></span>
+        </div>
+      </div>
+      <p class="sg-intent"><strong>A friendly school morning.</strong> Assembly is built from the brand mark’s own colours — navy, sky, teal and amber — for bursars, registrars, teachers and parents who don’t think of themselves as software people. Every module has a colour tile, so people find their way by colour as much as by label. Cards float on soft shadows instead of borders, controls are generously rounded, buttons and badges are pills, and one amber dot — the mark’s endpoint — means “you are here”, “unread” or “this far”. Copy talks like a helpful colleague: “Good morning, Aisha”, “3 admissions waiting for you”.</p>
+      <dl class="sg-config">
+        <div><dt>style</dt><dd><code>new-york</code></dd></div>
+        <div><dt>baseColor</dt><dd><code>slate</code>, re-tinted toward the mark’s navy</dd></div>
+        <div><dt>radius</dt><dd><code>1rem</code> · cards 16 · controls 12 · sheets 20 · pills</dd></div>
+        <div><dt>fonts</dt><dd>Bricolage Grotesque (display) · Onest (UI) · system mono (IDs)</dd></div>
+        <div><dt>sidebar</dt><dd><code>variant="floating"</code> · <code>collapsible="icon"</code></dd></div>
+        <div><dt>iconLibrary</dt><dd><code>lucide</code> · stroke 2 · 16px in controls</dd></div>
+      </dl>
+      <div class="sg-row" style="justify-content: space-between">
+        <h2 class="sg-sub">CSS variables for <code>:root</code> and <code>.dark</code></h2>
+        <button type="button" class="btn btn-outline btn-sm" id="copy-vars"><i data-icon="copy"></i>Copy variables</button>
+      </div>
+      <pre class="sg-code" id="css-vars" tabindex="0" aria-label="CSS variables from tokens.css"><code>:root {
+  --font-sans: "Onest", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 1rem;
+  --control-h: 2.5rem;
+  --row-h: 3.5rem;
+  --icon-stroke: 2;
+
+  --background: #f2f4f9;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0f172a;
+  --primary-foreground: #f8fafc;
+  --secondary: #e8ecf5;
+  --secondary-foreground: #1e293b;
+  --muted: #eef1f7;
+  --muted-foreground: #5b6579;
+  --accent: #e0f2fe;
+  --accent-foreground: #075985;
+  --destructive: #dc2626;
+  --border: #e2e7f0;
+  --input: #d5dbe6;
+  --ring: #38bdf8;
+
+  --success: #0f766e;
+  --success-foreground: #ffffff;
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+  --info: #0369a1;
+  --info-foreground: #ffffff;
+  /* Amber: the mark's endpoint dot. Progress, "you are here", celebratory moments. */
+  --highlight: #f59e0b;
+  --highlight-foreground: #3b2300;
+
+  /* The four brand-mark colours, used as module identity tiles (soft fill + strong ink). */
+  --brand-navy: #0f172a;
+  --brand-sky: #38bdf8;
+  --brand-teal: #14b8a6;
+  --brand-amber: #f59e0b;
+  --tile-sky: #e0f2fe;      --tile-sky-ink: #075985;
+  --tile-teal: #ccfbf1;     --tile-teal-ink: #0f766e;
+  --tile-amber: #fef3c7;    --tile-amber-ink: #92400e;
+  --tile-violet: #ede9fe;   --tile-violet-ink: #5b21b6;
+  --tile-rose: #ffe4e6;     --tile-rose-ink: #be123c;
+  --tile-slate: #e2e8f0;    --tile-slate-ink: #334155;
+
+  --chart-1: #0ea5e9;
+  --chart-2: #14b8a6;
+  --chart-3: #f59e0b;
+  --chart-4: #6366f1;
+  --chart-5: #f43f5e;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #0f172a;
+  --sidebar-primary-foreground: #f8fafc;
+  --sidebar-accent: #eef4fb;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #e2e7f0;
+  --sidebar-ring: #38bdf8;
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / .04), 0 8px 24px -12px rgb(15 23 42 / .12);
+}
+
+.dark {
+  --background: #0a0f1c;
+  --foreground: #eef2fb;
+  --card: #111a2c;
+  --card-foreground: #eef2fb;
+  --popover: #131d31;
+  --popover-foreground: #eef2fb;
+  --primary: #7dd3fc;
+  --primary-foreground: #06233a;
+  --secondary: #18223a;
+  --secondary-foreground: #e2e8f5;
+  --muted: #162036;
+  --muted-foreground: #9aa6bf;
+  --accent: #0f2f4a;
+  --accent-foreground: #d6efff;
+  --destructive: #f87171;
+  --border: #22304a;
+  --input: #2a3854;
+  --ring: #38bdf8;
+
+  --success: #2dd4bf;
+  --success-foreground: #042f2a;
+  --warning: #fbbf24;
+  --warning-foreground: #2a1a00;
+  --info: #7dd3fc;
+  --info-foreground: #06233a;
+  --highlight: #fbbf24;
+  --highlight-foreground: #2a1a00;
+
+  --tile-sky: #0c2d48;      --tile-sky-ink: #7dd3fc;
+  --tile-teal: #0b302d;     --tile-teal-ink: #5eead4;
+  --tile-amber: #3a2706;    --tile-amber-ink: #fcd34d;
+  --tile-violet: #261c4a;   --tile-violet-ink: #c4b5fd;
+  --tile-rose: #3d1220;     --tile-rose-ink: #fda4af;
+  --tile-slate: #1e293b;    --tile-slate-ink: #cbd5e1;
+
+  --chart-1: #38bdf8;
+  --chart-2: #2dd4bf;
+  --chart-3: #fbbf24;
+  --chart-4: #818cf8;
+  --chart-5: #fb7185;
+
+  --sidebar: #0e1626;
+  --sidebar-foreground: #eef2fb;
+  --sidebar-primary: #7dd3fc;
+  --sidebar-primary-foreground: #06233a;
+  --sidebar-accent: #17233a;
+  --sidebar-accent-foreground: #eef2fb;
+  --sidebar-border: #22304a;
+  --sidebar-ring: #38bdf8;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / .3), 0 12px 32px -12px rgb(0 0 0 / .5);
+}</code></pre>
+    </header>
+
+    <!-- 2 · Colour -->
+    <section class="sg-sec" id="s-colour" aria-labelledby="h-colour">
+      <div class="sg-sec-head"><span class="tile tile-lg tone-sky" aria-hidden="true"><i data-icon="palette" data-size="20"></i></span><div><h2 id="h-colour">Colour</h2><p>Every value below is read from tokens.css. Light and dark are designed together: dark keeps the same hues, lifts sky into the primary role and turns the tiles into deep tints with bright ink.</p></div></div>
+      <div class="card sg-card">
+        <div class="sg-theme-pair">
+          <div class="sg-theme x-scope x-light" id="theme-light">
+            <div class="sg-theme-head"><h3 class="sg-sub">Light</h3><span class="badge badge-outline">:root</span></div>
+            <div class="sg-swatches" id="sw-light"></div>
+            <div class="sg-row"><button type="button" class="btn btn-default btn-sm">Save student</button><button type="button" class="btn btn-outline btn-sm">Cancel</button><span class="badge badge-success badge-dot">Enrolled</span><span class="badge badge-info">New admission</span><span class="dot-amber" aria-hidden="true"></span></div>
+          </div>
+          <div class="sg-theme dark" id="theme-dark">
+            <div class="sg-theme-head"><h3 class="sg-sub">Dark</h3><span class="badge badge-outline">.dark</span></div>
+            <div class="sg-swatches" id="sw-dark"></div>
+            <div class="sg-row"><button type="button" class="btn btn-default btn-sm">Save student</button><button type="button" class="btn btn-outline btn-sm">Cancel</button><span class="badge badge-success badge-dot">Enrolled</span><span class="badge badge-info">New admission</span><span class="dot-amber" aria-hidden="true"></span></div>
+          </div>
+        </div>
+
+        <h3 class="sg-sub">Semantic status colours</h3>
+        <div class="sg-table-wrap">
+          <table class="sg-table">
+            <thead><tr><th scope="col">Token</th><th scope="col">Light</th><th scope="col">Dark</th><th scope="col">Used for</th></tr></thead>
+            <tbody id="status-tokens"></tbody>
+          </table>
+        </div>
+
+        <h3 class="sg-sub">Module identity tiles</h3>
+        <p class="sg-note">Soft fill + strong ink. The tile is the module’s name in colour — in the sidebar, page header, sheet headers and empty states.</p>
+        <div class="sg-tiles" id="module-tiles"></div>
+
+        <h3 class="sg-sub">Charts</h3>
+        <div class="sg-row" id="chart-tokens"></div>
+      </div>
+    </section>
+
+    <!-- 3 · Typography -->
+    <section class="sg-sec" id="s-type" aria-labelledby="h-type">
+      <div class="sg-sec-head"><span class="tile tile-lg tone-violet" aria-hidden="true"><i data-icon="type" data-size="20"></i></span><div><h2 id="h-type">Typography</h2><p>Bricolage Grotesque carries greetings, titles and big numbers — warm, a little quirky, never shouting. Onest does the work in the UI. Mono is only for IDs and receipt numbers. All numbers use tabular figures.</p></div></div>
+      <div class="card sg-card">
+        <div>
+          <div class="sg-type-row"><span class="t-display">Good morning, Aisha</span><code>Display · Bricolage 750<br>40–60px / 0.98 · −0.045em</code></div>
+          <div class="sg-type-row"><span class="t-h1">Students</span><code>H1 page title · Bricolage 700<br>30px / 1.1 · −0.03em</code></div>
+          <div class="sg-type-row"><span class="t-h2">Needs attention</span><code>H2 section · Bricolage 650<br>22px / 1.2</code></div>
+          <div class="sg-type-row"><span class="t-h3">Term collection position</span><code>H3 card &amp; sheet title · Bricolage 600<br>17–20px / 1.3</code></div>
+          <div class="sg-type-row"><span class="t-h4">Fees &amp; payments</span><code>H4 group · Onest 600<br>14.5px / 1.35</code></div>
+          <div class="sg-type-row"><span class="t-body">Adds a student to Kingsway Academy for 2026/2027 · First Term. Required fees are ticked for you.</span><code>Body · Onest 400<br>14px / 1.55</code></div>
+          <div class="sg-type-row"><span class="t-small">Showing 12 sample rows of 486</span><code>Small · Onest 400 · muted<br>13px / 1.45</code></div>
+          <div class="sg-type-row"><span class="t-eyebrow is-here">Term collection position</span><code>Eyebrow · Onest 600 · sentence case<br>12px · amber dot = here</code></div>
+          <div class="sg-type-row"><span class="t-num" style="font-size: 30px">₦71.32m · 92.8% · 486</span><code>Numerals · Bricolage 650<br>tabular-nums</code></div>
+          <div class="sg-type-row"><span class="id-mono" style="font-size: 13px">KWA/2026/0142 · RCP-26-00412</span><code>Mono · system mono 12.5px<br>IDs and receipt numbers only</code></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 · Space, radius, density, elevation -->
+    <section class="sg-sec" id="s-space" aria-labelledby="h-space">
+      <div class="sg-sec-head"><span class="tile tile-lg tone-teal" aria-hidden="true"><i data-icon="ruler" data-size="20"></i></span><div><h2 id="h-space">Space, radius, density &amp; depth</h2><p>A 4px grid, comfortable density for non-specialists, and rounded geometry that echoes the mark’s tile (corner ≈ 30% of the edge).</p></div></div>
+      <div class="card sg-card">
+        <div class="sg-grid-2">
+          <div class="sg-scale" id="space-scale" aria-label="Spacing scale"></div>
+          <div>
+            <div class="sg-table-wrap">
+              <table class="sg-table">
+                <caption class="sr-only">Density</caption>
+                <thead><tr><th scope="col">Density</th><th scope="col">Value</th></tr></thead>
+                <tbody>
+                  <tr><td>Control height (default · sm · lg)</td><td class="tnum">40 · 36 · 48px</td></tr>
+                  <tr><td>Touch target minimum</td><td class="tnum">44px</td></tr>
+                  <tr><td>Table row</td><td class="tnum">56px</td></tr>
+                  <tr><td>Sidebar module row · item pill</td><td class="tnum">42 · 36px</td></tr>
+                  <tr><td>Header controls (search, term chip, bell)</td><td class="tnum">42px</td></tr>
+                  <tr><td>Mobile tab bar</td><td class="tnum">66px, 10px from the edges</td></tr>
+                  <tr><td>Floating gap (sidebar, sheets)</td><td class="tnum">12px</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <h3 class="sg-sub">Radius</h3>
+        <div class="sg-radius">
+          <div><i style="border-radius: 12px"></i><strong>Controls</strong><code>12px · inputs, selects, menus items 10</code></div>
+          <div><i style="border-radius: 16px"></i><strong>Cards</strong><code>16px (--radius) · cards, sections</code></div>
+          <div><i style="border-radius: 20px"></i><strong>Overlays</strong><code>20px · sheets, dialogs</code></div>
+          <div><i style="border-radius: 999px"></i><strong>Pills</strong><code>999px · buttons, badges, tabs, nav items</code></div>
+        </div>
+        <h3 class="sg-sub">Elevation</h3>
+        <div class="sg-elev">
+          <div><div class="box" style="background: var(--x-soft)">Soft section</div><code>--x-soft · no shadow</code><p class="sg-note">Groups inside a card or sheet. Inputs sit on it in white.</p></div>
+          <div><div class="box card">Card</div><code>--shadow-soft</code><p class="sg-note">Everything on the page background. No border in light mode.</p></div>
+          <div><div class="box" style="background: var(--popover); box-shadow: var(--x-shadow-pop)">Overlay</div><code>--x-shadow-pop</code><p class="sg-note">Popovers, sheets, dialogs, toasts, the bulk pill.</p></div>
+        </div>
+        <p class="sg-note">Borders appear only on inputs and between table rows. In dark mode shadows disappear, so cards and overlays add a 1px ring from <code>--border</code>.</p>
+      </div>
+    </section>
+
+    <!-- 5 · Buttons -->
+    <section class="sg-sec" id="s-buttons" aria-labelledby="h-buttons">
+      <div class="sg-sec-head"><span class="tile tile-lg tone-amber" aria-hidden="true"><i data-icon="mouse-pointer-click" data-size="20"></i></span><div><h2 id="h-buttons">Buttons</h2><p>Always pill-shaped. One primary (navy; sky in dark) per view. Labels say what happens: “Save student”, “Confirm payment”, never “Submit”.</p></div></div>
+      <div class="card sg-card">
+        <div class="sg-btn-grid" id="btn-grid"></div>
+        <h3 class="sg-sub">States</h3>
+        <div class="sg-row">
+          <button type="button" class="btn btn-default">Rest</button>
+          <button type="button" class="btn btn-default is-hover-demo">Hover</button>
+          <button type="button" class="btn btn-default is-focus-demo">Keyboard focus</button>
+          <button type="button" class="btn btn-default" disabled>Disabled</button>
+          <button type="button" class="btn btn-default" aria-busy="true"><svg class="sc-icon spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Saving…</button>
+          <button type="button" class="btn btn-outline"><i data-icon="user-check"></i>Approvals <span class="btn-count">3</span></button>
+          <button type="button" class="btn btn-outline" id="try-loading"><i data-icon="refresh-cw"></i>Try loading</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 · Forms -->
+    <section class="sg-sec" id="s-forms" aria-labelledby="h-forms">
+      <div class="sg-sec-head"><span class="tile tile-lg tone-sky" aria-hidden="true"><i data-icon="text-cursor-input" data-size="20"></i></span><div><h2 id="h-forms">Form anatomy</h2><p>White 40px controls with a 12px radius, usually sitting on a soft section. Errors explain how to fix the problem, in the product’s voice.</p></div></div>
+      <div class="card sg-card">
+        <div class="sg-form-pair">
+          <div class="sheet-section">
+            <div class="sheet-section-head"><span class="tile tile-sm tone-sky" aria-hidden="true"><i data-icon="user" data-size="13"></i></span><h3 class="h3">Field</h3></div>
+            <div class="field">
+              <label class="label" for="f-first">First name</label>
+              <input class="input" id="f-first" value="Adaeze">
+            </div>
+            <div class="field">
+              <label class="label" for="f-other">Other name <span class="field-optional">Optional</span></label>
+              <input class="input" id="f-other" aria-describedby="f-other-d">
+              <p class="field-description" id="f-other-d">As it appears on the birth certificate.</p>
+            </div>
+            <div class="field">
+              <label class="label" for="f-last">Surname</label>
+              <input class="input" id="f-last" aria-invalid="true" aria-describedby="f-last-e">
+              <p class="field-error" id="f-last-e">Enter the student’s surname.</p>
+            </div>
+            <fieldset class="field">
+              <legend class="label">Admission status for this term</legend>
+              <div class="radio-cards" role="radiogroup">
+                <label class="radio-card"><input class="radio" type="radio" name="f-adm" checked><span><strong>New admission</strong><small>First term at Kingsway</small></span></label>
+                <label class="radio-card"><input class="radio" type="radio" name="f-adm"><span><strong>Returning</strong><small>Continuing from last session</small></span></label>
+              </div>
+            </fieldset>
+          </div>
+          <div class="sheet-section">
+            <div class="sheet-section-head"><span class="tile tile-sm tone-teal" aria-hidden="true"><i data-icon="layers" data-size="13"></i></span><h3 class="h3">Controls</h3></div>
+            <div class="field-grid">
+              <div class="field">
+                <label class="label" for="f-amt">Amount paying</label>
+                <div class="input-group"><span class="input-addon is-prefix">₦</span><input class="input tnum" id="f-amt" inputmode="numeric" value="92,500"></div>
+              </div>
+              <div class="field">
+                <label class="label" for="f-sub">School subdomain</label>
+                <div class="input-group"><input class="input" id="f-sub" value="kingsway"><span class="input-addon is-suffix">.school-clerk.com</span></div>
+              </div>
+              <div class="field" style="grid-column: 1 / -1">
+                <label class="label" for="f-search">Search</label>
+                <div class="input-group is-pill"><span class="input-addon"><i data-icon="search"></i></span><input class="input" id="f-search" type="search" placeholder="Search students…"><span class="input-addon is-end"><span class="kbd">⌘K</span></span></div>
+              </div>
+              <div class="field">
+                <label class="label" for="f-class">Classroom</label>
+                <select class="select" id="f-class"><option>JSS 2</option><option>JSS 1</option><option>SS 1</option></select>
+              </div>
+              <div class="field">
+                <label class="label" for="f-date">Payment date</label>
+                <input class="input" id="f-date" type="date" value="2026-10-09">
+              </div>
+              <div class="field" style="grid-column: 1 / -1">
+                <label class="label" for="f-note">Note <span class="field-optional">Optional</span></label>
+                <textarea class="textarea" id="f-note" rows="2" placeholder="Anything the bursar should know"></textarea>
+              </div>
+            </div>
+            <fieldset class="field">
+              <legend class="label">Payment method</legend>
+              <div class="seg is-fill" role="radiogroup" aria-label="Payment method">
+                <label class="seg-btn"><input class="sr-only" type="radio" name="f-method" checked>Transfer</label>
+                <label class="seg-btn"><input class="sr-only" type="radio" name="f-method">Cash</label>
+                <label class="seg-btn"><input class="sr-only" type="radio" name="f-method">POS</label>
+              </div>
+            </fieldset>
+            <div class="sg-row">
+              <label class="choice"><input type="checkbox" class="checkbox" checked><span>PTA Levy</span></label>
+              <label class="choice"><input type="checkbox" class="checkbox"><span>School Bus</span></label>
+              <label class="choice"><input type="radio" class="radio" name="f-r" checked><span>Required</span></label>
+              <label class="choice"><input type="radio" class="radio" name="f-r"><span>Optional</span></label>
+              <label class="choice"><input type="checkbox" class="switch" role="switch" checked><span>Initialise with terms</span></label>
+            </div>
+          </div>
+        </div>
+        <h3 class="sg-sub">Vertical or horizontal</h3>
+        <div class="sg-grid-2">
+          <div class="field field-horizontal">
+            <label class="label" for="f-h-name">School name</label>
+            <div class="field"><input class="input" id="f-h-name" value="Kingsway Academy"><p class="field-description">Shown on receipts and your website.</p></div>
+          </div>
+          <p class="sg-note"><strong>Vertical is the default</strong> — in sheets, signup, onboarding and everything on a phone. Use the horizontal layout (12rem label column) only on wide settings pages where people scan many saved values. Below 560px horizontal fields stack automatically.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 · Status badges -->
+    <section class="sg-sec" id="s-status" aria-labelledby="h-status">
+      <div class="sg-sec-head"><span class="tile tile-lg tone-teal" aria-hidden="true"><i data-icon="badge-check" data-size="20"></i></span><div><h2 id="h-status">Status badge mapping</h2><p>Fully rounded, tinted with the tile tokens. A dot marks a person’s live state; an icon marks something waiting on someone; plain tints classify.</p></div></div>
+      <div class="card sg-card">
+        <div class="sg-table-wrap">
+          <table class="sg-table">
+            <thead><tr><th scope="col">Status</th><th scope="col">Applies to</th><th scope="col">Badge</th><th scope="col">Variant · tokens</th></tr></thead>
+            <tbody id="badge-map"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Tables -->
+    <section class="sg-sec" id="s-tables" aria-labelledby="h-tables">
+      <div class="sg-sec-head"><span class="tile tile-lg tone-violet" aria-hidden="true"><i data-icon="table" data-size="20"></i></span><div><h2 id="h-tables">Table anatomy</h2><p>The card table: a white card, segmented quick filters with counts, 56px rows, arm-tinted avatars, name bold with the guardian beneath, row actions that appear on hover, and a floating navy pill for bulk actions.</p></div></div>
+      <div class="card tcard" style="margin: 0">
+        <div class="tcard-toolbar">
+          <div class="seg" role="group" aria-label="Quick filters (example)">
+            <button type="button" class="seg-btn" aria-pressed="true">All<span class="n">486</span></button>
+            <button type="button" class="seg-btn" aria-pressed="false">Enrolled<span class="n">451</span></button>
+            <button type="button" class="seg-btn" aria-pressed="false">New<span class="n">64</span></button>
+            <button type="button" class="seg-btn" aria-pressed="false">Needs classification<span class="n">3</span></button>
+          </div>
+          <div class="tool-right">
+            <label class="input-group is-pill tool-search"><span class="input-addon"><i data-icon="search"></i></span><input class="input" type="search" placeholder="Search students…" aria-label="Search students (example)"></label>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="table ctable" id="anatomy-table">
+            <caption class="sr-only">Example table showing row states</caption>
+            <thead><tr><th class="c-sel" scope="col"><input type="checkbox" class="checkbox" aria-label="Select all (example)"></th><th scope="col">Student &amp; guardian</th><th scope="col">Class</th><th scope="col">Status</th><th scope="col" class="num">Balance</th><th scope="col">Row state</th><th class="c-act" scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="sg-grid-3">
+        <div class="card sg-card">
+          <h3 class="sg-sub">Empty</h3>
+          <div class="empty-mini" style="padding: 12px 0"><span class="tile tile-lg tone-sky" aria-hidden="true"><i data-icon="search" data-size="20"></i></span><strong>No students match “Bola”</strong><p>Try another name, student ID or guardian, or clear the filters.</p><button type="button" class="btn btn-outline btn-sm"><i data-icon="rotate-ccw"></i>Clear filters</button></div>
+        </div>
+        <div class="card sg-card">
+          <h3 class="sg-sub">Loading</h3>
+          <div class="sg-skel"><span class="skeleton" style="width: 36px; height: 36px; border-radius: 50%"></span><span style="flex: 1; display: grid; gap: 8px"><span class="skeleton" style="width: 70%"></span><span class="skeleton" style="width: 45%"></span></span></div>
+          <div class="sg-skel"><span class="skeleton" style="width: 36px; height: 36px; border-radius: 50%"></span><span style="flex: 1; display: grid; gap: 8px"><span class="skeleton" style="width: 60%"></span><span class="skeleton" style="width: 38%"></span></span></div>
+          <div class="sg-skel"><span class="skeleton" style="width: 36px; height: 36px; border-radius: 50%"></span><span style="flex: 1; display: grid; gap: 8px"><span class="skeleton" style="width: 76%"></span><span class="skeleton" style="width: 50%"></span></span></div>
+          <p class="sg-note">Skeleton rows keep the avatar and two-line rhythm so nothing jumps when data lands.</p>
+        </div>
+        <div class="card sg-card">
+          <h3 class="sg-sub">Mobile: stacked cards</h3>
+          <div class="sg-phone"><table class="ctable" id="phone-table"><tbody></tbody></table></div>
+        </div>
+      </div>
+      <div class="card sg-card">
+        <h3 class="sg-sub">Bulk actions</h3>
+        <div class="bulkbar sg-bulk-demo" role="group" aria-label="Bulk actions (example)">
+          <span class="bulk-count"><b>3</b><span class="bulk-label">selected</span></span><span class="bulk-sep" aria-hidden="true"></span>
+          <button type="button" class="bulk-btn"><i data-icon="download"></i><span class="bulk-label">Export CSV</span></button>
+          <button type="button" class="bulk-btn"><i data-icon="badge-check"></i><span class="bulk-label">Set admission status</span></button>
+          <button type="button" class="bulk-btn"><i data-icon="arrow-up-down"></i><span class="bulk-label">Move class</span></button>
+          <button type="button" class="bulk-btn"><i data-icon="user-x"></i><span class="bulk-label">Remove from term</span></button>
+          <span class="bulk-sep" aria-hidden="true"></span><button type="button" class="bulk-btn is-icon" aria-label="Clear selection"><i data-icon="x"></i></button>
+        </div>
+        <p class="sg-note">Appears when one or more rows are selected: a navy pill floating 22px above the bottom, centred in the content area, with the count on an amber disc. On phones it sits above the tab bar and shows icons only.</p>
+      </div>
+    </section>
+
+    <!-- 9 · Sheets & dialogs -->
+    <section class="sg-sec" id="s-overlays" aria-labelledby="h-overlays">
+      <div class="sg-sec-head"><span class="tile tile-lg tone-slate" aria-hidden="true"><i data-icon="panel-right" data-size="20"></i></span><div><h2 id="h-overlays">Sheets &amp; dialogs</h2><p>Sheets float 12px in from the edges with a 20px radius; dialogs are small, centred and lead with an icon tile.</p></div></div>
+      <div class="card sg-card">
+        <div class="sg-anatomy">
+          <div class="sg-mini-sheet" aria-hidden="true">
+            <div class="sheet-header"><span class="tile tone-teal"><i data-icon="hand-coins"></i></span><p class="sheet-title">Receive payment</p><p class="sheet-description">A receipt is created when you confirm.</p><span class="sheet-x btn btn-ghost btn-icon btn-sm"><i data-icon="x"></i></span></div>
+            <span></span>
+            <div class="sheet-body">
+              <div class="sheet-section"><div class="sheet-section-head"><span class="tile tile-sm tone-sky"><i data-icon="user" data-size="13"></i></span><span class="h3" style="font-weight: 600">Who is paying</span></div><div class="ghost-input"></div><div class="ghost-line" style="width: 60%"></div></div>
+              <div class="sheet-section"><div class="sheet-section-head"><span class="tile tile-sm tone-teal"><i data-icon="receipt" data-size="13"></i></span><span class="h3" style="font-weight: 600">Fees</span></div><div class="ghost-input"></div><div class="ghost-input"></div></div>
+            </div>
+            <div class="sheet-footer"><span class="preview-note">Preview · nothing is sent</span><span class="sheet-actions"><span class="btn btn-outline btn-sm">Cancel</span><span class="btn btn-default btn-sm">Confirm payment</span></span></div>
+          </div>
+          <div style="display: grid; gap: 18px; align-content: start">
+            <ol>
+              <li><strong>Frame</strong> — floats 12px from the viewport edges, 20px radius, overlay shadow, white card surface. Phones: full screen, rising from the bottom.</li>
+              <li><strong>Header</strong> — the module’s colour tile, a Bricolage title that names the job, one line saying what happens, and a close button.</li>
+              <li><strong>Body</strong> — sections as soft cards, each with a small tile and a plain heading. White inputs sit on them.</li>
+              <li><strong>Footer</strong> — the quiet preview note on the left, pill actions on the right: Cancel, then the primary action named for its result.</li>
+            </ol>
+            <div class="sg-table-wrap">
+              <table class="sg-table">
+                <thead><tr><th scope="col">Size</th><th scope="col">Width</th><th scope="col">Use for</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+                <tbody>
+                  <tr><td><strong>sm</strong></td><td class="tnum">24rem</td><td>Filters, quick views, the mobile More menu</td><td><button type="button" class="btn btn-outline btn-sm" data-sheet-size="sm">Open sheet</button></td></tr>
+                  <tr><td><strong>md</strong></td><td class="tnum">34rem</td><td>Receive payment, short forms</td><td><button type="button" class="btn btn-outline btn-sm" data-sheet-size="md">Open sheet</button></td></tr>
+                  <tr><td><strong>lg</strong></td><td class="tnum">38rem</td><td>Student details with tabs, create or edit student</td><td><button type="button" class="btn btn-outline btn-sm" data-sheet-size="lg">Open sheet</button></td></tr>
+                  <tr><td><strong>xl</strong></td><td class="tnum">48rem</td><td>Import review, bulk changes with a preview table</td><td><button type="button" class="btn btn-outline btn-sm" data-sheet-size="xl">Open sheet</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="sg-sub">Dialogs</h3>
+        <div class="sg-grid-3">
+          <div class="sg-mini-dialog"><span class="tile tile-lg tone-sky" aria-hidden="true"><i data-icon="calendar-check" data-size="20"></i></span><p class="dialog-title">Start Second Term?</p><p class="dialog-description">Students move into the new term with their classes.</p><div class="dialog-footer"><button type="button" class="btn btn-outline btn-sm">Not yet</button><button type="button" class="btn btn-default btn-sm" data-dialog="#demo-confirm">Open confirm</button></div></div>
+          <div class="sg-mini-dialog"><span class="tile tile-lg tone-rose" aria-hidden="true"><i data-icon="trash-2" data-size="20"></i></span><p class="dialog-title">Delete Adaeze Okonkwo?</p><p class="dialog-description">Her record and class history will be removed.</p><div class="dialog-footer"><button type="button" class="btn btn-outline btn-sm">Keep student</button><button type="button" class="btn btn-destructive btn-sm" data-dialog="#demo-destructive">Open destructive</button></div></div>
+          <div class="sg-mini-dialog"><span class="tile tile-lg tone-violet" aria-hidden="true"><i data-icon="pencil" data-size="20"></i></span><p class="dialog-title">Rename stream</p><p class="dialog-description">One field, one decision.</p><div class="dialog-footer"><button type="button" class="btn btn-outline btn-sm">Cancel</button><button type="button" class="btn btn-default btn-sm" data-dialog="#demo-form">Open form</button></div></div>
+        </div>
+
+        <h3 class="sg-sub">Page, sheet or dialog?</h3>
+        <div class="sg-table-wrap">
+          <table class="sg-table sg-decide">
+            <thead><tr><th scope="col">Use</th><th scope="col">When</th><th scope="col">School Clerk examples</th></tr></thead>
+            <tbody>
+              <tr><td>Page</td><td>A place people return to, scan and work through for minutes at a time; it deserves a nav item and a URL.</td><td>Students, Collections, Dashboard, Fee Structures</td></tr>
+              <tr><td>Sheet</td><td>Create, edit or inspect one thing without losing your place in the list behind it.</td><td>New student, Student details, Receive payment</td></tr>
+              <tr><td>Dialog</td><td>One decision or one field, especially when it can’t be undone. Never more than a short form.</td><td>Delete student, Start term, Rename stream</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 · Patterns -->
+    <section class="sg-sec" id="s-patterns" aria-labelledby="h-patterns">
+      <div class="sg-sec-head"><span class="tile tile-lg tone-amber" aria-hidden="true"><i data-icon="layout-template" data-size="20"></i></span><div><h2 id="h-patterns">Patterns</h2><p>The header row, KPI cards, empty states and toasts that every page reuses.</p></div></div>
+      <div class="card sg-card" style="background: var(--background); box-shadow: 0 0 0 1px var(--border)">
+        <h3 class="sg-sub">Page header</h3>
+        <div class="topbar" style="flex-wrap: wrap">
+          <div class="page-id"><span class="tile tile-lg tone-sky" aria-hidden="true"><i data-icon="users" data-size="20"></i></span><div class="page-id-text"><p class="page-crumb">People <i data-icon="chevron-right" data-size="12"></i> Student Records</p><p class="page-title">Students</p></div></div>
+          <div class="top-actions" style="flex-wrap: wrap">
+            <span class="search-pill"><i data-icon="search"></i><span class="sp-text">Find anything…</span><span class="kbd sp-kbd">⌘K</span></span>
+            <span class="chip-term"><span class="dot-amber" aria-hidden="true"></span>First Term · Week 4<i data-icon="chevron-down" data-size="14"></i></span>
+            <span class="icon-pill" aria-hidden="true"><i data-icon="bell" data-size="18"></i><span class="unread"></span></span>
+            <span class="avatar-btn" aria-hidden="true">AB</span>
+          </div>
+        </div>
+        <div class="page-bar" style="margin: 0">
+          <p class="page-lede"><span class="dot-amber" aria-hidden="true"></span><span><strong>451</strong> enrolled for First Term · <span style="text-decoration: underline; text-decoration-color: var(--highlight); text-decoration-thickness: 2px; text-underline-offset: 4px; color: var(--foreground); font-weight: 600">3 admissions</span> waiting for you</span></p>
+          <div class="page-actions"><button type="button" class="btn btn-outline"><i data-icon="upload"></i>Import</button><button type="button" class="btn btn-default"><i data-icon="plus"></i>New student</button></div>
+        </div>
+        <p class="sg-note">No header bar: the title sits on the background with the module tile, controls are floating pills. A friendly lede line under it says what needs doing, with the amber dot.</p>
+
+        <h3 class="sg-sub">KPI / stat cards</h3>
+        <div class="stats" id="kpi-demo" style="margin: 0"></div>
+
+        <div class="sg-grid-2">
+          <div>
+            <h3 class="sg-sub">Empty state</h3>
+            <div class="card empty" style="padding: 40px 20px">
+              <div class="empty-art" aria-hidden="true"><span class="ea ea-1"></span><span class="tile tone-violet"><i data-icon="graduation-cap" data-size="28"></i></span><span class="ea ea-2"></span><span class="ea-dot"></span></div>
+              <p class="empty-title">No teachers yet</p>
+              <p class="empty-text">Invite your first teacher and give them access to their classes and subjects.</p>
+              <div class="empty-actions"><button type="button" class="btn btn-default"><i data-icon="user-plus"></i>Invite staff</button></div>
+            </div>
+          </div>
+          <div>
+            <h3 class="sg-sub">Toast</h3>
+            <div class="toast" style="animation: none; max-width: 22rem"><i data-icon="circle-check"></i><div><strong>Payment confirmed</strong><small>₦92,500 from Emeka Okonkwo · RCP-26-00413</small></div></div>
+            <p class="sg-note" style="margin-top: 12px">Bottom-right on desktop, above the tab bar on phones. The title repeats the action’s name in the past tense: “Save student” → “Student saved”.</p>
+            <div class="sg-row" style="margin-top: 12px"><button type="button" class="btn btn-outline btn-sm" id="show-toast"><i data-icon="bell-ring"></i>Show a toast</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11 · Do & don't -->
+    <section class="sg-sec" id="s-rules" aria-labelledby="h-rules">
+      <div class="sg-sec-head"><span class="tile tile-lg tone-rose" aria-hidden="true"><i data-icon="flag" data-size="20"></i></span><div><h2 id="h-rules">Do &amp; don’t</h2><p>Six rules that keep Assembly from drifting back to the old monochrome, Midday-style dashboard.</p></div></div>
+      <div class="sg-dodont">
+        <div class="sg-rule"><span class="tile tone-teal" aria-hidden="true"><i data-icon="check"></i></span><p class="do"><b>Do</b> float content on white cards with soft shadows.</p><p class="dont"><b>Don’t</b> box every region with 1px grey borders or add a hard header bar.</p></div>
+        <div class="sg-rule"><span class="tile tone-teal" aria-hidden="true"><i data-icon="check"></i></span><p class="do"><b>Do</b> head every module with its colour tile, in the sidebar and on the page.</p><p class="dont"><b>Don’t</b> use a monochrome icon rail that only reveals labels on hover.</p></div>
+        <div class="sg-rule"><span class="tile tone-teal" aria-hidden="true"><i data-icon="check"></i></span><p class="do"><b>Do</b> use pill buttons and fully rounded, tinted badges.</p><p class="dont"><b>Don’t</b> use square badges or small grey-on-grey 12px labels for status.</p></div>
+        <div class="sg-rule"><span class="tile tone-teal" aria-hidden="true"><i data-icon="check"></i></span><p class="do"><b>Do</b> keep the navy pill as the only filled navigation state, with the amber dot.</p><p class="dont"><b>Don’t</b> highlight the active item with a faint grey wash or a left border.</p></div>
+        <div class="sg-rule"><span class="tile tone-teal" aria-hidden="true"><i data-icon="check"></i></span><p class="do"><b>Do</b> save amber for “you are here”, unread and progress endpoints.</p><p class="dont"><b>Don’t</b> use amber for body text or big fills — it fails contrast on white.</p></div>
+        <div class="sg-rule"><span class="tile tone-teal" aria-hidden="true"><i data-icon="check"></i></span><p class="do"><b>Do</b> write like a colleague: “3 admissions waiting for you”.</p><p class="dont"><b>Don’t</b> write system talk: “Records fetched”, “Entity updated”, “Submit”.</p></div>
+      </div>
+    </section>
+
+    <p class="sg-foot">Assembly · shadcn/ui primitives themed through tokens.css and app.css. Sample content is illustrative.</p>
+  </main>
+</div>
+
+<!-- Live sheet (sizes) -->
+<div class="sheet" id="demo-sheet" hidden aria-labelledby="ds-title">
+  <div class="sheet-header">
+    <span class="tile tile-lg tone-sky" aria-hidden="true"><i data-icon="panel-right" data-size="20"></i></span>
+    <h2 class="sheet-title" id="ds-title">Sheet</h2>
+    <p class="sheet-description" id="ds-desc">A floating sheet.</p>
+    <button type="button" class="btn btn-ghost btn-icon btn-sm sheet-x" data-close aria-label="Close"><i data-icon="x"></i></button>
+  </div>
+  <div class="sheet-body">
+    <section class="sheet-section" aria-labelledby="ds-s1">
+      <div class="sheet-section-head"><span class="tile tile-sm tone-sky" aria-hidden="true"><i data-icon="user" data-size="13"></i></span><h3 id="ds-s1">Student</h3></div>
+      <div class="field-grid">
+        <div class="field"><label class="label" for="ds-first">First name</label><input class="input" id="ds-first" value="Toluwani" autofocus></div>
+        <div class="field"><label class="label" for="ds-last">Surname</label><input class="input" id="ds-last" value="Adebayo"></div>
+      </div>
+    </section>
+    <section class="sheet-section" aria-labelledby="ds-s2">
+      <div class="sheet-section-head"><span class="tile tile-sm tone-teal" aria-hidden="true"><i data-icon="wallet" data-size="13"></i></span><h3 id="ds-s2">Fees &amp; payments</h3></div>
+      <ul class="fee-list" id="ds-fees"></ul>
+    </section>
+  </div>
+  <div class="sheet-footer">
+    <span class="preview-note"><i data-icon="info"></i>Preview · nothing is sent</span>
+    <div class="sheet-actions"><button type="button" class="btn btn-outline" data-close>Cancel</button><button type="button" class="btn btn-default" id="ds-save">Save student</button></div>
+  </div>
+</div>
+
+<!-- Live dialogs -->
+<div class="dialog" id="demo-confirm" hidden aria-labelledby="dc-title" aria-describedby="dc-desc" style="--dialog-w: 26rem">
+  <span class="tile tile-xl tone-sky dialog-tile" aria-hidden="true"><i data-icon="calendar-check" data-size="26"></i></span>
+  <div class="dialog-header"><h2 class="dialog-title" id="dc-title">Start Second Term?</h2><p class="dialog-description" id="dc-desc">Students move into Second Term with their current classes. You can still record First Term payments.</p></div>
+  <div class="dialog-footer"><button type="button" class="btn btn-outline" data-close>Not yet</button><button type="button" class="btn btn-default" data-close data-toast="Second Term started|Preview · nothing changed">Start term</button></div>
+</div>
+<div class="dialog" id="demo-destructive" role="alertdialog" hidden aria-labelledby="dd-title" aria-describedby="dd-desc" style="--dialog-w: 27rem">
+  <span class="tile tile-xl tone-rose dialog-tile" aria-hidden="true"><i data-icon="trash-2" data-size="26"></i></span>
+  <div class="dialog-header"><h2 class="dialog-title" id="dd-title">Delete Adaeze Okonkwo?</h2><p class="dialog-description" id="dd-desc">Adaeze’s student record and class history will be removed from Kingsway Academy. You can’t undo this.</p></div>
+  <div class="dialog-hint"><i data-icon="info"></i><span>Only leaving for now? <button type="button" class="btn-link" data-close data-toast="Removed from First Term|Preview · nothing changed">Remove from this term instead</button></span></div>
+  <div class="dialog-footer"><button type="button" class="btn btn-outline" data-close autofocus>Keep student</button><button type="button" class="btn btn-destructive" data-close data-toast="Student deleted|Preview · nothing changed">Delete student</button></div>
+</div>
+<form class="dialog" id="demo-form" hidden aria-labelledby="df-title" novalidate style="--dialog-w: 26rem">
+  <span class="tile tile-xl tone-violet dialog-tile" aria-hidden="true"><i data-icon="pencil" data-size="26"></i></span>
+  <div class="dialog-header"><h2 class="dialog-title" id="df-title">Rename stream</h2><p class="dialog-description">JSS 2 A will use the new name on registers, reports and receipts.</p></div>
+  <div class="field">
+    <label class="label" for="df-name">Stream name</label>
+    <input class="input" id="df-name" value="A" autocomplete="off" aria-describedby="df-err" autofocus>
+    <p class="field-error" id="df-err" hidden>Enter a stream name, like A or Emerald.</p>
+  </div>
+  <div class="dialog-footer"><button type="button" class="btn btn-outline" data-close>Cancel</button><button type="submit" class="btn btn-default">Save name</button></div>
+</form>
+
+</body>
+</html>

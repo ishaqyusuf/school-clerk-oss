@@ -1,10 +1,6 @@
-import { getAssistantSessionContext } from "@/lib/assistant/server";
-import { NextResponse } from "next/server";
-
-// Assistant/system messages are persisted only from the trusted server stream.
-// Keep a safe response for old clients without accepting their transcript data.
-export async function POST() {
-  const context = await getAssistantSessionContext();
-  if (context instanceof Response) return context;
-  return NextResponse.json({ error: "Chat messages are saved by the server. Refresh this client." }, { status: 405 });
-}
+const retired = () =>
+	Response.json({ error: "This assistant endpoint has been replaced. Open /assistant." }, { status: 410, headers: { "Cache-Control": "private, no-store" } },
+	);
+export const GET = retired;
+export const POST = retired;
+export const PATCH = retired;

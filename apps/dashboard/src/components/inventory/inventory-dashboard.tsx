@@ -1,4 +1,5 @@
 "use client";
+import { OpenAssistant } from "@/components/assistant/open-assistant";
 
 import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
 
@@ -161,7 +162,7 @@ export function InventoryDashboard() {
               className="h-7 text-xs"
               onClick={() => setTypeFilter(t)}
             >
-              {t === "ALL" ? "All" : TYPE_LABELS[t] ?? t}
+              {t === "ALL" ? "All" : (TYPE_LABELS[t] ?? t)}
             </Button>
           ))}
         </div>
@@ -231,7 +232,13 @@ export function InventoryDashboard() {
                     >
                       Issue
                     </Button>
-                    <Button
+                    <OpenAssistant
+											compact
+											records={[
+												{ kind: "inventory", id: item.id, label: item.title },
+											]}
+										/>
+										<Button
                       variant="ghost"
                       size="sm"
                       className="h-7 text-xs"
@@ -268,8 +275,8 @@ export function InventoryDashboard() {
           itemId={editItem === "new" ? null : editItem}
           existingItem={
             editItem !== "new"
-              ? items.find((i) => i.id === editItem) ?? null
-              : null
+              ? (items.find((i) => i.id === editItem) ?? null)
+							: null
           }
           onClose={() => setEditItem(null)}
           onSuccess={() => {

@@ -62,6 +62,14 @@ interface Props {
 	scrollMode?: "container" | "page";
 	/** Retained for classroom embeds; the shared student directory now always renders a table. */
 	grid?: boolean;
+	/**
+	 * "url" (default): directory filters and search come from the page URL.
+	 * "local": an embed (e.g. the classroom sheet) ignores page filters and
+	 * searches with `search` only, so filters never leak between views.
+	 */
+	filterMode?: "url" | "local";
+	search?: string;
+	onClearSearch?: () => void;
 }
 
 function normalizeSort(sort: string[] | null): GetStudentsSchema["sort"] {
@@ -83,10 +91,21 @@ export function DataTable({
 	singlePage,
 	scrollMode = "page",
 	onCreate,
+	filterMode = "url",
+	search,
+	onClearSearch,
 }: Props) {
 	const trpc = useTRPC();
 	const academicDataDirection = useAcademicDataDirection();
-	const { filter, hasFilters, setFilters } = useStudentFilterParams();
+	const urlFilters = useStudentFilterParams();
+	const isLocalFilter = filterMode === "local";
+	const localFilter = useMemo(
+		() => ({ q: search?.trim() || null }) as typeof urlFilters.filter,
+		[search],
+	);
+	const filter = isLocalFilter ? localFilter : urlFilters.filter;
+	const hasFilters = isLocalFilter ? !!localFilter.q : urlFilters.hasFilters;
+	const setFilters = urlFilters.setFilters;
 	const { params: sortParams } = useSortParams();
 	const deferredSearch = useDeferredValue(filter.q);
 	const { setParams } = useStudentParams();
@@ -242,7 +261,9 @@ export function DataTable({
 		return (
 			<NoResults
 				onClear={() =>
-					setFilters({
+					isLocalFilter
+						? onClearSearch?.()
+						: setFilters({
 						classroomTitle: null,
 						departmentId: null,
 						classroomDepartmentIds: null,

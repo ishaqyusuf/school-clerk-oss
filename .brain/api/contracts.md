@@ -309,6 +309,20 @@ Student registration and `academics.entrollStudentToTerm` require live Student M
 
 Version 1 request binds UUID requestId, issuedAt, original URL/method and header tuples under purpose-separated HMAC-SHA256 derived from the existing server auth secret. Maximum request is 65,536 bytes; freshness is 30 seconds. Version 1 response carries status (200–399) and header tuples, capped at 131,072 bytes and signed with the requesting proof plus exact payload. Independent Set-Cookie entries, middleware forwarding/rewrite headers and return_to redirects are preserved. Outbound destination is a validated configured application-root origin or fixed configured custom-domain/preview origin. Proxy allows eight seconds and returns private/no-store 503 on unavailable or invalid transport. No auth/session decision is cached across requests; public API contracts are unchanged. ADR-0069.
 
+## Assistant protocol v2 — 2026-10-06
+
+Chat input: `{conversationId, requestId: UUID, text (1..12000), records (<=50), attachmentIds (<=5)}`. Client system/assistant history is rejected. Results carry `{status, toolId, toolVersion:1, data, observedAt, sources, invalidationTags}`. Stable tool names preserve history-policy identifiers. Approval results contain a proposal ID and verified review data, never an executable client token. Explicit decisions `{proposalId, approve, requestId}` execute owner-stored payloads; repeated completion reads saved output.
+
+Request fingerprint mismatch is a conflict. Lease recovery never replays actions. History returns up to 100 messages and recent run state; conversation lists use cursors. Model responses and committed domain receipts are distinct. Files/artifacts never expose storage credentials or public URLs. Exports are conversation records, not official school documents.
+
+Assistant auth transport: browser bearer tokens and server session IDs are normalized through the live-session predicate, bound to the current user, before membership checks. PDF artifacts store the canonical session ID for worker revalidation.
+
+Assistant browser writes (chat, attachment upload/removal) require an HTTPS Origin matching the public host from `x-forwarded-host`, then `Host`, then the request URL, consistent with tenant routing. Foreign tenants, HTTP and opaque origins are rejected. Authenticated non-browser requests without Origin remain supported; this check does not replace live session or school authorization.
+
 ## Student form suggestions — 2026-10-11
 
 `students.suggestions` accepts trimmed name/surname/otherName (max 200 each; at least one >=2 characters), pageSize 1–25/default5, bounded bucket:offset cursor, and optional school/user/login-session/academic-session/term view scope. Returns data records (identity, match strength, current-term status/class, editable approved term-form ID) and meta count/matchingCount/cursor. Exact/all-field matches precede partials before paging. Server derives tenant/academic scope and rejects stale supplied view scope. See [feature contract](../features/student-form-suggestions.md).
+
+## subjects.overview student count — 2026-10-12
+
+`subject.classRoomDepartment._count.studentTermForms` is now the number of distinct non-deleted students with a non-deleted term form in the subject's own term. It used to count every term form of the classroom across all terms, including deleted ones, which showed 110 for a class of 52. The field name and type are unchanged. See [classroom overview](../features/classroom-overview.md).

@@ -238,3 +238,7 @@ Describes entity relationships and cardinality constraints.
   On approval with an existing identity, its `studentId` and score record
   student IDs move to the matched same-school student; the provisional student
   is soft-deleted. Rejection retains the rows but excludes active recording.
+
+## Assistant replacement relationships — 2026-10-06
+
+Conversations cascade-delete proposals, attachments and artifacts. Runs cascade-delete their source proposals, one request-key record and one usage reservation. Preferences reference school/user with cascade cleanup and a unique school/user key. Scoped school/user IDs on dependent rows are always bound to the owned conversation/run by server code; foreign keys are integrity/cleanup constraints, not authorization. Review consumption, domain write, activity/receipt and proposal completion share one transaction.

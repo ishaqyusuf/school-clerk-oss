@@ -45,7 +45,7 @@ model SchoolProfile {
   notifications                  Notification[]
   notificationPreferences        NotificationPreference[]
   notificationContacts           NotificationContact[]
-  inventoryItems                 Inventory[]
+  inventoryItems                 SchoolInventory[]
   inventoryIssuances             InventoryIssuance[]
   enrollmentLinks                EnrollmentLink[]
   enrollmentApplications         EnrollmentApplication[]
@@ -56,6 +56,7 @@ model SchoolProfile {
   assistantRuns                  AssistantRun[]
   assistantToolExecutions        AssistantToolExecution[]
   assistantConfig                SchoolAssistantConfig?
+  assistantPreferences AssistantPreference[]
   assistantFeedback              AssistantFeedback[]
   financeStreams                 FinanceStream[]
   financeItems                   FinanceItem[]

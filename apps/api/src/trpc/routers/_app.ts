@@ -1,3 +1,4 @@
+import { assistantRouter } from "./assistant.routes";
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { createTRPCRouter } from "../init";
 import { studentsRouter } from "./students.routes";
@@ -22,7 +23,8 @@ import { parentsRouter } from "./parents.routes";
 import { schoolSettingsRouter } from "./school-settings.routes";
 import { qaMaintenanceRouter } from "./qa-maintenance.routes";
 export const appRouter = createTRPCRouter({
-  assessments: assessmentRouter,
+	assistant: assistantRouter,
+	assessments: assessmentRouter,
   auth: authRouter,
   students: studentsRouter,
   enrollments: enrollmentsRouter,

@@ -1,0 +1,124 @@
+/* Direction 03 — Assembly. Mark & morning: friendly, rounded, built from the brand mark's own colours.
+   shadcn config: style new-york · baseColor slate (re-tinted) · radius 1rem · sidebar variant="floating" collapsible="icon"
+   Fonts: Bricolage Grotesque (display) · Onest (UI) · system mono (IDs). */
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Onest:wght@400..700&display=swap");
+
+:root {
+  --font-sans: "Onest", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 1rem;
+  --control-h: 2.5rem;
+  --row-h: 3.5rem;
+  --icon-stroke: 2;
+
+  --background: #f2f4f9;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0f172a;
+  --primary-foreground: #f8fafc;
+  --secondary: #e8ecf5;
+  --secondary-foreground: #1e293b;
+  --muted: #eef1f7;
+  --muted-foreground: #5b6579;
+  --accent: #e0f2fe;
+  --accent-foreground: #075985;
+  --destructive: #dc2626;
+  --border: #e2e7f0;
+  --input: #d5dbe6;
+  --ring: #38bdf8;
+
+  --success: #0f766e;
+  --success-foreground: #ffffff;
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+  --info: #0369a1;
+  --info-foreground: #ffffff;
+  /* Amber: the mark's endpoint dot. Progress, "you are here", celebratory moments. */
+  --highlight: #f59e0b;
+  --highlight-foreground: #3b2300;
+
+  /* The four brand-mark colours, used as module identity tiles (soft fill + strong ink). */
+  --brand-navy: #0f172a;
+  --brand-sky: #38bdf8;
+  --brand-teal: #14b8a6;
+  --brand-amber: #f59e0b;
+  --tile-sky: #e0f2fe;      --tile-sky-ink: #075985;
+  --tile-teal: #ccfbf1;     --tile-teal-ink: #0f766e;
+  --tile-amber: #fef3c7;    --tile-amber-ink: #92400e;
+  --tile-violet: #ede9fe;   --tile-violet-ink: #5b21b6;
+  --tile-rose: #ffe4e6;     --tile-rose-ink: #be123c;
+  --tile-slate: #e2e8f0;    --tile-slate-ink: #334155;
+
+  --chart-1: #0ea5e9;
+  --chart-2: #14b8a6;
+  --chart-3: #f59e0b;
+  --chart-4: #6366f1;
+  --chart-5: #f43f5e;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #0f172a;
+  --sidebar-primary-foreground: #f8fafc;
+  --sidebar-accent: #eef4fb;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #e2e7f0;
+  --sidebar-ring: #38bdf8;
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / .04), 0 8px 24px -12px rgb(15 23 42 / .12);
+}
+
+.dark {
+  --background: #0a0f1c;
+  --foreground: #eef2fb;
+  --card: #111a2c;
+  --card-foreground: #eef2fb;
+  --popover: #131d31;
+  --popover-foreground: #eef2fb;
+  --primary: #7dd3fc;
+  --primary-foreground: #06233a;
+  --secondary: #18223a;
+  --secondary-foreground: #e2e8f5;
+  --muted: #162036;
+  --muted-foreground: #9aa6bf;
+  --accent: #0f2f4a;
+  --accent-foreground: #d6efff;
+  --destructive: #f87171;
+  --border: #22304a;
+  --input: #2a3854;
+  --ring: #38bdf8;
+
+  --success: #2dd4bf;
+  --success-foreground: #042f2a;
+  --warning: #fbbf24;
+  --warning-foreground: #2a1a00;
+  --info: #7dd3fc;
+  --info-foreground: #06233a;
+  --highlight: #fbbf24;
+  --highlight-foreground: #2a1a00;
+
+  --tile-sky: #0c2d48;      --tile-sky-ink: #7dd3fc;
+  --tile-teal: #0b302d;     --tile-teal-ink: #5eead4;
+  --tile-amber: #3a2706;    --tile-amber-ink: #fcd34d;
+  --tile-violet: #261c4a;   --tile-violet-ink: #c4b5fd;
+  --tile-rose: #3d1220;     --tile-rose-ink: #fda4af;
+  --tile-slate: #1e293b;    --tile-slate-ink: #cbd5e1;
+
+  --chart-1: #38bdf8;
+  --chart-2: #2dd4bf;
+  --chart-3: #fbbf24;
+  --chart-4: #818cf8;
+  --chart-5: #fb7185;
+
+  --sidebar: #0e1626;
+  --sidebar-foreground: #eef2fb;
+  --sidebar-primary: #7dd3fc;
+  --sidebar-primary-foreground: #06233a;
+  --sidebar-accent: #17233a;
+  --sidebar-accent-foreground: #eef2fb;
+  --sidebar-border: #22304a;
+  --sidebar-ring: #38bdf8;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / .3), 0 12px 32px -12px rgb(0 0 0 / .5);
+}

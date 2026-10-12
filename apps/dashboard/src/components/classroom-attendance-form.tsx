@@ -36,7 +36,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { Plus, Save } from "lucide-react";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import {
   AttendanceBulkActions,
@@ -46,6 +46,10 @@ import { AttendanceSessionDetails } from "./attendance-session-details";
 import { ClassroomAttendanceRoster } from "./classroom-attendance-roster";
 import { SubmitButton } from "./submit-button";
 import { TableSkeleton } from "./tables/skeleton";
+import {
+  ATTENDANCE_ROSTER_BATCH_SIZE as ROSTER_RENDER_BATCH_SIZE,
+  useAttendanceDraft,
+} from "./attendance-draft-context";
 
 export function ClassroomAttendanceForm() {
   const { secondaryTab, viewClassroomId, attendanceSessionId } =
@@ -130,8 +134,6 @@ export function ClassroomAttendanceCorrectionRecorder({
   );
 }
 
-const ROSTER_RENDER_BATCH_SIZE = 25;
-
 type AttendanceFieldErrors = Partial<
   Record<
     "attendanceDate" | "attendanceTitle" | "departmentSubjectId" | "roster",
@@ -155,25 +157,29 @@ function AttendanceFormContent({
   const queryClient = useQueryClient();
   const { setParams, viewClassroomId } = useClassroomParams();
   const auth = useAuth();
-  const [title, setTitle] = useState("Daily attendance");
-  const [attendanceDate, setAttendanceDate] = useState(todayAttendanceDate);
-  const [scope, setScope] = useState<AttendanceScope>("GENERAL");
-  const [periodLabel, setPeriodLabel] = useState("");
-  const [departmentSubjectId, setDepartmentSubjectId] = useState("");
-  const [statusMap, setStatusMap] = useState<
-    Record<string, AttendanceStatus | undefined>
-  >({});
-  const [commentMap, setCommentMap] = useState<Record<string, string>>({});
-  const idempotencyRequestRef = useRef<{
-    fingerprint: string;
-    key: string;
-  } | null>(null);
+  const {
+    title,
+    setTitle,
+    attendanceDate,
+    setAttendanceDate,
+    scope,
+    setScope,
+    periodLabel,
+    setPeriodLabel,
+    departmentSubjectId,
+    setDepartmentSubjectId,
+    statusMap,
+    setStatusMap,
+    commentMap,
+    setCommentMap,
+    visibleRosterCount,
+    setVisibleRosterCount,
+    idempotencyRequestRef,
+    previousRosterRef,
+    isWorkspaceDraft,
+  } = useAttendanceDraft({ departmentId, shared: inline && !attendanceId });
   const [fieldErrors, setFieldErrors] = useState<AttendanceFieldErrors>({});
   const [submissionError, setSubmissionError] = useState<string | null>(null);
-  const [visibleRosterCount, setVisibleRosterCount] = useState(
-    ROSTER_RENDER_BATCH_SIZE,
-  );
-  const previousRosterRef = useRef<{ departmentId?: string | null; keys: Set<string> } | null>(null);
   const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
     rootMargin: "400px",
   });
@@ -202,7 +208,7 @@ function AttendanceFormContent({
   );
 
   useEffect(() => {
-    if (attendanceId) return;
+    if (attendanceId || isWorkspaceDraft) return;
 
     idempotencyRequestRef.current = null;
     setTitle("Daily attendance");
@@ -215,7 +221,7 @@ function AttendanceFormContent({
     setFieldErrors({});
     setSubmissionError(null);
     setVisibleRosterCount(ROSTER_RENDER_BATCH_SIZE);
-  }, [attendanceId, departmentId]);
+  }, [attendanceId, departmentId, isWorkspaceDraft]);
 
   useEffect(() => {
     if (!editingSession) return;
@@ -567,7 +573,7 @@ function AttendanceFormContent({
           }}
         />
         <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
-          {inline && !attendanceId && viewClassroomId === departmentId && (auth.role === "Admin" || auth.role === "ADMIN") ? (
+          {inline && !attendanceId && viewClassroomId === departmentId && (auth.role === "Admin" || auth.role === "ADMIN" || auth.role === "Registrar") ? (
             <Button
               type="button"
               variant="outline"
@@ -618,10 +624,11 @@ function AttendanceFormContent({
             [attendanceKey]: comment,
           }))
         }
+        allowClear={!attendanceId}
         onStatusChange={(attendanceKey, status) => {
           const nextStatusMap = {
             ...statusMap,
-            [attendanceKey]: status,
+            [attendanceKey]: status ?? undefined,
           };
           setStatusMap(nextStatusMap);
           setCommentMap((current) =>

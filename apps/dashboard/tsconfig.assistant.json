@@ -2,9 +2,12 @@
   "extends": "./tsconfig.json",
   "include": [
     "src/app/api/chat/**/*.ts",
-    "src/components/chat/**/*.ts",
-    "src/components/chat/**/*.tsx",
-    "src/lib/assistant/**/*.ts"
-  ],
+    "src/lib/assistant/**/*.ts",
+		"src/components/assistant/**/*.ts",
+		"src/components/assistant/**/*.tsx",
+		"src/store/quick-assistant.ts",
+		"src/app/api/assistant/**/*.ts",
+		"src/app/[domain]/(sidebar)/assistant/**/*.tsx"
+	],
   "exclude": ["node_modules", ".next", "src/components/configure-term.tsx"]
 }

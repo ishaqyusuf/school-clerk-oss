@@ -7,6 +7,16 @@ export const settingsNavigationModule: NavModuleDefinition = {
 		{
 			items: [
 				{
+					href: "/settings/assistant",
+					icon: "settings",
+					key: "settings-assistant",
+					module: "settings",
+					roles: ["Admin"],
+					section: "school",
+					title: "Assistant",
+					workspace: "admin",
+				},
+				{
 					href: "/settings/school-profile",
 					icon: "settings",
 					key: "settings-school-profile",

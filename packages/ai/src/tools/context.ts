@@ -1,5 +1,8 @@
-import { completeAssistantMutation, type AssistantMutationTransaction, type AssistantConfirmationTransaction, type SchoolAssistantConfig, type Prisma } from "@school-clerk/db";
-import type { SchoolAiConfirmationPayload, SchoolAiSignedConfirmationPayload } from "../workflows/confirmation-token";
+import { canonicalJson } from "../contracts/canonical-json";
+import { completeAssistantMutation, type AssistantMutationTransaction, type AssistantConfirmationTransaction, type SchoolAssistantConfig, type Prisma,
+} from "@school-clerk/db";
+import type { SchoolAiConfirmationPayload, SchoolAiSignedConfirmationPayload,
+} from "../workflows/confirmation-token";
 import {
 	type StudentNameFormat,
 	type StudentNameParts,
@@ -11,6 +14,7 @@ import { getSchoolAiToolPolicy, SchoolAiToolAccessError } from "./module-policy"
 
 export type SchoolAiToolContext = {
 	conversationId: string;
+	proposalId?: string;
 	schoolId: string;
 	sessionId: string | null;
 	termId: string | null;
@@ -32,7 +36,35 @@ export type SchoolAiActivityType =
 	| "assistant_action_blocked";
 
 export type SchoolAiToolRuntimeDeps = {
-	assertToolAccess(input: { toolName: string; capability: keyof typeof aiCapabilityMap }): Promise<void>;
+	receivePayment?(
+		tx: import("@school-clerk/db").DatabaseTransaction,
+		input: {
+			studentId: string;
+			studentTermFormId: string;
+			amountReceived: number;
+			paymentMethod: string;
+			allocations: {
+				studentFeeId: string;
+				feeTitle: string;
+				amountToPay: number;
+			}[];
+		},
+	): Promise<string[]>;
+	moveStudentClass?(
+		tx: import("@school-clerk/db").DatabaseTransaction,
+		input: {
+			studentId: string;
+			studentTermFormId: string;
+			classroomDepartmentId: string;
+		},
+	): Promise<unknown>;
+	enrollStudent?(
+		tx: import("@school-clerk/db").DatabaseTransaction,
+		input: { studentId: string; classroomDepartmentId: string },
+	): Promise<unknown>;
+
+	assertToolAccess(input: { toolName: string; capability: keyof typeof aiCapabilityMap;
+	}): Promise<void>;
 	isUserConfirmed(input: {
 		toolName: string;
 		confirmationToken: string;
@@ -190,15 +222,15 @@ export function createSchoolAiToolHelpers(
 		if (!decoded) return false;
 		await assertCurrentAccess(params.toolName);
 
-		const matches = (
+		const matches =
 			decoded.conversationId === ctx.conversationId &&
 			decoded.schoolId === ctx.schoolId &&
 			decoded.userId === ctx.userId &&
 			decoded.sessionId === ctx.sessionId &&
 			decoded.termId === ctx.termId &&
 			decoded.toolName === params.toolName &&
-			JSON.stringify(decoded.actionInput) === JSON.stringify(params.actionInput)
-		);
+			canonicalJson(decoded.actionInput) ===
+				canonicalJson(params.actionInput);
 		if (matches) approvedTokens.add(params.confirmationToken);
 		return matches;
 	};
@@ -213,8 +245,9 @@ export function createSchoolAiToolHelpers(
 		}
 		const payload = deps.readConfirmationToken(params.confirmationToken);
 		if (!payload || payload.toolName !== params.toolName ||
-			JSON.stringify(payload.actionInput) !== JSON.stringify(params.actionInput)) {
-			throw new SchoolAiToolAccessError("The approval expired or the action changed. Review it again.");
+			canonicalJson(payload.actionInput) !== canonicalJson(params.actionInput)) {
+			throw new SchoolAiToolAccessError("The approval expired or the action changed. Review it again.",
+			);
 		}
 		await deps.consumeConfirmation(tx, { token: params.confirmationToken, payload, runId: ctx.runId });
 	};
@@ -226,10 +259,24 @@ export function createSchoolAiToolHelpers(
 			...params, runId: ctx.runId, conversationId: ctx.conversationId,
 			schoolId: ctx.schoolId, userId: ctx.userId, userName: ctx.userName,
 		});
+		if (ctx.proposalId) {
+			const proposalTx = tx as import("@school-clerk/db").DatabaseTransaction;
+			await proposalTx.assistantActionProposal.update({
+				where: { id: ctx.proposalId },
+				data: {
+					status: "completed",
+					completedAt: new Date(),
+					result: { ...params.output, receipt },
+				},
+			});
+		}
 		return { ...params.output, receipt };
 	};
 
 	return {
+		receivePayment: deps.receivePayment,
+		enrollStudent: deps.enrollStudent,
+		moveStudentClass: deps.moveStudentClass,
 		completeMutation,
 		consumeMutationConfirmation,
 		finishAssistantToolExecution: deps.finishAssistantToolExecution,

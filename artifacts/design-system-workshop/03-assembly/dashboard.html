@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Students · Kingsway Academy</title>
+<link rel="icon" href="../shared/brand-mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="../shared/shadcn.css">
+<link rel="stylesheet" href="../shared/workshop.css">
+<link rel="stylesheet" href="app.css">
+<script src="../shared/data.js"></script>
+<script src="../shared/icons.js"></script>
+<script src="../shared/workshop.js"></script>
+<script src="dashboard.js" defer></script>
+</head>
+<body class="is-app">
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="app" id="app" data-collapsed="false">
+
+  <!-- Floating sidebar (shadcn Sidebar variant="floating" collapsible="icon") -->
+  <aside class="sidebar" id="sidebar" aria-label="Workspace">
+    <div class="sb-head">
+      <a class="sb-brand" href="#dashboard">
+        <img class="sb-mark mark-light" src="../shared/brand-mark.svg" alt="School Clerk" width="36" height="36">
+        <img class="sb-mark mark-dark" src="../shared/brand-mark-inverse.svg" alt="School Clerk" width="36" height="36">
+        <span class="sb-school"><strong>Kingsway Academy</strong><small>kingsway.school-clerk.com</small></span>
+      </a>
+      <button type="button" class="btn btn-ghost btn-icon btn-sm sb-toggle" id="sb-toggle" aria-controls="sidebar" aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar (⌘B)"><i data-icon="panel-left" data-size="18"></i></button>
+    </div>
+    <nav class="sb-nav" id="sb-nav" aria-label="Main"></nav>
+    <div class="sb-foot">
+      <button type="button" class="term-card" id="sb-term" aria-haspopup="menu" aria-expanded="false" aria-label="Switch term"></button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <!-- Header row on the background: no hard bar -->
+    <header class="topbar">
+      <div class="page-id">
+        <span class="tile tile-lg tone-sky page-tile" id="page-tile" aria-hidden="true"></span>
+        <div class="page-id-text">
+          <p class="page-crumb" id="page-crumb">People <i data-icon="chevron-right" data-size="12"></i> Student Records</p>
+          <h1 class="page-title" id="page-title">Students</h1>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button type="button" class="search-pill" id="open-search" aria-haspopup="dialog" aria-label="Find anything"><i data-icon="search"></i><span class="sp-text">Find anything…</span><span class="kbd sp-kbd" id="kbd-k">⌘K</span></button>
+        <button type="button" class="chip-term" id="term-chip" aria-haspopup="menu" aria-expanded="false"><span class="dot-amber" aria-hidden="true"></span><span id="term-chip-label">First Term · Week 4</span><i data-icon="chevron-down" data-size="14"></i></button>
+        <button type="button" class="icon-pill" id="open-assistant" aria-label="Assistant" title="Assistant"><i data-icon="sparkles" data-size="18"></i></button>
+        <button type="button" class="icon-pill" id="notif-btn" aria-haspopup="dialog" aria-expanded="false" aria-label="Notifications, 3 unread"><i data-icon="bell" data-size="18"></i><span class="unread" id="notif-dot" aria-hidden="true"></span></button>
+        <button type="button" class="avatar-btn" id="user-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu, Aisha Bello">AB</button>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1">
+
+      <!-- ============ Students (People › Student Records) ============ -->
+      <section class="view" data-view="students" aria-label="Students">
+        <div class="page-bar">
+          <p class="page-lede"><span class="dot-amber" aria-hidden="true"></span><span><strong id="lede-enrolled">451</strong> enrolled for First Term · <button type="button" class="btn-link" id="lede-approvals">3 admissions</button> waiting for you</span></p>
+          <div class="page-actions">
+            <button type="button" class="btn btn-outline" id="btn-import" aria-label="Import students"><i data-icon="upload"></i><span class="hide-sm">Import</span></button>
+            <button type="button" class="btn btn-outline" id="btn-approvals"><i data-icon="user-check"></i>Approvals <span class="btn-count">3</span></button>
+            <button type="button" class="btn btn-default" id="btn-new-student"><i data-icon="plus"></i>New student</button>
+          </div>
+        </div>
+
+        <div class="stats" id="student-stats"></div>
+
+        <div class="card tcard">
+          <div class="tcard-toolbar">
+            <div class="seg" role="group" aria-label="Quick filters" id="student-quick"></div>
+            <div class="tool-right">
+              <label class="input-group is-pill tool-search">
+                <span class="input-addon"><i data-icon="search"></i></span>
+                <input class="input" id="student-search" type="search" placeholder="Search students…" aria-label="Search students" autocomplete="off">
+                <span class="input-addon is-end"><span class="kbd">/</span></span>
+              </label>
+              <button type="button" class="btn btn-outline btn-sm filter-btn" data-filter="cls" aria-haspopup="menu" aria-expanded="false"></button>
+              <button type="button" class="btn btn-outline btn-sm filter-btn" data-filter="status" aria-haspopup="menu" aria-expanded="false"></button>
+              <button type="button" class="btn btn-outline btn-sm filter-btn" data-filter="admission" aria-haspopup="menu" aria-expanded="false"></button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table ctable" id="student-table">
+              <caption class="sr-only">Students in 2026/2027 · First Term. Select a row to see details.</caption>
+              <thead>
+                <tr>
+                  <th class="c-sel" scope="col"><input type="checkbox" class="checkbox" id="select-all" aria-label="Select all shown students"></th>
+                  <th class="c-who" scope="col">Student &amp; guardian</th>
+                  <th class="c-id" scope="col">Student ID</th>
+                  <th class="c-class" scope="col">Class</th>
+                  <th class="c-gender" scope="col">Gender</th>
+                  <th class="c-status" scope="col">Status</th>
+                  <th class="c-adm" scope="col">Admission</th>
+                  <th class="c-phone" scope="col">Guardian phone</th>
+                  <th class="c-act" scope="col"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="tcard-foot">
+            <span id="student-count" aria-live="polite"></span>
+            <div class="pager">
+              <button type="button" class="btn btn-outline btn-sm" disabled><i data-icon="chevron-left"></i>Previous</button>
+              <button type="button" class="btn btn-outline btn-sm" disabled>Next<i data-icon="chevron-right"></i></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ Collections (Finance › Collections) ============ -->
+      <section class="view" data-view="collections" aria-label="Collections" hidden>
+        <div class="page-bar">
+          <p class="page-lede"><span class="dot-amber" aria-hidden="true"></span><span><strong id="lede-today">₦1,842,500</strong> received today · latest receipts below</span></p>
+          <div class="page-actions">
+            <button type="button" class="btn btn-outline" id="btn-export-receipts"><i data-icon="download"></i><span class="hide-sm">Export</span></button>
+            <button type="button" class="btn btn-default" id="btn-receive"><i data-icon="hand-coins"></i>Receive payment</button>
+          </div>
+        </div>
+
+        <div class="coll-grid">
+          <div class="card pos" id="coll-pos"></div>
+          <div class="card mix" id="coll-mix"></div>
+        </div>
+
+        <div class="card tcard">
+          <div class="tcard-toolbar">
+            <div class="seg" role="group" aria-label="Receipt filters" id="pay-quick"></div>
+            <div class="tool-right">
+              <label class="input-group is-pill tool-search">
+                <span class="input-addon"><i data-icon="search"></i></span>
+                <input class="input" id="pay-search" type="search" placeholder="Search receipts…" aria-label="Search receipts" autocomplete="off">
+              </label>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table ctable ptable" id="pay-table">
+              <caption class="sr-only">Receipts for 2026/2027 · First Term.</caption>
+              <thead>
+                <tr>
+                  <th class="c-rcpt" scope="col">Receipt</th>
+                  <th class="c-date" scope="col">Date</th>
+                  <th class="c-who" scope="col">Student</th>
+                  <th class="c-payer" scope="col">Payer</th>
+                  <th class="c-method" scope="col">Method</th>
+                  <th class="c-amt num" scope="col">Amount</th>
+                  <th class="c-alloc" scope="col">Allocation</th>
+                  <th class="c-pstatus" scope="col">Status</th>
+                  <th class="c-act" scope="col"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="tcard-foot"><span id="pay-count" aria-live="polite"></span><span>Recorded by the bursar and the parent portal</span></div>
+        </div>
+      </section>
+
+      <!-- ============ Dashboard (Overview) ============ -->
+      <section class="view" data-view="dashboard" aria-label="Dashboard" hidden>
+        <div id="dash"></div>
+      </section>
+
+      <!-- ============ Not part of this preview ============ -->
+      <section class="view" data-view="empty" aria-label="Not part of this preview" hidden>
+        <div class="card empty" id="empty"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Floating navy bulk pill -->
+  <div class="bulkbar" id="bulkbar" role="region" aria-label="Bulk actions" hidden>
+    <span class="bulk-count"><b id="bulk-n">0</b><span class="bulk-label">selected</span></span>
+    <span class="bulk-sep" aria-hidden="true"></span>
+    <button type="button" class="bulk-btn" id="bulk-export" aria-label="Export CSV"><i data-icon="download"></i><span class="bulk-label">Export CSV</span></button>
+    <button type="button" class="bulk-btn" id="bulk-admission" aria-haspopup="menu" aria-expanded="false" aria-label="Set admission status"><i data-icon="badge-check"></i><span class="bulk-label">Set admission status</span></button>
+    <button type="button" class="bulk-btn" id="bulk-move" aria-haspopup="menu" aria-expanded="false" aria-label="Move class"><i data-icon="arrow-up-down"></i><span class="bulk-label">Move class</span></button>
+    <button type="button" class="bulk-btn" id="bulk-remove" aria-label="Remove from term"><i data-icon="user-x"></i><span class="bulk-label">Remove from term</span></button>
+    <span class="bulk-sep" aria-hidden="true"></span>
+    <button type="button" class="bulk-btn is-icon" id="bulk-clear" aria-label="Clear selection"><i data-icon="x"></i></button>
+  </div>
+</div>
+
+<!-- Mobile bottom tab bar -->
+<nav class="tabbar" aria-label="Quick navigation">
+  <a class="tab" href="#dashboard" data-tab="dashboard"><span class="ic"><i data-icon="house" data-size="20"></i></span>Home</a>
+  <a class="tab" href="#students" data-tab="students"><span class="ic"><i data-icon="users" data-size="20"></i></span>Students</a>
+  <a class="tab" href="#collections" data-tab="collections"><span class="ic"><i data-icon="wallet" data-size="20"></i></span>Finance</a>
+  <button type="button" class="tab" id="tab-search" aria-haspopup="dialog"><span class="ic"><i data-icon="search" data-size="20"></i></span>Search</button>
+  <button type="button" class="tab" id="tab-more" data-tab="more" aria-haspopup="dialog"><span class="ic"><i data-icon="menu" data-size="20"></i></span>More</button>
+</nav>
+
+<!-- Popovers (positioned by dashboard.js) -->
+<div class="popover pop-term" id="pop-term" role="menu" aria-label="Academic term" hidden></div>
+<div class="popover pop-notif" id="pop-notif" role="dialog" aria-label="Notifications" hidden>
+  <div class="pop-head"><strong>Notifications</strong><button type="button" class="btn btn-link btn-sm" id="notif-read">Mark all as read</button></div>
+  <ul class="notif-list" id="notif-list"></ul>
+</div>
+<div class="popover pop-user" id="pop-user" role="menu" aria-label="Account" hidden>
+  <div class="user-card" role="presentation">
+    <span class="avatar avatar-lg tone-navy" aria-hidden="true">AB</span>
+    <div class="grow"><strong>Aisha Bello</strong><small>aisha.bello@kingsway.edu.ng</small><span class="badge badge-info badge-sm">Administrator</span></div>
+  </div>
+  <div class="menu-sep" role="separator"></div>
+  <button type="button" class="menu-item" role="menuitemcheckbox" aria-checked="false" id="menu-theme" data-keep><i data-icon="moon"></i>Dark mode<span class="menu-faux-switch" aria-hidden="true"></span></button>
+  <a class="menu-item" role="menuitem" href="#settings-school-profile"><i data-icon="school"></i>School profile</a>
+  <div class="menu-sep" role="separator"></div>
+  <button type="button" class="menu-item" role="menuitem" id="menu-logout"><i data-icon="log-out"></i>Log out</button>
+</div>
+<div class="popover" id="pop-menu" role="menu" hidden></div>
+
+<!-- ⌘K search -->
+<div class="dialog cmdk" id="cmdk" hidden aria-labelledby="cmdk-title" style="--dialog-w: 38rem">
+  <h2 class="sr-only" id="cmdk-title">Find anything</h2>
+  <div class="cmdk-input">
+    <i data-icon="search"></i>
+    <input id="cmdk-q" type="text" role="combobox" aria-expanded="true" aria-controls="cmdk-list" aria-autocomplete="list" aria-label="Find students, receipts and pages" placeholder="Find students, receipts, pages…" autocomplete="off" autofocus>
+    <span class="kbd">Esc</span>
+  </div>
+  <div class="cmdk-list" id="cmdk-list" role="listbox" aria-label="Results"></div>
+  <div class="cmdk-foot"><span><span class="kbd">↑</span><span class="kbd">↓</span> to move</span><span><span class="kbd">↵</span> to open</span><span><span class="kbd">Esc</span> to close</span></div>
+</div>
+
+<!-- Student detail sheet -->
+<div class="sheet" id="sheet-student" hidden aria-labelledby="sd-title" style="--sheet-w: 38rem">
+  <div class="sheet-header">
+    <span class="avatar avatar-xl" id="sd-avatar" aria-hidden="true"></span>
+    <h2 class="sheet-title" id="sd-title">Student</h2>
+    <p class="sheet-description" id="sd-sub"></p>
+    <button type="button" class="btn btn-ghost btn-icon btn-sm sheet-x" data-close aria-label="Close"><i data-icon="x"></i></button>
+  </div>
+  <div class="sd-head-badges" id="sd-badges"></div>
+  <div class="sd-tabs">
+    <div class="tabs-list" role="tablist" aria-label="Student details" id="sd-tablist">
+      <button type="button" class="tabs-trigger" role="tab" id="sd-t-overview" aria-controls="sd-p-overview" aria-selected="true">Overview</button>
+      <button type="button" class="tabs-trigger" role="tab" id="sd-t-academics" aria-controls="sd-p-academics" aria-selected="false" tabindex="-1">Academics</button>
+      <button type="button" class="tabs-trigger" role="tab" id="sd-t-attendance" aria-controls="sd-p-attendance" aria-selected="false" tabindex="-1">Attendance</button>
+      <button type="button" class="tabs-trigger" role="tab" id="sd-t-payments" aria-controls="sd-p-payments" aria-selected="false" tabindex="-1">Payments</button>
+    </div>
+  </div>
+  <div class="sheet-body">
+    <div role="tabpanel" id="sd-p-overview" aria-labelledby="sd-t-overview" tabindex="0"></div>
+    <div role="tabpanel" id="sd-p-academics" aria-labelledby="sd-t-academics" tabindex="0" hidden></div>
+    <div role="tabpanel" id="sd-p-attendance" aria-labelledby="sd-t-attendance" tabindex="0" hidden></div>
+    <div role="tabpanel" id="sd-p-payments" aria-labelledby="sd-t-payments" tabindex="0" hidden></div>
+  </div>
+  <div class="sheet-footer">
+    <button type="button" class="btn btn-ghost" id="sd-delete"><i data-icon="trash-2"></i><span class="hide-sm">Delete</span></button>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-outline" id="sd-edit"><i data-icon="pencil"></i>Edit information</button>
+      <button type="button" class="btn btn-default" id="sd-pay"><i data-icon="hand-coins"></i>Receive payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create / edit student sheet -->
+<form class="sheet" id="sheet-create" hidden aria-labelledby="cs-title" novalidate style="--sheet-w: 36rem">
+  <div class="sheet-header">
+    <span class="tile tile-lg tone-sky" aria-hidden="true"><i data-icon="user-plus"></i></span>
+    <h2 class="sheet-title" id="cs-title">New student</h2>
+    <p class="sheet-description" id="cs-desc">Adds a student to Kingsway Academy for 2026/2027 · First Term.</p>
+    <button type="button" class="btn btn-ghost btn-icon btn-sm sheet-x" data-close aria-label="Close"><i data-icon="x"></i></button>
+  </div>
+  <div class="sheet-body">
+    <section class="sheet-section" aria-labelledby="cs-s1">
+      <div class="sheet-section-head"><span class="tile tile-sm tone-sky" aria-hidden="true"><i data-icon="user"></i></span><h3 id="cs-s1">Student</h3></div>
+      <div class="field-grid">
+        <div class="field">
+          <label class="label" for="cs-first">First name</label>
+          <input class="input" id="cs-first" name="first" autocomplete="off" aria-describedby="cs-first-err" required autofocus>
+          <p class="field-error" id="cs-first-err" hidden></p>
+        </div>
+        <div class="field">
+          <label class="label" for="cs-last">Surname</label>
+          <input class="input" id="cs-last" name="last" autocomplete="off" aria-describedby="cs-last-err" required>
+          <p class="field-error" id="cs-last-err" hidden></p>
+        </div>
+        <div class="field">
+          <label class="label" for="cs-other">Other name <span class="field-optional">Optional</span></label>
+          <input class="input" id="cs-other" name="other" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="label" for="cs-dob">Date of birth <span class="field-optional">Optional</span></label>
+          <input class="input" id="cs-dob" name="dob" type="date" max="2026-10-09">
+        </div>
+      </div>
+      <fieldset class="field">
+        <legend class="label">Gender</legend>
+        <div class="seg is-fill" role="radiogroup" id="cs-gender" aria-describedby="cs-gender-err">
+          <label class="seg-btn"><input class="sr-only" type="radio" name="gender" value="F">Female</label>
+          <label class="seg-btn"><input class="sr-only" type="radio" name="gender" value="M">Male</label>
+        </div>
+        <p class="field-error" id="cs-gender-err" hidden></p>
+      </fieldset>
+    </section>
+
+    <section class="sheet-section" aria-labelledby="cs-s2">
+      <div class="sheet-section-head"><span class="tile tile-sm tone-violet" aria-hidden="true"><i data-icon="school"></i></span><h3 id="cs-s2">Class &amp; admission</h3></div>
+      <fieldset class="field">
+        <legend class="label">Admission status for this term</legend>
+        <div class="radio-cards" role="radiogroup" id="cs-admission" aria-describedby="cs-admission-err">
+          <label class="radio-card"><input class="radio" type="radio" name="admission" value="new"><span><strong>New admission</strong><small>First term at Kingsway</small></span></label>
+          <label class="radio-card"><input class="radio" type="radio" name="admission" value="returning"><span><strong>Returning</strong><small>Continuing from last session</small></span></label>
+        </div>
+        <p class="field-error" id="cs-admission-err" hidden></p>
+      </fieldset>
+      <div class="field-grid">
+        <div class="field">
+          <label class="label" for="cs-cls">Classroom</label>
+          <select class="select" id="cs-cls" name="cls" aria-describedby="cs-cls-err"></select>
+          <p class="field-error" id="cs-cls-err" hidden></p>
+        </div>
+        <div class="field">
+          <label class="label" for="cs-stream">Stream</label>
+          <select class="select" id="cs-stream" name="stream" aria-describedby="cs-stream-err" disabled></select>
+          <p class="field-error" id="cs-stream-err" hidden></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="sheet-section" aria-labelledby="cs-s3" id="cs-fees-section">
+      <div class="sheet-section-head"><span class="tile tile-sm tone-teal" aria-hidden="true"><i data-icon="wallet"></i></span><div class="grow"><h3 id="cs-s3">Fees &amp; payments</h3><p>Required fees are ticked for you. New students also get ID card and uniform.</p></div></div>
+      <ul class="fee-list" id="cs-fees" aria-label="Applicable fees"></ul>
+      <div class="field-grid">
+        <div class="field">
+          <label class="label" for="cs-pay">Amount paying now <span class="field-optional">Optional</span></label>
+          <div class="input-group"><span class="input-addon is-prefix">₦</span><input class="input tnum" id="cs-pay" name="pay" inputmode="numeric" placeholder="0" autocomplete="off" aria-describedby="cs-pay-err"></div>
+          <p class="field-error" id="cs-pay-err" hidden></p>
+        </div>
+        <fieldset class="field">
+          <legend class="label">Payment method</legend>
+          <div class="seg is-fill" role="radiogroup" aria-label="Payment method">
+            <label class="seg-btn"><input class="sr-only" type="radio" name="cs-method" value="Transfer" checked>Transfer</label>
+            <label class="seg-btn"><input class="sr-only" type="radio" name="cs-method" value="Cash">Cash</label>
+            <label class="seg-btn"><input class="sr-only" type="radio" name="cs-method" value="POS">POS</label>
+          </div>
+        </fieldset>
+        <div class="field">
+          <label class="label" for="cs-paydate">Payment date</label>
+          <input class="input" id="cs-paydate" type="date" value="2026-10-09">
+        </div>
+        <div class="field">
+          <label class="label" for="cs-ref">Payment reference <span class="field-optional">Optional</span></label>
+          <input class="input" id="cs-ref" placeholder="TRX-00123" autocomplete="off">
+        </div>
+      </div>
+      <div class="totals" id="cs-totals" aria-live="polite"></div>
+    </section>
+
+    <section class="sheet-section" aria-labelledby="cs-s4">
+      <h3 class="collapse-head" id="cs-s4">
+        <button type="button" class="collapse-btn" id="cs-parent-toggle" aria-expanded="false" aria-controls="cs-parent-body">
+          <span class="tile tile-sm tone-amber" aria-hidden="true"><i data-icon="users"></i></span>
+          <span class="grow"><span>Parent or guardian</span><small>Optional · add now or later</small></span>
+          <span class="sb-chev" aria-hidden="true"><i data-icon="chevron-down"></i></span>
+        </button>
+      </h3>
+      <div class="field-grid" id="cs-parent-body" hidden>
+        <div class="field" style="grid-column: 1 / -1">
+          <label class="label" for="cs-gname">Name</label>
+          <input class="input" id="cs-gname" placeholder="e.g. Mrs. Bisi Adebayo" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="label" for="cs-gphone">Phone</label>
+          <input class="input" id="cs-gphone" type="tel" placeholder="+234…" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="label" for="cs-gphone2">Phone 2 <span class="field-optional">Optional</span></label>
+          <input class="input" id="cs-gphone2" type="tel" placeholder="+234…" autocomplete="off">
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="sheet-footer">
+    <span class="preview-note"><i data-icon="info"></i>Preview · nothing is sent</span>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-outline" data-close>Cancel</button>
+      <button type="submit" class="btn btn-default" id="cs-submit">Save student</button>
+    </div>
+  </div>
+</form>
+
+<!-- Receive payment sheet -->
+<form class="sheet" id="sheet-pay" hidden aria-labelledby="rp-title" novalidate style="--sheet-w: 34rem">
+  <div class="sheet-header">
+    <span class="tile tile-lg tone-teal" aria-hidden="true"><i data-icon="hand-coins"></i></span>
+    <h2 class="sheet-title" id="rp-title">Receive payment</h2>
+    <p class="sheet-description">Record money received from a family. A receipt is created when you confirm.</p>
+    <button type="button" class="btn btn-ghost btn-icon btn-sm sheet-x" data-close aria-label="Close"><i data-icon="x"></i></button>
+  </div>
+  <div class="sheet-body">
+    <section class="sheet-section" aria-labelledby="rp-s1">
+      <div class="sheet-section-head"><span class="tile tile-sm tone-sky" aria-hidden="true"><i data-icon="user"></i></span><h3 id="rp-s1">Who is paying</h3></div>
+      <div class="field">
+        <label class="label" for="rp-student" id="rp-student-label">Student</label>
+        <div class="combo" id="rp-combo">
+          <div class="input-group">
+            <span class="input-addon"><i data-icon="search"></i></span>
+            <input class="input" id="rp-student" type="text" role="combobox" aria-expanded="false" aria-controls="rp-options" aria-autocomplete="list" aria-describedby="rp-student-err" placeholder="Search by name or student ID" autocomplete="off">
+          </div>
+          <ul class="combo-list" id="rp-options" role="listbox" aria-labelledby="rp-student-label" hidden></ul>
+        </div>
+        <div class="picked" id="rp-picked" hidden></div>
+        <p class="field-error" id="rp-student-err" hidden></p>
+      </div>
+      <fieldset class="field">
+        <legend class="label">Paying for</legend>
+        <div class="radio-cards" role="radiogroup">
+          <label class="radio-card"><input class="radio" type="radio" name="rp-term" value="current" checked><span><strong>First Term <span class="badge badge-info badge-sm">Current</span></strong><small>2026/2027 · Week 4 of 13</small></span></label>
+          <label class="radio-card"><input class="radio" type="radio" name="rp-term" value="previous"><span><strong>Third Term</strong><small>2025/2026 · closed</small></span></label>
+        </div>
+      </fieldset>
+    </section>
+
+    <section class="sheet-section" aria-labelledby="rp-s2">
+      <div class="sheet-section-head"><span class="tile tile-sm tone-teal" aria-hidden="true"><i data-icon="receipt"></i></span><div class="grow"><h3 id="rp-s2">Fees</h3><p id="rp-lines-note">Choose a student to see what is due.</p></div></div>
+      <ul class="fee-list" id="rp-lines" aria-label="Fee lines"></ul>
+      <div class="field">
+        <label class="label" for="rp-amount">Amount paying</label>
+        <div class="input-group"><span class="input-addon is-prefix">₦</span><input class="input tnum" id="rp-amount" inputmode="numeric" placeholder="0" autocomplete="off" aria-describedby="rp-amount-desc rp-amount-err"></div>
+        <p class="field-description" id="rp-amount-desc">Outstanding for the selected fees: ₦0</p>
+        <p class="field-error" id="rp-amount-err" hidden></p>
+      </div>
+    </section>
+
+    <section class="sheet-section" aria-labelledby="rp-s3">
+      <div class="sheet-section-head"><span class="tile tile-sm tone-violet" aria-hidden="true"><i data-icon="credit-card"></i></span><h3 id="rp-s3">Payment details</h3></div>
+      <fieldset class="field">
+        <legend class="label">Payment method</legend>
+        <div class="seg is-fill" role="radiogroup" aria-label="Payment method">
+          <label class="seg-btn"><input class="sr-only" type="radio" name="rp-method" value="Transfer" checked>Transfer</label>
+          <label class="seg-btn"><input class="sr-only" type="radio" name="rp-method" value="Cash">Cash</label>
+          <label class="seg-btn"><input class="sr-only" type="radio" name="rp-method" value="POS">POS</label>
+        </div>
+      </fieldset>
+      <div class="field-grid">
+        <div class="field">
+          <label class="label" for="rp-date">Payment date</label>
+          <input class="input" id="rp-date" type="date" value="2026-10-09" max="2026-10-09">
+        </div>
+        <div class="field">
+          <label class="label" for="rp-ref">Reference <span class="field-optional">Optional</span></label>
+          <input class="input" id="rp-ref" placeholder="TRX-00123" autocomplete="off">
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="rp-note">Note <span class="field-optional">Optional</span></label>
+        <textarea class="textarea" id="rp-note" rows="2" placeholder="Anything the bursar should know"></textarea>
+      </div>
+    </section>
+  </div>
+  <div class="sheet-footer">
+    <span class="preview-note"><i data-icon="info"></i>Preview · nothing is sent</span>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-outline" data-close>Cancel</button>
+      <button type="submit" class="btn btn-default" id="rp-submit">Confirm payment</button>
+    </div>
+  </div>
+</form>
+
+<!-- Mobile "More": the full navigation -->
+<div class="sheet sheet-more" id="sheet-more" hidden aria-labelledby="more-title" style="--sheet-w: 24rem">
+  <div class="sheet-header">
+    <span class="avatar avatar-lg tone-navy" aria-hidden="true">KA</span>
+    <h2 class="sheet-title" id="more-title">Kingsway Academy</h2>
+    <p class="sheet-description">kingsway.school-clerk.com</p>
+    <button type="button" class="btn btn-ghost btn-icon btn-sm sheet-x" data-close aria-label="Close"><i data-icon="x"></i></button>
+  </div>
+  <div class="sheet-body">
+    <nav class="sb-nav" id="more-nav" aria-label="All pages"></nav>
+  </div>
+  <div class="sheet-footer">
+    <button type="button" class="btn btn-outline btn-sm" id="more-term"><span class="dot-amber" aria-hidden="true"></span><span id="more-term-label">First Term · Week 4</span></button>
+    <button type="button" class="btn btn-ghost btn-sm" id="more-theme"><i data-icon="moon"></i>Theme · <span data-theme-label>Light</span></button>
+  </div>
+</div>
+
+<!-- Friendly destructive confirm -->
+<div class="dialog" id="dlg-delete" role="alertdialog" hidden aria-labelledby="del-title" aria-describedby="del-desc" style="--dialog-w: 27rem">
+  <span class="tile tile-xl tone-rose dialog-tile" aria-hidden="true"><i data-icon="trash-2"></i></span>
+  <div class="dialog-header">
+    <h2 class="dialog-title" id="del-title">Delete this student?</h2>
+    <p class="dialog-description" id="del-desc"></p>
+  </div>
+  <div class="dialog-hint"><i data-icon="info"></i><span>Only leaving for now? <button type="button" class="btn-link" id="del-instead">Remove from this term instead</button></span></div>
+  <div class="dialog-footer">
+    <button type="button" class="btn btn-outline" data-close autofocus>Keep student</button>
+    <button type="button" class="btn btn-destructive" id="del-confirm">Delete student</button>
+  </div>
+</div>
+
+</body>
+</html>

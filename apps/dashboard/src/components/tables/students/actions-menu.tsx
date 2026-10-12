@@ -1,5 +1,7 @@
 "use client";
 
+import { OpenAssistant } from "@/components/assistant/open-assistant";
+
 import { useAuth } from "@/hooks/use-auth";
 import { useDeleteStudent } from "@/hooks/use-delete-student";
 import { useStudentParams } from "@/hooks/use-student-params";
@@ -80,6 +82,11 @@ export function StudentActionsMenu({ student }: { student: Item }) {
 					align="end"
 					onClick={(event) => event.stopPropagation()}
 				>
+					<OpenAssistant menuItem
+						records={[
+							{ kind: "student", id: student.id, label: student.studentName },
+						]}
+					/>
 					<DropdownMenuItem
 						onClick={() => setParams({ studentViewId: student.id })}
 					>
@@ -133,10 +140,18 @@ export function StudentActionsMenu({ student }: { student: Item }) {
 					</AlertDialogHeader>
 					{(confirmAction === "delete" ? deleteStudent.error : removeTerm.error?.message) ? (
 						<p role="alert" className="break-words text-sm text-destructive">
-							{confirmAction === "delete" ? deleteStudent.error : removeTerm.error?.message} Refresh the directory if the response was interrupted.
+							{confirmAction === "delete"
+								? deleteStudent.error
+								: removeTerm.error?.message}{" "}
+							Refresh the directory if the response was interrupted.
 						</p>
 					) : null}
-					{!deleteStudent.ready ? <p role="status" className="text-sm text-muted-foreground">Student workspace is unavailable. Close this dialog and refresh before making changes.</p> : null}
+					{!deleteStudent.ready ? (
+						<p role="status" className="text-sm text-muted-foreground">
+							Student workspace is unavailable. Close this dialog and refresh
+							before making changes.
+						</p>
+					) : null}
 					<AlertDialogFooter>
 						<AlertDialogCancel className="min-h-11" disabled={isPending}>Cancel</AlertDialogCancel>
 						<AlertDialogAction className="min-h-11 whitespace-normal" disabled={isPending || !deleteStudent.ready} onClick={(event) => { event.preventDefault(); void confirm(); }}>

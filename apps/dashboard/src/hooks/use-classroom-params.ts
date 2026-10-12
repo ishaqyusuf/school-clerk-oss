@@ -28,7 +28,9 @@ const secondaryTabs = [
   "attendance-form",
   "attendance-overview",
 ] as const;
+const attendanceViews = ["take"] as const;
 export type TabType = (typeof tabs)[number];
+export type AttendanceViewType = (typeof attendanceViews)[number];
 export type SecondaryTabTypes = (typeof secondaryTabs)[number];
 export function useClassroomParams(options?: { shallow: boolean }) {
   const [params, setParams] = useQueryStates(
@@ -39,6 +41,10 @@ export function useClassroomParams(options?: { shallow: boolean }) {
       attendanceSessionId: parseAsString,
       subjectOverviewId: parseAsString,
       classroomTab: parseAsStringEnum<TabType>(tabs as any),
+      /** Attendance section page: null = today + history, "take" = recorder. */
+      attendanceView: parseAsStringEnum<AttendanceViewType>(
+        attendanceViews as any
+      ),
       secondaryTab: parseAsStringEnum<SecondaryTabTypes>(secondaryTabs as any),
     },
     options

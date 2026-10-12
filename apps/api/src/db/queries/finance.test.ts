@@ -1586,7 +1586,7 @@ describe("receiveStudentPaymentSimple", () => {
 					return { id: "ledger-1", ...data };
 				},
 			},
-			inventory: {
+			schoolInventory: {
 				findFirst: async () => null,
 			},
 			inventoryIssuance: {
@@ -2130,7 +2130,7 @@ describe("recordFinancePayment term attribution", () => {
 							return { id: "ledger-late", ...data };
 						},
 					},
-					inventory: { findFirst: async () => null },
+					schoolInventory: { findFirst: async () => null },
 					inventoryIssuance: { create: async () => undefined },
 				}),
 		};
@@ -2252,7 +2252,7 @@ describe("recordFinancePayment term attribution", () => {
 							return { id: "ledger-salary", ...data };
 						},
 					},
-					inventory: { findFirst: async () => null },
+					schoolInventory: { findFirst: async () => null },
 					inventoryIssuance: { create: async () => undefined },
 				}),
 		};
@@ -2926,7 +2926,7 @@ describe("payroll, purchases, and payee accounting", () => {
 							return { id: "ledger-purchase", ...data };
 						},
 					},
-					inventory: { findFirst: async () => null },
+					schoolInventory: { findFirst: async () => null },
 					inventoryIssuance: { create: async () => undefined },
 				});
 			},

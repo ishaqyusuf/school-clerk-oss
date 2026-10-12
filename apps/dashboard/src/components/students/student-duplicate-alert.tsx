@@ -46,6 +46,8 @@ type Props = {
   showCount?: boolean;
   compact?: boolean;
   className?: string;
+  /** "inline": one slim amber row per duplicate group, nothing when clean. */
+  variant?: "default" | "inline";
 };
 
 export function StudentDuplicateAlert({
@@ -55,6 +57,7 @@ export function StudentDuplicateAlert({
   showCount = false,
   compact = false,
   className,
+  variant = "default",
 }: Props) {
   const trpc = useTRPC();
   const qc = useQueryClient();
@@ -175,7 +178,41 @@ export function StudentDuplicateAlert({
         </div>
       ) : null}
 
-      {groups.length > 0 ? (
+      {groups.length > 0 && variant === "inline" ? (
+        <div className="flex flex-col gap-2">
+          {groups.map((group) => {
+            const survivor = group.members.find(
+              (member) => member.studentId === group.recommendedSurvivorId,
+            );
+            return (
+              <div
+                key={group.key}
+                className="flex flex-col gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100 sm:flex-row sm:items-center"
+              >
+                <AlertTriangle className="hidden size-4 shrink-0 text-amber-600 sm:block" />
+                <p className="min-w-0 flex-1">
+                  <span className="font-medium" dir="auto">
+                    {group.members[0]?.displayName || "Duplicate student"}
+                  </span>{" "}
+                  has {group.memberCount} records. Recommended: keep{" "}
+                  <span dir="auto">
+                    {survivor?.displayName || "the record with most history"}
+                  </span>
+                  {group.classroomName ? ` in ${group.classroomName}` : ""}.
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 self-start px-2 text-amber-800 hover:bg-amber-100 hover:text-amber-900 dark:text-amber-200 dark:hover:bg-amber-900/40 sm:self-auto"
+                  onClick={() => setSelectedGroupKey(group.key)}
+                >
+                  Review merge
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      ) : groups.length > 0 ? (
         <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
           <AlertTitle>

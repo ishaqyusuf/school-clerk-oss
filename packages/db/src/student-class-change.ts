@@ -2,7 +2,7 @@ import { bulkChangeStudentClassSchema, type BulkChangeStudentClassInput } from "
 import { normalizeStudentDuplicateNameKey } from "@school-clerk/utils/student-duplicate-name";
 import { canAccessModules, resolveModuleAccess } from "@school-clerk/utils/module-config";
 import { Prisma } from "./generated/client";
-import type { Database } from "./prisma";
+import type { Database, DatabaseTransaction } from "./prisma";
 import { getStudentAcademicReadContext } from "./student-academic-read";
 
 export class StudentClassChangeError extends Error {
@@ -21,7 +21,19 @@ export async function moveStudentTermForms(db: Database, actor: {
 }, input: BulkChangeStudentClassInput) {
   const data = bulkChangeStudentClassSchema.parse(input);
   try {
-    return await db.$transaction(async (tx) => {
+    return await db.$transaction(tx => moveStudentTermFormsTransaction(tx, actor, data), { isolationLevel: "Serializable" });
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") {
+      conflict("Enrollment changed concurrently. Refresh before trying again.");
+    }
+    throw error;
+  }
+}
+
+export async function moveStudentTermFormsTransaction(tx: DatabaseTransaction, actor: {
+  schoolId: string; userId: string; bearer: string;
+}, input: BulkChangeStudentClassInput) {
+  const data = bulkChangeStudentClassSchema.parse(input);
       const context = await getStudentAcademicReadContext(tx, actor);
       if (!context || !["ADMIN", "REGISTRAR"].includes(context.role?.toUpperCase() ?? "") ||
         !canAccessModules(resolveModuleAccess(context.school.moduleConfiguration), ["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"])) {
@@ -179,11 +191,4 @@ export async function moveStudentTermForms(db: Database, actor: {
       return { count: changed.length, alreadyInClass: forms.length - changed.length,
         studentIds: orderedStudentIds, termFormIds: forms.map((form) => form.id),
         sessionFormCount: changedParents.length, classroomDepartmentId: target.id };
-    }, { isolationLevel: "Serializable" });
-  } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") {
-      conflict("Enrollment changed concurrently. Refresh before trying again.");
-    }
-    throw error;
-  }
 }

@@ -1,5 +1,19 @@
 # Done
 
+## GND assistant replacement — 2026-10-06
+
+Replaced the legacy FAB/custom SSE assistant with shared full/Quick workspaces,
+SDK/MCP execution, durable runs/history, reviewed transactional actions, private
+attachments/PDF exports and settings/preferences. Local and production additive
+schemas are synchronized. Owner-approved local Daarul Hadith enablement and
+DeepSeek chat, classroom lookup, persisted history, draft handoff, attachments,
+development-worker PDF export/download, desktop and mobile viewport acceptance
+completed. Local-profile dashboard build, 23 focused tests, 32 integration
+assertions, scoped lint and jobs typecheck pass. Existing broad TypeScript and
+legacy finance-fixture failures remain; app/production-worker deployment was
+not requested. See [plan and evidence](../plans/2026-10-06-gnd-assistant-replacement.md),
+[feature](../features/ai-chat-assistant.md), and ADR-0074.
+
 ## Shared dashboard table scrolling and checkbox alignment — 2026-10-06
 
 Owner requested extending the Students fix to other table pages. Removed the
@@ -880,6 +894,17 @@ push, deployment, schema, permission or school-data change. Brain impact:
 mobile-search-filters.md, ADR-0071, task record, affected feature links, BRAIN.md
 and this completion entry.
 
+## Student form suggestions workshop — 2026-10-11
+
+Delivered three interactive directions: Inline check, Match panel, and Find first.
+All demonstrate multi-part name refinement, additional results, enrolled class
+visibility, and local enrollment/class-edit actions with draft retention. Desktop
+and 320px/390px browser checks passed; screenshots were visually inspected.
+Recommendation: 02 Match panel. Owner choice and production implementation
+remain separate; no app, API, schema, live student data, or deployment change.
+See [workshop record](../plans/2026-10-11-student-form-workshop.md) and
+`artifacts/student-form-workshop/index.html`.
+
 ## Student-form suggestions and shared release migration — 2026-10-11
 
 Direction 01 is released and production smoke verified. School Clerk uses the
@@ -892,3 +917,14 @@ live name/surname ranking, pagination, checkbox/collapse and class-dialog cancel
 pass with no console errors or school-record mutations. Existing typecheck
 failures/memory limits and unavailable local cmux QA are recorded honestly.
 See student-form-suggestions.md, release-assurance.md and ADR-0076.
+
+## Attendance draft retention during student registration — 2026-10-12
+
+Fixed locally: parent-owned attendance draft survives mobile secondary student
+registration and responsive remounts. Marks, remarks, date, subject and details
+remain available after cancellation or successful registration/roster refresh.
+New students remain unmarked. Two actual-component browser regressions, eight
+focused tests, draft TypeScript and new-code lint pass. Existing root typecheck
+errors and unavailable full local stack are recorded in attendance.md. No
+commit, deployment, API/schema change or real school-data write. See ADR-0077
+and bugs/2026-10-12-attendance-add-student-draft-loss.md.

@@ -14,8 +14,9 @@
     "./json-template": "./src/json-template/index.tsx",
     "./payment-receipt-template": "./src/payment-receipt/index.tsx",
     "./result-template": "./src/result/index.tsx",
-    "./utils/*": "./src/utils/*.ts"
-  },
+    "./utils/*": "./src/utils/*.ts",
+		"./assistant-report": "./src/assistant-report.tsx"
+	},
   "dependencies": {
     "@school-clerk/db": "workspace:*",
     "@school-clerk/ui": "workspace:*",

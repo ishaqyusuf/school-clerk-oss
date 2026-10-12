@@ -19,7 +19,18 @@ const currencyFormatter = new Intl.NumberFormat("en-NG", {
 	maximumFractionDigits: 2,
 });
 
-export function StudentFormAction({ onSaved }: { onSaved?: () => void } = {}) {
+export function StudentFormAction({
+	onSaved,
+	onCreated,
+	onClose,
+}: {
+	/** Replaces the default success flow (refresh + receipt/payment hand-off). */
+	onSaved?: () => void;
+	/** Runs after every successful create, before onSaved. */
+	onCreated?: () => void;
+	/** Runs when the success state's Close button is pressed. */
+	onClose?: () => void;
+} = {}) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const auth = useAuth();
@@ -49,6 +60,7 @@ export function StudentFormAction({ onSaved }: { onSaved?: () => void } = {}) {
 				queryClient.invalidateQueries({
 					queryKey: trpc.students.analytics.queryKey(),
 				});
+				onCreated?.();
 				if (!mounted.current) return;
 				if (onSaved) {
 					onSaved();
@@ -158,6 +170,7 @@ export function StudentFormAction({ onSaved }: { onSaved?: () => void } = {}) {
 								createStudentPrefillName: null,
 								createStudentReturnTo: null,
 							});
+							onClose?.();
 						}}
 					>
 						Close

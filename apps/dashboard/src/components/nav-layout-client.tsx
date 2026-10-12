@@ -11,8 +11,9 @@ import { Icons } from "@school-clerk/ui/custom/icons";
 import { usePathname } from "next/navigation";
 import { Header } from "./header";
 import { TenantLink } from "@school-clerk/tenant-url/next";
-import { useLocalTenantHref, useTenantUrl } from "@school-clerk/tenant-url/react";
-import { ChatWidget } from "./chat/chat-widget";
+import { useLocalTenantHref, useTenantUrl,
+} from "@school-clerk/tenant-url/react";
+import { AssistantHost } from "./assistant/assistant-host";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
 import {
@@ -41,7 +42,7 @@ export function NavLayoutClient({
   // Settings and account recovery remain outside module-specific policies.
   const tenantModules = moduleQuery.isError
     ? NO_MODULES
-    : moduleAccess?.effectiveModules ?? NO_MODULES;
+    : (moduleAccess?.effectiveModules ?? NO_MODULES);
   const pathName = usePathname();
   const tenantUrl = useTenantUrl();
   const tenantHref = useLocalTenantHref();
@@ -62,7 +63,7 @@ export function NavLayoutClient({
     [navigationRole, tenantModules, moduleQuery.data?.institutionType],
   );
   const canUseChat =
-    process.env.NODE_ENV !== "production" && initialRole === "Admin" &&
+		navigationRole === "Admin" &&
     tenantModules.includes("AI_ASSISTANT");
   const onLogout = () => {
     window.location.href = tenantHref("/signout");
@@ -100,7 +101,8 @@ export function NavLayoutClient({
           <Header />
           <div className="min-w-0 px-2 sm:px-6">
             <ModuleAccessNotice
-              status={moduleQuery.isError ? "error" : moduleAccess?.status ?? "loading"}
+              status={moduleQuery.isError ? "error" : (moduleAccess?.status ?? "loading")
+								}
               canManage={navigationRole === "Admin" || navigationRole === "ADMIN"}
               isFetching={moduleQuery.isFetching}
               onRetry={() => { void moduleQuery.refetch(); }}
@@ -108,8 +110,16 @@ export function NavLayoutClient({
             {children}
           </div>
         </SiteNav.Shell>
-        {canUseChat ? <ChatWidget /> : null}
-      </div>
+					<AssistantHost
+						available={canUseChat}
+						scope={[
+							schoolId,
+							auth.id,
+							auth.profile?.sessionId,
+							auth.profile?.termId,
+						].join(":")}
+					/>
+				</div>
       </SiteNav.Provider>
     </AcademicDataDirectionProvider>
   );

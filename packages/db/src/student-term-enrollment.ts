@@ -1,6 +1,6 @@
 import { canAccessModules, resolveModuleAccess } from "@school-clerk/utils/module-config";
 import { Prisma } from "./generated/client";
-import type { Database } from "./prisma";
+import type { Database, DatabaseTransaction } from "./prisma";
 import { getStudentAcademicReadContext, getStudentAcademicRecords } from "./student-academic-read";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 
@@ -19,7 +19,12 @@ export type StudentTermEnrollmentInput = {
 export async function enrollStudentInAcademicTerm(db: Database, actor: {
   schoolId: string; userId: string; bearer: string;
 }, input: StudentTermEnrollmentInput) {
-  return db.$transaction(async (tx) => {
+  return db.$transaction(tx => enrollStudentInAcademicTermTransaction(tx, actor, input), { isolationLevel: "Serializable" });
+}
+
+export async function enrollStudentInAcademicTermTransaction(tx: DatabaseTransaction, actor: {
+  schoolId: string; userId: string; bearer: string;
+}, input: StudentTermEnrollmentInput) {
     const context = await getStudentAcademicReadContext(tx, actor);
     if (!context || !["ADMIN", "REGISTRAR"].includes(context.role?.toUpperCase() ?? "") ||
       !canAccessModules(resolveModuleAccess(context.school.moduleConfiguration), ["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"])) {
@@ -95,5 +100,4 @@ export async function enrollStudentInAcademicTerm(db: Database, actor: {
       admissionType: "RETURNING", studentGender: records.student.gender,
     });
     return { status: "enrolled" as const, studentTermFormId: termForm.id, studentSessionFormId };
-  }, { isolationLevel: "Serializable" });
 }

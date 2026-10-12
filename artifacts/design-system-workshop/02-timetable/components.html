@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Timetable · Design system reference</title>
+<meta name="description" content="School Clerk design system, Direction 02 Timetable — tokens, primitives and patterns.">
+<link rel="icon" href="../shared/brand-mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="../shared/shadcn.css">
+<link rel="stylesheet" href="../shared/workshop.css">
+<link rel="stylesheet" href="app.css">
+<script src="../shared/data.js"></script>
+<script src="../shared/icons.js"></script>
+<script src="../shared/workshop.js"></script>
+<script src="components.js" defer></script>
+</head>
+<body class="tt-body">
+<a class="skip-link" href="#intro">Skip to content</a>
+
+<div class="app" id="app" data-subnav="open">
+  <header class="topbar">
+    <a class="brand" href="#intro" aria-label="School Clerk design system, top">
+      <img src="../shared/brand-mark-inverse.svg" alt="" width="24" height="24">
+      <span class="brand-name">School Clerk</span>
+      <span class="brand-sub">Design system</span>
+    </a>
+    <nav class="modtabs" aria-label="Reference">
+      <a class="modtab" href="#intro" aria-current="page">Reference</a>
+      <a class="modtab" href="dashboard.html">Dashboard</a>
+    </nav>
+    <div class="top-tools">
+      <span class="term-chip" aria-hidden="true" style="cursor:default">02 · Timetable</span>
+      <button type="button" class="top-btn" id="themeBtn" aria-label="Switch light or dark theme"><i data-icon="moon" data-size="15"></i><span class="label-text" data-theme-label>Light</span></button>
+    </div>
+  </header>
+
+  <nav class="subnav" id="subnav" aria-label="Reference sections">
+    <div class="subnav-head"><span class="subnav-module">Reference</span></div>
+    <div class="subnav-section">
+      <p class="subnav-title" id="sn-found">Foundations</p>
+      <ul role="list" aria-labelledby="sn-found">
+        <li><a class="subnav-item" href="#intro" aria-current="location"><span class="num-key">01</span><span>Direction &amp; config</span></a></li>
+        <li><a class="subnav-item" href="#colour"><span class="num-key">02</span><span>Colour</span></a></li>
+        <li><a class="subnav-item" href="#type"><span class="num-key">03</span><span>Typography</span></a></li>
+        <li><a class="subnav-item" href="#space"><span class="num-key">04</span><span>Space &amp; density</span></a></li>
+      </ul>
+    </div>
+    <div class="subnav-section">
+      <p class="subnav-title" id="sn-prim">Primitives</p>
+      <ul role="list" aria-labelledby="sn-prim">
+        <li><a class="subnav-item" href="#buttons"><span class="num-key">05</span><span>Buttons</span></a></li>
+        <li><a class="subnav-item" href="#forms"><span class="num-key">06</span><span>Forms</span></a></li>
+        <li><a class="subnav-item" href="#status"><span class="num-key">07</span><span>Status tags</span></a></li>
+      </ul>
+    </div>
+    <div class="subnav-section">
+      <p class="subnav-title" id="sn-comp">Composition</p>
+      <ul role="list" aria-labelledby="sn-comp">
+        <li><a class="subnav-item" href="#tables"><span class="num-key">08</span><span>Tables</span></a></li>
+        <li><a class="subnav-item" href="#overlays"><span class="num-key">09</span><span>Sheets &amp; dialogs</span></a></li>
+        <li><a class="subnav-item" href="#patterns"><span class="num-key">10</span><span>Page patterns</span></a></li>
+        <li><a class="subnav-item" href="#rules"><span class="num-key">11</span><span>Do / don’t</span></a></li>
+      </ul>
+    </div>
+    <div class="subnav-foot"><span>tokens.css · app.css</span><span>shadcn/ui · new-york</span></div>
+  </nav>
+
+  <main class="main sg-main" id="main" tabindex="-1">
+    <div class="page">
+
+      <!-- 01 ─ Direction & config -->
+      <section class="sg-hero" id="intro" aria-labelledby="sgTitle" tabindex="-1">
+        <p class="eyebrow">Direction 02 · School Clerk design system</p>
+        <h1 id="sgTitle">Timetable — everything in its <span class="hl">period</span>.</h1>
+        <p class="sg-intent">A precise, keyboard-first workspace for the bursar and registrar who live in School Clerk all day. Cool white surfaces and near-navy ink, cobalt for action, and visible grid lines in place of shadows. Identifiers, amounts and dates sit in a monospaced face so columns line up; a highlighter yellow only ever marks <em>where you are</em> — the keyboard cursor, the current week, a search hit — and always carries dark text.</p>
+        <div class="config">
+          <div>
+            <h2 class="sg-sub">shadcn config</h2>
+            <dl>
+              <dt>style</dt><dd>new-york</dd>
+              <dt>baseColor</dt><dd>slate · re-tinted to cool navy</dd>
+              <dt>cssVariables</dt><dd>true</dd>
+              <dt>radius</dt><dd>0.375rem · 6px</dd>
+              <dt>font-sans</dt><dd>Schibsted Grotesk · display + UI</dd>
+              <dt>font-mono</dt><dd>IBM Plex Mono · IDs, amounts, dates, eyebrows, keys</dd>
+              <dt>shell</dt><dd>44px top module bar + Sidebar variant="sidebar" collapsible="offcanvas" (⌘B) as the module sub-nav</dd>
+              <dt>iconLibrary</dt><dd>lucide · 16px · stroke 2</dd>
+              <dt>density</dt><dd>--control-h 32px · --row-h 38px</dd>
+            </dl>
+          </div>
+          <div class="codeblock">
+            <div class="codeblock-head"><span id="codeSource">tokens.css · :root + .dark</span><button type="button" class="btn btn-outline btn-xs" id="copyTokens"><i data-icon="copy" data-size="13"></i>Copy</button></div>
+            <pre id="tokenCode" tabindex="0" aria-label="CSS variables for :root and .dark"><code>Loading tokens…</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 02 ─ Colour -->
+      <section class="sg-section" id="colour" aria-labelledby="h-colour">
+        <div class="sg-head"><span class="sg-num">02</span><h2 id="h-colour">Colour tokens</h2><p>Rendered live from the token text: each panel scopes its own variables, so light and dark sit side by side whatever theme this page is in.</p></div>
+        <div class="swatch-panels">
+          <div class="swatch-panel tt-scope" id="panelLight" aria-label="Light theme tokens"></div>
+          <div class="swatch-panel dark tt-scope" id="panelDark" aria-label="Dark theme tokens"></div>
+        </div>
+        <h3 class="sg-sub">Semantic status colours</h3>
+        <div class="sg-scroll">
+          <table class="sg-table">
+            <thead><tr><th scope="col">Token</th><th scope="col">Meaning</th><th scope="col">Example</th><th scope="col">Rule</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">--success</th><td>Done, paid, enrolled</td><td><span class="badge badge-success">Paid</span></td><td class="spec">Bar + tinted text; never a filled block</td></tr>
+              <tr><th scope="row">--warning</th><td>Needs a decision</td><td><span class="badge badge-warning">Needs classification</span></td><td class="spec">Amber, not yellow — yellow is position only</td></tr>
+              <tr><th scope="row">--info</th><td>In progress, new</td><td><span class="badge badge-info">New admission</span></td><td class="spec">Shares cobalt with --primary</td></tr>
+              <tr><th scope="row">--destructive</th><td>Removed, refunded</td><td><span class="badge badge-destructive">Refunded</span></td><td class="spec">Also the top rule on destructive dialogs</td></tr>
+              <tr><th scope="row">--highlight</th><td>You are here</td><td><span style="background:var(--highlight);color:var(--highlight-foreground);padding:2px 6px;font:500 12px/1.4 var(--font-mono)">↑↓ cursor</span></td><td class="spec">Cursor row, now marker, search hit, active module — with --highlight-foreground</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 03 ─ Typography -->
+      <section class="sg-section" id="type" aria-labelledby="h-type">
+        <div class="sg-head"><span class="sg-num">03</span><h2 id="h-type">Typography</h2><p>Schibsted Grotesk carries every word; IBM Plex Mono carries every value you might compare down a column. Sentence case throughout; uppercase only for mono eyebrows and table headers.</p></div>
+        <div class="sg-scroll">
+          <table class="sg-table">
+            <thead><tr><th scope="col">Role</th><th scope="col">Sample</th><th scope="col">Spec</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Display</th><td><p class="type-sample t-display">First Term, week 4</p></td><td class="spec">40/42 · 800 · −0.035em · marketing + style guide only</td></tr>
+              <tr><th scope="row">H1 · page title</th><td><p class="type-sample t-h1">Students</p></td><td class="spec">22/25 · 700 · −0.018em (28 on Dashboard greeting)</td></tr>
+              <tr><th scope="row">H2 · sheet / section</th><td><p class="type-sample t-h2">Receive payment</p></td><td class="spec">17/22 · 700 · −0.012em</td></tr>
+              <tr><th scope="row">H3</th><td><p class="type-sample t-h3">Needs attention</p></td><td class="spec">15/20 · 650</td></tr>
+              <tr><th scope="row">H4</th><td><p class="type-sample t-h4">Adaeze Okonkwo</p></td><td class="spec">13.5/18 · 650 · table names, list titles</td></tr>
+              <tr><th scope="row">Body</th><td><p class="type-sample t-body">They’ll show as Not enrolled for First Term.</p></td><td class="spec">14/21 · 400</td></tr>
+              <tr><th scope="row">Small</th><td><p class="type-sample t-small">Adds a student to 2026/2027 · First Term.</p></td><td class="spec">13/19 · 400 · muted-foreground</td></tr>
+              <tr><th scope="row">Eyebrow / caption</th><td><p class="type-sample t-eyebrow">People / Student records</p></td><td class="spec">Plex Mono 11/14 · 500 · uppercase · +0.06em</td></tr>
+              <tr><th scope="row">Numerals · tnum</th><td><p class="type-sample t-num">₦71,320,000 · 92.8%</p></td><td class="spec">Grotesk 24 · 650 · tabular-nums · stat values</td></tr>
+              <tr><th scope="row">Mono</th><td><p class="type-sample t-mono">KWA/2026/0142 · RCP-26-00412 · 09 Oct 2026 · ₦92,500</p></td><td class="spec">Plex Mono 12.5 · 500 · IDs, amounts, dates, keys</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 04 ─ Space, radius, density, elevation -->
+      <section class="sg-section" id="space" aria-labelledby="h-space">
+        <div class="sg-head"><span class="sg-num">04</span><h2 id="h-space">Space, radius, density, elevation</h2><p>A 4px grid, one radius, compact controls and rows. Surfaces are separated by 1px lines; only things that float over the page cast a shadow.</p></div>
+        <div class="sg-two">
+          <div>
+            <h3 class="sg-sub">Spacing · 4px base (bars at 4× scale)</h3>
+            <table class="sg-table"><tbody id="spaceRows"></tbody></table>
+          </div>
+          <div>
+            <h3 class="sg-sub">Radius</h3>
+            <table class="sg-table">
+              <tbody>
+                <tr><th scope="row">0</th><td><span class="radius-box" style="display:block;border-radius:0"></span></td><td class="spec">Table cells, strips, the top bar</td></tr>
+                <tr><th scope="row">2px</th><td><span class="radius-box" style="display:block;border-radius:2px"></span></td><td class="spec">Status tags (square, bar on the left)</td></tr>
+                <tr><th scope="row">3–4px</th><td><span class="radius-box" style="display:block;border-radius:4px"></span></td><td class="spec">kbd, checkbox, query chips, avatars, menu items</td></tr>
+                <tr><th scope="row">6px · --radius</th><td><span class="radius-box" style="display:block;border-radius:6px"></span></td><td class="spec">Controls, cards, popovers, sheets, dialogs</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="sg-two" style="margin-top:14px">
+          <div>
+            <h3 class="sg-sub">Density</h3>
+            <table class="sg-table">
+              <thead><tr><th scope="col">Measure</th><th scope="col">Value</th><th scope="col">Token</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Control</th><td class="mono">32px</td><td class="spec">--control-h</td></tr>
+                <tr><th scope="row">Small / large control</th><td class="mono">28px / 40px</td><td class="spec">.btn-sm / .btn-lg</td></tr>
+                <tr><th scope="row">Touch control</th><td class="mono">40px</td><td class="spec">(pointer: coarse) → --control-h</td></tr>
+                <tr><th scope="row">Table row</th><td class="mono">38px · 44px touch</td><td class="spec">--row-h</td></tr>
+                <tr><th scope="row">Header row</th><td class="mono">32px</td><td class="spec">.tt-grid th</td></tr>
+                <tr><th scope="row">Top bar · sub-nav</th><td class="mono">44px · 224px</td><td class="spec">--x-topbar-h · --x-subnav-w</td></tr>
+                <tr><th scope="row">Inspector label column</th><td class="mono">9rem</td><td class="spec">--x-label-w</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <h3 class="sg-sub">Elevation</h3>
+            <div class="sg-two">
+              <div class="elev elev-flat"><strong>Surface</strong>No shadow · 1px --border</div>
+              <div class="elev elev-pop"><strong>Popover, menu</strong>--x-shadow-pop</div>
+              <div class="elev" style="box-shadow:var(--x-shadow-sheet);border-color:var(--grid-line-strong)"><strong>Sheet</strong>--x-shadow-sheet · left edge</div>
+              <div class="elev elev-dialog"><strong>Dialog, palette</strong>--x-shadow-dialog</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 05 ─ Buttons -->
+      <section class="sg-section" id="buttons" aria-labelledby="h-buttons">
+        <div class="sg-head"><span class="sg-num">05</span><h2 id="h-buttons">Buttons</h2><p>shadcn variants at 6px radius, no shadow. One primary per view. Buttons that have a shortcut show it as a kbd inside the button.</p></div>
+        <div class="sg-scroll">
+          <table class="sg-table btn-matrix">
+            <thead><tr><th scope="col">Variant</th><th scope="col">sm · 28</th><th scope="col">default · 32</th><th scope="col">lg · 40</th><th scope="col">icon</th><th scope="col">disabled</th><th scope="col">loading</th></tr></thead>
+            <tbody id="btnRows"></tbody>
+          </table>
+        </div>
+        <h3 class="sg-sub">States</h3>
+        <div class="sg-scroll">
+          <table class="sg-table btn-matrix">
+            <thead><tr><th scope="col">Variant</th><th scope="col">rest</th><th scope="col">hover</th><th scope="col">focus-visible</th><th scope="col">with kbd</th><th scope="col">live</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">default</th><td><button type="button" class="btn btn-default btn-sm">Save student</button></td><td><button type="button" class="btn btn-default btn-sm is-hover" tabindex="-1">Save student</button></td><td><button type="button" class="btn btn-default btn-sm is-focus" tabindex="-1">Save student</button></td><td><button type="button" class="btn btn-default btn-sm"><i data-icon="plus" data-size="15"></i>New student<span class="kbd-row" aria-hidden="true"><kbd class="kbd">N</kbd></span></button></td><td><button type="button" class="btn btn-default btn-sm" id="loadDemo"><i data-icon="save" data-size="15"></i><span>Save student</span></button></td></tr>
+              <tr><th scope="row">outline</th><td><button type="button" class="btn btn-outline btn-sm">Cancel</button></td><td><button type="button" class="btn btn-outline btn-sm is-hover" tabindex="-1">Cancel</button></td><td><button type="button" class="btn btn-outline btn-sm is-focus" tabindex="-1">Cancel</button></td><td><button type="button" class="btn btn-outline btn-sm"><i data-icon="search" data-size="15"></i>Find anything<span class="kbd-row" aria-hidden="true"><kbd class="kbd" data-mod>⌘</kbd><kbd class="kbd">K</kbd></span></button></td><td><button type="button" class="btn btn-outline btn-sm btn-toggle" aria-pressed="false" id="toggleDemo"><i data-icon="rows-3" data-size="14"></i>Group by arm</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 06 ─ Forms -->
+      <section class="sg-section" id="forms" aria-labelledby="h-forms">
+        <div class="sg-head"><span class="sg-num">06</span><h2 id="h-forms">Form anatomy</h2><p>shadcn Field with a mono “optional” marker and an arrowed error line. Errors appear on blur or submit, never while someone is still typing their first character.</p></div>
+        <div class="sg-two">
+          <div class="form-demo">
+            <h3 class="sg-sub">Field</h3>
+            <div class="field">
+              <label class="label" for="d-phone">Guardian phone <span class="field-optional">optional</span> <span class="callout">label · optional marker</span></label>
+              <input class="input mono" id="d-phone" type="tel" placeholder="+234 803 412 7781" aria-describedby="d-phone-d">
+              <p class="field-description" id="d-phone-d">Include the country code, for example +234. <span class="callout">description</span></p>
+            </div>
+            <div class="field">
+              <label class="label" for="d-last">Surname</label>
+              <div class="field-control">
+                <input class="input" id="d-last" aria-invalid="true" aria-describedby="d-last-e">
+                <p class="field-error" id="d-last-e">Enter the student’s surname. <span class="callout">error</span></p>
+              </div>
+            </div>
+            <h3 class="sg-sub">Input groups</h3>
+            <div class="field">
+              <label class="label" for="d-amt">Amount paying</label>
+              <div class="input-group"><span class="input-addon is-prefix" aria-hidden="true">₦</span><input class="input mono" id="d-amt" inputmode="numeric" value="92,500"></div>
+            </div>
+            <div class="field">
+              <label class="label" for="d-sub">School subdomain</label>
+              <div class="input-group"><input class="input mono" id="d-sub" value="kingsway" autocomplete="off" spellcheck="false" aria-describedby="d-sub-s"><span class="input-addon is-suffix">.school-clerk.com</span></div>
+              <p class="field-description" id="d-sub-s" aria-live="polite"><span class="subdomain-state ok"><i data-icon="circle-check" data-size="14"></i>This subdomain is available.</span></p>
+            </div>
+            <div class="field">
+              <label class="label" for="d-find">Search with shortcut</label>
+              <div class="input-group"><span class="input-addon is-icon" aria-hidden="true"><i data-icon="search" data-size="14"></i></span><input class="input" id="d-find" type="search" placeholder="Search students…"><span class="input-addon"><span class="kbd-row" aria-hidden="true"><kbd class="kbd">/</kbd></span></span></div>
+            </div>
+          </div>
+          <div class="form-demo">
+            <h3 class="sg-sub">Select · textarea · date</h3>
+            <div class="field-grid">
+              <div class="field"><label class="label" for="d-class">Classroom</label><select class="select" id="d-class"><option>JSS 2</option><option>JSS 1</option><option>SS 1</option></select></div>
+              <div class="field"><label class="label" for="d-date">Payment date</label><input class="input" type="date" id="d-date" value="2026-10-09"></div>
+            </div>
+            <div class="field"><label class="label" for="d-note">Note <span class="field-optional">optional</span></label><textarea class="textarea" id="d-note" rows="2" placeholder="Paid at the bursary window"></textarea></div>
+            <h3 class="sg-sub">Checkbox · switch · segmented</h3>
+            <div class="fee-list" role="group" aria-label="Fees">
+              <label class="fee-row"><input type="checkbox" class="checkbox" checked><span><span class="fee-title">Tuition</span><span class="fee-aud">Required · JSS 1 – JSS 3</span></span><span class="fee-amt">₦185,000</span></label>
+              <label class="fee-row"><input type="checkbox" class="checkbox" checked><span><span class="fee-title">PTA Levy</span><span class="fee-aud">Required · All classes</span></span><span class="fee-amt">₦10,000</span></label>
+              <label class="fee-row"><input type="checkbox" class="checkbox"><span><span class="fee-title">School Bus</span><span class="fee-aud">Optional · Opt-in</span></span><span class="fee-amt">₦45,000</span></label>
+            </div>
+            <label class="choice"><input type="checkbox" class="switch" checked><span><strong style="font-weight:550">Initialize with terms</strong><br><span class="field-description">Creates First, Second and Third Term.</span></span></label>
+            <div class="field">
+              <span class="label" id="d-adm-l">Admission status</span>
+              <div class="seg" role="radiogroup" aria-labelledby="d-adm-l"><label><input type="radio" name="d-adm" value="new" checked>New admission</label><label><input type="radio" name="d-adm" value="ret">Returning</label></div>
+            </div>
+            <h3 class="sg-sub">Radio cards</h3>
+            <div class="radio-cards" role="radiogroup" aria-label="Payment method">
+              <label class="radio-card"><input type="radio" class="radio" name="d-method" checked><strong>Transfer</strong><span>Bank or app transfer</span></label>
+              <label class="radio-card"><input type="radio" class="radio" name="d-method"><strong>Cash</strong><span>At the bursary</span></label>
+              <label class="radio-card"><input type="radio" class="radio" name="d-method"><strong>POS</strong><span>Card terminal</span></label>
+            </div>
+          </div>
+        </div>
+        <h3 class="sg-sub">Layout rule · horizontal vs vertical</h3>
+        <div class="layout-rule">
+          <div class="form-demo">
+            <p class="eyebrow">Horizontal · sheets &amp; inspectors · 9rem label column</p>
+            <div class="field field-horizontal"><label class="label" for="h-first">First name</label><div class="field-control"><input class="input" id="h-first" value="Adaeze"></div></div>
+            <div class="field field-horizontal"><label class="label" for="h-ref">Reference <span class="field-optional">optional</span></label><div class="field-control"><input class="input mono" id="h-ref" placeholder="TRX-00123"></div></div>
+            <div class="field field-horizontal"><span class="label" id="h-m-l">Payment method</span><div class="field-control"><div class="seg seg-block" role="radiogroup" aria-labelledby="h-m-l"><label><input type="radio" name="h-m" checked>Transfer</label><label><input type="radio" name="h-m">Cash</label><label><input type="radio" name="h-m">POS</label></div></div></div>
+          </div>
+          <div class="form-demo">
+            <p class="eyebrow">Vertical · pages, onboarding, dialogs, &lt; 560px</p>
+            <div class="field"><label class="label" for="v-first">First name</label><input class="input" id="v-first" value="Adaeze"></div>
+            <div class="field"><label class="label" for="v-ref">Reference <span class="field-optional">optional</span></label><input class="input mono" id="v-ref" placeholder="TRX-00123"></div>
+            <p class="sg-note"><strong>Rule:</strong> use horizontal when the form lives beside data the user is still looking at (an inspector); use vertical when the form is the page. Every horizontal form collapses to vertical below 560px.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 07 ─ Status mapping -->
+      <section class="sg-section" id="status" aria-labelledby="h-status">
+        <div class="sg-head"><span class="sg-num">07</span><h2 id="h-status">Status tag mapping</h2><p>Every product status maps to one badge variant. Tags are square with a 2px colour bar on the left; text stays readable because the colour lives in the bar, not the fill.</p></div>
+        <div class="sg-scroll">
+          <table class="sg-table">
+            <thead><tr><th scope="col">Status</th><th scope="col">Tag</th><th scope="col">Variant</th><th scope="col">Bar</th><th scope="col">Where</th></tr></thead>
+            <tbody id="statusRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 08 ─ Tables -->
+      <section class="sg-section" id="tables" aria-labelledby="h-tables">
+        <div class="sg-head"><span class="sg-num">08</span><h2 id="h-tables">Table anatomy</h2><p>A spreadsheet, not a card list: full grid lines, sticky mono header, sticky first column, 38px rows, numbers right-aligned in mono. Focus the table and use ↑ ↓ and X — the yellow cursor is the keyboard’s position.</p></div>
+        <div class="demo-grid-wrap">
+          <div class="toolbar">
+            <div class="input-group find"><span class="input-addon is-icon" aria-hidden="true"><i data-icon="search" data-size="14"></i></span><input class="input" type="search" placeholder="Search students…" aria-label="Search students (demo)"><span class="input-addon"><span class="kbd-row" aria-hidden="true"><kbd class="kbd">/</kbd></span></span></div>
+            <div class="qchips" role="list" aria-label="Active filters"><span class="qchip" role="listitem"><span class="qchip-key">class:</span><span class="qchip-val">JSS 2</span><button type="button" class="qchip-x" aria-label="Remove filter class:JSS 2 (demo)"><i data-icon="x" data-size="12"></i></button></span><span class="qchip" role="listitem"><span class="qchip-key">status:</span><span class="qchip-val">enrolled</span><button type="button" class="qchip-x" aria-label="Remove filter status:enrolled (demo)"><i data-icon="x" data-size="12"></i></button></span></div>
+            <button type="button" class="btn btn-ghost btn-sm"><i data-icon="list-filter" data-size="14"></i>Add filter</button>
+            <span class="rcount">5 results</span>
+          </div>
+          <div class="grid-pane" id="demoGrid" tabindex="0" role="region" aria-label="Demo table. Arrow keys move the cursor, X selects.">
+            <table class="table tt-grid">
+              <thead><tr><th class="col-check sticky-col" scope="col"><input type="checkbox" class="checkbox" aria-label="Select all (demo)"></th><th class="col-student sticky-col sticky-col-2 sticky-edge" scope="col">Student</th><th scope="col">Student ID</th><th scope="col">Class</th><th scope="col">Status</th><th scope="col" class="num">Paid</th><th scope="col">Row state</th></tr></thead>
+              <tbody id="demoRows"></tbody>
+            </table>
+          </div>
+          <footer class="grid-foot"><span class="hint"><span class="kbd-row"><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd></span> Move</span><span class="hint"><kbd class="kbd">X</kbd> Select</span><span class="hint"><kbd class="kbd">↵</kbd> Open</span><span class="right">Hint footer · mono 11px</span></footer>
+        </div>
+        <div class="sg-three" style="margin-top:14px">
+          <div>
+            <h3 class="sg-sub">Empty</h3>
+            <div class="mini-wrap"><table class="table tt-grid tt-grid--mini"><thead><tr><th scope="col">Student</th><th scope="col">Status</th></tr></thead><tbody><tr class="empty-row"><td colspan="2"><div class="grid-empty"><strong>No students match</strong><code>status:not-enrolled</code><code>“zainab”</code><button type="button" class="btn btn-outline btn-xs">Clear filters and search</button></div></td></tr></tbody></table></div>
+          </div>
+          <div>
+            <h3 class="sg-sub">Loading</h3>
+            <div class="mini-wrap" aria-busy="true" aria-label="Loading rows"><table class="table tt-grid tt-grid--mini"><thead><tr><th scope="col">Student</th><th scope="col" class="num">Paid</th></tr></thead><tbody>
+              <tr><td><div class="skeleton" style="height:10px;width:70%"></div></td><td><div class="skeleton" style="height:10px;width:60%;margin-left:auto"></div></td></tr>
+              <tr><td><div class="skeleton" style="height:10px;width:55%"></div></td><td><div class="skeleton" style="height:10px;width:45%;margin-left:auto"></div></td></tr>
+              <tr><td><div class="skeleton" style="height:10px;width:62%"></div></td><td><div class="skeleton" style="height:10px;width:52%;margin-left:auto"></div></td></tr>
+            </tbody></table></div>
+          </div>
+          <div>
+            <h3 class="sg-sub">Anatomy</h3>
+            <ul class="sg-note" style="margin:0;padding-left:1.1em;display:grid;gap:4px">
+              <li>Header: mono 11px uppercase on --x-head-bg, sticky</li>
+              <li>First column: checkbox + student, sticky, stronger right line</li>
+              <li>Numbers: right-aligned Plex Mono, tnum</li>
+              <li>Hover → --x-row-hover · selected → --accent · cursor → --highlight</li>
+              <li>Below the last row, ruled empty lines keep the grid</li>
+            </ul>
+          </div>
+        </div>
+        <h3 class="sg-sub">Bulk bar · replaces the toolbar inline</h3>
+        <div class="demo-grid-wrap">
+          <div class="bulkbar" role="region" aria-label="Bulk actions (demo)">
+            <strong class="bulk-count">3 selected</strong><span class="bulk-sep" aria-hidden="true"></span>
+            <button type="button" class="btn btn-sm"><i data-icon="download" data-size="14"></i><span class="btn-label">Export CSV</span></button>
+            <button type="button" class="btn btn-sm"><i data-icon="tag" data-size="14"></i><span class="btn-label">Set admission status</span><i data-icon="chevron-down" data-size="13"></i></button>
+            <button type="button" class="btn btn-sm"><i data-icon="arrow-right" data-size="14"></i><span class="btn-label">Move class</span><i data-icon="chevron-down" data-size="13"></i></button>
+            <button type="button" class="btn btn-sm"><i data-icon="user-x" data-size="14"></i><span class="btn-label">Remove from term</span></button>
+            <button type="button" class="btn btn-sm bulk-clear" aria-label="Clear selection (demo)"><span class="kbd-row" aria-hidden="true"><kbd class="kbd">Esc</kbd></span><i data-icon="x" data-size="14"></i></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 09 ─ Sheets & dialogs -->
+      <section class="sg-section" id="overlays" aria-labelledby="h-overlays">
+        <div class="sg-head"><span class="sg-num">09</span><h2 id="h-overlays">Sheets &amp; dialogs</h2><p>The sheet is an inspector: horizontal fields, mono section headings, a footer that teaches its keys. ⌘↵ saves for real. Confirms are compact and show exactly what will change in a mono details table.</p></div>
+        <div class="sg-two">
+          <div>
+            <h3 class="sg-sub">Sheet anatomy</h3>
+            <div class="sheet-mock" aria-label="Sheet anatomy diagram">
+              <div class="mock-head"><p class="eyebrow">People / Students / New <span class="callout">eyebrow · path</span></p><p class="t-h2" style="margin:4px 0 0">New student <span class="callout">title</span></p><p class="t-small" style="margin:2px 0 0">Adds a student to 2026/2027 · First Term.</p></div>
+              <div class="insp-section"><p class="insp-head"><span>Student</span><span class="insp-meta">3 required</span></p><div class="field field-horizontal"><span class="label">First name</span><div class="field-control"><span class="input" style="display:flex;align-items:center">Adaeze</span></div></div><span class="callout">mono section heading · 9rem labels</span></div>
+              <div class="insp-section"><dl class="strip strip-3"><div class="stat stat-sm"><dt class="stat-label">Assigned</dt><dd class="stat-value">₦205,500</dd></div><div class="stat stat-sm"><dt class="stat-label">Paying now</dt><dd class="stat-value">₦92,500</dd></div><div class="stat stat-sm"><dt class="stat-label">Pending</dt><dd class="stat-value">₦113,000</dd></div></dl></div>
+              <div class="mock-foot"><span class="foot-hints"><span class="hint"><span class="kbd-row"><kbd class="kbd" data-mod>⌘</kbd><kbd class="kbd">↵</kbd></span> Save</span><span class="hint"><kbd class="kbd">Esc</kbd> Cancel</span></span><span class="btn btn-outline btn-sm" aria-hidden="true">Cancel</span><span class="btn btn-default btn-sm" aria-hidden="true">Save student</span></div>
+            </div>
+          </div>
+          <div>
+            <h3 class="sg-sub">Sizes</h3>
+            <table class="sg-table">
+              <thead><tr><th scope="col">Size</th><th scope="col">Width</th><th scope="col">Use</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+              <tbody>
+                <tr><th scope="row">sm</th><td class="mono">24rem</td><td>One-record quick edit</td><td><button type="button" class="btn btn-outline btn-xs" data-sheet="24rem" data-size-name="sm">Open sheet</button></td></tr>
+                <tr><th scope="row">md</th><td class="mono">30rem</td><td>Inspector default: New student, Receive payment</td><td><button type="button" class="btn btn-outline btn-xs" data-sheet="30rem" data-size-name="md">Open sheet</button></td></tr>
+                <tr><th scope="row">lg</th><td class="mono">36rem</td><td>Record with tabs: student detail</td><td><button type="button" class="btn btn-outline btn-xs" data-sheet="36rem" data-size-name="lg">Open sheet</button></td></tr>
+                <tr><th scope="row">xl</th><td class="mono">48rem</td><td>Wide review, e.g. a class roster</td><td><button type="button" class="btn btn-outline btn-xs" data-sheet="48rem" data-size-name="xl">Open sheet</button></td></tr>
+              </tbody>
+            </table>
+            <p class="sg-note">Below 768px every sheet is full-screen.</p>
+            <h3 class="sg-sub">Dialogs · 26rem</h3>
+            <div class="sg-row">
+              <button type="button" class="btn btn-outline btn-sm" data-dialog="confirm"><i data-icon="user-x" data-size="15"></i>Open confirm</button>
+              <button type="button" class="btn btn-outline btn-sm" data-dialog="destructive"><i data-icon="trash-2" data-size="15"></i>Open destructive</button>
+              <button type="button" class="btn btn-outline btn-sm" data-dialog="form"><i data-icon="pencil" data-size="15"></i>Open form dialog</button>
+            </div>
+          </div>
+        </div>
+        <h3 class="sg-sub">Page, sheet or dialog?</h3>
+        <div class="sg-scroll">
+          <table class="sg-table">
+            <thead><tr><th scope="col">Surface</th><th scope="col">Use when</th><th scope="col">Examples</th><th scope="col">Keys</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Page</th><td>The work is the whole task and has its own URL: a list, a report, a setup flow.</td><td>Students, Collections, Website editor</td><td class="spec">⌘K to reach · / to search</td></tr>
+              <tr><th scope="row">Sheet</th><td>You create or inspect one record while the list stays visible behind it.</td><td>New student, Student detail, Receive payment</td><td class="spec">⌘↵ save · Esc close · J/K next</td></tr>
+              <tr><th scope="row">Dialog</th><td>One decision that blocks progress: confirm, destroy, or a one-field form.</td><td>Delete student, Remove from term, Rename</td><td class="spec">⌘↵ confirm · Esc cancel</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 10 ─ Page patterns -->
+      <section class="sg-section" id="patterns" aria-labelledby="h-patterns">
+        <div class="sg-head"><span class="sg-num">10</span><h2 id="h-patterns">Page patterns</h2><p>Mono path above a bold title, actions right. Stats share one ruled strip. Empty states are a free period on grid paper, left-aligned with one next step.</p></div>
+        <h3 class="sg-sub">Page header</h3>
+        <div class="anatomy">
+          <header class="page-head">
+            <div class="page-head-main"><ol class="crumbs" aria-label="Breadcrumb (demo)"><li>People</li><li>Student Records</li><li aria-current="page">Students</li></ol><p class="page-title" style="margin-top:8px">Students</p></div>
+            <div class="page-actions"><button type="button" class="btn btn-outline btn-sm"><i data-icon="upload" data-size="15"></i>Import</button><button type="button" class="btn btn-outline btn-sm"><i data-icon="user-check" data-size="15"></i>Approvals <span class="count-tag">3</span></button><button type="button" class="btn btn-default btn-sm"><i data-icon="plus" data-size="15"></i>New student<span class="kbd-row" aria-hidden="true"><kbd class="kbd">N</kbd></span></button></div>
+          </header>
+        </div>
+        <h3 class="sg-sub">KPI / stat strip</h3>
+        <section class="strip" aria-label="Stat strip (demo)">
+          <div class="stat"><p class="stat-label">Students</p><p class="stat-value">486</p><p class="stat-foot">451 enrolled · 35 not enrolled</p></div>
+          <div class="stat"><p class="stat-label">Attendance today</p><p class="stat-value">92.8%</p><p class="stat-foot">17 of 21 classes marked</p><div class="stat-bar" aria-hidden="true"><span style="width:92.8%;background:var(--success)"></span><span style="width:2.5%;background:var(--warning)"></span><span style="width:4.7%;background:var(--destructive)"></span></div></div>
+          <div class="stat"><p class="stat-label">Collected this term</p><p class="stat-value">₦71.32m</p><p class="stat-foot">72.4% of ₦98.45m billed</p><div class="progress" aria-hidden="true"><span style="width:72.4%"></span></div></div>
+          <div class="stat"><p class="stat-label">Outstanding</p><p class="stat-value">₦27.13m</p><p class="stat-foot">27.6% of billed</p></div>
+        </section>
+        <div class="sg-two" style="margin-top:14px">
+          <div>
+            <h3 class="sg-sub">Empty state</h3>
+            <div class="empty-slot" style="padding:20px">
+              <div class="empty-card">
+                <span class="empty-icon" aria-hidden="true"><i data-icon="boxes" data-size="18"></i></span>
+                <p class="eyebrow">Operations · not in this preview</p>
+                <p class="empty-title">Inventory isn’t part of this preview</p>
+                <p class="empty-body">This preview covers Students, Collections and the Dashboard. Inventory would use the same shell, spreadsheet tables and inspector sheets.</p>
+                <div class="empty-actions"><a class="btn btn-default btn-sm" href="dashboard.html#people/students">Go to Students</a></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3 class="sg-sub">Toast</h3>
+            <p class="sg-note" style="margin-top:0">Bottom-right, 2px status bar, mono detail line. The toast repeats the button’s verb: “Save student” → “Student saved”.</p>
+            <div class="sg-row" style="margin-top:10px">
+              <button type="button" class="btn btn-outline btn-sm" data-toast="saved"><i data-icon="user-check" data-size="15"></i>Show “Student saved”</button>
+              <button type="button" class="btn btn-outline btn-sm" data-toast="payment"><i data-icon="hand-coins" data-size="15"></i>Show “Payment confirmed”</button>
+            </div>
+            <h3 class="sg-sub">Keyboard hints</h3>
+            <div class="sg-row"><span class="hint foot-hints" style="margin:0"><span class="kbd-row"><kbd class="kbd" data-mod>⌘</kbd><kbd class="kbd">K</kbd></span> Find anything</span><span class="foot-hints" style="margin:0"><span class="kbd-row"><kbd class="kbd" data-mod>⌘</kbd><kbd class="kbd">↵</kbd></span> Save</span><span class="foot-hints" style="margin:0"><kbd class="kbd">Esc</kbd> Cancel</span><span class="foot-hints" style="margin:0"><kbd class="kbd">X</kbd> Select</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 11 ─ Do / Don't -->
+      <section class="sg-section" id="rules" aria-labelledby="h-rules">
+        <div class="sg-head"><span class="sg-num">11</span><h2 id="h-rules">Do / don’t</h2><p>Six rules that keep Timetable from drifting back to the old monochrome, icon-rail dashboard.</p></div>
+        <div class="dodont">
+          <div class="dd-h">Do</div><div class="dd-h">Don’t</div>
+          <div class="dd-do"><span class="dd-n">01</span>Navigate with the dark module bar and a labelled sub-nav that shows every section of the module.</div>
+          <div class="dd-dont"><span class="dd-n">01</span>Hide navigation in an icon rail that only explains itself on hover.</div>
+          <div class="dd-do"><span class="dd-n">02</span>Separate surfaces with 1px grid lines; keep shadows for things that float.</div>
+          <div class="dd-dont"><span class="dd-n">02</span>Float soft grey cards with drop shadows on a grey page.</div>
+          <div class="dd-do"><span class="dd-n">03</span>Set IDs, amounts and dates in Plex Mono with tabular numerals, at full contrast.</div>
+          <div class="dd-dont"><span class="dd-n">03</span>Set data in small, light-grey sans that blurs down a column.</div>
+          <div class="dd-do"><span class="dd-n">04</span>Use square tags with a 2px status bar and readable text.</div>
+          <div class="dd-dont"><span class="dd-n">04</span>Use monochrome badges, or pills where colour is the only signal.</div>
+          <div class="dd-do"><span class="dd-n">05</span>Reserve yellow for position: cursor row, now marker, search hit, active module — always with dark text.</div>
+          <div class="dd-dont"><span class="dd-n">05</span>Use yellow for buttons, warnings or decoration.</div>
+          <div class="dd-do"><span class="dd-n">06</span>Show the keyboard path: kbd hints in buttons and footers, ⌘K, ⌘↵, ↑ ↓ X.</div>
+          <div class="dd-dont"><span class="dd-n">06</span>Put row actions only behind hover, where keyboards and touch can’t find them.</div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- Demo sheet (size set on open) -->
+<div class="sheet" id="demoSheet" hidden aria-labelledby="demoSheetTitle" style="--sheet-w: 30rem">
+  <form class="sheet-form" id="demoSheetForm" novalidate>
+    <div class="sheet-header">
+      <p class="eyebrow" id="demoSheetEyebrow">Sheet · md · 30rem</p>
+      <h2 class="sheet-title" id="demoSheetTitle">Edit information</h2>
+      <p class="sheet-description">Adaeze Okonkwo · KWA/2026/0142</p>
+      <button type="button" class="btn btn-ghost btn-icon btn-sm overlay-close" data-close aria-label="Close"><i data-icon="x"></i></button>
+    </div>
+    <div class="sheet-body">
+      <section class="insp-section" aria-labelledby="dsh1">
+        <h3 class="insp-head" id="dsh1"><span>Student</span><span class="insp-meta">2 required</span></h3>
+        <div class="field field-horizontal"><label class="label" for="ds-first">First name</label><div class="field-control"><input class="input" id="ds-first" value="Adaeze" autofocus></div></div>
+        <div class="field field-horizontal"><label class="label" for="ds-last">Surname</label><div class="field-control"><input class="input" id="ds-last" value="Okonkwo" aria-describedby="ds-last-err"><p class="field-error" id="ds-last-err" hidden>Enter the student’s surname.</p></div></div>
+      </section>
+      <section class="insp-section" aria-labelledby="dsh2">
+        <h3 class="insp-head" id="dsh2"><span>Class &amp; admission</span><span class="insp-meta">First Term</span></h3>
+        <div class="field field-horizontal"><label class="label" for="ds-class">Classroom</label><div class="field-control"><select class="select" id="ds-class"><option>JSS 2 A</option><option>JSS 2 B</option></select></div></div>
+        <div class="field field-horizontal"><span class="label" id="ds-adm-l">Admission status</span><div class="field-control"><div class="seg seg-block" role="radiogroup" aria-labelledby="ds-adm-l"><label><input type="radio" name="ds-adm">New admission</label><label><input type="radio" name="ds-adm" checked>Returning</label></div></div></div>
+      </section>
+    </div>
+    <div class="sheet-footer">
+      <span class="foot-hints"><span class="hint"><span class="kbd-row"><kbd class="kbd" data-mod>⌘</kbd><kbd class="kbd">↵</kbd></span> Save</span><span class="hint"><kbd class="kbd">Esc</kbd> Cancel</span><span class="preview-note">Preview · nothing is sent</span></span>
+      <button type="button" class="btn btn-outline btn-sm" data-close>Cancel</button>
+      <button type="submit" class="btn btn-default btn-sm">Save changes</button>
+    </div>
+  </form>
+</div>
+
+<!-- Demo confirm (neutral or destructive) -->
+<div class="dialog tt-confirm" id="demoConfirm" hidden role="alertdialog" aria-labelledby="dcTitle" aria-describedby="dcDesc" style="--dialog-w: 26rem">
+  <div class="dialog-header">
+    <p class="eyebrow" id="dcEyebrow"></p>
+    <h2 class="dialog-title" id="dcTitle"></h2>
+    <p class="dialog-description" id="dcDesc"></p>
+  </div>
+  <table class="kv" id="dcTable"><tbody></tbody></table>
+  <div class="dialog-footer">
+    <span class="foot-hints"><span class="hint"><span class="kbd-row"><kbd class="kbd" data-mod>⌘</kbd><kbd class="kbd">↵</kbd></span> Confirm</span></span>
+    <button type="button" class="btn btn-outline btn-sm" data-close autofocus>Cancel</button>
+    <button type="button" class="btn btn-sm btn-default" id="dcConfirm">Confirm</button>
+  </div>
+</div>
+
+<!-- Demo form dialog -->
+<div class="dialog" id="demoForm" hidden aria-labelledby="dfTitle" style="--dialog-w: 26rem">
+  <form id="demoFormEl" novalidate style="display:grid;gap:14px">
+    <div class="dialog-header">
+      <p class="eyebrow">Academics / Classes</p>
+      <h2 class="dialog-title" id="dfTitle">Rename stream</h2>
+      <p class="dialog-description">The new name shows wherever this stream is listed.</p>
+    </div>
+    <div class="field">
+      <label class="label" for="df-name">Stream name</label>
+      <input class="input" id="df-name" value="JSS 2 A" autofocus aria-describedby="df-name-err">
+      <p class="field-error" id="df-name-err" hidden>Enter a stream name.</p>
+    </div>
+    <div class="dialog-footer">
+      <span class="foot-hints"><span class="hint"><kbd class="kbd">↵</kbd> Save</span></span>
+      <button type="button" class="btn btn-outline btn-sm" data-close>Cancel</button>
+      <button type="submit" class="btn btn-default btn-sm">Save name</button>
+    </div>
+  </form>
+</div>
+</body>
+</html>

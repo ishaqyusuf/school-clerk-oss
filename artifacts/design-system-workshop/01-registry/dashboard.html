@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Students · Kingsway Academy</title>
+<meta name="description" content="School Clerk workspace for Kingsway Academy — Registry direction (design workshop preview).">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="../shared/shadcn.css">
+<link rel="stylesheet" href="../shared/workshop.css">
+<link rel="stylesheet" href="app.css">
+<script src="../shared/data.js"></script>
+<script src="../shared/icons.js"></script>
+<script src="../shared/workshop.js"></script>
+<script src="dashboard.js" defer></script>
+</head>
+<body class="x-body-app">
+<a class="x-skip" href="#main">Skip to content</a>
+
+<div class="x-app" id="app" data-collapsed="false">
+  <!-- ============ Sidebar (variant="inset", collapsible="icon") ============ -->
+  <aside class="x-sidebar" id="sidebar" aria-label="Workspace">
+    <div class="x-sb-head">
+      <a class="x-brand" href="#/overview/dashboard" title="Kingsway Academy">
+        <img src="../shared/brand-mark-inverse.svg" alt="School Clerk" width="32" height="32">
+        <span class="x-sb-text x-brand-text"><strong>Kingsway Academy</strong><span>kingsway.school-clerk.com</span></span>
+      </a>
+      <button type="button" class="btn btn-ghost btn-icon btn-sm x-sb-close" id="drawer-close" aria-label="Close navigation"><i data-icon="x"></i></button>
+    </div>
+
+    <nav class="x-sb-content" id="sb-nav" aria-label="Modules"></nav>
+
+    <div class="x-sb-footer">
+      <button type="button" class="x-term" id="term-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="pop-term" title="Switch term">
+        <span class="x-term-full" aria-hidden="true">
+          <span class="x-term-top"><span class="x-eyebrow" id="term-eyebrow">Current term</span><i data-icon="chevrons-up-down" data-size="14"></i></span>
+          <span class="x-term-title" id="term-title">First Term</span>
+          <span class="x-term-meta" id="term-meta">2026/2027 · Week 4 of 13</span>
+          <span class="x-weeks" id="term-weeks" aria-hidden="true"></span>
+        </span>
+        <span class="x-term-rail" aria-hidden="true"><span id="term-rail">W4</span><i></i></span>
+        <span class="sr-only" id="term-sr">Current term: First Term 2026/2027, week 4 of 13. Switch term.</span>
+      </button>
+      <button type="button" class="x-user" id="user-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="pop-user" title="Aisha Bello">
+        <span class="avatar" aria-hidden="true">AB</span>
+        <span class="x-sb-text x-user-text"><strong>Aisha Bello</strong><span>Administrator</span></span>
+        <i data-icon="chevrons-up-down" data-size="16"></i>
+      </button>
+    </div>
+  </aside>
+  <div class="x-scrim" id="scrim" hidden></div>
+
+  <!-- ============ Inset panel ============ -->
+  <div class="x-inset" id="inset">
+    <header class="x-header">
+      <button type="button" class="btn btn-ghost btn-icon btn-sm" id="sb-toggle" aria-controls="sidebar" aria-expanded="true" aria-label="Toggle sidebar" title="Toggle sidebar (⌘B)"><i data-icon="panel-left"></i></button>
+      <a class="x-mobile-brand" href="#/overview/dashboard"><img src="../shared/brand-mark-inverse.svg" alt="" width="28" height="28"><span>Kingsway Academy</span></a>
+      <span class="x-vsep" aria-hidden="true"></span>
+      <nav class="x-crumbs" aria-label="Breadcrumb"><ol class="breadcrumb" id="crumbs"></ol></nav>
+      <div class="x-header-actions">
+        <button type="button" class="x-search" id="search-trigger" aria-haspopup="dialog" aria-label="Search students, receipts, staff">
+          <i data-icon="search" data-size="16"></i><span>Search students, receipts, staff…</span><kbd class="kbd" id="search-kbd">⌘K</kbd>
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm x-assistant" id="assistant-btn"><i data-icon="sparkles"></i><span class="x-label">Assistant</span></button>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm x-bell" id="bell-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="pop-notes" aria-label="Notifications, 3 unread"><i data-icon="bell"></i><span class="x-bell-dot" id="bell-dot"></span></button>
+      </div>
+    </header>
+
+    <main class="x-main" id="main" tabindex="-1">
+
+      <!-- ================= STUDENTS ================= -->
+      <section class="x-page" data-page="students" aria-labelledby="h-students">
+        <header class="x-page-head">
+          <div>
+            <p class="x-eyebrow"><span class="x-folio">02</span> — People · Student records</p>
+            <h1 class="x-title" id="h-students" tabindex="-1">Students</h1>
+            <p class="x-lede"><span id="st-lede">486 on the register</span> for First Term, 2026/2027.</p>
+          </div>
+          <div class="x-actions">
+            <button type="button" class="btn btn-outline btn-sm" id="btn-import"><i data-icon="upload"></i>Import</button>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-approvals"><i data-icon="user-check"></i>Approvals <span class="x-chip-count">3</span></button>
+            <button type="button" class="btn btn-default btn-sm" id="btn-new-student"><i data-icon="plus"></i>New student</button>
+          </div>
+        </header>
+
+        <div class="x-stats" id="st-stats"></div>
+
+        <div class="x-table-head">
+          <div class="tabs-list x-tabs-line" role="tablist" aria-label="Quick filters" id="st-quick"></div>
+          <div class="x-toolbar" role="search">
+            <label class="input-group">
+              <span class="input-addon"><i data-icon="search"></i></span>
+              <input class="input" type="search" id="st-search" placeholder="Search students…" aria-label="Search students" autocomplete="off">
+            </label>
+            <button type="button" class="btn btn-outline btn-sm x-filter" data-filter="cls" aria-haspopup="menu" aria-expanded="false"><i data-icon="circle-plus"></i>Class<span class="x-filter-val" hidden></span></button>
+            <button type="button" class="btn btn-outline btn-sm x-filter" data-filter="status" aria-haspopup="menu" aria-expanded="false"><i data-icon="circle-plus"></i>Status<span class="x-filter-val" hidden></span></button>
+            <button type="button" class="btn btn-outline btn-sm x-filter" data-filter="admission" aria-haspopup="menu" aria-expanded="false"><i data-icon="circle-plus"></i>Admission type<span class="x-filter-val" hidden></span></button>
+            <button type="button" class="btn btn-ghost btn-sm" id="st-reset" hidden><i data-icon="x"></i>Reset</button>
+            <span class="x-toolbar-end" id="st-result" aria-live="polite"></span>
+          </div>
+        </div>
+
+        <div class="x-table-region">
+          <label class="x-mobile-selall"><input type="checkbox" class="checkbox" id="st-all-m"> Select all shown</label>
+          <div class="table-wrap">
+            <table class="table x-ledger x-students x-cards" id="st-table">
+              <caption class="sr-only">Students on the register. Select a row to open the student's record.</caption>
+              <thead>
+                <tr>
+                  <th class="x-col-sel" scope="col"><input type="checkbox" class="checkbox" id="st-all" aria-label="Select all students shown"></th>
+                  <th scope="col">Student</th>
+                  <th scope="col" class="c-id">Student ID</th>
+                  <th scope="col" class="c-cls">Class</th>
+                  <th scope="col" class="c-gen">Gender</th>
+                  <th scope="col" class="c-st">Status</th>
+                  <th scope="col" class="c-adm">Admission</th>
+                  <th scope="col" class="c-gd">Guardian</th>
+                  <th scope="col" class="c-ph">Guardian phone</th>
+                  <th scope="col" class="x-col-act"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody id="st-body"></tbody>
+            </table>
+          </div>
+          <div class="x-empty-row" id="st-empty" hidden>
+            <h3>No students match these filters</h3>
+            <p id="st-empty-msg">Try a different name, student ID or guardian, or clear the filters.</p>
+            <button type="button" class="btn btn-outline btn-sm" id="st-empty-reset">Clear search and filters</button>
+          </div>
+          <footer class="x-table-foot">
+            <span id="st-foot"></span>
+            <div class="x-pager">
+              <button type="button" class="btn btn-outline btn-sm" disabled><i data-icon="chevron-left"></i>Previous</button>
+              <button type="button" class="btn btn-outline btn-sm" id="st-next">Next<i data-icon="chevron-right"></i></button>
+            </div>
+          </footer>
+        </div>
+      </section>
+
+      <!-- ================= COLLECTIONS ================= -->
+      <section class="x-page" data-page="collections" aria-labelledby="h-collections" hidden>
+        <header class="x-page-head">
+          <div>
+            <p class="x-eyebrow"><span class="x-folio">04</span> — Finance · Collections</p>
+            <h1 class="x-title" id="h-collections" tabindex="-1">Collections</h1>
+            <p class="x-lede">Receipts recorded for First Term, 2026/2027, and where the term stands against what was billed.</p>
+          </div>
+          <div class="x-actions">
+            <button type="button" class="btn btn-outline btn-sm" id="btn-export-rcp"><i data-icon="download"></i>Export</button>
+            <button type="button" class="btn btn-default btn-sm" id="btn-receive"><i data-icon="hand-coins"></i>Receive payment</button>
+          </div>
+        </header>
+
+        <div class="x-position" id="col-position">
+          <div class="x-position-main">
+            <p class="x-eyebrow">Collected this term</p>
+            <div class="x-position-figure"><strong id="col-collected">₦71.32m</strong><span id="col-billed">of ₦98.45m billed</span></div>
+            <div class="x-meter" id="col-meter" role="img" aria-label="72.4% of billed fees collected" style="--pct:72.4%"><span></span><i></i></div>
+            <div class="x-meter-scale"><span>₦0</span><span id="col-rate"><b>72.4%</b> collected</span><span id="col-billed2">₦98.45m</span></div>
+          </div>
+          <dl class="x-position-side">
+            <div><dt>Outstanding</dt><dd id="col-out">₦27.13m</dd></div>
+            <div><dt>Collected today</dt><dd id="col-today">₦1,842,500</dd></div>
+            <div><dt>Receipts this week</dt><dd id="col-week">8</dd></div>
+            <div><dt>Awaiting allocation</dt><dd id="col-alloc">₦60,000</dd></div>
+          </dl>
+        </div>
+
+        <div class="x-table-head">
+          <div class="tabs-list x-tabs-line" role="tablist" aria-label="Receipt filters" id="col-quick"></div>
+          <div class="x-toolbar" role="search">
+            <label class="input-group">
+              <span class="input-addon"><i data-icon="search"></i></span>
+              <input class="input" type="search" id="col-search" placeholder="Search receipts…" aria-label="Search receipts" autocomplete="off">
+            </label>
+            <span class="x-toolbar-end" id="col-result" aria-live="polite"></span>
+          </div>
+        </div>
+
+        <div class="x-table-region">
+          <div class="table-wrap">
+            <table class="table x-ledger x-receipts x-cards" id="col-table">
+              <caption class="sr-only">Receipts for First Term. Select a row to open the student's payments.</caption>
+              <thead>
+                <tr>
+                  <th scope="col" class="c-rcp">Receipt</th>
+                  <th scope="col" class="c-date">Date</th>
+                  <th scope="col" class="c-stu">Student</th>
+                  <th scope="col" class="c-payer">Payer</th>
+                  <th scope="col" class="c-method">Method</th>
+                  <th scope="col" class="c-amt num">Amount</th>
+                  <th scope="col" class="c-alloc">Allocation</th>
+                  <th scope="col" class="c-st">Status</th>
+                </tr>
+              </thead>
+              <tbody id="col-body"></tbody>
+              <tfoot id="col-foot"></tfoot>
+            </table>
+          </div>
+          <div class="x-empty-row" id="col-empty" hidden>
+            <h3>No receipts match</h3>
+            <p>Search by receipt number, student, payer or method.</p>
+            <button type="button" class="btn btn-outline btn-sm" id="col-empty-reset">Clear search</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= DASHBOARD ================= -->
+      <section class="x-page" data-page="dashboard" aria-labelledby="h-dashboard" hidden>
+        <header class="x-page-head">
+          <div>
+            <p class="x-eyebrow"><span class="x-folio">01</span> — Overview · <span id="dash-date">Friday 9 October</span></p>
+            <h1 class="x-title" id="h-dashboard" tabindex="-1"><span id="dash-greet">Good morning</span>, <em>Aisha</em>.</h1>
+            <p class="x-lede">Here is where Kingsway Academy stands this week.</p>
+          </div>
+          <div class="x-actions">
+            <button type="button" class="btn btn-outline btn-sm" data-act="search"><i data-icon="search"></i>Find anything</button>
+          </div>
+        </header>
+
+        <div class="x-termband" aria-labelledby="h-termband">
+          <div class="x-termband-top">
+            <h2 id="h-termband">First Term · 2026/2027</h2>
+            <p><b>Week 4 of 13</b> · 9 weeks to go · 14 Sep – 18 Dec 2026</p>
+          </div>
+          <div class="x-weeks" id="dash-weeks" role="img" aria-label="Week 4 of 13 weeks"></div>
+          <div class="x-termband-scale"><span>14 Sep</span><span class="x-termband-mark" style="--at:53.8%">Mid-term break · 30 Oct – 2 Nov</span><span>18 Dec</span></div>
+        </div>
+
+        <div class="x-stats" id="dash-kpis"></div>
+
+        <div class="x-grid-2">
+          <section class="card" aria-labelledby="h-attn">
+            <header class="x-card-head">
+              <div><p class="x-eyebrow">Today</p><h2 class="x-card-title" id="h-attn">Needs attention</h2></div>
+              <span class="x-count" id="attn-count">4 items</span>
+            </header>
+            <ul class="x-rlist" id="dash-attn"></ul>
+          </section>
+          <section class="card" aria-labelledby="h-quick">
+            <header class="x-card-head">
+              <div><p class="x-eyebrow">Shortcuts</p><h2 class="x-card-title" id="h-quick">Quick actions</h2></div>
+            </header>
+            <ul class="x-rlist">
+              <li><button type="button" class="x-rlist-btn" data-act="new-student"><span class="x-tone" data-tone="primary"><i data-icon="user-plus"></i></span><span>New student<small>Add to the First Term register</small></span><i data-icon="arrow-right"></i></button></li>
+              <li><button type="button" class="x-rlist-btn" data-act="receive"><span class="x-tone" data-tone="primary"><i data-icon="hand-coins"></i></span><span>Receive payment<small>Record and allocate a fee payment</small></span><i data-icon="arrow-right"></i></button></li>
+              <li><button type="button" class="x-rlist-btn" data-act="search"><span class="x-tone"><i data-icon="search"></i></span><span>Find anything<small>Students, receipts, staff and pages</small></span><kbd class="kbd" data-kbd-k>⌘K</kbd></button></li>
+              <li><a class="x-rlist-btn" href="website.html"><span class="x-tone"><i data-icon="globe"></i></span><span>Edit the school website<small>kingsway.school-clerk.com</small></span><i data-icon="arrow-up-right"></i></a></li>
+            </ul>
+          </section>
+        </div>
+      </section>
+
+      <!-- ================= NOT IN PREVIEW ================= -->
+      <section class="x-page" data-page="empty" aria-labelledby="h-empty" hidden>
+        <header class="x-page-head">
+          <div>
+            <p class="x-eyebrow" id="empty-eyebrow"></p>
+            <h1 class="x-title" id="h-empty" tabindex="-1"></h1>
+          </div>
+        </header>
+        <div class="x-empty">
+          <div class="x-register-art" aria-hidden="true">
+            <span style="--w:58%">01</span><span style="--w:34%">02</span><span style="--w:46%">03</span><span style="--w:0%">04</span><span style="--w:0%">05</span>
+            <span class="x-seal"><i data-icon="stamp" data-size="22"></i></span>
+          </div>
+          <div>
+            <h2 id="empty-title">Not part of this preview</h2>
+            <p id="empty-body">This page exists in School Clerk, but this design preview only fills in Students, Collections and the Dashboard.</p>
+            <div class="x-actions">
+              <a class="btn btn-default btn-sm" href="#/people/students"><i data-icon="users"></i>Open Students</a>
+              <a class="btn btn-outline btn-sm" href="#/finance/collections"><i data-icon="coins"></i>Open Collections</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Bulk bar (inside .x-app so it inherits the sidebar offset) -->
+  <div class="x-bulkbar" id="bulkbar" role="region" aria-label="Bulk actions" hidden>
+    <span class="x-bulk-count" aria-live="polite"><b id="bulk-n">0</b><span>selected</span></span>
+    <span class="x-bulk-sep" aria-hidden="true"></span>
+    <button type="button" class="btn btn-ghost btn-sm" data-bulk="export" title="Export CSV"><i data-icon="download"></i><span class="x-label">Export CSV</span></button>
+    <button type="button" class="btn btn-ghost btn-sm" data-bulk="admission" aria-haspopup="menu" aria-expanded="false" title="Set admission status"><i data-icon="badge-check"></i><span class="x-label">Set admission status</span></button>
+    <button type="button" class="btn btn-ghost btn-sm" data-bulk="move" aria-haspopup="menu" aria-expanded="false" title="Move class"><i data-icon="arrow-up-down"></i><span class="x-label">Move class</span></button>
+    <button type="button" class="btn btn-ghost btn-sm" data-bulk="remove" title="Remove from term"><i data-icon="user-x"></i><span class="x-label">Remove from term</span></button>
+    <span class="x-bulk-sep" aria-hidden="true"></span>
+    <button type="button" class="btn btn-ghost btn-icon btn-sm" data-bulk="clear" aria-label="Clear selection" title="Clear selection"><i data-icon="x"></i></button>
+  </div>
+</div>
+
+<!-- ============ Popovers (positioned by dashboard.js) ============ -->
+<div class="popover x-pop" id="pop-row" role="menu" aria-label="Student actions" hidden>
+  <button type="button" class="menu-item" role="menuitem" data-row="view"><i data-icon="eye"></i>View details</button>
+  <button type="button" class="menu-item" role="menuitem" data-row="edit"><i data-icon="pencil"></i>Edit information</button>
+  <button type="button" class="menu-item" role="menuitem" data-row="pay"><i data-icon="hand-coins"></i>Receive payment</button>
+  <button type="button" class="menu-item" role="menuitem" data-row="remove"><i data-icon="user-x"></i>Remove from current term</button>
+  <div class="menu-sep" role="separator"></div>
+  <button type="button" class="menu-item is-destructive" role="menuitem" data-row="delete"><i data-icon="trash-2"></i>Delete student</button>
+</div>
+<div class="popover x-pop" id="pop-filter" role="menu" hidden></div>
+<div class="popover x-pop" id="pop-bulk" role="menu" hidden></div>
+<div class="popover x-pop x-pop-term" id="pop-term" role="menu" aria-label="Switch term" hidden></div>
+<div class="popover x-pop" id="pop-user" role="menu" aria-label="Account" hidden>
+  <div class="x-pop-user">
+    <span class="avatar" aria-hidden="true">AB</span>
+    <div><strong>Aisha Bello</strong><span>aisha.bello@kingsway.edu.ng</span><span class="badge badge-dot x-dotlabel badge-success" style="margin-top:4px">Administrator</span></div>
+  </div>
+  <div class="menu-sep" role="separator"></div>
+  <button type="button" class="menu-item" role="menuitemcheckbox" aria-checked="false" id="theme-item"><i data-icon="moon"></i>Dark theme<span class="x-switchvis" aria-hidden="true"></span></button>
+  <a class="menu-item" role="menuitem" href="components.html"><i data-icon="palette"></i>Design reference</a>
+  <div class="menu-sep" role="separator"></div>
+  <button type="button" class="menu-item" role="menuitem" id="logout-item"><i data-icon="log-out"></i>Log out</button>
+</div>
+<div class="popover x-pop x-notes" id="pop-notes" role="dialog" aria-labelledby="h-notes" hidden>
+  <div class="x-pop-head"><h2 id="h-notes">Notifications</h2><button type="button" class="btn btn-link btn-sm" id="notes-read">Mark all as read</button></div>
+  <div id="notes-list"></div>
+</div>
+
+<!-- ============ Sheet: student record (detail) ============ -->
+<aside class="sheet x-sheet" id="sheet-detail" aria-labelledby="sd-title" hidden>
+  <header class="sheet-header">
+    <p class="x-eyebrow">Student record</p>
+    <div class="x-sheet-person">
+      <span class="avatar" id="sd-avatar" aria-hidden="true"></span>
+      <div>
+        <h2 class="sheet-title" id="sd-title"></h2>
+        <p class="sheet-description" id="sd-desc"></p>
+      </div>
+    </div>
+    <div class="tabs-list x-tabs-line x-sheet-tabs" role="tablist" aria-label="Student record sections" id="sd-tabs">
+      <button type="button" class="tabs-trigger" role="tab" id="sd-tab-overview" aria-controls="sd-panel" aria-selected="true" data-tab="overview">Overview</button>
+      <button type="button" class="tabs-trigger" role="tab" id="sd-tab-academics" aria-controls="sd-panel" aria-selected="false" tabindex="-1" data-tab="academics">Academics</button>
+      <button type="button" class="tabs-trigger" role="tab" id="sd-tab-attendance" aria-controls="sd-panel" aria-selected="false" tabindex="-1" data-tab="attendance">Attendance</button>
+      <button type="button" class="tabs-trigger" role="tab" id="sd-tab-payments" aria-controls="sd-panel" aria-selected="false" tabindex="-1" data-tab="payments">Payments</button>
+    </div>
+    <button type="button" class="btn btn-ghost btn-icon btn-sm overlay-close" data-close aria-label="Close student record"><i data-icon="x"></i></button>
+  </header>
+  <div class="sheet-body" id="sd-panel" role="tabpanel" aria-labelledby="sd-tab-overview" tabindex="0"></div>
+  <footer class="sheet-footer">
+    <div class="x-total"><span class="x-total-line" id="sd-total"></span></div>
+    <div class="x-actions">
+      <button type="button" class="btn btn-outline" id="sd-edit"><i data-icon="pencil"></i>Edit information</button>
+      <button type="button" class="btn btn-default" id="sd-pay"><i data-icon="hand-coins"></i>Receive payment</button>
+    </div>
+  </footer>
+</aside>
+
+<!-- ============ Sheet: create / edit student ============ -->
+<aside class="sheet x-sheet" id="sheet-student" aria-labelledby="ss-title" aria-describedby="ss-desc" hidden>
+  <form class="x-sheet-form" id="ss-form" novalidate>
+    <header class="sheet-header">
+      <p class="x-eyebrow">People · Students</p>
+      <h2 class="sheet-title" id="ss-title">New student</h2>
+      <p class="sheet-description" id="ss-desc">Add a student to the register for First Term, 2026/2027.</p>
+      <button type="button" class="btn btn-ghost btn-icon btn-sm overlay-close" data-close aria-label="Close"><i data-icon="x"></i></button>
+    </header>
+    <div class="sheet-body">
+      <section class="x-sec" aria-labelledby="ss-s1">
+        <h3 class="x-sec-head" id="ss-s1"><span class="x-folio">1</span><span aria-hidden="true">·</span> Student</h3>
+        <div class="field-grid">
+          <div class="field">
+            <label class="label" for="ss-first">First name</label>
+            <input class="input" id="ss-first" name="first" autocomplete="off" required aria-describedby="ss-first-err" autofocus>
+            <p class="field-error" id="ss-first-err" hidden></p>
+          </div>
+          <div class="field">
+            <label class="label" for="ss-last">Surname</label>
+            <input class="input" id="ss-last" name="last" autocomplete="off" required aria-describedby="ss-last-err">
+            <p class="field-error" id="ss-last-err" hidden></p>
+          </div>
+          <div class="field">
+            <label class="label" for="ss-other">Other name <span class="field-optional">Optional</span></label>
+            <input class="input" id="ss-other" name="other" autocomplete="off">
+          </div>
+          <div class="field">
+            <label class="label" for="ss-dob">Date of birth <span class="field-optional">Optional</span></label>
+            <input class="input" type="date" id="ss-dob" name="dob" max="2024-12-31">
+          </div>
+        </div>
+        <fieldset class="field fieldset" aria-describedby="ss-gender-err">
+          <legend class="label">Gender</legend>
+          <div class="x-seg" id="ss-gender">
+            <label><input type="radio" name="gender" value="F"><span>Female</span></label>
+            <label><input type="radio" name="gender" value="M"><span>Male</span></label>
+          </div>
+          <p class="field-error" id="ss-gender-err" hidden></p>
+        </fieldset>
+      </section>
+
+      <section class="x-sec" aria-labelledby="ss-s2">
+        <h3 class="x-sec-head" id="ss-s2"><span class="x-folio">2</span><span aria-hidden="true">·</span> Class &amp; admission</h3>
+        <fieldset class="field fieldset" aria-describedby="ss-adm-err">
+          <legend class="label">Admission status for this term</legend>
+          <div class="x-rcards">
+            <label class="x-rcard"><input type="radio" class="radio" name="admission" value="new"><span><strong>New admission</strong><small>First term at Kingsway. New-student fees apply.</small></span></label>
+            <label class="x-rcard"><input type="radio" class="radio" name="admission" value="returning"><span><strong>Returning</strong><small>Continuing from a previous term.</small></span></label>
+          </div>
+          <p class="field-error" id="ss-adm-err" hidden></p>
+        </fieldset>
+        <div class="field-grid">
+          <div class="field">
+            <label class="label" for="ss-class">Classroom</label>
+            <select class="select" id="ss-class" name="cls" required aria-describedby="ss-class-err"></select>
+            <p class="field-error" id="ss-class-err" hidden></p>
+          </div>
+          <div class="field">
+            <label class="label" for="ss-arm">Stream</label>
+            <select class="select" id="ss-arm" name="arm" disabled><option value="">Choose a classroom first</option></select>
+          </div>
+        </div>
+      </section>
+
+      <section class="x-sec" aria-labelledby="ss-s3" id="ss-fees-sec">
+        <h3 class="x-sec-head" id="ss-s3"><span class="x-folio">3</span><span aria-hidden="true">·</span> Fees &amp; payments</h3>
+        <div class="x-feelist" id="ss-fees" role="group" aria-label="Fees applied this term"></div>
+        <div class="field-grid">
+          <div class="field">
+            <label class="label" for="ss-pay">Paying now <span class="field-optional">Optional</span></label>
+            <div class="input-group"><span class="input-addon">₦</span><input class="input tnum" id="ss-pay" name="pay" inputmode="numeric" placeholder="0" autocomplete="off" aria-describedby="ss-pay-err"></div>
+            <p class="field-error" id="ss-pay-err" hidden></p>
+          </div>
+          <div class="field">
+            <span class="label" id="ss-method-l">Payment method</span>
+            <div class="x-seg" role="radiogroup" aria-labelledby="ss-method-l">
+              <label><input type="radio" name="ssmethod" value="Transfer" checked><span>Transfer</span></label>
+              <label><input type="radio" name="ssmethod" value="Cash"><span>Cash</span></label>
+              <label><input type="radio" name="ssmethod" value="POS"><span>POS</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label" for="ss-paydate">Payment date</label>
+            <input class="input" type="date" id="ss-paydate" value="2026-10-09">
+          </div>
+          <div class="field">
+            <label class="label" for="ss-ref">Payment reference <span class="field-optional">Optional</span></label>
+            <input class="input" id="ss-ref" placeholder="TRX-00123" autocomplete="off">
+          </div>
+        </div>
+        <dl class="x-sums">
+          <div><dt>Assigned</dt><dd id="ss-sum-assigned">₦0</dd></div>
+          <div><dt>Paying now</dt><dd id="ss-sum-paying">₦0</dd></div>
+          <div><dt>Pending</dt><dd id="ss-sum-pending">₦0</dd></div>
+        </dl>
+      </section>
+
+      <section class="x-sec" aria-labelledby="ss-s4">
+        <h3 class="x-sec-head" id="ss-s4"><button type="button" class="x-sec-toggle" aria-expanded="false" aria-controls="ss-parent" id="ss-parent-toggle"><span class="x-folio">4</span><span aria-hidden="true">·</span> Parent <span class="x-sec-opt">Optional</span><i data-icon="chevron-down" data-size="14"></i></button></h3>
+        <div class="field-grid" id="ss-parent" hidden>
+          <div class="field" style="grid-column:1/-1">
+            <label class="label" for="ss-pname">Parent or guardian name</label>
+            <input class="input" id="ss-pname" autocomplete="off" placeholder="e.g. Mrs. Bisi Adebayo">
+          </div>
+          <div class="field">
+            <label class="label" for="ss-pphone">Phone</label>
+            <input class="input tnum" id="ss-pphone" type="tel" inputmode="tel" placeholder="+234 803 000 0000" autocomplete="off">
+          </div>
+          <div class="field">
+            <label class="label" for="ss-pphone2">Phone 2 <span class="field-optional">Optional</span></label>
+            <input class="input tnum" id="ss-pphone2" type="tel" inputmode="tel" placeholder="+234 …" autocomplete="off">
+          </div>
+        </div>
+      </section>
+    </div>
+    <footer class="sheet-footer">
+      <div class="x-total">
+        <span class="x-total-line" id="ss-total">Assigned <strong id="ss-t-assigned">₦0</strong><span class="x-dot-sep">·</span>Paying now <strong id="ss-t-paying">₦0</strong></span>
+        <span class="x-note">Preview · nothing is sent</span>
+      </div>
+      <div class="x-actions">
+        <button type="button" class="btn btn-outline" data-close>Cancel</button>
+        <button type="submit" class="btn btn-default" id="ss-submit">Save student</button>
+      </div>
+    </footer>
+  </form>
+</aside>
+
+<!-- ============ Sheet: receive payment ============ -->
+<aside class="sheet x-sheet" id="sheet-pay" aria-labelledby="rp-title" aria-describedby="rp-desc" hidden>
+  <form class="x-sheet-form" id="rp-form" novalidate>
+    <header class="sheet-header">
+      <p class="x-eyebrow">Finance · Collections</p>
+      <h2 class="sheet-title" id="rp-title">Receive payment</h2>
+      <p class="sheet-description" id="rp-desc">Record money received and allocate it to this term's fees.</p>
+      <button type="button" class="btn btn-ghost btn-icon btn-sm overlay-close" data-close aria-label="Close"><i data-icon="x"></i></button>
+    </header>
+    <div class="sheet-body">
+      <section class="x-sec" aria-labelledby="rp-s1">
+        <h3 class="x-sec-head" id="rp-s1"><span class="x-folio">1</span><span aria-hidden="true">·</span> Student</h3>
+        <div class="field" id="rp-pick">
+          <label class="label" for="rp-student">Student</label>
+          <div class="x-combo">
+            <div class="input-group"><span class="input-addon"><i data-icon="search"></i></span><input class="input" id="rp-student" role="combobox" aria-expanded="false" aria-controls="rp-list" aria-autocomplete="list" autocomplete="off" placeholder="Search by name or student ID" aria-describedby="rp-student-err"></div>
+            <ul class="x-combo-list" id="rp-list" role="listbox" aria-label="Students" hidden></ul>
+          </div>
+          <p class="field-error" id="rp-student-err" hidden></p>
+        </div>
+        <div class="x-picked" id="rp-picked" hidden>
+          <span class="avatar" id="rp-p-av" aria-hidden="true"></span>
+          <span class="x-picked-text"><strong id="rp-p-name"></strong><span id="rp-p-meta"></span></span>
+          <button type="button" class="btn btn-ghost btn-sm" id="rp-change">Change</button>
+        </div>
+      </section>
+
+      <section class="x-sec" aria-labelledby="rp-s2">
+        <h3 class="x-sec-head" id="rp-s2"><span class="x-folio">2</span><span aria-hidden="true">·</span> Paying for</h3>
+        <div class="field">
+          <label class="label" for="rp-term">Term <span class="badge x-current" id="rp-current">Current</span></label>
+          <select class="select" id="rp-term">
+            <option value="current">First Term · 2026/2027</option>
+            <option value="prev">Third Term · 2025/2026</option>
+          </select>
+        </div>
+        <div id="rp-lines"></div>
+      </section>
+
+      <section class="x-sec" aria-labelledby="rp-s3">
+        <h3 class="x-sec-head" id="rp-s3"><span class="x-folio">3</span><span aria-hidden="true">·</span> Payment</h3>
+        <div class="field-grid">
+          <div class="field">
+            <label class="label" for="rp-amount">Amount paying</label>
+            <div class="input-group"><span class="input-addon">₦</span><input class="input tnum" id="rp-amount" inputmode="numeric" placeholder="0" autocomplete="off" aria-describedby="rp-amount-err"></div>
+            <p class="field-error" id="rp-amount-err" hidden></p>
+          </div>
+          <div class="field">
+            <label class="label" for="rp-date">Payment date</label>
+            <input class="input" type="date" id="rp-date" value="2026-10-09">
+          </div>
+        </div>
+        <div class="field">
+          <span class="label" id="rp-method-l">Payment method</span>
+          <div class="x-seg" role="radiogroup" aria-labelledby="rp-method-l">
+            <label><input type="radio" name="rpmethod" value="Transfer" checked><span><i data-icon="landmark"></i>Transfer</span></label>
+            <label><input type="radio" name="rpmethod" value="Cash"><span><i data-icon="banknote"></i>Cash</span></label>
+            <label><input type="radio" name="rpmethod" value="POS"><span><i data-icon="credit-card"></i>POS</span></label>
+          </div>
+        </div>
+        <div class="field-grid">
+          <div class="field">
+            <label class="label" for="rp-ref">Reference <span class="field-optional">Optional</span></label>
+            <input class="input" id="rp-ref" placeholder="TRX-00123" autocomplete="off">
+          </div>
+          <div class="field" style="grid-column:1/-1">
+            <label class="label" for="rp-note">Note <span class="field-optional">Optional</span></label>
+            <textarea class="textarea" id="rp-note" rows="2" placeholder="Anything the bursar should know"></textarea>
+          </div>
+        </div>
+      </section>
+    </div>
+    <footer class="sheet-footer">
+      <div class="x-total">
+        <span class="x-total-line">Due <strong id="rp-t-due">₦0</strong><span class="x-dot-sep">·</span>Paying <strong id="rp-t-pay">₦0</strong><span class="x-dot-sep">·</span>Balance after <strong id="rp-t-bal">₦0</strong></span>
+        <span class="x-note">Preview · nothing is sent</span>
+      </div>
+      <div class="x-actions">
+        <button type="button" class="btn btn-outline" data-close>Cancel</button>
+        <button type="submit" class="btn btn-default" id="rp-submit">Confirm payment</button>
+      </div>
+    </footer>
+  </form>
+</aside>
+
+<!-- ============ Dialog: delete student (type the name) ============ -->
+<div class="dialog x-dialog" id="dlg-delete" role="alertdialog" aria-labelledby="dd-title" aria-describedby="dd-desc" hidden>
+  <div class="dialog-header">
+    <p class="x-eyebrow is-danger">Delete student</p>
+    <h2 class="dialog-title" id="dd-title">Delete <span id="dd-name"></span>?</h2>
+    <p class="dialog-description" id="dd-desc">This removes the student's record from Kingsway Academy and can't be undone. To take them off this term only, use “Remove from current term” instead.</p>
+  </div>
+  <div class="x-confirm-box" id="dd-box"></div>
+  <div class="field">
+    <label class="label" for="dd-input">Type <strong id="dd-name2"></strong> to confirm</label>
+    <input class="input" id="dd-input" autocomplete="off" spellcheck="false" autofocus>
+  </div>
+  <div class="dialog-footer">
+    <button type="button" class="btn btn-outline" data-close>Cancel</button>
+    <button type="button" class="btn btn-destructive" id="dd-confirm" disabled><i data-icon="trash-2"></i>Delete student</button>
+  </div>
+</div>
+
+<!-- ============ Dialog: search (⌘K) ============ -->
+<div class="dialog x-cmd" id="dlg-search" aria-label="Search" hidden>
+  <div class="x-cmd-input">
+    <i data-icon="search" data-size="18"></i>
+    <input id="cmd-input" role="combobox" aria-expanded="true" aria-controls="cmd-list" aria-autocomplete="list" placeholder="Search students, receipts, staff…" autocomplete="off" spellcheck="false" autofocus aria-label="Search">
+    <kbd class="kbd">Esc</kbd>
+  </div>
+  <div class="x-cmd-list" id="cmd-list" role="listbox" aria-label="Results"></div>
+  <div class="x-cmd-foot" aria-hidden="true"><span><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd> to move</span><span><kbd class="kbd">↵</kbd> to open</span><span><kbd class="kbd">Esc</kbd> to close</span></div>
+</div>
+</body>
+</html>

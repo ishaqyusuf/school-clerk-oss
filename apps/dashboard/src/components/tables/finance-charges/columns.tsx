@@ -1,4 +1,5 @@
 "use client";
+import { OpenAssistant } from "@/components/assistant/open-assistant";
 
 import { NumberInput } from "@/components/currency-input";
 import { useFinanceSheetParams } from "@/hooks/use-finance-sheet-params";
@@ -171,6 +172,15 @@ function FinanceChargeRowActions({ row }: { row: FinanceChargeRow }) {
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end">
+				<OpenAssistant menuItem
+					records={[
+						{
+							kind: "payment",
+							id: row.id,
+							label: row.studentName ?? row.title ?? "Charge",
+						},
+					]}
+				/>
 				<DropdownMenuItem onClick={openPayment}>
 					<CreditCard className="mr-2 h-4 w-4" />
 					{label}

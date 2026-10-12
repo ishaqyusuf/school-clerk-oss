@@ -1,5 +1,13 @@
 # In Progress
 
+## Classroom overview sheet: section rail — 2026-10-12
+
+The owner chose 02 Section rail from `artifacts/classroom-sheet-v2-workshop`, and it is implemented locally. Component tests and a typecheck of the changed files pass. Live browser QA at desktop and phone widths passed on the local stack after layout fixes. Committed on branch `classroom-section-rail` (not pushed). Live Teacher and Registrar checks are still open. See [feature](../features/classroom-overview.md) and [ADR-0078](../decisions/ADR-0078-classroom-section-rail.md).
+
+## Design-system workshop — 2026-10-09
+
+Three complete shadcn-based directions are waiting for owner review: 01 Registry, 02 Timetable and 03 Assembly. Each covers marketing, signup and onboarding, the dashboard shell, tables, sheets and dialogs, a components style guide and the website generator. The goal is to replace the Midday-derived dashboard look. No product code has changed yet. See the [workshop plan](../plans/2026-10-09-design-system-workshop.md) and `artifacts/design-system-workshop/index.html`.
+
 ## Student screen mockup review — 2026-10-06
 
 Saved for later by owner instruction on 2026-10-06. Three responsive alternatives
@@ -178,3 +186,21 @@ Owner requested implementation of the remaining latency phases. Existing routing
 ## Regional routing task completion update —2026-10-06
 
 The previously pending regional tenant routing and pool lifecycle implementation/release/warm comparison is complete. Dashboard warm Chrome Load0.906/2.210/0.962s: median0.962s vs2.07s, observed53.5% reduction. Classes3.540/0.919/1.030s: median1.030s vs2.44s, observed57.8% reduction. See tasks/done.md and ADR-0069. Startup and the separate73.2s application elapsed /student-report outlier remain follow-ups in backlog; other task records and their states are unchanged.
+
+## GND assistant replacement — completed 2026-10-06
+
+Implementation and scoped local acceptance are complete. See [done](./done.md) and the [verification record](../plans/2026-10-06-gnd-assistant-replacement.md). Application/production-worker rollout was not requested; existing broad repository check failures are recorded in the plan.
+## Classroom overview workshop — 2026-10-11
+
+Three directions (Quiet tabs, Focus view, Class home) are built and published
+to the owner-private Site at
+https://school-clerk-classroom-directions.ishaqyusuf024.chatgpt.site.
+The owner's existing-feature follow-up prompted a source audit and deployed
+revision with full student/subject secondary sample workspaces, assessment
+configuration/sub-assessments/score entry and local payment recording. Hosted
+`coverage.html` distinguishes working samples from source-only integrations.
+Mobile/desktop content QA is awaiting explicit ChatGPT consent approval after
+automatic review rejected sharing the owner's basic profile with the Site.
+Syntax checks and native deployment confirmation pass. No production design
+selection or app changes. See
+[workshop record](../plans/2026-10-11-classroom-overview-workshop.md).

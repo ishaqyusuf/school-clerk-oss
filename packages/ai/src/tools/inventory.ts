@@ -28,7 +28,7 @@ type AssistantInventoryModel = {
 	updateMany(args: unknown): Promise<{ count: number }>;
 };
 
-const inventoryModel = prisma.inventory as unknown as AssistantInventoryModel;
+const inventoryModel = prisma.schoolInventory as unknown as AssistantInventoryModel;
 
 export function createInventoryTools(ctx: SchoolAiToolContext, helpers: SchoolAiToolHelpers) {
 	const {
@@ -189,8 +189,12 @@ export function createInventoryTools(ctx: SchoolAiToolContext, helpers: SchoolAi
 					}
 
 					const output = await prisma.$transaction(async (tx) => {
-						await consumeMutationConfirmation(tx, { toolName: "createInventoryItem", confirmationToken, actionInput });
-						const item = await tx.inventory.create({
+						await consumeMutationConfirmation(tx, {
+							toolName: "createInventoryItem",
+							confirmationToken,
+							actionInput,
+						});
+						const item = await tx.schoolInventory.create({
 							data: {
 								title: actionInput.title,
 								type: actionInput.type,
@@ -328,7 +332,7 @@ export function createInventoryTools(ctx: SchoolAiToolContext, helpers: SchoolAi
 					const output = await prisma.$transaction(async (tx) => {
 						await consumeMutationConfirmation(tx, { toolName: "recordInventoryIssuance", confirmationToken, actionInput });
 						const txInventory =
-							tx.inventory as unknown as AssistantInventoryModel;
+							tx.schoolInventory as unknown as AssistantInventoryModel;
 						const reserved = await txInventory.updateMany({
 							where: { id: actionInput.inventoryId, schoolProfileId: ctx.schoolId,
 								deletedAt: null, quantity: { gte: actionInput.quantity } },

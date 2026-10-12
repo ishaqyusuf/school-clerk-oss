@@ -39,6 +39,7 @@ model User {
     assistantConversations AssistantConversation[] @relation("AssistantConversationCreatedBy")
     assistantMessages      AssistantMessage[]      @relation("AssistantMessageCreatedBy")
     assistantRuns          AssistantRun[]          @relation("AssistantRunUser")
+    assistantPreferences AssistantPreference[]
     assistantFeedback      AssistantFeedback[]     @relation("AssistantFeedbackUser")
 }
 

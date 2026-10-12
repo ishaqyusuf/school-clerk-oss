@@ -80,7 +80,9 @@ export function FormInput<
             className={cn(
               className,
               props.disabled && "text-muted-foreground",
-              "mx-1",
+              // Inset for focus rings. Padding, not margin: Field is w-full, so a
+              // margin pushed every input 8px past its column.
+              "px-1",
             )}
           >
             {label && (

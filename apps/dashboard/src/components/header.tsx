@@ -1,5 +1,7 @@
 "use client";
 
+import { OpenAssistant } from "./assistant/open-assistant";
+
 import { SiteNav } from "@school-clerk/site-nav";
 import { HeaderUserMenu } from "./header-user-menu";
 import { NotificationBell } from "./notifications/notification-bell";
@@ -54,7 +56,8 @@ export function Header() {
                 <OpenSearchButton />
               </div>
               <div>
-                <NotificationBell />
+                <OpenAssistant compact />
+								<NotificationBell />
               </div>
               <div className="hidden md:block">
                 <ThemeSwitch />

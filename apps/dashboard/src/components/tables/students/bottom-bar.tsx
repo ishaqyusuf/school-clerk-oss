@@ -1,5 +1,7 @@
 "use client";
 
+import { OpenAssistant } from "@/components/assistant/open-assistant";
+
 import { BottomBar as CoreBottomBar } from "@/components/tables/core";
 import { useAuth } from "@/hooks/use-auth";
 import { useRemoveStudentTerms } from "@/hooks/use-remove-student-terms";
@@ -178,6 +180,7 @@ export function StudentsBottomBar({
 				selectedCount={selectedStudents.length}
 				onDeselect={() => setRowSelection({})}
 			>
+				<OpenAssistant records={selectedStudents.map(student=>({kind:"student",id:student.id,label:student.studentName}))} />
 				<Button variant="outline" size="sm" onClick={exportCsv}>
 					<Download className="size-4" />
 					<span className="hidden sm:inline">Export CSV</span>

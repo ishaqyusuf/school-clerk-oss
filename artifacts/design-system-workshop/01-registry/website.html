@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Website editor · Kingsway Academy — Registry</title>
+<meta name="description" content="Direction 01 Registry: the School Clerk website generator as an editorial workbench.">
+<link rel="icon" href="../shared/brand-mark.svg">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="../shared/shadcn.css">
+<link rel="stylesheet" href="../shared/workshop.css">
+<link rel="stylesheet" href="website.css">
+<script src="../shared/data.js"></script>
+<script src="../shared/icons.js"></script>
+<script src="../shared/workshop.js"></script>
+<script src="website.js" defer></script>
+</head>
+<body class="wb" data-mode="editor">
+<a class="wb-skip" href="#canvas">Skip to site preview</a>
+
+<!-- ===================== Top bar ===================== -->
+<header class="wb-top">
+  <div class="wb-top-l">
+    <a class="btn btn-ghost btn-sm wb-back" href="dashboard.html" aria-label="Back to dashboard" title="Back to dashboard">
+      <i data-icon="arrow-left"></i><span class="wb-back-t">Dashboard</span>
+    </a>
+    <span class="wb-vr" aria-hidden="true"></span>
+    <div class="wb-title">
+      <h1 class="wb-site">Kingsway Academy<span class="sr-only"> — website editor</span></h1>
+      <span class="wb-addr mono">kingsway.school-clerk.com</span>
+    </div>
+    <div class="wb-pop">
+      <button type="button" class="wb-status" id="statusBtn" data-menu="#verMenu" aria-haspopup="menu" aria-expanded="false" aria-controls="verMenu">
+        <span class="dot" id="statusDot" aria-hidden="true"></span>
+        <span class="wb-status-t" id="statusText">Draft · edited 4 min ago</span>
+        <i data-icon="chevron-down" data-size="14"></i>
+      </button>
+      <div class="popover wb-menu wb-ver-menu" id="verMenu" role="menu" aria-label="Versions" hidden></div>
+    </div>
+  </div>
+
+  <div class="wb-top-c" role="group" aria-label="Canvas tools">
+    <button type="button" class="btn btn-ghost btn-sm btn-icon wb-drawer-btn" id="olToggle" aria-controls="outline" aria-expanded="false" aria-label="Show outline" title="Outline">
+      <i data-icon="list"></i>
+    </button>
+    <div class="wb-pop">
+      <button type="button" class="wb-pagebtn" id="pageBtn" data-menu="#pageMenu" aria-haspopup="menu" aria-expanded="false" aria-controls="pageMenu">
+        <span class="wb-pagebtn-k">Page</span><span class="wb-pagebtn-n" id="pageName">Home</span><i data-icon="chevrons-up-down" data-size="14"></i>
+      </button>
+      <div class="popover wb-menu" id="pageMenu" role="menu" aria-label="Pages" hidden></div>
+    </div>
+    <div class="wb-seg wb-device" id="deviceSeg" role="radiogroup" aria-label="Preview width">
+      <button type="button" role="radio" aria-checked="true" data-device="desktop" aria-label="Desktop" title="Desktop"><i data-icon="monitor"></i></button>
+      <button type="button" role="radio" aria-checked="false" data-device="tablet" aria-label="Tablet" title="Tablet"><i data-icon="tablet"></i></button>
+      <button type="button" role="radio" aria-checked="false" data-device="mobile" aria-label="Mobile" title="Mobile"><i data-icon="smartphone"></i></button>
+    </div>
+    <span class="wb-vr wb-vr-c" aria-hidden="true"></span>
+    <button type="button" class="btn btn-ghost btn-sm btn-icon" id="undoBtn" data-act="undo" aria-label="Undo" title="Undo (⌘Z)" disabled><i data-icon="undo-2"></i></button>
+    <button type="button" class="btn btn-ghost btn-sm btn-icon" id="redoBtn" data-act="redo" aria-label="Redo" title="Redo (⇧⌘Z)" disabled><i data-icon="redo-2"></i></button>
+    <button type="button" class="btn btn-ghost btn-sm btn-icon wb-drawer-btn" id="inToggle" aria-controls="inspector" aria-expanded="false" aria-label="Show inspector" title="Inspector">
+      <i data-icon="sliders-horizontal"></i>
+    </button>
+  </div>
+
+  <div class="wb-top-r">
+    <button type="button" class="btn btn-outline btn-sm wb-preview-btn" id="previewBtn" data-act="preview" aria-pressed="false">
+      <i data-icon="eye"></i><span>Preview</span>
+    </button>
+    <button type="button" class="btn btn-default btn-sm" id="publishBtn" data-act="publish">
+      <i data-icon="globe"></i><span id="publishLabel">Publish</span>
+    </button>
+    <div class="wb-pop is-end">
+      <button type="button" class="btn btn-ghost btn-sm btn-icon" id="moreBtn" data-menu="#moreMenu" aria-haspopup="menu" aria-expanded="false" aria-controls="moreMenu" aria-label="More actions" title="More">
+        <i data-icon="ellipsis"></i>
+      </button>
+      <div class="popover wb-menu" id="moreMenu" role="menu" aria-label="More actions" hidden>
+        <button type="button" class="menu-item wb-only-sm" role="menuitem" data-act="preview"><i data-icon="eye"></i>Preview</button>
+        <button type="button" class="menu-item" role="menuitem" data-act="duplicate" id="mDuplicate"><i data-icon="copy"></i>Duplicate to edit</button>
+        <button type="button" class="menu-item" role="menuitem" data-act="archive" id="mArchive"><i data-icon="inbox"></i>Archive draft</button>
+        <div class="menu-sep" role="separator"></div>
+        <button type="button" class="menu-item" role="menuitem" data-act="media"><i data-icon="images"></i>Media</button>
+        <button type="button" class="menu-item" role="menuitem" data-act="cms"><i data-icon="newspaper"></i>CMS<span class="menu-shortcut" id="mCmsCount">22 entries</span></button>
+        <div class="menu-sep" role="separator"></div>
+        <button type="button" class="menu-item" role="menuitem" data-act="templates"><i data-icon="layout-template"></i>Change template</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ===================== Workbench ===================== -->
+<div class="wb-body" id="wbBody">
+  <nav class="wb-outline" id="outline" aria-label="Site outline"></nav>
+
+  <main class="wb-desk" id="canvas" tabindex="-1" aria-label="Site preview">
+    <div class="wb-stage" id="stage">
+      <div class="wb-desk-head">
+        <p class="wb-desk-title" id="deskTitle"><span class="n">01</span> — Home</p>
+        <p class="eb" id="deskSub">6 sections</p>
+      </div>
+      <div class="wb-banner" id="banner" hidden></div>
+      <div class="wb-frame" id="frame">
+        <div class="wb-frame-bar">
+          <span class="wb-tab" id="frameTab"></span>
+          <span class="wb-url" id="frameUrl"></span>
+          <span class="wb-frame-note" id="frameNote" aria-live="polite"></span>
+        </div>
+        <div class="wb-frame-view" id="frameView">
+          <div class="site" id="site"></div>
+        </div>
+      </div>
+      <p class="eb wb-meta" id="deskMeta">Desktop · 1200 px</p>
+    </div>
+  </main>
+
+  <aside class="wb-inspector" id="inspector" aria-label="Inspector">
+    <div class="tabs-list in-tabs" role="tablist" aria-label="Inspector">
+      <button type="button" class="tabs-trigger" role="tab" id="tab-content" aria-controls="panel-content" aria-selected="true" data-tab="content">Content</button>
+      <button type="button" class="tabs-trigger" role="tab" id="tab-style" aria-controls="panel-style" aria-selected="false" tabindex="-1" data-tab="style">Style</button>
+      <button type="button" class="tabs-trigger" role="tab" id="tab-seo" aria-controls="panel-seo" aria-selected="false" tabindex="-1" data-tab="seo">SEO</button>
+    </div>
+    <div class="in-panel" id="panel-content" role="tabpanel" aria-labelledby="tab-content" tabindex="0"></div>
+    <div class="in-panel" id="panel-style" role="tabpanel" aria-labelledby="tab-style" tabindex="0" hidden></div>
+    <div class="in-panel" id="panel-seo" role="tabpanel" aria-labelledby="tab-seo" tabindex="0" hidden></div>
+  </aside>
+
+  <section class="wb-templates" id="templates" aria-labelledby="tplTitle" hidden>
+    <div class="tp-in">
+      <header class="tp-head">
+        <div class="tp-head-copy">
+          <p class="eb">Change template</p>
+          <h2 class="tp-title" id="tplTitle" tabindex="-1">Choose how <em>Kingsway Academy</em> is laid out</h2>
+          <p class="tp-lede">A template sets the layout of every page. Your sections, text and SEO carry over; colours and type switch to the template’s preset. Each choice becomes a new draft — the live site stays as it is until you publish.</p>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" data-act="back-editor"><i data-icon="arrow-left"></i>Back to editor</button>
+      </header>
+      <ol class="tp-grid" id="tplGrid"></ol>
+    </div>
+  </section>
+
+  <div class="wb-scrim" id="scrim" hidden></div>
+</div>
+
+<!-- ===================== Publish dialog ===================== -->
+<div class="dialog wb-dialog" id="pubDialog" aria-labelledby="pubTitle" aria-describedby="pubDesc" hidden style="--dialog-w: 30rem">
+  <button type="button" class="btn btn-ghost btn-sm btn-icon overlay-close" data-close aria-label="Close"><i data-icon="x"></i></button>
+  <div class="dialog-header">
+    <p class="eb" id="pubEyebrow">Publish · Version 3</p>
+    <h2 class="dialog-title" id="pubTitle">Publish this draft?</h2>
+    <p class="dialog-description" id="pubDesc">The live site will be replaced. Published versions can’t be edited — duplicate to make changes.</p>
+  </div>
+  <dl class="wb-ledger" id="pubLedger"></dl>
+  <div class="pub-run" id="pubRun" tabindex="-1" hidden>
+    <div class="pub-bar" role="progressbar" aria-label="Publishing" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pubBarWrap"><span id="pubBar"></span></div>
+    <ol class="pub-steps" id="pubSteps">
+      <li><span class="pub-ic" aria-hidden="true"></span>Checking pages and links</li>
+      <li><span class="pub-ic" aria-hidden="true"></span><span id="pubStep2">Saving version 3</span></li>
+      <li><span class="pub-ic" aria-hidden="true"></span>Replacing the live site</li>
+    </ol>
+  </div>
+  <div class="dialog-footer" id="pubFoot">
+    <button type="button" class="btn btn-outline" data-close>Cancel</button>
+    <button type="button" class="btn btn-default" id="pubGo" autofocus><i data-icon="globe"></i>Publish</button>
+  </div>
+  <p class="ws-note">Preview · nothing is published</p>
+</div>
+
+<!-- ===================== Template preview dialog ===================== -->
+<div class="dialog wb-dialog tpd" id="tplDialog" aria-labelledby="tplDTitle" hidden style="--dialog-w: 68rem">
+  <button type="button" class="btn btn-ghost btn-sm btn-icon overlay-close" data-close aria-label="Close"><i data-icon="x"></i></button>
+  <div class="dialog-header">
+    <p class="eb" id="tplDEyebrow">Template preview</p>
+    <h2 class="dialog-title" id="tplDTitle">Scholaris</h2>
+    <p class="dialog-description" id="tplDDesc"></p>
+  </div>
+  <div class="tpd-view" id="tplView">
+    <div class="tpd-fit" id="tplFit" inert><div class="site" id="tplSite"></div></div>
+  </div>
+  <div class="dialog-footer">
+    <span class="tpd-note" id="tplDNote"></span>
+    <button type="button" class="btn btn-outline" data-close>Close</button>
+    <button type="button" class="btn btn-default" id="tplDCreate">Create draft</button>
+  </div>
+</div>
+
+<!-- ===================== CMS sheet ===================== -->
+<div class="sheet wb-sheet" id="cmsSheet" aria-labelledby="cmsTitle" hidden style="--sheet-w: 30rem">
+  <div class="sheet-header">
+    <p class="eb">Website content</p>
+    <h2 class="sheet-title" id="cmsTitle">Collections</h2>
+    <p class="sheet-description">Entries that pages list for you — notices, posts, events and files.</p>
+    <button type="button" class="btn btn-ghost btn-sm btn-icon overlay-close" data-close aria-label="Close"><i data-icon="x"></i></button>
+  </div>
+  <div class="sheet-body" id="cmsBody"></div>
+  <div class="sheet-footer">
+    <span class="ws-note">Preview · entries can’t be changed here</span>
+    <button type="button" class="btn btn-outline" data-close>Close</button>
+  </div>
+</div>
+
+<!-- ===================== Media sheet ===================== -->
+<div class="sheet wb-sheet" id="mediaSheet" aria-labelledby="mediaTitle" hidden style="--sheet-w: 30rem">
+  <div class="sheet-header">
+    <p class="eb">Website media</p>
+    <h2 class="sheet-title" id="mediaTitle">Media</h2>
+    <p class="sheet-description">Images the school website uses. Sections show a marked placeholder until an image is chosen.</p>
+    <button type="button" class="btn btn-ghost btn-sm btn-icon overlay-close" data-close aria-label="Close"><i data-icon="x"></i></button>
+  </div>
+  <div class="sheet-body" id="mediaBody"></div>
+  <div class="sheet-footer">
+    <span class="ws-note">Preview · uploads are off</span>
+    <button type="button" class="btn btn-outline" data-close>Close</button>
+  </div>
+</div>
+
+<div class="sr-only" id="live" aria-live="polite"></div>
+</body>
+</html>

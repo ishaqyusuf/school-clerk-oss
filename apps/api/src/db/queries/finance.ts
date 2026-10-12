@@ -50,7 +50,7 @@ type FinancePaymentTransaction = Pick<
 	| "financePaymentAllocation"
 	| "financeLedgerEntry"
 	| "financeTermLedgerClose"
-	| "inventory"
+	| "schoolInventory"
 	| "inventoryIssuance"
 >;
 
@@ -1503,7 +1503,7 @@ export async function recordFinancePaymentInTransaction(
 
 		// Try to deduct inventory if it's an inventory-related charge
 		if (charge.title) {
-			const inventory = tx.inventory as any;
+			const inventory = tx.schoolInventory as any;
 			const inventoryItem = await inventory.findFirst({
 				where: {
 					schoolProfileId,

@@ -10,19 +10,25 @@ import { useEffect, useMemo, useState } from "react";
 
 interface Props {
   departmentId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
-export function QuickAddSubject(props: Props) {
-  const { data: subjects } = useQuery(
+/** Catalog subjects not yet attached to the classroom. */
+export function useQuickAddSubjects(departmentId?: string | null) {
+  return useQuery(
     _trpc.subjects.getQuickAddSubjects.queryOptions(
       {
-        departmentId: props.departmentId,
+        departmentId: departmentId || "",
       },
       {
-        enabled: !!props.departmentId,
+        enabled: !!departmentId,
       }
     )
   );
-  const [open, setOpen] = useState(false);
+}
+/** Import panel; its trigger lives in the subjects section header. */
+export function QuickAddSubject({ open, onOpenChange: setOpen, ...props }: Props) {
+  const { data: subjects } = useQuickAddSubjects(props.departmentId);
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
 
   const subjectIds = useMemo(
@@ -68,22 +74,13 @@ export function QuickAddSubject(props: Props) {
     })
   );
   const auth = useAuth();
-  if (!subjects?.length) return null;
+  if (!subjects?.length || !open) return null;
   return (
     <div className="flex w-full flex-col gap-3">
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-          className="text-sm font-medium text-primary underline-offset-4 transition-colors hover:underline"
-        >
-          {open ? "Hide import" : "Import"}
-        </button>
-      </div>
       {open ? (
         <div className="rounded-xl border border-border bg-muted/20 p-4">
           <div className="flex flex-col gap-1 pb-3">
-            <p className="text-sm font-medium">Mark subjects to import</p>
+            <p className="text-sm font-medium">Import from catalog</p>
             <p className="text-sm text-muted-foreground">
               Select one or more subjects not yet attached to this classroom.
             </p>
@@ -127,6 +124,9 @@ export function QuickAddSubject(props: Props) {
               {selectedSubjectIds.length === 1 ? "" : "s"} selected
             </p>
             <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
               <Button
                 type="button"
                 variant="ghost"

@@ -11,7 +11,6 @@ import { cn } from "@school-clerk/ui/cn";
 import { Input } from "@school-clerk/ui/input";
 import { Spinner } from "@school-clerk/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@school-clerk/ui/toggle-group";
-import { toast } from "@school-clerk/ui/use-toast";
 import type { RefCallback } from "react";
 
 type AttendanceRosterStudent = {
@@ -58,6 +57,7 @@ export function ClassroomAttendanceRoster({
   statusMap,
   students,
   total,
+  allowClear = false,
 }: {
   commentMap: Record<string, string>;
   direction: DataDirection;
@@ -66,13 +66,16 @@ export function ClassroomAttendanceRoster({
   isLoading: boolean;
   loadMoreRef: RefCallback<HTMLDivElement>;
   onCommentChange: (attendanceKey: string, comment: string) => void;
+  /** `null` clears the mark (only sent when `allowClear`). */
   onStatusChange: (
     attendanceKey: string,
-    status: RecordableAttendanceStatus,
+    status: RecordableAttendanceStatus | null,
   ) => void;
   statusMap: Record<string, AttendanceStatus | undefined>;
   students: AttendanceRosterStudent[];
   total: number;
+  /** Tapping the selected status again unmarks the student (new sessions only). */
+  allowClear?: boolean;
 }) {
   if (isLoading) {
     return (
@@ -148,6 +151,7 @@ export function ClassroomAttendanceRoster({
                       selectedStatus={selectedStatus}
                       student={student}
                       onStatusChange={onStatusChange}
+                      allowClear={allowClear}
                     />
                   </td>
                   {showRemarksColumn ? (
@@ -192,13 +196,16 @@ export function ClassroomAttendanceRoster({
 }
 
 function AttendanceStatusPicker({
+  allowClear,
   onStatusChange,
   selectedStatus,
   student,
 }: {
+  allowClear?: boolean;
+  /** `null` clears the mark (only sent when `allowClear`). */
   onStatusChange: (
     attendanceKey: string,
-    status: RecordableAttendanceStatus,
+    status: RecordableAttendanceStatus | null,
   ) => void;
   selectedStatus?: AttendanceStatus;
   student: AttendanceRosterStudent;
@@ -213,14 +220,16 @@ function AttendanceStatusPicker({
       aria-label={`Attendance status for ${student.studentName}`}
       className="grid w-full grid-cols-3 md:flex md:w-auto"
       onValueChange={(value) => {
-        if (!value) return;
+        // An empty value means the selected status was tapped again.
+        if (!value) {
+          if (allowClear) onStatusChange(student.attendanceKey, null);
+          return;
+        }
         const status = RECORDABLE_ATTENDANCE_STATUSES.find(
           (item) => item.value === value,
         );
-        if (status) {
-          onStatusChange(student.attendanceKey, status.value);
-        }
-        if (status) toast({ title: status.label });
+        // The tinted row already confirms the choice; no toast per tap.
+        if (status) onStatusChange(student.attendanceKey, status.value);
       }}
     >
       {RECORDABLE_ATTENDANCE_STATUSES.map((status) => (

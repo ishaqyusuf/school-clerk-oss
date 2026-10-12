@@ -188,7 +188,7 @@ export function SubjectAssessments(props: Props) {
     };
   }) => (
     <DropdownMenu dir="ltr">
-      <DropdownMenu.Trigger disabled={!suggestions?.length}>
+      <DropdownMenu.Trigger asChild disabled={!suggestions?.length}>
         {children}
       </DropdownMenu.Trigger>
       <DropdownMenu.Content className="">
@@ -281,7 +281,7 @@ export function SubjectAssessments(props: Props) {
                       </Button>
                       <Separator orientation="vertical" />
                       <Suggestion>
-                        <Button size="sm">
+                        <Button size="sm" aria-label="Add a suggested assessment">
                           <ListPlus className="size-4" />
                         </Button>
                       </Suggestion>

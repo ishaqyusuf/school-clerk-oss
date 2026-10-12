@@ -1,54 +1,109 @@
 import { Button } from "@school-clerk/ui/button";
-import { Icons } from "@school-clerk/ui/custom/icons";
-import { Collapsible } from "@school-clerk/ui/composite";
-import Portal from "@school-clerk/ui/custom/portal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@school-clerk/ui/dropdown-menu";
 import { SubjectForm, SubjectFormAction } from "./forms/subject-form";
 import { _qc, _trpc } from "./static-trpc";
-import { useState } from "react";
-import { QuickAddSubject } from "./quick-add-subject";
+import { useMemo, useState } from "react";
+import { QuickAddSubject, useQuickAddSubjects } from "./quick-add-subject";
 import { useAuth } from "@/hooks/use-auth";
+import { ClassroomSectionHeader } from "./classroom-overview/classroom-section-nav";
+import { Import, MoreHorizontal, Plus } from "lucide-react";
 
-export function ClassroomSubjectHeader({ departmentId }) {
-  const [open, setOpen] = useState(false);
+export type SubjectHeaderPanel = "add" | "import" | null;
+
+export function ClassroomSubjectHeader({
+  departmentId,
+  panel,
+  onPanelChange: setPanel,
+}: {
+  departmentId: string;
+  panel: SubjectHeaderPanel;
+  onPanelChange: (panel: SubjectHeaderPanel) => void;
+}) {
+  // Remounts the add form after each save so it starts empty.
+  const [formKey, setFormKey] = useState(0);
   const auth = useAuth();
+  const { data: catalogSubjects } = useQuickAddSubjects(departmentId);
+  const defaultValues = useMemo(
+    () => ({
+      departmentId,
+      sessionTermId: auth.profile?.termId,
+    }),
+    [departmentId, auth.profile?.termId],
+  );
   return (
-    <div className="flex gap-4 flex-col">
-      <div className="flex-1 flex">
-        <div className="flex-1"></div>
-        {/* <Button>
-        <Icons.add className="size-4 mr-2" />
-        Subject
-      </Button> */}
-        <div id="buttonSlot"></div>
-        <QuickAddSubject departmentId={departmentId} />
-      </div>
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <Portal nodeId={"buttonSlot"}>
-          <Collapsible.Trigger asChild>
-            <Button>
-              <Icons.add className="size-4" />
+    <div className="flex flex-col gap-4">
+      <ClassroomSectionHeader
+        title="Subjects"
+        actions={
+          <>
+            <Button
+              size="sm"
+              className="gap-2"
+              variant={panel === "add" ? "secondary" : "default"}
+              aria-expanded={panel === "add"}
+              onClick={() => setPanel(panel === "add" ? null : "add")}
+            >
+              <Plus className="size-4" />
+              Add subject
             </Button>
-          </Collapsible.Trigger>
-        </Portal>
-        <Collapsible.Content>
-          <SubjectForm
-            defaultValues={{
-              departmentId,
-              sessionTermId: auth.profile?.termId,
-            }}
-          >
-            <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="outline" className="size-9" aria-label="More subject actions">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  disabled={!catalogSubjects?.length}
+                  onSelect={() => setPanel("import")}
+                >
+                  <Import className="mr-2 size-4" />
+                  {catalogSubjects?.length
+                    ? "Import from catalog"
+                    : "All catalog subjects added"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
+      {panel === "add" ? (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <SubjectForm key={formKey} defaultValues={defaultValues as never}>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setPanel(null)}>
+                Cancel
+              </Button>
               <SubjectFormAction
-                onSuccess={(e) => {
+                onSuccess={() => {
                   _qc.invalidateQueries({
                     queryKey: _trpc.subjects.getSubjects.infiniteQueryKey({}),
                   });
+                  _qc.invalidateQueries({
+                    queryKey: _trpc.subjects.byClassroom.queryKey({
+                      departmentId,
+                    } as never),
+                  });
+                  setFormKey((key) => key + 1);
+                }}
+                onError={() => {
+                  // The mutation's toast meta already reports the failure; keep the draft.
                 }}
               />
             </div>
           </SubjectForm>
-        </Collapsible.Content>
-      </Collapsible>
+        </div>
+      ) : null}
+      <QuickAddSubject
+        departmentId={departmentId}
+        open={panel === "import"}
+        onOpenChange={(open) => setPanel(open ? "import" : null)}
+      />
     </div>
   );
 }

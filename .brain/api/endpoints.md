@@ -159,6 +159,15 @@ Student registration and `academics.entrollStudentToTerm` require live Student M
 
 `POST /api/internal/tenant-routing` is a private nodejs/iad1 facade for the existing dashboard entry policy. It accepts signed original request metadata, validates proof before DB work, then returns a signed next/rewrite/redirect decision. Unsigned/stale/tampered/oversized requests return 403; resolution failure returns 503. Neither result is cacheable. This endpoint does not accept school mutations or grant bearer authority. ADR-0069.
 
+## Assistant replacement — 2026-10-06 (supersedes legacy chat endpoints)
+
+- `POST /api/assistant/chat`: strict conversation/request UUID/text/context/file IDs; server-owned history; AI SDK stream; duplicate request 409 returns existing run metadata.
+- `POST /api/assistant/attachments`; `GET|DELETE /api/assistant/attachments/:id`: bounded private upload, owner/full-history-scoped download/removal.
+- `GET /api/assistant/artifacts/:id`: authorized ready PDF download.
+- Authenticated tRPC `assistant`: bootstrap, create/list/get/update, proposals/decide/receipts/cancel, settings/saveSettings, preferences/savePreferences, usage/feedback, attachments/export/artifacts.
+- Legacy `/api/chat` and conversation/settings/analytics/feedback endpoints return 410. `/api/chat/runs/:runId/receipts` retains scoped recovery.
+- Exact Admin + live login/account/school/module/config admission applies; settings recovery is the sole AI-disabled exception. See feature and ADR-0074.
+
 ## Student form suggestions — 2026-10-11
 
 `students.suggestions` is a Student Management authenticated, tenant/profile-scoped name query with ranked cursor pages, identity details, and current-term class/review status. Existing class-change and enrollment mutations are reused. See [Student form suggestions](../features/student-form-suggestions.md) and ADR-0075.

@@ -1,197 +1,46 @@
-# AI Chat
+# School Assistant
 
-## Status
+## Status — 2026-10-06
 
-In progress: the AI chat now has a single persistent development-only FAB chat, durable message history, typed workflow confirmations, run/tool logging, role-aware capability gating, analytics/feedback endpoints, and a Caltext-style `packages/ai` layer for shared AI schemas, capabilities, prompts, provider selection, and executable tool modules. Database migration rollout, full end-to-end validation, and automated eval coverage still remain.
+GND-style replacement implemented and locally accepted. Local and production additive schema pushes succeeded; application and production Trigger worker deployment have not occurred. The owner approved enabling AI_ASSISTANT for local Daarul Hadith only. Its existing domain grants were preserved. DeepSeek chat, persisted history, MCP classroom lookup, Quick/full draft handoff, private text attachments, authenticated PDF worker export/download, and desktop/mobile viewport behavior were verified in the signed-in tenant. Dashboard build succeeds with the local profile. Broad repository typechecks still report pre-existing errors outside the replacement files.
 
-## Goal
+## Environment
 
-Provide tenant-aware dashboard AI that helps school staff complete real operational tasks in natural language with safe tool execution, clear confirmations, and auditable outcomes.
+The local launcher loads root `.env` plus `.env.local`. Configure one server-only provider key matching Settings → Assistant: `DEEPSEEK_API_KEY` (default provider), `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_GENERATIVE_AI_API_KEY` (Gemini). The assistant reuses the managed `DATABASE_URL` and existing `BETTER_AUTH_SECRET`; approval creation and verification must share the same auth secret. Provider/model selection is stored in school settings, not a new environment variable. PDF dispatch additionally uses `TRIGGER_PROJECT_ID`, `TRIGGER_SECRET_KEY`, and a connected/deployed worker with database access. Private attachments and PDFs currently use database storage, so no new blob-storage key is required. Local HTTPS origins must match the shared Portless routes: `APP_ROOT_DOMAIN=school-clerk-dashboard.localhost`, `BETTER_AUTH_URL`, `DASHBOARD_APP_URL`, and `NEXT_PUBLIC_APP_URL` use `https://school-clerk-dashboard.localhost`, and `SCHOOL_SITE_ROOT_DOMAIN=school-clerk-site.localhost`. These non-secret local overrides were corrected during acceptance. Restart the relevant processes after changing environment values. Never expose these secrets through `NEXT_PUBLIC_` variables.
 
-## Users
+## Experience
 
-- School administrators
-- Front desk and bursary staff
-- Academic operations staff
-- Inventory and records staff
+- `/assistant?chat=<id>` is the full workspace. A lazy Quick Assistant in the shared navigation shell uses the same runtime/controller and conversation. Minimize retains draft/context; expand moves the view without submitting.
+- Header, student row/bulk selection, classroom, finance charge, and inventory launchers add explicit context records. Context is untrusted lookup data and cannot confer access.
+- History supports search, paging, rename, archive/restore; messages show the latest 100 entries. Legacy classified conversations remain readable but cannot continue on protocol v2. Unclassified or revoked history remains withheld.
+- SDK text streaming, loading/error/reconnect/stop states, persisted action proposals, Markdown answers using Streamdown (raw HTML/images disabled), typed student/classroom/fee/inventory tables, generic structured result details and committed-action receipts.
+- School settings are available through `/settings/assistant` even when AI is disabled. Current released admission remains exact `Admin`; no role or module rollout is implied.
+- Per-school/user saved prompts and automatic/English/Arabic response language; UTC-day usage and feedback. Provider/model and step/request/token/concurrency budgets are configurable.
+- Private PDF/PNG/JPEG/UTF-8 text/CSV uploads: 2 MiB each, five active files, 20 MiB owner storage. Bodies are bounded before multipart parsing, signatures/encoding checked, and owner plus full-history access enforced on downloads. Removal clears bytes. Recent file references persist with the conversation; up to five available files feed later turns.
+- Result and saved-action sheets expose conversation exports and file management. Trigger task `assistant-export-conversation` rechecks the login/account/modules/history, renders up to 100 recent messages including structured results to PDF with the bundled Amiri font, and stores an owner-scoped artifact. This is a conversation record, not an official fee receipt or academic certificate. Dispatch failure is explicit. Worker deployment remains a release step.
 
-## Current Scope
+## Runtime and persistence
 
-- Development-only Admin dashboard widget entry point via `apps/dashboard/src/components/chat/chat-widget.tsx`
-- Chat-only sliding panel UI via `apps/dashboard/src/components/chat/chat-panel.tsx`
-- Client-side streaming/message state via `apps/dashboard/src/components/chat/use-school-chat.ts`
-- Tool-aware message rendering via `apps/dashboard/src/components/chat/chat-message.tsx`
-- Streaming chat orchestration via `apps/dashboard/src/app/api/chat/route.ts`
-- Executable AI tool registry and modules via `packages/ai/src/tools/*`
-- Conversation endpoints via `apps/dashboard/src/app/api/chat/conversations/**`; the FAB uses only the latest active conversation as the single canonical chat
-- Settings, analytics, and feedback endpoints via `apps/dashboard/src/app/api/chat/{settings,analytics,feedback}/route.ts`
-- Dashboard server adapter logic via `apps/dashboard/src/lib/assistant/server.ts`
-- Shared AI package foundation via `packages/ai/src/{capabilities,prompts,providers,schemas}.ts`
-- Compatibility re-export for legacy imports via `apps/dashboard/src/lib/assistant/shared.ts`
+`apps/api/src/assistant` owns authenticated orchestration and tRPC `assistant.*`. `packages/ai` owns contracts, tool catalog/policies, provider selection and the request-owned in-memory MCP execution boundary. Next `/api/assistant/chat` streams the AI SDK protocol and registers server consumption with `after`. Provider deadline is 45 seconds; run lease is 55 seconds; at most ten model steps and 4,000 output tokens per step. Text context is bounded without splitting tool call/result pairs. These are bounded execution guarantees, not unlimited background execution.
 
-## Current Capabilities
+Browser bearer tokens and server session IDs resolve to a live, user-bound canonical session ID before assistant membership checks; export jobs persist only that canonical ID. Workspace cache resets preserve active settings observers during React effect replay. Browser write requests require an HTTPS Origin matching the public forwarded host used by tenant routing, including behind the local HTTP upstream proxy; authentication remains mandatory.
 
-- Search students for the active tenant
-- List classrooms for the current session
-- Enroll or move a student for the active term
-- Fetch current-term fee balances
-- Record student fee payments
-- Search inventory items
-- Create inventory items
-- Record inventory issuance
-- Search staff members
-- Fetch teacher workspace summary
-- Fetch student attendance history
-- Record batch assessment scores for an existing classroom subject, creating or updating the assessment after confirmation
-- Search guardian contacts
-- Stream AI responses into the dashboard UI
-- Render tool results as interactive cards for student selection, classroom selection, fee confirmation, and success receipts
-- Persist one canonical FAB chat and messages per tenant user; older conversation rows remain historical data and are not exposed in the FAB
-- Capture AI run and tool execution telemetry
-- Collect AI feedback and expose usage analytics
-- Keep AI rollout/settings available through API/internal admin surfaces, not through the FAB chat screen
+Every request has a client UUID and canonical content fingerprint. Conversation/config row locks serialize claims, sequence allocation and quota reservations. `AssistantRunRequest` provides a unique new-protocol key without adding retroactive unique constraints to old history. One active run per conversation and a configurable per-user concurrency cap. Expired leases become interrupted failures during recovery. Duplicate requests return 409 with the existing run ID; recovery reads state and never automatically replays writes.
 
-## Current Constraints
+Usage reserves 200,000 tokens per model run, replaces the reservation with known actual usage on completion, and retains conservative reservations for unknown outcomes. Model usage stops the loop at 150,000 accumulated tokens; these reservations are accounting guardrails rather than a provider billing guarantee, especially for multimodal tokenization. Domain approvals reserve no model tokens. Request budgets still count approval runs.
 
-- Prisma schema changes require migration rollout before the new AI persistence layer can work outside codegen/type-check level
-- The dashboard chat entry point is available only to Admin users in local development while the assistant remains unreleased; production-mode builds do not render the FAB. The server capability gate remains Admin-only.
-- The route now enforces confirmation for risky mutations, but undo/reversal workflows are still domain-specific and not yet generalized
-- There is no automated eval harness yet; validation is currently based on isolated type-check coverage and runtime instrumentation design
-- Provider/model selection is configurable per tenant AI config; DeepSeek is the default preferred provider with `deepseek-chat` as the fallback model, but cost/performance routing is still static rather than intent-aware
-- Chat HTTP requires AI_ASSISTANT plus live session/account ownership and the exact released Admin role. Authenticated Admin settings recovery remains reachable when AI is disabled. All 13 tools declare domain-module requirements; definitions, capabilities and suggestions filter accordingly. Execution and confirmation checks reload session/actor/workspace/modules/settings. New conversation history records a conservative tool envelope; list/detail/model history and analytics require the whole scope under current access. Legacy/unclassified/revoked history remains stored but is withheld without backfill. General activity/non-chat aggregate disclosure remains separate work. No behavioral verification has run.
-- Server stream completion now persists assistant step text/tool results; client assistant/system transcript POST is retired. An independent SSE consumer registered with Next `after` supports completion handling on client disconnect within hosting limits, not an uninterrupted-execution guarantee. Scoped row locks serialize history checks/expansion/appends. See [ADR-0026](../decisions/ADR-0026-ai-history-access-scope.md).
-- Mutation confirmation requires a matching authenticated `confirm-tool` request, not a token echoed by the model. Signed v2 tokens bind a random approval ID, user/school/conversation/academic session/term/tool/input and expire after ten minutes; older tokens need fresh previews and a configured signing secret is mandatory. Issuance stores a hashed approval; all five mutation tools consume it in their domain-write transaction. Rollback restores the approval; committed consumption prevents reuse. Concurrency and separately approved duplicate actions remain unverified. See [ADR-0025](../decisions/ADR-0025-ai-tool-authorization-and-confirmation.md).
-- All five mutation tools now save versioned result receipts and completion activity in that same transaction, with no fallible post-commit completion writes. Later stream errors cannot overwrite completed tool results. A responsive manual Check saved actions panel reads owner/current-tool-policy-filtered run receipts, displays committed output references, and warns that an empty result does not prove rollback. Stream/tool errors surface recovery guidance; no automatic mutation retry. Legacy executions without versioned receipts are not backfilled. Browser/mobile and failure/concurrency verification remain deferred.
-- Enrollment targets require school/current academic-context checks, with session/term writes now in one serializable transaction; inventory issuance atomically decrements only sufficient stock in its transaction. Broader enrollment/payment consistency remains an implementation audit item. Unknown student balance is null, never an invented Paid status. Chat suggestions/confirmation/student cards include responsive wrapping and 44px targets; mobile/browser behavior is unverified.
+## School actions
 
-## UX Notes
+14 policy-filtered tools cover student search, classroom lookup, enrollment, class movement, fees/payment, inventory lookup/create/issuance, staff/teacher workspace, attendance, assessment scores and guardians. Mutation admission is separate from model generation.
 
-- AI chat is embedded into the dashboard shell rather than exposed as a standalone page
-- Browser printing hides the complete chat widget, including an open mobile backdrop or chat panel.
-- The FAB opens directly to the chat screen, now with a responsive New chat control, history-preservation notice and read-only saved-action recovery. Starting a new chat preserves old conversations; no history/insights/settings management surface is introduced.
-- Empty-state suggestions focus on enrollment, fee collection, inventory issuance, and student balance checks
-- Tool outputs are converted into structured cards, which is the right pattern to expand instead of relying only on free-text assistant replies
-- Arabic support is already expected in the prompt and the textarea uses `dir="auto"`, which should remain a first-class product requirement
+Persisted proposals use the existing signed v2, ten-minute, user/school/conversation/session/term/tool/input binding. JSON comparison is canonical so PostgreSQL JSONB key order cannot reject valid approvals. Review labels are loaded from owned records instead of trusting model-provided student/item/fee/class names. Record revisions include timestamps; changed fees, placements, stock or assessment scores require fresh review. The approval endpoint reloads access and academic ancestry, locks the proposal, rechecks live admission inside the transaction, consumes confirmation, executes the domain write, records the versioned receipt and completes the proposal atomically. Completed approvals return saved results. Declining and replaying cannot execute another write.
 
-## Permissions
+Enrollment and class movement share the ordinary transaction services; fee payments use `recordFinancePaymentInTransaction`, exact Decimal allocation totals, charge locks and existing ledger/audit behavior. Inventory issuance uses an atomic sufficient-stock decrement. Assessment writes retain score history and are bounded to 100 scores per proposal. Unknown outcomes direct users to saved actions; no automatic mutation retry.
 
-- Chat HTTP resolves live-session/cookie-user agreement, current DB user/role/account and an owned non-deleted school before module checks; the workspace cookie alone is not authorization.
-- Feedback conversation/run IDs must belong to the requesting school/user, and a supplied run must match a supplied conversation. No cross-user or cross-school feedback attachment is allowed by the updated service.
-- Any future tool expansion must respect existing role/module permissions before exposing data reads or writes
-- Destructive or financially sensitive actions should require explicit confirmation steps and audit logging
+## Cutover and data compatibility
 
-## Metrics
+The old FAB/components/custom SSE adapter are removed. `/api/chat` conversation/settings/analytics/feedback writes and reads return 410; the old run receipt URL remains a scoped recovery adapter. Legacy rows and receipts are preserved. `SchoolInventory` maps to the existing physical `Inventory` table, avoiding the generated-client collision with legacy lowercase `inventory` without renaming or dropping either table.
 
-- Task completion rate per supported workflow
-- Time to complete workflow versus manual UI path
-- Tool success versus failure rate
-- Escalation rate where the assistant cannot complete the task
-- Undo or correction rate after assistant-triggered mutations
-- Satisfaction/feedback score on assistant outcomes
+## Validation
 
-## Next 10 Phases
-
-### Phase 1: Harden action safety and confirmations
-
-- Separate read-only tools from mutation tools in both prompt design and UI treatment
-- Require explicit confirmation payloads for enrollment, payment, and issuance before final execution
-- Add standardized success, warning, and failure states for every mutation response
-- Validation:
-  - Enrollment cannot silently reassign without clear user confirmation
-  - Payment flows prevent over-allocation and mismatched totals
-  - Inventory issuance blocks insufficient stock with actionable recovery guidance
-
-### Phase 2: Persist conversations and assistant runs
-
-- Add tenant-scoped conversation, message, and tool-run persistence
-- Preserve conversations across page reloads and session changes
-- Support reopening prior chats for continuity and support follow-up actions
-- Validation:
-  - Refreshing the page restores prior conversation state
-  - Messages remain correctly scoped to tenant and user
-
-### Phase 3: Add audit trail and operational observability
-
-- Record assistant-triggered mutations with actor, tenant, prompt summary, selected tool, and result metadata
-- Attach assistant run references to finance, enrollment, and inventory audit records where possible
-- Add internal logging for failed tool calls, retries, and incomplete multi-step flows
-- Validation:
-  - Every mutation can be traced back to a user and assistant run
-  - Error logs are actionable enough for support/debugging
-
-### Phase 4: Expand core school operations toolset
-
-- Add attendance lookup/update flows
-- Add staff lookup and class-assignment support
-- Add timetable, subject, and academic-term awareness tools
-- Add parent/contact lookup for support workflows
-- Validation:
-  - New tools stay tenant-scoped and permission-aware
-  - Tool descriptions are narrow enough to reduce model misuse
-
-### Phase 5: Introduce role-aware permissions and module gating
-
-- Filter available tools by user role, institution module access, and active tenant configuration
-- Prevent the model from seeing or calling tools that the current user should not access
-- Reflect unavailable capabilities in the assistant response without leaking restricted data
-- Validation:
-  - Bursary-only actions are invisible to unauthorized users
-  - Disabled modules do not surface in suggestions or tool lists
-
-### Phase 6: Build a reusable structured workflow framework
-
-- Standardize a pattern for search, disambiguation, confirmation, execution, and receipt
-- Replace one-off prompt conventions like free-text “select student id:…” with typed workflow state
-- Reuse the same workflow engine across enrollment, payments, inventory, attendance, and future modules
-- Validation:
-  - Multi-step flows recover cleanly from ambiguous selections
-  - Client and server stay aligned on workflow state transitions
-
-### Phase 7: Improve multilingual and response quality controls
-
-- Formalize English and Arabic response rules beyond the current prompt-only instruction
-- Add locale-aware currency, dates, school terminology, and text-direction handling
-- Introduce response style constraints for concise admin-task execution
-- Validation:
-  - Arabic conversations render correctly in cards and receipts
-  - Numeric/currency formatting is consistent across providers
-
-### Phase 8: Add evaluation, test coverage, and prompt regression checks
-
-- Create fixture-based tests for supported tool flows and edge cases
-- Add regression prompts for student search ambiguity, partial fee payments, and low-stock issuance
-- Evaluate provider/model behavior on safety, correctness, and task completion
-- Validation:
-  - Known flows have repeatable test coverage
-  - Prompt or model changes can be compared before rollout
-
-### Phase 9: Productize assistant controls and admin settings
-
-- Add settings for provider/model strategy, feature flags, rate limits, and rollout controls
-- Allow staged rollout by tenant, plan, or institution type
-- Add optional feedback capture and assistant disable switch for support scenarios
-- Validation:
-  - AI chat can be enabled or disabled without code changes
-  - Rollout controls support safe incremental release
-
-### Phase 10: Launch analytics, feedback loops, and roadmap expansion
-
-- Add usage dashboards for adoption, failed intents, and high-value workflows
-- Capture unresolved user intents to prioritize the next tool investments
-- Use analytics to decide whether to expand toward a standalone assistant workspace, admissions assistant, parent support agent, or website/content assistant
-- Validation:
-  - Product decisions are grounded in real assistant usage data
-  - Roadmap prioritization reflects unresolved demand rather than intuition alone
-
-## Recommended Sequence
-
-- Phase 1 through Phase 7 now have concrete implementation scaffolding in the dashboard and Prisma schema layer
-- Phase 8 through Phase 10 now have analytics/feedback surfaces and focused validation setup, but still need deeper automated eval coverage and rollout hardening
-- Migration rollout plus live tenant validation should be the next operational checkpoint before broader release
-
-## Open Questions
-
-- Should assistant conversation history be visible only to the initiating user, or shared with authorized staff in the same tenant?
-- Which actions need reversible workflows versus immutable audit-only receipts?
-- Should the assistant remain a global dashboard utility, or eventually gain module-specific entry points?
-- Which provider should be the default production path for cost, latency, and multilingual accuracy?
+See [implementation plan](../plans/2026-10-06-gnd-assistant-replacement.md) for actual check results and remaining release gates. [ADR-0074](../decisions/ADR-0074-gnd-assistant-replacement.md) records the replacement; ADR-0025/0026 authorization, approval and history guarantees remain in force.

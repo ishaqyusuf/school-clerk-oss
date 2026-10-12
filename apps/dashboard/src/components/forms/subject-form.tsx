@@ -71,10 +71,10 @@ export function SubjectFormAction(props: FormActionProps) {
   const { isPending, mutate } = useMutation(
     trpc.subjects.saveSubject.mutationOptions({
       onSuccess(data, variables, context) {
-        props?.onSuccess(data);
+        props?.onSuccess?.(data);
       },
       onError(data, variables, context) {
-        props?.onError(data);
+        props?.onError?.(data);
       },
       meta: {
         toastTitle: {

@@ -456,3 +456,7 @@ Change log for database schema migrations and rollout notes.
 `StudentTermForm` review fields and index were applied with
 `bun run db:push --local`. No migration file was created. Production push is
 pending because the requested verification uses the local database only.
+
+## 2026-10-06 — Assistant replacement schema push
+
+Used `bun run db:generate`, `bun run db:push --local`, and `bun run db:push --prod` only. The initial local attempt stopped on Prisma warnings about retroactive unique indexes on old history. Replaced those with ordinary indexes plus a new unique AssistantRunRequest table; subsequent local/production additive pushes succeeded without accepting data loss. Added cleanup foreign keys for the new entities. No migration files, preview push, table rename, force/reset or historical data backfill. Inventory model rename uses `@@map` and preserves physical data.

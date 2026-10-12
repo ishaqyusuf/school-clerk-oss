@@ -20,7 +20,7 @@ export const inventoryRouter = createTRPCRouter({
 			}),
 		)
 		.query(async ({ input, ctx }) => {
-			const inventory = ctx.db.inventory as any;
+			const inventory = ctx.db.schoolInventory as any;
 			const items = await inventory.findMany({
 				where: {
 					schoolProfileId: ctx.profile.schoolId,
@@ -81,7 +81,7 @@ export const inventoryRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
-			const inventory = ctx.db.inventory as any;
+			const inventory = ctx.db.schoolInventory as any;
 			if (input.id) {
 				return inventory.update({
 					where: {
@@ -117,7 +117,7 @@ export const inventoryRouter = createTRPCRouter({
 	deleteItem: inventoryProcedure
 		.input(z.object({ id: z.string() }))
 		.mutation(async ({ input, ctx }) => {
-			const inventory = ctx.db.inventory as any;
+			const inventory = ctx.db.schoolInventory as any;
 			await inventory.update({
 				where: {
 					id: input.id,
@@ -141,7 +141,7 @@ export const inventoryRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
-			const inventory = ctx.db.inventory as any;
+			const inventory = ctx.db.schoolInventory as any;
 			const item = await inventory.findFirstOrThrow({
 				where: {
 					id: input.inventoryId,
@@ -157,22 +157,25 @@ export const inventoryRouter = createTRPCRouter({
 				);
 			}
 
-			await ctx.db.$transaction(async (tx) => {
-				await (tx.inventory as any).update({
-					where: { id: item.id },
-					data: { quantity: { decrement: input.quantity } },
-				});
-				await tx.inventoryIssuance.create({
-					data: {
-						inventoryId: item.id,
-						quantity: input.quantity,
-						issuedTo: input.issuedTo,
-						note: input.note,
-						issuedDate: input.issuedDate ?? new Date(),
-						schoolProfileId: ctx.profile.schoolId!,
-					},
-				});
-			}, { maxWait: 10000, timeout: 20000 });
+			await ctx.db.$transaction(
+				async (tx) => {
+					await (tx.schoolInventory as any).update({
+						where: { id: item.id },
+						data: { quantity: { decrement: input.quantity } },
+					});
+					await tx.inventoryIssuance.create({
+						data: {
+							inventoryId: item.id,
+							quantity: input.quantity,
+							issuedTo: input.issuedTo,
+							note: input.note,
+							issuedDate: input.issuedDate ?? new Date(),
+							schoolProfileId: ctx.profile.schoolId!,
+						},
+					});
+				},
+				{ maxWait: 10000, timeout: 20000 },
+			);
 
 			return { success: true };
 		}),

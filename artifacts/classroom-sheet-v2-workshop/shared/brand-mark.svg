@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">School Clerk</title>
+  <rect x="5" y="5" width="118" height="118" rx="31" fill="#0F172A"/>
+  <rect x="28" y="28" width="28" height="28" rx="8" fill="#F8FAFC"/>
+  <rect x="72" y="28" width="28" height="28" rx="8" fill="#38BDF8"/>
+  <rect x="28" y="72" width="28" height="28" rx="8" fill="#14B8A6"/>
+  <path d="m53 53 22 22h11l13 13" fill="none" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round" stroke-width="10"/>
+  <circle cx="100" cy="100" r="10" fill="#F59E0B"/>
+</svg>

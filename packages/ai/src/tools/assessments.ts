@@ -133,7 +133,7 @@ export function createAssessmentTools(
 								obtained: z.number().finite().min(0),
 							}),
 						)
-						.min(1),
+						.min(1).max(100),
 					confirmationToken: z.string().optional(),
 				})
 				.superRefine((value, refinementContext) => {

@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SchoolClerk — every student’s term, kept in one record</title>
+<meta name="description" content="SchoolClerk keeps admissions, attendance, fees and results in one register for your school, with its own website at its own address.">
+<link rel="icon" href="../shared/brand-mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="../shared/shadcn.css">
+<link rel="stylesheet" href="../shared/workshop.css">
+<link rel="stylesheet" href="public.css">
+<script src="../shared/data.js"></script>
+<script src="../shared/icons.js"></script>
+<script src="../shared/workshop.js"></script>
+<script src="marketing.js" defer></script>
+</head>
+<body class="reg-public reg-marketing">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<!-- ============ Header ============ -->
+<header class="site-header" id="site-header">
+  <div class="container site-header-inner">
+    <a class="brand" href="marketing.html">
+      <img class="mark-on-light" src="../shared/brand-mark.svg" alt="School Clerk" width="28" height="28">
+      <img class="mark-on-dark" src="../shared/brand-mark-inverse.svg" alt="School Clerk" width="28" height="28">
+      <span class="brand-word" aria-hidden="true">SchoolClerk</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="#platform">Platform</a>
+      <a href="#workflows">Workflows</a>
+      <a href="#roles">Roles</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <a class="header-link" href="#">Sign in</a>
+      <a class="btn btn-outline btn-sm hide-md" href="#">Book a demo</a>
+      <a class="btn btn-default btn-sm header-cta" href="signup.html">Create your school</a>
+      <button type="button" class="btn btn-ghost btn-icon menu-btn" id="menu-btn" aria-label="Open menu" aria-controls="menu-sheet" aria-expanded="false"><i data-icon="menu" data-size="20"></i></button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============ Hero ============ -->
+  <section class="hero" aria-labelledby="hero-h">
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow hero-eyebrow">Admissions<span aria-hidden="true">·</span>Attendance<span aria-hidden="true">·</span>Fees<span aria-hidden="true">·</span>Results</p>
+        <h1 id="hero-h" class="display">Every student’s term, <em>kept in one record.</em></h1>
+        <p class="lede">SchoolClerk keeps admissions, attendance, fees and results in one register for your school, so the office, the classroom and the bursary all work from the same page — and nothing is entered twice.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-default btn-lg" href="signup.html">Create your school <i data-icon="arrow-right" class="ico-nudge"></i></a>
+          <a class="btn btn-outline btn-lg" href="#">Book a demo</a>
+        </div>
+        <ul class="assurances" aria-label="What you can expect">
+          <li><i data-icon="check" data-size="15"></i>Guided onboarding</li>
+          <li><i data-icon="check" data-size="15"></i>Flexible school setup</li>
+          <li><i data-icon="check" data-size="15"></i>Role-aware access</li>
+        </ul>
+      </div>
+
+      <!-- The living register page: one student's record line fills in across the term. -->
+      <figure class="register" id="register" aria-labelledby="register-cap">
+        <div class="register-stack">
+          <div class="register-page" data-reg-page>
+            <header class="register-head">
+              <div>
+                <p class="register-title">Register of students</p>
+                <p class="eyebrow register-sub">Kingsway Academy · 2026/2027 · First Term</p>
+              </div>
+              <p class="register-folio"><span class="mono">fol. 14</span><span class="register-week" data-reg-week>Week 1 of 13</span></p>
+            </header>
+            <div class="register-term" aria-hidden="true">
+              <span>Wk 1</span>
+              <span class="term-track"><span class="term-fill"></span><span class="term-mark"></span></span>
+              <span>Wk 13</span>
+            </div>
+            <ol class="register-lines">
+              <li class="rline" data-line="admission" data-from="300" data-term="0" data-week="1">
+                <span class="rdate"><span class="ink" data-at="300">14 Sep</span></span>
+                <div class="rbody">
+                  <span class="rkind pop" data-at="300">Admission</span>
+                  <span class="rmain"><span class="ink" data-at="550"><b class="rname">Adaeze Okonkwo</b></span> <span class="ink mono rid" data-at="1150">KWA/2026/0142</span></span>
+                  <span class="ink rmeta" data-at="1500">JSS 2 A · Returning · Guardian: Mr. Emeka Okonkwo</span>
+                </div>
+                <span class="rmark"><span class="sdot pop" data-tone="ok" data-at="2100">Enrolled</span></span>
+              </li>
+              <li class="rline" data-line="attendance" data-from="2700" data-term="0.25" data-week="4">
+                <span class="rdate"><span class="ink" data-at="2700">5–9 Oct</span></span>
+                <div class="rbody">
+                  <span class="rkind pop" data-at="2700">Attendance · week 4</span>
+                  <span class="week">
+                    <span class="day" data-at="3000"><small>Mon</small><span class="box"><i data-icon="check" data-size="15" class="tick"></i></span></span>
+                    <span class="day" data-at="3300"><small>Tue</small><span class="box"><i data-icon="check" data-size="15" class="tick"></i></span></span>
+                    <span class="day" data-at="3600"><small>Wed</small><span class="box"><span class="late">L</span></span></span>
+                    <span class="day" data-at="3900"><small>Thu</small><span class="box"><i data-icon="check" data-size="15" class="tick"></i></span></span>
+                    <span class="day" data-at="4200"><small>Fri</small><span class="box"><i data-icon="check" data-size="15" class="tick"></i></span></span>
+                  </span>
+                </div>
+                <span class="rmark"><span class="tally pop" data-at="4600"><b>5/5</b> present<br>1 late</span></span>
+              </li>
+              <li class="rline" data-line="fees" data-from="5200" data-term="0.25" data-week="4">
+                <span class="rdate"><span class="ink" data-at="5200">9 Oct</span></span>
+                <div class="rbody">
+                  <span class="rkind pop" data-at="5200">Fees · receipt</span>
+                  <span class="rmain"><span class="ink mono rid" data-at="5450">RCP-26-00412</span> <span class="ink" data-at="5850">Transfer from Emeka Okonkwo</span></span>
+                  <span class="ink rmeta" data-at="6300">Tuition, PTA Levy · term balance cleared</span>
+                </div>
+                <span class="rmark"><span class="ramt pop" data-at="6700">₦92,500</span></span>
+              </li>
+              <li class="rline rline-report" data-line="report" data-from="7400" data-term="1" data-week="13">
+                <span class="rdate"><span class="ink" data-at="7400">18 Dec</span></span>
+                <div class="rbody">
+                  <span class="rkind pop" data-at="7400">Report</span>
+                  <span class="rmain"><span class="ink" data-at="7650"><b class="rname">First Term report card</b></span></span>
+                  <span class="ink rmeta" data-at="8150">From recorded CA and exam scores · on the result portal</span>
+                </div>
+                <span class="rmark rmark-seal"><span class="reg-seal" data-at="8800" data-seal="hero"></span></span>
+              </li>
+            </ol>
+          </div>
+        </div>
+        <div class="register-controls">
+          <ol class="register-legend" aria-label="Entries in this record">
+            <li data-legend="admission">Admission</li>
+            <li data-legend="attendance">Attendance</li>
+            <li data-legend="fees">Fees</li>
+            <li data-legend="report">Report</li>
+          </ol>
+          <div class="register-buttons">
+            <button type="button" class="btn btn-ghost btn-sm" id="reg-toggle" aria-controls="register"><i data-icon="pause" data-size="14"></i><span>Pause</span></button>
+            <button type="button" class="btn btn-ghost btn-sm" id="reg-replay" aria-controls="register"><i data-icon="rotate-ccw" data-size="14"></i><span>Replay</span></button>
+          </div>
+        </div>
+        <figcaption id="register-cap" class="register-cap">Illustrative interface example — one student’s first term, entered once and read by every office.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============ Institution fit ============ -->
+  <section class="fit" aria-labelledby="fit-h">
+    <div class="container fit-inner">
+      <h2 id="fit-h" class="eyebrow">Shaped for</h2>
+      <ul class="fit-list" id="fit-list"></ul>
+      <dl class="facts">
+        <div><dt>Institution models</dt><dd>8</dd></div>
+        <div><dt>Operational modules</dt><dd>20+</dd></div>
+        <div><dt>Connected system</dt><dd>1</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============ 01 Contents (modules) ============ -->
+  <section class="section" id="platform" aria-labelledby="platform-h">
+    <div class="container">
+      <header class="sec-head">
+        <p class="eyebrow"><span class="n">01</span> — Contents</p>
+        <h2 id="platform-h" class="h2">Twenty-plus modules, <em>one register.</em></h2>
+        <p class="sec-intro">A selection from the contents. Start with the modules your school needs today and turn on more as your operations grow — each school keeps its own configuration.</p>
+      </header>
+      <ol class="contents" id="contents"></ol>
+      <p class="contents-foot">And more besides: 20+ operational modules in all, from student balances and payables to document templates.</p>
+    </div>
+  </section>
+
+  <!-- ============ 02 Workflows (dark band) ============ -->
+  <section class="band section" id="workflows" aria-labelledby="workflows-h">
+    <div class="container">
+      <header class="sec-head">
+        <p class="eyebrow"><span class="n">02</span> — Connected workflows</p>
+        <h2 id="workflows-h" class="h2">Entered once. <em>Read by every office.</em></h2>
+        <p class="sec-intro">Three chapters of the school year that usually live in three different books. In SchoolClerk each entry is carried forward to the next, so nobody types it again.</p>
+      </header>
+      <ol class="chapters" id="chapters"></ol>
+    </div>
+  </section>
+
+  <!-- ============ 03 Roles ============ -->
+  <section class="section" id="roles" aria-labelledby="roles-h">
+    <div class="container">
+      <header class="sec-head">
+        <p class="eyebrow"><span class="n">03</span> — Roles</p>
+        <h2 id="roles-h" class="h2">One school, <em>four ways in.</em></h2>
+        <p class="sec-intro">Each person sees the work their role is responsible for, with the right class, term or account already selected.</p>
+      </header>
+      <div class="roles">
+        <div class="role-index" role="tablist" aria-label="Roles" aria-orientation="vertical" id="role-tabs"></div>
+        <div class="role-panels" id="role-panels"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 04 Website ============ -->
+  <section class="section website" id="website" aria-labelledby="website-h">
+    <div class="container">
+      <header class="sec-head sec-head-plain">
+        <p class="eyebrow"><span class="n">04</span> — Your school’s website</p>
+      </header>
+      <div class="website-grid">
+        <div class="website-copy">
+          <h2 id="website-h" class="h2 h2-sm">Every school gets its own website at <em class="addr">kingsway.school-clerk.com</em></h2>
+          <p class="lede">The prospectus you print each year becomes a public site at your school’s own address — built from a template you edit, with admissions and the parent portal linked in.</p>
+          <ul class="web-points">
+            <li><i data-icon="layout-template" data-size="16"></i><div><b>Four templates to start from</b><span>Scholaris, Northfield, Crestview and Kaleidoscope.</span></div></li>
+            <li><i data-icon="lock" data-size="16"></i><div><b>Drafts stay private</b><span>Edit freely; the live site changes only when you publish.</span></div></li>
+            <li><i data-icon="megaphone" data-size="16"></i><div><b>News from the same workspace</b><span>Announcements, events and resources come straight from your school’s records.</span></div></li>
+          </ul>
+          <div class="seg-toggle" role="group" aria-label="Show">
+            <button type="button" data-view-btn="print" aria-pressed="true">Printed prospectus</button>
+            <button type="button" data-view-btn="site" aria-pressed="false">Website</button>
+          </div>
+        </div>
+
+        <div class="web-stage tenant" id="web-stage" data-view="print" role="img" aria-label="Illustration: Kingsway Academy’s printed prospectus beside its website at kingsway.school-clerk.com, which uses the school’s own colours.">
+          <div class="prospectus">
+            <div class="pro-band"><span>Prospectus</span><span>2026/2027</span></div>
+            <div class="pro-crest" data-tenant-crest></div>
+            <p class="pro-name">Kingsway Academy</p>
+            <p class="pro-motto">Knowledge, character, service</p>
+            <span class="pro-rule"></span>
+            <p class="pro-meta">Nursery · Primary · Secondary<br>Ibadan, Oyo State</p>
+            <p class="pro-foot">Admissions open for 2026/2027</p>
+          </div>
+
+          <div class="browser">
+            <div class="browser-bar">
+              <span class="browser-addr"><i data-icon="lock" data-size="11"></i>kingsway.school-clerk.com</span>
+            </div>
+            <div class="ts">
+              <div class="ts-nav">
+                <span class="ts-brand"><span class="ts-crest" data-tenant-crest></span>Kingsway Academy</span>
+                <span class="ts-links"><span>About</span><span>Admissions</span><span>News</span><span>Contact</span></span>
+                <span class="ts-btn">Apply</span>
+              </div>
+              <div class="ts-hero">
+                <div class="ts-hero-copy">
+                  <p class="ts-kicker">Admissions open for 2026/2027</p>
+                  <p class="ts-title">A school where every child is known</p>
+                  <p class="ts-body">Kingsway Academy in Ibadan offers nursery, primary and secondary education with small classes, strong results and a caring community.</p>
+                  <span class="ts-btn ts-btn-lg">Apply for admission</span>
+                </div>
+                <div class="ts-image"><span><i data-icon="image" data-size="14"></i>Image</span></div>
+              </div>
+              <div class="ts-features">
+                <span>Small classes</span><span>STEM labs</span><span>Qur’an &amp; Arabic</span><span>Sports &amp; clubs</span>
+              </div>
+              <div class="ts-news">
+                <p class="ts-news-h">Announcements</p>
+                <ul>
+                  <li>Mid-term break: 30 Oct – 2 Nov</li>
+                  <li>PTA meeting, Saturday 17 Oct</li>
+                  <li>Inter-house sports registration open</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 05 Rollout commitments ============ -->
+  <section class="section" id="rollout" aria-labelledby="rollout-h">
+    <div class="container">
+      <header class="sec-head">
+        <p class="eyebrow"><span class="n">05</span> — Rollout</p>
+        <h2 id="rollout-h" class="h2">A careful move <em>from the old books.</em></h2>
+        <p class="sec-intro">Changing systems in the middle of a session is a serious undertaking. These are ours.</p>
+      </header>
+      <ol class="clauses">
+        <li>
+          <span class="cl-no" aria-hidden="true">i.</span>
+          <h3 class="h3 cl-title">A migration plan before go-live</h3>
+          <p class="cl-body">We map your existing student, academic and finance records into the SchoolClerk structure before your team starts, so the first day isn’t a data-entry day.</p>
+        </li>
+        <li>
+          <span class="cl-no" aria-hidden="true">ii.</span>
+          <h3 class="h3 cl-title">Access that respects school and role</h3>
+          <p class="cl-body">Each school works at its own address with its own records. Staff see the modules and classes their role allows — a teacher sees their classes, the bursar sees finance.</p>
+        </li>
+        <li>
+          <span class="cl-no" aria-hidden="true">iii.</span>
+          <h3 class="h3 cl-title">Rollout support for every office</h3>
+          <p class="cl-body">Guided onboarding sets up your session, classes, fees and staff. We stay with your team while each office moves across.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ 06 Fee schedule ============ -->
+  <section class="section" id="pricing" aria-labelledby="pricing-h">
+    <div class="container">
+      <header class="sec-head">
+        <p class="eyebrow"><span class="n">06</span> — Fees</p>
+        <h2 id="pricing-h" class="h2">A schedule of fees, <em>plainly set out.</em></h2>
+        <p class="sec-intro">Pricing is sized to your institution and the modules it needs. Final figures are agreed with you before setup begins.</p>
+      </header>
+      <div class="table-wrap">
+        <table class="table fee-table">
+          <caption class="sr-only">SchoolClerk schedule of fees, in naira</caption>
+          <thead>
+            <tr><th scope="col" class="f-no">No.</th><th scope="col">Item</th><th scope="col">What it covers</th><th scope="col" class="num">Amount</th></tr>
+          </thead>
+          <tbody id="fee-rows"></tbody>
+        </table>
+      </div>
+      <div class="fee-after">
+        <p class="fee-note">Ranges in naira (₦). Setup is paid once; the platform fee is monthly.</p>
+        <div class="fee-ctas">
+          <a class="btn btn-default btn-lg" href="signup.html">Create your school <i data-icon="arrow-right" class="ico-nudge"></i></a>
+          <a class="btn btn-outline btn-lg" href="#">Book a demo</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 07 FAQ ============ -->
+  <section class="section section-tight-top" id="faq" aria-labelledby="faq-h">
+    <div class="container faq-grid">
+      <header class="faq-head">
+        <p class="eyebrow"><span class="n">07</span> — Questions</p>
+        <h2 id="faq-h" class="h2">Questions schools <em>usually ask.</em></h2>
+        <p class="sec-intro">Something else on your mind? <a href="#">Book a demo</a> and ask us directly.</p>
+      </header>
+      <div class="faq-list" id="faq-list"></div>
+    </div>
+  </section>
+
+  <!-- ============ Final CTA ============ -->
+  <section class="band cta-band" aria-labelledby="cta-h">
+    <div class="container cta-inner">
+      <div class="cta-copy">
+        <p class="eyebrow">Ready when your term is</p>
+        <h2 id="cta-h" class="h2">Open your school’s register <em>today.</em></h2>
+        <p class="cta-body">Create the workspace, reserve your school’s two addresses, then let guided onboarding take you through the session, classes, fees and staff.</p>
+      </div>
+      <div class="cta-actions">
+        <a class="btn btn-ivory btn-lg" href="signup.html">Create your school <i data-icon="arrow-right" class="ico-nudge"></i></a>
+        <a class="btn btn-band-outline btn-lg" href="#">Book a demo</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ Footer ============ -->
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div class="footer-brand">
+      <a class="brand" href="marketing.html">
+        <img class="mark-on-light" src="../shared/brand-mark.svg" alt="School Clerk" width="28" height="28">
+        <img class="mark-on-dark" src="../shared/brand-mark-inverse.svg" alt="School Clerk" width="28" height="28">
+        <span class="brand-word" aria-hidden="true">SchoolClerk</span>
+      </a>
+      <p>School operations for nursery, primary and secondary schools, colleges and training institutes — kept in one register.</p>
+    </div>
+    <nav class="footer-col" aria-labelledby="ft-product">
+      <h2 class="eyebrow" id="ft-product">Product</h2>
+      <ul><li><a href="#platform">Platform</a></li><li><a href="#workflows">Workflows</a></li><li><a href="#roles">Roles</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#faq">FAQ</a></li></ul>
+    </nav>
+    <nav class="footer-col" aria-labelledby="ft-company">
+      <h2 class="eyebrow" id="ft-company">Company</h2>
+      <ul><li><a href="#">Contact</a></li><li><a href="#">Support</a></li></ul>
+    </nav>
+    <nav class="footer-col" aria-labelledby="ft-legal">
+      <h2 class="eyebrow" id="ft-legal">Legal</h2>
+      <ul><li><a href="#">Terms</a></li><li><a href="#">Privacy</a></li></ul>
+    </nav>
+  </div>
+  <div class="container footer-base">
+    <p>© 2026 SchoolClerk</p>
+    <p>Product previews are illustrative interface examples.</p>
+  </div>
+</footer>
+
+<!-- ============ Mobile menu sheet ============ -->
+<div class="sheet menu-sheet" id="menu-sheet" hidden aria-labelledby="menu-title">
+  <div class="sheet-header">
+    <p class="eyebrow">SchoolClerk</p>
+    <h2 class="sheet-title" id="menu-title">Contents</h2>
+    <button type="button" class="btn btn-ghost btn-icon overlay-close" data-close aria-label="Close menu"><i data-icon="x" data-size="18"></i></button>
+  </div>
+  <nav class="sheet-body" aria-label="Menu">
+    <ol class="menu-index">
+      <li><a href="#platform" data-menu-link><span class="n">01</span>Platform</a></li>
+      <li><a href="#workflows" data-menu-link><span class="n">02</span>Workflows</a></li>
+      <li><a href="#roles" data-menu-link><span class="n">03</span>Roles</a></li>
+      <li><a href="#pricing" data-menu-link><span class="n">06</span>Pricing</a></li>
+      <li><a href="#faq" data-menu-link><span class="n">07</span>FAQ</a></li>
+    </ol>
+  </nav>
+  <div class="sheet-footer">
+    <a class="btn btn-default btn-lg" href="signup.html">Create your school <i data-icon="arrow-right" class="ico-nudge"></i></a>
+    <a class="btn btn-outline btn-lg" href="#">Book a demo</a>
+    <a class="btn btn-ghost btn-lg" href="#">Sign in</a>
+  </div>
+</div>
+</body>
+</html>

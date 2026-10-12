@@ -1,30 +1,36 @@
-import { Badge } from "@school-clerk/ui/badge";
 import { Item as ColumnItem } from "./columns";
 import ConfirmBtn from "@/components/confirm-button";
 import { useMutation } from "@tanstack/react-query";
 import { _qc, _trpc } from "@/components/static-trpc";
-import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
-import { BookOpen, ChevronRight, View } from "lucide-react";
+import { BookOpen, ChevronRight } from "lucide-react";
 import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
+import { useAuth } from "@/hooks/use-auth";
 
+/** One subject row in the classroom subjects list. */
 export function GridCard({ item, onClick }: { item: ColumnItem; onClick? }) {
   const academicDataDirection = useAcademicDataDirection();
-  const { mutate: deleteClassSubject, isPending: isDeleting } = useMutation(
+  const auth = useAuth();
+  const canDelete = auth.role === "Admin" || auth.role === "ADMIN";
+  const { mutate: deleteClassSubject } = useMutation(
     _trpc.subjects.deleteClassSubject.mutationOptions({
-      onSuccess(data, variables, onMutateResult, context) {
+      onSuccess() {
         _qc.invalidateQueries({
           queryKey: _trpc.subjects.getSubjects.infiniteQueryKey({
             departmentId: item.classRoomDepartment.id,
           }),
         });
+        _qc.invalidateQueries({
+          queryKey: _trpc.subjects.byClassroom.queryKey({
+            departmentId: item.classRoomDepartment.id,
+          } as never),
+        });
       },
-      onError(error, variables, onMutateResult, context) {},
       meta: {
         toastTitle: {
-          error: "Unable to complete",
-          loading: "Processing...",
-          success: "Done!.",
+          error: "Unable to delete subject",
+          loading: "Deleting subject...",
+          success: "Subject deleted",
         },
       },
     })
@@ -42,74 +48,50 @@ export function GridCard({ item, onClick }: { item: ColumnItem; onClick? }) {
           onClick?.(item);
         }
       }}
-      className={cn(
-        "group rounded-2xl border border-border bg-background p-5 shadow-sm transition-all",
-        "hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-      )}
+      className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-            <BookOpen className="size-6" />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <div className="space-y-1">
-              <h3
-                className="truncate text-base font-semibold text-foreground"
-                dir="auto"
-              >
-                {item?.subject?.title}
-              </h3>
-              <p className="text-sm text-muted-foreground" dir="ltr">
-                Classroom subject overview and assessment tracking.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2" dir="ltr">
-              <Badge variant="outline" className="rounded-full px-3 py-1">
-                {assessmentCount} assessment{assessmentCount === 1 ? "" : "s"}
-              </Badge>
-              <Badge variant="neutral" className="rounded-full px-3 py-1">
-                Active this term
-              </Badge>
-            </div>
-          </div>
-        </div>
-        <ChevronRight
-          className={cn(
-            "mt-1 size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5",
-            academicDataDirection === "rtl" && "rotate-180",
-          )}
-        />
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
+        <BookOpen className="size-4" />
       </div>
-
-      <div
-        className="mt-5 flex items-center justify-between border-t border-border/70 pt-4"
-        dir="ltr"
-      >
-        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-          Open subject workspace
-        </div>
-        <div
-          className="flex items-center gap-2"
-          onClick={(event) => event.stopPropagation()}
+      <div className="min-w-0 flex-1">
+        <p
+          className="truncate text-left text-sm font-medium text-foreground [[dir=rtl]_&]:text-right"
+          dir="auto"
         >
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onClick?.(item)}
-          >
-            <View className="size-4" />
-          </Button>
+          {item?.subject?.title}
+        </p>
+        <p
+          className={cn(
+            "text-left text-xs [[dir=rtl]_&]:text-right",
+            assessmentCount
+              ? "text-muted-foreground"
+              : "text-amber-700 dark:text-amber-400"
+          )}
+          dir="ltr"
+        >
+          {assessmentCount
+            ? `${assessmentCount} assessment${assessmentCount === 1 ? "" : "s"}`
+            : "No assessments yet"}
+        </p>
+      </div>
+      {canDelete ? (
+        <div onClick={(event) => event.stopPropagation()} dir="ltr">
           <ConfirmBtn
             trash
-            onClick={(e) => {
+            onClick={() => {
               deleteClassSubject({
                 id: item.id,
               });
             }}
           />
         </div>
-      </div>
+      ) : null}
+      <ChevronRight
+        className={cn(
+          "size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5",
+          academicDataDirection === "rtl" && "rotate-180"
+        )}
+      />
     </div>
   );
 }

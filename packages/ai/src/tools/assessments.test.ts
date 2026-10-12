@@ -19,6 +19,8 @@ const context = {
 function createHelpers() {
 	const completions: unknown[] = [];
 	const helpers = {
+ consumeMutationConfirmation:async()=>{},
+ completeMutation:async(_tx:unknown,input:{output:unknown;executionId:string})=>{completions.push({toolExecutionId:input.executionId,status:"completed",output:input.output});return input.output;},
 		finishAssistantToolExecution: async (input: unknown) => {
 			completions.push(input);
 			return input;
@@ -68,6 +70,7 @@ function createDatabase({
 		},
 	};
 	const database = {
+ sessionTerm:{findFirst:async()=>({lifecycleStatus:"ACTIVE"})},
 		classRoomDepartment: {
 			findMany: async () => [
 				{

@@ -568,3 +568,9 @@ Existing `Verification` storage is reused without a Prisma schema change. New si
 review note. The school/status/term index supports review and active-roster
 queries. Existing term forms remain approved by default. Local schema push
 succeeded; production push is pending this local QA round.
+
+## Assistant replacement additions — 2026-10-06
+
+Conversation protocolVersion/nextSequence; nullable indexed message sequence/requestKey; nullable indexed run requestId/fingerprint/deadline/completion and cancellation flag; tool version; config daily request/token/concurrency budgets. New `AssistantRunRequest` has unique school/user/requestId and unique runId. New `AssistantActionProposal`, `AssistantPreference`, `AssistantUsageReservation`, `AssistantAttachment` and `AssistantArtifact` persist review state, per-user preferences, quotas and private bounded bytes. Defaults preserve old protocol rows; no history backfill or destructive table change.
+
+Active Prisma inventory is `SchoolInventory @@map("Inventory")`; the physical Inventory and legacy inventory tables are preserved. Active callers use `schoolInventory`.

@@ -24,6 +24,72 @@ export function createStudentTools(
 	} = helpers;
 
 	return {
+		moveStudentClass: tool({
+			description:
+				"Move an existing student term enrollment to another class. Requires explicit review and approval.",
+			inputSchema: z.object({
+				studentId: z.string(),
+				studentName: z.string(),
+				studentTermFormId: z.string(),
+				classroomDepartmentId: z.string(),
+				classroomName: z.string(),
+				confirmationToken: z.string().optional(),
+			}),
+			execute: async ({
+				confirmationToken,
+				...actionInput
+			}) => {
+				const guarded = await helpers.guardCapability(
+					"students.enrollment",
+					"moveStudentClass",
+					actionInput,
+					true,
+				);
+				if (guarded.blocked) return guarded.blocked;
+
+				try {
+					if (
+						!(await helpers.isConfirmedMutation({
+							toolName: "moveStudentClass",
+							confirmationToken,
+							actionInput,
+						}))
+					)
+						return helpers.requiresConfirmationResult({
+							toolName: "moveStudentClass",
+							summary: `Move ${actionInput.studentName} to ${actionInput.classroomName}?`,
+							actionInput,
+						});
+					return await prisma.$transaction(
+						async (tx) => {
+							await helpers.consumeMutationConfirmation(tx, {
+								toolName: "moveStudentClass",
+								confirmationToken,
+								actionInput,
+							});
+							if (!helpers.moveStudentClass)
+								throw new Error("Class movement is unavailable");
+							const result = await helpers.moveStudentClass(tx, {studentId:actionInput.studentId!,studentTermFormId:actionInput.studentTermFormId!,classroomDepartmentId:actionInput.classroomDepartmentId!});
+							return helpers.completeMutation(tx, {
+								executionId: guarded.executionId,
+								toolName: "moveStudentClass",
+								title: "Assistant moved student class",
+								description: `${actionInput.studentName} moved to ${actionInput.classroomName}`,
+								output: { success: true, ...actionInput },
+							});
+						},
+						{ isolationLevel: "Serializable" },
+					);
+				} catch (error) {
+					await helpers.finishAssistantToolExecution({
+						toolExecutionId: guarded.executionId,
+						status: "failed",
+						error: error instanceof Error ? error.message : "Class move failed",
+					});
+					throw error;
+				}
+			},
+		}),
 		searchStudents: tool({
 			description:
 				"Search for students by name. Returns matching students and current-term enrollment context. Balances require the separate finance tool.",
@@ -238,68 +304,38 @@ export function createStudentTools(
 					}
 
 					const { termId, sessionId } = ctx;
-					if (!termId || !sessionId) throw new Error("Select a school session and term before enrolling a student.");
-					const output = await prisma.$transaction(async (tx) => {
-						await consumeMutationConfirmation(tx, { toolName: "enrollStudent", confirmationToken, actionInput });
-						const [student, classroom, term] = await Promise.all([
-							tx.students.findFirst({
-								where: { id: actionInput.studentId, schoolProfileId: ctx.schoolId, deletedAt: null },
-								select: { id: true },
-							}),
-							tx.classRoomDepartment.findFirst({
-								where: { id: actionInput.classroomDepartmentId, schoolProfileId: ctx.schoolId, deletedAt: null,
-									classRoom: { schoolProfileId: ctx.schoolId, schoolSessionId: sessionId, deletedAt: null } },
-								select: { id: true },
-							}),
-							tx.sessionTerm.findFirst({
-								where: { id: termId, sessionId, schoolId: ctx.schoolId, deletedAt: null },
-								select: { id: true },
-							}),
-						]);
-						if (!student || !classroom || !term) throw new Error("The student, classroom or term is unavailable in this workspace.");
-						const existing = await tx.studentTermForm.findFirst({
-							where: {
-								studentId: student.id, schoolProfileId: ctx.schoolId,
-								schoolSessionId: sessionId, sessionTermId: termId, deletedAt: null,
-							},
-							select: { id: true },
-						});
-						if (existing) {
-							await tx.studentTermForm.update({
-								where: { id: existing.id, schoolProfileId: ctx.schoolId, deletedAt: null },
-								data: { classroomDepartmentId: classroom.id },
+					if (!termId || !sessionId)
+						throw new Error(
+							"Select a school session and term before enrolling a student.",
+						);
+					const output = await prisma.$transaction(
+						async (tx) => {
+							await consumeMutationConfirmation(tx, {
+								toolName: "enrollStudent",
+								confirmationToken,
+								actionInput,
 							});
-						} else {
-							let sessionForm = await tx.studentSessionForm.findFirst({
-								where: { studentId: student.id, schoolProfileId: ctx.schoolId, schoolSessionId: sessionId, deletedAt: null },
-								select: { id: true },
-							});
-							if (!sessionForm) {
-								sessionForm = await tx.studentSessionForm.create({
-									data: {
-										schoolProfileId: ctx.schoolId, schoolSessionId: sessionId,
-										studentId: student.id, classroomDepartmentId: classroom.id,
-									},
-									select: { id: true },
-								});
-							}
-							await tx.studentTermForm.create({
-								data: {
-									classroomDepartmentId: classroom.id, schoolSessionId: sessionId,
-									studentId: student.id, sessionTermId: termId, schoolProfileId: ctx.schoolId,
-									studentSessionFormId: sessionForm.id, admissionType: "RETURNING",
+							if (!helpers.enrollStudent)
+								throw new Error("Enrollment service is unavailable.");
+							await helpers.enrollStudent(tx, actionInput);
+
+							return completeMutation(tx, {
+								executionId: guarded.executionId,
+								toolName: "enrollStudent",
+								title: "AI enrolled student",
+								description: `${actionInput.studentName} enrolled into ${actionInput.classroomName}.`,
+								output: {
+									success: true,
+									action: "enrolled",
+									studentId: actionInput.studentId,
+									studentName: actionInput.studentName,
+									classroomDepartmentId: actionInput.classroomDepartmentId,
+									classroomName: actionInput.classroomName,
 								},
 							});
-						}
-						return completeMutation(tx, {
-							executionId: guarded.executionId, toolName: "enrollStudent",
-							title: existing ? "AI updated student enrollment" : "AI enrolled student",
-							description: `${actionInput.studentName} enrolled into ${actionInput.classroomName}.`,
-							output: { success: true, action: existing ? "updated" : "enrolled",
-								studentId: student.id, studentName: actionInput.studentName,
-								classroomDepartmentId: classroom.id, classroomName: actionInput.classroomName },
-						});
-					}, { isolationLevel: "Serializable" });
+						},
+						{ isolationLevel: "Serializable" },
+					);
 					return output;
 				} catch (error) {
 					await finishAssistantToolExecution({

@@ -26,7 +26,7 @@ export type SchoolAiConfirmationPayload = {
   actionInput: Record<string, unknown>;
 };
 
-export type SchoolAiSignedConfirmationPayload = z.infer<typeof signedConfirmationSchema>;
+export type SchoolAiSignedConfirmationPayload = Required<z.infer<typeof signedConfirmationSchema>>;
 
 export function schoolAiConfirmationDigest(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -76,7 +76,7 @@ export function readSchoolAiConfirmationToken(token: string, secret: string) {
     const now = Date.now();
     if (result.data.issuedAt > now || result.data.expiresAt <= now ||
       result.data.expiresAt - result.data.issuedAt !== confirmationLifetimeMs) return null;
-    return result.data;
+    return result.data as SchoolAiSignedConfirmationPayload;
   } catch {
     return null;
   }

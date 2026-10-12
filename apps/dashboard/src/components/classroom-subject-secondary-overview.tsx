@@ -10,17 +10,10 @@ import { Skeletons } from "@school-clerk/ui/skeletons";
 import { DropdownMenu } from "@school-clerk/ui/composite";
 import { SubjectAssessments } from "./subject-assessments";
 import { AssessmentSubmissions } from "./asessment-submissions";
-import {
-  BarChart3,
-  BookOpen,
-  ExternalLink,
-  GraduationCap,
-  Layers3,
-} from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { Menu } from "./menu";
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
 import { useAuth } from "@/hooks/use-auth";
-import { Badge } from "@school-clerk/ui/badge";
 import { classroomDisplayName } from "@school-clerk/utils";
 export function ClassroomSubjectOverviewSecondary() {
   const ctx = useClassroomParams();
@@ -64,94 +57,26 @@ function Content() {
     className: data?.subject?.classRoomDepartment?.classRoom?.name,
     departmentName: data?.subject?.classRoomDepartment?.departmentName,
   });
-  const scoreableAssessments =
-    data?.subject?.assessments?.flatMap((assessment) =>
-      assessment?.childAssessments?.length ? assessment.childAssessments : [assessment],
-    ) ?? [];
-  const assessmentCount = scoreableAssessments.length ?? 0;
-  const totalSubmissions =
-    scoreableAssessments?.reduce(
-      (sum, assessment) => sum + (assessment?._count?.assessmentResults ?? 0),
-      0
-    ) ?? 0;
-  const totalWeight =
-    scoreableAssessments?.reduce(
-      (sum, assessment) => sum + (assessment?.percentageObtainable ?? 0),
-      0
-    ) ?? 0;
   if (ctx.secondaryTab != "subject-overview") return null;
   return (
     <>
       <Sheet.SecondaryContent>
         <Sheet.SecondaryHeader>
-          <Sheet.Header className="space-y-0 border-b border-border/70 bg-background pb-6">
-            <div className="flex flex-col gap-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-start gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                    <BookOpen className="size-7" />
-                  </div>
-                  <div className="min-w-0 space-y-2">
-                    <div className="space-y-1">
-                      <Sheet.Title>{data?.subject?.subject?.title}</Sheet.Title>
-                      <Sheet.Description>
-                        Subject overview for {classroomName || "this classroom"}
-                      </Sheet.Description>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="rounded-full px-3 py-1">
-                        {classroomName || "Classroom"}
-                      </Badge>
-                      <Badge variant="neutral" className="rounded-full px-3 py-1">
-                        {data?.subject?.classRoomDepartment?._count?.studentTermForms ?? 0} students
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div data-summary-grid className="hidden gap-3 md:grid md:grid-cols-3">
-                <div className="rounded-2xl border border-border bg-muted/30 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-xl bg-emerald-100 p-2 text-emerald-700">
-                      <Layers3 className="size-5" />
-                    </div>
-                    <div>
-                      <p data-summary-label className="text-sm text-muted-foreground">Assessments</p>
-                      <p data-summary-value className="text-2xl font-semibold">{assessmentCount}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-border bg-muted/30 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-xl bg-amber-100 p-2 text-amber-700">
-                      <BarChart3 className="size-5" />
-                    </div>
-                    <div>
-                      <p data-summary-label className="text-sm text-muted-foreground">Submissions</p>
-                      <p data-summary-value className="text-2xl font-semibold">{totalSubmissions}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-border bg-muted/30 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-xl bg-indigo-100 p-2 text-indigo-700">
-                      <GraduationCap className="size-5" />
-                    </div>
-                    <div>
-                      <p data-summary-label className="text-sm text-muted-foreground">Weight</p>
-                      <p data-summary-value className="text-2xl font-semibold">{totalWeight}%</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Sheet.Header>
+          <div className="min-w-0 space-y-1">
+            <Sheet.Title>
+              <span dir="auto">{data?.subject?.subject?.title}</span>
+            </Sheet.Title>
+            <Sheet.Description>
+              <bdi>{classroomName || "This classroom"}</bdi> ·{" "}
+              {data?.subject?.classRoomDepartment?._count?.studentTermForms ?? 0}{" "}
+              students
+            </Sheet.Description>
+          </div>
         </Sheet.SecondaryHeader>
         <Sheet.SecondaryHeaderSlot>
           <Tabs
             name={"subject-tab"}
-            value={subjectTab}
+            value={subjectTab === "recordings" ? "recordings" : "overview"}
             onValueChange={(e) => {
               setParams({
                 subjectTab: e,
@@ -159,26 +84,19 @@ function Content() {
             }}
           >
             <Tabs.Items>
-              <Tabs.Item value={"overview"} label="Overview">
+              <Tabs.Item value={"overview"} label="Assessments">
                 <Tabs.Content className="">
                   <Portal noDelay nodeId={"contentArea"}>
                     <SubjectAssessments overview={data} />
                   </Portal>
                 </Tabs.Content>
               </Tabs.Item>
-              <Tabs.Item value={"assessments"} label="Assessments">
-                <Tabs.Content className="">
-                  <Portal noDelay nodeId={"contentArea"}>
-                    <div></div>
-                  </Portal>
-                </Tabs.Content>
-              </Tabs.Item>
-              <Tabs.Item value={"recordings"} label="">
+              <Tabs.Item value={"recordings"} label="Score entry">
                 <Tabs.Content className="">
                   <Portal noDelay nodeId={"contentArea"}>
                     <div className="flex gap-4">
                       <div className="flex-1"></div>
-                      <Menu Icon={ExternalLink}>
+                      <Menu Icon={ExternalLink} label="Open recorder">
                         <DropdownMenu.Label>Permission</DropdownMenu.Label>
                         <Menu.Item>
                           <Link href={openExternal("all")} target="_blank">
@@ -209,7 +127,7 @@ function Content() {
             </Tabs.Items>
           </Tabs>
         </Sheet.SecondaryHeaderSlot>
-        <Sheet.Content className="h-screen bg-muted/10">
+        <Sheet.Content className="bg-muted/10">
           <div id="contentArea"></div>
         </Sheet.Content>
       </Sheet.SecondaryContent>

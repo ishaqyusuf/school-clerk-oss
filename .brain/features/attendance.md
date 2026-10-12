@@ -87,3 +87,38 @@ The recorder displays sequential row numbers in its desktop No. column and besid
 ## Shared compact calendars — 2026-10-05
 
 Calendar presentation now comes from shared CalendarPopover: shadcn bottom sheet on mobile and popover on desktop. FormDate defaults to this behavior everywhere; attendance, date ranges and date filters reuse it. Shared native date Inputs also open the mobile sheet while retaining form events/constraints. Mobile layout uses more width, larger day buttons and tighter header/week/footer spacing. Date ranges show one month on mobile. See ADR-0066 for boundaries and verification.
+
+## Registration draft retention repair — 2026-10-12
+
+The classroom overview now owns an in-memory attendance draft above its sheet
+content. Opening the secondary student form on mobile unmounts primary content;
+recorder-local state previously disappeared at that point. Draft ownership now
+survives primary-content unmounts and responsive reparenting. Marks, remarks,
+title, date, scope, subject, period, visible roster range and payload-bound retry
+identity are preserved through cancellation, creation and enrollment refreshes.
+Newly added students remain unmarked and appear immediately after roster refresh.
+
+Draft identity includes user, login session, school, academic session, term and
+classroom. Closing the workspace or changing identity starts a fresh draft.
+Successful attendance save clears marks and remarks as before; registration does
+not submit attendance. Teacher/correction recorders retain their existing local
+state and save semantics. No API, database or shared shadcn component change.
+See [ADR-0077](../decisions/ADR-0077-attendance-workspace-draft.md).
+
+Validation: two actual-component Playwright regressions at 390px and 1280px cover
+secondary form cancellation, simulated registration plus roster invalidation,
+subject/date/details/mark/remark retention, visibility of the added unmarked
+student, partial-save payload, reset after save, class/term switches and workspace
+close/reopen. Eight attendance utility/roster tests and focused draft TypeScript
+validation pass. New module/test lint and diff whitespace checks pass. Root
+`bun run typecheck` stops at existing shared UI/site-nav React type conflicts.
+Full authenticated app QA is unavailable: no shared Portless routes are running
+and cmux is unavailable. The fixture mocks identity, URL params and RPC only; it
+uses the actual recorder, draft provider and shadcn sheet/controls. The repair is
+local and has not been committed or deployed.
+
+## Classroom sheet attendance page — 2026-10-12
+
+The classroom overview sheet no longer nests Mark attendance / Sessions tabs. `ClassroomAttendance layout="workspace"` shows a one-line summary, Export CSV, a Today card and the session list; only Admin can delete sessions there. The recorder is its own page (`attendanceView=take`) and keeps its draft through ADR-0077 while Add student is open, which Registrars can now use too. The teacher workspace keeps `layout="tabs"`. See [classroom overview](classroom-overview.md) and ADR-0078.
+
+Recorder taps (2026-10-12): Present/Absent/Late no longer raises a toast on every tap, because the tinted row confirms the choice. In a new session, tapping the selected status again unmarks the student (`ClassroomAttendanceRoster allowClear`), which partial saves already allow. Corrections keep tap-to-keep behaviour, so an existing record can't be dropped by accident. Verified live: the marked count went 0 → 1 → 0 with no toast.

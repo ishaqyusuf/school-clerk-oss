@@ -1,3 +1,4 @@
+import { OpenAssistant } from "@/components/assistant/open-assistant";
 import { useIsMobile } from "@school-clerk/ui/hooks/use-mobile";
 import { Menu } from "@school-clerk/ui/custom/menu";
 import { RouterOutputs } from "@api/trpc/routers/_app";
@@ -148,7 +149,8 @@ export const columns: Column[] = [
     },
     cell: ({ row: { original: item } }) => (
       <>
-        <Actions item={item} />
+        <OpenAssistant compact records={[{kind:"classroom",id:item.id,label:item.displayName??item.classRoom?.name??"Classroom"}]} />
+          <Actions item={item} />
       </>
     ),
   },
@@ -420,6 +422,7 @@ function ItemCard({ item }: ItemProps) {
           </span>
         </div>
         <div dir="ltr">
+          <OpenAssistant compact records={[{kind:"classroom",id:item.id,label:item.displayName??item.classRoom?.name??"Classroom"}]} />
           <Actions item={item} />
         </div>
       </div>

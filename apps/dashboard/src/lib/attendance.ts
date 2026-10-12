@@ -37,6 +37,14 @@ export function todayAttendanceDate() {
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 }
 
+/** UTC calendar day (YYYY-MM-DD) of a stored attendance date, for comparing with todayAttendanceDate(). */
+export function attendanceDateKey(value: Date | string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
 export function attendanceRate(summary: {
   absent?: number;
   excused?: number;
