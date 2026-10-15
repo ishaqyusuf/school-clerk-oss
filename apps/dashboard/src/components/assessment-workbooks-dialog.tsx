@@ -59,6 +59,9 @@ type Props = {
   direction: "ltr" | "rtl";
   subjects: WorkbookSubject[];
   initiallySelectedSubjectIds: string[];
+  /** Controlled open state; when provided, the built-in trigger button is not rendered. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 type Mode = "download" | "upload";
@@ -151,8 +154,16 @@ export function AssessmentWorkbooksDialog({
   direction,
   subjects,
   initiallySelectedSubjectIds,
+  open: openProp,
+  onOpenChange,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [mode, setMode] = useState<Mode>("download");
   const [downloadDirection, setDownloadDirection] = useState(direction);
   const [selection, setSelection] = useState<DownloadSelection>(() =>
@@ -367,15 +378,17 @@ export function AssessmentWorkbooksDialog({
 
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        className="gap-2"
-        onClick={() => setOpen(true)}
-      >
-        <FileSpreadsheet className="size-4" />
-        Assessment Workbooks
-      </Button>
+      {isControlled ? null : (
+        <Button
+          type="button"
+          variant="outline"
+          className="gap-2"
+          onClick={() => setOpen(true)}
+        >
+          <FileSpreadsheet className="size-4" />
+          Assessment Workbooks
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           dir="ltr"

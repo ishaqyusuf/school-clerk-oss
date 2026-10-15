@@ -23,6 +23,9 @@ type Props = {
   departmentId: string;
   selectedSubjectIds: string[];
   termId: string;
+  /** Controlled open state; when provided, the built-in trigger button is not rendered. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 type PublicLinkRow = {
@@ -66,8 +69,16 @@ export function AssessmentPublicLinksPanel({
   departmentId,
   selectedSubjectIds,
   termId,
+  open: openProp,
+  onOpenChange,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [durationHours, setDurationHours] = useState("24");
   const [reason, setReason] = useState("");
   const [rejectNotes, setRejectNotes] = useState<Record<string, string>>({});
@@ -184,17 +195,19 @@ export function AssessmentPublicLinksPanel({
 
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="gap-2"
-        disabled={!departmentId || !termId || !scopeSubjectIds.length}
-        onClick={() => setOpen(true)}
-      >
-        <Link2 className="size-4" />
-        Public link
-      </Button>
+      {isControlled ? null : (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          disabled={!departmentId || !termId || !scopeSubjectIds.length}
+          onClick={() => setOpen(true)}
+        >
+          <Link2 className="size-4" />
+          Public link
+        </Button>
+      )}
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Content className="max-h-[90vh] max-w-2xl overflow-auto">
           <Dialog.Header>

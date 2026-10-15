@@ -194,12 +194,13 @@ export function AssessmentRecording() {
 
   return (
     <>
-      <div className="flex w-full flex-col gap-4 px-2 py-3 sm:mx-auto sm:max-w-4xl sm:px-0 sm:py-4 xl:max-w-none">
+      <div className="flex w-full flex-col gap-4 px-2 py-3 sm:mx-auto sm:max-w-4xl sm:px-0 sm:py-4 lg:max-w-none">
         <div>
           {!needsSetup ? (
             <AssessmentRecordingResultsTable
               departmentId={effectiveDepartmentId}
               termId={effectiveTermId}
+              termLabel={selectedTerm?.label || selectedTerm?.title}
               selectedSubjectId={filters.deptSubjectId}
               classrooms={permissions.classrooms ? departments : []}
               onClassroomChange={(deptId) => {

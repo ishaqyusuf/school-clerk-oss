@@ -517,6 +517,41 @@ export function sortResultRoster<TStudent extends StudentTermRecord>(
   });
 }
 
+export function getSubjectFillingProgress({
+  subjects,
+  students,
+}: {
+  subjects: SubjectRecord[];
+  students: StudentTermRecord[];
+}) {
+  const progress = new Map<string, { completed: number; total: number }>();
+
+  for (const subject of subjects) {
+    const filledStudentsByAssessment = (subject.assessments ?? []).map(
+      (assessment) => {
+        const filledStudents = new Set<string>();
+        for (const result of assessment.assessmentResults ?? []) {
+          if (result.studentTermFormId != null && result.obtained != null) {
+            filledStudents.add(result.studentTermFormId);
+          }
+        }
+        return filledStudents;
+      },
+    );
+    let completed = 0;
+    if (filledStudentsByAssessment.length) {
+      for (const student of students) {
+        if (filledStudentsByAssessment.every((filled) => filled.has(student.id))) {
+          completed++;
+        }
+      }
+    }
+    progress.set(subject.id, { completed, total: students.length });
+  }
+
+  return progress;
+}
+
 export function buildResultRows<TStudent extends StudentTermRecord>({
   subjects,
   students,
@@ -538,12 +573,25 @@ export function buildResultRows<TStudent extends StudentTermRecord>({
     0,
   );
 
+  // Index once per assessment, retaining the first record just as find() did.
+  const indexedSubjects = subjects.map((subject) => ({
+    subject,
+    assessments: subject.assessments.map((assessment) => {
+      const resultsByStudent = new Map<string, AssessmentResultRecord>();
+      for (const result of assessment.assessmentResults ?? []) {
+        const studentId = result.studentTermFormId;
+        if (studentId != null && !resultsByStudent.has(studentId)) {
+          resultsByStudent.set(studentId, result);
+        }
+      }
+      return { assessment, resultsByStudent };
+    }),
+  }));
+
   return students.map((student) => {
-    const subjectTotals = subjects.map((subject) => {
-      const cells = subject.assessments.map((assessment) => {
-        const result = assessment.assessmentResults?.find(
-          (record) => record.studentTermFormId === student.id,
-        );
+    const subjectTotals = indexedSubjects.map(({ subject, assessments }) => {
+      const cells = assessments.map(({ assessment, resultsByStudent }) => {
+        const result = resultsByStudent.get(student.id);
         const obtained = result?.obtained ?? null;
         const score = getResultScore(assessment, result);
 

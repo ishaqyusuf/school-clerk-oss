@@ -17,15 +17,26 @@ export function SubmitClassStudentSheet({
   termId,
   initialClassroomId,
   label = "Add student",
+  open: openProp,
+  onOpenChange,
 }: {
   classrooms: Classroom[];
   termId: string;
   initialClassroomId?: string;
   label?: string;
+  /** Controlled open state; when provided, the built-in trigger button is not rendered. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [classroomDepartmentId, setClassroomDepartmentId] = useState(initialClassroomId ?? classrooms[0]?.id ?? "");
   const [gender, setGender] = useState<"Male" | "Female">("Male");
   const [error, setError] = useState("");
@@ -41,9 +52,11 @@ export function SubmitClassStudentSheet({
 
   return (
     <Sheet open={open} onOpenChange={(next) => { setOpen(next); if (!next) setError(""); }}>
-      <SheetTrigger asChild>
-        <Button type="button" disabled={!classrooms.length || !termId}>{label}</Button>
-      </SheetTrigger>
+      {isControlled ? null : (
+        <SheetTrigger asChild>
+          <Button type="button" disabled={!classrooms.length || !termId}>{label}</Button>
+        </SheetTrigger>
+      )}
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Add a student to the class</SheetTitle>
