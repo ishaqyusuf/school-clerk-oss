@@ -9,8 +9,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-instrument-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -40,6 +40,21 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-success-fg: var(--status-success-fg);
+  --color-status-success-border: var(--status-success-border);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-warning-fg: var(--status-warning-fg);
+  --color-status-warning-border: var(--status-warning-border);
+  --color-status-danger-bg: var(--status-danger-bg);
+  --color-status-danger-fg: var(--status-danger-fg);
+  --color-status-danger-border: var(--status-danger-border);
+  --color-status-info-bg: var(--status-info-bg);
+  --color-status-info-fg: var(--status-info-fg);
+  --color-status-info-border: var(--status-info-border);
+  --color-status-neutral-bg: var(--status-neutral-bg);
+  --color-status-neutral-fg: var(--status-neutral-fg);
+  --color-status-neutral-border: var(--status-neutral-border);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -73,7 +88,7 @@
   --chart-3: #2b7a78;
   --chart-4: #5d78c7;
   --chart-5: #a85643;
-  --radius: 0.625rem;
+  --radius: 0.25rem;
   --sidebar: #f5f3ec;
   --sidebar-foreground: #102820;
   --sidebar-primary: #146b4a;
@@ -82,40 +97,72 @@
   --sidebar-accent-foreground: #174c38;
   --sidebar-border: #dce3dc;
   --sidebar-ring: #2d8b65;
+  --status-success-bg: #e3f3ea;
+  --status-success-fg: #12643f;
+  --status-success-border: #c7e6d4;
+  --status-warning-bg: #fbf1d9;
+  --status-warning-fg: #8a5d06;
+  --status-warning-border: #f0dca8;
+  --status-danger-bg: #fbe6e3;
+  --status-danger-fg: #b3261e;
+  --status-danger-border: #f2c8c2;
+  --status-info-bg: #e6ecfa;
+  --status-info-fg: #2f4fa8;
+  --status-info-border: #cdd8f3;
+  --status-neutral-bg: #efede6;
+  --status-neutral-fg: #4c5a53;
+  --status-neutral-border: #e2e0d8;
 }
 
+/* Blueprint dark theme (ADR-0082): navy ink + sky cyan from the brand mark,
+   amber for attention. Solid surface steps; status colours are translucent tints. */
 .dark {
-  --background: #0e1d18;
-  --foreground: #f6f7f2;
-  --card: #142821;
-  --card-foreground: #f6f7f2;
-  --popover: #142821;
-  --popover-foreground: #f6f7f2;
-  --primary: #68c79b;
-  --primary-foreground: #0d261c;
-  --secondary: #1c322a;
-  --secondary-foreground: #edf5f0;
-  --muted: #1b3029;
-  --muted-foreground: #a7b8b0;
-  --accent: #1e372e;
-  --accent-foreground: #edf5f0;
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: #68c79b;
-  --chart-1: #68c79b;
-  --chart-2: #e7bd58;
-  --chart-3: #62aaa7;
-  --chart-4: #8297dd;
-  --chart-5: #d0816f;
-  --sidebar: #10231c;
-  --sidebar-foreground: #f6f7f2;
-  --sidebar-primary: #68c79b;
-  --sidebar-primary-foreground: #0d261c;
-  --sidebar-accent: #1e372e;
-  --sidebar-accent-foreground: #edf5f0;
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: #68c79b;
+  --background: #0a1120;
+  --foreground: #e6edf7;
+  --card: #0e1729;
+  --card-foreground: #e6edf7;
+  --popover: #111c31;
+  --popover-foreground: #e6edf7;
+  --primary: #38bdf8;
+  --primary-foreground: #04121f;
+  --secondary: #16243d;
+  --secondary-foreground: #d6e2f2;
+  --muted: #0f1a2e;
+  --muted-foreground: #7f93b2;
+  --accent: #13223b;
+  --accent-foreground: #e6edf7;
+  --destructive: #ef4444;
+  --border: #1c2a44;
+  --input: #2a3d5f;
+  --ring: #38bdf8;
+  --chart-1: #38bdf8;
+  --chart-2: #fbbf24;
+  --chart-3: #4ade9f;
+  --chart-4: #a78bfa;
+  --chart-5: #f87171;
+  --sidebar: #070d19;
+  --sidebar-foreground: #e6edf7;
+  --sidebar-primary: #38bdf8;
+  --sidebar-primary-foreground: #04121f;
+  --sidebar-accent: #13223b;
+  --sidebar-accent-foreground: #e6edf7;
+  --sidebar-border: #1c2a44;
+  --sidebar-ring: #38bdf8;
+  --status-success-bg: rgb(52 211 153 / 0.12);
+  --status-success-fg: #4ade9f;
+  --status-success-border: rgb(52 211 153 / 0.3);
+  --status-warning-bg: rgb(251 191 36 / 0.12);
+  --status-warning-fg: #fcc94a;
+  --status-warning-border: rgb(251 191 36 / 0.32);
+  --status-danger-bg: rgb(248 113 113 / 0.12);
+  --status-danger-fg: #fb8a8a;
+  --status-danger-border: rgb(248 113 113 / 0.32);
+  --status-info-bg: rgb(56 189 248 / 0.12);
+  --status-info-fg: #7dd3fc;
+  --status-info-border: rgb(56 189 248 / 0.32);
+  --status-neutral-bg: rgb(148 170 205 / 0.1);
+  --status-neutral-fg: #b3c2d9;
+  --status-neutral-border: rgb(148 170 205 / 0.2);
 }
 
 @layer base {
@@ -123,7 +170,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    font-family: var(--font-instrument-sans), system-ui, sans-serif;
+    font-family: var(--font-plex-sans), system-ui, sans-serif;
     @apply bg-background text-foreground;
   }
 }
@@ -200,6 +247,15 @@ div.result-lines-sm div#signature {
   .hide-on-print {
     display: none !important;
   }
+}
+
+/* Blueprint canvas: a faint cyan grid behind dark-mode pages. Opaque cards sit above it. */
+.dark body {
+  background-image:
+    linear-gradient(rgb(56 189 248 / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(56 189 248 / 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-attachment: fixed;
 }
 
 .dark .dotted-bg {

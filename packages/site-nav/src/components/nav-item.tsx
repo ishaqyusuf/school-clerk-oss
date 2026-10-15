@@ -112,11 +112,11 @@ export function NavItem({
 					aria-current={isCurrentPage ? "page" : undefined}
 					onClick={() => onSelect?.()}
 					className={cn(
-						"group flex h-11 items-center rounded-lg text-sidebar-foreground/66 outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+						"group flex h-10 items-center rounded-md text-sidebar-foreground/70 outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
 						isExpanded ? "gap-3 px-3" : "w-11 justify-center px-0",
 						isExpanded && hasChildren && "pr-12",
 						isActive
-							? "bg-sidebar-primary/10 font-semibold text-sidebar-primary shadow-[inset_0_0_0_1px_rgba(99,91,255,0.09)]"
+							? "bg-sidebar-accent font-semibold text-sidebar-foreground shadow-[inset_2px_0_0_var(--sidebar-primary)]"
 							: "hover:bg-sidebar-accent hover:text-sidebar-foreground",
 					)}
 				>
@@ -144,7 +144,7 @@ export function NavItem({
 						aria-label={`${shouldShowChildren ? "Collapse" : "Expand"} ${item.title}`}
 						aria-expanded={shouldShowChildren}
 						onClick={toggleChildren}
-						className="absolute right-0 top-0 flex size-11 items-center justify-center rounded-lg text-sidebar-foreground/45 outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+						className="absolute right-0 top-0 flex size-10 items-center justify-center rounded-md text-sidebar-foreground/45 outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
 					>
 						<Icons.chevronDown
 							className={cn(

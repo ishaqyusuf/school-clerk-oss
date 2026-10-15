@@ -75,65 +75,7 @@ export async function DashboardStats({
 				))}
 			</div>
 
-			{!sessionId ? (
-				<Card className="border-amber-200/70 bg-amber-50/70">
-					<CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-						<div className="space-y-1">
-							<div className="flex items-center gap-2 text-amber-900">
-								<Rocket className="h-4 w-4" />
-								<p className="font-medium">Finish onboarding</p>
-							</div>
-							<p className="text-sm text-amber-900/80">
-								Create your first academic session to unlock the full dashboard
-								experience.
-							</p>
-						</div>
-						<Button asChild>
-							<Link href="/onboarding/welcome">Continue onboarding</Link>
-						</Button>
-					</CardContent>
-				</Card>
-			) : null}
-
-			{sessionId && stats.classes === 0 ? (
-				<Card className="border-emerald-200/70 bg-emerald-50/70">
-					<CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-						<div className="space-y-1">
-							<div className="flex items-center gap-2 text-emerald-900">
-								<BookOpen className="h-4 w-4" />
-								<p className="font-medium">Set up classrooms</p>
-							</div>
-							<p className="text-sm text-emerald-900/80">
-								Your academic session is live. Add classrooms before inviting
-								teachers into the workspace.
-							</p>
-						</div>
-						<Button asChild>
-							<Link href="/onboarding/setup-classrooms">Set up classrooms</Link>
-						</Button>
-					</CardContent>
-				</Card>
-			) : null}
-
-			{sessionId && stats.classes > 0 && stats.staff === 0 ? (
-				<Card className="border-emerald-200/70 bg-emerald-50/70">
-					<CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-						<div className="space-y-1">
-							<div className="flex items-center gap-2 text-emerald-900">
-								<Users className="h-4 w-4" />
-								<p className="font-medium">Invite your first staff member</p>
-							</div>
-							<p className="text-sm text-emerald-900/80">
-								Your academic session is live. The next best move is inviting a
-								teacher or team lead into the workspace.
-							</p>
-						</div>
-						<Button asChild>
-							<Link href="/onboarding/invite-staff">Invite staff</Link>
-						</Button>
-					</CardContent>
-				</Card>
-			) : null}
+			<DashboardOnboardingNudges sessionId={sessionId} stats={stats} />
 		</>
 	);
 }
@@ -158,5 +100,78 @@ export function DashboardStatsSkeleton() {
 				</Card>
 			))}
 		</div>
+	);
+}
+
+/** Setup nudges shown on the home dashboard until the workspace has a session, classes and staff. */
+export function DashboardOnboardingNudges({
+	sessionId,
+	stats,
+}: {
+	sessionId: string;
+	stats: { staff: number; classes: number };
+}) {
+	return (
+		<>
+		{!sessionId ? (
+			<Card className="border-status-warning-border bg-status-warning-bg">
+				<CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+					<div className="space-y-1">
+						<div className="flex items-center gap-2 text-status-warning-fg">
+							<Rocket className="h-4 w-4" />
+							<p className="font-medium">Finish onboarding</p>
+						</div>
+						<p className="text-sm text-status-warning-fg/80">
+							Create your first academic session to unlock the full dashboard
+							experience.
+						</p>
+					</div>
+					<Button asChild>
+						<Link href="/onboarding/welcome">Continue onboarding</Link>
+					</Button>
+				</CardContent>
+			</Card>
+		) : null}
+
+		{sessionId && stats.classes === 0 ? (
+			<Card className="border-status-success-border bg-status-success-bg">
+				<CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+					<div className="space-y-1">
+						<div className="flex items-center gap-2 text-status-success-fg">
+							<BookOpen className="h-4 w-4" />
+							<p className="font-medium">Set up classrooms</p>
+						</div>
+						<p className="text-sm text-status-success-fg/80">
+							Your academic session is live. Add classrooms before inviting
+							teachers into the workspace.
+						</p>
+					</div>
+					<Button asChild>
+						<Link href="/onboarding/setup-classrooms">Set up classrooms</Link>
+					</Button>
+				</CardContent>
+			</Card>
+		) : null}
+
+		{sessionId && stats.classes > 0 && stats.staff === 0 ? (
+			<Card className="border-status-success-border bg-status-success-bg">
+				<CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+					<div className="space-y-1">
+						<div className="flex items-center gap-2 text-status-success-fg">
+							<Users className="h-4 w-4" />
+							<p className="font-medium">Invite your first staff member</p>
+						</div>
+						<p className="text-sm text-status-success-fg/80">
+							Your academic session is live. The next best move is inviting a
+							teacher or team lead into the workspace.
+						</p>
+					</div>
+					<Button asChild>
+						<Link href="/onboarding/invite-staff">Invite staff</Link>
+					</Button>
+				</CardContent>
+			</Card>
+		) : null}
+		</>
 	);
 }

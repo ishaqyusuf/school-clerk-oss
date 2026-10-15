@@ -10,7 +10,7 @@ export function SidebarShell({
 }) {
 	const { hasSidebar } = useSiteNav();
 	return (
-		<div className={cn(className, hasSidebar && "md:ml-[84px]")}>
+		<div className={cn(className, hasSidebar && "md:ml-[84px] xl:ml-[240px]")}>
 			{children}
 		</div>
 	);

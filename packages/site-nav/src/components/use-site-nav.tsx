@@ -19,6 +19,8 @@ import { resolveSelectedModule } from "../lib/module-selection";
 const NAV_HOVER_EXPAND_DELAY_MS = 140;
 const NAV_HOVER_COLLAPSE_DELAY_MS = 80;
 const NAV_HOVER_SURFACE_SELECTOR = "[data-site-nav-hover-surface]";
+/** At this width the sidebar stays expanded with labels (Blueprint, ADR-0082). Matches Tailwind `xl`. */
+export const NAV_PINNED_MEDIA_QUERY = "(min-width: 1280px)";
 
 type SiteNavContextValue = ReturnType<typeof createSiteNavContext>;
 
@@ -38,6 +40,7 @@ interface SiteNavProps {
 export const createSiteNavContext = (props: SiteNavProps) => {
 	const mainMenuRef = useRef<HTMLDivElement>(null);
 	const [isExpanded, setIsExpanded] = useState(false);
+	const [isPinned, setIsPinned] = useState(false);
 	const hoverExpandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
 		null,
 	);
@@ -215,6 +218,15 @@ export const createSiteNavContext = (props: SiteNavProps) => {
 	);
 
 	useEffect(() => {
+		if (typeof window === "undefined" || !window.matchMedia) return;
+		const query = window.matchMedia(NAV_PINNED_MEDIA_QUERY);
+		const sync = () => setIsPinned(query.matches);
+		sync();
+		query.addEventListener("change", sync);
+		return () => query.removeEventListener("change", sync);
+	}, []);
+
+	useEffect(() => {
 		return () => {
 			clearHoverExpandTimeout();
 			clearHoverCollapseTimeout();
@@ -233,7 +245,8 @@ export const createSiteNavContext = (props: SiteNavProps) => {
 		handleNavMouseEnter,
 		handleNavMouseLeave,
 		hasSidebar,
-		isExpanded,
+		isExpanded: isExpanded || isPinned,
+		isPinned,
 		mainMenuRef,
 		modules,
 		navigation: props.navigation,

@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-sm border px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.03em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
@@ -15,11 +15,14 @@ const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
-        tag: "font-mono text-[#878787] bg-[#F2F1EF] text-[10px] dark:bg-[#1D1D1D] border-none font-normal rounded-none",
+        tag: "font-mono text-muted-foreground bg-muted text-[10px] border-none font-normal rounded-none",
         success:
-          "border-transparent bg-green-100 text-green-800 hover:bg-green-200/80",
-        warning: "bg-yellow-100 text-yellow-700 hover:bg-yellow-200",
-        neutral: "bg-gray-100 text-gray-700 hover:bg-gray-200",
+          "border-status-success-border bg-status-success-bg text-status-success-fg",
+        warning:
+          "border-status-warning-border bg-status-warning-bg text-status-warning-fg",
+        info: "border-status-info-border bg-status-info-bg text-status-info-fg",
+        neutral:
+          "border-status-neutral-border bg-status-neutral-bg text-status-neutral-fg",
       },
     },
     defaultVariants: {

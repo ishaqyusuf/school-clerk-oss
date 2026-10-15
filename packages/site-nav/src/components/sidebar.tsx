@@ -12,6 +12,7 @@ export function Sidebar({ children }: { children?: React.ReactNode }) {
 		handleNavFocus,
 		hasSidebar,
 		isExpanded,
+		isPinned,
 		mainMenuRef,
 	} = useSiteNav();
 
@@ -25,12 +26,15 @@ export function Sidebar({ children }: { children?: React.ReactNode }) {
 			onMouseEnter={handleNavMouseEnter}
 			onMouseLeave={handleNavMouseLeave}
 			className={cn(
-				"fixed inset-y-0 left-0 z-50 hidden flex-shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04),0_24px_80px_rgba(15,23,42,0.08)] transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none md:flex desktop:rounded-bl-lg desktop:rounded-tl-lg",
-				isExpanded ? "w-[268px]" : "w-[84px]",
+				"fixed inset-y-0 left-0 z-50 hidden flex-shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none md:flex",
+				// Pinned at xl: the CSS width matches before hydration so the shell never jumps.
+				isPinned
+					? "w-[240px]"
+					: isExpanded
+						? "w-[268px] shadow-2xl shadow-black/10 dark:shadow-black/50"
+						: "w-[84px] xl:w-[240px]",
 			)}
 		>
-			<div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-sidebar-border/70" />
-			<div className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-sidebar-primary" />
 
 			<div className="flex h-[70px] shrink-0 items-center border-b border-sidebar-border px-5">
 				<ModuleSelector />

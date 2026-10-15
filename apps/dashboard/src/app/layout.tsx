@@ -11,12 +11,21 @@ import { Providers } from "./providers";
 
 import { StaticTrpc } from "@/components/static-trpc";
 import { constructMetadata } from "@/utils/construct-metadata";
-import { Instrument_Sans, Lora } from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans, Lora } from "next/font/google";
 
-const instrumentSans = Instrument_Sans({
+// Blueprint (ADR-0082): IBM Plex Sans for UI copy, Plex Mono for figures and labels.
+const plexSans = IBM_Plex_Sans({
   display: "swap",
   subsets: ["latin"],
-  variable: "--font-instrument-sans",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-plex-sans",
+});
+
+const plexMono = IBM_Plex_Mono({
+  display: "swap",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-plex-mono",
 });
 
 const lora = Lora({
@@ -51,7 +60,7 @@ export default function RootLayout({
       {/*</Suspense>*/}
       <body
         className={cn(
-          `${instrumentSans.variable} ${lora.variable} font-sans`,
+          `${plexSans.variable} ${plexMono.variable} ${lora.variable} font-sans`,
           "whitespace-pre-line overscroll-none antialiased",
           // "min-h-screen bg-background font-sans text-black antialiased",
           // fontSans.variable,

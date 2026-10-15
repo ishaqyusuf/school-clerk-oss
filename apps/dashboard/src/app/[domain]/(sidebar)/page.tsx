@@ -5,6 +5,10 @@ import { ReceiveFeeButton } from "@/components/dashboard/receive-fee-button";
 import { TermSwitcher } from "@/components/sidebar/term-switcher";
 import { getSession } from "@/auth/server";
 import { DashboardStats, DashboardStatsSkeleton } from "@/components/dashboard/dashboard-stats";
+import {
+  OperationsConsole,
+  OperationsConsoleSkeleton,
+} from "@/components/dashboard/operations-console";
 import { ErrorFallback } from "@/components/error-fallback";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
 import { Suspense } from "react";
@@ -37,6 +41,7 @@ export default async function Page({ params }) {
   const cookie = await getAuthCookie();
   const sessionId = cookie?.sessionId ?? "";
   const schoolId = cookie?.schoolId ?? "";
+  const termId = cookie?.termId ?? "";
   const termTitle = cookie?.termTitle ?? "—";
   const sessionTitle = cookie?.sessionTitle ?? "—";
 
@@ -53,33 +58,48 @@ export default async function Page({ params }) {
     <div className="space-y-8 py-4">
       <PageTitle>Dashboard</PageTitle>
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          {sessionTitle && (
-            <Badge variant="outline" className="text-xs">
-              {sessionTitle}
-            </Badge>
-          )}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+            {sessionTitle && (
+              <Badge variant="outline" className="text-xs">
+                {sessionTitle}
+              </Badge>
+            )}
+          </div>
+          <div className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
+            <span className="shrink-0">Current term:</span>
+            <TermSwitcher display="dashboard" fallbackTermTitle={termTitle} />
+          </div>
         </div>
-        <div className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
-          <span className="shrink-0">Current term:</span>
-          <TermSwitcher display="dashboard" fallbackTermTitle={termTitle} />
+        <div className="flex flex-wrap gap-2">
+          <AddStudentQuickLink layout="toolbar" />
+          <ReceiveFeeButton layout="toolbar" />
         </div>
       </div>
 
       <ErrorBoundary errorComponent={ErrorFallback}>
-        <Suspense fallback={<DashboardStatsSkeleton />}>
-          <DashboardStats schoolId={schoolId} sessionId={sessionId} />
-        </Suspense>
+        {sessionId && termId ? (
+          <Suspense fallback={<OperationsConsoleSkeleton />}>
+            <OperationsConsole
+              schoolId={schoolId}
+              sessionId={sessionId}
+              termId={termId}
+            />
+          </Suspense>
+        ) : (
+          <Suspense fallback={<DashboardStatsSkeleton />}>
+            <DashboardStats schoolId={schoolId} sessionId={sessionId} />
+          </Suspense>
+        )}
       </ErrorBoundary>
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Quick Links
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <AddStudentQuickLink />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {quickLinks.map((l) => (
             <Button
               key={l.label}
@@ -94,7 +114,6 @@ export default async function Page({ params }) {
             </Button>
           ))}
           <PromotionQuickLink />
-          <ReceiveFeeButton />
         </div>
       </div>
     </div>
