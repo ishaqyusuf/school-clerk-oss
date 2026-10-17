@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { TRPCContext } from "@api/trpc/init";
 import { TRPCError } from "@trpc/server";
+import { MODULE_IDS } from "@school-clerk/utils/module-config";
 
 process.env.DATABASE_URL ??= "postgresql://test:test@127.0.0.1:5432/test";
 
@@ -1070,144 +1071,265 @@ describe("bulkChangeStudentClass", () => {
 	});
 });
 
-function createImportCtx() {
-	const classrooms = [
-		{
-			id: "classroom-a",
-			departmentName: "A",
-			schoolProfileId: "school-1",
-			classRoom: {
-				name: "JSS 1",
-				schoolSessionId: "session-1",
-			},
-		},
-		{
-			id: "classroom-b",
-			departmentName: "B",
-			schoolProfileId: "school-1",
-			classRoom: {
-				name: "JSS 1",
-				schoolSessionId: "session-1",
-			},
-		},
-		{
-			id: "primary-1-primary-1",
-			departmentName: "الأول الإبتدائي",
-			schoolProfileId: "school-1",
-			classRoom: {
-				name: "الأول الإبتدائي",
-				schoolSessionId: "session-1",
-			},
-		},
-	];
-	const existingStudents = [
-		{
-			id: "student-1",
-			name: "John",
-			surname: "Doe",
-			otherName: null,
-			gender: "Male",
-			termForms: [
-				{
-					id: "term-form-1",
-					sessionTermId: "term-1",
-					schoolSessionId: "session-1",
-					classroomDepartmentId: "classroom-a",
-					sessionTerm: {
-						id: "term-1",
-						title: "First Term",
-					},
-					schoolSession: {
-						id: "session-1",
-						title: "2026/2027",
-					},
-					classroomDepartment: {
-						id: "classroom-a",
-						departmentName: "A",
-					},
-				},
-			],
-		},
-		{
-			id: "student-2",
-			name: "Mary",
-			surname: "Major",
-			otherName: null,
-			gender: "Female",
-			termForms: [],
-		},
-		{
-			id: "student-3",
-			name: "Aisha",
-			surname: "Bello",
-			otherName: "Fatima",
-			gender: "Female",
-			termForms: [],
-		},
-	];
-	const createdStudents: unknown[] = [];
-	const createdSessionForms: unknown[] = [];
-	const createdTermForms: unknown[] = [];
+type ImportRecord = Record<string, any>;
+type ImportRelation = { model: string; many?: boolean; resolve: (row: ImportRecord) => any };
 
-	const tx = {
-		students: {
-			findFirst: async ({ where }: any) =>
-				existingStudents.find((student) => student.id === where.id) ?? null,
-			create: async ({ data }: any) => {
-				const student = {
-					id: `new-student-${createdStudents.length + 1}`,
-					gender: data.gender,
-					name: data.name,
-					surname: data.surname,
-					otherName: data.otherName ?? null,
-					schoolProfileId: data.schoolProfileId,
-					sessionForms: [
-						{
-							id: `new-session-form-${createdStudents.length + 1}`,
-							...data.sessionForms.create,
-							termForms: [
-								{
-									id: `new-term-form-${createdStudents.length + 1}`,
-									...data.sessionForms.create.termForms.create,
-								},
-							],
-						},
-					],
-				};
-				createdStudents.push(student);
-				return student;
-			},
-			update: async () => ({}),
+const scalarFilterKeys = new Set(["in", "notIn", "not", "gt", "gte", "lt", "lte", "equals"]);
+
+function matchesScalar(value: any, filter: any): boolean {
+	if (filter === null) return value == null;
+	if (filter instanceof Date) return value instanceof Date && value.getTime() === filter.getTime();
+	if (typeof filter !== "object") return value === filter;
+	return Object.entries(filter).every(([op, operand]: [string, any]) => {
+		switch (op) {
+			case "equals": return matchesScalar(value, operand);
+			case "in": return operand.includes(value);
+			case "notIn": return !operand.includes(value);
+			case "not": return !matchesScalar(value, operand);
+			case "gt": return value != null && value > operand;
+			case "gte": return value != null && value >= operand;
+			case "lt": return value != null && value < operand;
+			case "lte": return value != null && value <= operand;
+			default: throw new Error(`Unsupported import fixture filter: ${op}`);
+		}
+	});
+}
+
+/**
+ * In-memory Prisma stand-in for the import access path. It evaluates the real
+ * where/select shapes (relations, OR/AND, some/none) so access checks run unchanged.
+ */
+function createImportStore(tables: Record<string, ImportRecord[]>) {
+	const now = new Date("2026-07-14T10:00:00.000Z");
+	const byId = (model: string, id: unknown) => tables[model]!.find((row) => row.id === id) ?? null;
+	const where = (model: string, key: string) => (row: ImportRecord) =>
+		tables[model]!.filter((candidate) => candidate[key] === row.id);
+	const relations: Record<string, Record<string, ImportRelation>> = {
+		user: { tenant: { model: "tenant", resolve: (row) => byId("tenant", row.tenantId) } },
+		session: { user: { model: "user", resolve: (row) => byId("user", row.userId) } },
+		schoolProfile: {
+			account: { model: "saasAccount", resolve: (row) => byId("saasAccount", row.accountId) },
+			moduleConfiguration: { model: "schoolModuleConfiguration",
+				resolve: (row) => tables.schoolModuleConfiguration!.find((config) => config.schoolProfileId === row.id) ?? null },
 		},
-		studentTermForm: {
-			findMany: async () => [],
-			findFirst: async () => null,
-			create: async ({ data }: any) => {
-				createdTermForms.push(data);
-				return {
-					id: `new-term-form-${createdTermForms.length}`,
-					...data,
-				};
-			},
-			update: async ({ where, data }: any) => ({ id: where.id, ...data }),
+		sessionTerm: { session: { model: "schoolSession", resolve: (row) => byId("schoolSession", row.sessionId) } },
+		classRoom: { session: { model: "schoolSession", resolve: (row) => byId("schoolSession", row.schoolSessionId) } },
+		classRoomDepartment: { classRoom: { model: "classRoom", resolve: (row) => byId("classRoom", row.classRoomsId) } },
+		students: {
+			termForms: { model: "studentTermForm", many: true, resolve: where("studentTermForm", "studentId") },
+			sessionForms: { model: "studentSessionForm", many: true, resolve: where("studentSessionForm", "studentId") },
 		},
 		studentSessionForm: {
-			findFirst: async () => null,
-			create: async ({ data }: any) => {
-				createdSessionForms.push(data);
-				return {
-					id: `new-session-form-${createdSessionForms.length}`,
-					...data,
-				};
-			},
+			termForms: { model: "studentTermForm", many: true, resolve: where("studentTermForm", "studentSessionFormId") },
+			classroomDepartment: { model: "classRoomDepartment", resolve: (row) => byId("classRoomDepartment", row.classroomDepartmentId) },
+			schoolSession: { model: "schoolSession", resolve: (row) => byId("schoolSession", row.schoolSessionId) },
 		},
-		financeItem: {
-			findMany: async () => [],
-		},
-		financeCharge: {
-			create: async ({ data }: any) => data,
+		studentTermForm: {
+			sessionForm: { model: "studentSessionForm", resolve: (row) => byId("studentSessionForm", row.studentSessionFormId) },
+			sessionTerm: { model: "sessionTerm", resolve: (row) => byId("sessionTerm", row.sessionTermId) },
+			schoolSession: { model: "schoolSession", resolve: (row) => byId("schoolSession", row.schoolSessionId) },
+			classroomDepartment: { model: "classRoomDepartment", resolve: (row) => byId("classRoomDepartment", row.classroomDepartmentId) },
 		},
 	};
+
+	function matches(model: string, row: ImportRecord, filter: any): boolean {
+		if (!filter) return true;
+		return Object.entries(filter).every(([key, value]: [string, any]) => {
+			if (value === undefined) return true;
+			if (key === "OR") return value.some((item: any) => matches(model, row, item));
+			if (key === "AND") return value.every((item: any) => matches(model, row, item));
+			const relation = relations[model]?.[key];
+			if (!relation) {
+				// `deletedAt: {}` is Prisma's "any value" filter.
+				if (value && typeof value === "object" && !(value instanceof Date) && !Object.keys(value).length) return true;
+				if (value && typeof value === "object" && !(value instanceof Date) &&
+					!Object.keys(value).every((op) => scalarFilterKeys.has(op))) {
+					throw new Error(`Import fixture has no relation ${model}.${key}`);
+				}
+				return matchesScalar(row[key], value);
+			}
+			const related = relation.resolve(row);
+			if (relation.many) {
+				if ("some" in value) return related.some((item: ImportRecord) => matches(relation.model, item, value.some));
+				if ("none" in value) return !related.some((item: ImportRecord) => matches(relation.model, item, value.none));
+				if ("every" in value) return related.every((item: ImportRecord) => matches(relation.model, item, value.every));
+				throw new Error(`Unsupported list filter on ${model}.${key}`);
+			}
+			if (value === null) return related == null;
+			return related != null && matches(relation.model, related, value);
+		});
+	}
+
+	function sort(rows: ImportRecord[], orderBy: any) {
+		const orders = (Array.isArray(orderBy) ? orderBy : orderBy ? [orderBy] : [])
+			.flatMap((order: any) => Object.entries(order))
+			// Relation and null-placement orderings do not change these fixtures; scalar keys do.
+			.filter(([, direction]) => direction === "asc" || direction === "desc");
+		return [...rows].sort((a, b) => {
+			for (const [key, direction] of orders as [string, string][]) {
+				if (a[key] === b[key]) continue;
+				const result = a[key] > b[key] ? 1 : -1;
+				return direction === "desc" ? -result : result;
+			}
+			return 0;
+		});
+	}
+
+	function project(model: string, row: ImportRecord | null, args: any = {}): any {
+		if (!row) return null;
+		const fields: Record<string, any> = args.select ??
+			{ ...Object.fromEntries(Object.keys(row).map((key) => [key, true])), ...args.include };
+		const result: ImportRecord = {};
+		for (const [key, field] of Object.entries(fields)) {
+			if (!field || args.omit?.[key]) continue;
+			const relation = relations[model]?.[key];
+			if (!relation) {
+				result[key] = row[key];
+				continue;
+			}
+			const nested = field === true ? {} : field;
+			const related = relation.resolve(row);
+			result[key] = relation.many
+				? sort(related.filter((item: ImportRecord) => matches(relation.model, item, nested.where)), nested.orderBy)
+					.map((item) => project(relation.model, item, nested))
+				: project(relation.model, related, nested);
+		}
+		return result;
+	}
+
+	const counters: Record<string, number> = {};
+	const idPrefixes: Record<string, string> = {
+		students: "new-student", studentSessionForm: "new-session-form", studentTermForm: "new-term-form",
+		studentImportJob: "job", studentImportJobRow: "job-row", financeCharge: "charge",
+	};
+	const createDefaults: Record<string, ImportRecord> = {
+		studentImportJob: { status: "PENDING", errorMessage: null, triggerRunId: null },
+		studentImportJobRow: { status: "PENDING", studentId: null, termSheetCreated: false, reason: null, completedAt: null },
+	};
+	const created: Record<string, ImportRecord[]> = {};
+	const jobUpdates: Array<{ id: string; data: ImportRecord }> = [];
+
+	function insert(model: string, data: ImportRecord) {
+		counters[model] = (counters[model] ?? 0) + 1;
+		const row = { id: `${idPrefixes[model] ?? model}-${counters[model]}`, deletedAt: null,
+			createdAt: now, updatedAt: now, ...createDefaults[model], ...data };
+		tables[model]!.push(row);
+		(created[model] ??= []).push(data);
+		return row;
+	}
+
+	function delegate(model: string) {
+		tables[model] ??= [];
+		const findAll = (args: any = {}) =>
+			sort(tables[model]!.filter((row) => matches(model, row, args.where)), args.orderBy);
+		const update = (row: ImportRecord, data: ImportRecord) => {
+			if (model === "studentImportJob") jobUpdates.push({ id: row.id, data: { ...data } });
+			Object.assign(row, data, { updatedAt: now });
+		};
+		return {
+			findFirst: async (args: any = {}) => project(model, findAll(args)[0] ?? null, args),
+			findMany: async (args: any = {}) => findAll(args).slice(0, args.take).map((row) => project(model, row, args)),
+			count: async (args: any = {}) => findAll(args).length,
+			create: async (args: any) => project(model, insert(model, args.data), args),
+			createMany: async ({ data }: any) => {
+				for (const item of data) insert(model, item);
+				return { count: data.length };
+			},
+			update: async (args: any) => {
+				const row = findAll(args)[0];
+				if (!row) throw new Error(`Import fixture ${model}.update found no record`);
+				update(row, args.data);
+				return project(model, row, args);
+			},
+			updateMany: async ({ where: filter, data }: any) => {
+				const rows = findAll({ where: filter });
+				for (const row of rows) update(row, data);
+				return { count: rows.length };
+			},
+			groupBy: async ({ by, where: filter, _count }: any) => {
+				const groups = new Map<string, ImportRecord>();
+				for (const row of findAll({ where: filter })) {
+					const key = JSON.stringify(by.map((field: string) => row[field]));
+					const group = groups.get(key) ?? { ...Object.fromEntries(by.map((field: string) => [field, row[field]])),
+						...(_count ? { _count: { _all: 0 } } : {}) };
+					if (group._count) group._count._all += 1;
+					groups.set(key, group);
+				}
+				return [...groups.values()];
+			},
+		};
+	}
+
+	// Each lock binds the row id plus its owner scope (school for students, job for job rows).
+	const lockTables: Record<string, { model: string; scope?: string }> = {
+		Students: { model: "students", scope: "schoolProfileId" },
+		StudentImportJob: { model: "studentImportJob" },
+		StudentImportJobRow: { model: "studentImportJobRow", scope: "jobId" },
+	};
+	const db: any = {
+		// Row locks: return each live row whose id and owner scope are bound in the query.
+		$queryRaw: async (query: { strings: string[]; values: unknown[] }) => {
+			const table = query.strings.join("?").match(/FROM "(\w+)"/)?.[1];
+			const lock = table ? lockTables[table] : undefined;
+			if (!lock) throw new Error(`Import fixture cannot run raw query on ${table}`);
+			return tables[lock.model]!.filter((row) => row.deletedAt == null && query.values.includes(row.id) &&
+				(!lock.scope || query.values.includes(row[lock.scope]))).map((row) => ({ id: row.id }));
+		},
+		$executeRaw: async () => 0,
+		$transaction: async (operation: any) =>
+			typeof operation === "function" ? operation(db) : Promise.all(operation),
+	};
+	for (const model of [...Object.keys(tables), "financeItem", "financeCharge", "financeTermLedgerClose"]) {
+		db[model] = delegate(model);
+	}
+	return { db, tables, created, jobUpdates };
+}
+
+function createImportCtx() {
+	const moduleIds = [...MODULE_IDS];
+	const store = createImportStore({
+		tenant: [{ id: "tenant-1", deletedAt: null, qaPurgeStartedAt: null }],
+		saasAccount: [{ id: "account-1", deletedAt: null, qaPurgeStartedAt: null }],
+		user: [
+			{ id: "user-1", role: "Admin", saasAccountId: "account-1", tenantId: "tenant-1", deletedAt: null },
+			{ id: "teacher-1", role: "Teacher", saasAccountId: "account-1", tenantId: "tenant-1", deletedAt: null },
+		],
+		session: [
+			{ id: "auth-session-1", token: "auth-token-1", userId: "user-1", expiresAt: new Date("2099-01-01"), deletedAt: null },
+			{ id: "auth-session-teacher", token: "auth-token-teacher", userId: "teacher-1", expiresAt: new Date("2099-01-01"), deletedAt: null },
+		],
+		schoolProfile: [{ id: "school-1", accountId: "account-1", studentNameFormat: null, deletedAt: null }],
+		schoolModuleConfiguration: [{ schoolProfileId: "school-1", version: 1, revision: 1,
+			enabledModules: moduleIds, entitledModules: moduleIds }],
+		schoolSession: [{ id: "session-1", title: "2026/2027", schoolId: "school-1", deletedAt: null }],
+		sessionTerm: [{ id: "term-1", title: "First Term", schoolId: "school-1", sessionId: "session-1",
+			lifecycleStatus: "OPEN", deletedAt: null }],
+		classRoom: [
+			{ id: "jss-1", name: "JSS 1", schoolProfileId: "school-1", schoolSessionId: "session-1", deletedAt: null },
+			{ id: "primary-1", name: "الأول الإبتدائي", schoolProfileId: "school-1", schoolSessionId: "session-1", deletedAt: null },
+		],
+		classRoomDepartment: [
+			{ id: "classroom-a", departmentName: "A", schoolProfileId: "school-1", classRoomsId: "jss-1", deletedAt: null },
+			{ id: "classroom-b", departmentName: "B", schoolProfileId: "school-1", classRoomsId: "jss-1", deletedAt: null },
+			{ id: "primary-1-primary-1", departmentName: "الأول الإبتدائي", schoolProfileId: "school-1",
+				classRoomsId: "primary-1", deletedAt: null },
+		],
+		students: [
+			{ id: "student-1", name: "John", surname: "Doe", otherName: null, gender: "Male", schoolProfileId: "school-1", deletedAt: null },
+			{ id: "student-2", name: "Mary", surname: "Major", otherName: null, gender: "Female", schoolProfileId: "school-1", deletedAt: null },
+			{ id: "student-3", name: "Aisha", surname: "Bello", otherName: "Fatima", gender: "Female", schoolProfileId: "school-1", deletedAt: null },
+		],
+		// John is already enrolled this term in classroom A.
+		studentSessionForm: [{ id: "session-form-1", studentId: "student-1", schoolProfileId: "school-1",
+			schoolSessionId: "session-1", classroomDepartmentId: "classroom-a", deletedAt: null }],
+		studentTermForm: [{ id: "term-form-1", studentId: "student-1", studentSessionFormId: "session-form-1",
+			schoolProfileId: "school-1", schoolSessionId: "session-1", sessionTermId: "term-1",
+			classroomDepartmentId: "classroom-a", admissionType: "UNCLASSIFIED", deletedAt: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z") }],
+		studentImportJob: [],
+		studentImportJobRow: [],
+	});
+	const created = (model: string) => (store.created[model] ??= []);
 
 	return {
 		ctx: {
@@ -1215,24 +1337,23 @@ function createImportCtx() {
 				schoolId: "school-1",
 				sessionId: "session-1",
 				termId: "term-1",
+				authSessionId: "auth-session-1",
 			},
-			db: {
-				classRoomDepartment: {
-					findMany: async ({ where }: any) => {
-						const ids = where.id.in as string[];
-						return classrooms.filter((classroom) => ids.includes(classroom.id));
-					},
-				},
-				students: {
-					findMany: async () => existingStudents,
-				},
-				$transaction: async (callback: (transaction: typeof tx) => unknown) =>
-					callback(tx),
+			currentUser: {
+				id: "user-1",
+				email: "admin@example.com",
+				name: "Admin",
+				role: "Admin",
+				saasAccountId: "account-1",
 			},
+			db: store.db,
 		} as any,
-		createdStudents,
-		createdSessionForms,
-		createdTermForms,
+		createdStudents: created("students"),
+		createdSessionForms: created("studentSessionForm"),
+		createdTermForms: created("studentTermForm"),
+		jobs: store.tables.studentImportJob!,
+		jobRows: store.tables.studentImportJobRow!,
+		jobUpdates: store.jobUpdates,
 	};
 }
 
@@ -1255,8 +1376,7 @@ describe("verifyStudentImport", () => {
 			}),
 		).rejects.toMatchObject({
 			code: "BAD_REQUEST",
-			message:
-				"One or more selected classroom departments were not found, unauthorized, or not in the active session.",
+			message: "A selected classroom is unavailable in the current school session.",
 		} satisfies Partial<TRPCError>);
 	});
 
@@ -1279,7 +1399,7 @@ describe("verifyStudentImport", () => {
 			}),
 		).rejects.toMatchObject({
 			code: "UNAUTHORIZED",
-			message: "Active school, session, and term are required",
+			message: "An active school, session and term are required to review an import.",
 		} satisfies Partial<TRPCError>);
 	});
 
@@ -1371,12 +1491,14 @@ describe("verifyStudentImport", () => {
 describe("executeStudentImport", () => {
 	test("rejects teacher-triggered imports", async () => {
 		const { ctx } = createImportCtx();
+		// A live teacher session: the role comes from the session's user, not ctx.currentUser.role.
+		ctx.profile.authSessionId = "auth-session-teacher";
 		ctx.currentUser = {
 			id: "teacher-1",
 			email: "teacher@example.com",
 			name: "Teacher",
 			role: "Teacher",
-			saasAccountId: null,
+			saasAccountId: "account-1",
 		};
 
 		await expect(
@@ -1386,6 +1508,7 @@ describe("executeStudentImport", () => {
 			}),
 		).rejects.toMatchObject({
 			code: "FORBIDDEN",
+			message: "Import requires current student, academic and finance management access.",
 		} satisfies Partial<TRPCError>);
 	});
 
@@ -1405,8 +1528,8 @@ describe("executeStudentImport", () => {
 				],
 			}),
 		).rejects.toMatchObject({
-			code: "BAD_REQUEST",
-			message: "At least one classroom is required",
+			code: "CONFLICT",
+			message: "Select an available classroom for every import row.",
 		} satisfies Partial<TRPCError>);
 	});
 
@@ -1427,9 +1550,8 @@ describe("executeStudentImport", () => {
 				],
 			}),
 		).rejects.toMatchObject({
-			code: "BAD_REQUEST",
-			message:
-				"One or more selected classrooms do not belong to the active school",
+			code: "NOT_FOUND",
+			message: "An import classroom is unavailable in this school session.",
 		} satisfies Partial<TRPCError>);
 	});
 
@@ -1440,12 +1562,13 @@ describe("executeStudentImport", () => {
 			rows: [
 				{
 					lineNumber: 1,
-					name: "John",
-					surname: "Doe",
-					gender: "Male",
+					name: "Aisha",
+					surname: "Bello",
+					otherName: "Fatima",
+					gender: "Female",
 					classroomDepartmentId: "classroom-a",
 					action: "keep_match",
-					existingStudentId: "student-1",
+					existingStudentId: "student-3",
 				},
 				{
 					lineNumber: 2,
@@ -1473,7 +1596,8 @@ describe("executeStudentImport", () => {
 	});
 
 	test("creates Arabic fallback-classroom female rows as new students", async () => {
-		const { ctx, createdStudents } = createImportCtx();
+		const { ctx, createdStudents, createdSessionForms, createdTermForms } =
+			createImportCtx();
 
 		const result = await executeStudentImport(ctx, {
 			classroomDepartmentId: "primary-1-primary-1",
@@ -1538,156 +1662,45 @@ describe("executeStudentImport", () => {
 				name: student.name,
 				surname: student.surname,
 				gender: student.gender,
-				classroomDepartmentId: student.sessionForms[0]?.classroomDepartmentId,
 			})),
 		).toEqual([
 			{
 				name: "بلقيس",
 				surname: "أحمد",
 				gender: "Female",
-				classroomDepartmentId: "primary-1-primary-1",
 			},
 			{
 				name: "بلقيس",
 				surname: "أونيكون",
 				gender: "Female",
-				classroomDepartmentId: "primary-1-primary-1",
 			},
 			{
 				name: "بلقيس",
 				surname: "إبراهيم",
 				gender: "Female",
-				classroomDepartmentId: "primary-1-primary-1",
 			},
 			{
 				name: "حنيفة",
 				surname: "عيسى",
 				gender: "Female",
-				classroomDepartmentId: "primary-1-primary-1",
 			},
 			{
 				name: "حليمة",
 				surname: "عثمان",
 				gender: "Female",
-				classroomDepartmentId: "primary-1-primary-1",
 			},
 		]);
+		expect(
+			createdSessionForms.map((form: any) => form.classroomDepartmentId),
+		).toEqual(Array(5).fill("primary-1-primary-1"));
+		expect(
+			createdTermForms.map((form: any) => form.classroomDepartmentId),
+		).toEqual(Array(5).fill("primary-1-primary-1"));
 	});
 });
 
-function createImportJobCtx() {
-	const base = createImportCtx();
-	const jobs: any[] = [];
-	const jobRows: any[] = [];
-	const jobUpdates: any[] = [];
-	let jobCounter = 0;
-	let rowCounter = 0;
-	const now = new Date("2026-07-14T10:00:00.000Z");
-
-	return {
-		...base,
-		jobs,
-		jobRows,
-		jobUpdates,
-		ctx: {
-			...base.ctx,
-			currentUser: {
-				id: "user-1",
-				email: "admin@example.com",
-				name: "Admin",
-				role: "Admin",
-				saasAccountId: null,
-			},
-			db: {
-				...base.ctx.db,
-				studentImportJob: {
-					create: async ({ data }: any) => {
-						const job = {
-							id: `job-${++jobCounter}`,
-							status: "PENDING",
-							totalRows: data.totalRows,
-							processedRows: data.processedRows ?? 0,
-							createdStudents: data.createdStudents ?? 0,
-							keptMatches: data.keptMatches ?? 0,
-							updatedMatches: data.updatedMatches ?? 0,
-							termSheetsCreated: data.termSheetsCreated ?? 0,
-							skippedRows: data.skippedRows ?? 0,
-							failedRows: data.failedRows ?? 0,
-							errorMessage: data.errorMessage ?? null,
-							triggerRunId: data.triggerRunId ?? null,
-							schoolProfileId: data.schoolProfileId,
-							schoolSessionId: data.schoolSessionId,
-							sessionTermId: data.sessionTermId,
-							createdByUserId: data.createdByUserId ?? null,
-							createdAt: now,
-							updatedAt: now,
-						};
-						jobs.push(job);
-						return job;
-					},
-					findFirst: async ({ where }: any) => {
-						let candidates = jobs.filter((job) => job.deletedAt == null);
-						if (where.schoolProfileId) {
-							candidates = candidates.filter(
-								(job) => job.schoolProfileId === where.schoolProfileId,
-							);
-						}
-						if (where.id) {
-							candidates = candidates.filter((job) => job.id === where.id);
-						}
-						if (where.createdByUserId) {
-							candidates = candidates.filter(
-								(job) => job.createdByUserId === where.createdByUserId,
-							);
-						}
-						if (where.status?.in) {
-							candidates = candidates.filter((job) =>
-								where.status.in.includes(job.status),
-							);
-						}
-						return candidates[0] ?? null;
-					},
-					update: async ({ where, data }: any) => {
-						const job = jobs.find((candidate) => candidate.id === where.id);
-						jobUpdates.push({ id: where.id, data: { ...data } });
-						Object.assign(job, data, { updatedAt: now });
-						return job;
-					},
-				},
-				studentImportJobRow: {
-					createMany: async ({ data }: any) => {
-						for (const row of data) {
-							jobRows.push({
-								id: `job-row-${++rowCounter}`,
-								status: "PENDING",
-								studentId: null,
-								termSheetCreated: false,
-								reason: null,
-								completedAt: null,
-								...row,
-								createdAt: now,
-								updatedAt: now,
-							});
-						}
-						return { count: data.length };
-					},
-					findMany: async ({ where }: any) =>
-						jobRows
-							.filter((row) => row.jobId === where.jobId)
-							.filter((row) =>
-								where.status?.in ? where.status.in.includes(row.status) : true,
-							)
-							.sort((a, b) => a.lineNumber - b.lineNumber),
-					update: async ({ where, data }: any) => {
-						const row = jobRows.find((candidate) => candidate.id === where.id);
-						Object.assign(row, data, { updatedAt: now });
-						return row;
-					},
-				},
-			},
-		} as any,
-	};
-}
+// Jobs share the import store; the job tables start empty.
+const createImportJobCtx = createImportCtx;
 
 describe("student import jobs", () => {
 	test("creates a pending tenant-scoped import job with persisted row payloads", async () => {
