@@ -9,6 +9,7 @@ import { SubmitButton } from "../submit-button";
 import { Button } from "@school-clerk/ui/button";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
+import { invalidateStudentFinanceQueries } from "@/hooks/invalidate-student-finance";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import type { CreateStudentInput } from "@school-clerk/utils/student-create-schema";
@@ -67,14 +68,14 @@ export function StudentFormAction({
 					return;
 				}
 
-				router.refresh();
-
-				if (
-					studentParams.createStudentReturnTo === "receive-payment" &&
-					data.feePaymentSummary.totalAllocated > 0
-				) {
-					studentParams.setParams({ createStudentReturnTo: null });
-				} else if (studentParams.createStudentReturnTo === "receive-payment") {
+				if (studentParams.createStudentReturnTo === "receive-payment") {
+					// Back to Receive Payment with the new student selected. Skip
+					// router.refresh(): it re-renders the layout and holds the sheet
+					// back for seconds; query invalidation refreshes the lists.
+					invalidateStudentFinanceQueries(queryClient, trpc, {
+						studentIds: [data.id],
+						termFormIds: [],
+					});
 					receivePaymentParams.setParams({
 						receivePayment: true,
 						receivePaymentStudentId: data.id,
@@ -87,7 +88,10 @@ export function StudentFormAction({
 						createStudentPrefillName: null,
 						createStudentReturnTo: null,
 					});
+					return;
 				}
+
+				router.refresh();
 			},
 		}),
 	);
