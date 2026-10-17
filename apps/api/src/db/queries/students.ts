@@ -1074,6 +1074,20 @@ function normalizeArabic(str: string): string {
   return str.replace(/\s+/g, " ").trim();
 }
 
+function formatMatchClassroomLabel(
+  classroomDepartment?: {
+    departmentName?: string | null;
+    classRoom?: { name?: string | null } | null;
+  } | null,
+) {
+  const className = classroomDepartment?.classRoom?.name?.trim();
+  const departmentName = classroomDepartment?.departmentName?.trim();
+  if (className && departmentName && className !== departmentName) {
+    return `${className} - ${departmentName}`;
+  }
+  return departmentName || className || null;
+}
+
 function normalizeName(str: string): string {
   return normalizeArabic(str).toLowerCase().trim();
 }
@@ -1171,6 +1185,13 @@ export async function verifyStudentImport(
     historyNeedsReview?: boolean;
   }
 
+  // Normalize every existing student once; the row loop below compares each row against all of them.
+  const normalizedCandidateNames = existingStudents.map((candidate) => ({
+    name: normalizeName(candidate.name),
+    surname: normalizeName(candidate.surname ?? ""),
+    otherName: normalizeName(candidate.otherName ?? ""),
+  }));
+
   for (const row of input.rows) {
     const targetClassroomDepartmentId =
       row.classroomDepartmentId || input.classroomDepartmentId || null;
@@ -1226,13 +1247,16 @@ export async function verifyStudentImport(
     const exactMatches: MatchMeta[] = [];
     const suspectedMatches: MatchMeta[] = [];
 
-    for (const candidate of existingStudents) {
-      const normCandName = normalizeName(candidate.name);
-      const normCandSurname = normalizeName(candidate.surname ?? "");
-      const normCandOtherName = normalizeName(candidate.otherName ?? "");
-      const normRowName = normalizeName(row.name);
-      const normRowSurname = normalizeName(row.surname);
-      const normRowOtherName = normalizeName(row.otherName ?? "");
+    const normRowName = normalizeName(row.name);
+    const normRowSurname = normalizeName(row.surname);
+    const normRowOtherName = normalizeName(row.otherName ?? "");
+
+    for (const [candidateIndex, candidate] of existingStudents.entries()) {
+      const {
+        name: normCandName,
+        surname: normCandSurname,
+        otherName: normCandOtherName,
+      } = normalizedCandidateNames[candidateIndex]!;
 
       // Exact match on all parsed name parts.
       const isExactName = normCandName === normRowName;
@@ -1290,8 +1314,8 @@ export async function verifyStudentImport(
           surname: candidate.surname,
           otherName: candidate.otherName,
           gender: candidate.gender,
-          classRoom:
-            currentTermSheet?.classroomDepartment?.departmentName || null,
+          // Department names are often just a section letter ("ا", "B"); show the full class label.
+          classRoom: formatMatchClassroomLabel(currentTermSheet?.classroomDepartment),
           classroomDepartmentId:
             currentTermSheet?.classroomDepartment?.id || null,
           studentSessionFormId: currentTermSheet?.schoolSessionId === schoolSessionId ? currentTermSheet.studentSessionFormId : null,
@@ -1647,37 +1671,58 @@ export async function startStudentImportJob(
 
   const job = await db.$transaction(async (tx) => {
     const access = await authorizeStudentImport(tx, authority, target);
-    return tx.studentImportJob.create({
-    data: {
-      schoolProfileId: profile.schoolId!,
-      schoolSessionId: profile.sessionId!,
-      sessionTermId: profile.termId!,
-      createdByUserId: access.userId,
-      totalRows: rows.length,
-      processedRows: 0,
-      createdStudents: 0,
-      keptMatches: 0,
-      updatedMatches: 0,
-      termSheetsCreated: 0,
-      skippedRows: 0,
-      failedRows: 0,
-      rows: { create: rows.map((row) => ({
+    const created = await tx.studentImportJob.create({
+      data: {
+        schoolProfileId: profile.schoolId!,
+        schoolSessionId: profile.sessionId!,
+        sessionTermId: profile.termId!,
+        createdByUserId: access.userId,
+        totalRows: rows.length,
+        processedRows: 0,
+        createdStudents: 0,
+        keptMatches: 0,
+        updatedMatches: 0,
+        termSheetsCreated: 0,
+        skippedRows: 0,
+        failedRows: 0,
+      },
+    });
+    // One multi-row insert instead of a nested create per row keeps large batches inside the transaction budget.
+    await tx.studentImportJobRow.createMany({
+      data: rows.map((row) => ({
+        jobId: created.id,
         lineNumber: row.lineNumber, action: row.action, status: "PENDING" as const,
         payload: row, termSheetCreated: false,
-      })) },
-    },
+      })),
     });
-  }, { isolationLevel: "Serializable" });
+    return created;
+  }, { isolationLevel: "Serializable", maxWait: 10_000, timeout: 30_000 });
 
   if (options.enqueue !== false) {
-    const run = await tasks.trigger(processStudentImportJobTaskId, {
-      jobId: job.id,
-    });
+    try {
+      const run = await tasks.trigger(processStudentImportJobTaskId, {
+        jobId: job.id,
+      });
 
-    if (run?.id) {
-      await (db as any).studentImportJob.update({
-        where: { id: job.id },
-        data: { triggerRunId: run.id },
+      if (run?.id) {
+        await (db as any).studentImportJob.update({
+          where: { id: job.id },
+          data: { triggerRunId: run.id },
+        });
+      }
+    } catch (error) {
+      // Without a worker run the job would sit PENDING forever and be recovered as "in progress".
+      await (db as any).studentImportJob.updateMany({
+        where: { id: job.id, status: "PENDING" },
+        data: {
+          status: "FAILED",
+          errorMessage: "The import could not be queued. Nothing was imported; try again.",
+        },
+      });
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "The import could not be queued. Nothing was imported; try again.",
+        cause: error,
       });
     }
   }

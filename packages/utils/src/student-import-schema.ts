@@ -35,7 +35,7 @@ export const studentImportRowSchema = z.object({
 
 export const executeStudentImportSchema = z.object({
   classroomDepartmentId: z.string().optional().nullable(),
-  rows: z.array(studentImportRowSchema),
+  rows: z.array(studentImportRowSchema).max(STUDENT_IMPORT_PREVIEW_ROW_LIMIT),
 });
 
 export type StudentImportRow = z.infer<typeof studentImportRowSchema>;

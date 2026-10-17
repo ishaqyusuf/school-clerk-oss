@@ -186,6 +186,29 @@ function buildNameGuide(nameGuide: string[]) {
     });
 }
 
+type NameGuideEntry = ReturnType<typeof buildNameGuide>[number];
+
+// The guide is the school's whole name list; building and sorting it per pasted line made large
+// pastes quadratic. Build it once per guide array and bucket entries by first token, keeping the
+// longest-first order inside each bucket so lookups match the previous `guide.find` result.
+const nameGuideIndexCache = new WeakMap<string[], Map<string, NameGuideEntry[]>>();
+
+function getNameGuideIndex(nameGuide: string[]) {
+  const cached = nameGuideIndexCache.get(nameGuide);
+  if (cached) return cached;
+
+  const index = new Map<string, NameGuideEntry[]>();
+  for (const entry of buildNameGuide(nameGuide)) {
+    const first = entry.tokens[0];
+    if (!first) continue;
+    const bucket = index.get(first);
+    if (bucket) bucket.push(entry);
+    else index.set(first, [entry]);
+  }
+  nameGuideIndexCache.set(nameGuide, index);
+  return index;
+}
+
 function splitNameWithGuide(source: string, nameGuide: string[]) {
   const normalizedSource = normalizeWhitespace(source);
   if (!normalizedSource) return [];
@@ -194,9 +217,9 @@ function splitNameWithGuide(source: string, nameGuide: string[]) {
   const normalizedTokens = tokens.map((token) =>
     normalizeNameGuideValue(token),
   );
-  const guide = buildNameGuide(nameGuide);
+  const guide = getNameGuideIndex(nameGuide);
 
-  if (!guide.length) {
+  if (!guide.size) {
     return tokens;
   }
 
@@ -204,8 +227,7 @@ function splitNameWithGuide(source: string, nameGuide: string[]) {
   let cursor = 0;
 
   while (cursor < tokens.length) {
-    const match = guide.find((entry) => {
-      if (!entry.tokens.length) return false;
+    const match = guide.get(normalizedTokens[cursor] || "")?.find((entry) => {
       if (entry.tokens.length > tokens.length - cursor) return false;
 
       return entry.tokens.every(

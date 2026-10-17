@@ -9,10 +9,20 @@ const rowStatuses: Record<ImportRowResult["status"], StudentImportRowOutcome["st
   created: "CREATED", kept: "KEPT", updated: "UPDATED", skipped: "SKIPPED", failed: "FAILED",
 };
 
+export type RunStudentImportJobOptions = {
+  /**
+   * Epoch ms after which no new row is started. Workers pass this so a large job stops cleanly
+   * before the task's max duration and is continued by a follow-up run instead of being killed
+   * mid-job (which would leave it RUNNING). Rows already settled are never replayed.
+   */
+  deadline?: number;
+};
+
 export async function runStudentImportJob(
   db: Database,
   jobId: string,
-) {
+  options: RunStudentImportJobOptions = {},
+): Promise<Awaited<ReturnType<typeof refreshStudentImportJobProgress>> & { hasPendingRows: boolean }> {
   const job = await db.studentImportJob.findFirst({
     where: { id: jobId, deletedAt: null },
   });
@@ -20,8 +30,10 @@ export async function runStudentImportJob(
 
   if (job.status !== "PENDING" && job.status !== "RUNNING") {
     const snapshot = await refreshStudentImportJobProgress(db, job.id);
-    return snapshot;
+    return { ...snapshot, hasPendingRows: false };
   }
+
+  let stoppedAtDeadline = false;
 
   try {
     await requireStudentImportAccess(db, { kind: "job", jobId: job.id });
@@ -31,7 +43,7 @@ export async function runStudentImportJob(
     });
     if (started.count !== 1) {
       const snapshot = await refreshStudentImportJobProgress(db, job.id);
-      return snapshot;
+      return { ...snapshot, hasPendingRows: false };
     }
 
     const pendingRows = await db.studentImportJobRow.findMany({
@@ -47,6 +59,10 @@ export async function runStudentImportJob(
     ) {
       const chunk = pendingRows.slice(index, index + STUDENT_IMPORT_JOB_CHUNK_SIZE);
       for (const queuedRow of chunk) {
+        if (options.deadline && Date.now() >= options.deadline) {
+          stoppedAtDeadline = true;
+          break processing;
+        }
         const receipt = await settleStudentImportJobRow(db, {
           jobId: job.id, rowId: queuedRow.id,
         }, async (tx, storedJob, storedRow) => {
@@ -69,7 +85,7 @@ export async function runStudentImportJob(
         });
         if (!receipt) break processing;
       }
-      await refreshStudentImportJobProgress(db, job.id);
+      await refreshStudentImportJobProgress(db, job.id, { includeRows: false });
     }
   } catch (error) {
     // Operational/access failure stops this job; committed row receipts are kept.
@@ -80,10 +96,13 @@ export async function runStudentImportJob(
         errorMessage: error instanceof Error ? error.message.slice(0, 1_000) : "Import execution is unavailable.",
       },
     });
-    await refreshStudentImportJobProgress(db, job.id);
+    await refreshStudentImportJobProgress(db, job.id, { includeRows: false });
     throw error;
   }
 
-  const snapshot = await refreshStudentImportJobProgress(db, job.id);
-  return snapshot;
+  const snapshot = await refreshStudentImportJobProgress(db, job.id, {
+    includeRows: !stoppedAtDeadline,
+  });
+  const active = snapshot.job.status === "PENDING" || snapshot.job.status === "RUNNING";
+  return { ...snapshot, hasPendingRows: stoppedAtDeadline && active };
 }

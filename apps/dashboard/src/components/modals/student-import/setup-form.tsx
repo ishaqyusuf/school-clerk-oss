@@ -12,6 +12,8 @@ import { Controller, type UseFormReturn } from "react-hook-form";
 import { z } from "zod";
 import type { parseRawInput } from "./parser";
 
+const NO_FALLBACK_CLASSROOM = "__none__";
+
 export const studentImportSchema = z.object({
   classRoomId: z.string().optional(),
   globalGender: z.enum(["Male", "Female", "unset", ""]).optional(),
@@ -65,7 +67,9 @@ export function StudentImportSetupForm({
                 </Field.Label>
                 <Select
                   value={field.value || ""}
-                  onValueChange={field.onChange}
+                  onValueChange={(value) =>
+                    field.onChange(value === NO_FALLBACK_CLASSROOM ? "" : value)
+                  }
                 >
                   <SelectTrigger
                     id="classroom-select"
@@ -76,12 +80,19 @@ export function StudentImportSetupForm({
                       placeholder={
                         isClassListLoading
                           ? "Loading classrooms..."
-                          : "Classroom"
+                          : "No fallback classroom"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
+                      {/* Radix Select can't hold an empty value; this sentinel clears the fallback. */}
+                      <SelectItem
+                        value={NO_FALLBACK_CLASSROOM}
+                        className="text-muted-foreground"
+                      >
+                        No fallback classroom
+                      </SelectItem>
                       {classList?.data?.map((dept) => (
                         <SelectItem key={dept.id} value={dept.id}>
                           {dept.classRoom

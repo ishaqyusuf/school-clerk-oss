@@ -55,6 +55,26 @@ function saveOutcome(tx: DatabaseTransaction, row: StudentImportJobRow, outcome:
   });
 }
 
+const SERIALIZATION_RETRY_ATTEMPTS = 3;
+
+function isSerializationConflict(error: unknown) {
+  // P2034: write conflict or deadlock; 40001: serialization_failure surfaced as a raw error.
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return true;
+  return error instanceof Error && /40001|could not serialize access/i.test(error.message);
+}
+
+/** Concurrent jobs touch the same class/term rows; a serialization conflict is retried, not failed. */
+async function withSerializationRetry<T>(run: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      if (attempt >= SERIALIZATION_RETRY_ATTEMPTS || !isSerializationConflict(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 50 * attempt + Math.random() * 100));
+    }
+  }
+}
+
 const legacyRunningReason = "This row was left RUNNING by an older worker and may already have changed student records. Review the student, enrollment and fees before submitting a new row; it was not replayed.";
 
 /** Internal worker boundary. The callback must use only this transaction for all writes. */
@@ -64,7 +84,7 @@ export async function settleStudentImportJobRow(
   execute: (tx: DatabaseTransaction, job: StudentImportJob, row: StudentImportJobRow) => Promise<StudentImportRowOutcome>,
 ): Promise<StudentImportJobRow | null> {
   try {
-    return await db.$transaction(async (tx) => {
+    return await withSerializationRetry(() => db.$transaction(async (tx) => {
       // All new row writers and progress snapshots use job -> row lock order.
       const job = await lockJob(tx, target.jobId);
       if (!isActiveJob(job)) return null;
@@ -82,7 +102,7 @@ export async function settleStudentImportJobRow(
       // A failed business result must roll back any earlier callback writes too.
       if (outcome.status === "FAILED") throw new Error(outcome.reason || "Import row could not be completed.");
       return saveOutcome(tx, row, outcome);
-    }, { isolationLevel: "Serializable", maxWait: 10_000, timeout: 60_000 });
+    }, { isolationLevel: "Serializable", maxWait: 10_000, timeout: 60_000 }));
   } catch (error) {
     // The first commit may have succeeded despite an uncertain response. Read its
     // receipt under fresh locks before saving failure; never execute the row here.
@@ -103,33 +123,47 @@ export async function settleStudentImportJobRow(
   }
 }
 
-/** A consistent snapshot relative to row writers; never revives a terminal job. */
-export async function refreshStudentImportJobProgress(db: Database, jobId: string) {
+/**
+ * A consistent snapshot relative to row writers; never revives a terminal job.
+ * Totals come from a grouped count so frequent progress refreshes stay cheap on large jobs;
+ * row receipts (without payload) are only read when the caller needs them.
+ */
+export async function refreshStudentImportJobProgress(
+  db: Database,
+  jobId: string,
+  options: { includeRows?: boolean } = {},
+) {
+  const { includeRows = true } = options;
   return db.$transaction(async (tx) => {
     const job = await lockJob(tx, jobId);
-    const rows = await tx.studentImportJobRow.findMany({
-      where: { jobId, deletedAt: null }, orderBy: { lineNumber: "asc" },
+    const groups = await tx.studentImportJobRow.groupBy({
+      by: ["status", "termSheetCreated"],
+      where: { jobId, deletedAt: null },
+      _count: { _all: true },
     });
     const summary = {
       processedRows: 0, createdStudents: 0, keptMatches: 0, updatedMatches: 0,
       termSheetsCreated: 0, skippedRows: 0, failedRows: 0,
     };
-    for (const row of rows) {
-      if (!isTerminalRow(row)) continue;
-      summary.processedRows += 1;
-      if (row.termSheetCreated) summary.termSheetsCreated += 1;
-      switch (row.status) {
-        case "CREATED": summary.createdStudents += 1; break;
-        case "KEPT": summary.keptMatches += 1; break;
-        case "UPDATED": summary.updatedMatches += 1; break;
-        case "SKIPPED": summary.skippedRows += 1; break;
-        case "FAILED": summary.failedRows += 1; break;
+    let storedRows = 0;
+    for (const group of groups) {
+      const count = group._count._all;
+      storedRows += count;
+      if (group.status === "PENDING" || group.status === "RUNNING") continue;
+      summary.processedRows += count;
+      if (group.termSheetCreated) summary.termSheetsCreated += count;
+      switch (group.status) {
+        case "CREATED": summary.createdStudents += count; break;
+        case "KEPT": summary.keptMatches += count; break;
+        case "UPDATED": summary.updatedMatches += count; break;
+        case "SKIPPED": summary.skippedRows += count; break;
+        case "FAILED": summary.failedRows += count; break;
       }
     }
     let status = job.status;
     let errorMessage = job.errorMessage;
     if (isActiveJob(job)) {
-      if (rows.length !== job.totalRows) {
+      if (storedRows !== job.totalRows) {
         status = "FAILED";
         errorMessage = "Stored import row count changed. Review the job before resubmitting.";
       } else if (summary.processedRows === job.totalRows) {
@@ -141,6 +175,13 @@ export async function refreshStudentImportJobProgress(db: Database, jobId: strin
     const updatedJob = await tx.studentImportJob.update({
       where: { id: job.id }, data: { status, errorMessage, ...summary },
     });
+    const rows = includeRows
+      ? await tx.studentImportJobRow.findMany({
+          where: { jobId, deletedAt: null },
+          orderBy: { lineNumber: "asc" },
+          omit: { payload: true },
+        })
+      : [];
     return { job: updatedJob, rows };
   }, { isolationLevel: "ReadCommitted", maxWait: 10_000, timeout: 60_000 });
 }

@@ -84,7 +84,8 @@ export async function readStudentImportReference(db: Database, authority: Studen
       .map((name) => name?.replace(/\s+/g, " ").trim()).filter((name): name is string => !!name))];
     return { scope: { ...scope, userId: access.userId, loginSessionId: access.loginSessionId },
       classDepartments, students: candidates, names, sessionTermId: scope.termId, schoolSessionId: scope.sessionId };
-  }, { isolationLevel: "RepeatableRead" });
+    // Large schools read every student and term form; Prisma's 5s interactive default is too tight.
+  }, { isolationLevel: "RepeatableRead", maxWait: 10_000, timeout: 30_000 });
   // Recheck live access after the snapshot; subsequent revocation applies on the next request.
   await requireStudentImportAccess(db, authority);
   return result;

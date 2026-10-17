@@ -4,7 +4,7 @@ import { Button } from "@school-clerk/ui/button";
 import { Dialog, Tabs } from "@school-clerk/ui/composite";
 import { useSearchParams } from "next/navigation";
 import { parseAsString, useQueryStates } from "nuqs";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { ImportActivity } from "./import-activities";
 import { useTRPC } from "@/trpc/client";
 import { STUDENT_IMPORT_PREVIEW_ROW_LIMIT } from "@school-clerk/utils/student-import-schema";
@@ -96,6 +96,8 @@ export function StudentImportModal() {
   const classRoomId = form.watch("classRoomId");
   const globalGender = form.watch("globalGender");
 
+  // Parsing a large paste is O(lines); defer it so typing and pasting stay responsive.
+  const deferredRaw = useDeferredValue(raw);
   const parse = useMemo(() => {
     const selectedDept = classList?.data?.find((d) => d.id === classRoomId);
     const classRoomName = selectedDept
@@ -104,14 +106,14 @@ export function StudentImportModal() {
         : selectedDept.departmentName
       : "";
     return parseRawInput(
-      raw,
+      deferredRaw,
       classRoomName,
       classRoomId || "",
       globalGender,
       importNameGuide?.names || [],
       classList?.data || [],
     );
-  }, [raw, classRoomId, classList?.data, globalGender, importNameGuide?.names]);
+  }, [deferredRaw, classRoomId, classList?.data, globalGender, importNameGuide?.names]);
   const warningCount = parse?.warnings?.length || 0;
   const parsedStudentCount = parse?.students?.length || 0;
   const rawLineCount = useMemo(
@@ -135,10 +137,12 @@ export function StudentImportModal() {
         ? "import"
         : "review";
 
+  // The legacy raw key is only a migration fallback for a missing draft; it is read, never re-synced here.
+  // Writing it from this effect (which also depended on it) let updates from different render priorities
+  // alternate forever and froze the review step.
   useEffect(() => {
-    setLegacyRaw(raw);
     setStoredDraft((current) => {
-      const normalized = normalizeStudentImportDraft(current, legacyRaw);
+      const normalized = normalizeStudentImportDraft(current, raw);
       const nextSetup: StudentImportDraft["setup"] = {
         classRoomId: classRoomId || "",
         globalGender:
@@ -170,16 +174,7 @@ export function StudentImportModal() {
         setup: nextSetup,
       };
     });
-  }, [
-    classRoomId,
-    globalGender,
-    importPhase,
-    legacyRaw,
-    raw,
-    setLegacyRaw,
-    setStoredDraft,
-    tab,
-  ]);
+  }, [classRoomId, globalGender, importPhase, raw, setStoredDraft, tab]);
 
   const updateReviewDraft = (review: StudentImportReviewDraft | null) => {
     setStoredDraft((current) => {
