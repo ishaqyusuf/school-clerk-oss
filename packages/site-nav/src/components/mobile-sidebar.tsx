@@ -4,8 +4,7 @@ import { Icons as CustomIcons } from "@school-clerk/ui/custom/icons";
 import { Icons } from "@school-clerk/ui/icons";
 import { useState } from "react";
 
-import { ModuleSelector } from "./module-selector";
-import { NavsList } from "./navs-list";
+import { NavTree } from "./nav-tree";
 import { useSiteNav } from "./use-site-nav";
 
 export function MobileSidebar() {
@@ -59,16 +58,7 @@ export function MobileSidebar() {
 						</Sheet.Close>
 					</div>
 
-					<div className="shrink-0 border-b border-sidebar-border px-4 py-3">
-						<ModuleSelector forceExpanded expandNavOnOpen={false} />
-					</div>
-
-					<div
-						data-site-nav-scroll-container="true"
-						className="scrollbar-hide min-h-0 flex-1 overflow-auto overscroll-contain py-3"
-					>
-						<NavsList mobile onSelect={() => setOpen(false)} />
-					</div>
+					<NavTree mobile onSelect={() => setOpen(false)} />
 					{mobileSidebarFooter ? (
 						<div className="shrink-0 border-t border-sidebar-border bg-sidebar p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
 							{mobileSidebarFooter}

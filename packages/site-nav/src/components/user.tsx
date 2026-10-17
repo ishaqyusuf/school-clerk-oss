@@ -64,7 +64,7 @@ export function User({
 	return (
 		<div
 			className={cn(
-				"relative h-11 w-full overflow-hidden rounded-md border border-border bg-background",
+				"relative h-11 w-full overflow-hidden rounded-md",
 				className,
 			)}
 		>
@@ -83,7 +83,10 @@ export function User({
 					<Button
 						size="lg"
 						variant="link"
-						className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground flex h-full w-full gap-2 px-2"
+						className={cn(
+							"flex h-full w-full gap-2.5 rounded-md px-1.5 text-sidebar-foreground hover:bg-sidebar-foreground/5 hover:no-underline data-[state=open]:bg-sidebar-foreground/5",
+							!showDetails && "justify-center px-0",
+						)}
 					>
 						<Avatar className="h-8 w-8 rounded-lg">
 							<AvatarImage src={user?.avatar} alt={displayName} />
@@ -94,10 +97,12 @@ export function User({
 						{!showDetails || (
 							<>
 								<div className="grid flex-1 text-left text-sm leading-tight">
-									<span className="truncate font-semibold">{displayName}</span>
-									<span className="truncate text-xs">{secondaryText}</span>
+									<span className="truncate font-medium">{displayName}</span>
+									<span className="truncate text-xs font-normal text-muted-foreground">
+										{secondaryText}
+									</span>
 								</div>
-								<Icons.ChevronDown className="ml-auto size-4" />
+								<Icons.MoreHoriz className="ml-auto size-4 text-muted-foreground" />
 							</>
 						)}
 					</Button>

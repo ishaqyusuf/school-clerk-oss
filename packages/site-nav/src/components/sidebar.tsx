@@ -1,7 +1,8 @@
 import { cn } from "@school-clerk/ui/cn";
+import { Icons } from "@school-clerk/ui/custom/icons";
 
-import { ModuleSelector } from "./module-selector";
-import { NavsList } from "./navs-list";
+import { NavLink } from "./nav-link";
+import { NavTree } from "./nav-tree";
 import { useSiteNav } from "./use-site-nav";
 
 export function Sidebar({ children }: { children?: React.ReactNode }) {
@@ -13,7 +14,7 @@ export function Sidebar({ children }: { children?: React.ReactNode }) {
 		hasSidebar,
 		isExpanded,
 		isPinned,
-		mainMenuRef,
+		navigation,
 	} = useSiteNav();
 
 	if (!hasSidebar) return null;
@@ -31,23 +32,32 @@ export function Sidebar({ children }: { children?: React.ReactNode }) {
 				isPinned
 					? "w-[240px]"
 					: isExpanded
-						? "w-[268px] shadow-2xl shadow-black/10 dark:shadow-black/50"
-						: "w-[84px] xl:w-[240px]",
+						? "w-[260px] shadow-2xl shadow-black/10 dark:shadow-black/50"
+						: "w-[64px] xl:w-[240px]",
 			)}
 		>
-
-			<div className="flex h-[70px] shrink-0 items-center border-b border-sidebar-border px-5">
-				<ModuleSelector />
-			</div>
-
 			<div
-				ref={mainMenuRef}
-				data-site-nav-scroll-container="true"
-				className="scrollbar-hide min-h-0 w-full flex-1 overflow-y-auto overscroll-contain pb-20 pt-3"
+				className={cn(
+					"flex h-16 shrink-0 items-center",
+					isExpanded ? "px-4" : "justify-center",
+				)}
 			>
-				<NavsList />
+				<NavLink
+					href={navigation.defaultHref}
+					aria-label="School Clerk home"
+					className="flex min-w-0 items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+				>
+					{isExpanded ? <Icons.LogoLg /> : <Icons.Logo />}
+				</NavLink>
 			</div>
-			{children}
+
+			<NavTree />
+
+			{children ? (
+				<div className="shrink-0 border-t border-sidebar-border p-2">
+					{children}
+				</div>
+			) : null}
 		</aside>
 	);
 }

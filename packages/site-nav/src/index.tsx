@@ -1,7 +1,6 @@
 import { Logo, LogoSm } from "./components/logo";
 import { MobileSidebar } from "./components/mobile-sidebar";
-import { ModuleSelector } from "./components/module-selector";
-import { NavsList } from "./components/navs-list";
+import { NavTree } from "./components/nav-tree";
 import { Sidebar } from "./components/sidebar";
 import { User } from "./components/user";
 
@@ -13,13 +12,12 @@ export const SiteNav = Object.assign(
 	{},
 	{
 		Provider: SiteNavContext.Provider,
-		NavsList,
+		NavTree,
 		Sidebar,
 		Logo,
 		LogoSm,
 		User,
 		MobileSidebar: MobileSidebar,
-		ModuleSelector,
 		Shell: SidebarShell,
 	},
 );

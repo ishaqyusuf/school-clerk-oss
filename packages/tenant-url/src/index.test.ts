@@ -6,6 +6,7 @@ import {
   getTenantUrlHeaderNames,
   resolveTenantUrlContext,
   toInternalTenantPath,
+  toProductPath,
   type TenantUrlConfig,
 } from ".";
 
@@ -357,5 +358,43 @@ describe("buildTenantUrlVariants", () => {
       "http://192.168.18.5:2200/daarulhadith/academic/classes?tab=students",
     ]);
     expect(variants[2]?.isCurrent).toBe(true);
+  });
+});
+
+describe("toProductPath", () => {
+  test("keeps subdomain browser paths as product paths", () => {
+    const ctx = resolveTenantUrlContext(
+      { host: "daarulhadith.school-clerk.localhost", pathname: "/finance" },
+      config,
+    );
+
+    expect(toProductPath(ctx, "/academic/reports")).toBe("/academic/reports");
+    expect(toProductPath(ctx, "/")).toBe("/");
+  });
+
+  test("strips the path-style tenant segment", () => {
+    const ctx = resolveTenantUrlContext(
+      { host: "localhost:2200", pathname: "/daarulhadith/finance" },
+      config,
+    );
+
+    expect(toProductPath(ctx, "/daarulhadith/academic/reports/")).toBe(
+      "/academic/reports",
+    );
+    expect(toProductPath(ctx, "/daarulhadith")).toBe("/");
+  });
+
+  test("maps an internal route for the same tenant only", () => {
+    const ctx = resolveTenantUrlContext(
+      { host: "daarulhadith.school-clerk.localhost", pathname: "/finance" },
+      prefixedAppConfig,
+    );
+
+    expect(toProductPath(ctx, "/app/daarulhadith/finance", prefixedAppConfig)).toBe(
+      "/finance",
+    );
+    expect(toProductPath(ctx, "/app/other/finance", prefixedAppConfig)).toBe(
+      "/app/other/finance",
+    );
   });
 });

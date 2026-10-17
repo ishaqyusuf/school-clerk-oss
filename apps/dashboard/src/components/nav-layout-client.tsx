@@ -10,6 +10,7 @@ import { createSiteNavContext, SiteNav } from "@school-clerk/site-nav";
 import { Icons } from "@school-clerk/ui/custom/icons";
 import { usePathname } from "next/navigation";
 import { Header } from "./header";
+import { toProductPath } from "@school-clerk/tenant-url";
 import { TenantLink } from "@school-clerk/tenant-url/next";
 import { useLocalTenantHref, useTenantUrl,
 } from "@school-clerk/tenant-url/react";
@@ -53,7 +54,10 @@ export function NavLayoutClient({
       window.location.replace(login);
     }
   }, [auth.isPending, auth.isSessionError, auth.id, tenantHref]);
-  const productPathName = tenantUrl?.context.productPath ?? pathName;
+  // The server-resolved context only knows the first request; follow client navigations too.
+  const productPathName = tenantUrl
+    ? toProductPath(tenantUrl.context, pathName, tenantUrl.config)
+    : pathName;
   const navigationRole = auth.role ?? initialRole;
   const navigation = useMemo(
     () => resolveDashboardNavigation(navigationRole, {
@@ -89,12 +93,7 @@ export function NavLayoutClient({
     >
       <div className="relative ">
         <SiteNav.Sidebar>
-          <div className="absolute bottom-4 left-0 right-0 z-10 px-2 w-full flex items-center justify-center md:justify-start md:px-2">
-            <SidebarUserMenu
-              auth={auth}
-              onLogout={onLogout}
-            />
-          </div>
+          <SidebarUserMenu auth={auth} onLogout={onLogout} />
         </SiteNav.Sidebar>
         <SiteNav.Shell className="pb-8">
           <WorkspaceTermBootstrap enabled={tenantModules.includes("ACADEMIC_PROGRAMS")} />

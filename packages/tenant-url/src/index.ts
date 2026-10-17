@@ -408,6 +408,27 @@ export function toInternalTenantPath(
   );
 }
 
+/**
+ * Maps the pathname the browser currently shows (or an internal `/{tenant}/...` route) back to
+ * the product path, so client code can follow navigations after the server-resolved context.
+ */
+export function toProductPath(
+  context: Pick<TenantUrlContext, "tenantSlug" | "externalBasePath">,
+  pathname?: string | null,
+  config: Pick<TenantUrlConfig, "internalPrefix"> = {},
+) {
+  const normalized = normalizePath(pathname);
+  const base = context.externalBasePath;
+  if (base && base !== "/" && (normalized === base || normalized.startsWith(`${base}/`))) {
+    return normalizePath(normalized.slice(base.length));
+  }
+  if (context.tenantSlug) {
+    const internal = isTenantInternalPath(normalized, config);
+    if (internal && internal.tenantSlug === context.tenantSlug) return internal.productPath;
+  }
+  return normalized;
+}
+
 export function resolveTenantUrlContext(
   input: TenantUrlInput,
   config: TenantUrlConfig,

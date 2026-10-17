@@ -1,4 +1,4 @@
-import type { ModuleKey, ResolvedNavigation } from "@school-clerk/navigation";
+import type { ResolvedNavigation } from "@school-clerk/navigation";
 import {
 	type ElementType,
 	type FocusEvent,
@@ -14,7 +14,6 @@ import {
 } from "react";
 
 import { findActiveNavigation } from "../lib/active-navigation";
-import { resolveSelectedModule } from "../lib/module-selection";
 
 const NAV_HOVER_EXPAND_DELAY_MS = 140;
 const NAV_HOVER_COLLAPSE_DELAY_MS = 80;
@@ -55,42 +54,10 @@ export const createSiteNavContext = (props: SiteNavProps) => {
 		() => findActiveNavigation(props.pathName, modules),
 		[modules, props.pathName],
 	);
-	const [selectedModuleKey, setSelectedModuleKey] = useState<ModuleKey | null>(
-		() => activeNavigation?.module.key ?? modules[0]?.key ?? null,
-	);
-	const currentModule = resolveSelectedModule(
-		modules,
-		selectedModuleKey,
-		activeNavigation?.module.key,
-	);
 	const hasSidebar =
 		(props.navigation.surface === "sidebar" ||
 			props.navigation.surface === "compact") &&
 		modules.length > 0;
-
-	useEffect(() => {
-		if (!props.pathName) return;
-		if (activeNavigation?.module.key) {
-			setSelectedModuleKey(activeNavigation.module.key);
-		}
-	}, [activeNavigation?.module.key, props.pathName]);
-
-	useEffect(() => {
-		setSelectedModuleKey((current) =>
-			modules.some((module) => module.key === current)
-				? current
-				: (modules[0]?.key ?? null),
-		);
-	}, [modules]);
-
-	const selectModule = useCallback(
-		(moduleKey: ModuleKey) => {
-			if (modules.some((module) => module.key === moduleKey)) {
-				setSelectedModuleKey(moduleKey);
-			}
-		},
-		[modules],
-	);
 
 	const clearHoverExpandTimeout = useCallback(() => {
 		if (!hoverExpandTimeoutRef.current) return;
@@ -236,7 +203,6 @@ export const createSiteNavContext = (props: SiteNavProps) => {
 	return {
 		activeNavigation,
 		collapseSiteNavIfIdle,
-		currentModule,
 		expandSiteNav,
 		handleNavFloatingMouseEnter,
 		handleNavFloatingMouseLeave,
@@ -251,8 +217,6 @@ export const createSiteNavContext = (props: SiteNavProps) => {
 		modules,
 		navigation: props.navigation,
 		props,
-		selectModule,
-		selectedModuleKey,
 		setIsExpanded,
 	};
 };
