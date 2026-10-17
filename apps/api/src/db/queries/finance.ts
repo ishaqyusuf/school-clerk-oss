@@ -24,6 +24,9 @@ import type {
 	FinanceProjectAccountSummaryInput,
 	FinancePurchaseCancellationInput,
 	FinancePurchaseInput,
+	FinanceSalaryPeriod,
+	FinanceSalaryRunInput,
+	FinanceSalaryRunPreviewInput,
 	FinanceStaffChargesPaymentInput,
 	FinanceReceivePaymentOptionsInput,
 	FinanceSimpleStudentPaymentInput,
@@ -2350,6 +2353,16 @@ export async function upsertFinancePayee(
 	});
 }
 
+/** Money out must come from an expense account; a CREDIT account would post it as money in. */
+function assertExpenseAccount(stream: { name: string; accountType: string }) {
+	if (stream.accountType !== "DEBIT") {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: `${stream.name} is a money-in account. Pick an expense account to pay salaries from.`,
+		});
+	}
+}
+
 function payrollNetAmount(input: {
 	baseAmount: number;
 	allowanceAmount?: number;
@@ -2371,7 +2384,7 @@ export async function upsertFinancePayrollStructure(
 	ctx: TRPCContext,
 	input: FinancePayrollStructureInput,
 ) {
-	requireFinanceWriteAccess(ctx);
+	requireFinanceAdmin(ctx, "Only Admins can set up staff pay.");
 	const schoolProfileId = requireSchoolId(ctx);
 	const netAmount = payrollNetAmount({
 		baseAmount: input.baseAmount ?? 0,
@@ -2406,6 +2419,8 @@ export async function upsertFinancePayrollStructure(
 		type: "SALARY",
 		accountType: "DEBIT",
 	});
+	// Salary payments post in the direction of this account (ADR-0088).
+	assertExpenseAccount(stream);
 
 	const data = {
 		schoolProfileId,
@@ -2480,7 +2495,21 @@ export async function createFinancePayrollObligation(
 		});
 	}
 
+	if (!structure.isActive) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "This staff pay setup is switched off.",
+		});
+	}
+	assertExpenseAccount(structure.stream);
+
 	const amount = input.amount ?? toNumber(structure.netAmount);
+	const termId = input.termId ?? ctx.profile.termId ?? structure.sessionTermId;
+	const sessionId =
+		input.sessionId ??
+		(input.termId
+			? structure.schoolSessionId
+			: (ctx.profile.sessionId ?? structure.schoolSessionId));
 	return createFinanceCharge(ctx, {
 		id: null,
 		itemId: null,
@@ -2495,14 +2524,405 @@ export async function createFinancePayrollObligation(
 		payeeId: null,
 		payrollStructureId: structure.id,
 		classroomDepartmentId: null,
-		sessionId: input.sessionId ?? structure.schoolSessionId,
-		termId: input.termId ?? structure.sessionTermId,
+		sessionId,
+		termId,
 		title: input.title ?? structure.title,
 		description: input.description ?? structure.notes,
 		amount,
 		collectionStatus: "NOT_REQUIRED",
 		dueDate: input.dueDate,
 	});
+}
+
+function normalizePayrollStructure<
+	T extends {
+		baseAmount: unknown;
+		allowanceAmount: unknown;
+		deductionAmount: unknown;
+		advanceAmount: unknown;
+		bonusAmount: unknown;
+		netAmount: unknown;
+	},
+>(structure: T) {
+	return {
+		...structure,
+		baseAmount: toNumber(structure.baseAmount as any),
+		allowanceAmount: toNumber(structure.allowanceAmount as any),
+		deductionAmount: toNumber(structure.deductionAmount as any),
+		advanceAmount: toNumber(structure.advanceAmount as any),
+		bonusAmount: toNumber(structure.bonusAmount as any),
+		netAmount: toNumber(structure.netAmount as any),
+	};
+}
+
+/** Staff pay setup: every staff member with their current pay structure, if any. */
+export async function listFinancePayrollSetup(ctx: TRPCContext) {
+	requireFinanceAdmin(ctx, "Only Admins can set up staff pay.");
+	const schoolProfileId = requireSchoolId(ctx);
+	const [staff, structures] = await Promise.all([
+		ctx.db.staffProfile.findMany({
+			where: { schoolProfileId, deletedAt: null },
+			select: { id: true, name: true, title: true },
+			orderBy: { name: "asc" },
+		}),
+		ctx.db.financePayrollStructure.findMany({
+			where: { schoolProfileId, deletedAt: null, staffProfileId: { not: null } },
+			include: {
+				stream: { select: { id: true, name: true, accountType: true } },
+			},
+			orderBy: [{ isActive: "desc" }, { updatedAt: "desc" }],
+		}),
+	]);
+
+	// Active first, then most recently edited: one structure per staff member.
+	const current = new Map<string, (typeof structures)[number]>();
+	for (const structure of structures) {
+		if (structure.staffProfileId && !current.has(structure.staffProfileId)) {
+			current.set(structure.staffProfileId, structure);
+		}
+	}
+
+	return staff.map((member) => {
+		const structure = current.get(member.id);
+		return {
+			...member,
+			structure: structure ? normalizePayrollStructure(structure) : null,
+		};
+	});
+}
+
+type FinancePayrollCadence =
+	| "MONTHLY"
+	| "TERM"
+	| "DAILY"
+	| "HOURLY"
+	| "TASK"
+	| "ONE_OFF";
+
+/** Which pay frequencies a month or term salary run creates charges for. */
+export const SALARY_RUN_CADENCES: Record<
+	FinanceSalaryPeriod["kind"],
+	readonly FinancePayrollCadence[]
+> = {
+	MONTH: ["MONTHLY", "DAILY", "HOURLY"],
+	TERM: ["TERM", "DAILY", "HOURLY"],
+};
+const PER_UNIT_CADENCES = new Set<string>(["DAILY", "HOURLY"]);
+const PER_TASK_CADENCES = new Set<string>(["TASK", "ONE_OFF"]);
+
+export function monthPeriodBounds(month: string) {
+	const [year, monthNumber] = month.split("-").map(Number) as [number, number];
+	const start = new Date(Date.UTC(year, monthNumber - 1, 1));
+	return {
+		start,
+		end: new Date(Date.UTC(year, monthNumber, 1)),
+		/** Month salaries fall due on the month's last day. */
+		dueDate: new Date(Date.UTC(year, monthNumber, 0)),
+		label: start.toLocaleString("en-GB", {
+			month: "long",
+			year: "numeric",
+			timeZone: "UTC",
+		}),
+	};
+}
+
+type ResolvedSalaryPeriod =
+	| {
+			kind: "MONTH";
+			month: string;
+			label: string;
+			start: Date;
+			end: Date;
+			dueDate: Date;
+			termId: string | null;
+			sessionId: string | null;
+	  }
+	| {
+			kind: "TERM";
+			label: string;
+			dueDate: null;
+			termId: string;
+			sessionId: string | null;
+	  };
+
+/**
+ * Charges already created for a period. Month runs carry a due date inside the
+ * month; term runs carry the term and no due date, so the two never collide.
+ */
+export function salaryPeriodChargeWhere(period: ResolvedSalaryPeriod) {
+	if (period.kind === "MONTH") {
+		return { dueDate: { gte: period.start, lt: period.end } };
+	}
+	return { sessionTermId: period.termId, dueDate: null };
+}
+
+async function resolveSalaryPeriod(
+	ctx: TRPCContext,
+	schoolProfileId: string,
+	period: FinanceSalaryPeriod,
+): Promise<ResolvedSalaryPeriod> {
+	if (period.kind === "MONTH") {
+		return {
+			kind: "MONTH",
+			month: period.month,
+			...monthPeriodBounds(period.month),
+			// Month salaries are filed under the term being worked in.
+			termId: ctx.profile.termId ?? null,
+			sessionId: ctx.profile.sessionId ?? null,
+		};
+	}
+
+	const termId = period.termId ?? ctx.profile.termId ?? null;
+	const term = termId
+		? await ctx.db.sessionTerm.findFirst({
+				where: { id: termId, schoolId: schoolProfileId, deletedAt: null },
+				select: {
+					id: true,
+					title: true,
+					sessionId: true,
+					session: { select: { title: true } },
+				},
+			})
+		: null;
+	if (!term) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Pick a term to create term salaries for.",
+		});
+	}
+	return {
+		kind: "TERM",
+		label: [term.title, term.session?.title].filter(Boolean).join(" "),
+		dueDate: null,
+		termId: term.id,
+		sessionId: term.sessionId,
+	};
+}
+
+async function findChargedPayrollStructureIds(
+	ctx: TRPCContext,
+	schoolProfileId: string,
+	period: ResolvedSalaryPeriod,
+	payrollStructureIds: string[],
+) {
+	if (!payrollStructureIds.length) return new Map<string, string>();
+	const charges = await ctx.db.financeCharge.findMany({
+		where: {
+			schoolProfileId,
+			deletedAt: null,
+			status: { not: "CANCELLED" },
+			payrollStructureId: { in: payrollStructureIds },
+			...salaryPeriodChargeWhere(period),
+		},
+		select: { id: true, payrollStructureId: true },
+	});
+	return new Map(
+		charges.map((charge) => [charge.payrollStructureId as string, charge.id]),
+	);
+}
+
+/** Who a month or term salary run would charge, and who is already charged. */
+export async function getFinanceSalaryRunPreview(
+	ctx: TRPCContext,
+	input: FinanceSalaryRunPreviewInput,
+) {
+	requireFinanceWriteAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+	const period = await resolveSalaryPeriod(ctx, schoolProfileId, input.period);
+	const cadences = SALARY_RUN_CADENCES[period.kind];
+
+	const structures = await ctx.db.financePayrollStructure.findMany({
+		where: {
+			schoolProfileId,
+			deletedAt: null,
+			isActive: true,
+			staffProfileId: { not: null },
+		},
+		include: {
+			staffProfile: { select: { id: true, name: true, title: true } },
+			stream: { select: { id: true, name: true, accountType: true } },
+		},
+	});
+	const sorted = structures
+		.filter((structure) => structure.staffProfile)
+		.sort((a, b) =>
+			(a.staffProfile?.name ?? "").localeCompare(b.staffProfile?.name ?? ""),
+		);
+	const runnable = sorted.filter((structure) =>
+		cadences.includes(structure.cadence as FinancePayrollCadence),
+	);
+	const charged = await findChargedPayrollStructureIds(
+		ctx,
+		schoolProfileId,
+		period,
+		runnable.map((structure) => structure.id),
+	);
+
+	const toRow = (structure: (typeof sorted)[number]) => {
+		const rate = toNumber(structure.netAmount);
+		return {
+			payrollStructureId: structure.id,
+			staff: structure.staffProfile!,
+			title: structure.title,
+			cadence: structure.cadence,
+			rate,
+			perUnit: PER_UNIT_CADENCES.has(structure.cadence),
+			stream: structure.stream,
+			chargedChargeId: charged.get(structure.id) ?? null,
+			problem:
+				structure.stream.accountType !== "DEBIT"
+					? `${structure.stream.name} is a money-in account`
+					: rate <= 0
+						? "No pay amount set"
+						: null,
+		};
+	};
+	const rows = runnable.map(toRow);
+	const fixedReady = rows.filter(
+		(row) => !row.perUnit && !row.chargedChargeId && !row.problem,
+	);
+
+	return {
+		period: {
+			kind: period.kind,
+			label: period.label,
+			termId: period.termId,
+			month: period.kind === "MONTH" ? period.month : null,
+		},
+		rows,
+		perTaskRows: sorted
+			.filter((structure) => PER_TASK_CADENCES.has(structure.cadence))
+			.map(toRow),
+		summary: {
+			readyCount: fixedReady.length,
+			readyTotal: fixedReady.reduce((sum, row) => sum + row.rate, 0),
+			perUnitCount: rows.filter(
+				(row) => row.perUnit && !row.chargedChargeId && !row.problem,
+			).length,
+			alreadyChargedCount: rows.filter((row) => row.chargedChargeId).length,
+		},
+	};
+}
+
+function formatUnits(cadence: string, units: number) {
+	const noun = cadence === "HOURLY" ? "hour" : "day";
+	return `${units} ${noun}${units === 1 ? "" : "s"}`;
+}
+
+/**
+ * Creates one salary charge per picked staff structure for the period through
+ * `createFinancePayrollObligation`, skipping staff already charged for it.
+ * Each charge is its own write, so a re-run after a failure only adds the rest.
+ */
+export async function createFinanceSalaryRun(
+	ctx: TRPCContext,
+	input: FinanceSalaryRunInput,
+) {
+	requireFinanceWriteAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+	const period = await resolveSalaryPeriod(ctx, schoolProfileId, input.period);
+	const cadences = SALARY_RUN_CADENCES[period.kind];
+	const lines = [
+		...new Map(input.lines.map((line) => [line.payrollStructureId, line])).values(),
+	];
+
+	const structures = await ctx.db.financePayrollStructure.findMany({
+		where: {
+			id: { in: lines.map((line) => line.payrollStructureId) },
+			schoolProfileId,
+			deletedAt: null,
+			isActive: true,
+		},
+		include: { staffProfile: { select: { id: true, name: true } } },
+	});
+	const byId = new Map(structures.map((structure) => [structure.id, structure]));
+	const charged = await findChargedPayrollStructureIds(
+		ctx,
+		schoolProfileId,
+		period,
+		structures.map((structure) => structure.id),
+	);
+
+	// Validate every line before writing anything.
+	const planned: Array<{
+		structure: (typeof structures)[number];
+		amount: number;
+		description: string | null;
+	}> = [];
+	const skipped: Array<{ payrollStructureId: string; staffName: string; reason: string }> =
+		[];
+	for (const line of lines) {
+		const structure = byId.get(line.payrollStructureId);
+		if (!structure) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "Some staff pay setups were not found or are switched off.",
+			});
+		}
+		const staffName = structure.staffProfile?.name ?? structure.title;
+		if (!cadences.includes(structure.cadence as FinancePayrollCadence)) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: `${staffName} is not paid by the ${period.kind === "MONTH" ? "month" : "term"}.`,
+			});
+		}
+		if (charged.has(structure.id)) {
+			skipped.push({
+				payrollStructureId: structure.id,
+				staffName,
+				reason: `Already has a salary for ${period.label}`,
+			});
+			continue;
+		}
+		const rate = toNumber(structure.netAmount);
+		const perUnit = PER_UNIT_CADENCES.has(structure.cadence);
+		if (perUnit && !line.units) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: `Enter the ${structure.cadence === "HOURLY" ? "hours" : "days"} ${staffName} worked.`,
+			});
+		}
+		const amount = perUnit
+			? Math.round(rate * (line.units as number) * 100) / 100
+			: rate;
+		if (amount <= 0) {
+			skipped.push({
+				payrollStructureId: structure.id,
+				staffName,
+				reason: "No pay amount set",
+			});
+			continue;
+		}
+		planned.push({
+			structure,
+			amount,
+			description: perUnit
+				? `${formatUnits(structure.cadence, line.units as number)} × ${rate.toLocaleString("en-NG")}`
+				: null,
+		});
+	}
+
+	const charges: Awaited<ReturnType<typeof createFinancePayrollObligation>>[] = [];
+	for (const row of planned) {
+		charges.push(
+			await createFinancePayrollObligation(ctx, {
+				payrollStructureId: row.structure.id,
+				title: `${row.structure.title} · ${period.label}`,
+				description: row.description,
+				amount: row.amount,
+				dueDate: period.dueDate,
+				sessionId: period.sessionId,
+				termId: period.termId,
+			}),
+		);
+	}
+
+	return {
+		count: charges.length,
+		total: charges.reduce((sum, charge) => sum + charge.amount, 0),
+		charges,
+		skipped,
+	};
 }
 
 export async function recordFinancePurchase(

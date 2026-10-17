@@ -11,6 +11,11 @@ const {
 	payFinanceStaffCharges,
 	closeFinanceTermLedger,
 	cancelFinancePurchase,
+	createFinancePayrollObligation,
+	createFinanceSalaryRun,
+	getFinanceSalaryRunPreview,
+	listFinancePayrollSetup,
+	monthPeriodBounds,
 	getFinancePayeeHistory,
 	getFinanceAccounts,
 	getFinanceWorkspaceSummary,
@@ -4051,5 +4056,447 @@ describe("recordFinancePurchase account guard", () => {
 				amountPaid: 500,
 			} as any),
 		).rejects.toThrow("Tuition Fee is a money-in account");
+	});
+});
+
+describe("salary runs and staff pay setup", () => {
+	const salaryStream = {
+		id: "stream-salary",
+		name: "Salary/Wages",
+		accountType: "DEBIT",
+	};
+
+	function structure(overrides: Record<string, unknown>) {
+		return {
+			schoolProfileId: "school-1",
+			deletedAt: null,
+			isActive: true,
+			streamId: salaryStream.id,
+			stream: salaryStream,
+			schoolSessionId: "session-0",
+			sessionTermId: "term-0",
+			notes: null,
+			...overrides,
+		} as any;
+	}
+
+	const structures = [
+		structure({
+			id: "ps-amina",
+			staffProfileId: "staff-amina",
+			staffProfile: { id: "staff-amina", name: "Amina", title: "Teacher" },
+			title: "Teacher pay",
+			cadence: "MONTHLY",
+			netAmount: 80000,
+		}),
+		structure({
+			id: "ps-bello",
+			staffProfileId: "staff-bello",
+			staffProfile: { id: "staff-bello", name: "Bello", title: "Teacher" },
+			title: "Teacher pay",
+			cadence: "MONTHLY",
+			netAmount: 70000,
+		}),
+		structure({
+			id: "ps-chidi",
+			staffProfileId: "staff-chidi",
+			staffProfile: { id: "staff-chidi", name: "Chidi", title: "Cleaner" },
+			title: "Cleaner pay",
+			cadence: "DAILY",
+			netAmount: 3000,
+		}),
+		structure({
+			id: "ps-dayo",
+			staffProfileId: "staff-dayo",
+			staffProfile: { id: "staff-dayo", name: "Dayo", title: "Coach" },
+			title: "Coach pay",
+			cadence: "TERM",
+			netAmount: 150000,
+		}),
+		structure({
+			id: "ps-efe",
+			staffProfileId: "staff-efe",
+			staffProfile: { id: "staff-efe", name: "Efe", title: "Electrician" },
+			title: "Repairs",
+			cadence: "TASK",
+			netAmount: 10000,
+		}),
+	];
+
+	function salaryRunDb({
+		existingCharges = [],
+		closedTerm = false,
+	}: { existingCharges?: any[]; closedTerm?: boolean } = {}) {
+		const created: any[] = [];
+		const chargeQueries: any[] = [];
+		const byId = new Map(structures.map((row) => [row.id, row]));
+		const db = {
+			financePayrollStructure: {
+				findMany: async ({ where }: any) =>
+					structures.filter(
+						(row) =>
+							row.schoolProfileId === where.schoolProfileId &&
+							(!where.id?.in || where.id.in.includes(row.id)) &&
+							(where.isActive === undefined || row.isActive === where.isActive),
+					),
+				findFirst: async ({ where }: any) => byId.get(where.id) ?? null,
+			},
+			financeCharge: {
+				findMany: async ({ where }: any) => {
+					chargeQueries.push(where);
+					return existingCharges.filter((charge) => {
+						if (!where.payrollStructureId.in.includes(charge.payrollStructureId)) {
+							return false;
+						}
+						if (where.dueDate === null) {
+							return (
+								charge.dueDate === null &&
+								charge.sessionTermId === where.sessionTermId
+							);
+						}
+						return (
+							charge.dueDate >= where.dueDate.gte &&
+							charge.dueDate < where.dueDate.lt
+						);
+					});
+				},
+			},
+			sessionTerm: {
+				findFirst: async ({ where }: any) =>
+					where.id === "term-1"
+						? {
+								id: "term-1",
+								title: "First Term",
+								sessionId: "session-1",
+								session: { title: "2026/2027" },
+							}
+						: null,
+			},
+			financeTermLedgerClose: {
+				findFirst: async () => (closedTerm ? { id: "close-1" } : null),
+			},
+			$transaction: async (fn: (tx: any) => unknown) =>
+				fn({
+					financeStream: {
+						findFirst: async ({ where }: any) =>
+							where.id === salaryStream.id ? salaryStream : null,
+					},
+					financeCharge: {
+						create: async ({ data }: any) => {
+							const charge = { id: `charge-${created.length + 1}`, ...data };
+							created.push(charge);
+							return charge;
+						},
+					},
+				}),
+		};
+		return { db, created, chargeQueries };
+	}
+
+	test("month bounds end on the month's last day", () => {
+		const bounds = monthPeriodBounds("2028-02");
+		expect(bounds.start.toISOString()).toBe("2028-02-01T00:00:00.000Z");
+		expect(bounds.end.toISOString()).toBe("2028-03-01T00:00:00.000Z");
+		expect(bounds.dueDate.toISOString()).toBe("2028-02-29T00:00:00.000Z");
+		expect(bounds.label).toBe("February 2028");
+	});
+
+	test("previews a month run: monthly and daily staff, already-charged staff flagged", async () => {
+		const { db, chargeQueries } = salaryRunDb({
+			existingCharges: [
+				{
+					id: "charge-old",
+					payrollStructureId: "ps-amina",
+					dueDate: new Date(Date.UTC(2026, 9, 31)),
+					sessionTermId: "term-1",
+				},
+				// September's salary does not count for October.
+				{
+					id: "charge-sept",
+					payrollStructureId: "ps-bello",
+					dueDate: new Date(Date.UTC(2026, 8, 30)),
+					sessionTermId: "term-1",
+				},
+			],
+		});
+
+		const preview = await getFinanceSalaryRunPreview(
+			createFinanceCtx({ db, role: "Accountant", termId: "term-1" }),
+			{ period: { kind: "MONTH", month: "2026-10" } },
+		);
+
+		expect(preview.period).toMatchObject({ kind: "MONTH", label: "October 2026" });
+		expect(preview.rows.map((row) => row.payrollStructureId)).toEqual([
+			"ps-amina",
+			"ps-bello",
+			"ps-chidi",
+		]);
+		expect(preview.rows[0]?.chargedChargeId).toBe("charge-old");
+		expect(preview.rows[2]?.perUnit).toBe(true);
+		expect(preview.perTaskRows.map((row) => row.payrollStructureId)).toEqual([
+			"ps-efe",
+		]);
+		expect(preview.summary).toEqual({
+			readyCount: 1,
+			readyTotal: 70000,
+			perUnitCount: 1,
+			alreadyChargedCount: 1,
+		});
+		expect(chargeQueries[0]).toMatchObject({
+			status: { not: "CANCELLED" },
+			dueDate: {
+				gte: new Date(Date.UTC(2026, 9, 1)),
+				lt: new Date(Date.UTC(2026, 10, 1)),
+			},
+		});
+	});
+
+	test("creates month salaries, multiplies daily rates and skips staff already charged", async () => {
+		const { db, created } = salaryRunDb({
+			existingCharges: [
+				{
+					id: "charge-old",
+					payrollStructureId: "ps-amina",
+					dueDate: new Date(Date.UTC(2026, 9, 31)),
+					sessionTermId: "term-1",
+				},
+			],
+		});
+
+		const result = await createFinanceSalaryRun(
+			createFinanceCtx({ db, termId: "term-1", sessionId: "session-1" }),
+			{
+				period: { kind: "MONTH", month: "2026-10" },
+				lines: [
+					{ payrollStructureId: "ps-amina" },
+					{ payrollStructureId: "ps-bello" },
+					{ payrollStructureId: "ps-chidi", units: 12 },
+				],
+			},
+		);
+
+		expect(result.count).toBe(2);
+		expect(result.total).toBe(70000 + 36000);
+		expect(result.skipped).toEqual([
+			{
+				payrollStructureId: "ps-amina",
+				staffName: "Amina",
+				reason: "Already has a salary for October 2026",
+			},
+		]);
+		expect(created[0]).toMatchObject({
+			payerType: "STAFF",
+			staffProfileId: "staff-bello",
+			payrollStructureId: "ps-bello",
+			streamId: "stream-salary",
+			title: "Teacher pay · October 2026",
+			sessionTermId: "term-1",
+			schoolSessionId: "session-1",
+			dueDate: new Date(Date.UTC(2026, 9, 31)),
+		});
+		expect(created[1]).toMatchObject({
+			staffProfileId: "staff-chidi",
+			description: "12 days × 3,000",
+		});
+		expect(Number(created[1].amount)).toBe(36000);
+	});
+
+	test("rejects a run before writing when a line is invalid", async () => {
+		const missingUnits = salaryRunDb();
+		await expect(
+			createFinanceSalaryRun(createFinanceCtx({ db: missingUnits.db }), {
+				period: { kind: "MONTH", month: "2026-10" },
+				lines: [{ payrollStructureId: "ps-bello" }, { payrollStructureId: "ps-chidi" }],
+			}),
+		).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Enter the days Chidi worked." });
+		expect(missingUnits.created).toHaveLength(0);
+
+		const wrongCadence = salaryRunDb();
+		await expect(
+			createFinanceSalaryRun(createFinanceCtx({ db: wrongCadence.db }), {
+				period: { kind: "MONTH", month: "2026-10" },
+				lines: [{ payrollStructureId: "ps-bello" }, { payrollStructureId: "ps-dayo" }],
+			}),
+		).rejects.toMatchObject({ code: "BAD_REQUEST" });
+		expect(wrongCadence.created).toHaveLength(0);
+	});
+
+	test("blocks salary runs into a closed term", async () => {
+		const { db, created } = salaryRunDb({ closedTerm: true });
+		await expect(
+			createFinanceSalaryRun(createFinanceCtx({ db, termId: "term-1" }), {
+				period: { kind: "MONTH", month: "2026-10" },
+				lines: [{ payrollStructureId: "ps-bello" }],
+			}),
+		).rejects.toMatchObject({ code: "BAD_REQUEST" });
+		expect(created).toHaveLength(0);
+	});
+
+	test("term runs charge term staff once per term with no due date", async () => {
+		const { db, created } = salaryRunDb({
+			existingCharges: [
+				// A month-run charge in the same term does not block the term run.
+				{
+					id: "charge-month",
+					payrollStructureId: "ps-chidi",
+					dueDate: new Date(Date.UTC(2026, 9, 31)),
+					sessionTermId: "term-1",
+				},
+			],
+		});
+		const ctx = createFinanceCtx({ db, termId: "term-1" });
+
+		const preview = await getFinanceSalaryRunPreview(ctx, {
+			period: { kind: "TERM", termId: null },
+		});
+		expect(preview.period.label).toBe("First Term 2026/2027");
+		expect(preview.rows.map((row) => row.payrollStructureId)).toEqual([
+			"ps-chidi",
+			"ps-dayo",
+		]);
+		expect(preview.rows.every((row) => row.chargedChargeId === null)).toBe(true);
+
+		const result = await createFinanceSalaryRun(ctx, {
+			period: { kind: "TERM", termId: "term-1" },
+			lines: [{ payrollStructureId: "ps-dayo" }],
+		});
+		expect(result.count).toBe(1);
+		expect(created[0]).toMatchObject({
+			title: "Coach pay · First Term 2026/2027",
+			sessionTermId: "term-1",
+			schoolSessionId: "session-1",
+			dueDate: null,
+		});
+	});
+
+	test("one-off pay defaults to the current term and refuses money-in accounts", async () => {
+		const { db, created } = salaryRunDb();
+		await createFinancePayrollObligation(
+			createFinanceCtx({ db, termId: "term-1", sessionId: "session-1" }),
+			{
+				payrollStructureId: "ps-efe",
+				title: null,
+				description: "Fixed the generator",
+				amount: 12500,
+				dueDate: null,
+				sessionId: null,
+				termId: null,
+			},
+		);
+		expect(created[0]).toMatchObject({
+			title: "Repairs",
+			description: "Fixed the generator",
+			sessionTermId: "term-1",
+			schoolSessionId: "session-1",
+		});
+		expect(Number(created[0].amount)).toBe(12500);
+
+		const creditStructure = structure({
+			id: "ps-credit",
+			staffProfileId: "staff-x",
+			title: "Pay",
+			cadence: "ONE_OFF",
+			netAmount: 100,
+			stream: { id: "stream-fees", name: "School Fees", accountType: "CREDIT" },
+		});
+		await expect(
+			createFinancePayrollObligation(
+				createFinanceCtx({
+					db: { financePayrollStructure: { findFirst: async () => creditStructure } },
+				}),
+				{ payrollStructureId: "ps-credit" } as any,
+			),
+		).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	});
+
+	test("staff pay setup is Admin-only and pays only from expense accounts", async () => {
+		const db = {
+			staffProfile: { findFirst: async () => ({ id: "staff-1" }) },
+			financeStream: {
+				findFirst: async () => ({
+					id: "stream-fees",
+					name: "School Fees",
+					accountType: "CREDIT",
+				}),
+			},
+			financePayrollStructure: {
+				create: async () => {
+					throw new Error("should not save");
+				},
+			},
+		};
+		const input = {
+			id: null,
+			staffProfileId: "staff-1",
+			streamId: "stream-fees",
+			streamName: null,
+			title: "Teacher pay",
+			cadence: "MONTHLY",
+			baseAmount: 1000,
+		} as any;
+
+		await expect(
+			upsertFinancePayrollStructure(createFinanceCtx({ db, role: "Accountant" }), input),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		await expect(
+			upsertFinancePayrollStructure(createFinanceCtx({ db }), input),
+		).rejects.toMatchObject({
+			code: "BAD_REQUEST",
+			message: "School Fees is a money-in account. Pick an expense account to pay salaries from.",
+		});
+	});
+
+	test("lists every staff member with their current pay setup", async () => {
+		const db = {
+			staffProfile: {
+				findMany: async () => [
+					{ id: "staff-amina", name: "Amina", title: "Teacher" },
+					{ id: "staff-new", name: "Ngozi", title: null },
+				],
+			},
+			financePayrollStructure: {
+				// Already ordered active-first, newest-first by the query.
+				findMany: async () => [
+					structure({
+						id: "ps-amina-current",
+						staffProfileId: "staff-amina",
+						title: "Teacher pay",
+						cadence: "MONTHLY",
+						baseAmount: 70000,
+						allowanceAmount: 15000,
+						bonusAmount: 0,
+						deductionAmount: 5000,
+						advanceAmount: 0,
+						netAmount: 80000,
+					}),
+					structure({
+						id: "ps-amina-old",
+						staffProfileId: "staff-amina",
+						isActive: false,
+						title: "Old pay",
+						cadence: "MONTHLY",
+						baseAmount: 1,
+						allowanceAmount: 0,
+						bonusAmount: 0,
+						deductionAmount: 0,
+						advanceAmount: 0,
+						netAmount: 1,
+					}),
+				],
+			},
+		};
+
+		const rows = await listFinancePayrollSetup(createFinanceCtx({ db }));
+		expect(rows).toHaveLength(2);
+		expect(rows[0]?.structure).toMatchObject({
+			id: "ps-amina-current",
+			allowanceAmount: 15000,
+			netAmount: 80000,
+		});
+		expect(rows[1]?.structure).toBeNull();
+
+		await expect(
+			listFinancePayrollSetup(createFinanceCtx({ db, role: "Accountant" })),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
 	});
 });

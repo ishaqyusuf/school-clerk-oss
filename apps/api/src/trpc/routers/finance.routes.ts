@@ -6,6 +6,9 @@ import {
 	closeFinanceTermLedger,
 	createFinanceCharge,
 	createFinancePayrollObligation,
+	createFinanceSalaryRun,
+	getFinanceSalaryRunPreview,
+	listFinancePayrollSetup,
 	getFinanceAccountDetails,
 	getFinanceAccounts,
 	getFinanceHomeSummary,
@@ -71,6 +74,8 @@ import {
 	financeStaffChargesPaymentSchema,
 	financePayrollObligationInputSchema,
 	financePayrollStructureInputSchema,
+	financeSalaryRunInputSchema,
+	financeSalaryRunPreviewSchema,
 	financeProjectAccountSummarySchema,
 	financePurchaseCancellationSchema,
 	financePurchaseInputSchema,
@@ -592,6 +597,15 @@ export const financeRouter = createTRPCRouter({
 	createPayrollObligation: financeProcedure
 		.input(financePayrollObligationInputSchema)
 		.mutation(({ ctx, input }) => createFinancePayrollObligation(ctx, input)),
+	getPayrollSetup: financeProcedure.query(({ ctx }) =>
+		listFinancePayrollSetup(ctx),
+	),
+	getSalaryRunPreview: financeProcedure
+		.input(financeSalaryRunPreviewSchema)
+		.query(({ ctx, input }) => getFinanceSalaryRunPreview(ctx, input)),
+	createSalaryRun: financeProcedure
+		.input(financeSalaryRunInputSchema)
+		.mutation(({ ctx, input }) => createFinanceSalaryRun(ctx, input)),
 	recordPurchase: financeProcedure
 		.input(financePurchaseInputSchema)
 		.mutation(({ ctx, input }) => recordFinancePurchase(ctx, input)),

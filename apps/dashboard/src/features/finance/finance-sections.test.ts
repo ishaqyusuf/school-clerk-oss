@@ -53,6 +53,17 @@ describe("finance sections", () => {
 		).toEqual(["Money moved", "All transactions", "Close term"]);
 	});
 
+	test("staff pay setup is an Admin-only Salaries tab", () => {
+		expect(visibleFinanceTabs("salaries", "Admin").map((tab) => tab.label)).toEqual([
+			"To pay",
+			"Paid",
+			"Staff pay setup",
+		]);
+		expect(
+			visibleFinanceTabs("salaries", "Accountant").map((tab) => tab.label),
+		).toEqual(["To pay", "Paid"]);
+	});
+
 	test("every Finance link declares a module policy, so configured tenants see it", () => {
 		const keys = (module: typeof financeNavigationModule) =>
 			module.sections.flatMap((section) => section.items.map((item) => item.key));

@@ -345,6 +345,32 @@ export const financePayrollObligationInputSchema = z.object({
 	termId: nullableString,
 });
 
+/** A salary run covers one calendar month ("2026-10") or one term. */
+export const financeSalaryPeriodSchema = z.discriminatedUnion("kind", [
+	z.object({
+		kind: z.literal("MONTH"),
+		month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Use YYYY-MM"),
+	}),
+	z.object({ kind: z.literal("TERM"), termId: nullableString }),
+]);
+
+export const financeSalaryRunPreviewSchema = z.object({
+	period: financeSalaryPeriodSchema,
+});
+
+export const financeSalaryRunInputSchema = z.object({
+	period: financeSalaryPeriodSchema,
+	lines: z
+		.array(
+			z.object({
+				payrollStructureId: z.string(),
+				/** Days or hours worked, for DAILY / HOURLY pay. */
+				units: z.coerce.number().positive().optional().nullable(),
+			}),
+		)
+		.min(1),
+});
+
 export const financePurchaseInputSchema = z.object({
 	id: nullableString,
 	kind: financePurchaseKindSchema.default("PURCHASE"),
@@ -427,6 +453,11 @@ export type FinancePayrollStructureInput = z.infer<
 export type FinancePayrollObligationInput = z.infer<
 	typeof financePayrollObligationInputSchema
 >;
+export type FinanceSalaryPeriod = z.infer<typeof financeSalaryPeriodSchema>;
+export type FinanceSalaryRunPreviewInput = z.infer<
+	typeof financeSalaryRunPreviewSchema
+>;
+export type FinanceSalaryRunInput = z.infer<typeof financeSalaryRunInputSchema>;
 export type FinancePurchaseInput = z.infer<typeof financePurchaseInputSchema>;
 export type FinanceStaffChargesPaymentInput = z.infer<
 	typeof financeStaffChargesPaymentSchema

@@ -57,6 +57,8 @@ const SEARCH_ALIASES: Record<string, string[]> = {
 		"staff pay",
 		"staff payments",
 		"wages",
+		"staff pay setup",
+		"create salaries",
 	],
 	"finance-services": [
 		"service bills",
@@ -170,6 +172,24 @@ const quickActions: Array<LocalSearchItem & { roles?: string[] }> = [
 		subtitle: "Pay staff salaries that are due",
 		title: "Pay salaries",
 		roles: ["Admin", "Accountant"],
+	},
+	{
+		group: "Quick Actions",
+		href: "/finance/salaries?createSalaries=true",
+		id: "action-create-salaries",
+		keywords: ["create salaries", "generate salaries", "this month's salaries", "payroll run"],
+		subtitle: "Add this month's or this term's staff pay",
+		title: "Create salaries",
+		roles: ["Admin", "Accountant"],
+	},
+	{
+		group: "Quick Actions",
+		href: "/finance/salaries/setup",
+		id: "action-staff-pay-setup",
+		keywords: ["staff pay setup", "salary structure", "pay rate", "allowances", "deductions"],
+		subtitle: "Set how often and how much each staff member is paid",
+		title: "Staff pay setup",
+		roles: ["Admin"],
 	},
 	{
 		group: "Quick Actions",

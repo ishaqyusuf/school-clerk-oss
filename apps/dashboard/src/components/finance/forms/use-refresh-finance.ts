@@ -39,6 +39,12 @@ export function useRefreshFinance() {
 			queryClient.invalidateQueries({
 				queryKey: trpc.finance.getPayees.queryKey(),
 			}),
+			queryClient.invalidateQueries({
+				queryKey: trpc.finance.getPayrollSetup.queryKey(),
+			}),
+			queryClient.invalidateQueries({
+				queryKey: trpc.finance.getSalaryRunPreview.queryKey(),
+			}),
 		]);
 	};
 }

@@ -14,6 +14,9 @@ export function useFinanceSheetParams(options?: { shallow: boolean }) {
 			/** "SERVICE" or "PURCHASE": opens the pay-for-a-service / record-a-purchase sheet. */
 			recordExpense: parseAsString,
 			paySalaries: parseAsBoolean,
+			/** Staff profile whose pay setup is being edited. */
+			staffPayStaffId: parseAsString,
+			createSalaries: parseAsBoolean,
 		},
 		options,
 	);

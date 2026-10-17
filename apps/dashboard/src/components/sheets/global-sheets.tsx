@@ -5,6 +5,7 @@ import { BillableCreateSheet } from "./billable-create-sheet";
 import { ClassroomCreateSheet } from "./classroom-create-sheet";
 import { ClassroomOverviewSheet } from "./classroom-overview-sheet";
 import { CreateBillSheet } from "./create-bill-sheet";
+import { CreateSalariesSheet } from "./create-salaries-sheet";
 import { FinanceAccountActionsSheet } from "./finance-account-actions-sheet";
 import { FinanceAccountSheet } from "./finance-account-sheet";
 import { FinancePaymentSheet } from "./finance-payment-sheet";
@@ -15,6 +16,7 @@ import { RecordExpenseSheet } from "./record-expense-sheet";
 import { SchoolFeeCreateSheet } from "./school-fee-create-sheet";
 import { StaffCreateSheet } from "./staff-create-sheet";
 import { StaffOverviewSheet } from "./staff-overview-sheet";
+import { StaffPaySetupSheet } from "./staff-pay-setup-sheet";
 import { StudentBasicInfoEditSheet } from "./student-basic-info-edit-sheet";
 import { StudentCreateSheet } from "./student-create-sheet";
 import { StudentOverviewSheet } from "./student-overview-sheet";
@@ -39,6 +41,8 @@ export function GlobalSheets() {
 			<FinanceAccountActionsSheet />
 			<RecordExpenseSheet />
 			<PaySalariesSheet />
+			<CreateSalariesSheet />
+			<StaffPaySetupSheet />
 			<QuestionSheet />
 			{/* We preload the invoice data (template, invoice number etc) */}
 			{/* <Suspense fallback={null}>

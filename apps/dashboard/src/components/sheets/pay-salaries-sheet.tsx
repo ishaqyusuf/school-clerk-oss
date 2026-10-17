@@ -20,7 +20,6 @@ import {
 import { SheetHeader, SheetTitle } from "@school-clerk/ui/sheet";
 import { toast } from "@school-clerk/ui/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 const money = new Intl.NumberFormat("en-NG", {
@@ -52,13 +51,24 @@ export function PaySalariesSheet() {
 				<SheetTitle>Pay salaries</SheetTitle>
 			</SheetHeader>
 			<CustomSheetContent>
-				<PaySalariesForm onDone={close} />
+				<PaySalariesForm
+					onDone={close}
+					onCreateSalaries={() =>
+						setParams({ paySalaries: null, createSalaries: true })
+					}
+				/>
 			</CustomSheetContent>
 		</CustomSheet>
 	);
 }
 
-function PaySalariesForm({ onDone }: { onDone: () => void }) {
+function PaySalariesForm({
+	onDone,
+	onCreateSalaries,
+}: {
+	onDone: () => void;
+	onCreateSalaries: () => void;
+}) {
 	const trpc = useTRPC();
 	const refreshFinance = useRefreshFinance();
 	const { data: charges, isLoading } = useQuery(
@@ -121,13 +131,11 @@ function PaySalariesForm({ onDone }: { onDone: () => void }) {
 			<div className="flex flex-col items-start gap-3 text-sm">
 				<p>No staff salaries are waiting to be paid.</p>
 				<p className="text-muted-foreground">
-					Salaries appear here once they are added, for example by importing a
-					payroll sheet on the Salaries page.
+					Add this month's or this term's salaries first, from each staff
+					member's pay setup.
 				</p>
-				<Button asChild variant="outline">
-					<Link href="/finance/salaries" onClick={onDone}>
-						Open Salaries
-					</Link>
+				<Button variant="outline" onClick={onCreateSalaries}>
+					Create salaries
 				</Button>
 			</div>
 		);

@@ -12,6 +12,7 @@ import {
 } from "@school-clerk/ui/dropdown-menu";
 import {
 	Briefcase,
+	CalendarPlus,
 	ChevronDown,
 	CreditCard,
 	IdCard,
@@ -53,6 +54,26 @@ export function PaySalariesAction() {
 		<Button className="w-fit gap-2" onClick={() => setParams({ paySalaries: true })}>
 			<IdCard className="h-4 w-4" />
 			Pay salaries
+		</Button>
+	);
+}
+
+/** Adds this month's or this term's salaries from each staff member's pay setup. */
+export function CreateSalariesAction({
+	variant = "outline",
+}: {
+	variant?: "default" | "outline";
+}) {
+	const { setParams } = useFinanceSheetParams();
+
+	return (
+		<Button
+			variant={variant}
+			className="w-fit gap-2"
+			onClick={() => setParams({ createSalaries: true })}
+		>
+			<CalendarPlus className="h-4 w-4" />
+			Create salaries
 		</Button>
 	);
 }

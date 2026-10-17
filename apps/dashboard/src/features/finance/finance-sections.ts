@@ -42,6 +42,11 @@ export const financeSections: Record<FinanceSectionKey, FinanceSection> = {
 		tabs: [
 			{ href: "/finance/salaries", label: "To pay" },
 			{ href: "/finance/salaries/history", label: "Paid" },
+			{
+				href: "/finance/salaries/setup",
+				label: "Staff pay setup",
+				roles: ["Admin"],
+			},
 		],
 	},
 	services: {
