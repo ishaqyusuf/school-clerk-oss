@@ -21,8 +21,6 @@ export type TableId =
 	| "financeTransfers"
 	| "financeLedger";
 
-export type TableViewMode = "table" | "grid";
-
 /**
  * Settings for a single table
  */
@@ -31,7 +29,6 @@ export interface TableSettings {
 	sizing: ColumnSizingState;
 	order: ColumnOrderState;
 	showColumnDividers?: boolean;
-	viewMode?: TableViewMode;
 }
 
 /**
@@ -102,7 +99,6 @@ export function getDefaultTableSettings(tableId: TableId): TableSettings {
 		columns: getDefaultColumnVisibility(tableId),
 		sizing: {},
 		order: [],
-		viewMode: "table",
 	};
 }
 
@@ -122,7 +118,6 @@ export function mergeWithDefaults(
 		sizing: saved?.sizing ?? defaults.sizing,
 		order: saved?.order ?? defaults.order,
 		showColumnDividers: saved?.showColumnDividers,
-		viewMode: saved?.viewMode ?? defaults.viewMode,
 	};
 }
 

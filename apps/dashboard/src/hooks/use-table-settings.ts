@@ -5,7 +5,6 @@ import {
 	TABLE_SETTINGS_COOKIE,
 	type TableId,
 	type TableSettings,
-	type TableViewMode,
 	mergeWithDefaults,
 	normalizeColumnOrder,
 } from "@/utils/table-settings";
@@ -33,8 +32,6 @@ interface UseTableSettingsReturn {
 	setColumnOrder: Dispatch<SetStateAction<ColumnOrderState>>;
 	showColumnDividers: boolean;
 	setShowColumnDividers: Dispatch<SetStateAction<boolean>>;
-	viewMode: TableViewMode;
-	setViewMode: Dispatch<SetStateAction<TableViewMode>>;
 }
 
 /**
@@ -64,9 +61,6 @@ export function useTableSettings({
 	const [showColumnDividers, setShowColumnDividers] = useState<boolean>(
 		defaultShowColumnDividers ?? settings.showColumnDividers ?? false,
 	);
-	const [viewMode, setViewMode] = useState<TableViewMode>(
-		settings.viewMode ?? "table",
-	);
 
 	// Track initial mount to skip first persist
 	const isInitialMount = useRef(true);
@@ -81,7 +75,6 @@ export function useTableSettings({
 			sizing: ColumnSizingState,
 			order: ColumnOrderState,
 			columnDividers: boolean,
-			nextViewMode: TableViewMode,
 		) => {
 			// Clear existing debounce
 			if (debounceRef.current) {
@@ -114,7 +107,6 @@ export function useTableSettings({
 						sizing: sizing,
 						order: order,
 						showColumnDividers: columnDividers,
-						viewMode: nextViewMode,
 					};
 
 					// Persist to server action (which sets the cookie)
@@ -142,14 +134,12 @@ export function useTableSettings({
 			columnSizing,
 			columnOrder,
 			showColumnDividers,
-			viewMode,
 		);
 	}, [
 		columnVisibility,
 		columnSizing,
 		columnOrder,
 		showColumnDividers,
-		viewMode,
 		persistSettings,
 	]);
 
@@ -171,7 +161,5 @@ export function useTableSettings({
 		setColumnOrder,
 		showColumnDividers,
 		setShowColumnDividers,
-		viewMode,
-		setViewMode,
 	};
 }

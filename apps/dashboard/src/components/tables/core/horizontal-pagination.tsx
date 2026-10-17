@@ -1,0 +1,47 @@
+"use client";
+
+import { Button } from "@school-clerk/ui/button";
+import { cn } from "@school-clerk/ui/cn";
+
+export interface HorizontalPaginationProps {
+	canScrollLeft: boolean;
+	canScrollRight: boolean;
+	onScrollLeft: () => void;
+	onScrollRight: () => void;
+	className?: string;
+}
+
+export function HorizontalPagination({
+	canScrollLeft,
+	canScrollRight,
+	onScrollLeft,
+	onScrollRight,
+	className,
+}: HorizontalPaginationProps) {
+	return (
+		<div className={cn("flex shrink-0 items-center gap-1", className)}>
+			<Button
+				type="button"
+				variant="outline"
+				size="icon"
+				className="size-6 rounded-none"
+				aria-label="Scroll table left"
+				disabled={!canScrollLeft}
+				onClick={() => onScrollLeft()}
+			>
+				<span aria-hidden="true">←</span>
+			</Button>
+			<Button
+				type="button"
+				variant="outline"
+				size="icon"
+				className="size-6 rounded-none"
+				aria-label="Scroll table right"
+				disabled={!canScrollRight}
+				onClick={() => onScrollRight()}
+			>
+				<span aria-hidden="true">→</span>
+			</Button>
+		</div>
+	);
+}
