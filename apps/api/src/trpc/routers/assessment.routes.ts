@@ -215,7 +215,7 @@ export const assessmentRouter = createTRPCRouter({
           terms,
           classrooms: classrooms.data,
           defaultTermId,
-          defaultDepartmentId: null,
+          defaultDepartmentId: classrooms.data[0]?.id ?? null,
         };
       }
 
