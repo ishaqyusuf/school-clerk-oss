@@ -11,7 +11,12 @@ import { Providers } from "./providers";
 
 import { StaticTrpc } from "@/components/static-trpc";
 import { constructMetadata } from "@/utils/construct-metadata";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Lora } from "next/font/google";
+import {
+  IBM_Plex_Mono,
+  IBM_Plex_Sans,
+  IBM_Plex_Sans_Arabic,
+  Lora,
+} from "next/font/google";
 
 // Blueprint (ADR-0082): IBM Plex Sans for UI copy, Plex Mono for figures and labels.
 const plexSans = IBM_Plex_Sans({
@@ -19,6 +24,16 @@ const plexSans = IBM_Plex_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-plex-sans",
+});
+
+// Plex's Arabic companion (ADR-0086). Plex Sans has no Arabic glyphs, so the
+// browser draws only Arabic characters with this font, per character, with no
+// wrapper. Its Arabic face's unicode-range means pages without Arabic never fetch it.
+const plexSansArabic = IBM_Plex_Sans_Arabic({
+  display: "swap",
+  subsets: ["arabic"],
+  weight: ["400", "500", "600", "700"],
+  preload: false,
 });
 
 const plexMono = IBM_Plex_Mono({
@@ -34,6 +49,19 @@ const lora = Lora({
   display: "swap",
   variable: "--font-serif",
 });
+
+// Slot Plex Sans Arabic between a Plex family and next/font's metric-matched
+// fallback (local Arial / Courier New). Those fallbacks contain Arabic glyphs,
+// so listed first they would draw every Arabic character.
+function withArabic(fontFamily: string) {
+  const [family, ...fallbacks] = fontFamily.split(",");
+  return [family, plexSansArabic.style.fontFamily, ...fallbacks].join(",");
+}
+
+const fontStacks = {
+  "--font-sans-stack": withArabic(plexSans.style.fontFamily),
+  "--font-mono-stack": withArabic(plexMono.style.fontFamily),
+} as React.CSSProperties;
 
 export const metadata = constructMetadata();
 
@@ -66,6 +94,7 @@ export default function RootLayout({
           // fontSans.variable,
           // fontHeading.variable
         )}
+        style={fontStacks}
       >
         <NuqsAdapter>
           <NotificationsProvider>

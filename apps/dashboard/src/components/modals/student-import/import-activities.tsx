@@ -1,4 +1,3 @@
-import { Arabic } from "@/components/arabic";
 import { useTRPC } from "@/trpc/client";
 import { useStudentNameFormatter } from "@/components/student-name-format/provider";
 import { StudentImportReviewFooter } from "./review-footer";
@@ -2044,7 +2043,7 @@ function ImportExecutionPanel({
               <h3 className="font-semibold text-foreground">{statusTitle}</h3>
               {classroomLabel ? (
                 <Badge variant="outline" className="bg-background">
-                  <Arabic>{classroomLabel}</Arabic>
+                  {classroomLabel}
                 </Badge>
               ) : null}
             </div>
@@ -2202,7 +2201,7 @@ function ClassroomBreakdownStrip({
             variant="outline"
             className="h-auto max-w-full gap-1 bg-background px-2 py-1 text-[11px]"
           >
-            <Arabic>{item.label}</Arabic>
+            <span>{item.label}</span>
             <span className="text-muted-foreground">
               {item.checkedRows} of {item.totalRows} checked
             </span>
@@ -2813,7 +2812,7 @@ function NamePartControl({
               key={`${label}-${option.value}-${option.start}-${option.end}`}
               value={option.value}
             >
-              <Arabic>{option.value}</Arabic>
+              {option.value}
             </Select.Item>
           ))}
         </Select.Content>
@@ -2904,20 +2903,20 @@ function StudentSearchPanel({
           popoverProps={{ className: "w-[320px] max-w-[calc(100vw-2rem)] p-0" }}
           onSearch={setSearchValue}
           renderSelectedItem={(item) => (
-            <Arabic className="truncate">
+            <div className="truncate">
 							{formatStudentName(item.student)}
-            </Arabic>
+            </div>
           )}
           renderListItem={({ item, isChecked }) => (
             <div className="flex w-full items-center justify-between gap-3">
               <div className="min-w-0">
-                <Arabic className="block truncate font-medium">
+                <div className="block truncate font-medium">
 									{formatStudentName(item.student)}
-                </Arabic>
-                <Arabic className="block truncate text-[11px] text-muted-foreground">
+                </div>
+                <div className="block truncate text-[11px] text-muted-foreground">
                   {item.student.classRoom || "No classroom"} ·{" "}
                   {item.student.termName || "No current term"}
-                </Arabic>
+                </div>
               </div>
               {isChecked ? (
                 <CheckCircle2 className="size-4 shrink-0 text-green-600" />
@@ -2955,7 +2954,7 @@ function ClassroomSelect({
       <Select.Content className="max-h-72 overflow-y-auto">
         {options.map((classroom) => (
           <Select.Item key={classroom.id} value={classroom.id}>
-            <Arabic>{getClassDepartmentDisplayName(classroom)}</Arabic>
+            {getClassDepartmentDisplayName(classroom)}
           </Select.Item>
         ))}
       </Select.Content>
@@ -3088,9 +3087,9 @@ function CandidateCard({
         </Item.Media>
         <Item.Content className="min-w-0">
           <Item.Title>
-            <Arabic className="truncate">
+            <div className="truncate">
 							{getCandidateMatchLabel(candidate, formatStudentName)}
-            </Arabic>
+            </div>
           </Item.Title>
         </Item.Content>
       </button>
