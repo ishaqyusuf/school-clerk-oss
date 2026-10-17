@@ -1,24 +1,40 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { Card } from "@school-clerk/ui/card";
-import { Badge } from "@school-clerk/ui/badge";
-import { Button } from "@school-clerk/ui/button";
+import { DirectoryToolbar } from "@/components/tables/core";
+import { useDirectoryView } from "@/hooks/use-directory-view";
+import type { DirectoryView } from "@/utils/directory-view-settings";
 import {
   TableProvider,
   Table,
   useTableData,
 } from "@school-clerk/ui/data-table";
-import { Actions, columns, mobileColumn } from "./columns";
+import { columns, mobileColumn } from "./columns";
+import {
+  type ClassGroup,
+  ClassGroupCollection,
+  ClassroomCollection,
+} from "./collection";
+import { getClassroomViews } from "./view-options";
 import { useClassroomFilterParams } from "@/hooks/use-classroom-filter-params";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useMemo } from "react";
 import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
-export function DataTable() {
+export function DataTable({
+  savedView,
+}: {
+  savedView: DirectoryView | null;
+}) {
   const academicDataDirection = useAcademicDataDirection();
   const trpc = useTRPC();
   // const { rowSelection, setRowSelection } = useClassroomStore();
   const { filters } = useClassroomFilterParams();
+  const grouping = (filters as any).view as string | null;
+  const { view } = useDirectoryView({
+    pageId: "classrooms",
+    savedView,
+    options: getClassroomViews(grouping),
+  });
   const { data, ref, hasNextPage } = useTableData({
     filter: filters,
     route: trpc.academics.getClassrooms,
@@ -29,7 +45,9 @@ export function DataTable() {
   // });
 
   const { setParams } = useClassroomParams();
-  const classViewRows = useMemo(() => {
+  const openClassroom = (classroomId: string) =>
+    setParams({ viewClassroomId: classroomId, classroomTab: "students" });
+  const classViewRows = useMemo<ClassGroup[]>(() => {
     const grouped = new Map<string, { classRoom: any; rows: typeof data }>();
     for (const row of data) {
       const classRoomId = row.classRoom?.id;
@@ -76,63 +94,39 @@ export function DataTable() {
       );
   }, [data]);
 
-  if ((filters as any).view === "class") {
+  if (view !== "table") {
+    const isClassGroups = grouping === "class";
+    const count = isClassGroups ? classViewRows.length : data.length;
     return (
-      <div className="grid gap-4" dir={academicDataDirection}>
-        {classViewRows.map((row) => (
-          <Card key={row.id} className="p-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-base font-semibold" dir="auto">
-                    {row.classRoom?.name}
-                  </h3>
-                  <Badge variant="outline">
-                    Level {row.classRoom?.classLevel ?? "—"}
-                  </Badge>
-                  <Badge variant="secondary">{row.progressionMode}</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {row.rows.length > 1
-                    ? `${row.rows.length} streams`
-                    : "Single stream"}
-                  {" · "}
-                  {row.studentCount} students
-                  {" · "}
-                  {row.subjectCount} subject{row.subjectCount === 1 ? "" : "s"}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {row.rows.map((stream) => (
-                    <Badge key={stream.id} variant="outline" dir="auto">
-                      {stream.departmentName}
-                      {stream.departmentLevel != null
-                        ? ` · ${stream.departmentLevel}`
-                        : ""}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              <div className="flex gap-2" dir="ltr">
-                <div className="shrink-0">
-                  <Actions item={row.rows[0]} />
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setParams({
-                      viewClassroomId: row.rows[0]?.id,
-                      classroomTab: "students",
-                    })
-                  }
-                >
-                  Open First Stream
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ))}
-        {hasNextPage && <Table.LoadMore />}
+      <div className="flex flex-col gap-3" dir={academicDataDirection}>
+        <DirectoryToolbar
+          view={view}
+          summary={`${count}${hasNextPage ? "+" : ""} ${
+            isClassGroups ? "classes" : "classrooms"
+          }`}
+        />
+        {isClassGroups ? (
+          <ClassGroupCollection
+            groups={classViewRows}
+            view={view}
+            onOpen={openClassroom}
+          />
+        ) : (
+          <ClassroomCollection
+            items={data}
+            view={view}
+            onOpen={openClassroom}
+          />
+        )}
+        {hasNextPage ? (
+          // useTableData fetches the next page when this sentinel is in view.
+          <div
+            ref={ref}
+            className="py-3 text-center text-xs text-muted-foreground"
+          >
+            Loading more…
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -152,11 +146,7 @@ export function DataTable() {
           // setRowSelection,
           tableMeta: {
             rowClick(id, rowData) {
-              //   overviewQuery.open2(rowData.uuid, "sales");
-              setParams({
-                viewClassroomId: rowData.id,
-                classroomTab: "students",
-              });
+              openClassroom(rowData.id);
             },
           },
         },

@@ -36,7 +36,7 @@ function StudentCell({ item }: { item: Item }) {
 	);
 }
 
-function StatusCell({ status }: { status: Item["status"] }) {
+export function StatusCell({ status }: { status: Item["status"] }) {
 	const enrolled = status === "enrolled";
 	return (
 		<Badge variant={enrolled ? "success" : "outline"} className="rounded-none">

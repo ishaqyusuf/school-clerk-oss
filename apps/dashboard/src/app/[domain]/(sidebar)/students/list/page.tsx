@@ -2,6 +2,11 @@ import { loadStudentFilterParams } from "@/hooks/use-student-filter-params";
 import { loadSortParams } from "@/hooks/use-sort-params";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { getInitialTableSettings } from "@/utils/columns";
+import {
+	DIRECTORY_VIEW_QUERY_KEY,
+	parseSavedDirectoryView,
+} from "@/utils/directory-view-settings";
+import { getInitialDirectoryView } from "@/utils/directory-views";
 import { buildTenantPageMetadata } from "@/utils/tenant-page-metadata";
 import type { SearchParams } from "nuqs";
 
@@ -10,6 +15,7 @@ import { StudentHeader } from "@/components/student-header";
 import { PromotionCta } from "@/components/students/promotion-cta";
 import { StudentDuplicateAlert } from "@/components/students/student-duplicate-alert";
 import { DataTable } from "@/components/tables/students/data-table";
+import { DirectoryCollectionSkeleton } from "@/components/tables/core";
 import { StudentsSkeleton } from "@/components/tables/students/skeleton";
 import { StudentStatsCards } from "@/components/tables/students/student-stats-cards";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
@@ -40,6 +46,10 @@ export default async function Page(props: Props) {
 				])
 			: null;
 	const initialSettings = await getInitialTableSettings("students");
+	const savedView = await getInitialDirectoryView("students");
+	const requestedView =
+		parseSavedDirectoryView(searchParams[DIRECTORY_VIEW_QUERY_KEY]) ??
+		savedView;
 
 	batchPrefetch([
 		trpc.students.index.infiniteQueryOptions({
@@ -56,7 +66,7 @@ export default async function Page(props: Props) {
 			<PageTitle>Students</PageTitle>
 			<div className="flex animate-in flex-col gap-6 py-6 fade-in duration-500">
 				<StudentStatsCards />
-				<StudentHeader />
+				<StudentHeader savedView={savedView} />
 				<PromotionCta />
 				<div>
 					<StudentDuplicateAlert
@@ -68,9 +78,19 @@ export default async function Page(props: Props) {
 				<div className="flex flex-col gap-6">
 					<ErrorBoundary errorComponent={ErrorFallback}>
 						<Suspense
-							fallback={<StudentsSkeleton initialSettings={initialSettings} />}
+							fallback={
+								requestedView === "list" || requestedView === "cards" ? (
+									<DirectoryCollectionSkeleton label="students" />
+								) : (
+									<StudentsSkeleton initialSettings={initialSettings} />
+								)
+							}
 						>
-							<DataTable initialSettings={initialSettings} scrollMode="page" />
+							<DataTable
+								initialSettings={initialSettings}
+								scrollMode="page"
+								savedView={savedView}
+							/>
 						</Suspense>
 					</ErrorBoundary>
 				</div>

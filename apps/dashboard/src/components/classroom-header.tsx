@@ -12,6 +12,13 @@ import { useTRPC } from "@/trpc/client";
 import { toast } from "@school-clerk/ui/use-toast";
 import type { PageFilterData } from "@school-clerk/utils/types";
 import { Download, MoreHorizontal } from "lucide-react";
+import { ViewSwitcher } from "./view-switcher";
+import { useDirectoryView } from "@/hooks/use-directory-view";
+import type { DirectoryView } from "@/utils/directory-view-settings";
+import {
+  getClassroomViewOptions,
+  getClassroomViews,
+} from "./tables/classrooms/view-options";
 import {
   Dialog,
   DialogContent,
@@ -51,8 +58,17 @@ const classroomFilterList = [
   },
 ] satisfies PageFilterData<keyof typeof classroomFilterParams>[];
 
-export function ClassroomHeader({}) {
+export function ClassroomHeader({
+  savedView,
+}: {
+  savedView: DirectoryView | null;
+}) {
   const [filters, setFilters] = useQueryStates(classroomFilterParams);
+  const { view, setView } = useDirectoryView({
+    pageId: "classrooms",
+    savedView,
+    options: getClassroomViews(filters.view),
+  });
   const { setParams } = useClassroomParams();
   const [importOpen, setImportOpen] = useState(false);
 
@@ -71,38 +87,46 @@ export function ClassroomHeader({}) {
           {...{ filters, setFilters }}
         />
       </div>
-      <div className="hidden gap-2 shrink-0 lg:flex">
-        <Button variant="outline" className="gap-2" onClick={openImport}>
-          <Download className="h-4 w-4" />
-          Import from Session
-        </Button>
-        <Button className="gap-2 shadow-sm" onClick={openAddClassroom}>
-          <Icons.Add className="h-4 w-4" />
-          Add Classroom
-        </Button>
-      </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            className="shrink-0 gap-2 lg:hidden"
-            aria-label="Open classroom actions"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-            More
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuItem onClick={openAddClassroom} className="gap-2">
-            <Icons.Add className="h-4 w-4" />
-            Add Classroom
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={openImport} className="gap-2">
+      <div className="flex shrink-0 items-center gap-2">
+        <ViewSwitcher
+          label="Classroom view"
+          value={view}
+          options={getClassroomViewOptions(filters.view)}
+          onValueChange={setView}
+        />
+        <div className="hidden gap-2 shrink-0 lg:flex">
+          <Button variant="outline" className="gap-2" onClick={openImport}>
             <Download className="h-4 w-4" />
             Import from Session
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </Button>
+          <Button className="gap-2 shadow-sm" onClick={openAddClassroom}>
+            <Icons.Add className="h-4 w-4" />
+            Add Classroom
+          </Button>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              className="shrink-0 gap-2 lg:hidden"
+              aria-label="Open classroom actions"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+              More
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onClick={openAddClassroom} className="gap-2">
+              <Icons.Add className="h-4 w-4" />
+              Add Classroom
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={openImport} className="gap-2">
+              <Download className="h-4 w-4" />
+              Import from Session
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <ImportClassroomsDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}

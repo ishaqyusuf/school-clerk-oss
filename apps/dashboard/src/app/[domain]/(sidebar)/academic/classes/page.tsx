@@ -1,9 +1,15 @@
 import { ClassroomHeader } from "@/components/classroom-header";
 import { ErrorFallback } from "@/components/error-fallback";
 import { DataTable } from "@/components/tables/classrooms/data-table";
+import { DirectoryCollectionSkeleton } from "@/components/tables/core";
 import { TableSkeleton } from "@/components/tables/skeleton";
 import { loadClassroomFilterParams } from "@/hooks/use-classroom-filter-params";
 import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server";
+import {
+	DIRECTORY_VIEW_QUERY_KEY,
+	parseSavedDirectoryView,
+} from "@/utils/directory-view-settings";
+import { getInitialDirectoryView } from "@/utils/directory-views";
 import { buildTenantPageMetadata } from "@/utils/tenant-page-metadata";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
@@ -24,6 +30,10 @@ type Props = {
 export default async function Page(props: Props) {
 	const searchParams = await props.searchParams;
 	const filter = loadClassroomFilterParams(searchParams);
+	const savedView = await getInitialDirectoryView("classrooms");
+	const requestedView =
+		parseSavedDirectoryView(searchParams[DIRECTORY_VIEW_QUERY_KEY]) ??
+		savedView;
 	batchPrefetch([
 		trpc.academics.getClassrooms.infiniteQueryOptions({
 			...filter,
@@ -40,10 +50,20 @@ export default async function Page(props: Props) {
 					</p>
 				</div>
 			</div>
-			<ClassroomHeader />
+			<ClassroomHeader savedView={savedView} />
 			<ErrorBoundary errorComponent={ErrorFallback}>
-				<Suspense fallback={<TableSkeleton />}>
-					<DataTable />
+				<Suspense
+					fallback={
+						requestedView === "list" ||
+						requestedView === "cards" ||
+						filter.view === "class" ? (
+							<DirectoryCollectionSkeleton label="classrooms" />
+						) : (
+							<TableSkeleton />
+						)
+					}
+				>
+					<DataTable savedView={savedView} />
 				</Suspense>
 			</ErrorBoundary>
 		</div>

@@ -1,7 +1,12 @@
 "use client";
 
-import { VirtualRow } from "@/components/tables/core";
+import {
+	CollectionLoadMore,
+	DirectoryToolbar,
+	VirtualRow,
+} from "@/components/tables/core";
 import { useAcademicDataDirection } from "@/components/academic-data-direction/provider";
+import { useDirectoryView } from "@/hooks/use-directory-view";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { useSortParams } from "@/hooks/use-sort-params";
 import { useStickyColumns } from "@/hooks/use-sticky-columns";
@@ -11,6 +16,7 @@ import { useTableDnd } from "@/hooks/use-table-dnd";
 import { useTableSettings } from "@/hooks/use-table-settings";
 import { useTRPC } from "@/trpc/client";
 import { ROW_HEIGHTS, STICKY_COLUMNS } from "@/utils/table-configs";
+import type { DirectoryView } from "@/utils/directory-view-settings";
 import { type TableSettings, getColumnIds } from "@/utils/table-settings";
 import type { GetStudentsSchema } from "@api/trpc/schemas/students";
 import { Table, TableBody } from "@school-clerk/ui/table";
@@ -41,12 +47,14 @@ import {
 import { columns, getStudentRowId, type Item } from "./columns";
 import { EmptyState, NoResults } from "./empty-states";
 import { StudentsBottomBar } from "./bottom-bar";
+import { StudentCollection } from "./collection";
 import { useStudentsTableStore } from "./store";
 import { DataTableHeader } from "./table-header";
 
 const NON_CLICKABLE_COLUMNS = new Set(["select", "actions"]);
 const COLUMN_IDS = getColumnIds(columns);
 const ROW_HEIGHT = ROW_HEIGHTS.students;
+const TABLE_ONLY = ["table"] as const;
 
 type StudentsPage = {
 	data?: Item[];
@@ -77,6 +85,11 @@ interface Props {
 	 * every row is the same class). Never written to the shared table settings.
 	 */
 	hiddenColumns?: string[];
+	/**
+	 * The Students page's saved Table / List / Cards view. Omit for embeds,
+	 * which always render the table.
+	 */
+	savedView?: DirectoryView | null;
 }
 
 function normalizeSort(sort: string[] | null): GetStudentsSchema["sort"] {
@@ -102,8 +115,15 @@ export function DataTable({
 	search,
 	onClearSearch,
 	hiddenColumns,
+	savedView,
 }: Props) {
 	const trpc = useTRPC();
+	const { view } = useDirectoryView({
+		pageId: "students",
+		savedView: savedView ?? null,
+		options: savedView === undefined ? TABLE_ONLY : undefined,
+	});
+	const isTableView = view === "table";
 	const academicDataDirection = useAcademicDataDirection();
 	const urlFilters = useStudentFilterParams();
 	const isLocalFilter = filterMode === "local";
@@ -193,6 +213,9 @@ export function DataTable({
 
 	const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
 		useSuspenseInfiniteQuery(infiniteQueryOptions);
+	const loadNextPage = useCallback(() => {
+		void fetchNextPage();
+	}, [fetchNextPage]);
 
 	const tableData = useMemo(
 		() => data?.pages.flatMap((page) => page?.data ?? []) ?? [],
@@ -237,20 +260,20 @@ export function DataTable({
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => ROW_HEIGHT,
 		overscan: 10,
-		enabled: scrollMode === "container",
+		enabled: isTableView && scrollMode === "container",
 	});
 	const pageVirtualizer = useWindowVirtualizer({
 		count: rows.length,
 		estimateSize: () => ROW_HEIGHT,
 		overscan: 10,
 		scrollMargin,
-		enabled: scrollMode === "page",
+		enabled: isTableView && scrollMode === "page",
 	});
 	const rowVirtualizer =
 		scrollMode === "page" ? pageVirtualizer : containerVirtualizer;
 
 	useEffect(() => {
-		if (scrollMode !== "page") return;
+		if (!isTableView || scrollMode !== "page") return;
 		pageScrollRef.current = window;
 		const measure = () => {
 			if (bodyRef.current) {
@@ -268,7 +291,7 @@ export function DataTable({
 			window.removeEventListener("resize", measure);
 			pageScrollRef.current = null;
 		};
-	}, [scrollMode, rows.length]);
+	}, [isTableView, scrollMode, rows.length]);
 
 	useEffect(() => {
 		setColumns(table.getAllLeafColumns());
@@ -286,7 +309,8 @@ export function DataTable({
 		scrollRef: scrollMode === "page" ? pageScrollRef : parentRef,
 		rowVirtualizer,
 		rowCount: rows.length,
-		hasNextPage: singlePage ? false : hasNextPage,
+		// List and Cards load through CollectionLoadMore instead.
+		hasNextPage: singlePage || !isTableView ? false : hasNextPage,
 		isFetchingNextPage,
 		fetchNextPage,
 	});
@@ -305,17 +329,17 @@ export function DataTable({
 					isLocalFilter
 						? onClearSearch?.()
 						: setFilters({
-						classroomTitle: null,
-						departmentId: null,
-						classroomDepartmentIds: null,
-						departmentTitles: null,
-						sessionTermId: null,
-						sessionId: null,
-						status: null,
-            admissionTypes: null,
-            enrollmentDate: null,
-						q: null,
-					})
+								classroomTitle: null,
+								departmentId: null,
+								classroomDepartmentIds: null,
+								departmentTitles: null,
+								sessionTermId: null,
+								sessionId: null,
+								status: null,
+								admissionTypes: null,
+								enrollmentDate: null,
+								q: null,
+							})
 				}
 			/>
 		);
@@ -336,6 +360,35 @@ export function DataTable({
 
 	const virtualItems = rowVirtualizer.getVirtualItems();
 	const selectedCount = Object.values(rowSelection).filter(Boolean).length;
+	const bottomBar =
+		selectedCount > 0 ? (
+			<StudentsBottomBar
+				data={tableData}
+				rowSelection={rowSelection}
+				setRowSelection={setRowSelection}
+			/>
+		) : null;
+
+	if (!isTableView) {
+		const canLoadMore = !singlePage && !!hasNextPage;
+		return (
+			<div className="flex flex-col gap-3" dir={academicDataDirection}>
+				<DirectoryToolbar
+					table={table}
+					view={view}
+					selectAllLabel="Select all loaded students"
+					summary={`${tableData.length}${canLoadMore ? "+" : ""} students`}
+				/>
+				<StudentCollection rows={rows} view={view} onOpen={handleCellClick} />
+				<CollectionLoadMore
+					hasNextPage={canLoadMore}
+					isFetchingNextPage={isFetchingNextPage}
+					onLoadMore={loadNextPage}
+				/>
+				{bottomBar}
+			</div>
+		);
+	}
 
 	return (
 		<div className="relative" dir={academicDataDirection}>
@@ -416,13 +469,7 @@ export function DataTable({
 				</div>
 			</div>
 
-			{selectedCount > 0 ? (
-				<StudentsBottomBar
-					data={tableData}
-					rowSelection={rowSelection}
-					setRowSelection={setRowSelection}
-				/>
-			) : null}
+			{bottomBar}
 		</div>
 	);
 }
