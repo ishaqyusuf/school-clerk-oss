@@ -23,265 +23,87 @@ const { getStudentsSchema } = await import("../../trpc/schemas/students");
 const { getStudentDuplicateGroups, previewStudentDuplicateMerge } =
 	await import("./student-duplicates");
 
+const registrarActor = { id: "registrar-1", role: "Registrar", authSessionId: "auth-session-registrar" };
+const teacherActor = { id: "teacher-1", role: "Teacher", authSessionId: "auth-session-teacher" };
+
+// Required new-admission fees for classroom A, each on its own credit stream.
+function financeFeeTables(fees: Array<{ id: string; name: string; amount: number; schoolProfileId?: string }>) {
+	return {
+		financeStream: fees.map(({ id, schoolProfileId = "school-1" }) => ({
+			id: `stream-${id}`, schoolProfileId, accountType: "CREDIT", deletedAt: null })),
+		financeItem: fees.map(({ id, name, amount, schoolProfileId = "school-1" }) => ({
+			id, name, description: null, amount, schoolProfileId, streamId: `stream-${id}`,
+			collectable: true, isActive: true, studentAudience: "NEW_ADMISSIONS_ONLY", studentGenderAudience: "ALL_GENDERS",
+			schoolSessionId: "session-1", sessionTermId: "term-1", deletedAt: null })),
+		financeItemClassRoomDepartment: fees.map(({ id }) => ({
+			id: `${id}-classroom-a`, itemId: id, classRoomDepartmentId: "classroom-a", deletedAt: null })),
+	};
+}
+
 describe("createStudent fee collection", () => {
-	test("rejects inline payment from a non-finance role before starting the transaction", async () => {
-		let transactionStarted = false;
-		const ctx = {
-			profile: {
-				schoolId: "school-1",
-				sessionId: "session-1",
-				termId: "term-1",
-			},
-			currentUser: { id: "registrar-1", role: "Registrar" },
-			db: {
-				$transaction: async () => {
-					transactionStarted = true;
-				},
-			},
-		} as unknown as TRPCContext;
+	type CreateStudentInput = Parameters<typeof createStudent>[1];
+	const registrationInput = (payment: Pick<CreateStudentInput, "feePayments" | "paymentDetails">): CreateStudentInput => ({
+		name: "Amina",
+		surname: "Yusuf",
+		otherName: null,
+		gender: "Female",
+		dob: null,
+		classRoomId: "classroom-a",
+		admissionType: "NEW_ADMISSION",
+		selectedOptionalFeeItemIds: [],
+		fees: [],
+		guardian: null,
+		termForms: null,
+		...payment,
+	});
+	const entranceFee = { id: "entrance-fee", name: "Entrance form fee", amount: 5_000 };
+	const matriculationFee = { id: "matriculation-fee", name: "Matriculation fee", amount: 20_000 };
+
+	test("rejects inline payment from a non-finance role before writing anything", async () => {
+		const { ctx, tables } = createImportCtx({ actor: registrarActor, tables: financeFeeTables([entranceFee]) });
 
 		await expect(
-			createStudent(ctx, {
-				name: "Amina",
-				surname: "Yusuf",
-				otherName: null,
-				gender: "Female",
-				dob: null,
-				classRoomId: "classroom-1",
-				admissionType: "NEW_ADMISSION",
-				selectedOptionalFeeItemIds: [],
-				fees: [],
-				guardian: null,
-				termForms: null,
+			createStudent(ctx, registrationInput({
 				feePayments: [{ feeItemId: "entrance-fee", amount: 5_000 }],
 				paymentDetails: { method: "CASH" },
-			}),
+			})),
 		).rejects.toMatchObject({ code: "FORBIDDEN" });
-		expect(transactionStarted).toBe(false);
+		expect(tables.students).toHaveLength(3);
+		expect(tables.studentTermForm).toHaveLength(1);
+		expect(tables.financeCharge).toEqual([]);
 	});
 
 	test("assigns all required classroom fees and pays only the selected fee", async () => {
-		const createdCharges: Array<
-			Record<string, unknown> & { id: string; itemId: string }
-		> = [];
-		const createdAllocations: Array<
-			Record<string, unknown> & {
-				paymentId: string;
-				chargeId: string;
-				amount: unknown;
-			}
-		> = [];
-		const updatedCharges: Array<{
-			where: { id: string };
-			data: Record<string, unknown>;
-		}> = [];
-		const feeItems = [
-			{
-				id: "entrance-fee",
-				name: "Entrance form fee",
-				description: null,
-				amount: 5_000,
-				collectable: true,
-				isActive: true,
-				studentAudience: "NEW_ADMISSIONS_ONLY",
-				studentGenderAudience: "ALL_GENDERS",
-				schoolSessionId: "session-1",
-				sessionTermId: "term-1",
-				streamId: "stream-entrance",
-				stream: { id: "stream-entrance", accountType: "CREDIT" },
-				applicableClasses: [
-					{
-						classRoomDepartmentId: "classroom-1",
-						deletedAt: null,
-					},
-				],
-			},
-			{
-				id: "matriculation-fee",
-				name: "Matriculation fee",
-				description: null,
-				amount: 20_000,
-				collectable: true,
-				isActive: true,
-				studentAudience: "NEW_ADMISSIONS_ONLY",
-				studentGenderAudience: "ALL_GENDERS",
-				schoolSessionId: "session-1",
-				sessionTermId: "term-1",
-				streamId: "stream-matriculation",
-				stream: { id: "stream-matriculation", accountType: "CREDIT" },
-				applicableClasses: [
-					{
-						classRoomDepartmentId: "classroom-1",
-						deletedAt: null,
-					},
-				],
-			},
-		];
-		const tx = {
-			studentTermForm: {
-				findMany: async () => [],
-				updateMany: async ({ data }: { data: Record<string, unknown> }) => data,
-			},
-			students: {
-				create: async () => ({
-					id: "student-1",
-					name: "Amina",
-					surname: "Yusuf",
-					otherName: null,
-					gender: "Female",
-					guardians: [],
-					sessionForms: [
-						{
-							id: "session-form-1",
-							schoolSessionId: "session-1",
-							classroomDepartmentId: "classroom-1",
-							classroomDepartment: null,
-							termForms: [
-								{
-									id: "term-form-1",
-									schoolSessionId: "session-1",
-									sessionTermId: "term-1",
-									classroomDepartmentId: "classroom-1",
-									admissionType: "NEW_ADMISSION",
-								},
-							],
-						},
-					],
-				}),
-			},
-			financeItem: {
-				findMany: async () => feeItems,
-			},
-			financeCharge: {
-				findFirst: async ({ where }: { where: { id?: string } }) => {
-					if (!where.id) return null;
-					const charge = createdCharges.find((item) => item.id === where.id);
-					const item = feeItems.find(
-						(feeItem) => feeItem.id === charge?.itemId,
-					);
-					return charge ? { ...charge, stream: item?.stream } : null;
-				},
-				create: async ({ data }: { data: Record<string, unknown> }) => {
-					const charge = {
-						id: `charge-${String(data.itemId)}`,
-						itemId: String(data.itemId),
-						amountPaid: 0,
-						status: "PENDING",
-						...data,
-					};
-					createdCharges.push(charge);
-					return charge;
-				},
-				update: async ({
-					where,
-					data,
-				}: {
-					where: { id: string };
-					data: Record<string, unknown>;
-				}) => {
-					updatedCharges.push({ where, data });
-					return data;
-				},
-			},
-			financePayment: {
-				create: async ({ data }: { data: Record<string, unknown> }) => ({
-					id: "payment-entrance",
-					paymentDate: data.paymentDate,
-					...data,
-				}),
-			},
-			financePaymentAllocation: {
-				create: async ({
-					data,
-				}: {
-					data: Record<string, unknown> & {
-						paymentId: string;
-						chargeId: string;
-						amount: unknown;
-					};
-				}) => {
-					createdAllocations.push(data);
-					return { id: "allocation-entrance", ...data };
-				},
-			},
-			financeLedgerEntry: {
-				create: async ({ data }: { data: Record<string, unknown> }) => ({
-					id: "ledger-entrance",
-					...data,
-				}),
-			},
-			financeTermLedgerClose: {
-				findFirst: async () => null,
-			},
-			inventory: { findFirst: async () => null },
-			inventoryIssuance: { create: async () => undefined },
-		};
-		const ctx = {
-			profile: {
-				schoolId: "school-1",
-				sessionId: "session-1",
-				termId: "term-1",
-			},
-			currentUser: {
-				id: "admin-1",
-				role: "Admin",
-			},
-			db: {
-				$transaction: async (callback: (transaction: typeof tx) => unknown) =>
-					callback(tx),
-			},
-		} as unknown as TRPCContext;
+		const { ctx, tables } = createImportCtx({ tables: financeFeeTables([entranceFee, matriculationFee]) });
 
-		const result = await createStudent(ctx, {
-			name: "Amina",
-			surname: "Yusuf",
-			otherName: null,
-			gender: "Female",
-			dob: null,
-			classRoomId: "classroom-1",
-			admissionType: "NEW_ADMISSION",
-			selectedOptionalFeeItemIds: [],
-			fees: [],
-			guardian: null,
-			termForms: null,
+		const result = await createStudent(ctx, registrationInput({
 			feePayments: [{ feeItemId: "entrance-fee", amount: 5_000 }],
 			paymentDetails: {
 				method: "CASH",
 				reference: "RCPT-1",
 				paymentDate: new Date("2026-08-02"),
 			},
-		});
+		}));
 
-		expect(createdCharges.map((charge) => charge.itemId)).toEqual([
-			"entrance-fee",
-			"matriculation-fee",
+		const termForm = tables.studentTermForm!.find((form) => form.studentId === result.id);
+		const charges = tables.financeCharge!;
+		expect(charges.map((charge) => ({
+			itemId: charge.itemId,
+			studentTermFormId: charge.studentTermFormId,
+			amountPaid: Number(charge.amountPaid),
+			status: charge.status,
+		}))).toEqual([
+			{ itemId: "entrance-fee", studentTermFormId: termForm?.id, amountPaid: 5_000, status: "PAID" },
+			{ itemId: "matriculation-fee", studentTermFormId: termForm?.id, amountPaid: 0, status: "PENDING" },
 		]);
-		expect(
-			createdAllocations.map((allocation) => ({
-				...allocation,
-				amount: Number(allocation.amount),
-			})),
-		).toEqual([
-			{
-				paymentId: "payment-entrance",
-				chargeId: "charge-entrance-fee",
-				amount: 5_000,
-			},
-		]);
-		expect(updatedCharges).toHaveLength(1);
-		const updatedCharge = updatedCharges[0]!;
-		expect({
-			...updatedCharge,
-			data: {
-				...updatedCharge.data,
-				amountPaid: Number(updatedCharge.data.amountPaid),
-			},
-		}).toMatchObject({
-			where: { id: "charge-entrance-fee" },
-			data: { amountPaid: 5_000, status: "PAID" },
-		});
+		expect(tables.financePaymentAllocation!.map((allocation) => ({
+			paymentId: allocation.paymentId,
+			chargeId: allocation.chargeId,
+			amount: Number(allocation.amount),
+		}))).toEqual([{ paymentId: "payment-1", chargeId: charges[0]!.id, amount: 5_000 }]);
+		expect(tables.financePayment).toMatchObject([{ studentId: result.id, reference: "RCPT-1", receivedById: "user-1" }]);
 		expect(result.feePaymentSummary).toEqual({
-			paymentIds: ["payment-entrance"],
+			paymentIds: ["payment-1"],
 			count: 1,
 			totalAssigned: 25_000,
 			totalAllocated: 5_000,
@@ -290,99 +112,29 @@ describe("createStudent fee collection", () => {
 	});
 
 	test("rejects a requested fee outside the tenant classroom scope", async () => {
+		const { ctx, tables } = createImportCtx({
+			tables: financeFeeTables([{ id: "other-school-fee", name: "Other school fee", amount: 5_000, schoolProfileId: "school-2" }]),
+		});
 		let transactionCommitted = false;
-		let allocationCreated = false;
-		let feeLookupArgs: Record<string, unknown> | undefined;
-		const tx = {
-			studentTermForm: {
-				findMany: async () => [],
-				updateMany: async () => ({ count: 1 }),
-			},
-			students: {
-				create: async () => ({
-					id: "student-1",
-					guardians: [],
-					sessionForms: [
-						{
-							id: "session-form-1",
-							schoolSessionId: "session-1",
-							classroomDepartmentId: "classroom-1",
-							classroomDepartment: null,
-							termForms: [
-								{
-									id: "term-form-1",
-									schoolSessionId: "session-1",
-									sessionTermId: "term-1",
-									classroomDepartmentId: "classroom-1",
-									admissionType: "NEW_ADMISSION",
-								},
-							],
-						},
-					],
-				}),
-			},
-			financeItem: {
-				findMany: async (args: Record<string, unknown>) => {
-					feeLookupArgs = args;
-					return [];
-				},
-			},
-			financeCharge: {
-				findFirst: async () => null,
-				create: async () => {
-					throw new Error("No charge should be created");
-				},
-			},
-			financePaymentAllocation: {
-				create: async () => {
-					allocationCreated = true;
-				},
-			},
+		const transaction = ctx.db.$transaction;
+		ctx.db.$transaction = async (...args: unknown[]) => {
+			const result = await transaction(...args);
+			transactionCommitted = true;
+			return result;
 		};
-		const ctx = {
-			profile: {
-				schoolId: "school-1",
-				sessionId: "session-1",
-				termId: "term-1",
-			},
-			currentUser: { id: "admin-1", role: "Admin" },
-			db: {
-				$transaction: async (callback: (transaction: typeof tx) => unknown) => {
-					const result = await callback(tx);
-					transactionCommitted = true;
-					return result;
-				},
-			},
-		} as unknown as TRPCContext;
 
 		await expect(
-			createStudent(ctx, {
-				name: "Amina",
-				surname: "Yusuf",
-				otherName: null,
-				gender: "Female",
-				dob: null,
-				classRoomId: "classroom-1",
-				admissionType: "NEW_ADMISSION",
-				selectedOptionalFeeItemIds: [],
-				fees: [],
-				guardian: null,
-				termForms: null,
+			createStudent(ctx, registrationInput({
 				feePayments: [{ feeItemId: "other-school-fee", amount: 5_000 }],
 				paymentDetails: { method: "CASH" },
-			}),
+			})),
 		).rejects.toMatchObject({
-			code: "BAD_REQUEST",
-			message:
-				"A selected fee no longer applies to this student. Refresh the form and try again.",
+			code: "CONFLICT",
+			message: "A selected fee no longer applies. Refresh the form before trying again.",
 		});
 		expect(transactionCommitted).toBe(false);
-		expect(allocationCreated).toBe(false);
-		expect(feeLookupArgs).toMatchObject({
-			where: {
-				schoolProfileId: "school-1",
-			},
-		});
+		expect(tables.financeCharge).toEqual([]);
+		expect(tables.financePaymentAllocation).toEqual([]);
 	});
 
 	test("requires shared payment details when a fee payment is entered", () => {
@@ -399,85 +151,47 @@ describe("createStudent fee collection", () => {
 	});
 });
 
-function createCtx({
-	schoolId = "school-1",
-	role = "Admin",
-	updateCount = 1,
-}: {
-	schoolId?: string | undefined;
-	role?: string | null;
-	updateCount?: number;
-} = {}) {
-	const calls: unknown[] = [];
-	const tx = {
-		students: {
-			updateMany: async (args: unknown) => {
-				calls.push(args);
-				return { count: updateCount };
-			},
-		},
-		studentTermForm: { findMany: async () => [] },
-	};
-	return {
-		ctx: {
-			profile: { schoolId },
-			currentUser: role
-				? {
-						id: "user-1",
-						email: "admin@example.com",
-						name: "Admin",
-						role,
-						saasAccountId: null,
-					}
-				: undefined,
-			db: {
-				...tx,
-				$transaction: async (fn: (client: typeof tx) => unknown) => fn(tx),
-			},
-		} as any,
-		calls,
-	};
-}
-
 describe("changeStudentGender", () => {
+	const genders = (tables: Record<string, ImportRecord[]>) =>
+		Object.fromEntries(tables.students!.map((student) => [student.id, student.gender]));
+
 	test("updates by tenant-scoped student id for permitted roles", async () => {
-		const { ctx, calls } = createCtx();
+		const { ctx, tables } = createImportCtx();
 
-		await changeStudentGender(ctx, {
-			id: "student-1",
-			gender: "Female",
+		await expect(
+			changeStudentGender(ctx, { id: "student-1", gender: "Female" }),
+		).resolves.toMatchObject({
+			studentId: "student-1",
+			updated: 1,
+			genderChanged: true,
+			reconciliation: [{ studentTermFormId: "term-form-1", applied: 0, cancelled: 0, retained: 0 }],
 		});
-
-		expect(calls).toEqual([
-			{
-				where: {
-					id: "student-1",
-					schoolProfileId: "school-1",
-					deletedAt: null,
-				},
-				data: { gender: "Female" },
-			},
-		]);
+		expect(genders(tables)).toEqual({ "student-1": "Female", "student-2": "Female", "student-3": "Female" });
 	});
 
 	test("rejects teacher updates", async () => {
-		const { ctx } = createCtx({ role: "Teacher" });
+		const { ctx, tables } = createImportCtx({ actor: teacherActor });
 
 		await expect(
-			changeStudentGender(ctx, { id: "student-1", gender: "Male" }),
+			changeStudentGender(ctx, { id: "student-1", gender: "Female" }),
 		).rejects.toMatchObject({
 			code: "FORBIDDEN",
 		} satisfies Partial<TRPCError>);
+		expect(genders(tables)["student-1"]).toBe("Male");
 	});
 
 	test("does not report success for cross-tenant students", async () => {
-		const { ctx } = createCtx({ updateCount: 0 });
+		const { ctx, tables } = createImportCtx({
+			tables: { students: [{ id: "other-student", name: "Musa", surname: "Ali", otherName: null,
+				gender: "Male", schoolProfileId: "school-2", deletedAt: null }] },
+		});
 
 		await expect(
-			changeStudentGender(ctx, { id: "student-2", gender: "Female" }),
+			changeStudentGender(ctx, { id: "other-student", gender: "Female" }),
 		).rejects.toMatchObject({
 			code: "NOT_FOUND",
 		} satisfies Partial<TRPCError>);
+		expect(genders(tables)["other-student"]).toBe("Male");
 	});
 });
 
@@ -890,134 +604,70 @@ describe("getStudentsQueryParams", () => {
 });
 
 describe("setStudentAdmissionType", () => {
-	test("tenant-scopes the term update and safely skips incomplete fee context", async () => {
-		const updates: any[] = [];
-		const ctx = {
-			profile: {
-				schoolId: "school-1",
-				sessionId: "session-1",
-				termId: "term-1",
+	test("tenant-scopes the term update and refuses incomplete fee context", async () => {
+		const { ctx, tables } = createImportCtx({
+			tables: {
+				studentSessionForm: [
+					{ id: "session-form-2", studentId: "student-2", schoolProfileId: "school-1",
+						schoolSessionId: "session-1", classroomDepartmentId: null, deletedAt: null },
+					{ id: "other-session-form", studentId: "other-student", schoolProfileId: "school-2",
+						schoolSessionId: "other-session", classroomDepartmentId: null, deletedAt: null },
+				],
+				studentTermForm: [
+					// Without a class placement the term's fees cannot be reconciled.
+					{ id: "term-form-2", studentId: "student-2", studentSessionFormId: "session-form-2",
+						schoolProfileId: "school-1", schoolSessionId: "session-1", sessionTermId: "term-1",
+						classroomDepartmentId: null, admissionType: "UNCLASSIFIED", deletedAt: null },
+					{ id: "other-term-form", studentId: "other-student", studentSessionFormId: "other-session-form",
+						schoolProfileId: "school-2", schoolSessionId: "other-session", sessionTermId: "other-term",
+						classroomDepartmentId: null, admissionType: "UNCLASSIFIED", deletedAt: null },
+				],
 			},
-			currentUser: { id: "admin-1", role: "Admin" },
-			db: {
-				$transaction: async (callback: (tx: any) => unknown) =>
-					callback({
-						studentTermForm: {
-							findMany: async () => [
-								{
-									id: "form-1",
-									studentId: "student-1",
-									schoolSessionId: null,
-									sessionTermId: null,
-									classroomDepartmentId: null,
-								},
-							],
-							updateMany: async (args: any) => {
-								updates.push(args);
-								return { count: 1 };
-							},
-						},
-					}),
-			},
-		} as any;
-
-		const result = await setStudentAdmissionType(ctx, {
-			studentTermFormId: "form-1",
-			admissionType: "RETURNING",
 		});
 
-		expect(result.updated).toBe(1);
-		expect(updates).toEqual([
-			{
-				where: {
-					id: { in: ["form-1"] },
-					schoolProfileId: "school-1",
-				},
-				data: { admissionType: "RETURNING" },
-			},
-		]);
+		await expect(
+			setStudentAdmissionType(ctx, { studentTermFormId: "term-form-1", admissionType: "RETURNING" }),
+		).resolves.toMatchObject({ updated: 1, alreadyClassified: 0, termFormIds: ["term-form-1"] });
+		await expect(
+			setStudentAdmissionType(ctx, { studentTermFormId: "other-term-form", admissionType: "RETURNING" }),
+		).rejects.toMatchObject({ code: "NOT_FOUND" });
+		await expect(
+			setStudentAdmissionType(ctx, { studentTermFormId: "term-form-2", admissionType: "RETURNING" }),
+		).rejects.toMatchObject({ code: "CONFLICT" });
+		expect(Object.fromEntries(tables.studentTermForm!.map((form) => [form.id, form.admissionType]))).toEqual({
+			"term-form-1": "RETURNING",
+			"term-form-2": "UNCLASSIFIED",
+			"other-term-form": "UNCLASSIFIED",
+		});
 	});
 });
 
 describe("bulkChangeStudentClass", () => {
+	const placements = (tables: Record<string, ImportRecord[]>) => ({
+		termForm: tables.studentTermForm![0]!.classroomDepartmentId,
+		sessionForm: tables.studentSessionForm![0]!.classroomDepartmentId,
+	});
+
 	test("moves tenant-owned term forms and their session form atomically", async () => {
-		const termUpdates: unknown[] = [];
-		const sessionUpdates: unknown[] = [];
-		const tx = {
-			classRoomDepartment: {
-				findFirst: async () => ({
-					id: "classroom-b",
-					classRoom: { schoolSessionId: "session-1" },
-				}),
-			},
-			studentTermForm: {
-				findMany: async () => [],
-				findFirst: async ({ where }: any) => ({
-					id: where.id,
-					studentSessionFormId: "session-form-1",
-					schoolSessionId: "session-1",
-					sessionTermId: "term-1",
-					student: {
-						id: "student-1",
-						name: "Ada",
-						surname: "Lovelace",
-						otherName: null,
-					},
-				}),
-				update: async (args: unknown) => {
-					termUpdates.push(args);
-					return {};
-				},
-			},
-			studentSessionForm: {
-				updateMany: async (args: unknown) => {
-					sessionUpdates.push(args);
-					return { count: 1 };
-				},
-			},
-			students: {
-				findFirst: async () => null,
-			},
-		};
-		const ctx = {
-			profile: { schoolId: "school-1" },
-			currentUser: { role: "Admin" },
-			db: {
-				$transaction: async (callback: (transaction: typeof tx) => unknown) =>
-					callback(tx),
-			},
-		} as any;
+		const { ctx, tables } = createImportCtx();
 
 		await expect(
 			bulkChangeStudentClass(ctx, {
 				studentTermFormIds: ["term-form-1"],
 				classroomDepartmentId: "classroom-b",
 			}),
-		).resolves.toEqual({ count: 1 });
-		expect(termUpdates).toEqual([
-			{
-				where: { id: "term-form-1" },
-				data: { classroomDepartmentId: "classroom-b" },
-			},
-		]);
-		expect(sessionUpdates).toEqual([
-			{
-				where: {
-					id: "session-form-1",
-					schoolProfileId: "school-1",
-					deletedAt: null,
-				},
-				data: { classroomDepartmentId: "classroom-b" },
-			},
-		]);
+		).resolves.toMatchObject({
+			count: 1,
+			alreadyInClass: 0,
+			sessionFormCount: 1,
+			studentIds: ["student-1"],
+			classroomDepartmentId: "classroom-b",
+		});
+		expect(placements(tables)).toEqual({ termForm: "classroom-b", sessionForm: "classroom-b" });
 	});
 
 	test("rejects roles that cannot manage students", async () => {
-		const ctx = {
-			profile: { schoolId: "school-1" },
-			currentUser: { role: "Teacher" },
-			db: {},
-		} as any;
+		const { ctx, tables } = createImportCtx({ actor: teacherActor });
 
 		await expect(
 			bulkChangeStudentClass(ctx, {
@@ -1025,61 +675,47 @@ describe("bulkChangeStudentClass", () => {
 				classroomDepartmentId: "classroom-b",
 			}),
 		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		expect(placements(tables)).toEqual({ termForm: "classroom-a", sessionForm: "classroom-a" });
 	});
 
 	test("rejects a target class from a different academic session", async () => {
-		const tx = {
-			classRoomDepartment: {
-				findFirst: async () => ({
-					id: "classroom-b",
-					classRoom: { schoolSessionId: "session-2" },
-				}),
+		const { ctx, tables } = createImportCtx({
+			tables: {
+				schoolSession: [{ id: "session-2", title: "2027/2028", schoolId: "school-1", deletedAt: null }],
+				classRoom: [{ id: "jss-2", name: "JSS 2", schoolProfileId: "school-1", schoolSessionId: "session-2", deletedAt: null }],
+				classRoomDepartment: [{ id: "classroom-next", departmentName: "A", schoolProfileId: "school-1",
+					classRoomsId: "jss-2", deletedAt: null }],
 			},
-			studentTermForm: {
-				findFirst: async () => ({
-					id: "term-form-1",
-					studentSessionFormId: "session-form-1",
-					schoolSessionId: "session-1",
-					sessionTermId: "term-1",
-					student: {
-						id: "student-1",
-						name: "Ada",
-						surname: "Lovelace",
-						otherName: null,
-					},
-				}),
-			},
-		};
-		const ctx = {
-			profile: { schoolId: "school-1" },
-			currentUser: { role: "Admin" },
-			db: {
-				$transaction: async (callback: (transaction: typeof tx) => unknown) =>
-					callback(tx),
-			},
-		} as any;
+		});
 
 		await expect(
 			bulkChangeStudentClass(ctx, {
 				studentTermFormIds: ["term-form-1"],
-				classroomDepartmentId: "classroom-b",
+				classroomDepartmentId: "classroom-next",
 			}),
 		).rejects.toMatchObject({
-			code: "BAD_REQUEST",
-			message: "The target class must belong to every enrollment session.",
+			code: "CONFLICT",
+			message: "Enrollment ownership or academic links need review. No class placements were changed.",
 		});
+		expect(placements(tables)).toEqual({ termForm: "classroom-a", sessionForm: "classroom-a" });
 	});
 });
 
 type ImportRecord = Record<string, any>;
 type ImportRelation = { model: string; many?: boolean; resolve: (row: ImportRecord) => any };
 
-const scalarFilterKeys = new Set(["in", "notIn", "not", "gt", "gte", "lt", "lte", "equals"]);
+const scalarFilterKeys = new Set(["in", "notIn", "not", "gt", "gte", "lt", "lte", "equals", "mode"]);
+const lowerCase = (value: any) => (typeof value === "string" ? value.toLowerCase() : value);
 
 function matchesScalar(value: any, filter: any): boolean {
 	if (filter === null) return value == null;
 	if (filter instanceof Date) return value instanceof Date && value.getTime() === filter.getTime();
 	if (typeof filter !== "object") return value === filter;
+	if (filter.mode === "insensitive") {
+		const { mode: _mode, ...rest } = filter;
+		return matchesScalar(lowerCase(value), Object.fromEntries(Object.entries(rest).map(([op, operand]: [string, any]) =>
+			[op, Array.isArray(operand) ? operand.map(lowerCase) : lowerCase(operand)])));
+	}
 	return Object.entries(filter).every(([op, operand]: [string, any]) => {
 		switch (op) {
 			case "equals": return matchesScalar(value, operand);
@@ -1096,7 +732,8 @@ function matchesScalar(value: any, filter: any): boolean {
 }
 
 /**
- * In-memory Prisma stand-in for the import access path. It evaluates the real
+ * In-memory Prisma stand-in for the student write paths (import, registration,
+ * profile, class and admission changes). It evaluates the real
  * where/select shapes (relations, OR/AND, some/none) so access checks run unchanged.
  */
 function createImportStore(tables: Record<string, ImportRecord[]>) {
@@ -1118,6 +755,20 @@ function createImportStore(tables: Record<string, ImportRecord[]>) {
 		students: {
 			termForms: { model: "studentTermForm", many: true, resolve: where("studentTermForm", "studentId") },
 			sessionForms: { model: "studentSessionForm", many: true, resolve: where("studentSessionForm", "studentId") },
+			guardians: { model: "studentGuardians", many: true, resolve: where("studentGuardians", "studentId") },
+		},
+		studentGuardians: { guardian: { model: "guardians", resolve: (row) => byId("guardians", row.guardiansId) } },
+		financeItem: {
+			stream: { model: "financeStream", resolve: (row) => byId("financeStream", row.streamId) },
+			applicableClasses: { model: "financeItemClassRoomDepartment", many: true,
+				resolve: where("financeItemClassRoomDepartment", "itemId") },
+		},
+		financeCharge: {
+			stream: { model: "financeStream", resolve: (row) => byId("financeStream", row.streamId) },
+			item: { model: "financeItem", resolve: (row) => byId("financeItem", row.itemId) },
+			classroomDepartment: { model: "classRoomDepartment", resolve: (row) => byId("classRoomDepartment", row.classroomDepartmentId) },
+			allocations: { model: "financePaymentAllocation", many: true, resolve: where("financePaymentAllocation", "chargeId") },
+			ledgerEntries: { model: "financeLedgerEntry", many: true, resolve: where("financeLedgerEntry", "chargeId") },
 		},
 		studentSessionForm: {
 			termForms: { model: "studentTermForm", many: true, resolve: where("studentTermForm", "studentSessionFormId") },
@@ -1125,6 +776,7 @@ function createImportStore(tables: Record<string, ImportRecord[]>) {
 			schoolSession: { model: "schoolSession", resolve: (row) => byId("schoolSession", row.schoolSessionId) },
 		},
 		studentTermForm: {
+			student: { model: "students", resolve: (row) => byId("students", row.studentId) },
 			sessionForm: { model: "studentSessionForm", resolve: (row) => byId("studentSessionForm", row.studentSessionFormId) },
 			sessionTerm: { model: "sessionTerm", resolve: (row) => byId("sessionTerm", row.sessionTermId) },
 			schoolSession: { model: "schoolSession", resolve: (row) => byId("schoolSession", row.schoolSessionId) },
@@ -1200,11 +852,13 @@ function createImportStore(tables: Record<string, ImportRecord[]>) {
 	const counters: Record<string, number> = {};
 	const idPrefixes: Record<string, string> = {
 		students: "new-student", studentSessionForm: "new-session-form", studentTermForm: "new-term-form",
-		studentImportJob: "job", studentImportJobRow: "job-row", financeCharge: "charge",
+		studentImportJob: "job", studentImportJobRow: "job-row", financeCharge: "charge", financePayment: "payment",
 	};
 	const createDefaults: Record<string, ImportRecord> = {
 		studentImportJob: { status: "PENDING", errorMessage: null, triggerRunId: null },
 		studentImportJobRow: { status: "PENDING", studentId: null, termSheetCreated: false, reason: null, completedAt: null },
+		financeCharge: { amountPaid: 0, status: "PENDING", collectionStatus: "NOT_REQUIRED", cancelledAt: null },
+		financePayment: { status: "PAID" },
 	};
 	const created: Record<string, ImportRecord[]> = {};
 	const jobUpdates: Array<{ id: string; data: ImportRecord }> = [];
@@ -1228,6 +882,11 @@ function createImportStore(tables: Record<string, ImportRecord[]>) {
 		};
 		return {
 			findFirst: async (args: any = {}) => project(model, findAll(args)[0] ?? null, args),
+			findFirstOrThrow: async (args: any = {}) => {
+				const row = findAll(args)[0];
+				if (!row) throw new Error(`Import fixture ${model}.findFirstOrThrow found no record`);
+				return project(model, row, args);
+			},
 			findMany: async (args: any = {}) => findAll(args).slice(0, args.take).map((row) => project(model, row, args)),
 			count: async (args: any = {}) => findAll(args).length,
 			create: async (args: any) => project(model, insert(model, args.data), args),
@@ -1279,24 +938,35 @@ function createImportStore(tables: Record<string, ImportRecord[]>) {
 		$transaction: async (operation: any) =>
 			typeof operation === "function" ? operation(db) : Promise.all(operation),
 	};
-	for (const model of [...Object.keys(tables), "financeItem", "financeCharge", "financeTermLedgerClose"]) {
+	for (const model of [...Object.keys(tables), "financeItem", "financeCharge", "financeTermLedgerClose", "financeStream",
+		"financeItemClassRoomDepartment", "financePayment", "financePaymentAllocation", "financeLedgerEntry",
+		"schoolInventory", "inventoryIssuance", "studentGuardians", "guardians"]) {
 		db[model] = delegate(model);
 	}
 	return { db, tables, created, jobUpdates };
 }
 
-function createImportCtx() {
+type ImportActor = { id: string; role: string; authSessionId: string };
+const adminActor: ImportActor = { id: "user-1", role: "Admin", authSessionId: "auth-session-1" };
+
+/** Extra `tables` rows are appended to the base school, so a test adds records without replacing it. */
+function createImportCtx({ actor = adminActor, tables = {} }: {
+	actor?: ImportActor;
+	tables?: Record<string, ImportRecord[]>;
+} = {}) {
 	const moduleIds = [...MODULE_IDS];
-	const store = createImportStore({
+	const baseTables: Record<string, ImportRecord[]> = {
 		tenant: [{ id: "tenant-1", deletedAt: null, qaPurgeStartedAt: null }],
 		saasAccount: [{ id: "account-1", deletedAt: null, qaPurgeStartedAt: null }],
 		user: [
 			{ id: "user-1", role: "Admin", saasAccountId: "account-1", tenantId: "tenant-1", deletedAt: null },
 			{ id: "teacher-1", role: "Teacher", saasAccountId: "account-1", tenantId: "tenant-1", deletedAt: null },
+			{ id: "registrar-1", role: "Registrar", saasAccountId: "account-1", tenantId: "tenant-1", deletedAt: null },
 		],
 		session: [
 			{ id: "auth-session-1", token: "auth-token-1", userId: "user-1", expiresAt: new Date("2099-01-01"), deletedAt: null },
 			{ id: "auth-session-teacher", token: "auth-token-teacher", userId: "teacher-1", expiresAt: new Date("2099-01-01"), deletedAt: null },
+			{ id: "auth-session-registrar", token: "auth-token-registrar", userId: "registrar-1", expiresAt: new Date("2099-01-01"), deletedAt: null },
 		],
 		schoolProfile: [{ id: "school-1", accountId: "account-1", studentNameFormat: null, deletedAt: null }],
 		schoolModuleConfiguration: [{ schoolProfileId: "school-1", version: 1, revision: 1,
@@ -1328,7 +998,9 @@ function createImportCtx() {
 			createdAt: new Date("2026-07-01T00:00:00.000Z") }],
 		studentImportJob: [],
 		studentImportJobRow: [],
-	});
+	};
+	for (const [model, rows] of Object.entries(tables)) baseTables[model] = [...(baseTables[model] ?? []), ...rows];
+	const store = createImportStore(baseTables);
 	const created = (model: string) => (store.created[model] ??= []);
 
 	return {
@@ -1337,17 +1009,18 @@ function createImportCtx() {
 				schoolId: "school-1",
 				sessionId: "session-1",
 				termId: "term-1",
-				authSessionId: "auth-session-1",
+				authSessionId: actor.authSessionId,
 			},
 			currentUser: {
-				id: "user-1",
-				email: "admin@example.com",
-				name: "Admin",
-				role: "Admin",
+				id: actor.id,
+				email: `${actor.id}@example.com`,
+				name: actor.role,
+				role: actor.role,
 				saasAccountId: "account-1",
 			},
 			db: store.db,
 		} as any,
+		tables: store.tables,
 		createdStudents: created("students"),
 		createdSessionForms: created("studentSessionForm"),
 		createdTermForms: created("studentTermForm"),
