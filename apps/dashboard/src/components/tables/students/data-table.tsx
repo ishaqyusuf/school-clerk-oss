@@ -21,7 +21,9 @@ import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 import {
 	getCoreRowModel,
 	type RowSelectionState,
+	type Updater,
 	useReactTable,
+	type VisibilityState,
 } from "@tanstack/react-table";
 import {
 	type VirtualItem,
@@ -70,6 +72,11 @@ interface Props {
 	filterMode?: "url" | "local";
 	search?: string;
 	onClearSearch?: () => void;
+	/**
+	 * Columns an embed forces off (e.g. "department" inside a classroom, where
+	 * every row is the same class). Never written to the shared table settings.
+	 */
+	hiddenColumns?: string[];
 }
 
 function normalizeSort(sort: string[] | null): GetStudentsSchema["sort"] {
@@ -94,6 +101,7 @@ export function DataTable({
 	filterMode = "url",
 	search,
 	onClearSearch,
+	hiddenColumns,
 }: Props) {
 	const trpc = useTRPC();
 	const academicDataDirection = useAcademicDataDirection();
@@ -134,6 +142,39 @@ export function DataTable({
 		columnIds: COLUMN_IDS,
 		showColumnDividers: true,
 	});
+	const hiddenColumnsKey = hiddenColumns?.join(",") ?? "";
+	const effectiveColumnVisibility = useMemo<VisibilityState>(
+		() =>
+			hiddenColumnsKey
+				? {
+						...columnVisibility,
+						...Object.fromEntries(
+							hiddenColumnsKey.split(",").map((id) => [id, false]),
+						),
+					}
+				: columnVisibility,
+		[columnVisibility, hiddenColumnsKey],
+	);
+	// Toggles made inside an embed persist everything except the forced-off
+	// columns, which keep their saved directory value.
+	const handleColumnVisibilityChange = useCallback(
+		(updater: Updater<VisibilityState>) => {
+			setColumnVisibility((current) => {
+				const next =
+					typeof updater === "function"
+						? updater(effectiveColumnVisibility)
+						: updater;
+				if (!hiddenColumnsKey) return next;
+				const restored = { ...next };
+				for (const id of hiddenColumnsKey.split(",")) {
+					if (id in current) restored[id] = current[id] as boolean;
+					else delete restored[id];
+				}
+				return restored;
+			});
+		},
+		[effectiveColumnVisibility, hiddenColumnsKey, setColumnVisibility],
+	);
 
 	const queryInput = {
 		...filter,
@@ -165,14 +206,14 @@ export function DataTable({
 		getCoreRowModel: getCoreRowModel(),
 		enableRowSelection: true,
 		onRowSelectionChange: setRowSelection,
-		onColumnVisibilityChange: setColumnVisibility,
+		onColumnVisibilityChange: handleColumnVisibilityChange,
 		enableColumnResizing: true,
 		columnResizeMode: "onChange",
 		onColumnSizingChange: setColumnSizing,
 		onColumnOrderChange: setColumnOrder,
 		state: {
 			rowSelection,
-			columnVisibility,
+			columnVisibility: effectiveColumnVisibility,
 			columnSizing,
 			columnOrder,
 		},
@@ -181,7 +222,7 @@ export function DataTable({
 	const { sensors, handleDragEnd } = useTableDnd(table);
 	const { getStickyStyle, getStickyClassName } = useStickyColumns({
 		direction: academicDataDirection,
-		columnVisibility,
+		columnVisibility: effectiveColumnVisibility,
 		table,
 		stickyColumns: STICKY_COLUMNS.students,
 	});
@@ -231,7 +272,7 @@ export function DataTable({
 
 	useEffect(() => {
 		setColumns(table.getAllLeafColumns());
-	}, [columnVisibility, setColumns, table]);
+	}, [effectiveColumnVisibility, setColumns, table]);
 
 	useEffect(() => {
 		bindShowColumnDividers(showColumnDividers, setShowColumnDividers);
@@ -358,7 +399,7 @@ export function DataTable({
 											onCellClick={handleCellClick}
 											columnSizing={columnSizing}
 											columnOrder={columnOrder}
-											columnVisibility={columnVisibility}
+											columnVisibility={effectiveColumnVisibility}
 											isSelected={row.getIsSelected()}
 											showColumnDividers={showColumnDividers}
 										/>

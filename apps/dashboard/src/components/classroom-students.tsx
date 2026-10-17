@@ -8,6 +8,9 @@ import { Button } from "@school-clerk/ui/button";
 import { Input } from "@school-clerk/ui/input";
 import { Search, UserPlus } from "lucide-react";
 
+// Every row in a classroom belongs to the same class, so the Class column is noise.
+const CLASSROOM_HIDDEN_COLUMNS = ["department"];
+
 export function ClassroomStudents({
   departmentId,
   sessionTermId,
@@ -62,6 +65,7 @@ export function ClassroomStudents({
           search={search}
           onClearSearch={() => setSearch("")}
           onCreate={openStudentForm}
+          hiddenColumns={CLASSROOM_HIDDEN_COLUMNS}
           defaultFilters={{
             departmentId,
           }}
