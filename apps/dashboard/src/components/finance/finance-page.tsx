@@ -5,13 +5,21 @@ import { loadFinanceWorkspaceParams } from "@/hooks/use-finance-workspace-params
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 
 type FinancePageProps = {
 	searchParams?: Record<string, string | string[] | undefined>;
+	title?: string;
+	subtitle?: string;
+	tabs?: ReactNode;
 };
 
-export async function FinancePage({ searchParams = {} }: FinancePageProps) {
+export async function FinancePage({
+	searchParams = {},
+	title = "Accounts",
+	subtitle,
+	tabs,
+}: FinancePageProps) {
 	const filter = loadFinanceWorkspaceParams(searchParams);
 	const queryInput = {
 		period: filter.period,
@@ -30,10 +38,10 @@ export async function FinancePage({ searchParams = {} }: FinancePageProps) {
 	return (
 		<HydrateClient>
 			<div className="flex flex-col gap-6">
-				<PageTitle>Finance</PageTitle>
+				<PageTitle>{title}</PageTitle>
 				<ErrorBoundary errorComponent={ErrorFallback}>
 					<Suspense fallback={<FinanceOverviewSkeleton summaryCount={4} />}>
-						<FinanceWorkspace />
+						<FinanceWorkspace title={title} subtitle={subtitle} tabs={tabs} />
 					</Suspense>
 				</ErrorBoundary>
 			</div>

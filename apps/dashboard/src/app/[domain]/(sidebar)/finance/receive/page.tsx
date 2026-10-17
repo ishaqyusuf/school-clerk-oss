@@ -1,28 +1,12 @@
-import { FinanceChargesPage } from "@/components/finance/finance-charges-page";
 import {
-	CollectByClassAction,
-	ReceivePaymentAction,
-} from "@/components/finance/finance-page-actions";
+	type FinanceRedirectSearchParams,
+	legacyFinanceRedirect,
+} from "../redirect-with-search";
 
-export default async function Page() {
-	return (
-		<FinanceChargesPage
-			title="Receive Student Payment"
-			subtitle="Search for a student, review balances, and record a payment."
-			filter={{ payerType: "STUDENT" }}
-			headerAction={
-				<div className="flex flex-wrap gap-2">
-					<CollectByClassAction />
-					<ReceivePaymentAction />
-				</div>
-			}
-			tableTitle="Student Payment Queue"
-			tableDescription="Outstanding student charges available for payment allocation."
-			searchPlaceholder="Search students or charges"
-			emptyTitle="No payable student balances"
-			emptyDescription="Outstanding student charges will appear here when there is something to collect."
-			emptyActionHref="/finance/setup/fees"
-			emptyActionLabel="Set up fee structures"
-		/>
-	);
+export default async function Page({
+	searchParams,
+}: {
+	searchParams?: FinanceRedirectSearchParams;
+}) {
+	await legacyFinanceRedirect("/finance/receive", searchParams);
 }

@@ -1,13 +1,16 @@
-import { redirect } from "next/navigation";
-import {
-	type FinanceRedirectSearchParams,
-	redirectTargetWithSearch,
-} from "../redirect-with-search";
+import { FinancePage } from "@/components/finance/finance-page";
+import { FinanceSectionTabs } from "@/components/finance/finance-section-tabs";
 
 export default async function Page({
 	searchParams,
 }: {
-	searchParams?: FinanceRedirectSearchParams;
+	searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-	redirect(await redirectTargetWithSearch("/finance", searchParams));
+	return (
+		<FinancePage
+			searchParams={await searchParams}
+			title="Accounts"
+			tabs={<FinanceSectionTabs section="accounts" />}
+		/>
+	);
 }

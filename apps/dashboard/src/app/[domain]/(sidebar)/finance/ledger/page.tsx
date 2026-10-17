@@ -1,10 +1,12 @@
-import { FinanceTransactionsPage } from "@/components/finance/finance-transactions-page";
+import {
+	type FinanceRedirectSearchParams,
+	legacyFinanceRedirect,
+} from "../redirect-with-search";
 
-export default async function Page() {
-	return (
-		<FinanceTransactionsPage
-			title="Ledger"
-			subtitle="Review posted finance movements across accounts."
-		/>
-	);
+export default async function Page({
+	searchParams,
+}: {
+	searchParams?: FinanceRedirectSearchParams;
+}) {
+	await legacyFinanceRedirect("/finance/ledger", searchParams);
 }

@@ -8,8 +8,10 @@ import { CreateBillSheet } from "./create-bill-sheet";
 import { FinanceAccountActionsSheet } from "./finance-account-actions-sheet";
 import { FinanceAccountSheet } from "./finance-account-sheet";
 import { FinancePaymentSheet } from "./finance-payment-sheet";
+import { PaySalariesSheet } from "./pay-salaries-sheet";
 import { QuestionSheet } from "./question-sheet";
 import { ReceivePaymentSheet } from "./receive-payment-sheet";
+import { RecordExpenseSheet } from "./record-expense-sheet";
 import { SchoolFeeCreateSheet } from "./school-fee-create-sheet";
 import { StaffCreateSheet } from "./staff-create-sheet";
 import { StaffOverviewSheet } from "./staff-overview-sheet";
@@ -35,6 +37,8 @@ export function GlobalSheets() {
 			<FinancePaymentSheet />
 			<FinanceAccountSheet />
 			<FinanceAccountActionsSheet />
+			<RecordExpenseSheet />
+			<PaySalariesSheet />
 			<QuestionSheet />
 			{/* We preload the invoice data (template, invoice number etc) */}
 			{/* <Suspense fallback={null}>

@@ -186,7 +186,7 @@ function Content() {
 						variant="outline"
 						size="sm"
 						className="gap-2"
-						onClick={() => router.push("/finance/reconciliation")}
+						onClick={() => router.push("/finance/accounts/close-term")}
 					>
 						<AlertCircle className="h-4 w-4" />
 						Reconciliation

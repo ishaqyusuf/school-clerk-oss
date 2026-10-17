@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { ErrorFallback } from "@/components/error-fallback";
@@ -9,9 +9,11 @@ import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server";
 export async function FinanceReconciliationPage({
 	title = "Finance Reconciliation",
 	subtitle,
+	children,
 }: {
 	title?: string;
 	subtitle?: string;
+	children?: ReactNode;
 } = {}) {
 	await batchPrefetch([
 		trpc.finance.getFinanceIntegrityReport.queryOptions({}),
@@ -28,6 +30,7 @@ export async function FinanceReconciliationPage({
 						{subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
 					</div>
 				</div>
+				{children}
 				<ErrorBoundary errorComponent={ErrorFallback}>
 					<Suspense fallback={<FinanceOverviewSkeleton />}>
 						<FinanceReconciliationView />

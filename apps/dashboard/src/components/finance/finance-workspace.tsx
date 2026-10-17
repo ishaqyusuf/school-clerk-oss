@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { MobileFilterButton } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
 
 import {
@@ -78,7 +79,15 @@ function SummaryCard({
 	);
 }
 
-export function FinanceWorkspace() {
+export function FinanceWorkspace({
+	title = "Accounts",
+	subtitle = "Where the school's money is kept. All figures are calculated from the finance ledger.",
+	tabs,
+}: {
+	title?: string;
+	subtitle?: string;
+	tabs?: ReactNode;
+} = {}) {
 	const trpc = useTRPC();
 	const { filter, setFilter, hasFilters } = useFinanceWorkspaceParams();
 	const { setParams } = useFinanceSheetParams();
@@ -106,11 +115,8 @@ export function FinanceWorkspace() {
 		<div className="space-y-6 px-4 py-6 sm:px-6">
 			<header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between">
 				<div className="space-y-1">
-					<h1 className="text-2xl font-semibold tracking-tight">Finance</h1>
-					<p className="max-w-2xl text-sm text-muted-foreground">
-						Review cash movement, account balances, and upcoming obligations.
-						All figures are calculated from the finance ledger.
-					</p>
+					<h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+					<p className="max-w-2xl text-sm text-muted-foreground">{subtitle}</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
 					<Button
@@ -145,18 +151,19 @@ export function FinanceWorkspace() {
 							</DropdownMenuItem>
 							<DropdownMenuSeparator />
 							<DropdownMenuItem asChild>
-								<Link href="/finance/payables">Review payables</Link>
+								<Link href="/finance/services/unpaid">Unpaid bills</Link>
 							</DropdownMenuItem>
 							<DropdownMenuItem asChild>
-								<Link href="/finance/reconciliation">Reconciliation</Link>
+								<Link href="/finance/accounts/close-term">Close term</Link>
 							</DropdownMenuItem>
 							<DropdownMenuItem asChild>
-								<Link href="/finance/setup/fees">Fee structures</Link>
+								<Link href="/finance/settings/fees">What students pay</Link>
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</div>
 			</header>
+			{tabs}
 
 			<div data-summary-grid className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
 				<SummaryCard

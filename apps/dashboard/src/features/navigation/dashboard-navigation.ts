@@ -32,7 +32,7 @@ export const dashboardNavigationProfiles: NavigationWorkspaceProfile[] = [
 		surface: "compact",
 	},
 	{
-		defaultHref: "/finance/receive",
+		defaultHref: "/finance/student-payments",
 		key: "finance-office",
 		moduleOrder: ["finance", "operations"],
 		roles: ["Accountant"],

@@ -8,6 +8,7 @@ import {
 	createFinancePayrollObligation,
 	getFinanceAccountDetails,
 	getFinanceAccounts,
+	getFinanceHomeSummary,
 	getFinanceOverview,
 	getFinanceWorkspaceSummary,
 	getFinancePayeeHistory,
@@ -27,6 +28,7 @@ import {
 	listFinanceStreams,
 	listFinanceTransactions,
 	listFinanceTransfers,
+	payFinanceStaffCharges,
 	previewFinanceTermClose,
 	receiveStudentPaymentSimple,
 	recordFinancePayment,
@@ -66,6 +68,7 @@ import {
 	financePayeeInputSchema,
 	financePayeeQuerySchema,
 	financePaymentInputSchema,
+	financeStaffChargesPaymentSchema,
 	financePayrollObligationInputSchema,
 	financePayrollStructureInputSchema,
 	financeProjectAccountSummarySchema,
@@ -128,6 +131,9 @@ const chargeListInput = z
 		excludePayerType: z.string().optional().nullable(),
 		type: z.string().optional().nullable(),
 		excludeType: z.string().optional().nullable(),
+		spendCategory: z.enum(["services", "purchases"]).optional().nullable(),
+		purchasePurpose: z.enum(["SCHOOL_USE", "RESALE"]).optional().nullable(),
+		unpaidOnly: z.boolean().optional().nullable(),
 	})
 	.optional();
 
@@ -473,6 +479,9 @@ const studentFinanceProcedure = moduleProcedure(["BILLING_FINANCE", "STUDENT_MAN
 export const financeRouter = createTRPCRouter({
 	overview: financeProcedure.query(({ ctx }) => getFinanceOverview(ctx)),
 
+	getHomeSummary: financeProcedure.query(({ ctx }) =>
+		getFinanceHomeSummary(ctx),
+	),
 	getWorkspaceSummary: financeProcedure
 		.input(financeWorkspaceQuerySchema)
 		.query(({ ctx, input }) => getFinanceWorkspaceSummary(ctx, input)),
@@ -605,6 +614,9 @@ export const financeRouter = createTRPCRouter({
 	recordPayment: financeProcedure
 		.input(financePaymentInputSchema)
 		.mutation(({ ctx, input }) => recordFinancePayment(ctx, input)),
+	payStaffCharges: financeProcedure
+		.input(financeStaffChargesPaymentSchema)
+		.mutation(({ ctx, input }) => payFinanceStaffCharges(ctx, input)),
 
 	getPayments: financeProcedure
 		.input(z.object({ payerType: z.string().optional().nullable() }).optional())

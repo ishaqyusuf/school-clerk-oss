@@ -11,6 +11,9 @@ export function useFinanceSheetParams(options?: { shallow: boolean }) {
 			createFinanceAccount: parseAsBoolean,
 			transferFunds: parseAsBoolean,
 			transferFromAccountId: parseAsString,
+			/** "SERVICE" or "PURCHASE": opens the pay-for-a-service / record-a-purchase sheet. */
+			recordExpense: parseAsString,
+			paySalaries: parseAsBoolean,
 		},
 		options,
 	);

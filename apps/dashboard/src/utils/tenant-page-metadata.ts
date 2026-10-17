@@ -305,45 +305,99 @@ function resolveRouteMetadata(pathname: string): RouteMetadata {
     {
       test: /^\/finance$/,
       metadata: {
-        title: "Accounts & Finance",
-        description:
-          "Track collections, accounts, payables, and reconciliation work.",
+        title: "Finance",
+        description: "Today's money in and out, and what needs attention.",
       },
     },
     {
-      test: /^\/finance\/receive$/,
+      test: /^\/finance\/student-payments$/,
       metadata: {
-        title: "Receive Student Payment",
-        description: "Search for a student and record a payment or charge.",
+        title: "Student Payments",
+        description: "Receive fees, uniform and book payments from students.",
       },
     },
     {
-      test: /^\/finance\/students$/,
+      test: /^\/finance\/student-payments\/class$/,
       metadata: {
-        title: "Student Balances",
-        description: "Review student receivables and outstanding balances.",
+        title: "Collect by Class",
+        description: "Record payments for a whole class at once.",
       },
     },
     {
-      test: /^\/finance\/collections$/,
+      test: /^\/finance\/student-payments\/owing$/,
       metadata: {
-        title: "Collections",
-        description: "Monitor fee collections and school payment receipts.",
+        title: "Who Owes",
+        description: "Student fees and what is still outstanding.",
+      },
+    },
+    {
+      test: /^\/finance\/student-payments\/history$/,
+      metadata: {
+        title: "Student Payment History",
+        description: "Student fees that have been paid.",
+      },
+    },
+    {
+      test: /^\/finance\/salaries$/,
+      metadata: {
+        title: "Salaries",
+        description: "Pay teachers and other staff.",
+      },
+    },
+    {
+      test: /^\/finance\/salaries\/history$/,
+      metadata: {
+        title: "Paid Salaries",
+        description: "Staff pay that has been paid.",
+      },
+    },
+    {
+      test: /^\/finance\/services$/,
+      metadata: {
+        title: "Services",
+        description: "Bills for services the school pays for.",
+      },
+    },
+    {
+      test: /^\/finance\/services\/unpaid$/,
+      metadata: {
+        title: "Unpaid Bills",
+        description: "Everything the school still has to pay.",
+      },
+    },
+    {
+      test: /^\/finance\/purchases(\/school-use|\/resale)?$/,
+      metadata: {
+        title: "Purchases",
+        description: "Stationery, supplies and stock the school buys.",
       },
     },
     {
       test: /^\/finance\/accounts$/,
       metadata: {
         title: "Accounts",
-        description:
-          "Manage finance accounts, available funds, and projected balances.",
+        description: "Where the school's money is kept.",
       },
     },
     {
       test: /^\/finance\/accounts\/transfers$/,
       metadata: {
-        title: "Transfers",
-        description: "Move and review money between finance accounts.",
+        title: "Money Moved",
+        description: "Money moved between the school's accounts.",
+      },
+    },
+    {
+      test: /^\/finance\/accounts\/transactions$/,
+      metadata: {
+        title: "All Transactions",
+        description: "Every amount that came in, went out or moved.",
+      },
+    },
+    {
+      test: /^\/finance\/accounts\/close-term$/,
+      metadata: {
+        title: "Close Term",
+        description: "Check the term's records and close the term.",
       },
     },
     {
@@ -354,113 +408,17 @@ function resolveRouteMetadata(pathname: string): RouteMetadata {
       },
     },
     {
-      test: /^\/finance\/ledger$/,
+      test: /^\/finance\/settings\/fees$/,
       metadata: {
-        title: "Ledger",
-        description: "Review posted finance movements across accounts.",
+        title: "What Students Pay",
+        description: "Set up fees by term and class, and items sold to students.",
       },
     },
     {
-      test: /^\/finance\/payables$/,
+      test: /^\/finance\/settings\/expense-items$/,
       metadata: {
-        title: "Payables",
-        description: "Manage outstanding school obligations and supplier bills.",
-      },
-    },
-    {
-      test: /^\/finance\/payables\/payroll$/,
-      metadata: {
-        title: "Payroll Bills",
-        description: "Track and disburse staff remuneration.",
-      },
-    },
-    {
-      test: /^\/finance\/payables\/services$/,
-      metadata: {
-        title: "Service Bills",
-        description: "Manage school-side service and vendor bills.",
-      },
-    },
-    {
-      test: /^\/finance\/payables\/owing$/,
-      metadata: {
-        title: "Owing & Repayments",
-        description: "Track outstanding liabilities and repayments.",
-      },
-    },
-    {
-      test: /^\/finance\/setup\/fees$/,
-      metadata: {
-        title: "Fee Structures",
-        description:
-          "Configure student fees, classroom applicability, and term pricing.",
-      },
-    },
-    {
-      test: /^\/finance\/setup\/service-billables$/,
-      metadata: {
-        title: "Service Billables",
-        description:
-          "Configure reusable school-side service and expense billables.",
-      },
-    },
-    {
-      test: /^\/finance\/streams$/,
-      metadata: {
-        title: "Accounts",
-        description:
-          "Manage finance accounts, available funds, and projected balances.",
-      },
-    },
-    {
-      test: /^\/finance\/streams\/[^/]+$/,
-      metadata: {
-        title: "Finance Account",
-        description: "Inspect activity and balances for a finance account.",
-      },
-    },
-    {
-      test: /^\/finance\/payments$/,
-      metadata: {
-        title: "Payroll Bills",
-        description: "Review staff remuneration payments and payroll history.",
-      },
-    },
-    {
-      test: /^\/finance\/transactions$/,
-      metadata: {
-        title: "Ledger",
-        description: "Review posted finance movements across accounts.",
-      },
-    },
-    {
-      test: /^\/finance\/bills$/,
-      metadata: {
-        title: "Payables",
-        description: "Manage outstanding school obligations and supplier bills.",
-      },
-    },
-    {
-      test: /^\/finance\/billables$/,
-      metadata: {
-        title: "Service Billables",
-        description:
-          "Configure reusable school-side service and expense billables.",
-      },
-    },
-    {
-      test: /^\/finance\/fees-management$/,
-      metadata: {
-        title: "Fee Structures",
-        description:
-          "Configure student fees, classroom applicability, and term pricing.",
-      },
-    },
-    {
-      test: /^\/finance\/student-fees$/,
-      metadata: {
-        title: "Student Balances",
-        description: "Review student receivables and outstanding balances.",
+        title: "What the School Pays For",
+        description: "Set up the services and expenses the school pays for.",
       },
     },
     {

@@ -362,10 +362,10 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 					<Button
 						variant="outline"
 						className="gap-2"
-						onClick={() => router.push("/finance/ledger")}
+						onClick={() => router.push("/finance/accounts/transactions")}
 					>
 						<FileText className="h-4 w-4" />
-						Open Ledger
+						Open all transactions
 					</Button>
 					<Button
 						variant="outline"

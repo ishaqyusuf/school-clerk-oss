@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
 import {
 	type FinanceRedirectSearchParams,
-	redirectTargetWithSearch,
+	legacyFinanceRedirect,
 } from "../redirect-with-search";
 
 export default async function Page({
@@ -9,7 +8,5 @@ export default async function Page({
 }: {
 	searchParams?: FinanceRedirectSearchParams;
 }) {
-	redirect(
-		await redirectTargetWithSearch("/finance/accounts/transfers", searchParams),
-	);
+	await legacyFinanceRedirect("/finance/internal-transfers", searchParams);
 }

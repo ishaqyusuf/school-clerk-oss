@@ -1,3 +1,6 @@
+import { financeLegacyRedirects } from "@/features/finance/finance-sections";
+import { redirect } from "next/navigation";
+
 type SearchParamValue = string | string[] | undefined;
 
 export type FinanceRedirectSearchParams =
@@ -28,4 +31,12 @@ export async function redirectTargetWithSearch(
 
 	const query = params.toString();
 	return query ? `${target}?${query}` : target;
+}
+
+/** Sends an old Finance URL to its new page, keeping the query string. */
+export async function legacyFinanceRedirect(
+	from: keyof typeof financeLegacyRedirects,
+	searchParams: FinanceRedirectSearchParams,
+): Promise<never> {
+	redirect(await redirectTargetWithSearch(financeLegacyRedirects[from], searchParams));
 }

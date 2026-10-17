@@ -1,5 +1,12 @@
-import { FinanceReconciliationPage } from "@/components/finance/finance-reconciliation-page";
+import {
+	type FinanceRedirectSearchParams,
+	legacyFinanceRedirect,
+} from "../redirect-with-search";
 
-export default async function Page() {
-	return <FinanceReconciliationPage />;
+export default async function Page({
+	searchParams,
+}: {
+	searchParams?: FinanceRedirectSearchParams;
+}) {
+	await legacyFinanceRedirect("/finance/reconciliation", searchParams);
 }

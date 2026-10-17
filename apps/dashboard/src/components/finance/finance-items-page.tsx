@@ -44,9 +44,9 @@ export async function FinanceItemsPage({
 	const resolvedTableTitle =
 		tableTitle ??
 		(isServiceBillables
-			? "Service Billables"
+			? "What the school pays for"
 			: isFeeStructures
-				? "Fee Structures"
+				? "What students pay"
 				: "Finance Items");
 	const resolvedTableDescription =
 		tableDescription ??
@@ -58,16 +58,16 @@ export async function FinanceItemsPage({
 	const resolvedSearchPlaceholder =
 		searchPlaceholder ??
 		(isServiceBillables
-			? "Search service billables"
+			? "Search expense items"
 			: isFeeStructures
-				? "Search fee structures"
+				? "Search fees"
 				: "Search finance items");
 	const resolvedEmptyTitle =
 		emptyTitle ??
 		(isServiceBillables
-			? "No service billables"
+			? "No expense items"
 			: isFeeStructures
-				? "No fee structures"
+				? "No fees set up"
 				: "No finance items");
 	const resolvedEmptyDescription =
 		emptyDescription ??
@@ -81,16 +81,16 @@ export async function FinanceItemsPage({
 	const resolvedEmptyActionLabel =
 		emptyActionLabel ??
 		(isServiceBillables
-			? "Review payables"
+			? "See service bills"
 			: isFeeStructures
 				? "Receive student payment"
 				: "Open finance");
 	const resolvedEmptyActionHref =
 		emptyActionHref ??
 		(isServiceBillables
-			? "/finance/payables"
+			? "/finance/services"
 			: isFeeStructures
-				? "/finance/receive"
+				? "/finance/student-payments"
 				: "/finance");
 
 	await batchPrefetch([trpc.finance.getItems.queryOptions(filter)]);

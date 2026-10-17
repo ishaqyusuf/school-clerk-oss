@@ -24,6 +24,7 @@ import type {
 	FinanceProjectAccountSummaryInput,
 	FinancePurchaseCancellationInput,
 	FinancePurchaseInput,
+	FinanceStaffChargesPaymentInput,
 	FinanceReceivePaymentOptionsInput,
 	FinanceSimpleStudentPaymentInput,
 	FinanceStaffHistoryInput,
@@ -1222,6 +1223,45 @@ export async function createFinanceCharge(
 	});
 }
 
+/** Spending pages: Services (work done for the school) vs Purchases (things it buys). */
+export type FinanceSpendCategory = "services" | "purchases";
+
+export const SERVICE_PURCHASE_KINDS = ["SERVICE", "LABOR", "VENDOR_BILL"] as const;
+export const GOODS_PURCHASE_KINDS = [
+	"PURCHASE",
+	"DIRECT_EXPENSE",
+	"REIMBURSEMENT",
+] as const;
+const UNPAID_CHARGE_STATUSES = ["PENDING", "PARTIALLY_PAID"] as const;
+
+/**
+ * Services include legacy service-item bills as well as `recordPurchase`
+ * services; purchases only exist as `FinancePurchase` rows.
+ */
+export function buildSpendCategoryWhere(
+	category: FinanceSpendCategory,
+	purpose: "SCHOOL_USE" | "RESALE" | null,
+) {
+	if (category === "services") {
+		return {
+			payerType: "SCHOOL" as const,
+			OR: [
+				{ item: { is: { type: "SERVICE" as const } } },
+				{ purchase: { is: { kind: { in: [...SERVICE_PURCHASE_KINDS] } } } },
+			],
+		};
+	}
+	return {
+		payerType: "SCHOOL" as const,
+		purchase: {
+			is: {
+				kind: { in: [...GOODS_PURCHASE_KINDS] },
+				...(purpose ? { purpose } : {}),
+			},
+		},
+	};
+}
+
 export async function listFinanceCharges(
 	ctx: TRPCContext,
 	input?: {
@@ -1238,6 +1278,9 @@ export async function listFinanceCharges(
 		excludePayerType?: string | null;
 		type?: string | null;
 		excludeType?: string | null;
+		spendCategory?: FinanceSpendCategory | null;
+		purchasePurpose?: "SCHOOL_USE" | "RESALE" | null;
+		unpaidOnly?: boolean | null;
 	},
 ) {
 	const schoolProfileId = requireSchoolId(ctx);
@@ -1283,9 +1326,11 @@ export async function listFinanceCharges(
 			...(classroomDepartmentId ? { classroomDepartmentId } : {}),
 			...(effectiveTermId ? { sessionTermId: effectiveTermId } : {}),
 			...(effectiveSessionId ? { schoolSessionId: effectiveSessionId } : {}),
-			...(input?.status || statusFromCollectionFilter
-				? { status: (input?.status ?? statusFromCollectionFilter) as never }
-				: { status: { not: "CANCELLED" } }),
+			...(input?.unpaidOnly
+				? { status: { in: [...UNPAID_CHARGE_STATUSES] } }
+				: input?.status || statusFromCollectionFilter
+					? { status: (input?.status ?? statusFromCollectionFilter) as never }
+					: { status: { not: "CANCELLED" } }),
 			...(collectionStatus
 				? { collectionStatus: collectionStatus as never }
 				: {}),
@@ -1303,6 +1348,16 @@ export async function listFinanceCharges(
 							],
 						}
 					: {}),
+			...(input?.spendCategory
+				? {
+						AND: [
+							buildSpendCategoryWhere(
+								input.spendCategory,
+								input.purchasePurpose ?? null,
+							),
+						],
+					}
+				: {}),
 		},
 		include: {
 			stream: { select: { id: true, name: true, accountType: true } },
@@ -1322,6 +1377,15 @@ export async function listFinanceCharges(
 			},
 			payrollStructure: {
 				select: { id: true, title: true, cadence: true, netAmount: true },
+			},
+			purchase: {
+				select: {
+					id: true,
+					kind: true,
+					purpose: true,
+					quantity: true,
+					unitCost: true,
+				},
 			},
 			classroomDepartment: {
 				select: {
@@ -1390,10 +1454,87 @@ export async function listFinanceCharges(
 			payerType: charge.payerType,
 			itemType: charge.item?.type ?? null,
 			itemName: charge.item?.name ?? null,
+			purchase: charge.purchase
+				? {
+						id: charge.purchase.id,
+						kind: charge.purchase.kind,
+						purpose: charge.purchase.purpose,
+						quantity: toNumber(charge.purchase.quantity),
+						unitCost: toNumber(charge.purchase.unitCost),
+					}
+				: null,
 			stream: charge.stream,
 			student: charge.student,
 			staffProfile: charge.staffProfile,
 			createdAt: charge.createdAt,
+		};
+	});
+}
+
+/**
+ * Pays several staff salary charges in full, in one transaction, through the
+ * same path as a single payment (closed-ledger, balance and role checks apply
+ * to every charge). Each charge is paid from its own salary account.
+ */
+export async function payFinanceStaffCharges(
+	ctx: TRPCContext,
+	input: FinanceStaffChargesPaymentInput,
+) {
+	requireFinanceWriteAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+	const chargeIds = [...new Set(input.chargeIds)];
+	if (!chargeIds.length) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Pick at least one staff salary to pay.",
+		});
+	}
+
+	return ctx.db.$transaction(async (tx) => {
+		const charges = await tx.financeCharge.findMany({
+			where: {
+				id: { in: chargeIds },
+				schoolProfileId,
+				payerType: "STAFF",
+				deletedAt: null,
+			},
+			select: { id: true, amount: true, amountPaid: true },
+		});
+		if (charges.length !== chargeIds.length) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Some selected salaries were not found or are not staff pay.",
+			});
+		}
+
+		const paid: Array<{ chargeId: string; amount: number; paymentId: string }> = [];
+		for (const charge of charges) {
+			const outstanding =
+				toNumber(charge.amount) - toNumber(charge.amountPaid ?? 0);
+			if (outstanding <= 0) continue;
+			const result = await recordFinancePaymentInTransaction(ctx, tx, {
+				chargeId: charge.id,
+				amount: outstanding,
+				paymentDate: input.paymentDate ?? null,
+				method: input.method ?? null,
+				reference: null,
+				note: input.note ?? "Salary payment",
+				receivedById: ctx.currentUser?.id ?? null,
+				collectedTermId: null,
+				collectedSessionId: null,
+			});
+			paid.push({
+				chargeId: charge.id,
+				amount: outstanding,
+				paymentId: result.paymentId,
+			});
+		}
+
+		return {
+			success: true,
+			count: paid.length,
+			total: paid.reduce((sum, row) => sum + row.amount, 0),
+			payments: paid,
 		};
 	});
 }
@@ -1875,6 +2016,115 @@ export async function listFinancePayments(
 	}));
 }
 
+/**
+ * Finance Overview: what came in today, what is still owed each way, and the
+ * latest money movements (ADR-0088). Unpaid totals span all terms (arrears).
+ */
+export async function getFinanceHomeSummary(
+	ctx: TRPCContext,
+	input?: { now?: Date },
+) {
+	requireFinanceReadAccess(ctx);
+	const schoolProfileId = requireSchoolId(ctx);
+	const now = input?.now ?? new Date();
+	const startOfDay = new Date(now);
+	startOfDay.setHours(0, 0, 0, 0);
+	const unpaid = {
+		schoolProfileId,
+		deletedAt: null,
+		status: { in: [...UNPAID_CHARGE_STATUSES] },
+	};
+
+	const [today, students, studentCount, bills, salaries, recent] =
+		await Promise.all([
+			ctx.db.financePayment.aggregate({
+				where: {
+					schoolProfileId,
+					payerType: "STUDENT",
+					status: "PAID",
+					paymentDate: { gte: startOfDay },
+				},
+				_sum: { amount: true },
+				_count: { _all: true },
+			}),
+			ctx.db.financeCharge.aggregate({
+				where: { ...unpaid, payerType: "STUDENT" },
+				_sum: { amount: true, amountPaid: true },
+			}),
+			ctx.db.financeCharge.groupBy({
+				by: ["studentId"],
+				where: { ...unpaid, payerType: "STUDENT", studentId: { not: null } },
+			}),
+			ctx.db.financeCharge.aggregate({
+				where: { ...unpaid, payerType: "SCHOOL" },
+				_sum: { amount: true, amountPaid: true },
+				_count: { _all: true },
+			}),
+			ctx.db.financeCharge.aggregate({
+				where: { ...unpaid, payerType: "STAFF" },
+				_sum: { amount: true, amountPaid: true },
+				_count: { _all: true },
+			}),
+			ctx.db.financePayment.findMany({
+				where: { schoolProfileId, status: "PAID" },
+				select: {
+					id: true,
+					amount: true,
+					payerType: true,
+					paymentDate: true,
+					stream: { select: { name: true } },
+					student: { select: { name: true, surname: true, otherName: true } },
+					staffProfile: { select: { name: true } },
+					payee: { select: { name: true } },
+					allocations: {
+						take: 1,
+						select: { charge: { select: { title: true } } },
+					},
+				},
+				orderBy: [{ paymentDate: "desc" }, { createdAt: "desc" }],
+				take: 8,
+			}),
+		]);
+
+	const outstanding = (sum: {
+		amount: unknown;
+		amountPaid: unknown;
+	}) => toNumber(sum.amount as any) - toNumber(sum.amountPaid as any);
+
+	return {
+		collectedToday: {
+			amount: toNumber(today._sum.amount as any),
+			count: today._count._all,
+		},
+		studentsOwe: {
+			amount: outstanding(students._sum),
+			count: studentCount.length,
+		},
+		billsToPay: {
+			amount: outstanding(bills._sum),
+			count: bills._count._all,
+		},
+		salariesDue: {
+			amount: outstanding(salaries._sum),
+			count: salaries._count._all,
+		},
+		recent: recent.map((payment) => ({
+			id: payment.id,
+			amount: toNumber(payment.amount),
+			payerType: payment.payerType,
+			paymentDate: payment.paymentDate,
+			account: payment.stream?.name ?? null,
+			who:
+				payment.payerType === "STUDENT"
+					? studentDisplayName(payment.student, ctx.profile.studentNameFormat)
+					: payment.payerType === "STAFF"
+						? (payment.staffProfile?.name ?? "Staff")
+						: (payment.payee?.name ?? "School"),
+			what: payment.allocations[0]?.charge?.title ?? null,
+		})),
+	};
+}
+
 export async function listFinanceLedgerEntries(ctx: TRPCContext) {
 	const schoolProfileId = requireSchoolId(ctx);
 	const entries = await ctx.db.financeLedgerEntry.findMany({
@@ -2291,6 +2541,14 @@ export async function recordFinancePurchase(
 					: "OTHER",
 			accountType: "DEBIT",
 		});
+		// A payment on a CREDIT (money-in) account posts as money in, so spending
+		// must come from an expense account; fund it from income with a transfer.
+		if (stream.accountType !== "DEBIT") {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: `${stream.name} is a money-in account. Pick an expense account to pay from, or move money into one first.`,
+			});
+		}
 		const payee = await getOrCreateFinancePayee(tx, {
 			schoolProfileId,
 			payeeId: input.payeeId,
@@ -2331,6 +2589,7 @@ export async function recordFinancePurchase(
 				payeeId: payee?.id,
 				chargeId: charge.id,
 				kind: input.kind,
+				purpose: input.purpose ?? "SCHOOL_USE",
 				status,
 				title: input.title,
 				description: input.description,

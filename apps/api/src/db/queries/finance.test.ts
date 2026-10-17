@@ -5,6 +5,10 @@ process.env.DATABASE_URL ??= "postgresql://test:test@127.0.0.1:5432/test";
 
 const {
 	buildFinanceWorkspaceAccounts,
+	buildSpendCategoryWhere,
+	getFinanceHomeSummary,
+	listFinanceCharges,
+	payFinanceStaffCharges,
 	closeFinanceTermLedger,
 	cancelFinancePurchase,
 	getFinancePayeeHistory,
@@ -3781,5 +3785,271 @@ describe("finance report routes", () => {
 		await expect(caller.getFinanceReports({})).rejects.toMatchObject({
 			code: "FORBIDDEN",
 		} satisfies Partial<TRPCError>);
+	});
+});
+
+describe("finance spending filters", () => {
+	test("services cover legacy service items and recorded service purchases", () => {
+		expect(buildSpendCategoryWhere("services", null)).toEqual({
+			payerType: "SCHOOL",
+			OR: [
+				{ item: { is: { type: "SERVICE" } } },
+				{ purchase: { is: { kind: { in: ["SERVICE", "LABOR", "VENDOR_BILL"] } } } },
+			],
+		});
+	});
+
+	test("purchases match goods purchases and can narrow by purpose", () => {
+		expect(buildSpendCategoryWhere("purchases", "RESALE")).toEqual({
+			payerType: "SCHOOL",
+			purchase: {
+				is: {
+					kind: { in: ["PURCHASE", "DIRECT_EXPENSE", "REIMBURSEMENT"] },
+					purpose: "RESALE",
+				},
+			},
+		});
+		expect(buildSpendCategoryWhere("purchases", null)).toEqual({
+			payerType: "SCHOOL",
+			purchase: {
+				is: { kind: { in: ["PURCHASE", "DIRECT_EXPENSE", "REIMBURSEMENT"] } },
+			},
+		});
+	});
+
+	test("listFinanceCharges applies spend category and unpaid-only filters", async () => {
+		let where: any = null;
+		const db = {
+			financeCharge: {
+				findMany: async (args: any) => {
+					where = args.where;
+					return [
+						{
+							id: "charge-1",
+							title: "Exercise books",
+							amount: 500,
+							amountPaid: 0,
+							status: "PENDING",
+							payerType: "SCHOOL",
+							purchase: {
+								id: "purchase-1",
+								kind: "PURCHASE",
+								purpose: "SCHOOL_USE",
+								quantity: 100,
+								unitCost: 5,
+							},
+						},
+					];
+				},
+			},
+		};
+
+		const rows = await listFinanceCharges(createFinanceCtx({ db }), {
+			spendCategory: "purchases",
+			purchasePurpose: "SCHOOL_USE",
+			unpaidOnly: true,
+		});
+
+		expect(where.status).toEqual({ in: ["PENDING", "PARTIALLY_PAID"] });
+		expect(where.AND).toEqual([
+			buildSpendCategoryWhere("purchases", "SCHOOL_USE"),
+		]);
+		expect(rows[0]?.purchase).toEqual({
+			id: "purchase-1",
+			kind: "PURCHASE",
+			purpose: "SCHOOL_USE",
+			quantity: 100,
+			unitCost: 5,
+		});
+	});
+});
+
+describe("payFinanceStaffCharges", () => {
+	function staffPayDb(charges: any[]) {
+		const payments: any[] = [];
+		const byId = new Map(charges.map((charge) => [charge.id, charge]));
+		const db = {
+			$transaction: async (fn: (tx: any) => unknown) =>
+				fn({
+					financeCharge: {
+						findMany: async ({ where }: any) =>
+							charges.filter(
+								(charge) =>
+									where.id.in.includes(charge.id) &&
+									charge.payerType === where.payerType,
+							),
+						findFirst: async ({ where }: any) => byId.get(where.id),
+						update: async ({ where, data }: any) => ({
+							...byId.get(where.id),
+							...data,
+						}),
+					},
+					financePayment: {
+						create: async ({ data }: any) => {
+							payments.push(data);
+							return {
+								id: `payment-${payments.length}`,
+								paymentDate: data.paymentDate,
+								...data,
+							};
+						},
+					},
+					financePaymentAllocation: {
+						create: async ({ data }: any) => ({ id: "allocation", ...data }),
+					},
+					financeLedgerEntry: {
+						create: async ({ data }: any) => ({ id: "ledger", ...data }),
+					},
+					schoolInventory: { findFirst: async () => null },
+					inventoryIssuance: { create: async () => undefined },
+				}),
+		};
+		return { db, payments };
+	}
+	const salary = (id: string, amount: number, amountPaid = 0) => ({
+		id,
+		schoolProfileId: "school-1",
+		streamId: "stream-salary",
+		payerType: "STAFF",
+		studentId: null,
+		staffProfileId: `staff-${id}`,
+		title: "October salary",
+		amount,
+		amountPaid,
+		status: amountPaid ? "PARTIALLY_PAID" : "PENDING",
+		collectionStatus: "NOT_REQUIRED",
+		schoolSessionId: "session-1",
+		sessionTermId: "term-1",
+		stream: { id: "stream-salary", accountType: "DEBIT" },
+	});
+
+	test("pays the outstanding amount of every selected salary", async () => {
+		const { db, payments } = staffPayDb([
+			salary("a", 145000),
+			salary("b", 65000, 15000),
+		]);
+
+		const result = await payFinanceStaffCharges(createFinanceCtx({ db }), {
+			chargeIds: ["a", "b", "a"],
+			method: "Bank Transfer",
+		});
+
+		expect(result).toMatchObject({ success: true, count: 2, total: 195000 });
+		expect(payments.map((payment) => Number(payment.amount))).toEqual([
+			145000, 50000,
+		]);
+		expect(payments[0]).toMatchObject({
+			streamId: "stream-salary",
+			method: "Bank Transfer",
+		});
+	});
+
+	test("rejects charges that are not staff pay", async () => {
+		const { db } = staffPayDb([{ ...salary("a", 1000), payerType: "SCHOOL" }]);
+
+		await expect(
+			payFinanceStaffCharges(createFinanceCtx({ db }), { chargeIds: ["a"] }),
+		).rejects.toMatchObject({ code: "BAD_REQUEST" } satisfies Partial<TRPCError>);
+	});
+
+	test("rejects non-finance roles", async () => {
+		await expect(
+			payFinanceStaffCharges(createFinanceCtx({ role: "Teacher", db: {} }), {
+				chargeIds: ["a"],
+			}),
+		).rejects.toMatchObject({ code: "FORBIDDEN" } satisfies Partial<TRPCError>);
+	});
+});
+
+describe("getFinanceHomeSummary", () => {
+	test("totals today's collections and what is still owed each way", async () => {
+		const chargeWheres: any[] = [];
+		let todayWhere: any = null;
+		const sums: Record<string, { amount: number; amountPaid: number; count: number }> = {
+			STUDENT: { amount: 300000, amountPaid: 120000, count: 4 },
+			SCHOOL: { amount: 488000, amountPaid: 0, count: 3 },
+			STAFF: { amount: 647000, amountPaid: 0, count: 6 },
+		};
+		const db = {
+			financePayment: {
+				aggregate: async ({ where }: any) => {
+					todayWhere = where;
+					return { _sum: { amount: 172000 }, _count: { _all: 2 } };
+				},
+				findMany: async () => [
+					{
+						id: "pay-1",
+						amount: 85000,
+						payerType: "STUDENT",
+						paymentDate: new Date("2026-10-17T09:00:00"),
+						stream: { name: "School Fees" },
+						student: { name: "Fatima", surname: "Sani", otherName: null },
+						staffProfile: null,
+						payee: null,
+						allocations: [{ charge: { title: "2nd Term School Fees" } }],
+					},
+				],
+			},
+			financeCharge: {
+				aggregate: async ({ where }: any) => {
+					chargeWheres.push(where);
+					const row = sums[where.payerType] ?? { amount: 0, amountPaid: 0, count: 0 };
+					return {
+						_sum: { amount: row.amount, amountPaid: row.amountPaid },
+						_count: { _all: row.count },
+					};
+				},
+				groupBy: async () => [{ studentId: "s1" }, { studentId: "s2" }],
+			},
+		};
+
+		const summary = await getFinanceHomeSummary(
+			createFinanceCtx({ role: "Accountant", db }),
+			{ now: new Date("2026-10-17T15:30:00") },
+		);
+
+		expect(todayWhere.paymentDate.gte).toEqual(new Date("2026-10-17T00:00:00"));
+		expect(chargeWheres.every((where) => where.status.in.includes("PENDING"))).toBe(true);
+		expect(summary).toMatchObject({
+			collectedToday: { amount: 172000, count: 2 },
+			studentsOwe: { amount: 180000, count: 2 },
+			billsToPay: { amount: 488000, count: 3 },
+			salariesDue: { amount: 647000, count: 6 },
+		});
+		expect(summary.recent[0]).toMatchObject({
+			amount: 85000,
+			account: "School Fees",
+			what: "2nd Term School Fees",
+		});
+	});
+});
+
+describe("recordFinancePurchase account guard", () => {
+	test("rejects paying from a money-in account", async () => {
+		const db = {
+			financeTermLedgerClose: { findFirst: async () => null },
+			$transaction: async (fn: (tx: any) => unknown) =>
+				fn({
+					financeStream: {
+						findFirst: async () => ({
+							id: "stream-fees",
+							name: "Tuition Fee",
+							accountType: "CREDIT",
+						}),
+					},
+				}),
+		};
+
+		await expect(
+			recordFinancePurchase(createFinanceCtx({ db }), {
+				kind: "PURCHASE",
+				purpose: "RESALE",
+				streamId: "stream-fees",
+				title: "Uniform sets",
+				quantity: 2,
+				unitCost: 250,
+				amountPaid: 500,
+			} as any),
+		).rejects.toThrow("Tuition Fee is a money-in account");
 	});
 });

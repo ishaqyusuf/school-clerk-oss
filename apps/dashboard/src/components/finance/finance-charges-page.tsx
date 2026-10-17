@@ -17,6 +17,9 @@ type FinanceChargesPageProps = {
 		payerType?: string;
 		status?: string;
 		type?: string;
+		spendCategory?: "services" | "purchases";
+		purchasePurpose?: "SCHOOL_USE" | "RESALE";
+		unpaidOnly?: boolean;
 	};
 	tableTitle?: string;
 	tableDescription?: string;

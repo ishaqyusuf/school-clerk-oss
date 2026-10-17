@@ -537,7 +537,7 @@ export function FinanceWorkspaceTable({
 					</Button>
 					<Button variant="ghost" asChild>
 						<Link
-							href={`/finance/reconciliation?accountIds=${Array.from(selected).join(",")}`}
+							href={`/finance/accounts/close-term?accountIds=${Array.from(selected).join(",")}`}
 						>
 							Reconcile
 						</Link>

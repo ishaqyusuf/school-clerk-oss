@@ -27,6 +27,18 @@ export function useRefreshFinance() {
 			queryClient.invalidateQueries({
 				queryKey: trpc.finance.getInternalTransfers.queryKey({}),
 			}),
+			queryClient.invalidateQueries({
+				queryKey: trpc.finance.getCharges.queryKey(),
+			}),
+			queryClient.invalidateQueries({
+				queryKey: trpc.finance.getPayments.queryKey(),
+			}),
+			queryClient.invalidateQueries({
+				queryKey: trpc.finance.getLedgerEntries.queryKey(),
+			}),
+			queryClient.invalidateQueries({
+				queryKey: trpc.finance.getPayees.queryKey(),
+			}),
 		]);
 	};
 }

@@ -46,6 +46,8 @@ export const financePurchaseKindSchema = z.enum([
 	"LABOR",
 ]);
 
+export const financePurchasePurposeSchema = z.enum(["SCHOOL_USE", "RESALE"]);
+
 export const financeStreamInputSchema = z.object({
 	id: nullableString,
 	name: z.string().min(1),
@@ -108,6 +110,13 @@ export const financePaymentInputSchema = z.object({
 	receivedById: nullableString,
 	collectedTermId: nullableString,
 	collectedSessionId: nullableString,
+});
+
+export const financeStaffChargesPaymentSchema = z.object({
+	chargeIds: z.array(z.string()).min(1).max(500),
+	method: nullableString,
+	paymentDate: z.coerce.date().optional().nullable(),
+	note: nullableString,
 });
 
 export const financeTransferInputSchema = z.object({
@@ -339,6 +348,7 @@ export const financePayrollObligationInputSchema = z.object({
 export const financePurchaseInputSchema = z.object({
 	id: nullableString,
 	kind: financePurchaseKindSchema.default("PURCHASE"),
+	purpose: financePurchasePurposeSchema.default("SCHOOL_USE"),
 	streamId: nullableString,
 	streamName: nullableString,
 	payeeId: nullableString,
@@ -418,6 +428,9 @@ export type FinancePayrollObligationInput = z.infer<
 	typeof financePayrollObligationInputSchema
 >;
 export type FinancePurchaseInput = z.infer<typeof financePurchaseInputSchema>;
+export type FinanceStaffChargesPaymentInput = z.infer<
+	typeof financeStaffChargesPaymentSchema
+>;
 export type FinancePurchaseCancellationInput = z.infer<
 	typeof financePurchaseCancellationSchema
 >;

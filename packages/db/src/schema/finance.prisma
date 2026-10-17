@@ -108,6 +108,12 @@ enum FinancePurchaseKind {
     LABOR
 }
 
+/// Why the school bought something: for its own use, or as stock to sell on to students (uniforms, books).
+enum FinancePurchasePurpose {
+    SCHOOL_USE
+    RESALE
+}
+
 enum FinancePurchaseStatus {
     UNPAID
     PARTIALLY_PAID
@@ -471,6 +477,7 @@ model FinancePurchase {
     payment         FinancePayment?       @relation(fields: [paymentId], references: [id])
     paymentId       String?               @unique
     kind            FinancePurchaseKind   @default(PURCHASE)
+    purpose         FinancePurchasePurpose @default(SCHOOL_USE)
     status          FinancePurchaseStatus @default(UNPAID)
     title           String
     description     String?

@@ -5,14 +5,16 @@ import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { getInitialTableSettings } from "@/utils/columns";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
 import { ErrorBoundary } from "next/dist/client/components/error-boundary";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 
 export async function FinanceTransfersPage({
 	title = "Transfers",
 	subtitle,
+	children,
 }: {
 	title?: string;
 	subtitle?: string;
+	children?: ReactNode;
 } = {}) {
 	const initialSettings = await getInitialTableSettings("financeTransfers");
 
@@ -28,6 +30,7 @@ export async function FinanceTransfersPage({
 						{subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
 					</div>
 				</div>
+				{children}
 				<ErrorBoundary errorComponent={ErrorFallback}>
 					<Suspense fallback={<DataTableSkeleton />}>
 						<FinanceTransfersTable initialSettings={initialSettings} />
