@@ -2,6 +2,7 @@
 import { OpenAssistant } from "@/components/assistant/open-assistant";
 
 import { NumberInput } from "@/components/currency-input";
+import { QuickPayPopover } from "@/components/finance/quick-pay-popover";
 import { useFinanceSheetParams } from "@/hooks/use-finance-sheet-params";
 import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
 import { Badge } from "@school-clerk/ui/badge";
@@ -125,6 +126,24 @@ export const columns: ColumnDef<FinanceChargeRow>[] = [
 		),
 	},
 	{
+		id: "pay",
+		size: 88,
+		cell: ({ row }) =>
+			row.original.payerType === "STUDENT" &&
+			row.original.student?.id &&
+			row.original.outstanding > 0 &&
+			row.original.status !== "CANCELLED" &&
+			row.original.status !== "WAIVED" ? (
+				<QuickPayPopover
+					chargeId={row.original.id}
+					chargeTitle={row.original.title}
+					outstanding={row.original.outstanding}
+					studentId={row.original.student.id}
+					studentName={row.original.studentName}
+				/>
+			) : null,
+	},
+	{
 		id: "actions",
 		size: 56,
 		cell: ({ row }) => <FinanceChargeRowActions row={row.original} />,
@@ -152,6 +171,7 @@ function FinanceChargeRowActions({ row }: { row: FinanceChargeRow }) {
 				receivePayment: true,
 				receivePaymentStudentId: row.student?.id ?? null,
 				receivePaymentStudentName: row.studentName ?? null,
+				receivePaymentChargeId: row.id,
 			});
 			return;
 		}

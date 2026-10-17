@@ -220,6 +220,56 @@ export const financeSimpleStudentPaymentInputSchema = z.object({
 	sessionId: nullableString,
 });
 
+const paymentAmount = z.coerce.number().positive().max(1_000_000_000);
+
+export const financeStudentOpenChargesSchema = z.object({
+	studentId: z.string(),
+});
+
+export const financeStudentPaymentLinesSchema = z.object({
+	studentId: z.string(),
+	lines: z
+		.array(z.object({ chargeId: z.string(), amount: paymentAmount }))
+		.max(50),
+	otherLines: z
+		.array(
+			z.object({
+				streamId: nullableString,
+				streamName: nullableString,
+				title: z.string().max(200),
+				amount: paymentAmount,
+			}),
+		)
+		.max(10)
+		.optional(),
+	method: nullableString,
+	paymentDate: z.coerce.date().optional().nullable(),
+	reference: nullableString,
+	note: nullableString,
+});
+
+export const financeStudentPaymentBatchSchema = z.object({
+	rows: z
+		.array(
+			z.object({
+				studentId: z.string(),
+				chargeId: z.string(),
+				amount: paymentAmount,
+				method: nullableString,
+			}),
+		)
+		.min(1)
+		.max(200),
+	method: nullableString,
+	paymentDate: z.coerce.date().optional().nullable(),
+	reference: nullableString,
+	note: nullableString,
+});
+
+export const financeClassCollectionRosterSchema = z.object({
+	classroomDepartmentId: nullableString,
+});
+
 export const financeTermLedgerQuerySchema = z
 	.object({
 		termId: nullableString,
@@ -379,4 +429,16 @@ export type FinanceStaffHistoryInput = z.infer<
 >;
 export type FinancePayeeHistoryInput = z.infer<
 	typeof financePayeeHistorySchema
+>;
+export type FinanceStudentOpenChargesInput = z.infer<
+	typeof financeStudentOpenChargesSchema
+>;
+export type FinanceStudentPaymentLinesInput = z.infer<
+	typeof financeStudentPaymentLinesSchema
+>;
+export type FinanceStudentPaymentBatchInput = z.infer<
+	typeof financeStudentPaymentBatchSchema
+>;
+export type FinanceClassCollectionRosterInput = z.infer<
+	typeof financeClassCollectionRosterSchema
 >;

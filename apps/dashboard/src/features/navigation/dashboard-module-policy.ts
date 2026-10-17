@@ -34,6 +34,7 @@ const ITEM_REQUIREMENTS: Record<string, readonly ModuleId[]> = {
 	"academic-grading": ["ASSESSMENT_AND_EXAMS"],
 	"finance-overview": ["BILLING_FINANCE"],
 	"finance-receive-payment": ["BILLING_FINANCE", "STUDENT_MANAGEMENT"],
+	"finance-collect-by-class": ["BILLING_FINANCE", "STUDENT_MANAGEMENT"],
 	"finance-student-balances": ["BILLING_FINANCE", "STUDENT_MANAGEMENT"],
 	"finance-collections": ["BILLING_FINANCE", "STUDENT_MANAGEMENT"],
 	"finance-payables": ["BILLING_FINANCE"],

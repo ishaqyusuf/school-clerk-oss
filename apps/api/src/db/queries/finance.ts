@@ -43,7 +43,7 @@ type StudentChargeReconciliationDb = Pick<
 	TRPCContext["db"],
 	"$executeRaw" | "financeCharge" | "financeItem"
 >;
-type FinancePaymentTransaction = Pick<
+export type FinancePaymentTransaction = Pick<
 	TRPCContext["db"],
 	| "financeCharge"
 	| "financePayment"
@@ -54,7 +54,7 @@ type FinancePaymentTransaction = Pick<
 	| "inventoryIssuance"
 >;
 
-function requireSchoolId(ctx: TRPCContext) {
+export function requireSchoolId(ctx: TRPCContext) {
 	const schoolId = ctx.profile.schoolId;
 	if (!schoolId) {
 		throw new TRPCError({
@@ -65,11 +65,11 @@ function requireSchoolId(ctx: TRPCContext) {
 	return schoolId;
 }
 
-function toMoney(value: number | string | Prisma.Decimal) {
+export function toMoney(value: number | string | Prisma.Decimal) {
 	return new Prisma.Decimal(value);
 }
 
-function toNumber(value: number | string | Prisma.Decimal | null | undefined) {
+export function toNumber(value: number | string | Prisma.Decimal | null | undefined) {
 	if (value == null) return 0;
 	return Number(value);
 }
@@ -101,7 +101,7 @@ function legacyStreamType(accountType: "CREDIT" | "DEBIT") {
 	return accountType === "CREDIT" ? "incoming" : "outgoing";
 }
 
-function studentDisplayName(
+export function studentDisplayName(
 	student?: {
 		name?: string | null;
 		surname?: string | null;
@@ -196,7 +196,7 @@ async function lockStudentTermChargeReconciliation(
 	`;
 }
 
-async function getOrCreateStream(
+export async function getOrCreateStream(
 	db: FinanceDb,
 	params: {
 		schoolProfileId: string;
@@ -248,7 +248,7 @@ async function getOrCreateStream(
 	});
 }
 
-async function assertTermLedgerWritable(
+export async function assertTermLedgerWritable(
 	db: any,
 	params: {
 		schoolProfileId: string;
@@ -505,7 +505,7 @@ export async function reconcileStudentTermChargesForForm(
 	return { created, updated, cancelled };
 }
 
-async function findStudentTermFormForFinance(
+export async function findStudentTermFormForFinance(
 	tx: StudentTermFormDb,
 	params: {
 		schoolProfileId: string;
@@ -535,7 +535,7 @@ async function findStudentTermFormForFinance(
 	});
 }
 
-async function reconcileStudentTermCharges(
+export async function reconcileStudentTermCharges(
 	ctx: TRPCContext,
 	input: {
 		studentId: string;
@@ -563,7 +563,7 @@ async function reconcileStudentTermCharges(
 	});
 }
 
-async function reconcileClassroomTermCharges(
+export async function reconcileClassroomTermCharges(
 	ctx: TRPCContext,
 	input: {
 		classroomDepartmentId: string;

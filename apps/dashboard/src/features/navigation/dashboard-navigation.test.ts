@@ -67,14 +67,14 @@ const expectedRoleIa: Record<string, string[]> = {
 		"overview::_=Dashboard@/",
 		"people::Student Records=Students@/students/list,Enrollment@/students/enrollment;Staff=Teachers@/staff/teachers,Non-Teaching Staff@/staff/non-teaching,Departments@/staff/departments;Workforce=Staff Attendance@/staff/attendance",
 		"academics::_=Overview@/academic;Curriculum=Classes@/academic/classes,Subjects@/academic/subjects;Assessment & Results=Assessment Recording@/assessment-recording,Class Report Sheets@/academic/reports,Student Reports@/student-report",
-		"finance::_=Overview@/finance;Collections=Receive Payment@/finance/receive,Student Balances@/finance/students,Collections@/finance/collections;Payables=All Payables@/finance/payables,Payroll Bills@/finance/payables/payroll,Service Bills@/finance/payables/services,Owing & Repayments@/finance/payables/owing;Accounting=Accounts@/finance/accounts,Transfers@/finance/accounts/transfers,Ledger@/finance/ledger,Reconciliation@/finance/reconciliation;Setup=Fee Structures@/finance/setup/fees,Service Billables@/finance/setup/service-billables",
+		"finance::_=Overview@/finance;Collections=Receive Payment@/finance/receive,Collect by Class@/finance/receive/class,Student Balances@/finance/students,Collections@/finance/collections;Payables=All Payables@/finance/payables,Payroll Bills@/finance/payables/payroll,Service Bills@/finance/payables/services,Owing & Repayments@/finance/payables/owing;Accounting=Accounts@/finance/accounts,Transfers@/finance/accounts/transfers,Ledger@/finance/ledger,Reconciliation@/finance/reconciliation;Setup=Fee Structures@/finance/setup/fees,Service Billables@/finance/setup/service-billables",
 		"settings::School=School Profile@/settings/school-profile;Documents=Document Templates@/settings/document-templates;Website=Website@/settings/website[Website Media@/settings/website/media]",
 	],
 	Teacher: [
 		"teacher-workspace::_=Overview@/teacher;Classroom Work=My Classes@/teacher/classes,My Students@/teacher/students,Attendance@/teacher/attendance;Assessment & Results=Score Entry@/assessment-recording,Reports@/teacher/reports",
 	],
 	Accountant: [
-		"finance::Collections=Receive Payment@/finance/receive,Student Balances@/finance/students,Collections@/finance/collections;Payables=All Payables@/finance/payables,Payroll Bills@/finance/payables/payroll,Service Bills@/finance/payables/services,Owing & Repayments@/finance/payables/owing;Accounting=Transfers@/finance/accounts/transfers,Ledger@/finance/ledger,Reconciliation@/finance/reconciliation",
+		"finance::Collections=Receive Payment@/finance/receive,Collect by Class@/finance/receive/class,Student Balances@/finance/students,Collections@/finance/collections;Payables=All Payables@/finance/payables,Payroll Bills@/finance/payables/payroll,Service Bills@/finance/payables/services,Owing & Repayments@/finance/payables/owing;Accounting=Transfers@/finance/accounts/transfers,Ledger@/finance/ledger,Reconciliation@/finance/reconciliation",
 	],
 	Registrar: [
 		"people::Admissions=Enrollment@/students/enrollment;Records=Student Directory@/students/list",

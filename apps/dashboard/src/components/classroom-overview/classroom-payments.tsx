@@ -83,6 +83,7 @@ export function ClassroomPayments({
           receivePaymentStudentName: charge?.student?.id
             ? null
             : (charge?.studentName ?? null),
+          receivePaymentChargeId: charge?.id ?? null,
         })
       }
       onOpenStudent={(studentId) =>

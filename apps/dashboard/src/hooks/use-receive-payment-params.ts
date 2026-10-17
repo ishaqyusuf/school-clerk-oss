@@ -8,6 +8,7 @@ export function useReceivePaymentParams(options?: { shallow: boolean }) {
 			receivePaymentCreatedStudentId: parseAsString,
 			receivePaymentStudentName: parseAsString,
 			receivePaymentReturnTo: parseAsString,
+			receivePaymentChargeId: parseAsString,
 		},
 		options,
 	);

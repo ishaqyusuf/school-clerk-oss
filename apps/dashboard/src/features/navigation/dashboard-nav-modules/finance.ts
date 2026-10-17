@@ -33,6 +33,16 @@ export const financeNavigationModule: NavModuleDefinition = {
 					workspace: "finance-office",
 				},
 				{
+					href: "/finance/receive/class",
+					icon: "school",
+					key: "finance-collect-by-class",
+					module: "finance",
+					roles: ["Admin", "Accountant"],
+					section: "collections",
+					title: "Collect by Class",
+					workspace: "finance-office",
+				},
+				{
 					childPaths: ["/finance/students"],
 					href: "/finance/students",
 					icon: "users",

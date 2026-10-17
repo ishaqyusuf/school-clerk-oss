@@ -1,6 +1,7 @@
 "use client";
 
 import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
+import { useStudentRegistrationPolicy } from "@/hooks/use-student-registration-policy";
 import { Button } from "@school-clerk/ui/button";
 import { CreditCard } from "lucide-react";
 
@@ -11,6 +12,9 @@ export function ReceiveFeeButton({
 	layout?: "tile" | "toolbar";
 }) {
 	const { setParams } = useReceivePaymentParams();
+	// Hidden unless Billing & finance is on; the sheet's API calls would fail otherwise.
+	const { billingEnabled } = useStudentRegistrationPolicy();
+	if (!billingEnabled) return null;
 	return (
 		<Button
 			variant={layout === "toolbar" ? "default" : "outline"}

@@ -42,6 +42,12 @@ import {
 	upsertFinanceStream,
 } from "../../db/queries/finance";
 import {
+	getClassCollectionRoster,
+	getStudentOpenCharges,
+	receiveStudentPaymentBatch,
+	receiveStudentPaymentLines,
+} from "../../db/queries/finance-collections";
+import {
 	getPaymentImportJob,
 	retryPaymentImportJob,
 	startPaymentImportJob,
@@ -68,6 +74,10 @@ import {
 	financeReceivePaymentOptionsSchema,
 	financeSearchInputSchema,
 	financeSimpleStudentPaymentInputSchema,
+	financeClassCollectionRosterSchema,
+	financeStudentOpenChargesSchema,
+	financeStudentPaymentBatchSchema,
+	financeStudentPaymentLinesSchema,
 	financeStaffHistorySchema,
 	financeStreamDetailsSchema,
 	financeStreamInputSchema,
@@ -1077,6 +1087,18 @@ export const financeRouter = createTRPCRouter({
 	receiveStudentPaymentSimple: studentFinanceProcedure
 		.input(financeSimpleStudentPaymentInputSchema)
 		.mutation(({ ctx, input }) => receiveStudentPaymentSimple(ctx, input)),
+	receiveStudentPaymentLines: studentFinanceProcedure
+		.input(financeStudentPaymentLinesSchema)
+		.mutation(({ ctx, input }) => receiveStudentPaymentLines(ctx, input)),
+	receiveStudentPaymentBatch: studentFinanceProcedure
+		.input(financeStudentPaymentBatchSchema)
+		.mutation(({ ctx, input }) => receiveStudentPaymentBatch(ctx, input)),
+	getStudentOpenCharges: studentFinanceProcedure
+		.input(financeStudentOpenChargesSchema)
+		.query(({ ctx, input }) => getStudentOpenCharges(ctx, input)),
+	getClassCollectionRoster: studentFinanceProcedure
+		.input(financeClassCollectionRosterSchema)
+		.query(({ ctx, input }) => getClassCollectionRoster(ctx, input)),
 	payStaffBill: financeProcedure
 		.input(legacyPaymentInput)
 		.mutation(({ ctx, input }) =>
