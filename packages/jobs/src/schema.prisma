@@ -908,7 +908,7 @@ enum InventoryType {
     OTHER
 }
 
-model Inventory {
+model SchoolInventory {
     id              String        @id @default(uuid())
     title           String
     description     String?
@@ -924,6 +924,7 @@ model Inventory {
     schoolProfileId String
 
     issuances       InventoryIssuance[]
+    @@map("Inventory")
 }
 
 model InventoryIssuance {
@@ -936,7 +937,7 @@ model InventoryIssuance {
     updatedAt   DateTime? @updatedAt
     deletedAt   DateTime? @db.Timestamp(0)
 
-    inventory   Inventory @relation(fields: [inventoryId], references: [id])
+    inventory   SchoolInventory @relation(fields: [inventoryId], references: [id])
     inventoryId String
 
     schoolProfile   SchoolProfile @relation(fields: [schoolProfileId], references: [id])
@@ -1408,6 +1409,8 @@ model AssistantConversation {
     summary         String?
     lastMessageAt   DateTime? @db.Timestamp(0)
     meta            Json?
+    protocolVersion Int @default(1)
+    nextSequence Int @default(0)
 
     createdAt DateTime? @default(now()) @db.Timestamp(0)
     updatedAt DateTime? @updatedAt
@@ -1415,6 +1418,9 @@ model AssistantConversation {
 
     schoolProfile SchoolProfile @relation(fields: [schoolProfileId], references: [id])
     createdBy    User          @relation("AssistantConversationCreatedBy", fields: [createdByUserId], references: [id])
+    proposals AssistantActionProposal[]
+    attachments AssistantAttachment[]
+    artifacts AssistantArtifact[]
     messages     AssistantMessage[]
     runs         AssistantRun[]
     feedback     AssistantFeedback[]
@@ -1432,6 +1438,8 @@ model AssistantMessage {
     content         String?
     parts           Json?
     workflowState   Json?
+    sequence Int?
+    requestKey String?
 
     createdAt DateTime? @default(now()) @db.Timestamp(0)
     updatedAt DateTime? @updatedAt
@@ -1441,6 +1449,8 @@ model AssistantMessage {
     schoolProfile SchoolProfile         @relation(fields: [schoolProfileId], references: [id])
     createdBy     User?                 @relation("AssistantMessageCreatedBy", fields: [createdByUserId], references: [id])
 
+    @@index([conversationId, sequence])
+    @@index([conversationId, requestKey])
     @@index([conversationId, createdAt])
     @@index([schoolProfileId, role, createdAt])
 }
@@ -1460,6 +1470,14 @@ model AssistantRun {
     metrics         Json?
     error           String?
     workflowAction  Json?
+    requestKeyRecord AssistantRunRequest?
+    usageReservation AssistantUsageReservation?
+    proposals AssistantActionProposal[]
+    requestId String?
+    fingerprint String?
+    deadlineAt DateTime?
+    completedAt DateTime?
+    cancelRequested Boolean @default(false)
 
     createdAt DateTime? @default(now()) @db.Timestamp(0)
     updatedAt DateTime? @updatedAt
@@ -1472,6 +1490,7 @@ model AssistantRun {
     feedback       AssistantFeedback[]
 
     @@index([conversationId, createdAt])
+    @@index([schoolProfileId, userId, requestId])
     @@index([schoolProfileId, status, createdAt])
 }
 
@@ -1484,6 +1503,7 @@ model AssistantToolExecution {
     capability      String?
     status          AssistantToolExecutionStatus @default(started)
     isMutation      Boolean @default(false)
+    toolVersion Int @default(1)
     input           Json?
     output          Json?
     error           String?
@@ -1514,6 +1534,9 @@ model SchoolAssistantConfig {
     analyticsEnabled   Boolean @default(true)
     feedbackEnabled    Boolean @default(true)
     maxSteps           Int     @default(5)
+    dailyRequestLimit Int @default(100)
+    dailyTokenLimit Int @default(1000000)
+    concurrentRunLimit Int @default(1)
     systemPromptExtra  String?
     rolloutStage       String?
     featureFlags       Json?
@@ -1570,6 +1593,98 @@ enum AssistantToolExecutionStatus {
     completed
     blocked
     failed
+}
+
+// All queries enforce school + user + owned conversation; IDs are never authority.
+model AssistantActionProposal {
+    id String @id @default(cuid())
+    schoolProfileId String
+    userId String
+    conversationId String
+    runId String
+    toolName String
+    toolVersion Int @default(1)
+    payload Json
+    summary String
+    token String
+    revision String
+    sessionId String?
+    termId String?
+    status String @default("pending")
+    result Json?
+    expiresAt DateTime
+    createdAt DateTime @default(now())
+    completedAt DateTime?
+    @@index([schoolProfileId, userId, conversationId])
+    conversation AssistantConversation @relation(fields:[conversationId], references:[id], onDelete:Cascade)
+    run AssistantRun @relation(fields:[runId], references:[id], onDelete:Cascade)
+}
+model AssistantPreference {
+    id String @id @default(cuid())
+    schoolProfileId String
+    userId String
+    locale String @default("auto")
+    savedPrompts Json @default("[]")
+    @@unique([schoolProfileId, userId])
+    schoolProfile SchoolProfile @relation(fields:[schoolProfileId], references:[id], onDelete:Cascade)
+    user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+}
+model AssistantUsageReservation {
+    id String @id
+    schoolProfileId String
+    userId String
+    day String
+    reservedTokens Int
+    actualTokens Int?
+    status String @default("reserved")
+    createdAt DateTime @default(now())
+    @@index([schoolProfileId, userId, day])
+    run AssistantRun @relation(fields:[id], references:[id], onDelete:Cascade)
+}
+model AssistantAttachment {
+    id String @id @default(cuid())
+    schoolProfileId String
+    userId String
+    conversationId String
+    name String
+    mediaType String
+    size Int
+    status String @default("ready")
+    text String?
+    storageKey String?
+    bytes Bytes?
+    createdAt DateTime @default(now())
+    deletedAt DateTime?
+    @@index([schoolProfileId, userId, conversationId])
+    conversation AssistantConversation @relation(fields:[conversationId], references:[id], onDelete:Cascade)
+}
+model AssistantArtifact {
+    id String @id @default(cuid())
+    schoolProfileId String
+    userId String
+    conversationId String
+    title String
+    kind String
+    status String @default("ready")
+    content Json
+    bytes Bytes?
+    authSessionId String?
+    error String?
+    createdAt DateTime @default(now())
+    @@index([schoolProfileId, userId, conversationId])
+    conversation AssistantConversation @relation(fields:[conversationId], references:[id], onDelete:Cascade)
+}
+
+// New protocol keys avoid retroactive constraints on historical runs.
+model AssistantRunRequest {
+ id String @id @default(uuid())
+ schoolProfileId String
+ userId String
+ requestId String
+ runId String @unique
+ fingerprint String
+ @@unique([schoolProfileId, userId, requestId])
+    run AssistantRun @relation(fields:[runId], references:[id], onDelete:Cascade)
 }
 
 // ---- notification.prisma ----
@@ -1760,7 +1875,7 @@ model SchoolProfile {
   notifications                  Notification[]
   notificationPreferences        NotificationPreference[]
   notificationContacts           NotificationContact[]
-  inventoryItems                 Inventory[]
+  inventoryItems                 SchoolInventory[]
   inventoryIssuances             InventoryIssuance[]
   enrollmentLinks                EnrollmentLink[]
   enrollmentApplications         EnrollmentApplication[]
@@ -1771,6 +1886,7 @@ model SchoolProfile {
   assistantRuns                  AssistantRun[]
   assistantToolExecutions        AssistantToolExecution[]
   assistantConfig                SchoolAssistantConfig?
+  assistantPreferences AssistantPreference[]
   assistantFeedback              AssistantFeedback[]
   financeStreams                 FinanceStream[]
   financeItems                   FinanceItem[]
@@ -2068,6 +2184,7 @@ model User {
     assistantConversations AssistantConversation[] @relation("AssistantConversationCreatedBy")
     assistantMessages      AssistantMessage[]      @relation("AssistantMessageCreatedBy")
     assistantRuns          AssistantRun[]          @relation("AssistantRunUser")
+    assistantPreferences AssistantPreference[]
     assistantFeedback      AssistantFeedback[]     @relation("AssistantFeedbackUser")
 }
 
@@ -2270,6 +2387,12 @@ enum FinancePurchaseKind {
     DIRECT_EXPENSE
     REIMBURSEMENT
     LABOR
+}
+
+/// Why the school bought something: for its own use, or as stock to sell on to students (uniforms, books).
+enum FinancePurchasePurpose {
+    SCHOOL_USE
+    RESALE
 }
 
 enum FinancePurchaseStatus {
@@ -2635,6 +2758,7 @@ model FinancePurchase {
     payment         FinancePayment?       @relation(fields: [paymentId], references: [id])
     paymentId       String?               @unique
     kind            FinancePurchaseKind   @default(PURCHASE)
+    purpose         FinancePurchasePurpose @default(SCHOOL_USE)
     status          FinancePurchaseStatus @default(UNPAID)
     title           String
     description     String?

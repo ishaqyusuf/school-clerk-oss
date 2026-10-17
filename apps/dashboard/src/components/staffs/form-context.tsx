@@ -10,6 +10,7 @@ const defaultValues: Type = {
 	email: undefined,
 	assignments: [],
 	role: "Teacher",
+	deliveryMethod: "email",
 	staffId: undefined,
 };
 

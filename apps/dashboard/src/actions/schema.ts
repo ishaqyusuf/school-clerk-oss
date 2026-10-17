@@ -64,6 +64,9 @@ export const createStaffSchema = z
 		staffId: z.string().optional().nullable(),
 		email: z.string().email(),
 		role: staffRoleSchema.default("Teacher"),
+		// "link" issues the onboarding link for the admin to share instead of
+		// queuing the invitation email.
+		deliveryMethod: z.enum(["email", "link"]).default("email"),
 		assignments: z
 			.array(
 				z.object({

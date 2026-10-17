@@ -7,6 +7,7 @@ import {
 import { staffPageQuery } from "@/app/[domain]/(sidebar)/staff/teachers/search-params";
 import { MiddaySearchFilter } from "@/components/midday-search-filter/search-filter";
 import { useLoadingToast } from "@/hooks/use-loading-toast";
+import { copyTextToClipboard } from "@/utils/clipboard";
 import { useStaffParams } from "@/hooks/use-staff-params";
 import { useTRPC } from "@/trpc/client";
 import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
@@ -89,34 +90,6 @@ function statusLabel(status: string) {
 			return "Pending onboarding";
 		default:
 			return "Invite not sent";
-	}
-}
-
-async function copyTextToClipboard(text: string) {
-	if (navigator.clipboard?.writeText) {
-		try {
-			await navigator.clipboard.writeText(text);
-			return true;
-		} catch {
-			// Fall through to the textarea fallback for browsers that expose the
-			// Clipboard API but deny writes outside a focused/secure context.
-		}
-	}
-
-	const textarea = document.createElement("textarea");
-	textarea.value = text;
-	textarea.setAttribute("readonly", "");
-	textarea.style.position = "fixed";
-	textarea.style.left = "-9999px";
-	textarea.style.top = "0";
-	document.body.appendChild(textarea);
-	textarea.focus();
-	textarea.select();
-
-	try {
-		return document.execCommand("copy");
-	} finally {
-		document.body.removeChild(textarea);
 	}
 }
 

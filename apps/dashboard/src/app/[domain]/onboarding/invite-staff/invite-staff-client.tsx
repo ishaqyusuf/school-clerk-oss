@@ -12,7 +12,7 @@ import { Card, CardContent } from "@school-clerk/ui/card";
 
 export function InviteStaffOnboardingClient({ domain }: { domain: string }) {
   void domain;
-  const [inviteSent, setInviteSent] = useState(false);
+  const [inviteSent, setInviteSent] = useState<"email" | "link" | null>(null);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
@@ -46,7 +46,11 @@ export function InviteStaffOnboardingClient({ domain }: { domain: string }) {
             <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
               <div className="flex items-center gap-3 text-emerald-900">
                 <CheckCircle2 className="h-5 w-5" />
-                <p className="font-medium">Onboarding invite sent</p>
+                <p className="font-medium">
+                  {inviteSent === "link"
+                    ? "Invite link created"
+                    : "Onboarding invite sent"}
+                </p>
               </div>
               <p className="mt-2 text-sm leading-6 text-emerald-900/80">
                 Your workspace now has its first team invitation in flight. You
@@ -66,7 +70,7 @@ export function InviteStaffOnboardingClient({ domain }: { domain: string }) {
           <FormContext>
             <StaffForm
               submitLabel="Send onboarding invite"
-              onSuccess={() => setInviteSent(true)}
+              onSuccess={(data) => setInviteSent(data.inviteLink ? "link" : "email")}
             />
           </FormContext>
 

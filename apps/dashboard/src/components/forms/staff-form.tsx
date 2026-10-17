@@ -5,15 +5,17 @@ import type { Option } from "@school-clerk/ui/multiple-selector";
 import { useAction } from "next-safe-action/hooks";
 
 import { useLoadingToast } from "@/hooks/use-loading-toast";
+import { copyTextToClipboard } from "@/utils/clipboard";
 import { useStaffParams } from "@/hooks/use-staff-params";
 import { useTRPC } from "@/trpc/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { useFieldArray, useWatch } from "react-hook-form";
+import { useEffect, useState } from "react";
+import { type FieldErrors, useFieldArray, useWatch } from "react-hook-form";
 
 import { Button } from "@school-clerk/ui/button";
 import { FormDescription } from "@school-clerk/ui/form";
-import { CheckCheck, Plus, Trash2, X } from "lucide-react";
+import { Input } from "@school-clerk/ui/input";
+import { CheckCheck, Copy, Link2, Plus, Trash2, X } from "lucide-react";
 
 import FormInput from "../controls/form-input";
 import FormMultipleSelector from "../controls/form-multiple-selector";
@@ -33,15 +35,18 @@ const ASSIGNMENT_SCOPE_OPTIONS = [
   { label: "Subject across class", value: "CLASS_SUBJECT" },
 ];
 
+type SaveResult = {
+  inviteError: string | null;
+  invited: boolean;
+  inviteLink: string | null;
+  staffId: string;
+};
+
 type Props = {
   staffId?: string | null;
   submitLabel?: string;
   closeOnSuccess?: boolean;
-  onSuccess?: (data: {
-    inviteError: string | null;
-    invited: boolean;
-    staffId: string;
-  }) => void;
+  onSuccess?: (data: SaveResult) => void;
 };
 
 function roleSupportsAssignments(role?: string | null) {
@@ -91,6 +96,9 @@ export function Form({
   const queryClient = useQueryClient();
   const role = useWatch({ control, name: "role" });
   const assignmentValues = useWatch({ control, name: "assignments" });
+  // Holds a link-only invite whose clipboard write was blocked, so the admin
+  // can still copy it before the form closes.
+  const [pendingInvite, setPendingInvite] = useState<SaveResult | null>(null);
   const assignmentsFieldArray = useFieldArray({
     control,
     name: "assignments",
@@ -114,8 +122,19 @@ export function Form({
     }
   }, [assignmentsFieldArray, role]);
 
+  function finishSave(data: SaveResult) {
+    setPendingInvite(null);
+
+    if (closeOnSuccess) {
+      setParams({ createStaff: null });
+      reset();
+    }
+
+    onSuccess?.(data);
+  }
+
   const saveStaff = useAction(saveStaffAction, {
-    onSuccess({ data }) {
+    async onSuccess({ data, input }) {
       if (!data) return;
 
       queryClient.invalidateQueries({
@@ -129,25 +148,67 @@ export function Form({
         });
       }
 
+      if (data.inviteLink) {
+        let copied = false;
+        try {
+          copied = await copyTextToClipboard(data.inviteLink);
+        } catch {
+          // The link panel below is the fallback when clipboard writes are
+          // blocked after the server round trip.
+        }
+
+        if (copied) {
+          toast.success("Invite link copied. No email was sent.");
+          finishSave(data);
+          return;
+        }
+
+        setPendingInvite(data);
+        toast.display({
+          title: "Invite link ready",
+          description: "Copy the link below and share it with the staff member.",
+          duration: 6000,
+        });
+        return;
+      }
+
       if (data.inviteError) {
-        toast.error("Staff saved, but onboarding email could not be sent.");
+        toast.error(
+          input.deliveryMethod === "link"
+            ? "Staff saved, but the invite link could not be created."
+            : "Staff saved, but onboarding email could not be sent.",
+        );
       } else if (data.invited) {
         toast.success("Onboarding email sent.");
       } else {
         toast.success(staffId ? "Staff updated." : "Staff saved.");
       }
 
-      if (closeOnSuccess) {
-        setParams({ createStaff: null });
-        reset();
-      }
-
-      onSuccess?.(data);
+      finishSave(data);
     },
     onError({ error }) {
       toast.error(error.serverError || "Could not save staff.");
     },
   });
+
+  // Some refinements (e.g. "teachers need a classroom") have no inline field,
+  // so surface the first message instead of letting submit look dead.
+  function onInvalid(errors: FieldErrors) {
+    const findMessage = (value: unknown): string | undefined => {
+      if (!value || typeof value !== "object") return undefined;
+      const { message } = value as { message?: unknown };
+      if (typeof message === "string" && message) return message;
+      for (const [key, nested] of Object.entries(value)) {
+        // `ref` points at the DOM input; never walk into it.
+        if (key === "ref") continue;
+        const found = findMessage(nested);
+        if (found) return found;
+      }
+      return undefined;
+    };
+
+    toast.error(findMessage(errors) ?? "Check the form and try again.");
+  }
 
   const classroomOptions = (formData?.classrooms ?? []) as Option[];
   const classOptions = (formData?.classes ?? []) as Option[];
@@ -183,10 +244,60 @@ export function Form({
           <p className="text-sm font-medium">Invite-first onboarding</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Save an email, choose a role, assign classrooms and subjects, then
-            School Clerk sends the onboarding link automatically.
+            School Clerk emails the onboarding link. Prefer to share it
+            yourself? Use Copy invite link instead and no email is sent.
           </p>
         </div>
       )}
+
+      {pendingInvite?.inviteLink ? (
+        <div className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Invite link ready</p>
+            <p className="text-sm text-muted-foreground">
+              Staff saved without sending an email. Share this link with them;
+              it expires in 24 hours.
+            </p>
+          </div>
+          <Input
+            readOnly
+            value={pendingInvite.inviteLink}
+            onFocus={(event) => event.currentTarget.select()}
+            className="font-mono text-xs"
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => finishSave(pendingInvite)}
+            >
+              Done
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={async () => {
+                if (!pendingInvite.inviteLink) return;
+                const copied = await copyTextToClipboard(
+                  pendingInvite.inviteLink,
+                );
+
+                if (copied) {
+                  toast.success("Invite link copied.");
+                  finishSave(pendingInvite);
+                  return;
+                }
+
+                toast.error("Select and copy the link manually.");
+              }}
+            >
+              <Copy className="mr-1.5 size-3.5" />
+              Copy link
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
         <FormInput
@@ -475,12 +586,37 @@ export function Form({
           onSubmit={handleSubmit((data) =>
             saveStaff.execute({
               ...data,
+              deliveryMethod: "email",
               staffId: staffId ?? data.staffId,
             }),
+            onInvalid,
           )}
         >
-          <div className="flex justify-end">
-            <SubmitButton size="sm" isSubmitting={saveStaff.isExecuting}>
+          <div className="flex justify-end gap-2">
+            {staffId ? null : (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={saveStaff.isExecuting || Boolean(pendingInvite)}
+                onClick={handleSubmit((data) =>
+                  saveStaff.execute({
+                    ...data,
+                    deliveryMethod: "link",
+                    staffId: data.staffId,
+                  }),
+                  onInvalid,
+                )}
+              >
+                <Link2 className="mr-1.5 size-3.5" />
+                Copy invite link
+              </Button>
+            )}
+            <SubmitButton
+              size="sm"
+              isSubmitting={saveStaff.isExecuting}
+              disabled={Boolean(pendingInvite)}
+            >
               {submitLabel}
             </SubmitButton>
           </div>

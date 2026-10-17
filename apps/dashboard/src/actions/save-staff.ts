@@ -580,22 +580,32 @@ export const saveStaffAction = actionClient
 			};
 		}, { isolationLevel: "Serializable" });
 
+		const copyLinkOnly = parsedInput.deliveryMethod === "link";
 		let invited = false;
 		let inviteError: string | null = null;
+		let copyableInviteLink: string | null = null;
 
 		if (savedStaff.shouldSendInvite) {
 			try {
-				const inviteLink = await sendOnboardingInvite({
-					email: savedStaff.email,
-					invitedByName: actor?.name ?? null,
-					roleLabel: parsedInput.role,
-					schoolName: school.name,
-					staffName: savedStaff.name,
-					staffId: savedStaff.id,
-					tenantSlug,
-					userId: savedStaff.userId,
-				});
+				const inviteLink = copyLinkOnly
+					? await createCopyableOnboardingLink({
+							email: savedStaff.email,
+							staffId: savedStaff.id,
+							tenantSlug,
+							userId: savedStaff.userId,
+						})
+					: await sendOnboardingInvite({
+							email: savedStaff.email,
+							invitedByName: actor?.name ?? null,
+							roleLabel: parsedInput.role,
+							schoolName: school.name,
+							staffName: savedStaff.name,
+							staffId: savedStaff.id,
+							tenantSlug,
+							userId: savedStaff.userId,
+						});
 				invited = true;
+				if (copyLinkOnly) copyableInviteLink = inviteLink;
 				await tryCreateStaffInvitationNotification({
 					actorName: actor?.name ?? null,
 					actorUserId: profile.auth?.userId ?? null,
@@ -621,7 +631,11 @@ export const saveStaffAction = actionClient
 					},
 				});
 			} catch (error) {
-				console.error("[staff-invite] Failed to queue invite email");
+				console.error(
+					copyLinkOnly
+						? "[staff-invite] Failed to issue copyable invite link"
+						: "[staff-invite] Failed to queue invite email",
+				);
 				inviteError = inviteErrorMessage(error);
 			}
 		}
@@ -631,6 +645,7 @@ export const saveStaffAction = actionClient
 		return {
 			invited,
 			inviteError,
+			inviteLink: copyableInviteLink,
 			staffId: savedStaff.id,
 		};
 	});
