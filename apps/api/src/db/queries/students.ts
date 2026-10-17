@@ -1635,7 +1635,8 @@ async function serializeStudentImportJob(
     triggerAccessToken: includeTriggerAccessToken ? await createStudentImportJobTriggerAccessToken(
       job.triggerRunId,
     ) : null,
-    rows: rows.map((row) => ({
+    // Rows still PENDING/RUNNING have no result yet; reporting them would read as failures while a job runs.
+    rows: rows.filter((row) => row.status !== "PENDING" && row.status !== "RUNNING").map((row) => ({
       lineNumber: row.lineNumber,
       action: row.action,
       status: jobRowStatusToImportResultStatus(row.status),
@@ -1786,12 +1787,14 @@ export async function getStudentImportJob(
     });
   }
 
+  // Polled every 3 s while a job runs; the stored payload is never returned, so skip reading it.
   const rows = await (db as any).studentImportJobRow.findMany({
     where: {
       jobId: job.id,
       deletedAt: null,
     },
     orderBy: { lineNumber: "asc" },
+    omit: { payload: true },
   });
 
   await authorizeStudentImport(db, studentImportSessionAuthority(ctx));

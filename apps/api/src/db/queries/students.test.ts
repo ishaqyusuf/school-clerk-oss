@@ -1800,6 +1800,38 @@ describe("student import jobs", () => {
 		await expect(getStudentImportJob(ctx)).resolves.toBeNull();
 	});
 
+	test("reports only settled rows while a job is still running", async () => {
+		const { ctx, jobs, jobRows } = createImportJobCtx();
+		jobs.push({
+			id: "job-running",
+			status: "RUNNING",
+			totalRows: 2,
+			processedRows: 1,
+			createdStudents: 1,
+			keptMatches: 0,
+			updatedMatches: 0,
+			termSheetsCreated: 1,
+			skippedRows: 0,
+			failedRows: 0,
+			triggerRunId: null,
+			schoolProfileId: "school-1",
+			schoolSessionId: "session-1",
+			sessionTermId: "term-1",
+			createdByUserId: "user-1",
+			deletedAt: null,
+		});
+		jobRows.push(
+			{ id: "row-1", jobId: "job-running", lineNumber: 1, action: "import_new", status: "CREATED", studentId: "student-new", termSheetCreated: true, reason: null, deletedAt: null },
+			{ id: "row-2", jobId: "job-running", lineNumber: 2, action: "import_new", status: "PENDING", studentId: null, termSheetCreated: false, reason: null, deletedAt: null },
+		);
+
+		const job = await getStudentImportJob(ctx, { jobId: "job-running" });
+
+		expect(job?.rows).toEqual([
+			expect.objectContaining({ lineNumber: 1, status: "created" }),
+		]);
+	});
+
 	test("processes only pending rows and does not double-count completed rows", async () => {
 		const { ctx, jobs, jobRows, createdTermForms } = createImportJobCtx();
 		jobs.push({
