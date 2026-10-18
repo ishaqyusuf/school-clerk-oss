@@ -114,6 +114,7 @@ export const staffRouter = createTRPCRouter({
 
 			if (!schoolId || !sessionId || !termId) {
 				return {
+					accessGrid: [],
 					classes: [],
 					classrooms: [],
 					roles: [],
@@ -151,6 +152,7 @@ export const staffRouter = createTRPCRouter({
 						departmentName: true,
 						classRoom: {
 							select: {
+								id: true,
 								name: true,
 							},
 						},
@@ -381,6 +383,30 @@ export const staffRouter = createTRPCRouter({
 					]),
 				).values(),
 			).sort((a, b) => a.label.localeCompare(b.label));
+			// Classes → arms → offered subjects, for the staff form's access grid.
+			// Each offering carries its base subjectId so arm cells line up with
+			// the class-wide subject columns.
+			const accessGrid = classes.map((classroom) => ({
+				id: classroom.id,
+				name: classroom.name ?? "Untitled class",
+				departments: classrooms
+					.filter((department) => department.classRoom?.id === classroom.id)
+					.map((department) => ({
+						id: department.id,
+						name: classroomDisplayName({
+							className: department.classRoom?.name,
+							departmentName: department.departmentName,
+						}),
+						offerings: subjects
+							.filter(
+								(subject) => subject.classRoomDepartmentId === department.id,
+							)
+							.map((subject) => ({
+								departmentSubjectId: subject.id,
+								subjectId: subject.subjectId,
+							})),
+					})),
+			}));
 
 			const legacyAssignments = (
 				staffProfile?.termProfiles[0]?.classroomsProfiles ?? []
@@ -414,6 +440,7 @@ export const staffRouter = createTRPCRouter({
 
 			return {
 				roles: [...STAFF_ROLES],
+				accessGrid,
 				classes: classOptions,
 				classrooms: classroomOptions,
 				subjects: subjectOptions,

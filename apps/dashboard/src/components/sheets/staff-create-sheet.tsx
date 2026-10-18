@@ -15,7 +15,7 @@ export function StaffCreateSheet() {
 		<CustomSheet
 			floating
 			rounded
-			size="lg"
+			size="2xl"
 			open={isOpen}
 			onOpenChange={() => setParams(null)}
 			sheetName="create-staff"
@@ -25,7 +25,7 @@ export function StaffCreateSheet() {
 			</SheetHeader>
 			<CustomSheetContent className="flex flex-col gap-2">
 				<FormContext>
-					<Form submitLabel="Send onboarding" closeOnSuccess />
+					<Form submitLabel="Send invite" closeOnSuccess />
 				</FormContext>
 			</CustomSheetContent>
 		</CustomSheet>

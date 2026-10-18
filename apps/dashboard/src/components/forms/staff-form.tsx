@@ -1,7 +1,6 @@
 "use client";
 
 import { saveStaffAction } from "@/actions/save-staff";
-import type { Option } from "@school-clerk/ui/multiple-selector";
 import { useAction } from "next-safe-action/hooks";
 
 import { useLoadingToast } from "@/hooks/use-loading-toast";
@@ -10,30 +9,38 @@ import { useStaffParams } from "@/hooks/use-staff-params";
 import { useTRPC } from "@/trpc/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { type FieldErrors, useFieldArray, useWatch } from "react-hook-form";
+import { type FieldErrors, useController, useWatch } from "react-hook-form";
 
 import { Button } from "@school-clerk/ui/button";
-import { FormDescription } from "@school-clerk/ui/form";
 import { Input } from "@school-clerk/ui/input";
-import { CheckCheck, Copy, Link2, Plus, Trash2, X } from "lucide-react";
+import { Copy, Link2 } from "lucide-react";
 
 import FormInput from "../controls/form-input";
-import FormMultipleSelector from "../controls/form-multiple-selector";
 import FormSelect from "../controls/form-select";
 import { CustomSheetContentPortal } from "../custom-sheet-content";
 import { useStaffFormContext } from "../staffs/form-context";
+import {
+  type AccessGridClass,
+  StaffAccessGrid,
+} from "../staffs/staff-access-grid";
 import { SubmitButton } from "../submit-button";
 
 const ASSIGNMENT_ROLES = new Set(["Teacher"]);
-const SUBJECT_ACCESS_MODE_OPTIONS = [
-  { label: "Selected subjects", value: "SELECTED" },
-  { label: "All subjects in this classroom", value: "ALL" },
-];
-const ASSIGNMENT_SCOPE_OPTIONS = [
-  { label: "Whole class", value: "CLASS" },
-  { label: "Department/arm", value: "DEPARTMENT" },
-  { label: "Subject across class", value: "CLASS_SUBJECT" },
-];
+
+// First message in a react-hook-form error tree. Some refinements (e.g.
+// "teachers need a classroom") have no inline field of their own.
+function findErrorMessage(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const { message } = value as { message?: unknown };
+  if (typeof message === "string" && message) return message;
+  for (const [key, nested] of Object.entries(value)) {
+    // `ref` points at the DOM input; never walk into it.
+    if (key === "ref") continue;
+    const found = findErrorMessage(nested);
+    if (found) return found;
+  }
+  return undefined;
+}
 
 type SaveResult = {
   inviteError: string | null;
@@ -95,15 +102,12 @@ export function Form({
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const role = useWatch({ control, name: "role" });
-  const assignmentValues = useWatch({ control, name: "assignments" });
+  const email = useWatch({ control, name: "email" });
   // Holds a link-only invite whose clipboard write was blocked, so the admin
   // can still copy it before the form closes.
   const [pendingInvite, setPendingInvite] = useState<SaveResult | null>(null);
-  const assignmentsFieldArray = useFieldArray({
-    control,
-    name: "assignments",
-    keyName: "_id",
-  });
+  const { field: assignmentsField, fieldState: assignmentsState } =
+    useController({ control, name: "assignments" });
 
   const { data: formData, isLoading } = useQuery(
     trpc.staff.getFormData.queryOptions(
@@ -116,11 +120,12 @@ export function Form({
     ),
   );
 
+  const assignmentCount = assignmentsField.value?.length ?? 0;
   useEffect(() => {
-    if (!roleSupportsAssignments(role) && assignmentsFieldArray.fields.length) {
-      assignmentsFieldArray.replace([]);
+    if (!roleSupportsAssignments(role) && assignmentCount) {
+      setValue("assignments", []);
     }
-  }, [assignmentsFieldArray, role]);
+  }, [assignmentCount, role, setValue]);
 
   function finishSave(data: SaveResult) {
     setPendingInvite(null);
@@ -191,28 +196,12 @@ export function Form({
     },
   });
 
-  // Some refinements (e.g. "teachers need a classroom") have no inline field,
-  // so surface the first message instead of letting submit look dead.
+  // Surface the first message so submit never looks dead.
   function onInvalid(errors: FieldErrors) {
-    const findMessage = (value: unknown): string | undefined => {
-      if (!value || typeof value !== "object") return undefined;
-      const { message } = value as { message?: unknown };
-      if (typeof message === "string" && message) return message;
-      for (const [key, nested] of Object.entries(value)) {
-        // `ref` points at the DOM input; never walk into it.
-        if (key === "ref") continue;
-        const found = findMessage(nested);
-        if (found) return found;
-      }
-      return undefined;
-    };
-
-    toast.error(findMessage(errors) ?? "Check the form and try again.");
+    toast.error(findErrorMessage(errors) ?? "Check the form and try again.");
   }
 
-  const classroomOptions = (formData?.classrooms ?? []) as Option[];
-  const classOptions = (formData?.classes ?? []) as Option[];
-  const allSubjectOptions = (formData?.subjects ?? []) as Option[];
+  const allSubjectOptions = formData?.subjects ?? [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -239,16 +228,7 @@ export function Form({
             </p>
           ) : null}
         </div>
-      ) : (
-        <div className="rounded-xl border bg-muted/30 p-4">
-          <p className="text-sm font-medium">Invite-first onboarding</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Save an email, choose a role, assign classrooms and subjects, then
-            School Clerk emails the onboarding link. Prefer to share it
-            yourself? Use Copy invite link instead and no email is sent.
-          </p>
-        </div>
-      )}
+      ) : null}
 
       {pendingInvite?.inviteLink ? (
         <div className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-4">
@@ -299,10 +279,10 @@ export function Form({
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem]">
         <FormInput
           name="email"
-          label="Staff email"
+          label="Email"
           placeholder="teacher@school.com"
           control={control}
           inputProps={{
@@ -318,268 +298,27 @@ export function Form({
         />
       </div>
 
-      <div className="rounded-xl border p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium">Classroom and subject access</p>
-            <p className="text-sm text-muted-foreground">
-              Assignments are only enabled for teaching staff.
-            </p>
-          </div>
-          {roleSupportsAssignments(role) ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                assignmentsFieldArray.append({
-                  scope: "DEPARTMENT",
-                  classRoomId: "",
-                  classRoomDepartmentId: "",
-                  subjectId: "",
-                  departmentSubjectId: "",
-                  subjectAccessMode: "SELECTED",
-                  departmentSubjectIds: [],
-                })
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add classroom
-            </Button>
-          ) : null}
-        </div>
-
-        {roleSupportsAssignments(role) ? (
-          <div className="mt-4 space-y-4">
-            {assignmentsFieldArray.fields.length ? (
-              assignmentsFieldArray.fields.map((field, index) => {
-                const assignmentScope =
-                  assignmentValues?.[index]?.scope ?? "DEPARTMENT";
-                const selectedClass = assignmentValues?.[index]?.classRoomId;
-                const selectedClassroom =
-                  assignmentValues?.[index]?.classRoomDepartmentId;
-                const subjectOptions = (formData?.subjectsByClassroom?.[
-                  selectedClassroom
-                ] ?? []) as Option[];
-                const classSubjectOptions = (formData?.subjectsByClass?.[
-                  selectedClass
-                ] ?? allSubjectOptions) as Option[];
-                const selectedSubjectIds =
-                  assignmentValues?.[index]?.departmentSubjectIds ?? [];
-                const subjectAccessMode =
-                  assignmentValues?.[index]?.subjectAccessMode ?? "SELECTED";
-                const grantsAllSubjects = subjectAccessMode === "ALL";
-                const subjectIds = subjectOptions.map((option) => option.value);
-                const allSubjectsSelected =
-                  subjectIds.length > 0 &&
-                  subjectIds.every((subjectId) =>
-                    selectedSubjectIds.includes(subjectId),
-                  );
-
-                return (
-                  <div
-                    key={field._id}
-                    className="rounded-xl border bg-background p-4"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium">
-                        Assignment {index + 1}
-                      </p>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => assignmentsFieldArray.remove(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="mt-4 grid gap-4">
-                      <FormSelect
-                        name={`assignments.${index}.scope`}
-                        label="Assignment scope"
-                        control={control}
-                        options={ASSIGNMENT_SCOPE_OPTIONS}
-                        placeholder="Select assignment scope"
-                      />
-
-                      {assignmentScope === "CLASS" ? (
-                        <>
-                          <FormSelect
-                            name={`assignments.${index}.classRoomId`}
-                            label="Class"
-                            control={control}
-                            options={classOptions}
-                            placeholder={
-                              isLoading ? "Loading classes..." : "Select class"
-                            }
-                          />
-                          <FormDescription>
-                            Includes every current and future department and
-                            subject under this class for the active term.
-                          </FormDescription>
-                        </>
-                      ) : null}
-
-                      {assignmentScope === "CLASS_SUBJECT" ? (
-                        <>
-                          <FormSelect
-                            name={`assignments.${index}.classRoomId`}
-                            label="Class"
-                            control={control}
-                            options={classOptions}
-                            placeholder={
-                              isLoading ? "Loading classes..." : "Select class"
-                            }
-                          />
-                          <FormSelect
-                            name={`assignments.${index}.subjectId`}
-                            label="Subject across class"
-                            control={control}
-                            options={classSubjectOptions}
-                            placeholder={
-                              selectedClass
-                                ? "Select subject"
-                                : "Choose a class first"
-                            }
-                          />
-                          <FormDescription>
-                            Applies only to departments under this class where
-                            the subject is offered now or added later.
-                          </FormDescription>
-                        </>
-                      ) : null}
-
-                      {assignmentScope === "DEPARTMENT" ? (
-                        <>
-                          <FormSelect
-                            name={`assignments.${index}.classRoomDepartmentId`}
-                            label="Department/arm"
-                            control={control}
-                            options={classroomOptions}
-                            placeholder={
-                              isLoading
-                                ? "Loading departments..."
-                                : "Select department"
-                            }
-                          />
-
-                          <FormSelect
-                            name={`assignments.${index}.subjectAccessMode`}
-                            label="Subject access"
-                            control={control}
-                            options={SUBJECT_ACCESS_MODE_OPTIONS}
-                            placeholder="Select subject access"
-                          />
-
-                          <div className="space-y-2">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <div>
-                                <p className="text-sm font-medium">
-                                  Subjects in this department
-                                </p>
-                                {grantsAllSubjects ? (
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    This staff member can access every current and
-                                    future subject in this department.
-                                  </p>
-                                ) : null}
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={
-                                    grantsAllSubjects ||
-                                    !subjectIds.length ||
-                                    allSubjectsSelected
-                                  }
-                                  onClick={() =>
-                                    setValue(
-                                      `assignments.${index}.departmentSubjectIds`,
-                                      subjectIds,
-                                      {
-                                        shouldDirty: true,
-                                        shouldValidate: true,
-                                      },
-                                    )
-                                  }
-                                >
-                                  <CheckCheck className="mr-2 h-4 w-4" />
-                                  Select all
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  disabled={
-                                    grantsAllSubjects ||
-                                    !selectedSubjectIds.length
-                                  }
-                                  onClick={() =>
-                                    setValue(
-                                      `assignments.${index}.departmentSubjectIds`,
-                                      [],
-                                      {
-                                        shouldDirty: true,
-                                        shouldValidate: true,
-                                      },
-                                    )
-                                  }
-                                >
-                                  <X className="mr-2 h-4 w-4" />
-                                  Deselect all
-                                </Button>
-                              </div>
-                            </div>
-                            <FormMultipleSelector
-                              control={control}
-                              name={`assignments.${index}.departmentSubjectIds`}
-                              options={subjectOptions}
-                              disabled={grantsAllSubjects}
-                              placeholder={
-                                grantsAllSubjects
-                                  ? "All current and future subjects are included"
-                                  : selectedClassroom
-                                    ? "Select subjects"
-                                    : "Choose a department first"
-                              }
-                            />
-                            {grantsAllSubjects ? null : (
-                              <FormDescription>
-                                Select one subject for a precise department-subject
-                                assignment, or choose multiple subjects for the
-                                same department.
-                              </FormDescription>
-                            )}
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-                Add one or more classroom assignments. Each classroom can have
-                multiple subjects.
-              </div>
-            )}
-            <FormDescription>
-              Recommendation: keep classroom and subject assignment limited to
-              the `Teacher` role for now. If `Admin` needs broad academic
-              visibility later, add a separate all-classrooms permission rather
-              than manual classroom assignment.
-            </FormDescription>
-          </div>
-        ) : (
-          <div className="mt-4 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-            This role does not require classroom or subject assignment.
-          </div>
-        )}
-      </div>
+      {roleSupportsAssignments(role) ? (
+        <StaffAccessGrid
+          value={assignmentsField.value ?? []}
+          onChange={assignmentsField.onChange}
+          grid={(formData?.accessGrid ?? []) as AccessGridClass[]}
+          subjects={allSubjectOptions}
+          invalid={Boolean(assignmentsState.error)}
+          isLoading={isLoading}
+          viewerLabel={email?.trim() || undefined}
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {role ? `${role}s don't need classroom access.` : null}
+        </p>
+      )}
+      {roleSupportsAssignments(role) && assignmentsState.error ? (
+        <p className="-mt-3 text-sm text-destructive">
+          {findErrorMessage(assignmentsState.error) ??
+            "Tick at least one classroom or subject."}
+        </p>
+      ) : null}
 
       <CustomSheetContentPortal>
         <form
@@ -609,7 +348,7 @@ export function Form({
                 )}
               >
                 <Link2 className="mr-1.5 size-3.5" />
-                Copy invite link
+                Copy link
               </Button>
             )}
             <SubmitButton
