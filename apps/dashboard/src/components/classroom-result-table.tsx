@@ -69,6 +69,16 @@ type SortColumn = "student" | "grandTotal";
 type SortDirection = "asc" | "desc";
 type SortState = { column: SortColumn; direction: SortDirection } | null;
 
+function showSubjectTotal(assessmentCount: number, totalsOnly: boolean) {
+	return totalsOnly || assessmentCount !== 1;
+}
+
+function subjectColumnCount(assessmentCount: number, totalsOnly: boolean) {
+	return totalsOnly
+		? 1
+		: assessmentCount + Number(showSubjectTotal(assessmentCount, totalsOnly));
+}
+
 function csvCell(value: string | number) {
 	const text = String(value ?? "");
 	if (/[",\n]/.test(text)) {
@@ -351,13 +361,14 @@ export function ClassroomResultTable({
 			}));
 	}, [resultRows]);
 
-	const totalAssessments = useMemo(
+	const totalSubjectColumns = useMemo(
 		() =>
 			visibleSubjects.reduce(
-				(count, subject) => count + subject.assessments.length,
+				(count, subject) =>
+					count + subjectColumnCount(subject.assessments.length, totalsOnly),
 				0,
 			),
-		[visibleSubjects],
+		[totalsOnly, visibleSubjects],
 	);
 
 	const openSubjectOverview = useQuery(
@@ -390,7 +401,9 @@ export function ClassroomResultTable({
 						`${subject.subject.title} - ${getAssessmentDisplayTitle(assessment)}`,
 					);
 				}
-				headers.push(`${subject.subject.title} Total`);
+				if (showSubjectTotal(subject.assessments.length, totalsOnly)) {
+					headers.push(`${subject.subject.title} Total`);
+				}
 			}
 		} else {
 			for (const subject of visibleSubjects) {
@@ -411,11 +424,13 @@ export function ClassroomResultTable({
 							),
 						);
 					}
-					values.push(
-						subjectRow.subjectTotal > 0
-							? subjectRow.subjectTotal.toFixed(1)
-							: "",
-					);
+					if (showSubjectTotal(subjectRow.assessmentScores.length, totalsOnly)) {
+						values.push(
+							subjectRow.subjectTotal > 0
+								? subjectRow.subjectTotal.toFixed(1)
+								: "",
+						);
+					}
 				}
 				values.push(
 					row.grandTotal > 0 ? row.grandTotal.toFixed(1) : "",
@@ -455,7 +470,9 @@ export function ClassroomResultTable({
 						(assessment) =>
 							`<th>${subject.subject.title} - ${getAssessmentDisplayTitle(assessment)}</th>`,
 					),
-					`<th>${subject.subject.title} Total</th>`,
+					...(showSubjectTotal(subject.assessments.length, totalsOnly)
+						? [`<th>${subject.subject.title} Total</th>`]
+						: []),
 				];
 			}),
 			"<th>Grand Total</th>",
@@ -476,9 +493,11 @@ export function ClassroomResultTable({
 							),
 						);
 					}
-					cells.push(
-						`<td>${subjectRow.subjectTotal > 0 ? subjectRow.subjectTotal.toFixed(1) : "-"}</td>`,
-					);
+					if (showSubjectTotal(subjectRow.assessmentScores.length, totalsOnly)) {
+						cells.push(
+							`<td>${subjectRow.subjectTotal > 0 ? subjectRow.subjectTotal.toFixed(1) : "-"}</td>`,
+						);
+					}
 				}
 				cells.push(
 					`<td>${row.grandTotal > 0 ? row.grandTotal.toFixed(1) : "-"}</td>`,
@@ -535,7 +554,7 @@ export function ClassroomResultTable({
 			...visibleSubjects.map((subject) =>
 				totalsOnly
 					? `<th>${subject.subject.title} Total</th>`
-					: `<th colspan="${subject.assessments.length + 1}" scope="colgroup">${subject.subject.title}</th>`,
+					: `<th colspan="${subjectColumnCount(subject.assessments.length, totalsOnly)}" scope="colgroup">${subject.subject.title}</th>`,
 			),
 			`<th rowspan="${headerRowSpan}">Grand Total</th>`,
 			`<th rowspan="${headerRowSpan}">%</th>`,
@@ -548,7 +567,9 @@ export function ClassroomResultTable({
 							(assessment) =>
 								`<th scope="col">${getAssessmentDisplayTitle(assessment)}</th>`,
 						),
-						'<th scope="col">Total</th>',
+						...(showSubjectTotal(subject.assessments.length, totalsOnly)
+							? ['<th scope="col">Total</th>']
+							: []),
 					])
 					.join("")}</tr>`;
 
@@ -562,7 +583,9 @@ export function ClassroomResultTable({
 					if (!totalsOnly) {
 						cells.push(...subjectRow.assessmentScores.map(() => "<td></td>"));
 					}
-					cells.push("<td></td>");
+					if (showSubjectTotal(subjectRow.assessmentScores.length, totalsOnly)) {
+						cells.push("<td></td>");
+					}
 				}
 				cells.push("<td></td>", "<td></td>");
 				return `<tr>${cells.join("")}</tr>`;
@@ -814,10 +837,7 @@ export function ClassroomResultTable({
 									? students.length
 									: `${filteredStudents.length}/${students.length}`}{" "}
 								students · {visibleSubjects.length} subjects ·{" "}
-								{totalsOnly
-									? visibleSubjects.length
-									: totalAssessments + visibleSubjects.length}{" "}
-								columns
+								{totalSubjectColumns} columns
 							</Card.Description>
 						</div>
 						<div className="flex flex-wrap items-center gap-2">
@@ -933,9 +953,10 @@ export function ClassroomResultTable({
 									{visibleSubjects.map((subject) => (
 										<TableHead
 											key={subject.id}
-												colSpan={
-													totalsOnly ? 1 : subject.assessments.length + 1
-												}
+											colSpan={subjectColumnCount(
+												subject.assessments.length,
+												totalsOnly,
+											)}
 											className={cn(
 												"text-center font-semibold bg-background",
 												dividerClass,
@@ -993,14 +1014,16 @@ export function ClassroomResultTable({
 														</div>
 													</TableHead>
 												))}
-											<TableHead
-												className={cn(
-													"text-center text-xs font-semibold min-w-[60px] bg-background",
-													dividerClass,
-												)}
-											>
-												Total
-											</TableHead>
+											{showSubjectTotal(subject.assessments.length, totalsOnly) && (
+												<TableHead
+													className={cn(
+														"text-center text-xs font-semibold min-w-[60px] bg-background",
+														dividerClass,
+													)}
+												>
+													Total
+												</TableHead>
+											)}
 										</Fragment>
 									))}
 								</TableRow>
@@ -1032,16 +1055,7 @@ export function ClassroomResultTable({
 									) : (
 									<TableRow>
 										<TableCell
-											colSpan={
-												2 +
-												visibleSubjects.reduce(
-													(total, subject) =>
-														total +
-														(totalsOnly ? 1 : subject.assessments.length + 1),
-													0,
-												) +
-												2
-											}
+											colSpan={totalSubjectColumns + 4}
 											className="h-24 text-center text-muted-foreground"
 										>
 											{ctx.isPrintStatusLoading &&
@@ -1182,11 +1196,13 @@ function StudentResultRow({
 									/>
 								);
 							})}
-						<TableCell
-							className={cn("text-center font-medium text-sm", dividerClass)}
-						>
-							{subjectTotal.total > 0 ? subjectTotal.total.toFixed(1) : "-"}
-						</TableCell>
+						{showSubjectTotal(subjectTotal.cells.length, !showAssessments) && (
+							<TableCell
+								className={cn("text-center font-medium text-sm", dividerClass)}
+							>
+								{subjectTotal.total > 0 ? subjectTotal.total.toFixed(1) : "-"}
+							</TableCell>
+						)}
 					</Fragment>
 				);
 			})}
