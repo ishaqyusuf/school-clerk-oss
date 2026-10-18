@@ -393,18 +393,20 @@ export function filterResultSubjects<TSubject extends SubjectRecord>({
 export function filterResultStudents<TStudent extends StudentTermRecord>({
   students,
   search,
-	nameFormat,
+  gender,
+  nameFormat,
 }: {
   students: TStudent[];
   search?: string | null;
-	nameFormat?: StudentNameFormat;
+  gender?: "all" | "Male" | "Female" | null;
+  nameFormat?: StudentNameFormat;
 }) {
   const query = search?.trim().toLowerCase();
-	const orderedStudents = sortResultRoster(students, nameFormat);
-  if (!query) return orderedStudents;
-
+  const orderedStudents = sortResultRoster(students, nameFormat);
+  if ((!gender || gender === "all") && !query) return orderedStudents;
   return orderedStudents.filter((student) =>
-		getStudentSearchKey(student.student, nameFormat).includes(query),
+    (!gender || gender === "all" || student.student?.gender === gender) &&
+    (!query || getStudentSearchKey(student.student, nameFormat).includes(query)),
   );
 }
 

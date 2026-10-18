@@ -9,6 +9,7 @@ export const studentReportFilterParams = {
 	departmentId: parseAsString,
 	deptId: parseAsString,
 	search: parseAsString,
+	gender: parseAsStringEnum(["all", "Male", "Female"]).withDefault("all"),
 	printStatus: parseAsStringEnum(["all", "printed", "pending"]).withDefault(
 		"all",
 	),
@@ -26,6 +27,7 @@ export const studentReportFilterParams = {
 export const studentReportSearchFilterParams = {
 	departmentId: parseAsString,
 	search: parseAsString,
+	gender: parseAsStringEnum(["all", "Male", "Female"]).withDefault("all"),
 	printStatus: parseAsStringEnum(["all", "printed", "pending"]).withDefault(
 		"all",
 	),

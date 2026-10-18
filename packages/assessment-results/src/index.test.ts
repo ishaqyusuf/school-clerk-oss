@@ -116,6 +116,41 @@ describe("result roster ordering", () => {
     ).toEqual(["male-adam", "male-umar", "female-aisha", "female-zainab"]);
   });
 
+  test("filters by gender while preserving name ordering and search", () => {
+    expect(
+      filterResultStudents({
+        students: roster,
+        gender: "Female",
+        nameFormat: "SURNAME_FIRST_OTHER",
+      }).map((student) => student.id),
+    ).toEqual(["female-aisha", "female-zainab"]);
+    expect(
+      filterResultStudents({
+        students: roster,
+        gender: "Male",
+        search: "garba",
+        nameFormat: "SURNAME_FIRST_OTHER",
+      }).map((student) => student.id),
+    ).toEqual(["male-adam"]);
+    expect(
+      filterResultStudents({ students: roster, gender: "Female", search: "garba" }),
+    ).toEqual([]);
+  });
+
+  test("all genders includes students without a recorded gender", () => {
+    const students = [
+      ...roster,
+      { id: "unknown", student: { surname: "Unknown", name: "Student", gender: null } },
+    ];
+    expect(filterResultStudents({ students, gender: "all" })).toHaveLength(5);
+    expect(filterResultStudents({ students, gender: null })).toHaveLength(5);
+    for (const gender of ["Male", "Female"] as const) {
+      expect(
+        filterResultStudents({ students, gender }).map((student) => student.id),
+      ).not.toContain("unknown");
+    }
+  });
+
   test("filters students by term-scoped report print status", () => {
     const printedAtByTermFormId = {
       "male-adam": new Date("2026-07-25T10:00:00.000Z"),

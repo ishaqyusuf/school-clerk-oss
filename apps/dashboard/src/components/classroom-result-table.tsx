@@ -192,6 +192,17 @@ function StudentReportSearchFilter({
 				type: "input",
 			},
 			{
+				value: filterKey("gender"),
+				icon: "Users",
+				type: "checkbox",
+				label: "Gender",
+				options: [
+					{ value: "all", label: "All genders" },
+					{ value: "Male", label: "Male" },
+					{ value: "Female", label: "Female" },
+				],
+			},
+			{
 				value: filterKey("printStatus"),
 				icon: "Printer",
 				type: "checkbox",
@@ -295,10 +306,13 @@ export function ClassroomResultTable({
 		});
 	}, [allSubjects, filters.subjectIds]);
 
+	const showGrandTotal = visibleSubjects.length !== 1;
+
 	const filteredStudents = useMemo(() => {
 		const nameFilteredStudents = filterResultStudents({
 			students,
 			search: deferredNameSearch,
+			gender: filters.gender,
 			nameFormat: studentNameFormat,
 		});
 
@@ -316,6 +330,7 @@ export function ClassroomResultTable({
 		ctx.isPrintStatusLoading,
 		deferredNameSearch,
 		filters.printStatus,
+		filters.gender,
 		studentNameFormat,
 		students,
 	]);
@@ -410,7 +425,8 @@ export function ClassroomResultTable({
 				headers.push(`${subject.subject.title} Total`);
 			}
 		}
-		headers.push("Grand Total", "Percentage");
+		if (showGrandTotal) headers.push("Grand Total");
+		headers.push("Percentage");
 
 		const lines = [
 			headers.map(csvCell).join(","),
@@ -432,10 +448,10 @@ export function ClassroomResultTable({
 						);
 					}
 				}
-				values.push(
-					row.grandTotal > 0 ? row.grandTotal.toFixed(1) : "",
-					row.percentage > 0 ? `${row.percentage}%` : "",
-				);
+				if (showGrandTotal) {
+					values.push(row.grandTotal > 0 ? row.grandTotal.toFixed(1) : "");
+				}
+				values.push(row.percentage > 0 ? `${row.percentage}%` : "");
 				return values.map(csvCell).join(",");
 			}),
 		];
@@ -456,7 +472,7 @@ export function ClassroomResultTable({
 			description: "Your browser should prompt you to download the CSV file.",
 			variant: "success",
 		});
-	}, [ctx.classroomName, reportRows, totalsOnly, visibleSubjects]);
+	}, [ctx.classroomName, reportRows, showGrandTotal, totalsOnly, visibleSubjects]);
 
 	const printSpreadsheet = useCallback(() => {
 		if (!reportRows.length) return;
@@ -475,7 +491,7 @@ export function ClassroomResultTable({
 						: []),
 				];
 			}),
-			"<th>Grand Total</th>",
+			...(showGrandTotal ? ["<th>Grand Total</th>"] : []),
 			"<th>%</th>",
 		];
 
@@ -499,10 +515,10 @@ export function ClassroomResultTable({
 						);
 					}
 				}
-				cells.push(
-					`<td>${row.grandTotal > 0 ? row.grandTotal.toFixed(1) : "-"}</td>`,
-					`<td>${row.percentage > 0 ? `${row.percentage}%` : "-"}</td>`,
-				);
+				if (showGrandTotal) {
+					cells.push(`<td>${row.grandTotal > 0 ? row.grandTotal.toFixed(1) : "-"}</td>`);
+				}
+				cells.push(`<td>${row.percentage > 0 ? `${row.percentage}%` : "-"}</td>`);
 				return `<tr>${cells.join("")}</tr>`;
 			})
 			.join("");
@@ -543,7 +559,7 @@ export function ClassroomResultTable({
 		printWindow.document.close();
 		printWindow.focus();
 		printWindow.print();
-	}, [ctx.classroomName, isRtl, reportRows, totalsOnly, visibleSubjects]);
+	}, [ctx.classroomName, isRtl, reportRows, showGrandTotal, totalsOnly, visibleSubjects]);
 
 	const printEmptySpreadsheet = useCallback(() => {
 		if (!reportRows.length) return;
@@ -556,7 +572,9 @@ export function ClassroomResultTable({
 					? `<th>${subject.subject.title} Total</th>`
 					: `<th colspan="${subjectColumnCount(subject.assessments.length, totalsOnly)}" scope="colgroup">${subject.subject.title}</th>`,
 			),
-			`<th rowspan="${headerRowSpan}">Grand Total</th>`,
+			...(showGrandTotal
+				? [`<th rowspan="${headerRowSpan}">Grand Total</th>`]
+				: []),
 			`<th rowspan="${headerRowSpan}">%</th>`,
 		];
 		const assessmentHeaders = totalsOnly
@@ -587,7 +605,8 @@ export function ClassroomResultTable({
 						cells.push("<td></td>");
 					}
 				}
-				cells.push("<td></td>", "<td></td>");
+				if (showGrandTotal) cells.push("<td></td>");
+				cells.push("<td></td>");
 				return `<tr>${cells.join("")}</tr>`;
 			})
 			.join("");
@@ -666,6 +685,7 @@ export function ClassroomResultTable({
 		ctx.classroomName,
 		isRtl,
 		reportRows,
+		showGrandTotal,
 		totalsOnly,
 		visibleSubjects,
 		auth.profile?.sessionTitle,
@@ -973,19 +993,21 @@ export function ClassroomResultTable({
 											</button>
 										</TableHead>
 									))}
-									<TableHead
-										rowSpan={2}
-										className={cn(
-											"text-center font-semibold min-w-[60px] cursor-pointer select-none bg-background",
-											dividerClass,
-										)}
-										onClick={() => toggleSort("grandTotal")}
-									>
-										<span className="inline-flex items-center justify-center">
-											Total
-											<SortIcon column="grandTotal" sort={sort} />
-										</span>
-									</TableHead>
+									{showGrandTotal && (
+										<TableHead
+											rowSpan={2}
+											className={cn(
+												"text-center font-semibold min-w-[60px] cursor-pointer select-none bg-background",
+												dividerClass,
+											)}
+											onClick={() => toggleSort("grandTotal")}
+										>
+											<span className="inline-flex items-center justify-center">
+												Total
+												<SortIcon column="grandTotal" sort={sort} />
+											</span>
+										</TableHead>
+									)}
 									<TableHead
 										rowSpan={2}
 										className={cn(
@@ -1036,6 +1058,7 @@ export function ClassroomResultTable({
 											key={row.student.id}
 											row={row}
 											showAssessments={!totalsOnly}
+											showGrandTotal={showGrandTotal}
 											index={si}
 											isSelected={printOrder.includes(row.student.id)}
 											onToggle={toggleStudent}
@@ -1055,7 +1078,7 @@ export function ClassroomResultTable({
 									) : (
 									<TableRow>
 										<TableCell
-											colSpan={totalSubjectColumns + 4}
+											colSpan={totalSubjectColumns + 3 + Number(showGrandTotal)}
 											className="h-24 text-center text-muted-foreground"
 										>
 											{ctx.isPrintStatusLoading &&
@@ -1101,6 +1124,7 @@ export function ClassroomResultTable({
 interface StudentResultRowProps {
 	row: ResultRow<any>;
 	showAssessments: boolean;
+	showGrandTotal: boolean;
 	index: number;
 	isSelected: boolean;
 	onToggle: (termFormId: string) => void;
@@ -1114,6 +1138,7 @@ interface StudentResultRowProps {
 function StudentResultRow({
 	row,
 	showAssessments,
+	showGrandTotal,
 	index,
 	isSelected,
 	onToggle,
@@ -1206,9 +1231,11 @@ function StudentResultRow({
 					</Fragment>
 				);
 			})}
-			<TableCell className={cn("text-center font-semibold", dividerClass)}>
-				{row.grandTotal > 0 ? row.grandTotal.toFixed(1) : "-"}
-			</TableCell>
+			{showGrandTotal && (
+				<TableCell className={cn("text-center font-semibold", dividerClass)}>
+					{row.grandTotal > 0 ? row.grandTotal.toFixed(1) : "-"}
+				</TableCell>
+			)}
 			<TableCell className={cn("text-center font-semibold", dividerClass)}>
 				{row.percentage > 0 ? `${row.percentage}%` : "-"}
 			</TableCell>
