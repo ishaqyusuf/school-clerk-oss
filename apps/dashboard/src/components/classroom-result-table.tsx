@@ -528,22 +528,29 @@ export function ClassroomResultTable({
 
 	const printEmptySpreadsheet = useCallback(() => {
 		if (!reportRows.length) return;
+		const headerRowSpan = totalsOnly ? 1 : 2;
 		const headers = [
-			"<th>S/N</th>",
-			"<th>Student</th>",
-			...visibleSubjects.flatMap((subject) => {
-				if (totalsOnly) return [`<th>${subject.subject.title} Total</th>`];
-				return [
-					...subject.assessments.map(
-						(assessment) =>
-							`<th>${subject.subject.title} - ${getAssessmentDisplayTitle(assessment)}</th>`,
-					),
-					`<th>${subject.subject.title} Total</th>`,
-				];
-			}),
-			"<th>Grand Total</th>",
-			"<th>%</th>",
+			`<th rowspan="${headerRowSpan}">S/N</th>`,
+			`<th rowspan="${headerRowSpan}" class="student-name">Student</th>`,
+			...visibleSubjects.map((subject) =>
+				totalsOnly
+					? `<th>${subject.subject.title} Total</th>`
+					: `<th colspan="${subject.assessments.length + 1}" scope="colgroup">${subject.subject.title}</th>`,
+			),
+			`<th rowspan="${headerRowSpan}">Grand Total</th>`,
+			`<th rowspan="${headerRowSpan}">%</th>`,
 		];
+		const assessmentHeaders = totalsOnly
+			? ""
+			: `<tr>${visibleSubjects
+					.flatMap((subject) => [
+						...subject.assessments.map(
+							(assessment) =>
+								`<th scope="col">${getAssessmentDisplayTitle(assessment)}</th>`,
+						),
+						'<th scope="col">Total</th>',
+					])
+					.join("")}</tr>`;
 
 		const rows = reportRows
 			.map((row) => {
@@ -601,7 +608,7 @@ export function ClassroomResultTable({
             thead { display: table-header-group; }
             th, td { border: 1px solid #333; padding: 6px 4px; text-align: center; height: 24px; }
             th { background: #f2f2f2; font-weight: bold; }
-            td:nth-child(2), th:nth-child(2) { text-align: ${isRtl ? "right" : "left"}; padding-left: 6px; padding-right: 6px; font-size: 11px; font-weight: 500; }
+            td:nth-child(2), th.student-name { text-align: ${isRtl ? "right" : "left"}; padding-left: 6px; padding-right: 6px; font-size: 11px; font-weight: 500; }
             @media print {
               body { padding: 0; margin: 0; }
               @page { size: landscape; margin: 8mm; }
@@ -623,7 +630,7 @@ export function ClassroomResultTable({
             <div class="meta-item"><span class="meta-label">Mode:</span><span class="meta-value">${printMode}</span></div>
           </div>
           <table>
-            <thead><tr>${headers.join("")}</tr></thead>
+            <thead><tr>${headers.join("")}</tr>${assessmentHeaders}</thead>
             <tbody>${rows}</tbody>
           </table>
         </body>
