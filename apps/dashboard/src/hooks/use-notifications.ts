@@ -54,11 +54,11 @@ export function useNotificationReadActions() {
   };
   const markRead = useMutation(trpc.notifications.markRead.mutationOptions({
     retry: false,
-    onSettled: (_data, _error, submitted) => invalidate(submitted),
+    onSettled: (_data, _error, submitted: NotificationScope) => invalidate(submitted),
   }));
   const markAllRead = useMutation(trpc.notifications.markAllRead.mutationOptions({
     retry: false,
-    onSettled: (_data, _error, submitted) => invalidate(submitted),
+    onSettled: (_data, _error, submitted: NotificationScope) => invalidate(submitted),
   }));
   return {
     markRead: ({ notificationId }: { notificationId: string }) => {

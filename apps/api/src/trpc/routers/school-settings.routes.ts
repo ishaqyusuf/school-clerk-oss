@@ -40,16 +40,28 @@ export const schoolSettingsRouter = createTRPCRouter({
 		.query(({ ctx, input }) => getModuleSettings(ctx, input.schoolId)),
 	updateModules: authenticatedProcedure
 		.input(updateEnabledModulesSchema.extend({ schoolId: z.string().trim().min(1) }))
-		.mutation(({ ctx, input }) => updateEnabledModules(ctx, input)),
+		.mutation(({ ctx, input }) => updateEnabledModules(ctx, {
+			schoolId: z.string().trim().min(1).parse(input.schoolId),
+			revision: updateEnabledModulesSchema.shape.revision.parse(input.revision),
+			enabledModules: updateEnabledModulesSchema.shape.enabledModules.parse(input.enabledModules),
+		})),
 	getModulesForSchool: platformAdminProcedure
 		.input(z.object({ schoolId: z.string().trim().min(1) }).strict())
 		.query(({ ctx, input }) => getPlatformModuleSettings(ctx, input.schoolId)),
 	initializeModulesForSchool: platformAdminProcedure
 		.input(initializeModuleConfigSchema.extend({ schoolId: z.string().trim().min(1) }))
-		.mutation(({ ctx, input }) => initializePlatformModuleSettings(ctx, input)),
+		.mutation(({ ctx, input }) => initializePlatformModuleSettings(ctx, {
+			schoolId: z.string().trim().min(1).parse(input.schoolId),
+			enabledModules: initializeModuleConfigSchema.shape.enabledModules.parse(input.enabledModules),
+			entitledModules: initializeModuleConfigSchema.shape.entitledModules.parse(input.entitledModules),
+		})),
 	updateModuleEntitlementsForSchool: platformAdminProcedure
 		.input(updateModuleEntitlementsSchema.extend({ schoolId: z.string().trim().min(1) }))
-		.mutation(({ ctx, input }) => updatePlatformModuleEntitlements(ctx, input)),
+		.mutation(({ ctx, input }) => updatePlatformModuleEntitlements(ctx, {
+			schoolId: z.string().trim().min(1).parse(input.schoolId),
+			revision: updateModuleEntitlementsSchema.shape.revision.parse(input.revision),
+			entitledModules: updateModuleEntitlementsSchema.shape.entitledModules.parse(input.entitledModules),
+		})),
 	getInstitution: authenticatedProcedure.query(({ ctx }) => getInstitutionSettings(ctx)),
 	updateInstitution: authenticatedProcedure
 		.input(institutionSettingsSchema)

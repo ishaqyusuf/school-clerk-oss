@@ -84,7 +84,7 @@ test.skipIf(!enabled)(
 			expect(actor.availableTools).toContain("createInventoryItem");
 			const browserActor = await resolveAssistantActor({
 				...ctx,
-				profile: { ...ctx.profile, authSessionId: login.token },
+				profile: { ...ctx.profile, authSessionId: required(login.token) },
 			});
 			expect(browserActor.authSessionId).toBe(login.id);
 			expect(browserActor.availableTools).toEqual(actor.availableTools);

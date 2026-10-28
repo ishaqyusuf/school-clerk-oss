@@ -1,4 +1,3 @@
-// @ts-expect-error Bun test types are not included by this app tsconfig.
 import { describe, expect, test } from "bun:test";
 
 import { parseAsEnrollmentDate } from "./use-student-filter-params";

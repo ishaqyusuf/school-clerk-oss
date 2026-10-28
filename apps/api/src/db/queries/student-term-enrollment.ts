@@ -12,7 +12,13 @@ export async function enrollStudentToTerm(ctx: TRPCContext, input: EntrollStuden
     throw new TRPCError({ code: "UNAUTHORIZED", message: "A signed-in school workspace is required." });
   }
   try {
-    return await enrollStudentInAcademicTerm(ctx.db, { schoolId, userId, bearer }, data);
+    return await enrollStudentInAcademicTerm(ctx.db, { schoolId, userId, bearer }, {
+      ...data,
+      studentId: entrollStudentToTermSchema.shape.studentId.parse(data.studentId),
+      classroomDepartmentId: entrollStudentToTermSchema.shape.classroomDepartmentId.parse(data.classroomDepartmentId),
+      schoolSessionId: entrollStudentToTermSchema.shape.schoolSessionId.parse(data.schoolSessionId),
+      sessionTermId: entrollStudentToTermSchema.shape.sessionTermId.parse(data.sessionTermId),
+    });
   } catch (error) {
     if (error instanceof StudentTermEnrollmentError) {
       throw new TRPCError({ code: error.code, message: error.message, cause: error });

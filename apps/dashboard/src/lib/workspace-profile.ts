@@ -11,7 +11,7 @@ export class WorkspaceProfileError extends Error {
 }
 
 // Only concurrent reads share a promise; completed identity/term results are never cached here.
-export function createWorkspaceProfileLoader(fetcher: typeof fetch = fetch) {
+export function createWorkspaceProfileLoader(fetcher: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = fetch) {
 	let pending: Promise<AuthCookie> | undefined;
 	return function loadWorkspaceProfile(): Promise<AuthCookie> {
 		if (pending) return pending;

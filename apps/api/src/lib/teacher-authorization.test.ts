@@ -52,6 +52,7 @@ function createMockCtx(options: MockCtxOptions) {
             email: "teacher@school.test",
             id: "user-1",
             name: "Teacher One",
+            saasAccountId: "account-1",
             role,
           },
         }),

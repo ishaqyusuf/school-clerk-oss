@@ -1,4 +1,3 @@
-// @ts-expect-error Bun test types are not included by this app tsconfig.
 import { describe, expect, test } from "bun:test";
 import { NextResponse } from "next/server";
 import {
@@ -23,8 +22,8 @@ const input = {
 	headers: [
 		["cookie", "identity=test-session"],
 		["next-action", "test-action"],
-	],
-};
+	] satisfies [string, string][],
+} satisfies NonNullable<ReturnType<typeof parseRoutingRequest>>;
 const body = JSON.stringify(input);
 const proof = signRoutingMessage(secret, "request", body);
 

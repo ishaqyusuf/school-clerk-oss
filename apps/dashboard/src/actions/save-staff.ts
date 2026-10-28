@@ -764,7 +764,14 @@ export const copyStaffOnboardingLinkAction = actionClient
 export const completeStaffOnboardingAction = actionClient
 	.schema(completeStaffOnboardingSchema)
 	.action(async ({ parsedInput }) => {
-		const result = await completeStaffOnboarding(parsedInput);
+		const result = await completeStaffOnboarding({
+			...parsedInput,
+			email: completeStaffOnboardingSchema.shape.email.parse(parsedInput.email),
+			token: completeStaffOnboardingSchema.shape.token.parse(parsedInput.token),
+			newPassword: completeStaffOnboardingSchema.shape.newPassword.parse(parsedInput.newPassword),
+			staffId: completeStaffOnboardingSchema.shape.staffId.parse(parsedInput.staffId),
+			name: completeStaffOnboardingSchema.shape.name.parse(parsedInput.name),
+		});
 		staffChanged();
 		return result;
 	});

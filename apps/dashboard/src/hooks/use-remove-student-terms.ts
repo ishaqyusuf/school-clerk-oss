@@ -37,7 +37,7 @@ export function useRemoveStudentTerms(options: Options) {
 
   const mutation = useMutation(trpc.students.bulkDeleteTermSheets.mutationOptions({
     retry: false, networkMode: "always",
-    onSuccess(result, variables) {
+    onSuccess(result, variables: { ids: string[] }) {
       void queryClient.invalidateQueries({ queryKey: trpc.students.index.infiniteQueryKey() });
       void queryClient.invalidateQueries({ queryKey: trpc.students.analytics.queryKey() });
       void queryClient.invalidateQueries({ queryKey: trpc.students.duplicateGroups.queryKey() });

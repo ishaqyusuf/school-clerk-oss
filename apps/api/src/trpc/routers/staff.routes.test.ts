@@ -1,3 +1,4 @@
+import { configuredTestSchool } from "../../test-helpers/module-scope";
 import { describe, expect, test } from "bun:test";
 
 process.env.DATABASE_URL ??=
@@ -8,12 +9,26 @@ const { staffRouter } = await import("./staff.routes");
 function createStaffListCtx() {
 	return {
 		profile: {
+			authSessionId: "auth-session",
 			schoolId: "school-1",
 			sessionId: "session-1",
 			termId: "term-1",
 		},
 		db: {
+			session: {
+				findFirst: async () => ({
+					id: "auth-session",
+					user: {
+						id: "admin-1",
+						email: "admin@school.test",
+						name: "Admin",
+						role: "Admin",
+						saasAccountId: "account-1",
+					},
+				}),
+			},
 			schoolProfile: {
+				findFirst: async () => configuredTestSchool(),
 				findUnique: async () => ({ accountId: "account-1" }),
 			},
 			user: {

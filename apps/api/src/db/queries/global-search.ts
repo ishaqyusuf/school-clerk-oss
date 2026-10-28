@@ -1,11 +1,11 @@
 import type { TRPCContext } from "@api/trpc/init";
-import { getSearchContext, searchGlobalRecords, type Prisma, type SearchIdentity } from "@school-clerk/db";
+import { getSearchContext, searchGlobalRecords, type DatabaseTransaction, type SearchIdentity } from "@school-clerk/db";
 import { classroomDisplayName } from "@school-clerk/utils";
 import { resolveModuleAccess } from "@school-clerk/utils/module-config";
 import { getSearchAccessKey, getSearchPolicy } from "@school-clerk/utils/search-policy";
 import { TRPCError } from "@trpc/server";
 
-async function readSearchScope(ctx: TRPCContext, db: Prisma.TransactionClient, input: SearchIdentity) {
+async function readSearchScope(ctx: TRPCContext, db: DatabaseTransaction, input: SearchIdentity) {
   if (!ctx.currentUser || !ctx.profile.authSessionId || input.userId !== ctx.currentUser.id ||
     input.schoolId !== ctx.profile.schoolId || input.sessionId !== (ctx.profile.sessionId || null)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Search workspace changed. Reload search." });

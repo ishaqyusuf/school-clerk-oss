@@ -1,3 +1,4 @@
+import { configuredTestSchool } from "../../test-helpers/module-scope";
 import { describe, expect, test } from "bun:test";
 import {
 	processFinancePaymentImportJob,
@@ -464,6 +465,7 @@ describe("payment import jobs", () => {
 			},
 		};
 		const db: any = {
+			schoolProfile: { findFirst: async () => configuredTestSchool() },
 			financePaymentImportJob: {
 				findFirst: async () => job,
 				update: async ({ data }: any) => Object.assign(job, data),
@@ -595,6 +597,7 @@ describe("payment import jobs", () => {
 			},
 		};
 		const db: any = {
+			schoolProfile: { findFirst: async () => configuredTestSchool() },
 			financePaymentImportJob: {
 				findFirst: async () => job,
 				update: async ({ data }: any) => Object.assign(job, data),

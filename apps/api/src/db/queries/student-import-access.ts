@@ -1,6 +1,6 @@
 import type { TRPCContext } from "@api/trpc/init";
 import { requireStudentImportAccess, requireStudentImportTarget, StudentImportAccessError,
-  type Prisma, type StudentImportAuthority } from "@school-clerk/db";
+  type DatabaseTransaction, type StudentImportAuthority } from "@school-clerk/db";
 import { TRPCError } from "@trpc/server";
 
 export function studentImportSessionAuthority(ctx: TRPCContext): StudentImportAuthority {
@@ -11,7 +11,7 @@ export function studentImportSessionAuthority(ctx: TRPCContext): StudentImportAu
   return { kind: "session", schoolId, userId, bearer };
 }
 
-export async function authorizeStudentImport(db: Prisma.TransactionClient, authority: StudentImportAuthority,
+export async function authorizeStudentImport(db: DatabaseTransaction, authority: StudentImportAuthority,
   target?: { schoolId: string; sessionId: string; termId: string; classroomIds: string[] }) {
   try {
     const access = await requireStudentImportAccess(db, authority);

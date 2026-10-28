@@ -34,7 +34,14 @@ export async function classifyStudentTermForms(db: Database, actor: {
         });
         if (result.count !== changedIds.length) conflict();
       }
-      const reconciliation = [];
+      const reconciliation: Array<{
+        studentTermFormId: string;
+        applied: number;
+        skipped: number;
+        total: number;
+        cancelled: number;
+        retained: number;
+      }> = [];
       for (const form of targets) {
         const student = studentsById.get(form.studentId);
         if (!student) conflict();

@@ -35,7 +35,7 @@ export function useDeleteStudent(studentId: string | undefined, onSuccess?: () =
     // Fail an offline request now instead of silently queueing a destructive
     // mutation for a later connection/workspace.
     networkMode: "always",
-    onSuccess(_result, variables) {
+    onSuccess(_result, variables: DeleteStudentInput) {
       void queryClient.invalidateQueries({ queryKey: trpc.students.index.infiniteQueryKey() });
       void queryClient.invalidateQueries({ queryKey: trpc.students.analytics.queryKey() });
       void queryClient.invalidateQueries({ queryKey: trpc.students.duplicateGroups.queryKey() });

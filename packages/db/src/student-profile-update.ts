@@ -1,4 +1,4 @@
-import { studentProfileUpdateSchema, type StudentProfileUpdateInput } from "@school-clerk/utils/student-profile-schema";
+import { changeStudentGenderSchema, studentProfileUpdateSchema, type StudentProfileUpdateInput } from "@school-clerk/utils/student-profile-schema";
 import { canAccessModules, resolveModuleAccess } from "@school-clerk/utils/module-config";
 import { Prisma } from "./generated/client";
 import type { Database } from "./prisma";
@@ -29,7 +29,7 @@ export async function updateStudentProfile(db: Database, actor: { schoolId: stri
       if (!await getStudentAcademicReadContext(tx, actor)) throw new StudentFeeReconciliationError("FORBIDDEN", "Your session expired while waiting. Sign in before saving.");
       const student = await tx.students.findFirst({ where: { id: data.id, schoolProfileId: schoolId, deletedAt: null }, select: { id: true, gender: true } });
       if (!student) conflict("Student identity changed. Refresh before saving.");
-      const gender = "data" in data ? data.data.gender : data.gender;
+      const gender = "data" in data ? data.data.gender : changeStudentGenderSchema.parse(data).gender;
       const genderChanged = student.gender !== gender;
       const reconciliation: Array<{ studentTermFormId: string; applied: number; cancelled: number; retained: number }> = [];
       const preservedTermFormIds: string[] = [];

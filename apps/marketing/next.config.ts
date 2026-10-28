@@ -13,7 +13,6 @@ const nextConfig: NextConfig = {
   ],
   transpilePackages: [
     "@school-clerk/events","@school-clerk/ui", "@school-clerk/tenant-url"],
-  typescript: { ignoreBuildErrors: true },
 };
 
 export default nextConfig;

@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import { TRPCError } from "@trpc/server";
 import {
   classroomListOrderBy,
   nestedClassroomDepartmentListOrderBy,
@@ -168,6 +169,7 @@ export const classroomRouter = createTRPCRouter({
     .input(createClassroomSchema)
     .mutation(async ({ input, ctx }) => {
       const { sessionId, schoolId, termId } = ctx.profile;
+      if (!schoolId) throw new TRPCError({ code: "UNAUTHORIZED", message: "A school workspace is required." });
       if (!input.departments?.length) {
         input.departments = [{ name: input.className }];
       }

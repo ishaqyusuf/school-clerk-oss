@@ -10,10 +10,11 @@ export type InstitutionConfigScope = {
 } & ({ accountId: string; platform?: never } | { platform: true; accountId?: never });
 
 function institutionWhere(scope: InstitutionConfigScope): Prisma.SchoolProfileWhereInput {
+	const accountId = scope.accountId;
 	return {
 		id: scope.schoolId,
 		deletedAt: null,
-		...(scope.platform === true ? {} : { accountId: scope.accountId }),
+		...(scope.platform === true ? {} : { accountId }),
 	};
 }
 

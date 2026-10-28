@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { notificationListSchema, notificationReadSchema, notificationScopeSchema } from "../../schemas/notifications";
 import {
@@ -9,7 +10,7 @@ import { resolveModuleAccess } from "@school-clerk/utils/module-config";
 import { getCurrentUserContext } from "../../lib/notifications";
 import { authenticatedProcedure, createTRPCRouter, type TRPCContext } from "../init";
 
-async function getFeedScope(ctx: TRPCContext, expected: { schoolId: string; userId: string; accessKey: string }) {
+async function getFeedScope(ctx: TRPCContext, expected: z.infer<typeof notificationScopeSchema>) {
   const current = await getCurrentUserContext(ctx);
   const schoolId = current.school.id;
   const userId = current.user.id;
@@ -34,7 +35,10 @@ async function getFeedScope(ctx: TRPCContext, expected: { schoolId: string; user
 export const notificationsRouter = createTRPCRouter({
   list: authenticatedProcedure
     .input(notificationListSchema)
-    .query(async ({ ctx, input }) => listSchoolNotifications(ctx.db, await getFeedScope(ctx, input), input)),
+    .query(async ({ ctx, input }) => listSchoolNotifications(ctx.db, await getFeedScope(ctx, input), {
+      onlyUnread: notificationListSchema.shape.onlyUnread.parse(input.onlyUnread),
+      take: notificationListSchema.shape.take.parse(input.take),
+    })),
 
   unreadCount: authenticatedProcedure.input(notificationScopeSchema).query(async ({ ctx, input }) =>
     countUnreadSchoolNotifications(ctx.db, await getFeedScope(ctx, input))),

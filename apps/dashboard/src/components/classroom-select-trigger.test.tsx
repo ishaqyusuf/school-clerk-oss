@@ -1,4 +1,3 @@
-// @ts-expect-error Bun test types are not included by this app tsconfig.
 import { describe, expect, test } from "bun:test";
 import { Select, SelectValue } from "@school-clerk/ui/select";
 import { renderToStaticMarkup } from "react-dom/server";

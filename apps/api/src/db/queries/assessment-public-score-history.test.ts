@@ -1,3 +1,4 @@
+import { configuredTestSchool } from "../../test-helpers/module-scope";
 import { describe, expect, test } from "bun:test";
 
 import type { TRPCContext } from "@api/trpc/init";
@@ -53,6 +54,7 @@ describe("updatePublicAssessmentScore history", () => {
     const ctx = {
       profile: {},
       db: {
+        schoolProfile: { findFirst: async () => configuredTestSchool() },
         assessmentPublicLink: {
           findFirst: async () => ({
             id: "link-1",

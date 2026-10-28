@@ -881,7 +881,8 @@ export async function approveEnrollmentApplication(
 		});
 	}
 
-	if (!ctx.profile.sessionId || !ctx.profile.termId) {
+	const { sessionId, termId } = ctx.profile;
+	if (!sessionId || !termId) {
 		throw new TRPCError({
 			code: "BAD_REQUEST",
 			message: "An active session and term are required before approval.",
@@ -939,7 +940,7 @@ export async function approveEnrollmentApplication(
 		if (
 			application.classRoomDepartment?.schoolProfileId !== schoolProfileId ||
 			application.classRoomDepartment?.classRoom?.schoolSessionId !==
-				ctx.profile.sessionId
+				sessionId
 		) {
 			throw new TRPCError({
 				code: "BAD_REQUEST",
@@ -1023,7 +1024,7 @@ export async function approveEnrollmentApplication(
 		const sessionForm = await txDb.studentSessionForm.create({
 			data: {
 				schoolProfileId,
-				schoolSessionId: ctx.profile.sessionId,
+				schoolSessionId: sessionId,
 				studentId: student.id,
 				classroomDepartmentId: application.classRoomDepartmentId,
 			},
@@ -1033,8 +1034,8 @@ export async function approveEnrollmentApplication(
 		const termForm = await txDb.studentTermForm.create({
 			data: {
 				schoolProfileId,
-				schoolSessionId: ctx.profile.sessionId,
-				sessionTermId: ctx.profile.termId,
+				schoolSessionId: sessionId,
+				sessionTermId: termId,
 				studentId: student.id,
 				studentSessionFormId: sessionForm.id,
 				classroomDepartmentId: application.classRoomDepartmentId,
@@ -1047,8 +1048,8 @@ export async function approveEnrollmentApplication(
 			schoolProfileId,
 			studentId: student.id,
 			studentTermFormId: termForm.id,
-			schoolSessionId: ctx.profile.sessionId,
-			sessionTermId: ctx.profile.termId,
+			schoolSessionId: sessionId,
+			sessionTermId: termId,
 			classroomDepartmentId: application.classRoomDepartmentId,
 			admissionType: "NEW_ADMISSION",
 			studentGender: application.studentGender,

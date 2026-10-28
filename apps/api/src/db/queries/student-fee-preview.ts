@@ -21,7 +21,13 @@ export async function previewApplicableFeeHistories(ctx: TRPCContext, input: Pre
         query.viewScope.loginSessionId !== context.loginSessionId)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Fee preview workspace changed. Reload the page." });
       }
-      return getStudentFeePreview(tx, { ...query, schoolId });
+      return getStudentFeePreview(tx, {
+        ...query,
+        schoolId,
+        sessionTermId: previewApplicableFeeHistoriesSchema.shape.sessionTermId.parse(query.sessionTermId),
+        admissionType: previewApplicableFeeHistoriesSchema.shape.admissionType.parse(query.admissionType),
+        studentGender: previewApplicableFeeHistoriesSchema.shape.studentGender.parse(query.studentGender),
+      });
     }, { isolationLevel: "RepeatableRead" });
   } catch (error) {
     if (error instanceof StudentFeePreviewError) throw new TRPCError({ code: error.code, message: error.message, cause: error });

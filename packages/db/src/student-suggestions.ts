@@ -59,7 +59,17 @@ export async function getStudentSuggestions(
 	);
 	let groupIndex = Number(startGroup);
 	let offset = Number(startOffset);
-	const rows = [];
+	const rows: Array<{
+		id: string;
+		studentName: string;
+		dob: Date | null;
+		guardianName: string | null;
+		match: "exact" | "name" | "partial";
+		status: "needs review" | "pending approval" | "enrolled" | "not enrolled";
+		termFormId: string | null;
+		classroomId: string | null;
+		classroomName: string | null;
+	}> = [];
 	while (groupIndex < groups.length && rows.length < input.pageSize) {
 		const group = groups[groupIndex];
 		if (!group) break;

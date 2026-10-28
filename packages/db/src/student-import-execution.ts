@@ -22,7 +22,7 @@ async function requireScope(tx: DatabaseTransaction, authority: StudentImportAut
 }
 
 async function assertUniqueClassName(tx: DatabaseTransaction, scope: ImportScope, classroomId: string,
-  name: { name: string; surname?: string | null; otherName?: string | null }, excludeId?: string) {
+  name: Pick<StudentImportRow, "name"> & { surname?: string | null; otherName?: string | null }, excludeId?: string) {
   const formScope = { schoolProfileId: scope.schoolId, sessionTermId: scope.termId,
     classroomDepartmentId: classroomId, deletedAt: null };
   const candidates = await tx.students.findMany({

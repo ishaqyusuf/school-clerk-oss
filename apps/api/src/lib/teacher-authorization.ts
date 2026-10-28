@@ -179,6 +179,6 @@ export async function assertTeacherCanAccessAssessment(
   await assertTeacherCanAccessDepartmentSubject(
     ctx,
     assessment?.departmentSubjectId,
-    assessment?.departmentSubject?.sessionTermId,
+    assessment?.departmentSubject?.sessionTermId ?? undefined,
   );
 }

@@ -106,8 +106,8 @@
     "@types/dot-object": "^2.1.6",
     "@types/node": "^24.7.2",
     "@types/papaparse": "^5.5.2",
-    "@types/react": "19.2.2",
-    "@types/react-dom": "19.2.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.2",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.2",
     "vercel": "^48.2.9"

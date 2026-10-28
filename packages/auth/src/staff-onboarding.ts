@@ -21,10 +21,15 @@ function assertContext(context: Awaited<ReturnType<typeof getStaffOnboardingCont
 
 export async function completeStaffOnboarding(input: z.input<typeof inputSchema>) {
   const parsed = inputSchema.parse(input);
-  assertContext(await getStaffOnboardingContext(prisma, parsed));
+  const identity = {
+    token: inputSchema.shape.token.parse(parsed.token),
+    staffId: inputSchema.shape.staffId.parse(parsed.staffId),
+    email: inputSchema.shape.email.parse(parsed.email),
+  };
+  assertContext(await getStaffOnboardingContext(prisma, identity));
   const passwordHash = await hashPassword(parsed.newPassword);
   return prisma.$transaction(async (tx) => {
-    const context = assertContext(await getStaffOnboardingContext(tx, parsed));
+    const context = assertContext(await getStaffOnboardingContext(tx, identity));
     return completeStaffOnboardingRecords(tx, context, {
       passwordHash, name: parsed.name, title: parsed.title, phone: parsed.phone,
       phone2: parsed.phone2, address: parsed.address,

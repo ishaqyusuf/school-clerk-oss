@@ -474,17 +474,19 @@ export async function getClassroomSubjectByName(
 }
 export async function saveSubject(ctx: TRPCContext, data: SaveSubjectSchema) {
   const { db, profile } = ctx;
-  if (!data.sessionTermId) data.sessionTermId = profile.termId;
+  const schoolId = profile.schoolId;
+  if (!schoolId) throw new TRPCError({ code: "UNAUTHORIZED", message: "A school workspace is required." });
+  if (!data.sessionTermId && profile.termId) data.sessionTermId = profile.termId;
   const subject = await ctx.db.subject.upsert({
     where: {
       title_schoolProfileId: {
         title: data.title,
-        schoolProfileId: profile.schoolId,
+        schoolProfileId: schoolId,
       },
     },
     create: {
       title: data.title,
-      schoolProfileId: profile.schoolId,
+      schoolProfileId: schoolId,
       departmentSubjects: !data.departmentId
         ? undefined
         : {
@@ -504,7 +506,7 @@ export async function saveSubject(ctx: TRPCContext, data: SaveSubjectSchema) {
     },
     update: {
       title: data.title,
-      schoolProfileId: profile.schoolId,
+      schoolProfileId: schoolId,
       departmentSubjects: !data.departmentId
         ? undefined
         : {
@@ -534,7 +536,7 @@ export async function saveSubject(ctx: TRPCContext, data: SaveSubjectSchema) {
   if (!data.subjectId)
     await db.subject.create({
       data: {
-        schoolProfileId: profile.schoolId,
+        schoolProfileId: schoolId,
         title: data.title,
         departmentSubjects:
           data.departmentSubjectId || !data.departmentId

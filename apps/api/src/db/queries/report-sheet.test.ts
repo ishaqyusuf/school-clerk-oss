@@ -35,12 +35,14 @@ function createTeacherReportCtx() {
       termId: "term-1",
     },
     db: {
+      sessionTerm: { findFirst: async () => ({ id: "term-1", sessionId: "session-1" }) },
       session: {
         findFirst: async () => ({
           user: {
             email: "teacher@school.test",
             id: "user-1",
             name: "Teacher One",
+            saasAccountId: "account-1",
             role: "Teacher",
           },
         }),
@@ -83,7 +85,7 @@ function createTeacherReportCtx() {
             )
             .map((department) => ({ id: department.id }));
         },
-        findUniqueOrThrow: async (query: any) => {
+        findFirst: async (query: any) => {
           capturedFindUniqueArgs.push(query);
           const allowedSubjectIds = query.select.subjects.where.id?.in as
             | string[]

@@ -287,6 +287,8 @@ export function initAuth(options: {
 		hooks: {
 			before: createAuthMiddleware(async (ctx) => {
 				ctx.context.internalAdapter = withLiveAuthSessions(ctx.context.internalAdapter);
+				const bodyResult = z.record(z.string(), z.unknown()).safeParse(ctx.body);
+				const body = bodyResult.success ? bodyResult.data : {};
 				const origin = ctx.headers?.get("origin") ?? ctx.request?.headers.get("origin");
 				if (origin !== null && origin !== undefined && !await originPolicy.isTrusted(origin)) {
 					throw new APIError("FORBIDDEN", { message: "Untrusted authentication origin.", code: "INVALID_ORIGIN" });
@@ -300,26 +302,27 @@ export function initAuth(options: {
 				}
 				if (ctx.path === "/sign-in/email") {
 					const parsed = z.object({ email: z.string().trim().toLowerCase().email().max(320),
-						password: z.string().min(1).max(128) }).safeParse(ctx.body);
+						password: z.string().min(1).max(128) }).safeParse(body);
 					const identity = parsed.success ? await loadPasswordSignInIdentity(parsed.data.email) : null;
 					if (!identity) {
 						if (parsed.success) await ctx.context.password.hash(parsed.data.password);
 						throw new APIError("UNAUTHORIZED", { message: "Invalid email or password.", code: "INVALID_EMAIL_OR_PASSWORD" });
 					}
 					ctx.context.internalAdapter = withPasswordSignInIdentity(ctx.context.internalAdapter, identity);
-					return { context: { body: { ...ctx.body, email: identity.user.email } } };
+					return { context: { body: { ...body, email: identity.user.email } } };
 				}
 				if (ctx.path === "/request-password-reset") {
-					const parsed = z.string().trim().toLowerCase().email().max(320).safeParse(ctx.body?.email);
+					const parsed = z.string().trim().toLowerCase().email().max(320).safeParse(body.email);
 					if (!parsed.success || !await getPasswordRecoveryIdentity(prisma, parsed.data)) {
 						return ctx.json({ status: true, message: "If this email exists in our system, check your email for the reset link" });
 					}
-					return { context: { body: { ...ctx.body, email: parsed.data } } };
+					return { context: { body: { ...body, email: parsed.data } } };
 				}
 				if (ctx.path === "/reset-password") {
-					const token = ctx.body?.token || ctx.query?.token;
+					const queryResult = z.record(z.string(), z.unknown()).safeParse(ctx.query);
+					const token = body.token || (queryResult.success ? queryResult.data.token : undefined);
 					try {
-						return ctx.json(await completePasswordRecovery({ token, newPassword: ctx.body?.newPassword }));
+						return ctx.json(await completePasswordRecovery({ token, newPassword: body.newPassword }));
 					} catch {
 						throw new APIError("BAD_REQUEST", { message: "Invalid or unavailable reset token.", code: "INVALID_TOKEN" });
 					}

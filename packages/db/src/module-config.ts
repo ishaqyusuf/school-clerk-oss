@@ -14,10 +14,11 @@ export function getModuleAccessActor(db: Pick<Database, "user">, userId: string,
 }
 
 function schoolWhere(scope: InstitutionConfigScope): Prisma.SchoolProfileWhereUniqueInput {
+	const accountId = scope.accountId;
 	return {
 		id: scope.schoolId,
 		deletedAt: null,
-		...(scope.platform === true ? {} : { accountId: scope.accountId }),
+		...(scope.platform === true ? {} : { accountId }),
 	};
 }
 

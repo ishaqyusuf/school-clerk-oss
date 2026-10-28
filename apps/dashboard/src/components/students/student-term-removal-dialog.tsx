@@ -17,7 +17,7 @@ type Props = {
 
 function PreviewSection({ title, section, children }: {
   title: string;
-  section: { status: "available" | "restricted" | "unavailable"; count: number | null; rows: readonly unknown[] };
+  section: Pick<NonNullable<ReturnType<typeof useStudentTermDetails>["data"]>["attendance"], "status" | "count"> & { rows?: readonly unknown[] };
   children: ReactNode;
 }) {
   return (

@@ -1,3 +1,4 @@
+import { configuredTestSchool } from "../../test-helpers/module-scope";
 import { describe, expect, test } from "bun:test";
 import { TRPCError } from "@trpc/server";
 
@@ -57,10 +58,10 @@ function createFinanceCtx({
 					email: "user@example.com",
 					name: "User",
 					role,
-					saasAccountId: null,
+					saasAccountId: "account-1",
 				}
 			: undefined,
-		db,
+		db: { schoolProfile: { findFirst: async () => configuredTestSchool(schoolId) }, ...db },
 	} as any;
 }
 
@@ -3494,6 +3495,7 @@ describe("finance report routes", () => {
 			},
 		];
 		const db = {
+			schoolProfile: { findFirst: async () => configuredTestSchool() },
 			session: {
 				findFirst: async () => ({
 					id: "auth-session",
@@ -3503,7 +3505,7 @@ describe("finance report routes", () => {
 						email: "admin@example.com",
 						name: "Admin",
 						role: "Admin",
-						saasAccountId: null,
+						saasAccountId: "account-1",
 					},
 				}),
 			},
@@ -3760,6 +3762,7 @@ describe("finance report routes", () => {
 
 	test("rejects report access for non-finance roles", async () => {
 		const db = {
+			schoolProfile: { findFirst: async () => configuredTestSchool() },
 			session: {
 				findFirst: async () => ({
 					id: "auth-session",
@@ -3769,7 +3772,7 @@ describe("finance report routes", () => {
 						email: "teacher@example.com",
 						name: "Teacher",
 						role: "Teacher",
-						saasAccountId: null,
+						saasAccountId: "account-1",
 					},
 				}),
 			},

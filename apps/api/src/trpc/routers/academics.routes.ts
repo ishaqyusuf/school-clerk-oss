@@ -839,13 +839,13 @@ export const academicsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await requireAcademicAdmin(ctx);
+      const { schoolProfileId } = await requireAcademicAdmin(ctx);
       const db = ctx.db;
       const [fromTerm, toTerm] = await Promise.all([
         db.sessionTerm.findFirst({
           where: {
             id: input.fromTermId,
-            schoolId: ctx.profile.schoolId,
+            schoolId: schoolProfileId,
             deletedAt: null,
           },
           select: { id: true, sessionId: true },
@@ -853,7 +853,7 @@ export const academicsRouter = createTRPCRouter({
         db.sessionTerm.findFirst({
           where: {
             id: input.toTermId,
-            schoolId: ctx.profile.schoolId,
+            schoolId: schoolProfileId,
             deletedAt: null,
           },
           select: { id: true, sessionId: true, schoolId: true },
@@ -880,10 +880,10 @@ export const academicsRouter = createTRPCRouter({
         ? await db.classRoomDepartment.findFirst({
             where: {
               id: input.toClassroomDepartmentId,
-              schoolProfileId: ctx.profile.schoolId,
+              schoolProfileId,
               deletedAt: null,
               classRoom: {
-                schoolProfileId: ctx.profile.schoolId,
+                schoolProfileId,
                 schoolSessionId: toTerm.sessionId,
                 deletedAt: null,
               },
@@ -903,7 +903,7 @@ export const academicsRouter = createTRPCRouter({
           sessionTermId: input.fromTermId,
           studentId: { in: input.studentIds },
           deletedAt: null,
-          schoolProfileId: ctx.profile.schoolId,
+          schoolProfileId,
         },
         select: {
           studentId: true,
@@ -930,7 +930,7 @@ export const academicsRouter = createTRPCRouter({
           if (form.student && targetClassroomDepartmentId) {
             try {
               await assertNoExactDuplicateStudentInClassTerm(tx, {
-                schoolProfileId: ctx.profile.schoolId,
+                schoolProfileId,
                 sessionTermId: input.toTermId,
                 classroomDepartmentId: targetClassroomDepartmentId,
                 name: form.student.name,
@@ -960,7 +960,7 @@ export const academicsRouter = createTRPCRouter({
               data: {
                 studentId: form.studentId,
                 schoolSessionId: toTerm.sessionId,
-                schoolProfileId: ctx.profile.schoolId,
+                schoolProfileId,
                 classroomDepartmentId: targetClassroomDepartmentId,
               },
               select: { id: true, classroomDepartmentId: true },
@@ -981,7 +981,7 @@ export const academicsRouter = createTRPCRouter({
               studentId: form.studentId,
               sessionTermId: input.toTermId,
               deletedAt: null,
-              schoolProfileId: ctx.profile.schoolId,
+              schoolProfileId,
             },
             select: {
               id: true,
@@ -1017,7 +1017,7 @@ export const academicsRouter = createTRPCRouter({
                   studentSessionFormId: sessionForm.id,
                   classroomDepartmentId: targetClassroomDepartmentId,
                   schoolSessionId: toTerm.sessionId,
-                  schoolProfileId: ctx.profile.schoolId,
+                  schoolProfileId,
                   admissionType: "RETURNING",
                 },
                 select: { id: true },
@@ -1028,7 +1028,7 @@ export const academicsRouter = createTRPCRouter({
                   studentSessionFormId: sessionForm.id,
                   classroomDepartmentId: targetClassroomDepartmentId,
                   schoolSessionId: toTerm.sessionId,
-                  schoolProfileId: ctx.profile.schoolId,
+                  schoolProfileId,
                   sessionTermId: input.toTermId,
                   admissionType: "RETURNING",
                 },
@@ -1037,7 +1037,7 @@ export const academicsRouter = createTRPCRouter({
 
           if (targetClassroomDepartmentId) {
             await applyFeeHistoriesToStudentTermForm(tx, {
-              schoolProfileId: ctx.profile.schoolId,
+              schoolProfileId,
               studentId: form.studentId,
               studentTermFormId: termForm.id,
               schoolSessionId: toTerm.sessionId,

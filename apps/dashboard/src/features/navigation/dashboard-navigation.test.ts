@@ -1,11 +1,15 @@
-// @ts-expect-error Bun test types are not included by this app tsconfig.
 import { describe, expect, test } from "bun:test";
 import { Icons } from "@school-clerk/ui/custom/icons";
 
 import { dashboardNavRegistry } from "./dashboard-nav-registry";
 import { resolveDashboardNavigation } from "./dashboard-navigation";
 
-const roleCases = [
+const roleCases: Array<{
+	defaultHref: string;
+	modules: Array<ReturnType<typeof resolveDashboardNavigation>["modules"][number]["key"]>;
+	role: string;
+	surface: ReturnType<typeof resolveDashboardNavigation>["surface"];
+}> = [
 	{
 		defaultHref: "/",
 		modules: ["overview", "people", "academics", "finance", "settings"],
@@ -60,7 +64,7 @@ const roleCases = [
 		role: "Student",
 		surface: "unavailable",
 	},
-] as const;
+];
 
 const expectedRoleIa: Record<string, string[]> = {
 	Admin: [
