@@ -466,7 +466,8 @@ export async function submitEnrollmentApplication(
 		applicableRequirements.map((requirement: any) => requirement.id),
 	);
 
-	for (const [key, value] of formData.entries()) {
+	for (const [key, entryValue] of formData.entries()) {
+		const value: unknown = entryValue;
 		if (
 			key.startsWith("document:") &&
 			value instanceof File &&
