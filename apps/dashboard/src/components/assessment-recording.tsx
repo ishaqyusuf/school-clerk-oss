@@ -1,6 +1,7 @@
 "use client";
 import { switchSessionTerm } from "@/actions/cookies/auth-cookie";
 import { AssessmentRecordingResultsTable } from "@/components/assessment-recording-results-table";
+import { AssessmentRecordingSkeleton } from "@/components/assessment-recording/recording-skeleton";
 import { _trpc } from "@/components/static-trpc";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useAuth } from "@/hooks/use-auth";
@@ -196,7 +197,9 @@ export function AssessmentRecording() {
     <>
       <div className="flex w-full flex-col gap-4 px-2 py-3 sm:mx-auto sm:max-w-4xl sm:px-0 sm:py-4 lg:max-w-none">
         <div>
-          {!needsSetup ? (
+          {isLoadingContext ? (
+            <AssessmentRecordingSkeleton />
+          ) : !needsSetup ? (
             <AssessmentRecordingResultsTable
               departmentId={effectiveDepartmentId}
               termId={effectiveTermId}
@@ -208,6 +211,15 @@ export function AssessmentRecording() {
                   deptId,
                   deptSubjectId: null,
                   termId: effectiveTermId || null,
+                });
+              }}
+              terms={terms}
+              onTermChange={(termId, deptId) => {
+                // An unknown classroom for the new term falls back to its default.
+                setFilters({
+                  termId,
+                  deptId,
+                  deptSubjectId: null,
                 });
               }}
               onOpenClassroomOverview={

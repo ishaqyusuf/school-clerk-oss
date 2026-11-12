@@ -55,6 +55,8 @@ export type MobileFilterSheetProps = {
 	onApply: (patch: FilterValues) => unknown | Promise<unknown>;
 	triggerRef?: RefObject<HTMLButtonElement | null>;
 	title?: string;
+	/** Group key expanded when the sheet opens; defaults to the first group. */
+	defaultExpanded?: string;
 	loading?: boolean;
 	error?: string;
 	onRetry?: () => void;
@@ -97,6 +99,7 @@ function FilterDraftSession({
 	onApply,
 	triggerRef,
 	title = "Filters",
+	defaultExpanded,
 	loading,
 	error,
 	onRetry,
@@ -108,7 +111,12 @@ function FilterDraftSession({
 	const [draft, setDraft] = useState<FilterValues>(() =>
 		structuredClone(values),
 	);
-	const [expanded, setExpanded] = useState(groups[0]?.key ?? "");
+	const [expanded, setExpanded] = useState(
+		(defaultExpanded &&
+			groups.some((group) => group.key === defaultExpanded) &&
+			defaultExpanded) ||
+			(groups[0]?.key ?? ""),
+	);
 	const [applying, setApplying] = useState(false);
 	const [applyError, setApplyError] = useState<string>();
 	const closeRef = useRef<HTMLButtonElement>(null);

@@ -21,7 +21,7 @@ type Props = {
 	onMultipleChange?: (multiple: boolean) => void;
 };
 
-function ProgressRing({
+export function ProgressRing({
 	completed,
 	total,
 	size = 20,
@@ -64,7 +64,7 @@ function ProgressRing({
 	);
 }
 
-function progressLabel(subject: SubjectRailItem) {
+export function progressLabel(subject: SubjectRailItem) {
 	return subject.hasAssessments
 		? `${subject.completed}/${subject.total}`
 		: "No columns";

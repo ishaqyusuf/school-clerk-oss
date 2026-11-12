@@ -1,6 +1,17 @@
 "use client";
 
 import { AssessmentPublicLinksPanel } from "@/components/assessment-public-links-panel";
+import {
+  MOBILE_SUBJECT_BAR_OFFSET,
+  MobileSubjectBar,
+} from "@/components/assessment-recording/mobile-subject-bar";
+import { RecordingActionsSheet } from "@/components/assessment-recording/recording-actions-sheet";
+import { AssessmentRecordingSkeleton } from "@/components/assessment-recording/recording-skeleton";
+import {
+  type RecordingFilterGroupKey,
+  RecordingFilterSheet,
+  type RecordingFilterTerm,
+} from "@/components/assessment-recording/recording-filter-sheet";
 import { keepScoreInputVisible } from "@/components/assessment-recording/score-entry";
 import {
   ScoreSaveStatus,
@@ -13,8 +24,8 @@ import {
 } from "@/components/assessment-recording/subject-rail";
 import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
 import { AssessmentWorkbooksDialog } from "@/components/assessment-workbooks-dialog";
-import { SubjectAssessments } from "@/components/subject-assessments";
 import { SubmitClassStudentSheet } from "@/components/students/submit-class-student-sheet";
+import { SubjectAssessments } from "@/components/subject-assessments";
 import {
   buildResultRows,
   filterResultStudents,
@@ -27,6 +38,7 @@ import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
 import { Dialog, DropdownMenu } from "@school-clerk/ui/composite";
+import { useIsMobile } from "@school-clerk/ui/hooks/use-mobile";
 import { Input } from "@school-clerk/ui/input";
 import { Spinner } from "@school-clerk/ui/spinner";
 import {
@@ -40,8 +52,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import {
   Check,
+  ChevronDown,
   ChevronsUpDown,
-  CircleCheck,
   Ellipsis,
   ExternalLink,
   FileSpreadsheet,
@@ -49,6 +61,7 @@ import {
   PanelRightOpen,
   Pencil,
   Search,
+  SlidersHorizontal,
   UserPlus,
   X,
 } from "lucide-react";
@@ -58,6 +71,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useAcademicDataDirection } from "./academic-data-direction/provider";
@@ -77,6 +91,10 @@ type Props = {
   selectedSubjectId?: string | null;
   classrooms?: ClassroomFilterOption[];
   onClassroomChange?: (departmentId: string) => void;
+  /** Terms offered in the phone filter sheet (authenticated page only). */
+  terms?: RecordingFilterTerm[];
+  /** Switch term; the classroom is kept when it exists in that term. */
+  onTermChange?: (termId: string, departmentId: string | null) => void;
   onOpenClassroomOverview?: () => void;
   publicToken?: string | null;
   reportSheetHref?: string | null;
@@ -84,7 +102,6 @@ type Props = {
 
 const STUDENT_COLUMN_WIDTH = 220;
 const SCORE_COLUMN_WIDTH = 76;
-const DONE_COLUMN_WIDTH = 36;
 const SCORE_CELL_WIDTH = "w-[76px] min-w-[76px] max-w-[76px]";
 
 function StudentGenderBadge({ gender }: { gender?: string | null }) {
@@ -129,6 +146,8 @@ function AssessmentRecordingWorkspace({
   selectedSubjectId,
   classrooms = [],
   onClassroomChange,
+  terms = [],
+  onTermChange,
   onOpenClassroomOverview,
   publicToken,
   reportSheetHref,
@@ -143,6 +162,12 @@ function AssessmentRecordingWorkspace({
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [isWorkbooksOpen, setIsWorkbooksOpen] = useState(false);
   const [isPublicLinkOpen, setIsPublicLinkOpen] = useState(false);
+  const [filterSheetGroup, setFilterSheetGroup] =
+    useState<RecordingFilterGroupKey | null>(null);
+  const [isActionsSheetOpen, setIsActionsSheetOpen] = useState(false);
+  const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const actionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const isMobile = useIsMobile();
   const deferredNameSearch = useDeferredValue(nameSearch);
 
   const classroomReportQuery = useQuery(
@@ -256,19 +281,13 @@ function AssessmentRecordingWorkspace({
   const singleSubjectProgress = singleSubject
     ? subjectFillingProgress.get(singleSubject.id)
     : null;
-  const showDoneColumn = !!singleSubject?.assessments.length;
   const scoreColumnCount = visibleSubjects.reduce(
     (total, subject) => total + Math.max(subject.assessments.length, 1),
     0,
   );
   const tableWidth =
-    STUDENT_COLUMN_WIDTH +
-    scoreColumnCount * SCORE_COLUMN_WIDTH +
-    (showDoneColumn ? DONE_COLUMN_WIDTH : 0);
-  const phoneTableMinWidth =
-    148 +
-    scoreColumnCount * SCORE_COLUMN_WIDTH +
-    (showDoneColumn ? DONE_COLUMN_WIDTH : 0);
+    STUDENT_COLUMN_WIDTH + scoreColumnCount * SCORE_COLUMN_WIDTH;
+  const phoneTableMinWidth = 148 + scoreColumnCount * SCORE_COLUMN_WIDTH;
 
   const selectedClassroom = classrooms.find(
     (classroom) => classroom.id === departmentId,
@@ -286,6 +305,46 @@ function AssessmentRecordingWorkspace({
   ]
     .filter(Boolean)
     .join(" · ");
+  // Phones show the term title ("2nd Term") instead of the full session label.
+  const shortTermLabel =
+    terms.find((term) => term.id === termId)?.title || termLabel;
+  const mobileContextLine = [
+    shortTermLabel,
+    `${studentCount} student${studentCount === 1 ? "" : "s"}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const filterTerms = !publicToken && onTermChange ? terms : [];
+  const filterClassrooms = !publicToken && onClassroomChange ? classrooms : [];
+  const hasScopeFilters = filterTerms.length > 0 || filterClassrooms.length > 0;
+  const selectedSubjectRailItem = singleSubject
+    ? (railSubjects.find((subject) => subject.id === singleSubject.id) ?? null)
+    : null;
+
+  useEffect(() => {
+    // Sheets are phone-only; leaving the phone layout discards them.
+    if (isMobile) return;
+    setFilterSheetGroup(null);
+    setIsActionsSheetOpen(false);
+  }, [isMobile]);
+
+  const openFilterSheet = (
+    group: RecordingFilterGroupKey,
+    trigger: HTMLButtonElement,
+  ) => {
+    filterTriggerRef.current = trigger;
+    setFilterSheetGroup(group);
+  };
+  const changeScope = (scope: {
+    termId: string;
+    departmentId: string | null;
+  }) => {
+    if (scope.termId !== termId) {
+      onTermChange?.(scope.termId, scope.departmentId);
+    } else if (scope.departmentId && scope.departmentId !== departmentId) {
+      onClassroomChange?.(scope.departmentId);
+    }
+  };
 
   const selectSubject = (subjectId: string) => {
     setSubjectFilterIds((current) => {
@@ -303,12 +362,7 @@ function AssessmentRecordingWorkspace({
   };
 
   if (isLoading) {
-    return (
-      <div className="flex h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Spinner size={16} />
-        Loading students...
-      </div>
-    );
+    return <AssessmentRecordingSkeleton />;
   }
 
   if (publicToken && publicLinkStatus && publicLinkStatus !== "APPROVED") {
@@ -348,7 +402,70 @@ function AssessmentRecordingWorkspace({
 
   return (
     <>
-      <header className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b pb-3">
+      <header className="mb-1 flex items-center gap-1 md:hidden">
+        <div className="min-w-0 flex-1">
+          {hasScopeFilters ? (
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-label={`Classroom: ${classroomTitle}. Change classroom`}
+              onClick={(event) =>
+                openFilterSheet(
+                  filterClassrooms.length ? "departmentId" : "termId",
+                  event.currentTarget,
+                )
+              }
+              className="-mx-1 flex max-w-full items-center gap-1 rounded-md px-1 py-0.5 text-start text-lg font-semibold leading-tight tracking-tight transition-colors hover:bg-accent motion-reduce:transition-none"
+            >
+              <span className="truncate" dir="auto">
+                {classroomTitle}
+              </span>
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+            </button>
+          ) : (
+            <h1
+              className="truncate py-0.5 text-lg font-semibold leading-tight tracking-tight"
+              dir="auto"
+            >
+              {classroomTitle}
+            </h1>
+          )}
+          <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="min-w-0 truncate">{mobileContextLine}</span>
+            <span aria-hidden="true">·</span>
+            <ScoreSaveStatus className="shrink-0" />
+          </div>
+        </div>
+        {hasScopeFilters ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label="Filters"
+            aria-haspopup="dialog"
+            onClick={(event) => openFilterSheet("termId", event.currentTarget)}
+          >
+            <SlidersHorizontal className="size-5" />
+          </Button>
+        ) : null}
+        {!publicToken ? (
+          <Button
+            ref={actionsTriggerRef}
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label="More actions"
+            aria-haspopup="dialog"
+            aria-expanded={isActionsSheetOpen}
+            onClick={() => setIsActionsSheetOpen(true)}
+          >
+            <Ellipsis className="size-5" />
+          </Button>
+        ) : null}
+      </header>
+      <header className="mb-4 hidden flex-wrap items-center gap-x-3 gap-y-2 border-b pb-3 md:flex">
         <div className="min-w-0 flex-1 basis-56">
           {canSwitchClassroom ? (
             <DropdownMenu dir="ltr">
@@ -398,7 +515,7 @@ function AssessmentRecordingWorkspace({
               type="button"
               variant="outline"
               size="sm"
-              className="hidden gap-2 sm:inline-flex"
+              className="gap-2"
               onClick={() => setIsAddStudentOpen(true)}
             >
               <UserPlus className="size-4" />
@@ -408,7 +525,7 @@ function AssessmentRecordingWorkspace({
               type="button"
               variant="outline"
               size="sm"
-              className="hidden gap-2 sm:inline-flex"
+              className="gap-2"
               onClick={() => setIsWorkbooksOpen(true)}
             >
               <FileSpreadsheet className="size-4" />
@@ -427,20 +544,6 @@ function AssessmentRecordingWorkspace({
                 </Button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Content align="end" className="w-60">
-                <DropdownMenu.Item
-                  className="gap-2 sm:hidden"
-                  onSelect={() => setIsAddStudentOpen(true)}
-                >
-                  <UserPlus className="size-4" />
-                  Add student
-                </DropdownMenu.Item>
-                <DropdownMenu.Item
-                  className="gap-2 sm:hidden"
-                  onSelect={() => setIsWorkbooksOpen(true)}
-                >
-                  <FileSpreadsheet className="size-4" />
-                  Assessment workbooks
-                </DropdownMenu.Item>
                 <DropdownMenu.Item
                   className="gap-2"
                   disabled={!subjectFilterIds.length}
@@ -475,7 +578,7 @@ function AssessmentRecordingWorkspace({
         ) : null}
       </header>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[14.5rem_minmax(0,1fr)] lg:gap-6">
+      <div className="grid grid-cols-1 gap-2 md:gap-3 lg:grid-cols-[14.5rem_minmax(0,1fr)] lg:gap-6">
         <aside className="hidden lg:block">
           <div className="sticky top-4">
             <SubjectRail
@@ -487,7 +590,7 @@ function AssessmentRecordingWorkspace({
             />
           </div>
         </aside>
-        <div className="sticky top-0 z-40 -mx-2 bg-background px-2 pt-1 sm:mx-0 sm:px-0 lg:hidden">
+        <div className="sticky top-0 z-40 hidden bg-background pt-1 md:block lg:hidden">
           <SubjectChips
             subjects={railSubjects}
             selectedIds={subjectFilterIds}
@@ -495,9 +598,19 @@ function AssessmentRecordingWorkspace({
             onSelect={selectSubject}
           />
         </div>
+        <MobileSubjectBar
+          subject={selectedSubjectRailItem}
+          selectedCount={visibleSubjects.length}
+          search={nameSearch}
+          onSearchChange={setNameSearch}
+          onOpenSubjects={(trigger) => openFilterSheet("subjectId", trigger)}
+        />
 
-        <section ref={keepScoreInputVisible} className="min-w-0 space-y-3">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <section
+          ref={keepScoreInputVisible}
+          className="flex min-w-0 flex-col gap-3"
+        >
+          <div className="hidden flex-wrap items-center gap-x-3 gap-y-2 md:flex">
             {singleSubject ? (
               <>
                 <h2 className="truncate text-base font-semibold" dir="auto">
@@ -567,7 +680,12 @@ function AssessmentRecordingWorkspace({
               dir={academicDataDirection}
               className="w-full min-w-[var(--recording-table-min-w)] table-fixed border-collapse sm:min-w-[var(--recording-table-w)]"
             >
-              <TableHeader className="sticky top-12 z-30 bg-background shadow-sm lg:top-0 [&_th]:bg-background">
+              <TableHeader
+                className={cn(
+                  "sticky z-30 bg-background shadow-sm md:top-12 lg:top-0 [&_th]:bg-background",
+                  MOBILE_SUBJECT_BAR_OFFSET,
+                )}
+              >
                 {singleSubject ? null : (
                   <TableRow>
                     <TableHead
@@ -645,11 +763,6 @@ function AssessmentRecordingWorkspace({
                       )}
                     </Fragment>
                   ))}
-                  {showDoneColumn ? (
-                    <TableHead className="w-9 min-w-9 px-0">
-                      <span className="sr-only">Complete</span>
-                    </TableHead>
-                  ) : null}
                   {singleSubject ? <FillerHead /> : null}
                 </TableRow>
               </TableHeader>
@@ -657,11 +770,6 @@ function AssessmentRecordingWorkspace({
                 {resultRows.length ? (
                   resultRows.map((row, rowIndex) => {
                     let scoreColumn = 0;
-                    const isComplete =
-                      showDoneColumn &&
-                      (row.subjectTotals[0]?.cells ?? []).every(
-                        (cell) => cell.result?.obtained != null,
-                      );
                     return (
                       <TableRow
                         key={row.student.id}
@@ -723,16 +831,6 @@ function AssessmentRecordingWorkspace({
                             )}
                           </Fragment>
                         ))}
-                        {showDoneColumn ? (
-                          <TableCell className="w-9 px-0 text-center">
-                            {isComplete ? (
-                              <CircleCheck
-                                className="mx-auto size-4 text-green-600"
-                                aria-label="Complete"
-                              />
-                            ) : null}
-                          </TableCell>
-                        ) : null}
                         <TableCell
                           aria-hidden="true"
                           className="hidden p-0 sm:table-cell"
@@ -743,9 +841,7 @@ function AssessmentRecordingWorkspace({
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={
-                        2 + scoreColumnCount + (showDoneColumn ? 1 : 0)
-                      }
+                      colSpan={2 + scoreColumnCount}
                       className="h-24 border-e text-center text-muted-foreground"
                     >
                       No students match the current filters.
@@ -778,8 +874,42 @@ function AssessmentRecordingWorkspace({
         </section>
       </div>
 
+      <RecordingFilterSheet
+        open={!!filterSheetGroup}
+        onOpenChange={(open) => {
+          if (!open) setFilterSheetGroup(null);
+        }}
+        triggerRef={filterTriggerRef}
+        defaultExpanded={filterSheetGroup ?? undefined}
+        termId={termId}
+        departmentId={departmentId}
+        subjectId={singleSubject?.id ?? subjectFilterIds[0] ?? null}
+        terms={filterTerms}
+        classrooms={filterClassrooms}
+        subjects={railSubjects}
+        onScopeChange={hasScopeFilters ? changeScope : undefined}
+        onSubjectChange={(subjectId) => {
+          setMultipleSubjects(false);
+          setSubjectFilterIds([subjectId]);
+        }}
+      />
       {!publicToken ? (
         <>
+          <RecordingActionsSheet
+            open={isActionsSheetOpen}
+            onOpenChange={setIsActionsSheetOpen}
+            triggerRef={actionsTriggerRef}
+            subjectTitle={singleSubject?.subject.title ?? null}
+            onEditAssessments={() => {
+              if (singleSubject) setOpenSubjectId(singleSubject.id);
+            }}
+            onAddStudent={() => setIsAddStudentOpen(true)}
+            onOpenWorkbooks={() => setIsWorkbooksOpen(true)}
+            onOpenPublicLink={() => setIsPublicLinkOpen(true)}
+            publicLinkDisabled={!subjectFilterIds.length}
+            reportSheetHref={reportSheetHref}
+            onOpenClassroomOverview={onOpenClassroomOverview}
+          />
           <SubmitClassStudentSheet
             classrooms={[
               {
