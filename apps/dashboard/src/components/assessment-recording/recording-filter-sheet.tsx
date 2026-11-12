@@ -9,7 +9,7 @@ import {
 	MobileFilterSheet,
 } from "@school-clerk/ui/search-filter/mobile-filter-sheet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { type RefObject, useId } from "react";
+import { type RefObject, useEffect, useId } from "react";
 import type { SubjectRailItem } from "./subject-rail";
 
 export type RecordingFilterTerm = {
@@ -19,15 +19,29 @@ export type RecordingFilterTerm = {
 	title?: string | null;
 };
 
+export type ClassroomRecordingProgress = {
+	students: number;
+	assessments: number;
+	recorded: number;
+	expected: number;
+};
+
 export type RecordingFilterClassroom = {
 	id: string;
 	displayName?: string | null;
 	departmentName?: string | null;
+	recordingProgress?: ClassroomRecordingProgress | null;
 };
 
 export type RecordingFilterGroupKey = "termId" | "departmentId" | "subjectId";
 
-type Choice = { value: string; label: string; subLabel?: string };
+type Choice = {
+	value: string;
+	label: string;
+	subLabel?: string;
+	/** Recorded vs expected scores; shows a percentage and a thin bar. */
+	progress?: { recorded: number; expected: number } | null;
+};
 
 type Props = {
 	open: boolean;
@@ -56,6 +70,36 @@ export function termOptionLabel(term: RecordingFilterTerm) {
 
 export function classroomOptionLabel(classroom: RecordingFilterClassroom) {
 	return classroom.displayName || classroom.departmentName || "Classroom";
+}
+
+/** Floors so a nearly finished classroom never reads as 100%. */
+export function recordedPercent(progress: {
+	recorded: number;
+	expected: number;
+}) {
+	return progress.expected
+		? Math.floor((progress.recorded / progress.expected) * 100)
+		: 0;
+}
+
+export function classroomProgressLabel(
+	progress?: ClassroomRecordingProgress | null,
+) {
+	if (!progress) return undefined;
+	const students = `${progress.students} student${progress.students === 1 ? "" : "s"}`;
+	if (!progress.students) return students;
+	if (!progress.expected) return `${students} · No assessment columns`;
+	return `${students} · ${progress.recorded} recorded · ${progress.expected - progress.recorded} not recorded`;
+}
+
+function classroomChoice(classroom: RecordingFilterClassroom): Choice {
+	const progress = classroom.recordingProgress;
+	return {
+		value: classroom.id,
+		label: classroomOptionLabel(classroom),
+		subLabel: classroomProgressLabel(progress),
+		progress: progress?.expected ? progress : null,
+	};
 }
 
 function subjectSubLabel(subject: SubjectRailItem) {
@@ -89,6 +133,15 @@ export function RecordingFilterSheet({
 	const showTerm = !!onScopeChange && terms.length > 0;
 	const showClassroom = !!onScopeChange && classrooms.length > 0;
 
+	// Score saves mark classroom progress stale; refresh it when the sheet opens.
+	useEffect(() => {
+		if (!open || !showClassroom) return;
+		queryClient.refetchQueries({
+			queryKey: trpc.assessments.getRecordingContextOptions.queryKey(),
+			stale: true,
+		});
+	}, [open, showClassroom, queryClient, trpc]);
+
 	// Reset returns each group to the applied selection.
 	const groups: MobileFilterGroup[] = [
 		...(showTerm
@@ -109,10 +162,7 @@ export function RecordingFilterSheet({
 						key: "departmentId",
 						label: "Classroom",
 						resetValue: departmentId,
-						options: classrooms.map((classroom) => ({
-							value: classroom.id,
-							label: classroomOptionLabel(classroom),
-						})),
+						options: classrooms.map(classroomChoice),
 					},
 				]
 			: []),
@@ -199,7 +249,7 @@ export function RecordingFilterSheet({
 					return draftTermId === termId ? (
 						<RecordingChoices
 							label="Classroom"
-							options={group.options ?? []}
+							options={classrooms.map(classroomChoice)}
 							value={selected}
 							onSelect={onSelect}
 						/>
@@ -297,10 +347,9 @@ function DraftTermClassrooms({
 	return (
 		<RecordingChoices
 			label="Classroom"
-			options={(data?.classrooms ?? []).map((classroom) => ({
-				value: classroom.id,
-				label: classroomOptionLabel(classroom as RecordingFilterClassroom),
-			}))}
+			options={(data?.classrooms ?? []).map((classroom) =>
+				classroomChoice(classroom as RecordingFilterClassroom),
+			)}
 			value={value}
 			emptyText="No classrooms are available for this term."
 			onSelect={onSelect}
@@ -352,7 +401,27 @@ function RecordingChoices({
 									<bdi>{option.subLabel}</bdi>
 								</span>
 							) : null}
+							{option.progress ? (
+								<span
+									aria-hidden="true"
+									className="mt-1.5 block h-1 overflow-hidden rounded-full bg-muted"
+								>
+									<span
+										className={`block h-full rounded-full ${recordedPercent(option.progress) >= 100 ? "bg-green-600" : "bg-primary"}`}
+										style={{ width: `${recordedPercent(option.progress)}%` }}
+									/>
+								</span>
+							) : null}
 						</span>
+						{option.progress ? (
+							<span className="shrink-0 text-sm font-medium tabular-nums">
+								{option.progress.recorded > 0 &&
+								recordedPercent(option.progress) === 0
+									? "<1"
+									: recordedPercent(option.progress)}
+								%<span className="sr-only"> recorded</span>
+							</span>
+						) : null}
 					</label>
 				);
 			})}

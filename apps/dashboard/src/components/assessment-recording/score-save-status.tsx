@@ -48,6 +48,12 @@ function flushInvalidations() {
 		qc.invalidateQueries({
 			queryKey: trpc.assessments.getSubjectAssessmentRecordings.queryKey({}),
 		});
+		// Classroom progress counts: mark stale only; the filter sheet refetches
+		// when it opens, so fast typing does not refetch the context each save.
+		qc.invalidateQueries({
+			queryKey: trpc.assessments.getRecordingContextOptions.queryKey(),
+			refetchType: "none",
+		});
 	}
 	for (const token of pendingInvalidations.tokens) {
 		qc.invalidateQueries({

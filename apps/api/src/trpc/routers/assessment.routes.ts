@@ -1,3 +1,4 @@
+import { withClassroomRecordingProgress } from "@api/db/queries/recording-progress";
 import {
   getClassroomReportSheet,
   getClassroomReportSheetSchema,
@@ -213,7 +214,11 @@ export const assessmentRouter = createTRPCRouter({
         return {
           scoped: false,
           terms,
-          classrooms: classrooms.data,
+          classrooms: await withClassroomRecordingProgress(
+            ctx,
+            defaultTermId,
+            classrooms.data,
+          ),
           defaultTermId,
           defaultDepartmentId: classrooms.data[0]?.id ?? null,
         };
@@ -412,7 +417,11 @@ export const assessmentRouter = createTRPCRouter({
       return {
         scoped: true,
         terms,
-        classrooms,
+        classrooms: await withClassroomRecordingProgress(
+          ctx,
+          defaultTermId,
+          classrooms,
+        ),
         defaultTermId,
         defaultDepartmentId: classrooms[0]?.id ?? null,
       };
