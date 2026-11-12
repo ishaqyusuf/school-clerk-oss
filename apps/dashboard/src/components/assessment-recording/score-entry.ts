@@ -61,3 +61,61 @@ export function focusScoreCell(from: HTMLElement, move: ScoreGridMove) {
 	target.scrollIntoView({ block: "nearest", inline: "nearest" });
 	return true;
 }
+
+/** Keeps the active score input in the visible part of the mobile viewport. */
+export function keepScoreInputVisible(section: HTMLElement | null) {
+	const viewport = window.visualViewport;
+	if (
+		!section ||
+		!viewport ||
+		!window.matchMedia("(any-pointer: coarse)").matches
+	) {
+		return;
+	}
+
+	const gap = 12;
+	let frame: number | undefined;
+
+	const update = () => {
+		frame = undefined;
+		const input = document.activeElement;
+		const obscuredHeight =
+			document.documentElement.clientHeight - viewport.height;
+
+		if (
+			viewport.scale !== 1 ||
+			obscuredHeight <= 0 ||
+			!input?.matches("input[data-score-row]") ||
+			!section.contains(input)
+		) {
+			section.style.removeProperty("padding-bottom");
+			return;
+		}
+
+		// The layout viewport can stay full-height with the keyboard open.
+		// Add scroll room so the final student row can clear the keyboard too.
+		section.style.paddingBottom = `${Math.ceil(obscuredHeight) + gap}px`;
+		const visibleBottom = viewport.offsetTop + viewport.height;
+		const overlap = input.getBoundingClientRect().bottom + gap - visibleBottom;
+		if (overlap > 0) {
+			window.scrollBy({ top: Math.ceil(overlap), behavior: "instant" });
+		}
+	};
+	const scheduleUpdate = () => {
+		frame ??= window.requestAnimationFrame(update);
+	};
+
+	section.addEventListener("focusin", scheduleUpdate);
+	section.addEventListener("focusout", scheduleUpdate);
+	viewport.addEventListener("resize", scheduleUpdate);
+	viewport.addEventListener("scroll", scheduleUpdate);
+
+	return () => {
+		section.removeEventListener("focusin", scheduleUpdate);
+		section.removeEventListener("focusout", scheduleUpdate);
+		viewport.removeEventListener("resize", scheduleUpdate);
+		viewport.removeEventListener("scroll", scheduleUpdate);
+		if (frame !== undefined) window.cancelAnimationFrame(frame);
+		section.style.removeProperty("padding-bottom");
+	};
+}

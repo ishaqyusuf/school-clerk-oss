@@ -263,6 +263,7 @@ export const AssessmentResultsScoreCell = memo(function AssessmentResultsScoreCe
           className={cn(
             "h-9 w-full min-w-0 bg-transparent px-0 pr-5 text-center text-sm outline-none",
             "border-0 focus:bg-accent/40 focus:ring-0 focus-visible:ring-0",
+            gridRow != null && "[@media(any-pointer:coarse)]:text-base",
             invalidClassName,
           )}
           value={localValue}

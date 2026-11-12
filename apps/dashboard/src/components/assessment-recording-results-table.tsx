@@ -1,6 +1,7 @@
 "use client";
 
 import { AssessmentPublicLinksPanel } from "@/components/assessment-public-links-panel";
+import { keepScoreInputVisible } from "@/components/assessment-recording/score-entry";
 import {
   ScoreSaveStatus,
   ScoreSaveStatusProvider,
@@ -495,7 +496,7 @@ function AssessmentRecordingWorkspace({
           />
         </div>
 
-        <section className="min-w-0 space-y-3">
+        <section ref={keepScoreInputVisible} className="min-w-0 space-y-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             {singleSubject ? (
               <>
