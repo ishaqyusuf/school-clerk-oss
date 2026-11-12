@@ -8,9 +8,12 @@ import {
 import { RecordingActionsSheet } from "@/components/assessment-recording/recording-actions-sheet";
 import { AssessmentRecordingSkeleton } from "@/components/assessment-recording/recording-skeleton";
 import {
+  type ClassroomRecordingProgress,
+  classroomProgressLabel,
   type RecordingFilterGroupKey,
   RecordingFilterSheet,
   type RecordingFilterTerm,
+  recordedPercent,
 } from "@/components/assessment-recording/recording-filter-sheet";
 import { keepScoreInputVisible } from "@/components/assessment-recording/score-entry";
 import {
@@ -49,7 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from "@school-clerk/ui/table";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
   ChevronDown,
@@ -82,7 +85,13 @@ type ClassroomFilterOption = {
   id: string;
   displayName?: string | null;
   departmentName?: string | null;
+  recordingProgress?: ClassroomRecordingProgress | null;
 };
+
+function percentLabel(progress: ClassroomRecordingProgress) {
+  const percent = recordedPercent(progress);
+  return progress.recorded > 0 && percent === 0 ? "<1%" : `${percent}%`;
+}
 
 type Props = {
   departmentId: string;
@@ -153,6 +162,7 @@ function AssessmentRecordingWorkspace({
   reportSheetHref,
 }: Props) {
   const academicDataDirection = useAcademicDataDirection();
+  const queryClient = useQueryClient();
   const studentNameFormat = useStudentNameFormat();
   const isRtl = academicDataDirection === "rtl";
   const [subjectFilterIds, setSubjectFilterIds] = useState<string[]>([]);
@@ -468,7 +478,17 @@ function AssessmentRecordingWorkspace({
       <header className="mb-4 hidden flex-wrap items-center gap-x-3 gap-y-2 border-b pb-3 md:flex">
         <div className="min-w-0 flex-1 basis-56">
           {canSwitchClassroom ? (
-            <DropdownMenu dir="ltr">
+            <DropdownMenu
+              dir="ltr"
+              onOpenChange={(open) => {
+                // Score saves mark classroom progress stale; refresh it on open.
+                if (!open) return;
+                queryClient.refetchQueries({
+                  queryKey: _trpc.assessments.getRecordingContextOptions.queryKey(),
+                  stale: true,
+                });
+              }}
+            >
               <DropdownMenu.Trigger asChild>
                 <button
                   type="button"
@@ -481,21 +501,60 @@ function AssessmentRecordingWorkspace({
                   <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
                 </button>
               </DropdownMenu.Trigger>
-              <DropdownMenu.Content align="start" className="w-64">
-                {classrooms.map((classroom) => (
-                  <DropdownMenu.Item
-                    key={classroom.id}
-                    dir="ltr"
-                    onSelect={() => onClassroomChange?.(classroom.id)}
-                  >
-                    <span className="min-w-0 flex-1 truncate" dir="auto">
-                      {classroom.displayName ?? classroom.departmentName}
-                    </span>
-                    {classroom.id === departmentId ? (
-                      <Check className="size-4 shrink-0" />
-                    ) : null}
-                  </DropdownMenu.Item>
-                ))}
+              <DropdownMenu.Content
+                align="start"
+                className="max-h-[70vh] w-80 overflow-y-auto"
+              >
+                {classrooms.map((classroom) => {
+                  const progress = classroom.recordingProgress;
+                  const subLabel = classroomProgressLabel(progress);
+                  return (
+                    <DropdownMenu.Item
+                      key={classroom.id}
+                      dir="ltr"
+                      className="items-start gap-2 py-2"
+                      onSelect={() => onClassroomChange?.(classroom.id)}
+                    >
+                      <span className="flex size-4 shrink-0 items-center pt-0.5">
+                        {classroom.id === departmentId ? (
+                          <Check className="size-4" />
+                        ) : null}
+                      </span>
+                      <span className="min-w-0 flex-1" dir="auto">
+                        <span className="block truncate">
+                          {classroom.displayName ?? classroom.departmentName}
+                        </span>
+                        {subLabel ? (
+                          <span className="block text-xs tabular-nums text-muted-foreground">
+                            <bdi>{subLabel}</bdi>
+                          </span>
+                        ) : null}
+                        {progress?.expected ? (
+                          <span
+                            aria-hidden="true"
+                            className="mt-1.5 block h-1 overflow-hidden rounded-full bg-muted"
+                          >
+                            <span
+                              className={cn(
+                                "block h-full rounded-full",
+                                recordedPercent(progress) >= 100
+                                  ? "bg-green-600"
+                                  : "bg-primary",
+                              )}
+                              style={{ width: `${recordedPercent(progress)}%` }}
+                            />
+                          </span>
+                        ) : null}
+                      </span>
+                      {progress?.expected ? (
+                        <span className="shrink-0 text-xs font-medium tabular-nums">
+                          {percentLabel(progress)}
+                          <span className="sr-only"> recorded</span>
+                        </span>
+                      ) : null}
+                    </DropdownMenu.Item>
+                  );
+                })}
               </DropdownMenu.Content>
             </DropdownMenu>
           ) : (
