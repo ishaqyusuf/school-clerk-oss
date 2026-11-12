@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode local -- PORTLESS_WILDCARD=1 PORTLESS_APP_PORT=${PORTLESS_APP_PORT:-${DASHBOARD_PORT:-2200}} portless school-clerk-dashboard next dev --turbopack",
     "dev:prod": "bun ../../../local-infra-kit/bin/with-env.ts --profile school-clerk --mode prod -- next dev --turbopack -p ${SCHOOL_CLERK_DASHBOARD_PROD_PORT:-2205}",
-    "build": "bun --cwd ../../packages/db run db:generate && bun next build --turbopack",
+    "build": "bun --cwd ../../packages/db run db:generate && bun next typegen && bun run typecheck && SCHOOL_CLERK_DASHBOARD_TYPES_CHECKED=1 bun next build --turbopack",
     "clean": "git clean -xdf .next .turbo node_modules",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",

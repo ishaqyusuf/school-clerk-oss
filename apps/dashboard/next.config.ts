@@ -22,6 +22,10 @@ const localDashboardOrigins = [
 const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  // The build script checks generated route types before starting Turbopack.
+  typescript: {
+    ignoreBuildErrors: process.env.SCHOOL_CLERK_DASHBOARD_TYPES_CHECKED === "1",
+  },
   /** Enables hot reloading for local packages without a build step */
   transpilePackages: [
     "@school-clerk/events",
