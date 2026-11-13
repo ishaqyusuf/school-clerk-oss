@@ -1,116 +1,153 @@
 "use client";
 
 import { TenantLink as Link } from "@school-clerk/tenant-url/next";
-import { useMemo } from "react";
-import { AlertTriangle, RefreshCcw, ShieldAlert } from "lucide-react";
-
 import { Button } from "@school-clerk/ui/button";
+import { cn } from "@school-clerk/ui/cn";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@school-clerk/ui/card";
+	AlertTriangle,
+	ChevronRight,
+	Lock,
+	LogIn,
+	RefreshCcw,
+	SearchX,
+	WifiOff,
+} from "lucide-react";
+import { useMemo } from "react";
+import {
+	type DashboardErrorKind,
+	classifyDashboardError,
+	readErrorMessage,
+} from "./api-error-kind";
 
-type ApiErrorStateProps = {
-  title?: string;
-  description?: string;
-  error?: unknown;
-  retryLabel?: string;
-  onRetry?: () => void;
-  secondaryHref?: string;
-  secondaryLabel?: string;
+const COPY: Record<
+	DashboardErrorKind,
+	{ icon: typeof Lock; tone: string; title: string; description: string }
+> = {
+	forbidden: {
+		icon: Lock,
+		tone: "bg-muted text-muted-foreground",
+		title: "You don’t have access to this page",
+		description:
+			"Your role can’t open this part of the dashboard. If you need it, ask a school admin to change your access.",
+	},
+	unauthorized: {
+		icon: LogIn,
+		tone: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
+		title: "Your session has ended",
+		description: "Sign in again to continue where you left off.",
+	},
+	not_found: {
+		icon: SearchX,
+		tone: "bg-muted text-muted-foreground",
+		title: "We couldn’t find that",
+		description:
+			"It may have been removed, or the link is out of date.",
+	},
+	network: {
+		icon: WifiOff,
+		tone: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+		title: "Can’t reach School Clerk",
+		description: "Check your connection, then try again.",
+	},
+	unknown: {
+		icon: AlertTriangle,
+		tone: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+		title: "Something went wrong",
+		description:
+			"This page didn’t finish loading. Try again — if it keeps happening, let your school admin know.",
+	},
 };
 
-function getErrorMessage(error: unknown) {
-  if (!error) return "";
-
-  if (typeof error === "string") return error;
-
-  if (error instanceof Error) return error.message;
-
-  if (typeof error === "object" && "message" in error) {
-    const message = error.message;
-    return typeof message === "string" ? message : "";
-  }
-
-  return "";
-}
+type ApiErrorStateProps = {
+	error?: unknown;
+	/** Overrides the classified title/description. */
+	title?: string;
+	description?: string;
+	onRetry?: () => void;
+	retryLabel?: string;
+	/** Where "Go to your dashboard" leads (the viewer's first permitted page). */
+	homeHref?: string;
+};
 
 export function ApiErrorState({
-  title = "We couldn't load this page",
-  description = "A request failed while loading your dashboard. Try again, and if it keeps happening, sign in again to refresh your school workspace.",
-  error,
-  retryLabel = "Try again",
-  onRetry,
-  secondaryHref = "/signout",
-  secondaryLabel = "Sign out",
+	error,
+	title,
+	description,
+	onRetry,
+	retryLabel = "Try again",
+	homeHref = "/",
 }: ApiErrorStateProps) {
-  const message = useMemo(() => getErrorMessage(error), [error]);
+	const kind = useMemo(() => classifyDashboardError(error), [error]);
+	const message = useMemo(() => readErrorMessage(error), [error]);
+	const copy = COPY[kind];
+	const Icon = copy.icon;
 
-  return (
-    <div className="flex min-h-[50vh] items-center justify-center px-4 py-8">
-      <Card className="w-full max-w-xl overflow-hidden rounded-2xl border border-amber-200/70 shadow-sm">
-        <CardHeader className="gap-4 bg-gradient-to-br from-amber-50 via-background to-rose-50">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-            <ShieldAlert className="h-6 w-6" />
-          </div>
-          <div className="space-y-2">
-            <CardTitle className="text-xl font-semibold tracking-tight">
-              {title}
-            </CardTitle>
-            <CardDescription className="text-sm leading-6 text-muted-foreground">
-              {description}
-            </CardDescription>
-          </div>
-        </CardHeader>
+	const primary =
+		kind === "unauthorized" ? (
+			<Button asChild className="min-h-11 md:min-h-9">
+				<Link href="/signout">
+					<LogIn className="mr-2 size-4" />
+					Sign in again
+				</Link>
+			</Button>
+		) : kind === "forbidden" || kind === "not_found" ? (
+			<Button asChild className="min-h-11 md:min-h-9">
+				<Link href={homeHref}>Go to your dashboard</Link>
+			</Button>
+		) : onRetry ? (
+			<Button type="button" onClick={onRetry} className="min-h-11 md:min-h-9">
+				<RefreshCcw className="mr-2 size-4" />
+				{retryLabel}
+			</Button>
+		) : null;
 
-        <CardContent className="space-y-4 pt-6">
-          <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/60 p-4 text-sm text-amber-950">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-              <div className="space-y-1">
-                <p className="font-medium">What you can do</p>
-                <p className="text-amber-900/80">
-                  Refresh the page first. If the problem started right after
-                  login, signing out and in again usually restores the tenant
-                  session.
-                </p>
-              </div>
-            </div>
-          </div>
+	const secondary =
+		(kind === "network" || kind === "unknown") && onRetry ? (
+			<Button asChild variant="ghost" className="min-h-11 md:min-h-9">
+				<Link href={homeHref}>Go to your dashboard</Link>
+			</Button>
+		) : kind === "not_found" && onRetry ? (
+			<Button type="button" variant="ghost" onClick={onRetry} className="min-h-11 md:min-h-9">
+				{retryLabel}
+			</Button>
+		) : null;
 
-          {message ? (
-            <div className="rounded-xl border bg-muted/40 p-4 text-sm">
-              <p className="font-medium text-foreground">Technical details</p>
-              <p className="mt-1 break-words text-muted-foreground">
-                {message}
-              </p>
-            </div>
-          ) : null}
-        </CardContent>
-
-        <CardFooter className="flex flex-col gap-3 border-t bg-muted/20 sm:flex-row sm:justify-between">
-          <div className="text-xs leading-5 text-muted-foreground">
-            Dashboard errors are now surfaced here instead of failing silently.
-          </div>
-          <div className="flex w-full gap-2 sm:w-auto">
-            {secondaryHref ? (
-              <Button asChild variant="outline" className="flex-1 sm:flex-none">
-                <Link href={secondaryHref}>{secondaryLabel}</Link>
-              </Button>
-            ) : null}
-            {onRetry ? (
-              <Button onClick={onRetry} className="flex-1 sm:flex-none">
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                {retryLabel}
-              </Button>
-            ) : null}
-          </div>
-        </CardFooter>
-      </Card>
-    </div>
-  );
+	return (
+		<div
+			role="alert"
+			className="flex min-h-[50vh] items-center justify-center px-4 py-10"
+		>
+			<div className="w-full max-w-md text-center">
+				<div
+					className={cn(
+						"mx-auto grid size-12 place-items-center rounded-full",
+						copy.tone,
+					)}
+				>
+					<Icon className="size-5" aria-hidden />
+				</div>
+				<h2 className="mt-4 text-lg font-semibold tracking-tight">
+					{title ?? copy.title}
+				</h2>
+				<p className="mx-auto mt-1.5 max-w-sm text-sm leading-6 text-muted-foreground">
+					{description ?? copy.description}
+				</p>
+				<div className="mt-5 flex flex-col-reverse justify-center gap-2 sm:flex-row">
+					{secondary}
+					{primary}
+				</div>
+				{message && kind !== "forbidden" ? (
+					<details className="group mx-auto mt-6 max-w-sm text-left text-xs text-muted-foreground">
+						<summary className="flex cursor-pointer list-none items-center justify-center gap-1 hover:text-foreground">
+							<ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
+							Technical details
+						</summary>
+						<p className="mt-2 break-words rounded-md border bg-muted/40 p-3 font-mono">
+							{message}
+						</p>
+					</details>
+				) : null}
+			</div>
+		</div>
+	);
 }
