@@ -47,22 +47,22 @@ export function StudentOverviewSheetHeader({
   return (
     <section
       className={cn(
-        "w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl",
-        mode === "page" ? "p-4 sm:p-6 md:p-8" : "p-4 sm:p-5",
+        "w-full min-w-0 max-w-full",
+        mode === "page" ? "pt-2 sm:pt-4" : "pt-1",
       )}
     >
       <div className="flex min-w-0 flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
-          <div className="relative shrink-0">
-            <Avatar className="h-16 w-16 border-4 border-background shadow-inner sm:h-20 sm:w-20 md:h-24 md:w-24">
+          <div className="relative w-fit shrink-0">
+            <Avatar className="h-14 w-14 sm:h-16 sm:w-16">
               <Avatar.Image src="/placeholder.svg" alt={studentName} />
-              <Avatar.Fallback className="text-base sm:text-lg">
+              <Avatar.Fallback className="bg-muted text-base font-medium text-muted-foreground">
                 {getInitials(studentName)}
               </Avatar.Fallback>
             </Avatar>
             <span
               className={cn(
-                "absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-background",
+                "absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-background",
                 isWithdrawn ? "bg-muted-foreground" : "bg-primary",
               )}
               title={isWithdrawn ? "Withdrawn" : "Active"}
@@ -71,7 +71,7 @@ export function StudentOverviewSheetHeader({
 
           <div className="flex min-w-0 flex-col gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-3">
-              <h2 className="min-w-0 max-w-full text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+              <h2 className="min-w-0 max-w-full text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
                 {hasStudentSwitcher ? (
                   <Menu
                     noSize

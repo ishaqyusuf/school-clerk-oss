@@ -13,6 +13,7 @@ import { StudentAcademicsOverview } from "./student-academics-overview";
 import { StudentAttendanceHistory } from "./student-attendance-history";
 import { StudentTransactionOverview } from "./student-transaction-overview";
 import { StudentOverviewReadState } from "./student-overview-read-state";
+import { StudentOverviewSkeleton } from "./student-overview.loading";
 
 const tabs = [
   { id: "overview", label: "Overview", icon: Activity },
@@ -31,7 +32,8 @@ export function StudentOverviewShell({ mode = "sheet", className }: Props) {
     useStudentOverviewSheet();
 
   if (!isOpen) return null;
-  if (isLoading || isUnavailable || !overviewData) return <StudentOverviewReadState pending={isLoading} onRetry={retryOverview} />;
+  if (isLoading) return <StudentOverviewSkeleton mode={mode} />;
+  if (isUnavailable || !overviewData) return <StudentOverviewReadState pending={false} onRetry={retryOverview} />;
 
   return (
     <div
