@@ -5,6 +5,8 @@ import { getStudentAcademicReadContext, getStudentAcademicRecords } from "./stud
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
 import { partitionStudentsByTermEligibility } from "./student-enrollment-eligibility";
 import { STUDENT_WITHDRAWAL_ERROR_MESSAGE } from "@school-clerk/utils/student-withdrawal";
+import { activityClassroomRef, activityStudentRef, activityTermRef } from "@school-clerk/utils/activity-refs";
+import { activityActorName, recordActivity } from "./activity-log";
 
 export class StudentTermEnrollmentError extends Error {
   constructor(public readonly code: "FORBIDDEN" | "NOT_FOUND" | "CONFLICT", message: string) {
@@ -18,15 +20,24 @@ export type StudentTermEnrollmentInput = {
   studentSessionFormId?: string | null;
 };
 
+export type StudentTermEnrollmentOptions = {
+  /**
+   * Record `student_enrolled`. Only the explicit enroll action opts in;
+   * readmission and other internal reuse record their own activity.
+   */
+  recordActivity?: boolean;
+};
+
 export async function enrollStudentInAcademicTerm(db: Database, actor: {
   schoolId: string; userId: string; bearer: string;
 }, input: StudentTermEnrollmentInput) {
-  return db.$transaction(tx => enrollStudentInAcademicTermTransaction(tx, actor, input), { isolationLevel: "Serializable" });
+  return db.$transaction(tx => enrollStudentInAcademicTermTransaction(tx, actor, input, { recordActivity: true }),
+    { isolationLevel: "Serializable" });
 }
 
 export async function enrollStudentInAcademicTermTransaction(tx: DatabaseTransaction, actor: {
   schoolId: string; userId: string; bearer: string;
-}, input: StudentTermEnrollmentInput) {
+}, input: StudentTermEnrollmentInput, options: StudentTermEnrollmentOptions = {}) {
     const context = await getStudentAcademicReadContext(tx, actor);
     if (!context || !["ADMIN", "REGISTRAR"].includes(context.role?.toUpperCase() ?? "") ||
       !canAccessModules(resolveModuleAccess(context.school.moduleConfiguration), ["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"])) {
@@ -55,7 +66,7 @@ export async function enrollStudentInAcademicTermTransaction(tx: DatabaseTransac
     const classroom = await tx.classRoomDepartment.findFirst({
       where: { id: input.classroomDepartmentId, schoolProfileId: schoolId, deletedAt: null,
         classRoom: { schoolProfileId: schoolId, schoolSessionId: input.schoolSessionId, deletedAt: null } },
-      select: { id: true },
+      select: { id: true, departmentName: true, classRoom: { select: { name: true } } },
     });
     if (!classroom) throw new StudentTermEnrollmentError("NOT_FOUND", "Classroom was not found in the selected school session.");
     const records = await getStudentAcademicRecords(tx, { schoolId, studentId: input.studentId });
@@ -104,5 +115,18 @@ export async function enrollStudentInAcademicTermTransaction(tx: DatabaseTransac
       schoolSessionId: input.schoolSessionId, sessionTermId: term.id, classroomDepartmentId: classroom.id,
       admissionType: "RETURNING", studentGender: records.student.gender,
     });
+    if (options.recordActivity) {
+      const author = await activityActorName(tx, actor.userId);
+      const student = activityStudentRef(records.student, context.school.studentNameFormat);
+      const classroomRef = activityClassroomRef(classroom)!;
+      const termRef = activityTermRef(records.terms.find((row) => row.id === term.id) ?? { id: term.id })!;
+      await recordActivity(tx, {
+        schoolId, type: "student_enrolled", userId: actor.userId, author,
+        title: "Student enrolled",
+        description: `${author} enrolled ${student.name} in ${classroomRef.name} for ${termRef.name}.`,
+        meta: { student, classroom: classroomRef, term: termRef },
+        subject: { type: "student", id: student.id },
+      });
+    }
     return { status: "enrolled" as const, studentTermFormId: termForm.id, studentSessionFormId };
 }

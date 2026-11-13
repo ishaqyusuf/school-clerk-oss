@@ -46,6 +46,7 @@ import {
 	upsertFinancePayrollStructure,
 	upsertFinanceStream,
 } from "../../db/queries/finance";
+import { recordStudentPaymentReceivedActivitySafely } from "../../db/queries/finance-activity";
 import {
 	getClassCollectionRoster,
 	getStudentOpenCharges,
@@ -419,17 +420,28 @@ async function recordLegacyStudentPayment(
 		}
 
 		paymentResults.push(
-			await recordFinancePayment(ctx, {
-				chargeId: requirePaymentChargeId(chargeId),
-				amount: allocation.amountToPay ?? 0,
-				paymentDate: input.paymentDate,
-				method: input.method ?? input.paymentMethod,
-				reference: input.reference,
-				note: input.note ?? allocation.description,
-				receivedById: input.receivedById,
-			}),
+			await recordFinancePayment(
+				ctx,
+				{
+					chargeId: requirePaymentChargeId(chargeId),
+					amount: allocation.amountToPay ?? 0,
+					paymentDate: input.paymentDate,
+					method: input.method ?? input.paymentMethod,
+					reference: input.reference,
+					note: input.note ?? allocation.description,
+					receivedById: input.receivedById,
+				},
+				{ recordActivity: false },
+			),
 		);
 	}
+
+	// Rows post in separate transactions; record the receipt once, best-effort.
+	await recordStudentPaymentReceivedActivitySafely(
+		ctx,
+		ctx.db,
+		paymentResults.map((result) => result.paymentId),
+	);
 
 	return {
 		success: true,

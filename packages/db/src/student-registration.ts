@@ -1,7 +1,10 @@
 import type { DatabaseTransaction } from "./prisma";
 import { canAccessModules, resolveModuleAccess } from "@school-clerk/utils/module-config";
+import type { ActivityRef } from "@school-clerk/utils/activity";
+import { activityClassroomRef, activityStudentRef, activityTermRef } from "@school-clerk/utils/activity-refs";
 import type { CreateStudentInput } from "@school-clerk/utils/student-create-schema";
 import type { Prisma } from "./generated/client";
+import { recordActivity } from "./activity-log";
 import { getStudentAcademicReadContext } from "./student-academic-read";
 import { getStudentFeePreview } from "./student-fee-preview";
 
@@ -42,7 +45,11 @@ export async function prepareStudentRegistration(tx: DatabaseTransaction, actor:
     throw new StudentRegistrationError("FORBIDDEN", "Your role cannot receive payments during student registration.");
   }
 
-  let enrollment: { schoolSessionId: string; classroomDepartmentId: string; termIds: string[]; initialTermId: string } | null = null;
+  let enrollment: {
+    schoolSessionId: string; classroomDepartmentId: string; termIds: string[]; initialTermId: string;
+    /** Name snapshots for the `student_created` activity. */
+    classroom: ActivityRef | null; initialTerm: ActivityRef | null;
+  } | null = null;
   if (input.classRoomId) {
     if (!canAccessModules(resolveModuleAccess(context.school.moduleConfiguration), ["ACADEMIC_PROGRAMS"])) {
       throw new StudentRegistrationError("FORBIDDEN", "Class registration requires academic management access.");
@@ -60,7 +67,7 @@ export async function prepareStudentRegistration(tx: DatabaseTransaction, actor:
     const terms = await tx.sessionTerm.findMany({
       where: { id: { in: termIds }, schoolId, sessionId: schoolSessionId, deletedAt: null,
         session: { schoolId, deletedAt: null } },
-      select: { id: true, lifecycleStatus: true },
+      select: { id: true, lifecycleStatus: true, title: true, session: { select: { title: true } } },
     });
     if (terms.length !== termIds.length) {
       throw new StudentRegistrationError("NOT_FOUND", "Academic terms were not found in this school session.");
@@ -71,11 +78,13 @@ export async function prepareStudentRegistration(tx: DatabaseTransaction, actor:
     const classroom = await tx.classRoomDepartment.findFirst({
       where: { id: input.classRoomId, schoolProfileId: schoolId, deletedAt: null,
         classRoom: { schoolProfileId: schoolId, schoolSessionId, deletedAt: null } },
-      select: { id: true },
+      select: { id: true, departmentName: true, classRoom: { select: { name: true } } },
     });
     if (!classroom) throw new StudentRegistrationError("NOT_FOUND", "Classroom was not found in this school session.");
     const initialTermId = termIds.find((id) => id === selection.sessionTermId) ?? termIds[0]!;
-    enrollment = { schoolSessionId, classroomDepartmentId: classroom.id, termIds, initialTermId };
+    enrollment = { schoolSessionId, classroomDepartmentId: classroom.id, termIds, initialTermId,
+      classroom: activityClassroomRef(classroom),
+      initialTerm: activityTermRef(terms.find((term) => term.id === initialTermId)) };
     if (input.selectedOptionalFeeItemIds.length) {
       const fees = await getStudentFeePreview(tx, {
         schoolId, sessionTermId: initialTermId, classroomDepartmentId: classroom.id,
@@ -112,12 +121,15 @@ export async function prepareStudentRegistration(tx: DatabaseTransaction, actor:
       guardian = { create: { name, phone, phone2: requestedGuardian.phone2 || null, schoolProfileId: schoolId } };
     }
   }
-  return { schoolId, role: context.role, enrollment, guardian, billingEnabled };
+  return { schoolId, role: context.role, enrollment, guardian, billingEnabled,
+    studentNameFormat: context.school.studentNameFormat };
 }
 
 type PreparedRegistration = Awaited<ReturnType<typeof prepareStudentRegistration>>;
 
-export async function createPreparedStudentRegistration(tx: DatabaseTransaction, prepared: PreparedRegistration, input: CreateStudentInput) {
+export async function createPreparedStudentRegistration(tx: DatabaseTransaction, prepared: PreparedRegistration, input: CreateStudentInput,
+  /** Acting user; records `student_created` in this transaction when given. */
+  actor?: { userId: string; author: string }) {
   const student = await tx.students.create({ data: {
     schoolProfileId: prepared.schoolId, name: input.name, surname: input.surname,
     otherName: input.otherName, gender: input.gender, dob: input.dob,
@@ -135,6 +147,17 @@ export async function createPreparedStudentRegistration(tx: DatabaseTransaction,
       schoolSessionId: enrollment.schoolSessionId, sessionTermId,
       classroomDepartmentId: enrollment.classroomDepartmentId, admissionType: input.admissionType,
     })) });
+  }
+  if (actor) {
+    const ref = activityStudentRef({ id: student.id, name: input.name, surname: input.surname, otherName: input.otherName },
+      prepared.studentNameFormat);
+    await recordActivity(tx, {
+      schoolId: prepared.schoolId, type: "student_created", userId: actor.userId, author: actor.author,
+      title: "Student registered",
+      description: `${actor.author} registered ${ref.name}${enrollment?.classroom ? ` in ${enrollment.classroom.name}` : ""}.`,
+      meta: { student: ref, classroom: enrollment?.classroom ?? null, term: enrollment?.initialTerm ?? null, source: "manual" },
+      subject: { type: "student", id: student.id },
+    });
   }
   return tx.students.findFirstOrThrow({
     where: { id: student.id, schoolProfileId: prepared.schoolId, deletedAt: null },

@@ -10,6 +10,7 @@ import {
 import { createStudentSchema, type CreateStudentInput } from "@school-clerk/utils/student-create-schema";
 import { TRPCError } from "@trpc/server";
 import { recordFinancePaymentInTransaction } from "./finance";
+import { recordStudentPaymentReceivedActivity } from "./finance-activity";
 import { assertNoExactDuplicateStudentInClassTerm } from "./student-duplicates";
 
 export async function createStudent(ctx: TRPCContext, input: CreateStudentInput) {
@@ -33,7 +34,9 @@ export async function createStudent(ctx: TRPCContext, input: CreateStudentInput)
           name: data.name, surname: data.surname, otherName: data.otherName,
         });
       }
-      const student = await createPreparedStudentRegistration(tx, prepared, data);
+      const student = await createPreparedStudentRegistration(tx, prepared, data, {
+        userId, author: currentUser.name ?? "School Clerk user",
+      });
       const enrollment = prepared.enrollment;
       let feeHistoryApplication: Awaited<ReturnType<typeof applyFeeHistoriesToStudentTermForm>> | null = null;
       if (enrollment && prepared.billingEnabled) {
@@ -69,6 +72,7 @@ export async function createStudent(ctx: TRPCContext, input: CreateStudentInput)
         paymentIds.push(...result.paymentIds);
         totalAllocated = totalAllocated.plus(result.totalAllocated);
       }
+      await recordStudentPaymentReceivedActivity(paymentContext, tx, paymentIds);
       const totalAssigned = (feeHistoryApplication?.charges ?? [])
         .reduce((sum, charge) => sum.plus(charge.amount), new Prisma.Decimal(0));
       return { ...student, feeHistoryApplication, feePaymentSummary: {

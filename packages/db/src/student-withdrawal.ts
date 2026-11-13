@@ -1,4 +1,5 @@
 import { canAccessModules, resolveModuleAccess } from "@school-clerk/utils/module-config";
+import { activityStudentRef, activityTermRef } from "@school-clerk/utils/activity-refs";
 import {
 	readmitStudentSchema,
 	type ReadmitStudentInput,
@@ -9,6 +10,7 @@ import {
 	type WithdrawStudentInput,
 } from "@school-clerk/utils/student-withdrawal";
 import { Prisma } from "./generated/client";
+import { recordActivity } from "./activity-log";
 import type { Database, DatabaseTransaction } from "./prisma";
 import { getStudentAcademicReadContext } from "./student-academic-read";
 import { loadEligibilityTerm as loadTerm, StudentWithdrawalError } from "./student-enrollment-eligibility";
@@ -41,10 +43,6 @@ async function lockStudent(tx: DatabaseTransaction, schoolId: string, studentId:
 async function actorName(tx: DatabaseTransaction, userId: string) {
 	const user = await tx.user.findFirst({ where: { id: userId }, select: { name: true } });
 	return user?.name ?? "Unknown user";
-}
-
-function displayName(student: { name: string; surname: string | null; otherName: string | null }) {
-	return [student.name, student.surname, student.otherName].filter(Boolean).join(" ");
 }
 
 function sameOrBefore(a: Date | null | undefined, b: Date) {
@@ -180,24 +178,28 @@ export async function withdrawStudent(db: Database, actor: Actor, input: Withdra
 				archived: reconciliation.filter((entry) => entry.action === "ARCHIVED").length,
 				flagged: reconciliation.filter((entry) => entry.action === "FLAGGED").length,
 			};
-			await tx.activity.create({
-				data: {
-					schoolProfileId: schoolId,
-					userId: actor.userId,
-					author: await actorName(tx, actor.userId),
-					source: "user",
-					type: "student_withdrawn",
-					title: "Student withdrawn",
-					description: `${displayName(student)} withdrawn from ${term.title}`,
-					meta: {
-						studentId: student.id,
-						withdrawalId: withdrawal.id,
-						withdrawalTermId: term.id,
-						lastEnrolledDate: data.lastEnrolledDate.toISOString(),
-						reason: data.reason,
-						reconciliation: reconciliation as unknown as Prisma.InputJsonValue,
-					},
-				},
+			const studentRef = activityStudentRef(student, context.school.studentNameFormat);
+			const termRef = activityTermRef(term)!;
+			// Legacy fields stay; `student`/`term` snapshots feed the activity renderer.
+			const meta = {
+				studentId: student.id,
+				student: studentRef,
+				withdrawalId: withdrawal.id,
+				withdrawalTermId: term.id,
+				term: termRef,
+				lastEnrolledDate: data.lastEnrolledDate.toISOString(),
+				reason: data.reason,
+				reconciliation,
+			};
+			await recordActivity(tx, {
+				schoolId,
+				userId: actor.userId,
+				author: await actorName(tx, actor.userId),
+				type: "student_withdrawn",
+				title: "Student withdrawn",
+				description: `${studentRef.name} withdrawn from ${termRef.name}`,
+				meta,
+				subject: { type: "student", id: student.id },
 			});
 			return { status: "withdrawn" as const, withdrawalId: withdrawal.id, ...summary, reconciliation };
 		},
@@ -252,23 +254,26 @@ export async function readmitStudent(db: Database, actor: Actor, input: ReadmitS
 							sessionTermId: term.id,
 						})
 					: null;
-				await tx.activity.create({
-					data: {
-						schoolProfileId: schoolId,
-						userId: actor.userId,
-						author: await actorName(tx, actor.userId),
-						source: "user",
-						type: "student_readmitted",
-						title: "Student readmitted",
-						description: `${displayName(student)} readmitted for ${term.title}`,
-						meta: {
-							studentId: student.id,
-							withdrawalId: withdrawal.id,
-							readmissionTermId: term.id,
-							readmittedOn: data.readmittedOn.toISOString(),
-							studentTermFormId: enrollment?.studentTermFormId ?? null,
-						},
-					},
+				const studentRef = activityStudentRef(student, context.school.studentNameFormat);
+				const termRef = activityTermRef(term)!;
+				const meta = {
+					studentId: student.id,
+					student: studentRef,
+					withdrawalId: withdrawal.id,
+					readmissionTermId: term.id,
+					term: termRef,
+					readmittedOn: data.readmittedOn.toISOString(),
+					studentTermFormId: enrollment?.studentTermFormId ?? null,
+				};
+				await recordActivity(tx, {
+					schoolId,
+					userId: actor.userId,
+					author: await actorName(tx, actor.userId),
+					type: "student_readmitted",
+					title: "Student readmitted",
+					description: `${studentRef.name} readmitted for ${termRef.name}`,
+					meta,
+					subject: { type: "student", id: student.id },
 				});
 				return {
 					status: "readmitted" as const,

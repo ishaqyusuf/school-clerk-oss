@@ -52,7 +52,8 @@ export async function loadStudentWithdrawalPeriods(
 export async function loadEligibilityTerm(db: Pick<DatabaseTransaction, "sessionTerm">, schoolId: string, termId: string) {
 	return db.sessionTerm.findFirst({
 		where: { id: termId, schoolId, deletedAt: null },
-		select: { id: true, title: true, startDate: true, endDate: true, lifecycleStatus: true, sessionId: true },
+		select: { id: true, title: true, startDate: true, endDate: true, lifecycleStatus: true, sessionId: true,
+			session: { select: { title: true } } },
 	});
 }
 

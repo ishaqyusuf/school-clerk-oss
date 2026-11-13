@@ -1,7 +1,10 @@
 import { bulkChangeStudentClassSchema, type BulkChangeStudentClassInput } from "@school-clerk/utils/student-class-change-schema";
 import { normalizeStudentDuplicateNameKey } from "@school-clerk/utils/student-duplicate-name";
 import { canAccessModules, resolveModuleAccess } from "@school-clerk/utils/module-config";
+import type { ActivityMetaMap } from "@school-clerk/utils/activity";
+import { activityClassroomRef, activityStudentRef, activityTermRef } from "@school-clerk/utils/activity-refs";
 import { Prisma } from "./generated/client";
+import { activityActorName } from "./activity-log";
 import type { Database, DatabaseTransaction } from "./prisma";
 import { getStudentAcademicReadContext } from "./student-academic-read";
 
@@ -47,7 +50,7 @@ export async function moveStudentTermFormsTransaction(tx: DatabaseTransaction, a
       const target = await tx.classRoomDepartment.findFirst({
         where: { id: data.classroomDepartmentId, schoolProfileId: schoolId, deletedAt: null,
           classRoom: { schoolProfileId: schoolId, deletedAt: null, session: { schoolId, deletedAt: null } } },
-        select: { id: true, classRoom: { select: { schoolSessionId: true } } },
+        select: { id: true, departmentName: true, classRoom: { select: { schoolSessionId: true, name: true } } },
       });
       if (!target?.classRoom) throw new StudentClassChangeError("NOT_FOUND", "The target class is unavailable in this school.");
       const sessionId = target.classRoom.schoolSessionId;
@@ -56,12 +59,13 @@ export async function moveStudentTermFormsTransaction(tx: DatabaseTransaction, a
         select: {
           id: true, studentId: true, studentSessionFormId: true, schoolSessionId: true, sessionTermId: true,
           classroomDepartmentId: true,
-          sessionTerm: { select: { schoolId: true, sessionId: true, deletedAt: true, lifecycleStatus: true } },
+          sessionTerm: { select: { schoolId: true, sessionId: true, deletedAt: true, lifecycleStatus: true,
+            title: true, session: { select: { title: true } } } },
           sessionForm: { select: { studentId: true, schoolProfileId: true, schoolSessionId: true, deletedAt: true,
             classroomDepartmentId: true, classroomDepartment: { select: { schoolProfileId: true, deletedAt: true,
               classRoom: { select: { schoolProfileId: true, schoolSessionId: true, deletedAt: true } } } } } },
-          classroomDepartment: { select: { schoolProfileId: true, deletedAt: true,
-            classRoom: { select: { schoolProfileId: true, schoolSessionId: true, deletedAt: true } } } },
+          classroomDepartment: { select: { schoolProfileId: true, deletedAt: true, departmentName: true,
+            classRoom: { select: { schoolProfileId: true, schoolSessionId: true, deletedAt: true, name: true } } } },
         },
       });
       if (forms.length !== data.studentTermFormIds.length) {
@@ -187,6 +191,28 @@ export async function moveStudentTermFormsTransaction(tx: DatabaseTransaction, a
           data: { classroomDepartmentId: target.id },
         });
         if (moved.count !== changed.length || updatedParents.count !== changedParents.length) conflict("Enrollment changed during the move. Refresh before trying again.");
+        // One `student_class_changed` per moved enrollment, committed with the move.
+        const author = await activityActorName(tx, actor.userId);
+        const to = activityClassroomRef(target)!;
+        await tx.activity.createMany({
+          data: changed.map((form) => {
+            const student = activityStudentRef(studentsById.get((form.studentId ?? form.sessionForm.studentId)!)!,
+              context.school.studentNameFormat);
+            const from = form.classroomDepartmentId && form.classroomDepartment
+              ? activityClassroomRef({ id: form.classroomDepartmentId, ...form.classroomDepartment })
+              : null;
+            const meta: ActivityMetaMap["student_class_changed"] = {
+              student, from, to, term: activityTermRef({ id: form.sessionTermId!, ...form.sessionTerm })!,
+            };
+            return {
+              schoolProfileId: schoolId, type: "student_class_changed" as const, userId: actor.userId, author,
+              source: "user" as const, title: "Class changed",
+              description: `${author} moved ${student.name}${from ? ` from ${from.name}` : ""} to ${to.name}.`,
+              meta: meta as unknown as Prisma.InputJsonValue,
+              subjectType: "student", subjectId: student.id,
+            };
+          }),
+        });
       }
       return { count: changed.length, alreadyInClass: forms.length - changed.length,
         studentIds: orderedStudentIds, termFormIds: forms.map((form) => form.id),

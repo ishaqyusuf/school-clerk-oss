@@ -11,6 +11,10 @@ import {
 } from "@school-clerk/utils/student-name";
 import { TRPCError } from "@trpc/server";
 import type { TRPCContext } from "../../trpc/init";
+import {
+	recordStudentPaymentReceivedActivity,
+	recordStudentPaymentReversedActivity,
+} from "./finance-activity";
 import type {
 	FinanceChargeInput,
 	FinanceAccountDetailsInput,
@@ -1545,11 +1549,19 @@ export async function payFinanceStaffCharges(
 export async function recordFinancePayment(
 	ctx: TRPCContext,
 	input: FinancePaymentInput,
+	options: {
+		/** Pass false when the caller records one receipt activity itself. */
+		recordActivity?: boolean;
+	} = {},
 ) {
 	requireFinanceWriteAccess(ctx);
-	return ctx.db.$transaction((tx) =>
-		recordFinancePaymentInTransaction(ctx, tx, input),
-	);
+	return ctx.db.$transaction(async (tx) => {
+		const result = await recordFinancePaymentInTransaction(ctx, tx, input);
+		if (options.recordActivity !== false) {
+			await recordStudentPaymentReceivedActivity(ctx, tx, result.paymentIds);
+		}
+		return result;
+	});
 }
 
 export async function recordFinancePaymentInTransaction(
@@ -1728,7 +1740,12 @@ export async function reverseFinancePayment(
 	return ctx.db.$transaction(async (tx) => {
 		const payment = await tx.financePayment.findFirst({
 			where: { id: input.paymentId, schoolProfileId },
-			include: { allocations: { include: { charge: true } } },
+			include: {
+				allocations: { include: { charge: true } },
+				student: {
+					select: { id: true, name: true, surname: true, otherName: true },
+				},
+			},
 		});
 
 		if (!payment) {
@@ -1793,6 +1810,15 @@ export async function reverseFinancePayment(
 					paymentId: payment.id,
 				},
 			});
+		}
+
+		if (payment.payerType === "STUDENT" && payment.student) {
+			await recordStudentPaymentReversedActivity(
+				ctx,
+				tx,
+				{ ...payment, student: payment.student },
+				input.note,
+			);
 		}
 
 		return { success: true };

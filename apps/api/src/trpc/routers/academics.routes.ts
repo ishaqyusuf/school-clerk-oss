@@ -29,7 +29,8 @@ import {
   previewAcademicTermSetup,
 } from "@api/db/queries/academic-term-setup";
 import { requireAcademicAdmin } from "@api/db/queries/academic-access";
-import { partitionStudentsByTermEligibility } from "@school-clerk/db";
+import { partitionStudentsByTermEligibility, recordActivity } from "@school-clerk/db";
+import { activityClassroomRef, activityTermRef } from "@school-clerk/utils/activity-refs";
 import {
   previewAcademicTermReset,
   resetAcademicTerm,
@@ -861,7 +862,12 @@ export const academicsRouter = createTRPCRouter({
             schoolId: schoolProfileId,
             deletedAt: null,
           },
-          select: { id: true, sessionId: true },
+          select: {
+            id: true,
+            sessionId: true,
+            title: true,
+            session: { select: { title: true } },
+          },
         }),
         db.sessionTerm.findFirst({
           where: {
@@ -869,7 +875,13 @@ export const academicsRouter = createTRPCRouter({
             schoolId: schoolProfileId,
             deletedAt: null,
           },
-          select: { id: true, sessionId: true, schoolId: true },
+          select: {
+            id: true,
+            sessionId: true,
+            schoolId: true,
+            title: true,
+            session: { select: { title: true } },
+          },
         }),
       ]);
       if (!fromTerm || !toTerm) {
@@ -947,6 +959,7 @@ export const academicsRouter = createTRPCRouter({
         });
         const withdrawnStudentIds = new Set(withdrawn);
         let skippedWithdrawn = 0;
+        const targetClassroomIds = new Set<string>();
         for (const form of sourceTermForms) {
           if (!form.studentId) continue;
           if (withdrawnStudentIds.has(form.studentId)) {
@@ -1065,6 +1078,7 @@ export const academicsRouter = createTRPCRouter({
               });
 
           if (targetClassroomDepartmentId) {
+            targetClassroomIds.add(targetClassroomDepartmentId);
             await applyFeeHistoriesToStudentTermForm(tx, {
               schoolProfileId,
               studentId: form.studentId,
@@ -1077,8 +1091,43 @@ export const academicsRouter = createTRPCRouter({
             });
           }
         }
+        const promoted =
+          sourceTermForms.length - skippedDuplicates - skippedWithdrawn;
+        if (promoted > 0) {
+          // One summary row per progression run, not one per student.
+          const classrooms = targetClassroomIds.size
+            ? await tx.classRoomDepartment.findMany({
+                where: { id: { in: [...targetClassroomIds] }, schoolProfileId },
+                select: {
+                  id: true,
+                  departmentName: true,
+                  classRoom: { select: { name: true } },
+                },
+              })
+            : [];
+          const author = ctx.currentUser?.name ?? "School Clerk user";
+          const toTermRef = activityTermRef(toTerm)!;
+          const verb = input.mode === "repeat" ? "kept" : "promoted";
+          await recordActivity(tx, {
+            schoolId: schoolProfileId,
+            type: "students_promoted",
+            userId: ctx.currentUser?.id ?? "system",
+            author,
+            title: input.mode === "repeat" ? "Students repeated" : "Students promoted",
+            description: `${author} ${verb} ${promoted} student${promoted === 1 ? "" : "s"} into ${toTermRef.name}.`,
+            meta: {
+              count: promoted,
+              fromTerm: activityTermRef(fromTerm),
+              toTerm: toTermRef,
+              classrooms: classrooms
+                .map((classroom) => activityClassroomRef(classroom))
+                .filter((classroom) => classroom !== null),
+            },
+            subject: { type: "term", id: toTerm.id },
+          });
+        }
         return {
-          promoted: sourceTermForms.length - skippedDuplicates - skippedWithdrawn,
+          promoted,
           skippedDuplicates,
           skippedWithdrawn,
           mode: input.mode,

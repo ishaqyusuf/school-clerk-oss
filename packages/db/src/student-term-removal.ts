@@ -1,6 +1,9 @@
 import { canAccessModules, resolveModuleAccess } from "@school-clerk/utils/module-config";
 import { bulkDeleteTermSheetsSchema, type BulkDeleteTermSheetsInput } from "@school-clerk/utils/student-delete-schema";
+import type { ActivityMetaMap } from "@school-clerk/utils/activity";
+import { activityClassroomRef, activityStudentRef, activityTermRef } from "@school-clerk/utils/activity-refs";
 import { Prisma } from "./generated/client";
+import { activityActorName } from "./activity-log";
 import type { Database } from "./prisma";
 import { getStudentAcademicReadContext } from "./student-academic-read";
 
@@ -30,12 +33,14 @@ export async function softDeleteStudentTermForms(db: Database, actor: {
       const forms = await tx.studentTermForm.findMany({
         where: { id: { in: data.ids }, schoolProfileId: schoolId, deletedAt: {} },
         select: {
-          id: true, deletedAt: true, studentId: true, schoolSessionId: true,
-          student: { select: { id: true, schoolProfileId: true, deletedAt: true } },
+          id: true, deletedAt: true, studentId: true, schoolSessionId: true, sessionTermId: true, classroomDepartmentId: true,
+          student: { select: { id: true, schoolProfileId: true, deletedAt: true, name: true, surname: true, otherName: true } },
           schoolSession: { select: { id: true, schoolId: true, deletedAt: true } },
-          sessionTerm: { select: { schoolId: true, sessionId: true, deletedAt: true, lifecycleStatus: true } },
+          sessionTerm: { select: { schoolId: true, sessionId: true, deletedAt: true, lifecycleStatus: true,
+            title: true, session: { select: { title: true } } } },
+          classroomDepartment: { select: { departmentName: true, classRoom: { select: { name: true } } } },
           sessionForm: { select: { schoolProfileId: true, schoolSessionId: true, studentId: true, deletedAt: true,
-            student: { select: { id: true, schoolProfileId: true, deletedAt: true } } } },
+            student: { select: { id: true, schoolProfileId: true, deletedAt: true, name: true, surname: true, otherName: true } } } },
         },
       });
       if (forms.length !== data.ids.length) {
@@ -77,6 +82,26 @@ export async function softDeleteStudentTermForms(db: Database, actor: {
         if (removed.count !== activeIds.length) {
           throw new StudentTermRemovalError("CONFLICT", "Enrollment records changed during removal. Refresh before trying again.");
         }
+        // One `student_term_cancelled` per removed term sheet, committed with the removal.
+        const author = await activityActorName(tx, actor.userId);
+        await tx.activity.createMany({
+          data: forms.filter((form) => !form.deletedAt).map((form) => {
+            const student = activityStudentRef((form.studentId ? form.student : form.sessionForm.student)!,
+              context.school.studentNameFormat);
+            const classroom = form.classroomDepartmentId && form.classroomDepartment
+              ? activityClassroomRef({ id: form.classroomDepartmentId, ...form.classroomDepartment })
+              : null;
+            const term = activityTermRef({ id: form.sessionTermId!, ...form.sessionTerm })!;
+            const meta: ActivityMetaMap["student_term_cancelled"] = { student, classroom, term };
+            return {
+              schoolProfileId: schoolId, type: "student_term_cancelled" as const, userId: actor.userId, author,
+              source: "user" as const, title: "Removed from term",
+              description: `${author} removed ${student.name} from the ${term.name} sheet${classroom ? ` of ${classroom.name}` : ""}.`,
+              meta: meta as unknown as Prisma.InputJsonValue,
+              subjectType: "student", subjectId: student.id,
+            };
+          }),
+        });
       }
       return { count: activeIds.length, alreadyDeleted: forms.length - activeIds.length, studentIds: orderedStudentIds };
     }, { isolationLevel: "Serializable" });

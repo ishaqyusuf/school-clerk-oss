@@ -25,6 +25,7 @@ import { z } from "zod";
 import type { TRPCContext } from "../trpc/init";
 import { resolveAssistantActor, type AssistantActor } from "./actor";
 import { recordFinancePaymentInTransaction } from "../db/queries/finance";
+import { recordStudentPaymentReceivedActivity } from "../db/queries/finance-activity";
 import { getAssistantTeacherWorkspace } from "@school-clerk/db/assistant";
 
 export const mutationTools = new Set([
@@ -416,6 +417,7 @@ export async function buildAssistantTools(
 					schoolSessionId: actor.sessionId,
 					sessionTermId: actor.termId,
 				},
+				{ recordActivity: true },
 			);
 		},
 		moveStudentClass: async (tx, input) => {
@@ -492,6 +494,7 @@ export async function buildAssistantTools(
 				});
 				paymentIds.push(result.paymentId);
 			}
+			await recordStudentPaymentReceivedActivity(ctx, tx, paymentIds);
 			return paymentIds;
 		},
 	};

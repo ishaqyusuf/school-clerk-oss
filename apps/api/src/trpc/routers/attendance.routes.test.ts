@@ -97,6 +97,8 @@ function createAttendanceContext({
 				findFirst: async () => ({
 					id: "term-1",
 					lifecycleStatus: "ACTIVE",
+					session: { title: "2026/27" },
+					title: "First Term",
 				}),
 			},
 			studentWithdrawal: { findMany: async () => [] },
@@ -126,6 +128,11 @@ function createAttendanceContext({
 				findMany: async () => [],
 			},
 			classRoomDepartment: {
+				findFirst: async () => ({
+					classRoom: { name: "JSS 1" },
+					departmentName: "Gold",
+					id: "department-1",
+				}),
 				findMany: async () =>
 					teacherDepartmentIds.map((id) => ({
 						id,
@@ -319,9 +326,10 @@ describe("attendanceRouter permissions", () => {
 	});
 
 	test("creates subject attendance with an explicit date, period, and student status", async () => {
-		const { createdAttendance, ctx, guardWrites } = createAttendanceContext({
-			role: "Admin",
-		});
+		const { activityWrites, createdAttendance, ctx, guardWrites } =
+			createAttendanceContext({
+				role: "Admin",
+			});
 		const caller = attendanceRouter.createCaller(
 			ctx as unknown as CallerContext,
 		);
@@ -358,6 +366,30 @@ describe("attendanceRouter permissions", () => {
 			expect.objectContaining({
 				data: expect.objectContaining({
 					kind: "DEDUPE",
+				}),
+			}),
+		]);
+		expect(activityWrites).toEqual([
+			expect.objectContaining({
+				data: expect.objectContaining({
+					meta: {
+						attendanceId: "attendance-1",
+						classroom: { id: "department-1", name: "JSS 1 Gold" },
+						counts: {
+							absent: 0,
+							excused: 0,
+							late: 1,
+							leave: 0,
+							present: 0,
+							total: 1,
+						},
+						date: "2026-07-20",
+						term: { id: "term-1", name: "First Term 2026/27" },
+					},
+					subjectId: "attendance-1",
+					subjectType: "attendance",
+					type: "attendance_created",
+					userId: "user-1",
 				}),
 			}),
 		]);
@@ -862,6 +894,7 @@ describe("attendanceRouter permissions", () => {
 			],
 		};
 		const {
+			activityWrites,
 			attendanceFindFirstQueries,
 			attendanceUpdates,
 			ctx,
@@ -891,6 +924,20 @@ describe("attendanceRouter permissions", () => {
 				data: expect.objectContaining({
 					action: "DELETED",
 					attendanceId: "attendance-existing",
+				}),
+			}),
+		]);
+		expect(activityWrites).toEqual([
+			expect.objectContaining({
+				data: expect.objectContaining({
+					meta: {
+						attendanceId: "attendance-existing",
+						classroom: { id: "department-1", name: "JSS 1 Gold" },
+						date: "2026-07-20",
+						term: { id: "term-1", name: "First Term 2026/27" },
+					},
+					subjectId: "attendance-existing",
+					type: "attendance_deleted",
 				}),
 			}),
 		]);

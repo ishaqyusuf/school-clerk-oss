@@ -7,6 +7,8 @@ import { prepareAuthorizedStudentTermFeeReconciliation } from "./student-fee-rec
 import { applyFeeHistoriesToStudentTermForm, reconcileFeeHistoriesForStudentTermForm } from "./student-fee-application";
 import { partitionStudentsByTermEligibility } from "./student-enrollment-eligibility";
 import { STUDENT_WITHDRAWAL_ERROR_MESSAGE } from "@school-clerk/utils/student-withdrawal";
+import { activityClassroomRef, activityStudentRef, activityTermRef } from "@school-clerk/utils/activity-refs";
+import { activityActorName, recordActivity } from "./activity-log";
 
 type ImportScope = { schoolId: string; sessionId: string; termId: string };
 
@@ -21,6 +23,36 @@ async function requireScope(tx: DatabaseTransaction, authority: StudentImportAut
     throw new StudentImportAccessError("FORBIDDEN", "Import workspace does not match its authorized source.");
   }
   await requireStudentImportTarget(tx, scope, [classroomId]);
+  return access;
+}
+
+/** `student_created` (source "import") for a newly created student, in the row transaction. */
+async function recordImportedStudentActivity(tx: DatabaseTransaction, input: {
+  authority: StudentImportAuthority; userId: string; scope: ImportScope; classroomId: string;
+  student: Pick<Students, "id" | "name" | "surname" | "otherName">;
+}) {
+  const [classroom, term, author] = await Promise.all([
+    tx.classRoomDepartment.findFirst({
+      where: { id: input.classroomId, schoolProfileId: input.scope.schoolId },
+      select: { id: true, departmentName: true, classRoom: { select: { name: true } } },
+    }),
+    tx.sessionTerm.findFirst({
+      where: { id: input.scope.termId, schoolId: input.scope.schoolId },
+      select: { id: true, title: true, session: { select: { title: true } }, school: { select: { studentNameFormat: true } } },
+    }),
+    activityActorName(tx, input.userId),
+  ]);
+  const student = activityStudentRef(input.student, term?.school?.studentNameFormat);
+  const classroomRef = activityClassroomRef(classroom);
+  await recordActivity(tx, {
+    schoolId: input.scope.schoolId, type: "student_created", userId: input.userId, author,
+    // Queued imports run in a worker on the creator's behalf.
+    source: input.authority.kind === "job" ? "system" : "user",
+    title: "Student imported",
+    description: `${student.name} was imported${classroomRef ? ` into ${classroomRef.name}` : ""}.`,
+    meta: { student, classroom: classroomRef, term: activityTermRef(term), source: "import" },
+    subject: { type: "student", id: student.id },
+  });
 }
 
 async function assertUniqueClassName(tx: DatabaseTransaction, scope: ImportScope, classroomId: string,
@@ -110,7 +142,7 @@ async function ensureEnrollment(tx: DatabaseTransaction, authority: StudentImpor
   }
   await prepareAuthorizedStudentTermFeeReconciliation(tx, {
     schoolId: scope.schoolId,
-    recheckAccess: () => requireScope(tx, authority, scope, classroomId),
+    recheckAccess: async () => { await requireScope(tx, authority, scope, classroomId); },
   }, [formId]);
   const fees = { schoolProfileId: scope.schoolId, studentId: student.id, studentTermFormId: formId,
     schoolSessionId: scope.sessionId, sessionTermId: scope.termId, classroomDepartmentId: classroomId,
@@ -131,7 +163,7 @@ async function ensureEnrollment(tx: DatabaseTransaction, authority: StudentImpor
 export async function executeStudentImportRow(tx: DatabaseTransaction, authority: StudentImportAuthority,
   scope: ImportScope, rawRow: StudentImportRow, classroomId: string): Promise<ImportRowResult> {
   const row = studentImportRowSchema.parse(rawRow);
-  await requireScope(tx, authority, scope, classroomId);
+  const access = await requireScope(tx, authority, scope, classroomId);
   let student: Pick<Students, "id" | "name" | "surname" | "otherName" | "gender"> | null;
   if (row.action === "import_new") {
     await assertUniqueClassName(tx, scope, classroomId, row);
@@ -159,6 +191,9 @@ export async function executeStudentImportRow(tx: DatabaseTransaction, authority
     await assertUniqueClassName(tx, scope, classroomId, row.action === "update_match_with_name" ? row : student, student.id);
   }
   const enrollment = await ensureEnrollment(tx, authority, scope, student, classroomId, row.admissionType ?? "UNCLASSIFIED");
+  if (row.action === "import_new") {
+    await recordImportedStudentActivity(tx, { authority, userId: access.userId, scope, classroomId, student });
+  }
   if (row.action === "update_match_with_name") {
     const updated = await tx.students.updateMany({
       where: { id: student.id, schoolProfileId: scope.schoolId, deletedAt: null },

@@ -10,6 +10,7 @@ import {
 	applicableStudentAudiences,
 	applicableStudentGenderAudiences,
 	Prisma,
+	recordActivitySafely,
 } from "@school-clerk/db";
 import {
 	type StudentNameFormat,
@@ -1342,21 +1343,22 @@ export async function processFinancePaymentImportJob(
 		summary.job.status === "COMPLETED" ||
 		summary.job.status === "COMPLETED_WITH_FAILURES"
 	) {
-		await db.activity.create({
-			data: {
-				schoolProfileId: job.schoolProfileId,
-				userId: job.createdByUserId ?? "system",
-				author: "System",
-				source: "system",
-				type: "finance_payment_import_completed",
-				title: "Payment import completed",
-				description: `${summary.job.importedRows} of ${summary.job.totalRows} payment rows imported.`,
-				meta: {
-					jobId: job.id,
-					importedRows: summary.job.importedRows,
-					failedRows: summary.job.failedRows,
-				},
+		// One summary row per import, never one per imported payment.
+		await recordActivitySafely(db, {
+			schoolId: job.schoolProfileId,
+			type: "finance_payment_import_completed",
+			userId: job.createdByUserId ?? "system",
+			author: "System",
+			source: "system",
+			title: "Payment import completed",
+			description: `${summary.job.importedRows} of ${summary.job.totalRows} payment rows imported.`,
+			meta: {
+				importJobId: job.id,
+				created: summary.job.importedRows,
+				failed: summary.job.failedRows,
+				total: summary.job.totalRows,
 			},
+			subject: { type: "import", id: job.id },
 		});
 	}
 	return serializePaymentImportJob(summary.job, summary.rows);

@@ -6,7 +6,8 @@ import type {
 } from "@api/trpc/schemas/enrollment-links";
 import { AdmissionApprovalEmail } from "@school-clerk/email";
 import { render } from "@school-clerk/email/render";
-import { createOrUpdateEnrollmentGuardian, compareClassroomDepartments, EnrollmentParentAccessError } from "@school-clerk/db";
+import { createOrUpdateEnrollmentGuardian, compareClassroomDepartments, EnrollmentParentAccessError, recordActivity } from "@school-clerk/db";
+import { activityClassroomRef, activityStudentRef, activityTermRef } from "@school-clerk/utils/activity-refs";
 import {
 	formatStudentName,
 	formatTenantEmailFrom,
@@ -1042,6 +1043,37 @@ export async function approveEnrollmentApplication(
         admissionType: "NEW_ADMISSION",
 			},
 			select: { id: true },
+		});
+
+		const admittedTerm = await txDb.sessionTerm.findFirst({
+			where: { id: termId, schoolId: schoolProfileId },
+			select: { id: true, title: true, session: { select: { title: true } } },
+		});
+		const admittedStudent = activityStudentRef(
+			{
+				id: student.id,
+				firstName: application.studentFirstName,
+				surname: application.studentSurname,
+				otherName: application.studentOtherName,
+			},
+			application.schoolProfile.studentNameFormat,
+		);
+		const admittedClassroom = activityClassroomRef(application.classRoomDepartment);
+		const reviewer = ctx.currentUser?.name ?? "School Clerk user";
+		await recordActivity(tx, {
+			schoolId: schoolProfileId,
+			type: "student_created",
+			userId: userId ?? "system",
+			author: reviewer,
+			title: "Student admitted",
+			description: `${reviewer} admitted ${admittedStudent.name}${admittedClassroom ? ` into ${admittedClassroom.name}` : ""} from an enrollment application.`,
+			meta: {
+				student: admittedStudent,
+				classroom: admittedClassroom,
+				term: activityTermRef(admittedTerm),
+				source: "admission",
+			},
+			subject: { type: "student", id: student.id },
 		});
 
 		const feeApplication = await applyFeeHistoriesToStudentTermForm(tx as any, {

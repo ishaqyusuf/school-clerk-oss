@@ -13,7 +13,8 @@ import {
   nestedClassroomDepartmentListOrderBy,
 } from "@school-clerk/db";
 import { requireAcademicAdmin } from "./academic-access";
-import { partitionStudentsByTermEligibility } from "@school-clerk/db";
+import { partitionStudentsByTermEligibility, recordActivity } from "@school-clerk/db";
+import { activityTermRef } from "@school-clerk/utils/activity-refs";
 
 type AcademicDb = any;
 type OrderedTerm = {
@@ -2163,20 +2164,22 @@ export async function activateAcademicTerm(
         where: { id: schoolProfileId },
         data: { activeSessionTermId: target.id },
       });
-      await tx.activity.create({
-        data: {
-          schoolProfileId,
-          userId: user.id,
-          author: user.name,
-          source: "user",
-          type: "academic_term_activated",
-          title: "Academic term activated",
-          description: `${target.title} is now the active academic term.`,
-          meta: {
-            targetTermId: target.id,
-            previousTermId: preview.currentActiveTerm?.id ?? null,
-          },
-        },
+      const activatedTerm = activityTermRef(target)!;
+      // Legacy ids stay alongside the `term` snapshot the renderer reads.
+      const activationMeta = {
+        term: activatedTerm,
+        targetTermId: target.id,
+        previousTermId: preview.currentActiveTerm?.id ?? null,
+      };
+      await recordActivity(tx, {
+        schoolId: schoolProfileId,
+        userId: user.id,
+        author: user.name,
+        type: "academic_term_activated",
+        title: "Academic term activated",
+        description: `${activatedTerm.name} is now the active academic term.`,
+        meta: activationMeta,
+        subject: { type: "term", id: target.id },
       });
       return {
         termId: target.id,
@@ -2203,7 +2206,12 @@ export async function closeAcademicTerm(
         schoolId: schoolProfileId,
         deletedAt: null,
       },
-      select: { id: true, title: true, lifecycleStatus: true },
+      select: {
+        id: true,
+        title: true,
+        lifecycleStatus: true,
+        session: { select: { title: true } },
+      },
     });
     if (!term) {
       throw new TRPCError({
@@ -2247,17 +2255,17 @@ export async function closeAcademicTerm(
         data: { activeSessionTermId: null },
       });
     }
-    await tx.activity.create({
-      data: {
-        schoolProfileId,
-        userId: user.id,
-        author: user.name,
-        source: "user",
-        type: "academic_term_closed",
-        title: "Academic term closed",
-        description: `${term.title} was closed.`,
-        meta: { termId: term.id },
-      },
+    const closedTerm = activityTermRef(term)!;
+    const closeMeta = { term: closedTerm, termId: term.id };
+    await recordActivity(tx, {
+      schoolId: schoolProfileId,
+      userId: user.id,
+      author: user.name,
+      type: "academic_term_closed",
+      title: "Academic term closed",
+      description: `${closedTerm.name} was closed.`,
+      meta: closeMeta,
+      subject: { type: "term", id: term.id },
     });
     return { success: true };
   });

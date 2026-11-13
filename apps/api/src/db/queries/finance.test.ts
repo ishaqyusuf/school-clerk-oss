@@ -1578,6 +1578,7 @@ describe("receiveStudentPaymentSimple", () => {
 				update: async ({ data }: any) => ({ ...activeCharge, ...data }),
 			},
 			financePayment: {
+				findMany: async () => [],
 				create: async ({ data }: any) => {
 					onPaymentCreate?.(data);
 					return {
@@ -2095,6 +2096,8 @@ describe("recordFinancePayment term attribution", () => {
 	test("records collected-in term separately from the paid-for charge term", async () => {
 		const createdPayments: any[] = [];
 		const createdLedgerEntries: any[] = [];
+		const activityWrites: any[] = [];
+		const paymentQueries: any[] = [];
 		const charge = {
 			id: "charge-last-term",
 			schoolProfileId: "school-1",
@@ -2126,6 +2129,36 @@ describe("recordFinancePayment term attribution", () => {
 								paymentDate: data.paymentDate,
 								...data,
 							};
+						},
+						findMany: async (query: any) => {
+							paymentQueries.push(query);
+							return [
+								{
+									id: "payment-late",
+									amount: 500,
+									method: "cash",
+									reference: "LATE-1",
+									studentId: "student-1",
+									student: {
+										id: "student-1",
+										name: "Musa",
+										surname: "Ibrahim",
+										otherName: null,
+									},
+									collectedSessionTerm: {
+										id: "term-1",
+										title: "Second Term",
+										session: { title: "2025/26" },
+									},
+									allocations: [{ charge: { title: "First Term Tuition" } }],
+								},
+							];
+						},
+					},
+					activity: {
+						create: async (query: any) => {
+							activityWrites.push(query);
+							return { id: "activity-1" };
 						},
 					},
 					financePaymentAllocation: {
@@ -2173,6 +2206,29 @@ describe("recordFinancePayment term attribution", () => {
 			collectedSchoolSessionId: "session-1",
 			chargeId: "charge-last-term",
 			paymentId: "payment-late",
+		});
+		expect(paymentQueries[0]?.where).toMatchObject({
+			id: { in: ["payment-late"] },
+			payerType: "STUDENT",
+			schoolProfileId: "school-1",
+		});
+		expect(activityWrites).toHaveLength(1);
+		expect(activityWrites[0].data).toMatchObject({
+			type: "student_payment_received",
+			userId: "user-1",
+			author: "User",
+			subjectType: "payment",
+			subjectId: "payment-late",
+			meta: {
+				paymentId: "payment-late",
+				student: { id: "student-1", name: "Musa Ibrahim" },
+				amount: 500,
+				currency: "NGN",
+				method: "cash",
+				reference: "LATE-1",
+				purpose: "First Term Tuition",
+				term: { id: "term-1", name: "Second Term 2025/26" },
+			},
 		});
 	});
 
@@ -2244,6 +2300,7 @@ describe("recordFinancePayment term attribution", () => {
 						update: async ({ data }: any) => ({ ...charge, ...data }),
 					},
 					financePayment: {
+						findMany: async () => [],
 						create: async ({ data }: any) => ({
 							id: "payment-salary",
 							paymentDate: data.paymentDate,
@@ -2915,6 +2972,7 @@ describe("payroll, purchases, and payee accounting", () => {
 						update: async ({ data }: any) => ({ ...charge, ...data }),
 					},
 					financePayment: {
+						findMany: async () => [],
 						create: async ({ data }: any) => {
 							createdPayments.push(data);
 							return {

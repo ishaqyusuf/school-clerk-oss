@@ -3,7 +3,8 @@ import type { TRPCContext } from "@api/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { assertAcademicTermWritable } from "./academic-term-setup";
-import { partitionStudentsByTermEligibility } from "@school-clerk/db";
+import { partitionStudentsByTermEligibility, recordActivity } from "@school-clerk/db";
+import { activityClassroomRef, activityStudentRef, activityTermRef } from "@school-clerk/utils/activity-refs";
 import { STUDENT_WITHDRAWAL_ERROR_MESSAGE } from "@school-clerk/utils/student-withdrawal";
 
 export const submitClassStudentSchema = z.object({
@@ -188,12 +189,58 @@ export async function getClassStudentMatches(ctx: TRPCContext, studentTermFormId
   }));
 }
 
+type ReviewedRequest = {
+  student: { id: string; name: string; surname: string | null; otherName: string | null } | null;
+  classroomDepartment: { id: string; departmentName: string | null; classRoom: { name: string | null } | null } | null;
+  sessionTerm: { id: string; title: string | null; session: { title: string | null } | null } | null;
+};
+
+/**
+ * An approved teacher submission either becomes a new student
+ * (`student_created`, source "teacher_request") or, when matched to an existing
+ * student, enrolls that student in the class term (`student_enrolled`).
+ */
+async function recordTeacherRequestApprovalActivity(
+  ctx: TRPCContext,
+  tx: Pick<TRPCContext["db"], "activity">,
+  request: ReviewedRequest,
+  matchedStudent: ReviewedRequest["student"],
+) {
+  const studentRow = matchedStudent ?? request.student;
+  const classroom = activityClassroomRef(request.classroomDepartment);
+  const term = activityTermRef(request.sessionTerm);
+  if (!studentRow || !ctx.profile.schoolId) return;
+  const student = activityStudentRef(studentRow, ctx.profile.studentNameFormat);
+  const userId = ctx.currentUser?.id ?? "system";
+  const author = ctx.currentUser?.name ?? "School Clerk user";
+  const where = classroom ? ` in ${classroom.name}` : "";
+  if (matchedStudent) {
+    if (!classroom || !term) return;
+    await recordActivity(tx, {
+      schoolId: ctx.profile.schoolId, type: "student_enrolled", userId, author,
+      title: "Student enrolled",
+      description: `${author} enrolled ${student.name}${where} for ${term.name} from a teacher submission.`,
+      meta: { student, classroom, term },
+      subject: { type: "student", id: student.id },
+    });
+    return;
+  }
+  await recordActivity(tx, {
+    schoolId: ctx.profile.schoolId, type: "student_created", userId, author,
+    title: "Student registered",
+    description: `${author} approved ${student.name}${where} from a teacher submission.`,
+    meta: { student, classroom, term, source: "teacher_request" },
+    subject: { type: "student", id: student.id },
+  });
+}
+
 export async function reviewClassStudent(
   ctx: TRPCContext,
   input: z.infer<typeof reviewClassStudentSchema>,
 ) {
   const { schoolProfileId, userId } = requireScope(ctx);
   return ctx.db.$transaction(async (tx) => {
+    let matchedStudent: { id: string; name: string; surname: string | null; otherName: string | null } | null = null;
     const request = await tx.studentTermForm.findFirst({
       where: {
         id: input.studentTermFormId,
@@ -205,6 +252,9 @@ export async function reviewClassStudent(
       select: {
         id: true, studentId: true, studentSessionFormId: true,
         schoolSessionId: true, sessionTermId: true,
+        student: { select: { id: true, name: true, surname: true, otherName: true } },
+        classroomDepartment: { select: { id: true, departmentName: true, classRoom: { select: { name: true } } } },
+        sessionTerm: { select: { id: true, title: true, session: { select: { title: true } } } },
       },
     });
     if (!request?.studentId || !request.sessionTermId || !request.schoolSessionId) {
@@ -229,11 +279,12 @@ export async function reviewClassStudent(
             registrationReviewStatus: { in: ["PENDING", "REJECTED"] },
           } },
         },
-        select: { id: true },
+        select: { id: true, name: true, surname: true, otherName: true },
       });
       if (!match || match.id === request.studentId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Select a different existing student in this school." });
       }
+      matchedStudent = match;
       if (request.sessionTermId) {
         const eligibility = await partitionStudentsByTermEligibility(tx, {
           schoolId: schoolProfileId,
@@ -273,7 +324,7 @@ export async function reviewClassStudent(
       await tx.students.update({ where: { id: request.studentId }, data: { deletedAt: new Date() } });
     }
 
-    return tx.studentTermForm.update({
+    const reviewed = await tx.studentTermForm.update({
       where: { id: request.id },
       data: {
         ...(input.decision === "APPROVED" && input.matchStudentId ? { studentId: input.matchStudentId } : {}),
@@ -284,5 +335,9 @@ export async function reviewClassStudent(
       },
       select: { id: true, studentId: true, registrationReviewStatus: true },
     });
+    if (input.decision === "APPROVED") {
+      await recordTeacherRequestApprovalActivity(ctx, tx, request, matchedStudent);
+    }
+    return reviewed;
   }, { isolationLevel: "Serializable" });
 }

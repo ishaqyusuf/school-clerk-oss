@@ -16,14 +16,21 @@ function createCtx(db: Record<string, unknown>, role = "Accountant") {
 
 /** In-memory charges plus a transaction that rolls back on throw. */
 function createDb(charges: Record<string, any>) {
-	const committed = { payments: [] as any[], ledger: [] as any[], charges };
+	const committed = {
+		payments: [] as any[],
+		ledger: [] as any[],
+		activities: [] as any[],
+		charges,
+	};
 	const db = {
 		students: { findFirst: async () => ({ id: "student-1" }) },
 		$transaction: async (fn: (tx: any) => unknown) => {
 			const draft = structuredClone(committed.charges);
 			const payments: any[] = [];
 			const ledger: any[] = [];
-			const tx = {
+			const allocations: any[] = [];
+			const activities: any[] = [];
+			const tx: any = {
 				financeCharge: {
 					findFirst: async ({ where }: any) => {
 						const charge = draft[where.id];
@@ -44,7 +51,10 @@ function createDb(charges: Record<string, any>) {
 					},
 				},
 				financePaymentAllocation: {
-					create: async ({ data }: any) => ({ id: "allocation", ...data }),
+					create: async ({ data }: any) => {
+						allocations.push(data);
+						return { id: "allocation", ...data };
+					},
 				},
 				financeLedgerEntry: {
 					create: async ({ data }: any) => {
@@ -52,13 +62,32 @@ function createDb(charges: Record<string, any>) {
 						return data;
 					},
 				},
+				activity: {
+					create: async ({ data }: any) => {
+						activities.push(data);
+						return { id: `activity-${activities.length}` };
+					},
+				},
 				schoolInventory: { findFirst: async () => null },
 				inventoryIssuance: { create: async () => undefined },
 			};
+			// Mirrors the activity read: student payments with fee titles.
+			tx.financePayment.findMany = async ({ where }: any) =>
+				payments
+					.filter((payment) => where.id.in.includes(payment.id))
+					.map((payment) => ({
+						...payment,
+						student: { id: payment.studentId, name: "Musa", surname: "Ibrahim" },
+						collectedSessionTerm: null,
+						allocations: allocations
+							.filter((allocation) => allocation.paymentId === payment.id)
+							.map((allocation) => ({ charge: { title: draft[allocation.chargeId]?.title } })),
+					}));
 			const result = await fn(tx);
 			committed.charges = draft;
 			committed.payments.push(...payments);
 			committed.ledger.push(...ledger);
+			committed.activities.push(...activities);
 			return result;
 		},
 	};
@@ -108,6 +137,22 @@ describe("receiveStudentPaymentLines", () => {
 		expect(committed.payments[0]).toMatchObject({
 			method: "Cash",
 			collectedSessionTermId: "term-2",
+		});
+		// One receipt, one activity: total and fee names, not one per line.
+		expect(committed.activities).toHaveLength(1);
+		expect(committed.activities[0]).toMatchObject({
+			type: "student_payment_received",
+			subjectType: "payment",
+			subjectId: "payment-1",
+			meta: {
+				paymentId: "payment-1",
+				student: { id: "student-1", name: "Musa Ibrahim" },
+				amount: 60_000,
+				currency: "NGN",
+				method: "Cash",
+				purpose: "arrears, fees",
+				term: null,
+			},
 		});
 	});
 

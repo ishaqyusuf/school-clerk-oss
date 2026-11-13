@@ -1,6 +1,8 @@
 import { canAccessModules, resolveModuleAccess } from "@school-clerk/utils/module-config";
 import { deleteStudentSchema, type DeleteStudentInput } from "@school-clerk/utils/student-delete-schema";
+import { activityStudentRef } from "@school-clerk/utils/activity-refs";
 import { Prisma } from "./generated/client";
+import { activityActorName, recordActivity } from "./activity-log";
 import type { Database } from "./prisma";
 import { getStudentAcademicReadContext } from "./student-academic-read";
 
@@ -28,8 +30,10 @@ export async function softDeleteStudent(db: Database, actor: {
         throw new StudentDeletionError("CONFLICT", "Your student workspace changed. Reopen the record before deleting it.");
       }
       // Include archived canonical rows only for a same-school repeat check.
-      const [student] = await tx.$queryRaw<Array<{ id: string; deletedAt: Date | null }>>(Prisma.sql`
-        SELECT id, "deletedAt" FROM "Students"
+      const [student] = await tx.$queryRaw<Array<{
+        id: string; deletedAt: Date | null; name: string; surname: string | null; otherName: string | null;
+      }>>(Prisma.sql`
+        SELECT id, "deletedAt", name, surname, "otherName" FROM "Students"
         WHERE id = ${data.studentId} AND "schoolProfileId" = ${schoolId} FOR UPDATE
       `);
       if (!student) throw new StudentDeletionError("NOT_FOUND", "Student was not found in this school.");
@@ -79,6 +83,15 @@ export async function softDeleteStudent(db: Database, actor: {
         where: { id: student.id, schoolProfileId: schoolId, deletedAt: null }, data: { deletedAt },
       });
       if (archived.count !== 1) throw new StudentDeletionError("CONFLICT", "Student changed during deletion. Refresh the directory.");
+      const author = await activityActorName(tx, actor.userId);
+      const ref = activityStudentRef(student, context.school.studentNameFormat);
+      await recordActivity(tx, {
+        schoolId, type: "student_deleted", userId: actor.userId, author,
+        title: "Student deleted",
+        description: `${author} deleted ${ref.name}.`,
+        meta: { student: ref },
+        subject: { type: "student", id: student.id },
+      });
       return { status: "deleted" as const, studentId: student.id };
     }, { isolationLevel: "Serializable" });
   } catch (error) {

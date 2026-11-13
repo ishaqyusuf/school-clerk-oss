@@ -6,7 +6,11 @@ import {
 	getTeacherAcademicAccess,
 } from "@api/lib/teacher-authorization";
 import { z } from "@hono/zod-openapi";
-import { getActiveAttendanceRoster } from "@school-clerk/db";
+import { getActiveAttendanceRoster, recordActivity } from "@school-clerk/db";
+import {
+	activityClassroomRef,
+	activityTermRef,
+} from "@school-clerk/utils/activity-refs";
 import {
 	ATTENDANCE_STATUS_VALUES,
 	normalizeAttendanceStatus,
@@ -432,34 +436,104 @@ function summarizeAttendanceStatuses(
 	};
 }
 
+type AttendanceActivityDb = Pick<
+	TRPCContext["db"],
+	"activity" | "classRoomDepartment" | "sessionTerm"
+>;
+
+/** Classroom and term name snapshots for attendance activity meta. */
+async function loadAttendanceActivityRefs(
+	db: AttendanceActivityDb,
+	input: {
+		schoolProfileId: string;
+		departmentId?: string | null;
+		termId?: string | null;
+	},
+) {
+	const [department, term] = await Promise.all([
+		input.departmentId
+			? db.classRoomDepartment.findFirst({
+					where: {
+						id: input.departmentId,
+						schoolProfileId: input.schoolProfileId,
+					},
+					select: {
+						id: true,
+						departmentName: true,
+						classRoom: { select: { name: true } },
+					},
+				})
+			: null,
+		input.termId
+			? db.sessionTerm.findFirst({
+					where: { id: input.termId, schoolId: input.schoolProfileId },
+					select: { id: true, title: true, session: { select: { title: true } } },
+				})
+			: null,
+	]);
+	return {
+		classroom: activityClassroomRef(department) ?? {
+			id: input.departmentId ?? "",
+			name: "Classroom",
+		},
+		term: activityTermRef(term),
+	};
+}
+
+function attendanceActivityDate(value?: Date | null) {
+	return value ? value.toISOString().slice(0, 10) : "";
+}
+
 async function recordAttendanceActivity(
+	db: Pick<TRPCContext["db"], "activity">,
 	ctx: TRPCContext,
 	input: {
 		attendanceId: string;
-		departmentId?: string | null;
-		type: "attendance_created" | "attendance_updated" | "attendance_deleted";
-	},
+		refs: Awaited<ReturnType<typeof loadAttendanceActivityRefs>>;
+		date: string;
+	} & (
+		| {
+				type: "attendance_created" | "attendance_updated";
+				statuses: Array<z.infer<typeof attendanceStatusSchema>>;
+		  }
+		| { type: "attendance_deleted" }
+	),
 ) {
-	try {
-		await ctx.db.activity.create({
-			data: {
-				author: ctx.currentUser?.name ?? "School Clerk user",
-				description: `Attendance session ${input.type.replace("attendance_", "")}.`,
-				meta: {
-					attendanceId: input.attendanceId,
-					departmentId: input.departmentId ?? null,
-					sessionTermId: ctx.profile.termId ?? null,
-				},
-				schoolProfileId: ctx.profile.schoolId,
-				source: "user",
-				title: "Attendance",
-				type: input.type,
-				userId: ctx.currentUser?.id ?? "attendance-system",
-			},
+	const base = {
+		schoolId: ctx.profile.schoolId as string,
+		userId: ctx.currentUser?.id ?? "system",
+		author: ctx.currentUser?.name ?? "School Clerk user",
+		subject: { type: "attendance" as const, id: input.attendanceId },
+	};
+	const meta = {
+		attendanceId: input.attendanceId,
+		classroom: input.refs.classroom,
+		date: input.date,
+		term: input.refs.term,
+	};
+	const where = `${input.refs.classroom.name} on ${input.date}`;
+	if (input.type === "attendance_deleted") {
+		return recordActivity(db, {
+			...base,
+			type: input.type,
+			title: "Attendance deleted",
+			description: `Attendance for ${where} was deleted.`,
+			meta,
 		});
-	} catch (error) {
-		console.error("[attendance] activity log failed", error);
 	}
+	const { attendanceRate: _rate, ...counts } = summarizeAttendanceStatuses(
+		input.statuses,
+	);
+	return recordActivity(db, {
+		...base,
+		type: input.type,
+		title:
+			input.type === "attendance_created"
+				? "Attendance taken"
+				: "Attendance updated",
+		description: `Attendance ${input.type === "attendance_created" ? "taken" : "updated"} for ${where}: ${counts.present} present, ${counts.absent} absent, ${counts.late} late.`,
+		meta: { ...meta, counts },
+	});
 }
 
 const attendanceProcedure = moduleProcedure(["ATTENDANCE"]);
@@ -950,6 +1024,11 @@ export const attendanceRouter = createTRPCRouter({
 				}
 			}
 			const resolved = await resolveAttendanceWrite(ctx, input);
+			const activityRefs = await loadAttendanceActivityRefs(ctx.db, {
+				schoolProfileId: resolved.schoolProfileId,
+				departmentId: input.departmentId,
+				termId: resolved.activeTermId,
+			});
 			const attendanceId = randomUUID();
 			let created: { id: string };
 			try {
@@ -972,7 +1051,7 @@ export const attendanceRouter = createTRPCRouter({
 							schoolProfileId: resolved.schoolProfileId,
 						},
 					});
-					return tx.classRoomAttendance.create({
+					const attendance = await tx.classRoomAttendance.create({
 						data: {
 							id: attendanceId,
 							attendanceTitle: input.attendanceTitle,
@@ -1009,6 +1088,14 @@ export const attendanceRouter = createTRPCRouter({
 						},
 						select: { id: true },
 					});
+					await recordAttendanceActivity(tx, ctx, {
+						attendanceId: attendance.id,
+						date: attendanceActivityDate(resolved.attendanceDate),
+						refs: activityRefs,
+						statuses: resolved.studentRows.map((row) => row.status),
+						type: "attendance_created",
+					});
+					return attendance;
 				});
 			} catch (error) {
 				if (!isPrismaUniqueConflict(error)) throw error;
@@ -1058,11 +1145,6 @@ export const attendanceRouter = createTRPCRouter({
 						"Attendance has already been recorded for this classroom, date, scope, and period.",
 				});
 			}
-			await recordAttendanceActivity(ctx, {
-				attendanceId: created.id,
-				departmentId: input.departmentId,
-				type: "attendance_created",
-			});
 			return created;
 		}),
 
@@ -1126,6 +1208,11 @@ export const attendanceRouter = createTRPCRouter({
 			const resolved = await resolveAttendanceWrite(ctx, input, {
 				ignoreAttendanceId: existing.id,
 			});
+			const activityRefs = await loadAttendanceActivityRefs(ctx.db, {
+				schoolProfileId: resolved.schoolProfileId,
+				departmentId: input.departmentId,
+				termId: existing.sessionTermId ?? resolved.activeTermId,
+			});
 			const deletedAt = new Date();
 
 			let result: { id: string; revision: number };
@@ -1181,7 +1268,7 @@ export const attendanceRouter = createTRPCRouter({
 							classroomAttendanceId: existing.id,
 						})),
 					});
-					return tx.classRoomAttendance.update({
+					const updated = await tx.classRoomAttendance.update({
 						where: {
 							id: existing.id,
 						},
@@ -1202,6 +1289,14 @@ export const attendanceRouter = createTRPCRouter({
 							revision: true,
 						},
 					});
+					await recordAttendanceActivity(tx, ctx, {
+						attendanceId: updated.id,
+						date: attendanceActivityDate(resolved.attendanceDate),
+						refs: activityRefs,
+						statuses: resolved.studentRows.map((row) => row.status),
+						type: "attendance_updated",
+					});
+					return updated;
 				});
 			} catch (error) {
 				if (!isPrismaUniqueConflict(error)) throw error;
@@ -1212,11 +1307,6 @@ export const attendanceRouter = createTRPCRouter({
 				});
 			}
 
-			await recordAttendanceActivity(ctx, {
-				attendanceId: result.id,
-				departmentId: input.departmentId,
-				type: "attendance_updated",
-			});
 			return result;
 		}),
 
@@ -1312,11 +1402,21 @@ export const attendanceRouter = createTRPCRouter({
 				}),
 			]);
 
-			await recordAttendanceActivity(ctx, {
-				attendanceId: input.attendanceId,
-				departmentId: existing.departmentId,
-				type: "attendance_deleted",
-			});
+			// The delete batch is array-form, so the activity is best-effort.
+			try {
+				await recordAttendanceActivity(ctx.db, ctx, {
+					attendanceId: input.attendanceId,
+					date: attendanceActivityDate(existing.attendanceDate),
+					refs: await loadAttendanceActivityRefs(ctx.db, {
+						schoolProfileId: ctx.profile.schoolId as string,
+						departmentId: existing.departmentId,
+						termId: existing.sessionTermId,
+					}),
+					type: "attendance_deleted",
+				});
+			} catch (error) {
+				console.error("[attendance] activity log failed", error);
+			}
 			return { success: true };
 		}),
 

@@ -22,6 +22,7 @@ import {
 	toMoney,
 	toNumber,
 } from "./finance";
+import { recordStudentPaymentReceivedActivity } from "./finance-activity";
 
 /*
  * Collection flows built on the finance core: the balance-first receive sheet,
@@ -211,7 +212,7 @@ export async function getStudentOpenCharges(
 }
 
 type PaymentLinesTransaction = FinancePaymentTransaction &
-	Pick<TRPCContext["db"], "financeStream">;
+	Pick<TRPCContext["db"], "financeStream" | "activity">;
 
 async function postStudentPaymentLines(
 	ctx: TRPCContext,
@@ -321,6 +322,7 @@ async function postStudentPaymentLines(
 		paymentIds.push(result.paymentId);
 		totalAllocated += result.totalAllocated;
 	}
+	await recordStudentPaymentReceivedActivity(ctx, tx, paymentIds);
 
 	return { paymentIds, count: paymentIds.length, totalAllocated };
 }

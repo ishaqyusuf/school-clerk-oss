@@ -103,6 +103,33 @@ describe("createStudent fee collection", () => {
 			amount: Number(allocation.amount),
 		}))).toEqual([{ paymentId: "payment-1", chargeId: charges[0]!.id, amount: 5_000 }]);
 		expect(tables.financePayment).toMatchObject([{ studentId: result.id, reference: "RCPT-1", receivedById: "user-1" }]);
+		// Registration writes the student and the inline receipt as two activities.
+		expect(tables.activity).toMatchObject([
+			{
+				type: "student_created",
+				subjectId: result.id,
+				meta: {
+					student: { id: result.id, name: "Amina Yusuf" },
+					classroom: { id: "classroom-a", name: "JSS 1 A" },
+					term: { id: "term-1", name: "First Term 2026/2027" },
+					source: "manual",
+				},
+			},
+			{
+				type: "student_payment_received",
+				subjectType: "payment",
+				subjectId: "payment-1",
+				meta: {
+					paymentId: "payment-1",
+					student: { id: result.id, name: "Amina Yusuf" },
+					amount: 5_000,
+					currency: "NGN",
+					method: "CASH",
+					reference: "RCPT-1",
+					purpose: "Entrance form fee",
+				},
+			},
+		]);
 		expect(result.feePaymentSummary).toEqual({
 			paymentIds: ["payment-1"],
 			count: 1,
@@ -669,6 +696,18 @@ describe("bulkChangeStudentClass", () => {
 			classroomDepartmentId: "classroom-b",
 		});
 		expect(placements(tables)).toEqual({ termForm: "classroom-b", sessionForm: "classroom-b" });
+		expect(tables.activity).toMatchObject([{
+			type: "student_class_changed",
+			userId: "user-1",
+			subjectType: "student",
+			subjectId: "student-1",
+			meta: {
+				student: { id: "student-1", name: "John Doe" },
+				from: { id: "classroom-a", name: "JSS 1 A" },
+				to: { id: "classroom-b", name: "JSS 1 B" },
+				term: { id: "term-1", name: "First Term 2026/2027" },
+			},
+		}]);
 	});
 
 	test("rejects roles that cannot manage students", async () => {
@@ -754,7 +793,18 @@ function createImportStore(tables: Record<string, ImportRecord[]>) {
 			moduleConfiguration: { model: "schoolModuleConfiguration",
 				resolve: (row) => tables.schoolModuleConfiguration!.find((config) => config.schoolProfileId === row.id) ?? null },
 		},
-		sessionTerm: { session: { model: "schoolSession", resolve: (row) => byId("schoolSession", row.sessionId) } },
+		sessionTerm: {
+			session: { model: "schoolSession", resolve: (row) => byId("schoolSession", row.sessionId) },
+			school: { model: "schoolProfile", resolve: (row) => byId("schoolProfile", row.schoolId) },
+		},
+		financePayment: {
+			student: { model: "students", resolve: (row) => byId("students", row.studentId) },
+			collectedSessionTerm: { model: "sessionTerm", resolve: (row) => byId("sessionTerm", row.collectedSessionTermId) },
+			allocations: { model: "financePaymentAllocation", many: true, resolve: where("financePaymentAllocation", "paymentId") },
+		},
+		financePaymentAllocation: {
+			charge: { model: "financeCharge", resolve: (row) => byId("financeCharge", row.chargeId) },
+		},
 		classRoom: { session: { model: "schoolSession", resolve: (row) => byId("schoolSession", row.schoolSessionId) } },
 		classRoomDepartment: { classRoom: { model: "classRoom", resolve: (row) => byId("classRoom", row.classRoomsId) } },
 		students: {
@@ -887,6 +937,7 @@ function createImportStore(tables: Record<string, ImportRecord[]>) {
 		};
 		return {
 			findFirst: async (args: any = {}) => project(model, findAll(args)[0] ?? null, args),
+			findUnique: async (args: any = {}) => project(model, findAll(args)[0] ?? null, args),
 			findFirstOrThrow: async (args: any = {}) => {
 				const row = findAll(args)[0];
 				if (!row) throw new Error(`Import fixture ${model}.findFirstOrThrow found no record`);
@@ -945,7 +996,7 @@ function createImportStore(tables: Record<string, ImportRecord[]>) {
 	};
 	for (const model of [...Object.keys(tables), "financeItem", "financeCharge", "financeTermLedgerClose", "financeStream",
 		"financeItemClassRoomDepartment", "financePayment", "financePaymentAllocation", "financeLedgerEntry",
-		"schoolInventory", "inventoryIssuance", "studentGuardians", "guardians", "studentWithdrawal"]) {
+		"schoolInventory", "inventoryIssuance", "studentGuardians", "guardians", "studentWithdrawal", "activity"]) {
 		db[model] = delegate(model);
 	}
 	return { db, tables, created, jobUpdates };
@@ -1432,6 +1483,21 @@ describe("executeStudentImport", () => {
 			createdStudents: 5,
 			termSheetsCreated: 5,
 			failedRows: 0,
+		});
+		const imported = ctx.db.activity.findMany as () => Promise<any[]>;
+		const activities = await imported();
+		expect(activities).toHaveLength(5);
+		expect(activities[0]).toMatchObject({
+			type: "student_created",
+			source: "user",
+			userId: "user-1",
+			subjectType: "student",
+			meta: {
+				student: { name: "بلقيس أحمد" },
+				classroom: { id: "primary-1-primary-1", name: "الأول الإبتدائي" },
+				term: { id: "term-1", name: "First Term 2026/2027" },
+				source: "import",
+			},
 		});
 		expect(result.rows.map((row) => row.status)).toEqual([
 			"created",
