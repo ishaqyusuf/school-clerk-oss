@@ -259,6 +259,7 @@ export function ConfigureTermImport({ termId }: { termId: string }) {
       students: number;
       teachers: number;
       fees: number;
+      skippedWithdrawn?: number;
     };
     alreadyApplied: boolean;
   } | null>(null);
@@ -669,7 +670,9 @@ export function ConfigureTermImport({ termId }: { termId: string }) {
               <Card key={label}>
                 <CardHeader>
                   <CardDescription className="capitalize">
-                    {label}
+                    {label === "skippedWithdrawn"
+                      ? "Withdrawn students skipped"
+                      : label}
                   </CardDescription>
                   <CardTitle>{value}</CardTitle>
                 </CardHeader>

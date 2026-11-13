@@ -90,6 +90,8 @@ type StudentRow = {
   departmentLevel: number | null;
   avgScore: number | null;
   isPromoted: boolean;
+  /** Withdrawn students cannot be progressed into the target term. */
+  isWithdrawn?: boolean;
   progressionStatus: StudentStatus;
   firstTermFormId: string | null;
   targetClassroomDepartmentId: string | null;
@@ -520,9 +522,12 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
         ) / 10
       : null;
 
+  const selectableStudents = filteredStudents.filter(
+    (student) => !student.isWithdrawn,
+  );
   const allFilteredSelected =
-    filteredStudents.length > 0 &&
-    filteredStudents.every((student) => selected.has(student.studentId));
+    selectableStudents.length > 0 &&
+    selectableStudents.every((student) => selected.has(student.studentId));
 
   const sourceClassroom =
     sourceClassrooms.find((classroom) => classroom.id === sourceClassroomId) ??
@@ -555,13 +560,15 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
 
   const progressMutation = useMutation(
     trpc.academics.batchPromote.mutationOptions({
-      onSuccess(_, variables) {
+      onSuccess(data, variables) {
         const mode = variables && typeof variables === "object" ? variables.mode : null;
         const actionLabel =
           mode === "repeat" ? "Repeated" : "Promoted";
         toast({
           title: `${actionLabel}!`,
-          description: "Student progression updated successfully.",
+          description: data?.skippedWithdrawn
+            ? `Student progression updated. ${data.skippedWithdrawn} withdrawn student(s) were skipped.`
+            : "Student progression updated successfully.",
         });
         setSelected(new Set());
         invalidateStudents();
@@ -659,7 +666,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
 
     const eligibleIds = studentIds.filter((studentId) => {
       const student = students.find((item) => item.studentId === studentId);
-      if (!student) return false;
+      if (!student || student.isWithdrawn) return false;
       if (mode === "promote") return student.status !== "promoted";
       return student.status !== "repeated";
     });
@@ -698,7 +705,9 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
     if (allFilteredSelected) {
       filteredStudents.forEach((student) => next.delete(student.studentId));
     } else {
-      filteredStudents.forEach((student) => next.add(student.studentId));
+      filteredStudents.forEach((student) => {
+        if (!student.isWithdrawn) next.add(student.studentId);
+      });
     }
     setSelected(next);
   };
@@ -1042,6 +1051,8 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                           type="checkbox"
                           checked={selected.has(student.studentId)}
                           onChange={() => toggleOne(student.studentId)}
+                          disabled={student.isWithdrawn}
+                          aria-label={student.isWithdrawn ? `${student.name} is withdrawn` : `Select ${student.name}`}
                           className="rounded border-border"
                         />
                       </TableCell>
@@ -1051,6 +1062,11 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                           {isDuplicate ? (
                             <Badge variant="warning" className="text-[10px]">
                               duplicate
+                            </Badge>
+                          ) : null}
+                          {student.isWithdrawn ? (
+                            <Badge variant="secondary" className="text-[10px]">
+                              withdrawn
                             </Badge>
                           ) : null}
                         </div>
@@ -1199,12 +1215,21 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                     type="checkbox"
                     checked={selected.has(student.studentId)}
                     onChange={() => toggleOne(student.studentId)}
+                    disabled={student.isWithdrawn}
+                    aria-label={student.isWithdrawn ? `${student.name} is withdrawn` : `Select ${student.name}`}
                     className="mt-1 rounded border-border"
                   />
                   <Item.Content>
                     <Item.Header className="items-start">
                       <div className="space-y-1">
-                        <Item.Title>{student.name}</Item.Title>
+                        <Item.Title>
+                          {student.name}
+                          {student.isWithdrawn ? (
+                            <Badge variant="secondary" className="ms-2 text-[10px]">
+                              withdrawn
+                            </Badge>
+                          ) : null}
+                        </Item.Title>
                         <Item.Description>
                           {student.score?.position
                             ? `Position #${student.score.position}`

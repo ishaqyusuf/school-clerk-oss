@@ -27,6 +27,7 @@ import {
 import { Spinner } from "@school-clerk/ui/spinner";
 import { useStudentParams } from "@/hooks/use-student-params";
 import { StudentDuplicateAlert } from "./student-duplicate-alert";
+import { StudentWithdrawalPanel } from "./student-withdrawal-panel";
 import { useDeleteStudent } from "@/hooks/use-delete-student";
 import { useRemoveStudentTerms } from "@/hooks/use-remove-student-terms";
 import { useMoveStudentTerms } from "@/hooks/use-move-student-terms";
@@ -325,6 +326,8 @@ function StudentManagementActions() {
   const isChangingRecords = isDeletingStudent || isDeletingTermSheet || isChangingClass;
 
   return (
+    <>
+    <StudentWithdrawalPanel studentId={studentId} />
     <Card className="rounded-xl border-border shadow-sm">
       <CardContent className="space-y-4 p-4 sm:p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -464,5 +467,6 @@ function StudentManagementActions() {
         </div>
       </CardContent>
     </Card>
+    </>
   );
 }
