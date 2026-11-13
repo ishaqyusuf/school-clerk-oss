@@ -601,7 +601,7 @@ export function PaymentImportModal() {
 								<Textarea
 									id="payment-import-csv"
 									dir="auto"
-									className="min-h-72 resize-y font-mono text-xs leading-6"
+									className="min-h-72 resize-y font-code text-xs leading-6"
 									value={raw}
 									onChange={(event) => {
 										setRaw(event.target.value);

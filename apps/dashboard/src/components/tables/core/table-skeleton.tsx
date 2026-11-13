@@ -35,7 +35,7 @@ interface TableSkeletonProps<TData> {
 
 const HEADER_BACKGROUND_CLASS = "!bg-sidebar-accent";
 const HEADER_TEXT_CLASS =
-    "text-[11px] font-semibold uppercase text-slate-600 dark:text-slate-300";
+    "text-xs font-semibold text-slate-600 dark:text-slate-300";
 const HEADER_CELL_BACKGROUND_STYLE = {
     backgroundColor:
         "color-mix(in oklab, var(--sidebar-accent) 88%, var(--foreground))",

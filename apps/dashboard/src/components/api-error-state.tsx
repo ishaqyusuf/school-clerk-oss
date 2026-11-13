@@ -142,7 +142,7 @@ export function ApiErrorState({
 							<ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
 							Technical details
 						</summary>
-						<p className="mt-2 break-words rounded-md border bg-muted/40 p-3 font-mono">
+						<p className="mt-2 break-words rounded-md border bg-muted/40 p-3 font-code">
 							{message}
 						</p>
 					</details>

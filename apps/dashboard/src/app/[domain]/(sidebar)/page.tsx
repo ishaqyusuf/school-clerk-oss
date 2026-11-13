@@ -96,15 +96,15 @@ export default async function Page({ params }) {
       </ErrorBoundary>
 
       <div>
-        <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Quick Links
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
+          Quick links
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {quickLinks.map((l) => (
             <Button
               key={l.label}
               variant="outline"
-              className="h-auto flex-col gap-2 py-5"
+              className="h-auto flex-col gap-2 rounded-xl bg-card py-5 shadow-xs"
               asChild
             >
               <Link href={`${l.href}`}>

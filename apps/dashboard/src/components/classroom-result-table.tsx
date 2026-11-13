@@ -1195,8 +1195,8 @@ function StudentResultRow({
 						</span>
 						<StudentGenderBadge gender={student.student?.gender} />
 						{isDuplicateName ? (
-							<Badge variant="warning" className="text-[10px] uppercase">
-								duplicate
+							<Badge variant="warning" className="text-xs">
+								Duplicate
 							</Badge>
 						) : null}
 					</div>

@@ -118,7 +118,7 @@ export function DataTable() {
         <CardHeader className="gap-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-[13px] font-semibold text-primary">
                 <Wallet className="h-3.5 w-3.5" />
                 Transactions
               </div>
@@ -317,7 +317,7 @@ function StatCard({
       <CardContent data-summary-body className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p data-summary-label className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <p data-summary-label className="text-[13px] font-semibold text-muted-foreground">
               {label}
             </p>
 						<p data-summary-value className="mt-2 text-2xl font-semibold text-foreground">

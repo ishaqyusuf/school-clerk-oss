@@ -50,40 +50,34 @@ function percent(part: number, whole: number) {
 	return whole > 0 ? Math.round((part / whole) * 100) : null;
 }
 
-/** Ten-cell meter from the Blueprint direction; amber below `warnBelow`. */
-function CellMeter({ value, warnBelow }: { value: number; warnBelow: number }) {
-	const filled = Math.round(value / 10);
+/** Slim progress bar (Clear Slate, ADR-0094); amber below `warnBelow`. */
+function Meter({ value, warnBelow }: { value: number; warnBelow: number }) {
 	return (
-		<span className="inline-flex gap-0.5" aria-hidden="true">
-			{Array.from({ length: 10 }, (_, index) => (
-				<span
-					key={index}
-					className={cn(
-						"h-3.5 w-[7px]",
-						index < filled
-							? value < warnBelow
-								? "bg-chart-2"
-								: "bg-chart-1"
-							: "bg-muted-foreground/15",
-					)}
-				/>
-			))}
+		<span className="block h-1.5 w-28 overflow-hidden rounded-full bg-border dark:bg-input" aria-hidden="true">
+			<span
+				className={cn("block h-full rounded-full", value < warnBelow ? "bg-chart-2" : "bg-primary")}
+				style={{ width: `${Math.min(Math.max(value, 0), 100)}%` }}
+			/>
 		</span>
 	);
 }
 
-function Eyebrow({ children, className }: { children: React.ReactNode; className?: string }) {
+function Label({ children, className }: { children: React.ReactNode; className?: string }) {
 	return (
-		<span
-			className={cn(
-				"font-mono text-[10.5px] font-medium uppercase tracking-[0.07em] text-muted-foreground",
-				className,
-			)}
-		>
-			{children}
-		</span>
+		<span className={cn("text-[13px] font-medium text-muted-foreground", className)}>{children}</span>
 	);
 }
+
+function PanelHeader({ title, children }: { title: string; children?: React.ReactNode }) {
+	return (
+		<header className="flex items-center justify-between gap-3 border-b px-4 py-3.5">
+			<h2 className="text-[15px] font-semibold">{title}</h2>
+			{children}
+		</header>
+	);
+}
+
+const panel = "rounded-xl border bg-card shadow-xs";
 
 export async function OperationsConsole({
 	schoolId,
@@ -138,9 +132,9 @@ function StatusStrip({ overview, now }: { overview: DashboardOverview; now: Date
 	].filter(Boolean) as { label: string; value: string }[];
 
 	return (
-		<div className="flex flex-wrap items-stretch border bg-card font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+		<div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
 			{segments.map((segment) => (
-				<span key={segment.label} className="flex items-center gap-2 border-r px-3.5 py-2">
+				<span key={segment.label} className="inline-flex items-center gap-1.5">
 					{segment.label}
 					<b className="font-semibold text-foreground">{segment.value}</b>
 				</span>
@@ -204,26 +198,26 @@ function KpiRail({ overview }: { overview: DashboardOverview }) {
 	return (
 		<div
 			data-summary-grid
-			className="grid border bg-card sm:grid-cols-3 lg:grid-cols-5"
+			className="grid gap-3.5 sm:grid-cols-3 lg:grid-cols-5"
 		>
 			{kpis.map((kpi) => (
 				<Link
 					key={kpi.label}
 					href={kpi.href}
-					className="group flex flex-col gap-2 border-b p-4 transition-colors hover:bg-accent sm:border-r lg:border-b-0 lg:last:border-r-0"
+					className={cn(panel, "group flex flex-col gap-1.5 p-[18px] transition-colors hover:border-primary/40")}
 				>
 					<span data-summary-label>
-						<Eyebrow>{kpi.label}</Eyebrow>
+						<Label>{kpi.label}</Label>
 					</span>
 					<span
 						data-summary-value
-						className="font-mono text-[26px] font-medium leading-none tracking-tight tabular-nums"
+						className="text-[28px] font-semibold leading-tight tracking-tight tabular-nums"
 					>
 						{kpi.value}
 					</span>
 					<span
 						className={cn(
-							"text-xs text-muted-foreground",
+							"text-[13px] text-muted-foreground",
 							kpi.tone === "up" && "text-status-success-fg",
 							kpi.tone === "warn" && "text-status-warning-fg",
 						)}
@@ -240,12 +234,12 @@ function TermTrack({ overview, now }: { overview: DashboardOverview; now: Date }
 	const progress = termWeekProgress(overview.term, now);
 	if (!progress) return null;
 	return (
-		<section className="border bg-card px-4 py-3.5" aria-label="Term progress">
-			<div className="mb-2.5 flex items-center justify-between">
-				<Eyebrow>Term track</Eyebrow>
-				<Eyebrow>
+		<section className={cn(panel, "px-4 py-3.5")} aria-label="Term progress">
+			<div className="mb-3 flex items-center justify-between gap-3">
+				<h2 className="text-[15px] font-semibold">Term progress</h2>
+				<Label>
 					Week {progress.currentWeek} of {progress.totalWeeks} · {progress.daysLeft} days left
-				</Eyebrow>
+				</Label>
 			</div>
 			<div
 				className="grid gap-1"
@@ -260,10 +254,10 @@ function TermTrack({ overview, now }: { overview: DashboardOverview; now: Date }
 							key={week}
 							title={`Week ${week}`}
 							className={cn(
-								"flex h-9 items-end border px-1.5 pb-1 font-mono text-[10px]",
-								state === "done" && "border-primary/25 bg-primary/10 text-muted-foreground",
-								state === "now" && "border-primary bg-primary/20 font-semibold text-foreground",
-								state === "next" && "bg-muted text-muted-foreground/70",
+								"flex h-9 items-end rounded-md border px-1.5 pb-1 text-[11px] tabular-nums",
+								state === "done" && "border-primary/20 bg-primary/10 text-muted-foreground",
+								state === "now" && "border-primary bg-primary/15 font-semibold text-foreground",
+								state === "next" && "border-transparent bg-muted text-muted-foreground",
 							)}
 						>
 							W{String(week).padStart(2, "0")}
@@ -278,25 +272,24 @@ function TermTrack({ overview, now }: { overview: DashboardOverview; now: Date }
 function ClassMatrix({ overview }: { overview: DashboardOverview }) {
 	const rows = overview.classes.filter((row) => row.students > 0);
 	return (
-		<section className="min-w-0 border bg-card">
-			<header className="flex items-center justify-between border-b px-3.5 py-2.5">
-				<Eyebrow className="font-semibold">Class matrix</Eyebrow>
-				<Eyebrow>Register today · Fees paid</Eyebrow>
-			</header>
+		<section className={cn(panel, "min-w-0 overflow-hidden")}>
+			<PanelHeader title="Classes">
+				<Label className="font-normal">Register today · Fees paid</Label>
+			</PanelHeader>
 			{rows.length === 0 ? (
 				<p className="px-4 py-10 text-center text-sm text-muted-foreground">
 					No students are registered in a class this term yet.
 				</p>
 			) : (
 				<div className="overflow-x-auto">
-					<table className="w-full text-[13px]">
+					<table className="w-full text-sm">
 						<thead>
 							<tr className="border-b bg-muted/60 text-left">
-								{["Class", "Students", "Register", "Fees"].map((label, index) => (
+								{["Class", "Students", "Register", "Fees paid"].map((label, index) => (
 									<th
 										key={label}
 										className={cn(
-											"h-9 whitespace-nowrap px-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground",
+											"h-10 whitespace-nowrap px-4 text-[13px] font-medium text-muted-foreground",
 											index === 1 && "text-right",
 										)}
 									>
@@ -314,15 +307,15 @@ function ClassMatrix({ overview }: { overview: DashboardOverview }) {
 									row.feesPaidRatio === null ? null : Math.round(row.feesPaidRatio * 100);
 								return (
 									<tr key={row.id} className="border-b last:border-b-0 hover:bg-accent/60">
-										<td className="h-11 whitespace-nowrap px-3 text-left font-medium" dir="auto">
+										<td className="h-12 whitespace-nowrap px-4 text-left font-medium" dir="auto">
 											{classroomDisplayName(row)}
 										</td>
-										<td className="px-3 text-right font-mono tabular-nums">{row.students}</td>
-										<td className="whitespace-nowrap px-3">
+										<td className="px-4 text-right tabular-nums">{row.students}</td>
+										<td className="whitespace-nowrap px-4">
 											{row.register && attendance !== null ? (
 												<span className="inline-flex items-center gap-2">
-													<CellMeter value={attendance} warnBelow={90} />
-													<span className="font-mono text-[11.5px] text-muted-foreground">
+													<Meter value={attendance} warnBelow={90} />
+													<span className="text-[13px] tabular-nums text-muted-foreground">
 														{row.register.present}/{row.register.marked}
 													</span>
 												</span>
@@ -330,13 +323,13 @@ function ClassMatrix({ overview }: { overview: DashboardOverview }) {
 												<Badge variant="warning">No register</Badge>
 											)}
 										</td>
-										<td className="whitespace-nowrap px-3">
+										<td className="whitespace-nowrap px-4">
 											{fees === null ? (
-												<span className="font-mono text-[11.5px] text-muted-foreground">No charges</span>
+												<span className="text-[13px] text-muted-foreground">No charges</span>
 											) : (
-												<span className="inline-flex items-center gap-2">
-													<CellMeter value={fees} warnBelow={55} />
-													<span className="font-mono text-[11.5px] text-muted-foreground">{fees}%</span>
+												<span className="inline-flex items-center gap-2.5">
+													<Meter value={fees} warnBelow={55} />
+													<span className="text-[13px] tabular-nums text-muted-foreground">{fees}%</span>
 												</span>
 											)}
 										</td>
@@ -381,22 +374,21 @@ function OpenItems({ overview }: { overview: DashboardOverview }) {
 	].filter((item) => item.count > 0);
 
 	return (
-		<section className="border bg-card">
-			<header className="flex items-center justify-between border-b px-3.5 py-2.5">
-				<Eyebrow className="font-semibold">Open items</Eyebrow>
-				<Eyebrow>{items.length === 0 ? "All clear" : `${items.length} queues`}</Eyebrow>
-			</header>
+		<section className={cn(panel, "overflow-hidden")}>
+			<PanelHeader title="Open items">
+				<Label className="font-normal">{items.length === 0 ? "All clear" : `${items.length} queues`}</Label>
+			</PanelHeader>
 			{items.length === 0 ? (
-				<p className="px-3.5 py-6 text-sm text-muted-foreground">Nothing needs your attention right now.</p>
+				<p className="px-4 py-6 text-sm text-muted-foreground">Nothing needs your attention right now.</p>
 			) : (
 				<ul>
 					{items.map((item) => (
 						<li key={item.label} className="border-b last:border-b-0">
 							<Link
 								href={item.href}
-								className="flex items-center gap-3 px-3.5 py-2.5 text-[13px] hover:bg-accent/60"
+								className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-accent/60"
 							>
-								<Badge variant={item.tone} className="min-w-9 justify-center font-mono">
+								<Badge variant={item.tone} className="min-w-9 justify-center tabular-nums">
 									{item.count}
 								</Badge>
 								<span className="flex-1">{item.label}</span>
@@ -413,17 +405,16 @@ function OpenItems({ overview }: { overview: DashboardOverview }) {
 function LatestPayments({ overview }: { overview: DashboardOverview }) {
 	const today = overview.dayKey;
 	return (
-		<section className="border bg-card">
-			<header className="flex items-center justify-between border-b px-3.5 py-2.5">
-				<Eyebrow className="font-semibold">Latest payments</Eyebrow>
-				<Link href="/finance" className="font-mono text-[10.5px] uppercase tracking-[0.07em] text-primary hover:underline">
-					All
+		<section className={cn(panel, "overflow-hidden")}>
+			<PanelHeader title="Latest payments">
+				<Link href="/finance" className="text-[13px] font-medium text-primary hover:underline">
+					View all
 				</Link>
-			</header>
+			</PanelHeader>
 			{overview.recentPayments.length === 0 ? (
-				<p className="px-3.5 py-6 text-sm text-muted-foreground">No student payments recorded yet.</p>
+				<p className="px-4 py-6 text-sm text-muted-foreground">No student payments recorded yet.</p>
 			) : (
-				<ul className="text-[12.5px]">
+				<ul className="text-sm">
 					{overview.recentPayments.map((payment) => {
 						const isToday =
 							new Intl.DateTimeFormat("en-CA", {
@@ -435,15 +426,15 @@ function LatestPayments({ overview }: { overview: DashboardOverview }) {
 						return (
 							<li
 								key={payment.id}
-								className="grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-2.5 border-b px-3.5 py-2 last:border-b-0"
+								className="grid grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-2.5 border-b px-4 py-2.5 last:border-b-0"
 							>
-								<time className="font-mono text-[11px] text-muted-foreground">
+								<time className="text-[13px] tabular-nums text-muted-foreground">
 									{isToday ? timeLabel.format(payment.paymentDate) : dayLabel.format(payment.paymentDate)}
 								</time>
 								<span className="truncate text-left" dir="auto">
 									{formatStudentName(payment.student) || "Student"}
 								</span>
-								<span className="font-mono text-xs font-semibold text-status-success-fg">
+								<span className="font-semibold tabular-nums text-status-success-fg">
 									+{naira.format(payment.amount)}
 								</span>
 							</li>
@@ -458,10 +449,10 @@ function LatestPayments({ overview }: { overview: DashboardOverview }) {
 export function OperationsConsoleSkeleton() {
 	return (
 		<div className="space-y-4">
-			<Skeleton className="h-9 w-full" />
-			<div className="grid border sm:grid-cols-3 lg:grid-cols-5">
+			<Skeleton className="h-6 w-80" />
+			<div className="grid gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
 				{Array.from({ length: 5 }, (_, index) => (
-					<div key={index} className="space-y-2 p-4">
+					<div key={index} className="space-y-2 rounded-xl border p-[18px]">
 						<Skeleton className="h-3 w-20" />
 						<Skeleton className="h-7 w-24" />
 						<Skeleton className="h-3 w-28" />

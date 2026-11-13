@@ -825,7 +825,7 @@ export default async function DocumentTemplatesPage() {
                     <label className="block space-y-1 text-xs md:col-span-5">
                       <span>Built template JSON</span>
                       <textarea
-                        className="min-h-32 w-full rounded-md border border-input bg-background px-2 py-2 font-mono text-xs"
+                        className="min-h-32 w-full rounded-md border border-input bg-background px-2 py-2 font-code text-xs"
                         defaultValue={
                           request.builtTemplateJson
                             ? JSON.stringify(request.builtTemplateJson, null, 2)

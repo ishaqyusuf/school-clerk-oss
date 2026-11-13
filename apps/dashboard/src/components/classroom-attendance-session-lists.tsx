@@ -83,7 +83,7 @@ export function AttendanceSessionList({
                   </p>
                 </td>
                 <td className="mt-3 inline-flex w-1/2 flex-col items-start p-0 md:mt-0 md:table-cell md:w-auto md:px-4 md:py-3 md:text-center">
-                  <span className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+                  <span className="mb-1 text-[13px] font-medium text-muted-foreground md:hidden">
                     Present
                   </span>
                   <Badge
@@ -94,7 +94,7 @@ export function AttendanceSessionList({
                   </Badge>
                 </td>
                 <td className="mt-3 inline-flex w-1/2 flex-col items-start p-0 md:mt-0 md:table-cell md:w-auto md:px-4 md:py-3 md:text-center">
-                  <span className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+                  <span className="mb-1 text-[13px] font-medium text-muted-foreground md:hidden">
                     Absent
                   </span>
                   <Badge

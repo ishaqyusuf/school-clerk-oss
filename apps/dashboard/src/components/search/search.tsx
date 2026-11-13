@@ -173,7 +173,7 @@ export function SearchPanel() {
 												</div>
 											) : null}
 										</div>
-										<div className="hidden shrink-0 text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:block">
+										<div className="hidden shrink-0 text-xs text-muted-foreground sm:block">
 											{item.group}
 										</div>
 									</CommandItem>

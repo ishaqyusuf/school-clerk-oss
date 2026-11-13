@@ -80,7 +80,7 @@ export function SubjectRail({
 }: Props) {
 	return (
 		<nav aria-label="Subjects" className="grid gap-0.5">
-			<p className="mx-2.5 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+			<p className="mx-2.5 mb-1.5 text-xs font-semibold text-muted-foreground">
 				Subjects
 			</p>
 			{subjects.map((subject) => {

@@ -205,7 +205,7 @@ const SessionDetails = ({}) => {
                 <h3 className="font-bold text-foreground">
                   2nd Term (Easter Term)
                 </h3>
-                <div className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-muted text-muted-foreground mt-1 uppercase tracking-wide">
+                <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-muted text-muted-foreground mt-1">
                   Upcoming
                 </div>
               </div>
@@ -262,7 +262,7 @@ const SessionDetails = ({}) => {
                 <h3 className="font-bold text-foreground">
                   3rd Term (Summer Term)
                 </h3>
-                <div className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-muted text-muted-foreground mt-1 uppercase tracking-wide">
+                <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-muted text-muted-foreground mt-1">
                   Upcoming
                 </div>
               </div>

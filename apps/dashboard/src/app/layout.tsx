@@ -13,20 +13,20 @@ import { StaticTrpc } from "@/components/static-trpc";
 import { constructMetadata } from "@/utils/construct-metadata";
 import {
   IBM_Plex_Mono,
-  IBM_Plex_Sans,
   IBM_Plex_Sans_Arabic,
+  Inter,
   Lora,
 } from "next/font/google";
 
-// Blueprint (ADR-0082): IBM Plex Sans for UI copy, Plex Mono for figures and labels.
-const plexSans = IBM_Plex_Sans({
+// Clear Slate (ADR-0094): Inter for UI copy and figures (tabular numerals).
+const inter = Inter({
   display: "swap",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-plex-sans",
+  variable: "--font-inter",
 });
 
-// Plex's Arabic companion (ADR-0086). Plex Sans has no Arabic glyphs, so the
+// Arabic companion (ADR-0086). Inter has no Arabic glyphs, so the
 // browser draws only Arabic characters with this font, per character, with no
 // wrapper. Its Arabic face's unicode-range means pages without Arabic never fetch it.
 const plexSansArabic = IBM_Plex_Sans_Arabic({
@@ -36,8 +36,10 @@ const plexSansArabic = IBM_Plex_Sans_Arabic({
   preload: false,
 });
 
+// Real monospace, only for code, raw text input and keyboard hints (`font-code`).
 const plexMono = IBM_Plex_Mono({
   display: "swap",
+  preload: false,
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-plex-mono",
@@ -50,7 +52,7 @@ const lora = Lora({
   variable: "--font-serif",
 });
 
-// Slot Plex Sans Arabic between a Plex family and next/font's metric-matched
+// Slot Plex Sans Arabic between the Latin family and next/font's metric-matched
 // fallback (local Arial / Courier New). Those fallbacks contain Arabic glyphs,
 // so listed first they would draw every Arabic character.
 function withArabic(fontFamily: string) {
@@ -58,9 +60,12 @@ function withArabic(fontFamily: string) {
   return [family, plexSansArabic.style.fontFamily, ...fallbacks].join(",");
 }
 
+// `font-mono` is the figure font: Inter with tabular numerals (see globals.css).
+// `font-code` is the true monospace.
 const fontStacks = {
-  "--font-sans-stack": withArabic(plexSans.style.fontFamily),
-  "--font-mono-stack": withArabic(plexMono.style.fontFamily),
+  "--font-sans-stack": withArabic(inter.style.fontFamily),
+  "--font-mono-stack": withArabic(inter.style.fontFamily),
+  "--font-code-stack": withArabic(plexMono.style.fontFamily),
 } as React.CSSProperties;
 
 export const metadata = constructMetadata();
@@ -88,7 +93,7 @@ export default function RootLayout({
       {/*</Suspense>*/}
       <body
         className={cn(
-          `${plexSans.variable} ${plexMono.variable} ${lora.variable} font-sans`,
+          `${inter.variable} ${plexMono.variable} ${lora.variable} font-sans`,
           "whitespace-pre-line overscroll-none antialiased",
           // "min-h-screen bg-background font-sans text-black antialiased",
           // fontSans.variable,

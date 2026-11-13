@@ -900,7 +900,7 @@ function LegacyReceivePaymentSheet({
 									</p>
 								</div>
 								<div className="text-left sm:text-right">
-									<p className="text-xs uppercase tracking-wide text-muted-foreground">
+									<p className="text-[13px] text-muted-foreground">
 										Outstanding Across Terms
 									</p>
 									<p className="text-2xl font-bold">
@@ -1089,7 +1089,7 @@ function LegacyReceivePaymentSheet({
 
 									<div className="hidden overflow-x-auto md:block">
 										<table className="w-full text-sm">
-											<thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+											<thead className="bg-muted/40 text-left text-[13px] text-muted-foreground">
 												<tr>
 													<th className="px-4 py-3">Select</th>
 													<th className="px-4 py-3">Item</th>
@@ -1323,7 +1323,7 @@ function LegacyReceivePaymentSheet({
 							<CardContent className="p-0">
 								<div className="overflow-x-auto md:overflow-visible">
 									<table className="w-full text-sm">
-										<thead className="hidden bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground md:table-header-group">
+										<thead className="hidden bg-muted/40 text-left text-[13px] text-muted-foreground md:table-header-group">
 											<tr>
 												<th className="px-4 py-3">Stream</th>
 												<th className="px-4 py-3">Description</th>
@@ -1383,7 +1383,7 @@ function LegacyReceivePaymentSheet({
 														className="block bg-primary/5 p-4 md:table-row md:p-0"
 													>
 														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
-															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+															<span className="mb-1 block text-[13px] font-medium text-muted-foreground md:hidden">
 																Stream
 															</span>
 															<div className="space-y-2 md:min-w-[220px]">
@@ -1428,7 +1428,7 @@ function LegacyReceivePaymentSheet({
 															</div>
 														</td>
 														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
-															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+															<span className="mb-1 block text-[13px] font-medium text-muted-foreground md:hidden">
 																Description
 															</span>
 															{descriptionOptions.length ? (
@@ -1485,13 +1485,13 @@ function LegacyReceivePaymentSheet({
 															)}
 														</td>
 														<td className="flex items-center justify-between gap-3 px-0 py-2 align-top font-medium md:table-cell md:px-4 md:py-3 md:text-right">
-															<span className="text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+															<span className="text-[13px] font-medium text-muted-foreground md:hidden">
 																Payable
 															</span>
 															{formatCurrency(group.payableAmount)}
 														</td>
 														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
-															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+															<span className="mb-1 block text-[13px] font-medium text-muted-foreground md:hidden">
 																Amount
 															</span>
 															<Input
@@ -1508,7 +1508,7 @@ function LegacyReceivePaymentSheet({
 															/>
 														</td>
 														<td className="flex items-center justify-between gap-3 px-0 py-2 align-top text-xs text-muted-foreground md:table-cell md:px-4 md:py-3 md:text-right">
-															<span className="font-medium uppercase tracking-wide md:hidden">
+															<span className="font-medium md:hidden">
 																Action
 															</span>
 															Grouped from {group.memberKeys.length} payable
@@ -1544,7 +1544,7 @@ function LegacyReceivePaymentSheet({
 														className="block p-4 md:table-row md:p-0"
 													>
 														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
-															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+															<span className="mb-1 block text-[13px] font-medium text-muted-foreground md:hidden">
 																Stream
 															</span>
 															<div className="space-y-2 md:min-w-[220px]">
@@ -1577,7 +1577,7 @@ function LegacyReceivePaymentSheet({
 															</div>
 														</td>
 														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
-															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+															<span className="mb-1 block text-[13px] font-medium text-muted-foreground md:hidden">
 																Description
 															</span>
 															{descriptionOptions.length ? (
@@ -1624,7 +1624,7 @@ function LegacyReceivePaymentSheet({
 															)}
 														</td>
 														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
-															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+															<span className="mb-1 block text-[13px] font-medium text-muted-foreground md:hidden">
 																Payable
 															</span>
 															<Input
@@ -1642,7 +1642,7 @@ function LegacyReceivePaymentSheet({
 															/>
 														</td>
 														<td className="block px-0 py-2 align-top md:table-cell md:px-4 md:py-3">
-															<span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+															<span className="mb-1 block text-[13px] font-medium text-muted-foreground md:hidden">
 																Amount
 															</span>
 															<Input
@@ -1660,7 +1660,7 @@ function LegacyReceivePaymentSheet({
 															/>
 														</td>
 														<td className="flex items-center justify-between gap-3 px-0 py-2 align-top md:table-cell md:px-4 md:py-3 md:text-right">
-															<span className="text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden">
+															<span className="text-[13px] font-medium text-muted-foreground md:hidden">
 																Action
 															</span>
 															<Button

@@ -48,7 +48,7 @@ function Stat({
 }) {
 	const body = (
 		<>
-			<span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+			<span className="font-medium text-muted-foreground text-[13px]">
 				{label}
 			</span>
 			<span className="font-semibold text-2xl tabular-nums tracking-tight">

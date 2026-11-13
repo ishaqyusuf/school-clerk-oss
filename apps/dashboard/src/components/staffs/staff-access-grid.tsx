@@ -385,12 +385,12 @@ export function StaffAccessGrid({
                 <th
                   className={cn(
                     nameCell,
-                    "h-11 border-b pb-2 align-bottom font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+                    "h-11 border-b pb-2 align-bottom text-xs font-semibold text-muted-foreground",
                   )}
                 >
                   Classroom
                 </th>
-                <th className="h-11 w-14 border-b border-r px-1 pb-2 align-bottom font-mono text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
+                <th className="h-11 w-14 border-b border-r px-1 pb-2 align-bottom text-xs font-semibold leading-tight text-muted-foreground">
                   All
                   <br />
                   subjects
@@ -399,7 +399,7 @@ export function StaffAccessGrid({
                   <th
                     key={subject.value}
                     title={subject.label}
-                    className="h-11 max-w-16 border-b px-1 pb-2 align-bottom font-mono text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground"
+                    className="h-11 max-w-16 border-b px-1 pb-2 align-bottom text-xs font-semibold leading-tight text-muted-foreground"
                   >
                     <span className="line-clamp-2 break-words">
                       {subject.label}
@@ -552,7 +552,7 @@ export function StaffAccessGrid({
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-2 text-sm last:border-b-0"
               >
                 <span className="min-w-0 flex-1">{line.text}</span>
-                <Badge variant="outline" className="font-mono text-[10px] uppercase">
+                <Badge variant="outline" className="text-xs">
                   {line.tag}
                 </Badge>
               </div>

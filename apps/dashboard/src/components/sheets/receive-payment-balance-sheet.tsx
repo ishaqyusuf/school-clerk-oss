@@ -480,7 +480,7 @@ export function BalanceFirstReceivePaymentSheet({
 										</p>
 									</div>
 									<div className="text-right">
-										<p className="font-mono text-[10.5px] text-muted-foreground uppercase tracking-[0.07em]">
+										<p className="text-xs text-muted-foreground">
 											Outstanding
 										</p>
 										<p className="font-mono font-semibold text-lg tabular-nums">
@@ -567,7 +567,7 @@ export function BalanceFirstReceivePaymentSheet({
 											{termGroups.map((group) => (
 												<div key={group.label}>
 													<div className="flex items-center justify-between border-b bg-muted/60 px-3 py-1.5">
-														<span className="font-mono text-[10.5px] text-muted-foreground uppercase tracking-[0.07em]">
+														<span className="text-xs text-muted-foreground">
 															{group.label}
 														</span>
 														<Badge variant={group.isCurrent ? "info" : "warning"}>

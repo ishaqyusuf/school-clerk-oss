@@ -1893,7 +1893,7 @@ function ImportExecutionErrorAlert({
           {error.message}
         </AlertDescription>
         {error.diagnostics.length ? (
-          <div className="mt-2 rounded border border-red-200/80 bg-white/50 px-2 py-1 font-mono text-[10px] leading-5 text-red-800/80 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-200/80">
+          <div className="mt-2 rounded border border-red-200/80 bg-white/50 px-2 py-1 font-code text-[11px] leading-5 text-red-800/80 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-200/80">
             {error.diagnostics.map((diagnostic) => (
               <div key={diagnostic}>{diagnostic}</div>
             ))}
@@ -2227,7 +2227,7 @@ function ImportStat({
 }) {
   return (
     <div className="min-w-0 rounded-md border bg-background p-3">
-      <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <span
           className={cn(
             "inline-flex size-6 shrink-0 items-center justify-center rounded-md border bg-muted/20",
@@ -2843,7 +2843,7 @@ function NameEditMatchSuggestion({
   return (
     <div className="rounded-md border bg-muted/20 p-2">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="text-xs font-semibold text-muted-foreground">
           Match after name edit
         </span>
         <Button type="button" size="sm" className="h-8" onClick={onApprove}>
@@ -2886,7 +2886,7 @@ function StudentSearchPanel({
   return (
     <div className="rounded-md border bg-background p-2.5">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="text-xs font-semibold text-muted-foreground">
           Search existing students
         </span>
         <span className="text-[11px] text-muted-foreground">

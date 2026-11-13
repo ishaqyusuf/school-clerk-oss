@@ -192,12 +192,12 @@ function Content() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted/40 border-b border-border">
-                  <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Expense</th>
-                  <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Amount</th>
-                  <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground">Expense</th>
+                  <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground">Description</th>
+                  <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground">Date</th>
+                  <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground text-right">Amount</th>
+                  <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground text-center">Status</th>
+                  <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

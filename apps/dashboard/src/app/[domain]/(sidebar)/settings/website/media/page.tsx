@@ -159,7 +159,7 @@ export default async function WebsiteMediaPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-sm font-semibold">{asset.name}</h3>
                       {asset.storageProvider ? (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                           {asset.storageProvider}
                         </span>
                       ) : null}

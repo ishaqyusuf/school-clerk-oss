@@ -219,7 +219,7 @@ function Content() {
 
           <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="rounded-xl border bg-muted/20 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="text-[13px] font-semibold text-muted-foreground">
                 Payroll Budget
               </p>
               <div className="mt-2 text-2xl font-bold">
@@ -230,7 +230,7 @@ function Content() {
               </p>
             </div>
             <div className="rounded-xl border bg-muted/20 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="text-[13px] font-semibold text-muted-foreground">
                 Remaining Budget
               </p>
               <div className="mt-2 text-2xl font-bold">
@@ -241,7 +241,7 @@ function Content() {
               </p>
             </div>
             <div className="rounded-xl border bg-muted/20 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="text-[13px] font-semibold text-muted-foreground">
                 Stream Balance
               </p>
               <div className="mt-2 text-2xl font-bold">
@@ -252,7 +252,7 @@ function Content() {
               </p>
             </div>
             <div className="rounded-xl border bg-muted/20 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="text-[13px] font-semibold text-muted-foreground">
                 Projected Balance
               </p>
               <div className="mt-2 text-2xl font-bold">
@@ -294,7 +294,7 @@ function Content() {
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    <p className="text-[13px] text-muted-foreground">
                       Balance
                     </p>
                     <p className="text-sm font-bold">
@@ -340,7 +340,7 @@ function Content() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-[13px] font-semibold text-muted-foreground">
               Displaying:
             </span>
             <span className="text-sm font-bold">{filtered.length} records</span>
@@ -361,12 +361,12 @@ function Content() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-muted/40 border-b border-border">
-                    <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Staff Member</th>
-                    <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Bill Title</th>
-                    <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Gross Pay</th>
-                    <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Net Pay</th>
-                    <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">Status</th>
-                    <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Actions</th>
+                    <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground">Staff Member</th>
+                    <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground">Bill Title</th>
+                    <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground text-right">Gross Pay</th>
+                    <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground text-right">Net Pay</th>
+                    <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground text-center">Status</th>
+                    <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -893,7 +893,7 @@ function CreateStaffBillForm({ onSuccess }: { onSuccess: () => void }) {
           </div>
 
           <div className="rounded-xl border bg-muted/10 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-[13px] font-semibold text-muted-foreground">
               Stream fund status
             </p>
             {selectedStream ? (

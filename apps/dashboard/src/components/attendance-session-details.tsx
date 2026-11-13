@@ -211,7 +211,7 @@ function StatCard({
     <div className="border bg-background px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p data-summary-label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p data-summary-label className="text-[13px] font-medium text-muted-foreground">
             {label}
           </p>
           <p data-summary-value className={`mt-1 text-2xl font-semibold ${toneClassName}`}>

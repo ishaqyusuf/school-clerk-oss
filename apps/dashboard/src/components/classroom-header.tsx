@@ -214,7 +214,7 @@ function ImportClassroomsDialog({
 
           {fromSessionId && previewClassrooms.length > 0 && (
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1 max-h-48 overflow-y-auto">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              <p className="text-[13px] font-semibold text-muted-foreground mb-2">
                 {previewClassrooms.length} classroom(s) to import
               </p>
               {previewClassrooms.map((c) => (

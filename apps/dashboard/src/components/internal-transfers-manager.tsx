@@ -71,7 +71,7 @@ export function InternalTransfersManager() {
 				<Card className="overflow-hidden rounded-3xl border-border shadow-sm">
 					<CardHeader className="gap-5">
 						<div className="space-y-2">
-							<div className="inline-flex items-center gap-2 rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+							<div className="inline-flex items-center gap-2 rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-[13px] font-semibold text-primary">
 								Internal Transfers
 							</div>
 							<CardTitle className="text-2xl tracking-tight">
@@ -263,7 +263,7 @@ function TransferMetaCard({
 }) {
 	return (
 		<div className="rounded-xl border bg-muted/20 p-3">
-			<p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+			<p className="text-xs font-semibold text-muted-foreground">
 				{label}
 			</p>
 			<p className="mt-1 text-sm font-medium">{value}</p>

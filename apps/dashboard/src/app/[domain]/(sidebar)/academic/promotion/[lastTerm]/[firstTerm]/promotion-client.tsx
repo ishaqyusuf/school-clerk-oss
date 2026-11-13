@@ -514,7 +514,7 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Source classroom */}
         <Card className="p-4 space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          <p className="text-[13px] font-semibold text-muted-foreground">
             Source Classroom (Last Term)
           </p>
           <Select
@@ -539,7 +539,7 @@ export function PromotionClient({ lastTermId, firstTermId }: Props) {
 
         {/* Target classroom */}
         <Card className="p-4 space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          <p className="text-[13px] font-semibold text-muted-foreground">
             Promote To (New Session)
           </p>
           {showNewClass ? (
@@ -1386,7 +1386,7 @@ function StudentResultModal({
               </tbody>
               <tfoot>
                 <tr className="bg-muted/50 font-bold border-t-2 border-border">
-                  <td className="px-3 py-2.5 border border-border text-xs uppercase tracking-wide">
+                  <td className="px-3 py-2.5 border border-border text-[13px]">
                     Grand Total
                   </td>
                   {studentData.sortedTitles.map((_: string, i: number) => (

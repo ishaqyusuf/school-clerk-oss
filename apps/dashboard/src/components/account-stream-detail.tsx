@@ -342,7 +342,7 @@ export function AccountStreamDetail({ streamId }: { streamId: string }) {
 						<Badge
 							variant="outline"
 							className={cn(
-								"uppercase tracking-[0.2em]",
+								"",
 								data.defaultType === "incoming"
 									? "bg-emerald-50 text-emerald-700 border-emerald-200"
 									: "bg-rose-50 text-rose-700 border-rose-200",

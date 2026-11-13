@@ -175,16 +175,16 @@ const Dashboard = () => {
           <table className="w-full text-left">
             <thead className="bg-secondary/50 border-b border-border">
               <tr>
-                <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground">
                   Session Name
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground">
                   Status
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground">
                   Active Term
                 </th>
-                <th className="px-6 py-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
+                <th className="px-6 py-4 text-[13px] font-semibold text-muted-foreground text-right">
                   Actions
                 </th>
               </tr>
@@ -330,7 +330,7 @@ const Dashboard = () => {
                                   <p className="text-xs font-bold text-muted-foreground uppercase mb-2">
                                     {term.title}
                                   </p>
-                                  <span className="text-[10px] text-muted-foreground font-bold mt-1 uppercase tracking-wide">
+                                  <span className="text-xs text-muted-foreground font-semibold mt-1">
                                     {term.status}
                                   </span>
                                   <div className="mt-4 flex items-center gap-3">

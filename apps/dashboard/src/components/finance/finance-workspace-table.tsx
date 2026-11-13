@@ -117,7 +117,7 @@ function SortButton({
 	return (
 		<button
 			type="button"
-			className="inline-flex items-center gap-1 text-left text-[11px] font-semibold uppercase text-slate-600 dark:text-slate-300"
+			className="inline-flex items-center gap-1 text-left text-xs font-semibold text-slate-600 dark:text-slate-300"
 			onClick={() =>
 				setFilter({
 					sortField: field,

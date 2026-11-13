@@ -243,7 +243,7 @@ export function Form({
             readOnly
             value={pendingInvite.inviteLink}
             onFocus={(event) => event.currentTarget.select()}
-            className="font-mono text-xs"
+            className="font-code text-xs"
           />
           <div className="flex justify-end gap-2">
             <Button

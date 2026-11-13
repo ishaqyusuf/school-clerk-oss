@@ -912,19 +912,19 @@ function AssessmentRecordingWorkspace({
           </div>
           <p className="hidden flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground md:flex">
             <span>
-              <kbd className="rounded border px-1 font-mono text-[11px]">
+              <kbd className="rounded border px-1 font-code text-[11px]">
                 Enter
               </kbd>{" "}
               next student
             </span>
             <span>
-              <kbd className="rounded border px-1 font-mono text-[11px]">
+              <kbd className="rounded border px-1 font-code text-[11px]">
                 Tab
               </kbd>{" "}
               next column
             </span>
             <span>
-              <kbd className="rounded border px-1 font-mono text-[11px]">
+              <kbd className="rounded border px-1 font-code text-[11px]">
                 Esc
               </kbd>{" "}
               undo cell

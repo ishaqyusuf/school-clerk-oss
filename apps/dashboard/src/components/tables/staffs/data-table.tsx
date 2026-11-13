@@ -236,7 +236,7 @@ export function DataTable({ search, status }: Props) {
 				<div className="space-y-4 border-b bg-muted/10 px-4 py-4 sm:px-5">
 					<div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
 						<div className="space-y-2">
-							<div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+							<div className="inline-flex items-center gap-2 text-[13px] font-semibold text-muted-foreground">
 								<School className="h-3.5 w-3.5" />
 								Staff directory
 							</div>
@@ -320,7 +320,7 @@ export function DataTable({ search, status }: Props) {
 									readOnly
 									value={manualInviteLink}
 									onFocus={(event) => event.currentTarget.select()}
-									className="font-mono text-xs"
+									className="font-code text-xs"
 								/>
 							</div>
 							<div className="flex gap-2">
@@ -651,7 +651,7 @@ function StatCard({
 	return (
 		<div className="flex items-start justify-between gap-4 border-border px-4 py-3 md:border-r last:border-r-0">
 			<div className="min-w-0 space-y-1">
-				<p data-summary-label className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+				<p data-summary-label className="text-[13px] font-semibold text-muted-foreground">
 					{label}
 				</p>
 				<div data-summary-value className="text-2xl font-semibold tracking-tight">
@@ -669,7 +669,7 @@ function StatCard({
 function MetaRow({ label, value }: { label: string; value: string }) {
 	return (
 		<div className="flex flex-col gap-1">
-			<span className="text-xs uppercase tracking-wide text-muted-foreground">
+			<span className="text-[13px] text-muted-foreground">
 				{label}
 			</span>
 			<span>{value}</span>

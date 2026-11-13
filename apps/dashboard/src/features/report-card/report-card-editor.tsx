@@ -1085,7 +1085,7 @@ export function ReportCardEditor() {
 											<Textarea
 												dir="rtl"
 												rows={6}
-												className="font-mono text-sm"
+												className="font-code text-sm"
 												placeholder={"أحمد = أحمــــد\nعبد = عبد"}
 												value={dictionaryText}
 												onChange={(event) =>

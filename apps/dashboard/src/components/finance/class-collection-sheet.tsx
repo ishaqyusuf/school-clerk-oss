@@ -243,15 +243,15 @@ export function ClassCollectionSheet() {
 						</p>
 					</div>
 					<p className="hidden text-muted-foreground text-xs sm:block">
-						<kbd className="rounded border px-1 font-mono">Enter</kbd> next ·{" "}
-						<kbd className="rounded border px-1 font-mono">F</kbd> full ·{" "}
-						<kbd className="rounded border px-1 font-mono">Esc</kbd> clear
+						<kbd className="rounded border px-1 font-code">Enter</kbd> next ·{" "}
+						<kbd className="rounded border px-1 font-code">F</kbd> full ·{" "}
+						<kbd className="rounded border px-1 font-code">Esc</kbd> clear
 					</p>
 				</div>
 				<div className="overflow-x-auto">
 					<table className="w-full min-w-[640px] text-sm">
 						<thead>
-							<tr className="border-b font-mono text-[10.5px] text-muted-foreground uppercase tracking-[0.06em]">
+							<tr className="border-b text-xs text-muted-foreground">
 								<th className="h-9 px-4 text-left font-semibold">Student</th>
 								<th className="h-9 px-3 text-right font-semibold">Due</th>
 								<th className="h-9 w-40 px-3 text-right font-semibold">Amount received</th>

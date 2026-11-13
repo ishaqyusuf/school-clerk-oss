@@ -319,7 +319,7 @@ function StatCard({
     <Card className="p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p data-summary-label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p data-summary-label className="text-[13px] font-medium text-muted-foreground">
             {label}
           </p>
           <p data-summary-value className="mt-2 text-2xl font-black tracking-tight">{value}</p>
@@ -758,7 +758,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="space-y-2 p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          <p className="text-[13px] font-semibold text-muted-foreground">
             Previous Term Class
           </p>
           <Select
@@ -784,7 +784,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
         </Card>
 
         <Card className="space-y-2 p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          <p className="text-[13px] font-semibold text-muted-foreground">
             Progression Rule
           </p>
           <Badge variant="secondary" className="w-fit">
@@ -800,7 +800,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
         </Card>
 
         <Card className="space-y-2 p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          <p className="text-[13px] font-semibold text-muted-foreground">
             Automatic Target
           </p>
           <p className="text-sm font-medium text-foreground">

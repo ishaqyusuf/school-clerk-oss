@@ -832,18 +832,18 @@ function StreamTransferStatsCard({
 		<div className="rounded-lg border bg-muted/20 p-4">
 			<div className="flex items-start justify-between gap-3">
 				<div>
-					<p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+					<p className="text-[13px] font-semibold text-muted-foreground">
 						{label} stream
 					</p>
 					<h4 className="text-sm font-semibold">{stream.name}</h4>
 				</div>
-				<Badge variant="outline" className="text-[10px] uppercase">
+				<Badge variant="outline" className="text-xs">
 					{isIncoming ? "Incoming" : "Outgoing"}
 				</Badge>
 			</div>
 			<div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
 				<div className="rounded-md border bg-background px-3 py-2">
-					<p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+					<p className="text-xs text-muted-foreground">
 						Balance
 					</p>
 					<p className="mt-1 text-sm font-semibold">
@@ -851,7 +851,7 @@ function StreamTransferStatsCard({
 					</p>
 				</div>
 				<div className="rounded-md border bg-background px-3 py-2">
-					<p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+					<p className="text-xs text-muted-foreground">
 						Projected
 					</p>
 					<p className="mt-1 text-sm font-semibold">
@@ -862,7 +862,7 @@ function StreamTransferStatsCard({
 					</p>
 				</div>
 				<div className="rounded-md border bg-background px-3 py-2">
-					<p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+					<p className="text-xs text-muted-foreground">
 						Pending Bills
 					</p>
 					<p className="mt-1 text-sm font-semibold">
@@ -870,7 +870,7 @@ function StreamTransferStatsCard({
 					</p>
 				</div>
 				<div className="rounded-md border bg-background px-3 py-2">
-					<p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+					<p className="text-xs text-muted-foreground">
 						Owing
 					</p>
 					<p className="mt-1 text-sm font-semibold">
@@ -878,7 +878,7 @@ function StreamTransferStatsCard({
 					</p>
 				</div>
 				<div className="rounded-md border bg-background px-3 py-2">
-					<p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+					<p className="text-xs text-muted-foreground">
 						Total In
 					</p>
 					<p className="mt-1 text-sm font-semibold text-green-600">
@@ -886,7 +886,7 @@ function StreamTransferStatsCard({
 					</p>
 				</div>
 				<div className="rounded-md border bg-background px-3 py-2">
-					<p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+					<p className="text-xs text-muted-foreground">
 						Total Out
 					</p>
 					<p className="mt-1 text-sm font-semibold text-rose-600">

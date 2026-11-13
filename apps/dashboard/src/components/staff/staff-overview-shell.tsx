@@ -235,7 +235,7 @@ export function StaffOverviewShell({
 							</Avatar>
 							<span
 								className={cn(
-									"absolute bottom-1 right-1 rounded-full border-2 border-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]",
+									"absolute bottom-1 right-1 rounded-full border-2 border-background px-2 py-0.5 text-xs font-semibold",
 									onboardingTone(data.staff.onboardingStatus),
 								)}
 							>
@@ -731,7 +731,7 @@ function QuickInfoCard({
 		<div className="border border-border bg-muted/30 p-4">
 			<div className="flex items-start justify-between gap-3">
 				<div>
-					<p data-summary-label className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+					<p data-summary-label className="text-[13px] font-semibold text-muted-foreground">
 						{label}
 					</p>
 					<p data-summary-value className="mt-2 text-lg font-semibold text-foreground">{value}</p>
@@ -770,7 +770,7 @@ function MetricCard({
 					<Icon className="h-5 w-5" />
 				</div>
 				<div>
-					<p data-summary-label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+					<p data-summary-label className="text-[13px] font-medium text-muted-foreground">
 						{label}
 					</p>
 					<p data-summary-label className="text-sm font-bold text-foreground">{value}</p>
@@ -820,7 +820,7 @@ function TimelineRow({ label, value }: { label: string; value: string }) {
 function FinanceMetric({ label, value }: { label: string; value: number }) {
 	return (
 		<div className="border bg-muted/20 p-4">
-			<p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+			<p className="text-[13px] font-semibold text-muted-foreground">
 				{label}
 			</p>
 			<p className="mt-2 text-lg font-semibold text-foreground">

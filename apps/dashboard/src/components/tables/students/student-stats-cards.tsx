@@ -26,7 +26,7 @@ export function StudentStatsCards() {
       >
         <CardContent data-summary-body className="p-0">
           <div className="flex items-center justify-between mb-2">
-            <span data-summary-label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <span data-summary-label className="text-[13px] font-semibold text-muted-foreground">
               Total Students
             </span>
             <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-primary">
@@ -48,7 +48,7 @@ export function StudentStatsCards() {
       >
         <CardContent data-summary-body className="p-0">
           <div className="flex items-center justify-between mb-2">
-            <span data-summary-label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <span data-summary-label className="text-[13px] font-semibold text-muted-foreground">
               Active this Term
             </span>
             <div className="h-8 w-8 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-600">
@@ -70,7 +70,7 @@ export function StudentStatsCards() {
       >
         <CardContent data-summary-body className="p-0">
           <div className="flex items-center justify-between mb-2">
-            <span data-summary-label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <span data-summary-label className="text-[13px] font-semibold text-muted-foreground">
               New Admissions
             </span>
             <div className="h-8 w-8 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600">
@@ -92,7 +92,7 @@ export function StudentStatsCards() {
       >
         <CardContent data-summary-body className="p-0">
           <div className="flex items-center justify-between mb-2">
-            <span data-summary-label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <span data-summary-label className="text-[13px] font-semibold text-muted-foreground">
               Returning Students
             </span>
             <div className="h-8 w-8 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-500">

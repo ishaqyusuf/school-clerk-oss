@@ -285,7 +285,7 @@ export function AssistantRuntime() {
 						!state.records.length &&
 						!c.bootstrap.isError && (
 							<div className="py-12">
-								<p className="text-xs uppercase tracking-widest text-muted-foreground">
+								<p className="text-[13px] text-muted-foreground">
 									Your school, in context
 								</p>
 								<h2 className="mt-3 text-2xl font-semibold tracking-tight">
