@@ -239,6 +239,11 @@ export type ActivityNotificationAction = {
 	activityId: string;
 	type: ActivityTypeName;
 	target?: ActivityAction | null;
+	/** Snapshot so the bell renders the rich sentence without reading the activity. */
+	parts?: ActivityPart[];
+	category?: ActivityCategory;
+	icon?: string;
+	actor?: { userId: string | null; name: string };
 };
 
 export const ACTIVITY_NOTIFICATION_TYPE_PREFIX = "activity." as const;

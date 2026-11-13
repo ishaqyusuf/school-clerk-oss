@@ -68,14 +68,14 @@ const roleCases: Array<{
 
 const expectedRoleIa: Record<string, string[]> = {
 	Admin: [
-		"overview::_=Assistant@/assistant,Dashboard@/",
+		"overview::_=Assistant@/assistant,Dashboard@/,Activity@/activity",
 		"people::Student Records=Students@/students/list,Enrollment@/students/enrollment;Staff=Teachers@/staff/teachers,Non-Teaching Staff@/staff/non-teaching,Departments@/staff/departments;Workforce=Staff Attendance@/staff/attendance",
 		"academics::_=Overview@/academic;Curriculum=Classes@/academic/classes,Subjects@/academic/subjects;Assessment & Results=Assessment Recording@/assessment-recording,Class Report Sheets@/academic/reports,Student Reports@/student-report",
 		"finance::_=Overview@/finance;_=Student Payments@/finance/student-payments;_=Salaries@/finance/salaries,Services@/finance/services,Purchases@/finance/purchases;_=Accounts@/finance/accounts,Settings@/finance/settings/fees",
-		"settings::School=Assistant@/settings/assistant,School Profile@/settings/school-profile;Documents=Document Templates@/settings/document-templates;Website=Website@/settings/website[Website Media@/settings/website/media]",
+		"settings::School=Assistant@/settings/assistant,School Profile@/settings/school-profile,Notifications@/settings/notifications;Documents=Document Templates@/settings/document-templates;Website=Website@/settings/website[Website Media@/settings/website/media]",
 	],
 	Teacher: [
-		"teacher-workspace::_=Overview@/teacher;Classroom Work=My Classes@/teacher/classes,My Students@/teacher/students,Attendance@/teacher/attendance;Assessment & Results=Score Entry@/assessment-recording,Reports@/teacher/reports",
+		"teacher-workspace::_=Overview@/teacher,My activity@/activity;Classroom Work=My Classes@/teacher/classes,My Students@/teacher/students,Attendance@/teacher/attendance;Assessment & Results=Score Entry@/assessment-recording,Reports@/teacher/reports",
 	],
 	Accountant: [
 		"finance::_=Overview@/finance;_=Student Payments@/finance/student-payments;_=Salaries@/finance/salaries,Services@/finance/services,Purchases@/finance/purchases;_=Accounts@/finance/accounts/transfers",
@@ -86,7 +86,7 @@ const expectedRoleIa: Record<string, string[]> = {
 	HR: [
 		"people::People=Non-Teaching Staff@/staff/non-teaching;Organization=Departments@/staff/departments;Workforce=Staff Attendance@/staff/attendance",
 	],
-	Staff: ["overview::_=Dashboard@/"],
+	Staff: ["overview::_=Dashboard@/,Activity@/activity"],
 	Parent: ["parent-portal::Family=Overview@/parents"],
 	Support: [],
 	Student: [],

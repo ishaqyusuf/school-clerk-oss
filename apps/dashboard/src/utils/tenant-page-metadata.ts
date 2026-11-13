@@ -185,6 +185,14 @@ function resolveRouteMetadata(pathname: string): RouteMetadata {
       },
     },
     {
+      test: /^\/activity$/,
+      metadata: {
+        title: "Activity",
+        description:
+          "See what has happened across attendance, students and finance, and who did it.",
+      },
+    },
+    {
       test: /^\/notifications$/,
       metadata: {
         title: "Notifications",
@@ -590,6 +598,13 @@ function resolveRouteMetadata(pathname: string): RouteMetadata {
       metadata: {
         title: "Roles & Permissions",
         description: "Manage roles, permissions, and workspace access control.",
+      },
+    },
+    {
+      test: /^\/settings\/notifications$/,
+      metadata: {
+        title: "Notification settings",
+        description: "Choose who is notified when activity happens in your school.",
       },
     },
     {

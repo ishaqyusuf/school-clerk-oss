@@ -9,6 +9,7 @@ const SETTINGS_ITEMS = [
 	{ path: "/settings/school-profile", label: "General" },
 	{ path: "/settings/sessions", label: "Academic Sessions" },
 	{ path: "/settings/roles", label: "Roles" },
+	{ path: "/settings/notifications", label: "Notifications" },
 	{ path: "/settings/document-templates", label: "Documents" },
 	{ path: "/settings/website", label: "Website" },
 ];

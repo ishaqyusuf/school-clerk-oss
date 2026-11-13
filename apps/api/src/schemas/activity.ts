@@ -19,6 +19,7 @@ export const activitySubjectSchema = z.object({
 export const activityRangeSchema = z.object({
 	from: z.coerce.date().nullish(),
 	to: z.coerce.date().nullish(),
+	scope: z.enum(["mine", "all"]).nullish(),
 });
 
 export const activityFiltersSchema = activityRangeSchema.extend({
@@ -27,6 +28,8 @@ export const activityFiltersSchema = activityRangeSchema.extend({
 	userIds: z.array(z.string().min(1).max(100)).max(50).nullish(),
 	q: z.string().trim().max(120).nullish(),
 	subject: activitySubjectSchema.nullish(),
+	/** "mine" pins the feed to the viewer; "all" only widens it for admins. */
+	scope: z.enum(["mine", "all"]).nullish(),
 });
 
 /** Infinite-query compatible: `cursor` is the previous page's `nextCursor`. */

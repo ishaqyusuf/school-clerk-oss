@@ -1,5 +1,8 @@
 "use client";
 
+import { ActivityParts } from "@/components/activity/activity-parts";
+import { ActivityAvatar } from "@/components/activity/activity-visuals";
+import { useAuth } from "@/hooks/use-auth";
 import { useNotificationFeed, useNotificationReadActions, useNotificationUnreadCount } from "@/hooks/use-notifications";
 import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { Badge } from "@school-clerk/ui/badge";
@@ -9,7 +12,9 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@school-clerk/ui/popover";
-import { Bell } from "lucide-react";
+import { cn } from "@school-clerk/ui/cn";
+import { Bell, Settings } from "lucide-react";
+import { parseActivityNotificationAction } from "./activity-notification";
 import { resolveStoredNotificationAction } from "./notification-action";
 
 function formatRelativeTime(dateInput?: Date | string | null) {
@@ -36,6 +41,8 @@ function formatRelativeTime(dateInput?: Date | string | null) {
 
 export function NotificationBell() {
 	const router = useRouter();
+	const { role } = useAuth();
+	const isAdmin = (role ?? "").trim().toLowerCase() === "admin";
 	const { unreadCount, isError: countError } = useNotificationUnreadCount();
 	const { notifications, isPending: feedPending, isError: feedError, refetch } = useNotificationFeed(5, false);
 	const { markRead, markAllRead, markReadPending, markAllPending, markReadError, markAllError } = useNotificationReadActions();
@@ -105,24 +112,64 @@ export function NotificationBell() {
 							<p className="mt-2 text-xs text-muted-foreground">
 								No notifications available with your current access
 							</p>
+							{isAdmin ? (
+								<p className="mx-auto mt-1 max-w-60 text-xs text-muted-foreground">
+									Activity types stay silent until you turn them on in notification settings.
+								</p>
+							) : null}
 						</div>
 					) : (
 						<div className="divide-y divide-border">
-							{notifications.map((notification) => (
+							{notifications.map((notification) => {
+								const open = () => {
+									if (!notification.isRead) {
+										markRead({ notificationId: notification.id });
+									}
+									const action = resolveStoredNotificationAction(notification);
+									router.push(action?.href || "/notifications");
+								};
+								const activity = parseActivityNotificationAction(notification.action);
+								if (activity) {
+									return (
+										<button
+											key={notification.id}
+											type="button"
+											className={cn(
+												"grid min-h-11 w-full grid-cols-[22px_minmax(0,1fr)_8px] items-start gap-2.5 px-4 py-3 text-left text-[13px] leading-[1.55] transition-colors hover:bg-muted/60 md:text-sm",
+												!notification.isRead && "bg-primary/5",
+											)}
+											onClick={open}
+										>
+											<ActivityAvatar
+												name={activity.actor.name}
+												userId={activity.actor.userId}
+												size="sm"
+												className="mt-px"
+											/>
+											<span className="min-w-0 break-words">
+												<ActivityParts plain parts={activity.parts} />
+												<span className="mt-0.5 block text-[11.5px] text-muted-foreground">
+													{formatRelativeTime(notification.createdAt)} · {activity.label}
+												</span>
+											</span>
+											{notification.isRead ? (
+												<span aria-hidden />
+											) : (
+												<span className="mt-[7px] size-[7px] rounded-full bg-primary">
+													<span className="sr-only">Unread</span>
+												</span>
+											)}
+										</button>
+									);
+								}
+								return (
 								<button
 									key={notification.id}
 									type="button"
 									className={`min-h-11 w-full px-4 py-3 text-left transition-colors hover:bg-muted/40 ${
 										notification.isRead ? "" : "bg-primary/5"
 									}`}
-									onClick={() => {
-										if (!notification.isRead) {
-											markRead({ notificationId: notification.id });
-										}
-										const action =
-											resolveStoredNotificationAction(notification);
-										router.push(action?.href || "/notifications");
-									}}
+									onClick={open}
 								>
 									<div className="flex items-start justify-between gap-2">
 										<p
@@ -142,12 +189,13 @@ export function NotificationBell() {
 										</p>
 									) : null}
 								</button>
-							))}
+								);
+							})}
 						</div>
 					)}
 				</div>
 
-				<div className="border-t px-4 py-2">
+				<div className={cn("border-t px-4 py-2", isAdmin && "grid grid-cols-2 gap-1")}>
 					<Button
 						variant="ghost"
 						size="sm"
@@ -155,8 +203,20 @@ export function NotificationBell() {
 						type="button"
 						onClick={() => router.push("/notifications")}
 					>
-						View all notifications
+						{isAdmin ? "View all" : "View all notifications"}
 					</Button>
+					{isAdmin ? (
+						<Button
+							variant="ghost"
+							size="sm"
+							className="min-h-11 w-full gap-1.5"
+							type="button"
+							onClick={() => router.push("/settings/notifications")}
+						>
+							<Settings className="size-3.5" aria-hidden />
+							Notification settings
+						</Button>
+					) : null}
 				</div>
 			</PopoverContent>
 		</Popover>

@@ -154,6 +154,13 @@ async function deliverActivity(
 		activityId: activity.id,
 		type: activityType,
 		target,
+		parts,
+		category: config.category,
+		icon: config.icon,
+		actor: {
+			userId: activity.userId === "system" ? null : activity.userId,
+			name: activity.author,
+		},
 	};
 	const body = activityPartsToText(parts);
 

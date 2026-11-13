@@ -8,6 +8,9 @@ import { useTenantRouter as useRouter } from "@school-clerk/tenant-url/next";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { Card, CardContent } from "@school-clerk/ui/card";
+import { ActivityParts } from "@/components/activity/activity-parts";
+import { ActivityAvatar } from "@/components/activity/activity-visuals";
+import { parseActivityNotificationAction } from "./activity-notification";
 import { resolveStoredNotificationAction } from "./notification-action";
 
 function formatDate(dateInput?: Date | string | null) {
@@ -115,6 +118,7 @@ export function NotificationsPageClient() {
 				<div className="grid gap-2">
 					{notifications.map((notification) => {
 						const action = resolveStoredNotificationAction(notification);
+						const activity = parseActivityNotificationAction(notification.action);
 
 						return (
 							<Card
@@ -124,19 +128,33 @@ export function NotificationsPageClient() {
 								}`}
 							>
 								<CardContent className="flex items-start gap-4 px-5 py-4">
-									<div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
-										<Bell className="h-4 w-4 text-muted-foreground" />
-									</div>
+									{activity ? (
+										<ActivityAvatar
+											name={activity.actor.name}
+											userId={activity.actor.userId}
+											className="mt-0.5"
+										/>
+									) : (
+										<div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+											<Bell className="h-4 w-4 text-muted-foreground" />
+										</div>
+									)}
 									<div className="min-w-0 flex-1">
 										<div className="flex items-start justify-between gap-2">
-											<p className="min-w-0 break-words text-sm font-medium text-foreground">
-												{notification.title}
-											</p>
+											{activity ? (
+												<p className="min-w-0 break-words text-sm leading-relaxed">
+													<ActivityParts plain parts={activity.parts} />
+												</p>
+											) : (
+												<p className="min-w-0 break-words text-sm font-medium text-foreground">
+													{notification.title}
+												</p>
+											)}
 											{!notification.isRead ? (
 												<span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
 											) : null}
 										</div>
-										{notification.body ? (
+										{notification.body && !activity ? (
 											<p className="mt-1 break-words text-sm text-muted-foreground">
 												{notification.body}
 											</p>
@@ -145,8 +163,8 @@ export function NotificationsPageClient() {
 											<p className="text-xs text-muted-foreground">
 												{formatDate(notification.createdAt)}
 											</p>
-											<Badge variant="outline" className="text-xs capitalize">
-												{notification.type.replace(/_/g, " ")}
+											<Badge variant="outline" className={activity ? "text-xs" : "text-xs capitalize"}>
+												{activity ? activity.label : notification.type.replace(/_/g, " ")}
 											</Badge>
 											{!notification.isRead ? (
 												<Button

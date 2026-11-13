@@ -16,6 +16,7 @@ const MODULE_REQUIREMENTS: Record<string, readonly ModuleId[]> = {
 // share a URL branch but belong to independently controlled capabilities.
 const ITEM_REQUIREMENTS: Record<string, readonly ModuleId[]> = {
 	"dashboard-home": [],
+	activity: [],
 	assistant: ["AI_ASSISTANT"],
 	"students-list": ["STUDENT_MANAGEMENT"],
 	"students-enrollment": ["ADMISSION_ENROLLMENT"],
@@ -42,6 +43,7 @@ const ITEM_REQUIREMENTS: Record<string, readonly ModuleId[]> = {
 	"finance-settings": ["BILLING_FINANCE"],
 	"operations-inventory": ["INVENTORY_ASSETS"],
 	"teacher-overview": ["ACADEMIC_PROGRAMS"],
+	"teacher-activity": [],
 	"teacher-classes": ["ACADEMIC_PROGRAMS"],
 	"teacher-students": ["STUDENT_MANAGEMENT"],
 	"teacher-attendance": ["ATTENDANCE"],
@@ -59,6 +61,7 @@ const ITEM_REQUIREMENTS: Record<string, readonly ModuleId[]> = {
 	"settings-school-profile": [],
 	"settings-assistant": [],
 	"settings-sessions": ["ACADEMIC_PROGRAMS"],
+	"settings-notifications": [],
 	"settings-roles": [],
 	"settings-document-templates": [],
 	"settings-website": [],

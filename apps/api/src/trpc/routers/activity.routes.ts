@@ -235,12 +235,13 @@ export const activityRouter = createTRPCRouter({
 	list: authenticatedProcedure
 		.input(activityListSchema)
 		.query(async ({ ctx, input }) => {
-			const { scope } = await getActivityViewer(ctx);
-			const { cursor, limit, subject, ...filters } = input;
+			const { scope, userId } = await getActivityViewer(ctx);
+			const { cursor, limit, subject, scope: feedScope, ...filters } = input;
 			const page = await listActivities(ctx.db, {
 				...scope,
 				filters: {
 					...filters,
+					userIds: feedScope === "mine" ? [userId] : filters.userIds,
 					// Explicit so consumers compiled without strictNullChecks agree.
 					subject:
 						subject?.type && subject.id
@@ -284,7 +285,11 @@ export const activityRouter = createTRPCRouter({
 			const [counts, members] = await Promise.all([
 				summarizeActivityTypes(ctx.db, {
 					...viewer.scope,
-					filters: { from: input?.from, to: input?.to },
+					filters: {
+						from: input?.from,
+						to: input?.to,
+						userIds: input?.scope === "mine" ? [viewer.userId] : null,
+					},
 				}),
 				viewer.isAdmin
 					? listActivityMembers(ctx.db, {
