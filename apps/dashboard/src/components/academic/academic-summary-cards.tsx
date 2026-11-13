@@ -136,6 +136,7 @@ export function AcademicSummaryCards({
 									title: currentTerm.title,
 									startDate: currentTerm.startDate,
 									endDate: currentTerm.endDate,
+									resumptionDate: currentTerm.resumptionDate,
 									lifecycleStatus: "ACTIVE",
 								})
 							}

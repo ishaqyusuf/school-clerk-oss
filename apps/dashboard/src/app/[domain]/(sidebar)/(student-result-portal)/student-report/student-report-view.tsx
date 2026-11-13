@@ -51,7 +51,12 @@ export function StudentReportView({
       </div>
       {/* Sticky footer — only shown when students are selected */}
       <PrintSelectionFooter />
-      <div className="hidden flex-col print:flex">
+      {/* Laid out off-screen (not display:none) so each page can measure
+          itself and fit one A4 sheet before the print dialog opens. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed top-0 -left-[10000px] flex flex-col print:pointer-events-auto print:static print:left-auto"
+      >
         <Reports printMode />
       </div>
     </ReportPageProvider>
@@ -229,6 +234,25 @@ function Reports({ printMode = false }) {
   const studentIds = useMemo(() => {
     return printOrder.filter((id) => !!ctx.reportsById?.[id]);
   }, [printOrder, ctx.reportsById]);
+  const departmentIds = useMemo(
+    () =>
+      [
+        ...new Set(
+          studentIds
+            .map((id) => ctx.reportsById?.[id]?.departmentId)
+            .filter((id): id is string => !!id),
+        ),
+      ].sort(),
+    [studentIds, ctx.reportsById],
+  );
+  const { data: printContext } = useQuery(
+    _trpc.reportCards.getPrintContext.queryOptions(
+      { termId: ctx.effectiveTermId ?? "", departmentIds },
+      { enabled: !!ctx.effectiveTermId && studentIds.length > 0 },
+    ),
+  );
+
+  if (!printContext) return null;
 
   return (
     <>
@@ -239,10 +263,14 @@ function Reports({ printMode = false }) {
             !printMode
               ? "shadow-[0_24px_48px_-12px_rgba(0,0,0,0.3)] dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.6)]"
               : "",
-            i > 0 && printMode && "break-before-page ",
+            i > 0 && printMode && "break-before-page",
           )}
         >
-          <StudentReportPage studentId={studentId} key={studentId} />
+          <StudentReportPage
+            studentId={studentId}
+            printContext={printContext}
+            key={studentId}
+          />
         </div>
       ))}
     </>

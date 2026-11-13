@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@school-clerk/ui/card";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
+import { TenantLink } from "@school-clerk/tenant-url/next";
 import { prisma } from "@school-clerk/db";
 import {
   DEFAULT_SCHOOL_DOCUMENT_TEMPLATE_IDS,
@@ -519,10 +520,28 @@ export default async function DocumentTemplatesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Result sheet template</CardTitle>
+          <CardTitle className="text-base">Report card template</CardTitle>
           <CardDescription>
-            Choose the default template used when staff print or download student
-            result PDFs without a template override.
+            The page printed from Student Report. Set your school name, address,
+            wording, comments, signatures, Arabic name calligraphy and reading
+            direction, with a live preview.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <TenantLink href="/settings/document-templates/report-card">
+              Customize report card
+            </TenantLink>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Result PDF template</CardTitle>
+          <CardDescription>
+            Choose the default template used when staff download student result
+            PDFs (Print v2) without a template override.
           </CardDescription>
         </CardHeader>
         <CardContent>

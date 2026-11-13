@@ -149,6 +149,7 @@ model SessionTerm {
   endDate               DateTime?              @db.Timestamp(0)
   lifecycleStatus       AcademicTermLifecycleStatus?
   note                  String?
+  resumptionDate        DateTime?              @db.Timestamp(0)
   setupCompletedAt      DateTime?              @db.Timestamp(0)
   activatedAt           DateTime?              @db.Timestamp(0)
   activatedByUserId     String?

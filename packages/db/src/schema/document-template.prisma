@@ -6,6 +6,7 @@ model SchoolDocumentTemplatePreference {
     templateId      String
     templateVersion Int           @default(1)
     source          String        @default("code")
+    config          Json?
     createdAt       DateTime?     @default(now()) @db.Timestamp(0)
     updatedAt       DateTime?     @updatedAt
     deletedAt       DateTime?     @db.Timestamp(0)

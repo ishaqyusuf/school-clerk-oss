@@ -174,6 +174,7 @@ export const academicsRouter = createTRPCRouter({
               lifecycleStatus: true,
               setupCompletedAt: true,
               note: true,
+              resumptionDate: true,
             },
             orderBy: [
               {
@@ -294,6 +295,7 @@ export const academicsRouter = createTRPCRouter({
               lifecycleStatus: term.lifecycleStatus,
               setupCompletedAt: term.setupCompletedAt,
               note: term.note,
+              resumptionDate: term.resumptionDate,
             };
           }),
         };

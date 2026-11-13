@@ -348,6 +348,7 @@ const Dashboard = () => {
                                             title: term.title,
                                             startDate: term.startDate,
                                             endDate: term.endDate,
+                                            resumptionDate: term.resumptionDate,
                                             lifecycleStatus:
                                               term.id === currentTerm?.id
                                                 ? "ACTIVE"

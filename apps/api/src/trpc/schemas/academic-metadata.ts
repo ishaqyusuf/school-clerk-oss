@@ -27,6 +27,7 @@ export const updateAcademicTermMetadataSchema = z
 		startDate: z.date().nullable(),
 		endDate: z.date().optional().nullable(),
 		note: z.string().trim().max(2_000).optional().nullable(),
+		resumptionDate: z.date().optional().nullable(),
 	})
 	.refine(dateRangeRefinement, {
 		message: "End date must be on or after the start date.",

@@ -22,6 +22,7 @@ const academicMetadataSchema = z
 		title: z.string().trim().min(1, "Name is required"),
 		startDate: z.date().nullable(),
 		endDate: z.date().optional().nullable(),
+		resumptionDate: z.date().optional().nullable(),
 	})
 	.refine(
 		(value) =>
@@ -40,8 +41,24 @@ export type AcademicMetadataTarget = {
 	title: string;
 	startDate: Date | string | null;
 	endDate: Date | string | null;
+	resumptionDate?: Date | string | null;
 	lifecycleStatus?: "DRAFT" | "READY" | "ACTIVE" | "CLOSED" | null;
 };
+
+// Resumption dates are calendar days: store them as UTC midnight so every
+// timezone prints the same day.
+function toCalendarDate(value: Date | string | null | undefined) {
+	if (!value) return null;
+	const date = new Date(new Date(value).getTime() + 12 * 60 * 60 * 1000);
+	return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+function toUtcCalendarDate(value: Date | null | undefined) {
+	if (!value) return null;
+	return new Date(
+		Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()),
+	);
+}
 
 type Props = {
 	target: AcademicMetadataTarget | null;
@@ -56,6 +73,7 @@ export function EditAcademicMetadataModal({ target, onOpenChange }: Props) {
 			title: "",
 			startDate: null,
 			endDate: null,
+			resumptionDate: null,
 		},
 	});
 
@@ -65,6 +83,7 @@ export function EditAcademicMetadataModal({ target, onOpenChange }: Props) {
 			title: target.title,
 			startDate: target.startDate ? new Date(target.startDate) : null,
 			endDate: target.endDate ? new Date(target.endDate) : null,
+			resumptionDate: toCalendarDate(target.resumptionDate),
 		});
 	}, [form, target]);
 
@@ -97,6 +116,7 @@ export function EditAcademicMetadataModal({ target, onOpenChange }: Props) {
 				title: values.title,
 				startDate: values.startDate,
 				endDate: values.endDate,
+				resumptionDate: toUtcCalendarDate(values.resumptionDate),
 			});
 			return;
 		}
@@ -120,8 +140,8 @@ export function EditAcademicMetadataModal({ target, onOpenChange }: Props) {
 					</DialogTitle>
 					<DialogDescription>
 						{isActiveTerm
-							? "Rename the active term. Its calendar dates are locked."
-							: "Update its name and optional calendar dates."}
+							? "Rename the active term or set its resumption date. Its calendar dates are locked."
+							: "Update its name, optional calendar dates and resumption date."}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -157,6 +177,20 @@ export function EditAcademicMetadataModal({ target, onOpenChange }: Props) {
 										},
 									}}
 								/>
+							</div>
+						) : null}
+						{target?.kind === "term" ? (
+							<div className="space-y-1.5">
+								<FormDate
+									control={form.control}
+									name="resumptionDate"
+									label="Resumption date"
+									clearable
+								/>
+								<p className="text-xs text-muted-foreground">
+									Printed on this term's report cards as the date students
+									return.
+								</p>
 							</div>
 						) : null}
 						<SubmitButton

@@ -275,3 +275,11 @@ div.result-lines-sm div#signature {
     transparent 0
   );
 }
+
+@media print {
+  .report-card-page {
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

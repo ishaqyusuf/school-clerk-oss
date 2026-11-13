@@ -242,9 +242,19 @@ export async function updateAcademicTermMetadata(
     where: { id: term.id },
     data:
       isActiveTerm
-        ? { title }
+        ? {
+            title,
+            // Resumption date is printed on this term's reports, so it stays
+            // editable while the term is active.
+            ...(input.resumptionDate === undefined
+              ? {}
+              : { resumptionDate: input.resumptionDate }),
+          }
         : {
             title,
+            ...(input.resumptionDate === undefined
+              ? {}
+              : { resumptionDate: input.resumptionDate }),
             startDate: input.startDate,
             endDate: input.endDate,
             ...(input.note === undefined
@@ -257,6 +267,7 @@ export async function updateAcademicTermMetadata(
       startDate: true,
       endDate: true,
       note: true,
+      resumptionDate: true,
       lifecycleStatus: true,
     },
   });

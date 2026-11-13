@@ -40,6 +40,7 @@
 		"./envs": "./src/envs.ts",
 		"./runtime-url": "./src/runtime-url.ts",
 		"./student-name": "./src/student-name.ts",
+		"./report-card": "./src/report-card/index.ts",
 		"./student-create-schema": "./src/student-create-schema.ts",
 		"./student-delete-schema": "./src/student-delete-schema.ts",
 		"./student-withdrawal": "./src/student-withdrawal.ts",

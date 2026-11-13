@@ -63,6 +63,7 @@ import {
 	useTransition,
 } from "react";
 import { _trpc } from "./static-trpc";
+import type { ReportCardConfig } from "@school-clerk/utils/report-card";
 import { useStudentNameFormat } from "./student-name-format/provider";
 
 type SortColumn = "student" | "grandTotal";
@@ -250,6 +251,12 @@ export function ClassroomResultTable({
 	const { data: terms } = useQuery(
 		_trpc.academics.getReportTerms.queryOptions(),
 	);
+	const { data: reportCardTemplateData } = useQuery(
+		_trpc.reportCards.getTemplate.queryOptions(),
+	);
+	const reportCardTemplate = reportCardTemplateData as
+		| { config: ReportCardConfig }
+		| undefined;
   const [, startSavingLayout] = useTransition();
 
 	const allSubjects = reportData?.subjects ?? [];
@@ -622,8 +629,8 @@ export function ClassroomResultTable({
 			return;
 		}
 
-		const schoolName = configs.schoolName;
-		const schoolAddress = configs.schoolAddress;
+		const schoolName = reportCardTemplate?.config.school.name || configs.schoolName;
+		const schoolAddress = reportCardTemplate?.config.school.address ?? configs.schoolAddress;
 		const classroomName = ctx.classroomName ?? "—";
 		const sessionName = auth.profile?.sessionTitle ?? "—";
 		const termName = auth.profile?.termTitle ?? "—";
@@ -690,6 +697,8 @@ export function ClassroomResultTable({
 		visibleSubjects,
 		auth.profile?.sessionTitle,
 		auth.profile?.termTitle,
+		reportCardTemplate?.config.school.address,
+		reportCardTemplate?.config.school.name,
 	]);
 
 	const printOrder = filters.printOrder ?? [];

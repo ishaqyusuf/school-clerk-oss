@@ -4,6 +4,7 @@ import { ErrorFallback } from "@/components/error-fallback";
 import { TableSkeleton } from "@/components/tables/skeleton";
 import { TeacherDashboardPanel } from "@/components/teachers/workspace-pages";
 import { PageTitle } from "@school-clerk/ui/custom/page-title";
+import { MySignatureCard } from "@/features/report-card/my-signature-card";
 
 export default function Page() {
 	return (
@@ -14,6 +15,9 @@ export default function Page() {
 					<TeacherDashboardPanel />
 				</Suspense>
 			</ErrorBoundary>
+			<div className="max-w-xl">
+				<MySignatureCard />
+			</div>
 		</div>
 	);
 }

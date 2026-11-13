@@ -232,7 +232,8 @@ export function buildStudentReportsById({
                 })),
                 {
                   label: "المجموع الكلي",
-                  subLabel: "(100)",
+                  // The section total is the sum of its assessments, not always 100.
+                  subLabel: `(${sum(assessments.map((a) => a.obtainable)) || "-"})`,
                 },
               ],
               rows: [],

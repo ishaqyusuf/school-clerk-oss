@@ -22,6 +22,11 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
 		return children;
 	}
 
+	// The report card editor needs the full width for its side-by-side preview.
+	if (productPath.startsWith("/settings/document-templates/report-card")) {
+		return <main className="py-4">{children}</main>;
+	}
+
 	return (
 		<div className="max-w-[800px]">
 			<nav className="overflow-x-auto py-4 scrollbar-hide">

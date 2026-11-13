@@ -15,6 +15,12 @@ import {
 } from "@school-clerk/utils/student-name";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  REPORT_CARD_DOCUMENT_TYPE,
+  formatReportDate,
+  resolveReportCardConfig,
+  resolveReportComment,
+} from "@school-clerk/utils/report-card";
 import { TRPCClientError } from "@trpc/client";
 
 const paramsSchema = z.object({
@@ -74,7 +80,7 @@ export async function GET(req: NextRequest) {
 
   const sessionTerm = await prisma.sessionTerm.findFirst({
     where: { id: termId, schoolId: auth.schoolId, deletedAt: null, session: { schoolId: auth.schoolId, deletedAt: null } },
-    select: { title: true, session: { select: { title: true } } },
+    select: { title: true, resumptionDate: true, session: { select: { title: true } } },
   });
   if (!sessionTerm) return NextResponse.json({ error: "Report term not found." }, { status: 404 });
 
@@ -137,6 +143,7 @@ export async function GET(req: NextRequest) {
 					deletedAt: null,
 				},
 				select: {
+					name: true,
 					studentNameFormat: true,
 				},
 			}),
@@ -190,14 +197,29 @@ export async function GET(req: NextRequest) {
     parsed.data.templateId ??
     resultTemplatePreference?.templateId ??
     configs.resultTemplates.preferredTemplateId;
+  // The PDF path shares the school's report card settings for its wording.
+  const reportCardPreference = await prisma.schoolDocumentTemplatePreference.findFirst({
+    where: {
+      deletedAt: null,
+      documentType: REPORT_CARD_DOCUMENT_TYPE,
+      schoolProfileId: auth.schoolId,
+    },
+    orderBy: { updatedAt: "desc" },
+    select: { config: true },
+  });
+  const cardConfig = resolveReportCardConfig(reportCardPreference?.config, {
+    schoolName: schoolSettings?.name,
+  });
+  const commentFor = (percentage: number) =>
+    resolveReportComment(percentage, cardConfig.comments.bands);
   const resultPayload = {
-    schoolName: configs.schoolName,
-    schoolAddress: configs.schoolAddress,
+    schoolName: cardConfig.school.name || schoolSettings?.name || "School",
+    schoolAddress: cardConfig.school.address,
     termLabel,
-    returnDate: "28/03/26",
-    commentLabelArabic: configs.comment,
-    teacherSignatureLabel: configs.teacherSignature,
-    directorSignatureLabel: configs.directorSignature,
+    returnDate: formatReportDate(sessionTerm.resumptionDate, cardConfig) || null,
+    commentLabelArabic: cardConfig.labels.commentPrimary,
+    teacherSignatureLabel: cardConfig.labels.teacherSignature,
+    directorSignatureLabel: cardConfig.labels.headSignature,
     reports: selectedReports.map((report) => ({
 			studentName: getStudentName(
 				report.student,
@@ -207,8 +229,8 @@ export async function GET(req: NextRequest) {
       percentage: report.grade.percentage,
       position: report.grade.position,
       totalStudents: report.grade.totalStudents,
-      commentArabic: report.comment?.arabic,
-      commentEnglish: report.comment?.english,
+      commentArabic: commentFor(report.grade.percentage)?.primary ?? null,
+      commentEnglish: commentFor(report.grade.percentage)?.secondary ?? null,
       tables: report.tables,
     })),
   };
