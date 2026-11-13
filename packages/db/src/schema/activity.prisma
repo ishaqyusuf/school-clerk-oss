@@ -7,11 +7,45 @@ model Activity {
   source          ActivitySource
   type            ActivityType
   meta            Json?
+  /// Primary entity this activity is about ("student", "classroom", "payment",
+  /// "attendance", "term"...), for per-entity history. See ADR-0093.
+  subjectType     String?
+  subjectId       String?
+  /// Set once notification fan-out has claimed this activity (post-commit).
+  notifiedAt      DateTime?      @db.Timestamp(0)
   createdAt       DateTime?      @default(now()) @db.Timestamp(0)
   updatedAt       DateTime?      @updatedAt
   deletedAt       DateTime?      @db.Timestamp(0)
   schoolProfile   SchoolProfile? @relation(fields: [schoolProfileId], references: [id])
   schoolProfileId String?
+
+  @@index([schoolProfileId, createdAt])
+  @@index([schoolProfileId, userId, createdAt])
+  @@index([schoolProfileId, type, createdAt])
+  @@index([schoolProfileId, subjectType, subjectId])
+  @@index([schoolProfileId, notifiedAt])
+}
+
+/// Opt-in notification rule for one activity type. No row (or enabled=false)
+/// means the activity is recorded and visible on /activity but never notifies.
+model ActivityNotificationRule {
+  id              String        @id @default(uuid())
+  schoolProfileId String
+  type            ActivityType
+  enabled         Boolean       @default(false)
+  inApp           Boolean       @default(true)
+  email           Boolean       @default(false)
+  /// Lower-case role names (admin, accountant, hr, teacher, registrar...).
+  roles           String[]      @default([])
+  /// Specific User ids notified in addition to the roles.
+  userIds         String[]      @default([])
+  updatedByUserId String?
+  createdAt       DateTime      @default(now()) @db.Timestamp(0)
+  updatedAt       DateTime      @updatedAt
+
+  schoolProfile SchoolProfile @relation(fields: [schoolProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolProfileId, type])
 }
 
 enum ActivitySource {
@@ -42,6 +76,13 @@ enum ActivityType {
 
   student_withdrawn
   student_readmitted
+
+  student_created
+  student_enrolled
+  student_class_changed
+  student_deleted
+  student_payment_reversed
+  students_promoted
 
   assistant_run
   assistant_action_requested

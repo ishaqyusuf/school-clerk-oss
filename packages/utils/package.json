@@ -26,6 +26,7 @@
 		".": "./src/index.ts",
 		"./blob": "./src/blob.ts",
 		"./attendance": "./src/attendance.ts",
+		"./activity": "./src/activity.ts",
 		"./auth-url": "./src/auth-url.ts",
 		"./auth-return-to": "./src/auth-return-to.ts",
 		"./search-policy": "./src/search-policy.ts",

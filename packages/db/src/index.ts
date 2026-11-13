@@ -12,6 +12,7 @@ export {
   type SchoolAssistantConfig,
 } from "./generated/client";
 export * from "./prisma";
+export * from "./activity-log";
 export * from "./notification-contacts";
 export * from "./staff-academic-access";
 export * from "./staff-academic-access-assignments";
