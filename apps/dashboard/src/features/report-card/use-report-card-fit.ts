@@ -48,7 +48,12 @@ export function useReportCardFit({
 			if (fitRef.current !== DEFAULT_FIT) setFit(DEFAULT_FIT);
 			return;
 		}
-		const pageHeight = area.clientHeight;
+		// clientHeight includes padding (the framed template pads inside its border).
+		const areaStyle = getComputedStyle(area);
+		const pageHeight =
+			area.clientHeight -
+			Number.parseFloat(areaStyle.paddingTop) -
+			Number.parseFloat(areaStyle.paddingBottom);
 		if (!pageHeight) return;
 		const current = fitRef.current;
 		const measured = refs.sections.reduce(

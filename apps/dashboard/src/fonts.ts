@@ -1,7 +1,7 @@
 import { Amiri, Dancing_Script, Moon_Dance } from "next/font/google";
 
 const arabic = Amiri({
-  weight: "400",
+  weight: ["400", "700"],
   subsets: ["arabic"],
 });
 const dancingScript = Dancing_Script({

@@ -159,9 +159,23 @@ function ResultTables({
 							{table.rows.map((row, rowIndex) => (
 								<tr key={rowIndex}>
 									{row.columns.map((cell, cellIndex) => {
-										let value = cell.value;
-										if (cellIndex === 0 && typeof value === "string" && !config.table.numberSubjects) {
-											value = value.replace(/^\s*\d+\.\s*/, "");
+										const value = cell.value;
+										if (cellIndex === 0) {
+											// Subject cells arrive as "3. Title"; isolate the title so an
+											// Arabic subject in an LTR table keeps its number at the start.
+											const match = typeof value === "string" ? value.match(/^\s*(\d+)\.\s*(.*)$/) : null;
+											return (
+												<td
+													key={cellIndex}
+													style={cellStyle}
+													className="border-x border-b border-black/45 px-2 text-start font-bold leading-tight"
+												>
+													{match && config.table.numberSubjects ? (
+														<span>{formatReportNumerals(match[1], numerals)}. </span>
+													) : null}
+													<bdi>{match ? match[2] : (value ?? "")}</bdi>
+												</td>
+											);
 										}
 										const empty = value === null || value === undefined || value === "" || value === 0;
 										return (
