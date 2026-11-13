@@ -1116,7 +1116,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                disabled={!automaticPromoteTarget || progressMutation.isPending}
+                                disabled={student.isWithdrawn || !automaticPromoteTarget || progressMutation.isPending}
                                 onClick={() => doProgress("promote", [student.studentId])}
                               >
                                 Promote
@@ -1124,7 +1124,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                disabled={!automaticRepeatTarget || progressMutation.isPending}
+                                disabled={student.isWithdrawn || !automaticRepeatTarget || progressMutation.isPending}
                                 onClick={() => doProgress("repeat", [student.studentId])}
                               >
                                 Repeat
@@ -1276,7 +1276,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                         <>
                           <Button
                             size="sm"
-                            disabled={!automaticPromoteTarget || progressMutation.isPending}
+                            disabled={student.isWithdrawn || !automaticPromoteTarget || progressMutation.isPending}
                             onClick={() => doProgress("promote", [student.studentId])}
                           >
                             Promote
@@ -1284,7 +1284,7 @@ export function ProgressionClient({ lastTermId, firstTermId }: Props) {
                           <Button
                             size="sm"
                             variant="secondary"
-                            disabled={!automaticRepeatTarget || progressMutation.isPending}
+                            disabled={student.isWithdrawn || !automaticRepeatTarget || progressMutation.isPending}
                             onClick={() => doProgress("repeat", [student.studentId])}
                           >
                             Repeat

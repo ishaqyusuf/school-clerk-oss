@@ -85,6 +85,13 @@ export function StudentWithdrawalPanel({ studentId }: { studentId: string }) {
 
 	const periods = history.data ?? [];
 	const open = periods.find((period) => period.status === "withdrawn");
+	const upcomingReturn = open
+		? null
+		: periods.find(
+				(period) =>
+					period.readmission &&
+					new Date(period.readmission.readmittedOn).getTime() > Date.now(),
+			)?.readmission;
 
 	return (
 		<Card className="rounded-xl border-border shadow-sm">
@@ -102,7 +109,9 @@ export function StudentWithdrawalPanel({ studentId }: { studentId: string }) {
 						<p className="mt-1 text-sm text-muted-foreground">
 							{open
 								? `Last enrolled ${formatDay(open.lastEnrolledDate)} in ${open.withdrawalTerm.label ?? "the affected term"}. Records, results, fees and payments are kept.`
-								: "Withdrawing keeps the profile, results, attendance, fees and payments. It is not the same as deleting the student."}
+								: upcomingReturn
+									? `Readmitted. Returns ${formatDay(upcomingReturn.readmittedOn)} for ${upcomingReturn.term.label ?? "the readmission term"}.`
+									: "Withdrawing keeps the profile, results, attendance, fees and payments. It is not the same as deleting the student."}
 						</p>
 					</div>
 					{open ? (
@@ -293,7 +302,7 @@ function WithdrawDialog({
 				>
 					<div className="grid gap-2">
 						<Label htmlFor="withdrawal-term">Affected term</Label>
-						<Select value={selectedTermId} onValueChange={setTermId}>
+						<Select value={selectedTermId} onValueChange={(value) => { mutation.reset(); setTermId(value); }}>
 							<SelectTrigger id="withdrawal-term" className="min-h-11">
 								<SelectValue placeholder="Select term" />
 							</SelectTrigger>
@@ -313,7 +322,7 @@ function WithdrawDialog({
 							type="date"
 							className="min-h-11"
 							value={lastDay}
-							onChange={(event) => setLastDay(event.target.value)}
+							onChange={(event) => { mutation.reset(); setLastDay(event.target.value); }}
 							required
 						/>
 					</div>
@@ -324,7 +333,7 @@ function WithdrawDialog({
 							value={reason}
 							maxLength={500}
 							placeholder="For example: family relocated to another state"
-							onChange={(event) => setReason(event.target.value)}
+							onChange={(event) => { mutation.reset(); setReason(event.target.value); }}
 							required
 						/>
 					</div>
@@ -334,7 +343,7 @@ function WithdrawDialog({
 							id="withdrawal-note"
 							value={note}
 							maxLength={2000}
-							onChange={(event) => setNote(event.target.value)}
+							onChange={(event) => { mutation.reset(); setNote(event.target.value); }}
 						/>
 					</div>
 					{mutation.error ? (
@@ -423,7 +432,7 @@ function ReadmitDialog({
 				>
 					<div className="grid gap-2">
 						<Label htmlFor="readmission-term">Readmission term</Label>
-						<Select value={termId} onValueChange={setTermId}>
+						<Select value={termId} onValueChange={(value) => { mutation.reset(); setTermId(value); }}>
 							<SelectTrigger id="readmission-term" className="min-h-11">
 								<SelectValue placeholder="Select term" />
 							</SelectTrigger>
@@ -443,7 +452,7 @@ function ReadmitDialog({
 							type="date"
 							className="min-h-11"
 							value={day}
-							onChange={(event) => setDay(event.target.value)}
+							onChange={(event) => { mutation.reset(); setDay(event.target.value); }}
 							required
 						/>
 					</div>
@@ -453,7 +462,7 @@ function ReadmitDialog({
 							id="readmission-note"
 							value={note}
 							maxLength={2000}
-							onChange={(event) => setNote(event.target.value)}
+							onChange={(event) => { mutation.reset(); setNote(event.target.value); }}
 						/>
 					</div>
 					{mutation.error ? (

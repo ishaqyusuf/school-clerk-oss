@@ -331,7 +331,8 @@ export async function getStudentWithdrawalHistory(db: Database, actor: Actor, in
 			})
 		: [];
 	const termLabel = (term: { title: string; session: { title: string } | null } | null) =>
-		term ? [term.session?.title, term.title].filter(Boolean).join(" · ") : null;
+		// Same "2nd Term 1447/1448" order as the student term history.
+		term ? [term.title, term.session?.title].filter(Boolean).join(" ") : null;
 	return rows.map((row) => {
 		const period: StudentWithdrawalPeriod = {
 			id: row.id,

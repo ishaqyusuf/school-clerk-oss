@@ -833,6 +833,16 @@ export async function studentsAnalytics(
   const activeTermWhere = currentTermId
     ? { sessionTermId: currentTermId }
     : { id: "__missing-current-term__" };
+  // Withdrawn students are no longer on the term's active roster.
+  const withdrawn = currentTermId
+    ? await getTermRosterExclusions(db, {
+        schoolId: schoolProfileId,
+        termId: currentTermId,
+      })
+    : new Set<string>();
+  const activeStudentWhere = withdrawn.size
+    ? { not: null, notIn: [...withdrawn] }
+    : { not: null };
 
   const [totalStudents, activeTermForms, newAdmissionForms, returningForms] =
     await Promise.all([
@@ -847,9 +857,7 @@ export async function studentsAnalytics(
           schoolProfileId,
           ...activeTermWhere,
           deletedAt: null,
-          studentId: {
-            not: null,
-          },
+          studentId: activeStudentWhere,
         },
         distinct: ["studentId"],
         select: {
@@ -861,9 +869,7 @@ export async function studentsAnalytics(
           schoolProfileId,
           ...activeTermWhere,
           deletedAt: null,
-          studentId: {
-            not: null,
-          },
+          studentId: activeStudentWhere,
           admissionType: "NEW_ADMISSION",
         },
         distinct: ["studentId"],
@@ -876,7 +882,7 @@ export async function studentsAnalytics(
           schoolProfileId,
           ...activeTermWhere,
           deletedAt: null,
-          studentId: { not: null },
+          studentId: activeStudentWhere,
           admissionType: "RETURNING",
         },
         distinct: ["studentId"],

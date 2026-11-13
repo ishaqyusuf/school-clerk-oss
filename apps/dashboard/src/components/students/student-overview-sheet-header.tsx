@@ -16,6 +16,8 @@ import {
 import { Icons } from "@school-clerk/ui/icons";
 import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
 import { useStudentParams } from "@/hooks/use-student-params";
+import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
 
 interface Props {
   overview: RouterOutputs["students"]["overview"];
@@ -28,6 +30,15 @@ export function StudentOverviewSheetHeader({
   const { activeStudentTerm, selectStudent, selectTerm } =
     useStudentOverviewSheet();
   const { setParams } = useStudentParams();
+  const trpc = useTRPC();
+  const studentId = overview?.student?.id;
+  const withdrawals = useQuery({
+    ...trpc.students.withdrawalHistory.queryOptions({ studentId: studentId ?? "" }),
+    enabled: Boolean(studentId),
+  });
+  const isWithdrawn = Boolean(
+    withdrawals.data?.some((period) => period.status === "withdrawn"),
+  );
   const store = useStudentsStore();
   const studentName = overview?.student?.studentName || "Student";
   const current = activeStudentTerm;
@@ -50,8 +61,11 @@ export function StudentOverviewSheetHeader({
               </Avatar.Fallback>
             </Avatar>
             <span
-              className="absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-background bg-primary"
-              title="Active"
+              className={cn(
+                "absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-background",
+                isWithdrawn ? "bg-muted-foreground" : "bg-primary",
+              )}
+              title={isWithdrawn ? "Withdrawn" : "Active"}
             />
           </div>
 
@@ -94,12 +108,16 @@ export function StudentOverviewSheetHeader({
                   <span className="block truncate">{studentName}</span>
                 )}
               </h2>
-              <Badge
-                variant="outline"
-                className="border-primary/20 bg-primary/10 text-primary"
-              >
-                Active
-              </Badge>
+              {isWithdrawn ? (
+                <Badge variant="warning">Withdrawn</Badge>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="border-primary/20 bg-primary/10 text-primary"
+                >
+                  Active
+                </Badge>
+              )}
             </div>
 
             <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 text-sm text-muted-foreground">

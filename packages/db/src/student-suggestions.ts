@@ -5,7 +5,10 @@ import {
 } from "@school-clerk/utils/student-name";
 import type { Prisma } from "./generated/client";
 import type { Database } from "./prisma";
-import { partitionStudentsByTermEligibility } from "./student-enrollment-eligibility";
+import {
+	getTermRosterExclusions,
+	partitionStudentsByTermEligibility,
+} from "./student-enrollment-eligibility";
 
 export type StudentSuggestionSearch = {
 	name: string;
@@ -153,7 +156,18 @@ export async function getStudentSuggestions(
 				termId: input.termId,
 				studentIds: matches.map((student) => student.id),
 			});
-			const withdrawnIds = new Set(withdrawn);
+			// Also withdrawn when they left this term's active roster after
+			// their last enrolled day (the withdrawal term itself stays history).
+			const offRoster = withdrawn.length === matches.length
+				? new Set<string>()
+				: await getTermRosterExclusions(db, {
+						schoolId: input.schoolId,
+						termId: input.termId,
+					});
+			const withdrawnIds = new Set([
+				...withdrawn,
+				...matches.map((student) => student.id).filter((id) => offRoster.has(id)),
+			]);
 			for (const student of matches) {
 				const forms = student.sessionForms.flatMap(
 					(session) => session.termForms,
