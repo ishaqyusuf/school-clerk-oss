@@ -3,6 +3,7 @@
 import { updateStudentReportCookieByName } from "@/actions/cookies/student-report";
 import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
 import { SearchFilter } from "@/components/midday-search-filter/search-filter-md";
+import { StudentOverviewTrigger } from "@/components/students/student-overview-trigger";
 import { SubjectAssessments } from "@/components/subject-assessments";
 import { configs } from "@/configs";
 import { useAuth } from "@/hooks/use-auth";
@@ -1081,6 +1082,7 @@ export function ClassroomResultTable({
 											)}
 											printedAt={ctx.printedAtByTermFormId[row.student.id]}
 											isPrintStatusLoading={ctx.isPrintStatusLoading}
+											termId={ctx.effectiveTermId}
 										/>
 									);
 										})
@@ -1142,6 +1144,7 @@ interface StudentResultRowProps {
 	isDuplicateName: boolean;
 	printedAt?: Date | string | null;
 	isPrintStatusLoading: boolean;
+	termId?: string | null;
 }
 
 function StudentResultRow({
@@ -1156,6 +1159,7 @@ function StudentResultRow({
 	isDuplicateName,
 	printedAt,
 	isPrintStatusLoading,
+	termId,
 }: StudentResultRowProps) {
 	const student = row.student;
 
@@ -1186,7 +1190,13 @@ function StudentResultRow({
 				dir={isRtl ? "rtl" : "ltr"}
 			>
 				<div className="min-w-0 space-y-1">
-					<div className="flex min-w-0 items-center gap-2">
+					<StudentOverviewTrigger
+						studentId={student.student?.id}
+						termId={termId}
+						termSheetId={student.id}
+						label={row.studentName}
+						className="gap-2"
+					>
 						<span className="shrink-0 text-xs text-muted-foreground">
 							{index + 1}.
 						</span>
@@ -1199,7 +1209,7 @@ function StudentResultRow({
 								Duplicate
 							</Badge>
 						) : null}
-					</div>
+					</StudentOverviewTrigger>
 					<div className="ps-5 text-[11px] text-muted-foreground">
 						{isPrintStatusLoading
 							? "Loading print status..."

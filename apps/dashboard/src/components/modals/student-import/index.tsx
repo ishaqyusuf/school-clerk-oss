@@ -4,7 +4,7 @@ import { Button } from "@school-clerk/ui/button";
 import { Dialog, Tabs } from "@school-clerk/ui/composite";
 import { useSearchParams } from "next/navigation";
 import { parseAsString, useQueryStates } from "nuqs";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { ImportActivity } from "./import-activities";
 import { useTRPC } from "@/trpc/client";
 import { STUDENT_IMPORT_PREVIEW_ROW_LIMIT } from "@school-clerk/utils/student-import-schema";
@@ -25,8 +25,10 @@ import { StudentImportSetupForm, studentImportSchema } from "./setup-form";
 export function StudentImportModal() {
   const trpc = useTRPC();
   const searchParams = useSearchParams();
-  const [, setParams] = useQueryStates({
+  const [{ importClassroomId }, setParams] = useQueryStates({
     action: parseAsString,
+    // Set by callers that already know the class (e.g. assessment recording).
+    importClassroomId: parseAsString,
   });
   const [legacyRaw, setLegacyRaw] = useLocalStorage(
     LEGACY_STUDENT_IMPORT_RAW_STORAGE_KEY,
@@ -58,6 +60,21 @@ export function StudentImportModal() {
       raw: draft.setup.raw,
     },
   });
+
+  // Preselect the caller's classroom once the class list confirms it exists in the
+  // active term; otherwise the saved draft's choice is kept.
+  const appliedImportClassroomRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open) {
+      appliedImportClassroomRef.current = null;
+      return;
+    }
+    if (!importClassroomId || !classList?.data) return;
+    if (appliedImportClassroomRef.current === importClassroomId) return;
+    appliedImportClassroomRef.current = importClassroomId;
+    if (!classList.data.some((dept) => dept.id === importClassroomId)) return;
+    form.setValue("classRoomId", importClassroomId, { shouldDirty: true });
+  }, [classList?.data, form, importClassroomId, open]);
 
   const [tab, setTab] = useState(draft.setup.tab);
   const [importPhase, setImportPhase] = useState<"review" | "import">(

@@ -636,6 +636,9 @@ export function ImportActivity({
           _qc.invalidateQueries({
             queryKey: _trpc.classrooms.all.queryKey({}),
           });
+          _qc.invalidateQueries({
+            queryKey: _trpc.assessments.getClassroomReportSheet.queryKey(),
+          });
 
           const inputRows =
             variables && "rows" in variables ? variables.rows : undefined;
@@ -1234,6 +1237,9 @@ export function ImportActivity({
     });
     _qc.invalidateQueries({
       queryKey: _trpc.classrooms.all.queryKey({}),
+    });
+    _qc.invalidateQueries({
+      queryKey: _trpc.assessments.getClassroomReportSheet.queryKey(),
     });
     setLastInvalidatedImportJobId(displayedImportJob.id);
   }, [displayedImportJob, displayedImportJobFinal, lastInvalidatedImportJobId]);

@@ -13,6 +13,7 @@ import {
 	PanelRightOpen,
 	Pencil,
 	UserPlus,
+	Users,
 } from "lucide-react";
 import type { RefObject } from "react";
 
@@ -24,6 +25,8 @@ type Props = {
 	subjectTitle?: string | null;
 	onEditAssessments: () => void;
 	onAddStudent: () => void;
+	/** Opens the batch import form with this classroom preselected. */
+	onBatchAddStudents: () => void;
 	onOpenWorkbooks: () => void;
 	onOpenPublicLink: () => void;
 	publicLinkDisabled?: boolean;
@@ -39,6 +42,7 @@ export function RecordingActionsSheet({
 	subjectTitle,
 	onEditAssessments,
 	onAddStudent,
+	onBatchAddStudents,
 	onOpenWorkbooks,
 	onOpenPublicLink,
 	publicLinkDisabled,
@@ -63,6 +67,13 @@ export function RecordingActionsSheet({
 			) : null}
 			<MobileActionSheetItem icon={<UserPlus />} onSelect={onAddStudent}>
 				Add student
+			</MobileActionSheetItem>
+			<MobileActionSheetItem
+				icon={<Users />}
+				description="Paste a list of names for this class"
+				onSelect={onBatchAddStudents}
+			>
+				Add students in batch
 			</MobileActionSheetItem>
 			<MobileActionSheetItem
 				icon={<FileSpreadsheet />}

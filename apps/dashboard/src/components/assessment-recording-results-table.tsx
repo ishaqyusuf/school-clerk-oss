@@ -27,6 +27,7 @@ import {
 } from "@/components/assessment-recording/subject-rail";
 import { AssessmentResultsScoreCell } from "@/components/assessment-results-score-cell";
 import { AssessmentWorkbooksDialog } from "@/components/assessment-workbooks-dialog";
+import { StudentOverviewTrigger } from "@/components/students/student-overview-trigger";
 import { SubmitClassStudentSheet } from "@/components/students/submit-class-student-sheet";
 import { SubjectAssessments } from "@/components/subject-assessments";
 import {
@@ -66,6 +67,7 @@ import {
   Search,
   SlidersHorizontal,
   UserPlus,
+  Users,
   X,
 } from "lucide-react";
 import {
@@ -77,6 +79,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { parseAsString, useQueryStates } from "nuqs";
 import { useAcademicDataDirection } from "./academic-data-direction/provider";
 import { _trpc } from "./static-trpc";
 import { useStudentNameFormat } from "./student-name-format/provider";
@@ -170,6 +173,15 @@ function AssessmentRecordingWorkspace({
   const [nameSearch, setNameSearch] = useState("");
   const [openSubjectId, setOpenSubjectId] = useState<string | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
+  const [, setImportParams] = useQueryStates({
+    action: parseAsString,
+    importClassroomId: parseAsString,
+  });
+  const openBatchAddStudents = () =>
+    setImportParams({
+      action: "student-import",
+      importClassroomId: departmentId || null,
+    });
   const [isWorkbooksOpen, setIsWorkbooksOpen] = useState(false);
   const [isPublicLinkOpen, setIsPublicLinkOpen] = useState(false);
   const [filterSheetGroup, setFilterSheetGroup] =
@@ -570,16 +582,36 @@ function AssessmentRecordingWorkspace({
         <ScoreSaveStatus />
         {!publicToken ? (
           <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => setIsAddStudentOpen(true)}
-            >
-              <UserPlus className="size-4" />
-              Add student
-            </Button>
+            <DropdownMenu modal={false}>
+              <DropdownMenu.Trigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <UserPlus className="size-4" />
+                  Add student
+                  <ChevronDown className="size-3.5 opacity-60" />
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="end" className="w-60">
+                <DropdownMenu.Item
+                  className="gap-2"
+                  onSelect={() => setIsAddStudentOpen(true)}
+                >
+                  <UserPlus className="size-4" />
+                  Single student
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  className="gap-2"
+                  onSelect={openBatchAddStudents}
+                >
+                  <Users className="size-4" />
+                  Batch students
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu>
             <Button
               type="button"
               variant="outline"
@@ -840,26 +872,35 @@ function AssessmentRecordingWorkspace({
                             isRtl ? "right-0" : "left-0",
                           )}
                         >
-                          <div className="flex min-w-0 items-center gap-1.5">
-                            <span className="shrink-0 tabular-nums text-muted-foreground">
-                              {rowIndex + 1}.
-                            </span>
-                            <span className="min-w-0 truncate" dir="auto">
-                              {row.studentName}
-                            </span>
-                            <StudentGenderBadge
-                              gender={row.student.student?.gender}
-                            />
-                            {row.student.registrationReviewStatus ===
-                            "PENDING" ? (
-                              <Badge
-                                variant="warning"
-                                className="h-5 shrink-0 px-1.5 text-[10px]"
-                              >
-                                Pending
-                              </Badge>
-                            ) : null}
-                          </div>
+                          <StudentOverviewTrigger
+                            studentId={
+                              publicToken ? null : row.student.student?.id
+                            }
+                            termId={termId}
+                            termSheetId={row.student.id}
+                            label={row.studentName}
+                          >
+                            <div className="flex min-w-0 items-center gap-1.5">
+                              <span className="shrink-0 tabular-nums text-muted-foreground">
+                                {rowIndex + 1}.
+                              </span>
+                              <span className="min-w-0 truncate" dir="auto">
+                                {row.studentName}
+                              </span>
+                              <StudentGenderBadge
+                                gender={row.student.student?.gender}
+                              />
+                              {row.student.registrationReviewStatus ===
+                              "PENDING" ? (
+                                <Badge
+                                  variant="warning"
+                                  className="h-5 shrink-0 px-1.5 text-[10px]"
+                                >
+                                  Pending
+                                </Badge>
+                              ) : null}
+                            </div>
+                          </StudentOverviewTrigger>
                         </TableCell>
                         {row.subjectTotals.map((subjectTotal) => (
                           <Fragment key={subjectTotal.subject.id}>
@@ -963,6 +1004,7 @@ function AssessmentRecordingWorkspace({
               if (singleSubject) setOpenSubjectId(singleSubject.id);
             }}
             onAddStudent={() => setIsAddStudentOpen(true)}
+            onBatchAddStudents={openBatchAddStudents}
             onOpenWorkbooks={() => setIsWorkbooksOpen(true)}
             onOpenPublicLink={() => setIsPublicLinkOpen(true)}
             publicLinkDisabled={!subjectFilterIds.length}
