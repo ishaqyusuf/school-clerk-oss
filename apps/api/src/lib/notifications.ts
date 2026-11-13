@@ -93,7 +93,7 @@ function getDashboardOrigin(subDomain: string) {
 	return `${protocol}://${subDomain}.${rootDomain}`;
 }
 
-async function sendEmail({
+export async function sendEmail({
 	html,
 	schoolName,
 	subject,
@@ -202,7 +202,7 @@ export async function tryGetCurrentUserContext(ctx: TRPCContext) {
 		return null;
 	}
 }
-function absolutizeLink(
+export function absolutizeLink(
 	school: CurrentUserContext["school"],
 	link?: string | null,
 ) {

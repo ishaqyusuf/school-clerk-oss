@@ -188,10 +188,28 @@ const timingMiddleware = t.middleware((opts) =>
   }),
 );
 
+// Post-commit activity notification fan-out (ADR-0093). Runs after a
+// successful authenticated mutation; best-effort and never fails the response.
+const activityNotificationMiddleware = t.middleware(async (opts) => {
+  if (opts.type !== "mutation") return opts.next();
+  const startedAt = new Date();
+  const result = await opts.next();
+  if (result.ok && opts.ctx.currentUser && opts.ctx.profile.schoolId) {
+    try {
+      // Lazy import keeps init.ts free of the notifications <-> init cycle.
+      const { dispatchPendingActivityNotifications } = await import("@api/lib/activity-notifications");
+      await dispatchPendingActivityNotifications(opts.ctx, { since: startedAt });
+    } catch (error) {
+      console.error("[activity-notifications] middleware failed", error);
+    }
+  }
+  return result;
+});
+
 export const publicProcedure = t.procedure.use(timingMiddleware).use(withPrimaryDbMiddleware);
-export const authenticatedProcedure = publicProcedure.use(
-  requireAuthMiddleware,
-);
+export const authenticatedProcedure = publicProcedure
+  .use(requireAuthMiddleware)
+  .use(activityNotificationMiddleware);
 
 export function moduleProcedure(
   requiredModules: readonly ModuleId[],

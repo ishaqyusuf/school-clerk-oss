@@ -23,7 +23,9 @@ import { parentsRouter } from "./parents.routes";
 import { schoolSettingsRouter } from "./school-settings.routes";
 import { qaMaintenanceRouter } from "./qa-maintenance.routes";
 import { reportCardRouter } from "./report-card.routes";
+import { activityRouter } from "./activity.routes";
 export const appRouter = createTRPCRouter({
+  activity: activityRouter,
 	assistant: assistantRouter,
 	assessments: assessmentRouter,
   auth: authRouter,

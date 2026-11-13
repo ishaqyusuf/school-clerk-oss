@@ -13,6 +13,8 @@ export {
 } from "./generated/client";
 export * from "./prisma";
 export * from "./activity-log";
+export * from "./activity-feed";
+export * from "./activity-notification-rules";
 export * from "./notification-contacts";
 export * from "./staff-academic-access";
 export * from "./staff-academic-access-assignments";

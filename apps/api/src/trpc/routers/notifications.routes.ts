@@ -5,7 +5,7 @@ import {
   countUnreadSchoolNotifications, getNotificationFeedContactId, getSchoolModuleConfiguration,
   listSchoolNotifications, markAllSchoolNotificationsRead, markSchoolNotificationRead,
 } from "@school-clerk/db";
-import { getReadableSchoolNotificationTypes } from "@school-clerk/notifications/module-policy";
+import { getReadableSchoolNotificationTypes, getSchoolNotificationAccessKey } from "@school-clerk/notifications/module-policy";
 import { resolveModuleAccess } from "@school-clerk/utils/module-config";
 import { getCurrentUserContext } from "../../lib/notifications";
 import { authenticatedProcedure, createTRPCRouter, type TRPCContext } from "../init";
@@ -22,8 +22,9 @@ async function getFeedScope(ctx: TRPCContext, expected: z.infer<typeof notificat
     getNotificationFeedContactId(ctx.db, { schoolId, userId }),
   ]);
   if (!school) throw new TRPCError({ code: "FORBIDDEN", message: "Notification school is unavailable." });
-  const allowedTypes = getReadableSchoolNotificationTypes(resolveModuleAccess(school.moduleConfiguration), current.user.role);
-  if (expected.accessKey !== JSON.stringify(allowedTypes)) {
+  const access = resolveModuleAccess(school.moduleConfiguration);
+  const allowedTypes = getReadableSchoolNotificationTypes(access, current.user.role);
+  if (expected.accessKey !== getSchoolNotificationAccessKey(access, current.user.role)) {
     throw new TRPCError({ code: "CONFLICT", message: "Notification access changed. Reload the page." });
   }
   return {

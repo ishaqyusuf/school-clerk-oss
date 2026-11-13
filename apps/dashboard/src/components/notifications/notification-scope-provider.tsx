@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/hooks/use-auth";
 import { useTRPC } from "@/trpc/client";
-import { getReadableSchoolNotificationTypes } from "@school-clerk/notifications/module-policy";
+import { getSchoolNotificationAccessKey } from "@school-clerk/notifications/module-policy";
 import { useQuery } from "@tanstack/react-query";
 import { createContext, useContext, type ReactNode } from "react";
 
@@ -21,7 +21,7 @@ export function NotificationScopeProvider({ schoolId, userId, children }: {
   const scope = userId && ready && modules.data ? {
     schoolId,
     userId,
-    accessKey: JSON.stringify(getReadableSchoolNotificationTypes(modules.data.access, auth.role ?? null)),
+    accessKey: getSchoolNotificationAccessKey(modules.data.access, auth.role ?? null),
   } : null;
 
   return <NotificationScopeContext.Provider value={{ scope, pending }}>{children}</NotificationScopeContext.Provider>;

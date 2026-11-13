@@ -3,6 +3,8 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
+    "./activities": "./src/activities/index.ts",
+    "./activity-email": "./src/activity-email.ts",
     "./contacts": "./src/contacts.ts",
     "./core-types": "./src/core-types.ts",
     "./delivery": "./src/delivery.ts",
