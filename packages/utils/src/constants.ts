@@ -3,6 +3,7 @@ export const STUDENT_PAGE_STATUS_FILTERS = [
 	"enrolled",
 	"not enrolled",
 	"no enrollement record",
+	"withdrawn",
 ] as const;
 
 export const STUDENT_TERM_ADMISSION_TYPES = [

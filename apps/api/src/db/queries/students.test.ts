@@ -20,6 +20,7 @@ const {
 	verifyStudentImport,
 } = await import("./students");
 const { getStudentsSchema } = await import("../../trpc/schemas/students");
+const { withdrawStudent } = await import("@school-clerk/db");
 const { getStudentDuplicateGroups, previewStudentDuplicateMerge } =
 	await import("./student-duplicates");
 
@@ -206,6 +207,7 @@ describe("getStudents", () => {
 				termId: "term-current",
 			},
 			db: {
+				studentWithdrawal: { findMany: async () => [] },
 				students: {
 					count: async (args: any) => {
 						countCalls.push(args);
@@ -421,6 +423,7 @@ describe("getStudents", () => {
 				termId: "term-1",
 			},
 			db: {
+				studentWithdrawal: { findMany: async () => [] },
 				students: {
 					count: async (args: any) => {
 						countCalls.push(args);
@@ -473,6 +476,7 @@ describe("getStudents", () => {
 				termId: "term-1",
 			},
 			db: {
+				studentWithdrawal: { findMany: async () => [] },
 				students: {
 					count: async () => 0,
 					findMany: async (args: any) => {
@@ -500,6 +504,7 @@ describe("getStudents", () => {
 				termId: "term-1",
 			},
 			db: {
+				studentWithdrawal: { findMany: async () => [] },
 				students: {
 					count: async (args: any) => {
 						countCalls.push(args);
@@ -940,7 +945,7 @@ function createImportStore(tables: Record<string, ImportRecord[]>) {
 	};
 	for (const model of [...Object.keys(tables), "financeItem", "financeCharge", "financeTermLedgerClose", "financeStream",
 		"financeItemClassRoomDepartment", "financePayment", "financePaymentAllocation", "financeLedgerEntry",
-		"schoolInventory", "inventoryIssuance", "studentGuardians", "guardians"]) {
+		"schoolInventory", "inventoryIssuance", "studentGuardians", "guardians", "studentWithdrawal"]) {
 		db[model] = delegate(model);
 	}
 	return { db, tables, created, jobUpdates };
@@ -1161,6 +1166,72 @@ describe("verifyStudentImport", () => {
 	});
 });
 
+describe("student withdrawal", () => {
+	const actor = { schoolId: "school-1", userId: "user-1", bearer: "auth-token-1" };
+	const withdrawalTables = () => ({
+		sessionTerm: [
+			{ id: "term-0", title: "Third Term", schoolId: "school-1", sessionId: "session-1", lifecycleStatus: "ACTIVE",
+				startDate: new Date("2026-04-20T00:00:00.000Z"), endDate: new Date("2026-07-24T00:00:00.000Z"), deletedAt: null },
+			{ id: "term-2", title: "Second Term", schoolId: "school-1", sessionId: "session-1", lifecycleStatus: "DRAFT",
+				startDate: new Date("2026-09-07T00:00:00.000Z"), endDate: null, deletedAt: null },
+		],
+		studentTermForm: [{ id: "term-form-2", studentId: "student-1", studentSessionFormId: "session-form-1",
+			schoolProfileId: "school-1", schoolSessionId: "session-1", sessionTermId: "term-2",
+			classroomDepartmentId: "classroom-a", admissionType: "RETURNING", deletedAt: null }],
+		financeCharge: [{ id: "charge-1", studentId: "student-1", studentTermFormId: "term-form-2", sessionTermId: "term-2",
+			status: "PENDING", amount: 1000, deletedAt: null }],
+		studentWithdrawal: [],
+		studentAssessmentRecord: [],
+		studentAttendance: [],
+		activity: [],
+	});
+
+	test("archives idle future enrollments, flags ones with activity and keeps history", async () => {
+		const { ctx, tables } = createImportCtx({ tables: withdrawalTables() });
+
+		const result = await withdrawStudent(ctx.db, actor, {
+			studentId: "student-1",
+			withdrawalTermId: "term-0",
+			lastEnrolledDate: new Date("2026-06-12T00:00:00.000Z"),
+			reason: "Family relocated",
+		});
+
+		expect(result).toMatchObject({ status: "withdrawn", archived: 1, flagged: 1 });
+		const forms = Object.fromEntries(tables.studentTermForm!.map((form) => [form.id, form.deletedAt]));
+		// term-1 is unscheduled, so it is treated as a future term and archived.
+		expect(forms["term-form-1"]).toBeInstanceOf(Date);
+		// The charged future enrollment is kept for review; its balance is untouched.
+		expect(forms["term-form-2"]).toBeNull();
+		expect(tables.financeCharge![0]).toMatchObject({ status: "PENDING", deletedAt: null });
+		expect(result.reconciliation.find((entry) => entry.studentTermFormId === "term-form-2"))
+			.toMatchObject({ action: "FLAGGED", reasons: ["CHARGES"] });
+		expect(tables.students!.find((student) => student.id === "student-1")?.deletedAt).toBeNull();
+		expect(tables.activity!.map((row) => row.type)).toEqual(["student_withdrawn"]);
+	});
+
+	test("blocks a second withdrawal until the student is readmitted", async () => {
+		const { ctx } = createImportCtx({ tables: withdrawalTables() });
+		const input = {
+			studentId: "student-1",
+			withdrawalTermId: "term-0",
+			lastEnrolledDate: new Date("2026-06-12T00:00:00.000Z"),
+			reason: "Family relocated",
+		};
+		await withdrawStudent(ctx.db, actor, input);
+		await expect(withdrawStudent(ctx.db, actor, input)).rejects.toMatchObject({ code: "CONFLICT" });
+	});
+
+	test("rejects teachers", async () => {
+		const { ctx } = createImportCtx({ tables: withdrawalTables() });
+		await expect(withdrawStudent(ctx.db, { ...actor, userId: "teacher-1", bearer: "auth-token-teacher" }, {
+			studentId: "student-1",
+			withdrawalTermId: "term-0",
+			lastEnrolledDate: new Date("2026-06-12T00:00:00.000Z"),
+			reason: "Family relocated",
+		})).rejects.toMatchObject({ code: "FORBIDDEN" });
+	});
+});
+
 describe("executeStudentImport", () => {
 	test("rejects teacher-triggered imports", async () => {
 		const { ctx } = createImportCtx();
@@ -1266,6 +1337,45 @@ describe("executeStudentImport", () => {
 		expect(
 			createdTermForms.map((form: any) => form.classroomDepartmentId),
 		).toEqual(["classroom-a", "classroom-b"]);
+	});
+
+	test("rejects matched rows for students withdrawn from the import term", async () => {
+		const { ctx, createdTermForms } = createImportCtx({
+			tables: {
+				studentWithdrawal: [{
+					id: "withdrawal-1", schoolProfileId: "school-1", studentId: "student-2",
+					withdrawalTermId: "term-0", lastEnrolledDate: new Date("2026-03-27T00:00:00.000Z"),
+					readmissionTermId: null, readmittedOn: null,
+				}],
+			},
+		});
+
+		const result = await executeStudentImport(ctx, {
+			rows: [
+				{
+					lineNumber: 1,
+					name: "Aisha",
+					surname: "Bello",
+					otherName: "Fatima",
+					gender: "Female",
+					classroomDepartmentId: "classroom-a",
+					action: "keep_match",
+					existingStudentId: "student-3",
+				},
+				{
+					lineNumber: 2,
+					name: "Mary",
+					surname: "Major",
+					gender: "Female",
+					classroomDepartmentId: "classroom-b",
+					action: "keep_match",
+					existingStudentId: "student-2",
+				},
+			],
+		});
+
+		expect(result).toMatchObject({ keptMatches: 1, termSheetsCreated: 1, failedRows: 1 });
+		expect(createdTermForms.map((form: any) => form.studentId)).toEqual(["student-3"]);
 	});
 
 	test("creates Arabic fallback-classroom female rows as new students", async () => {

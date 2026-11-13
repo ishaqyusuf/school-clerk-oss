@@ -3,6 +3,8 @@ import type { TRPCContext } from "@api/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { assertAcademicTermWritable } from "./academic-term-setup";
+import { partitionStudentsByTermEligibility } from "@school-clerk/db";
+import { STUDENT_WITHDRAWAL_ERROR_MESSAGE } from "@school-clerk/utils/student-withdrawal";
 
 export const submitClassStudentSchema = z.object({
   classroomDepartmentId: z.string().min(1),
@@ -231,6 +233,17 @@ export async function reviewClassStudent(
       });
       if (!match || match.id === request.studentId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Select a different existing student in this school." });
+      }
+      if (request.sessionTermId) {
+        const eligibility = await partitionStudentsByTermEligibility(tx, {
+          schoolId: schoolProfileId,
+          termId: request.sessionTermId,
+          studentIds: [match.id],
+          lock: true,
+        });
+        if (eligibility.withdrawn.length) {
+          throw new TRPCError({ code: "CONFLICT", message: STUDENT_WITHDRAWAL_ERROR_MESSAGE });
+        }
       }
       const currentTermForm = await tx.studentTermForm.findFirst({
         where: { studentId: match.id, schoolProfileId, sessionTermId: request.sessionTermId, deletedAt: null },

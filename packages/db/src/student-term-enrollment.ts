@@ -3,6 +3,8 @@ import { Prisma } from "./generated/client";
 import type { Database, DatabaseTransaction } from "./prisma";
 import { getStudentAcademicReadContext, getStudentAcademicRecords } from "./student-academic-read";
 import { applyFeeHistoriesToStudentTermForm } from "./student-fee-application";
+import { partitionStudentsByTermEligibility } from "./student-enrollment-eligibility";
+import { STUDENT_WITHDRAWAL_ERROR_MESSAGE } from "@school-clerk/utils/student-withdrawal";
 
 export class StudentTermEnrollmentError extends Error {
   constructor(public readonly code: "FORBIDDEN" | "NOT_FOUND" | "CONFLICT", message: string) {
@@ -47,6 +49,9 @@ export async function enrollStudentInAcademicTermTransaction(tx: DatabaseTransac
     });
     if (!term) throw new StudentTermEnrollmentError("NOT_FOUND", "Academic term and session were not found in this school.");
     if (term.lifecycleStatus === "CLOSED") throw new StudentTermEnrollmentError("CONFLICT", "This academic term is closed.");
+    // The student row is already locked FOR UPDATE above.
+    const eligibility = await partitionStudentsByTermEligibility(tx, { schoolId, termId: term.id, studentIds: [input.studentId] });
+    if (eligibility.withdrawn.length) throw new StudentTermEnrollmentError("CONFLICT", STUDENT_WITHDRAWAL_ERROR_MESSAGE);
     const classroom = await tx.classRoomDepartment.findFirst({
       where: { id: input.classroomDepartmentId, schoolProfileId: schoolId, deletedAt: null,
         classRoom: { schoolProfileId: schoolId, schoolSessionId: input.schoolSessionId, deletedAt: null } },

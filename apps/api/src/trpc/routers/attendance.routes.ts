@@ -316,6 +316,11 @@ async function resolveAttendanceWrite(
 	}
 	const rosterStudentForms = await getActiveAttendanceRoster({
 		activeTermId,
+		// Midday of the attendance date keeps the withdrawal boundary on the
+		// right calendar day regardless of the school's UTC offset.
+		at: new Date(
+			attendanceDateFromInput(input.attendanceDate).getTime() + 12 * 3600 * 1000,
+		),
 		db: ctx.db,
 		departmentId: input.departmentId,
 		schoolProfileId,

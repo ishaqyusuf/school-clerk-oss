@@ -66,6 +66,16 @@ import {
   reviewClassStudentSchema,
   reviewClassStudent,
 } from "../../db/queries/teacher-student-requests";
+import {
+  readmitWithdrawnStudent,
+  readStudentWithdrawalHistory,
+  withdrawStudentFromSchool,
+} from "../../db/queries/student-withdrawal";
+import {
+  readmitStudentSchema,
+  studentWithdrawalHistorySchema,
+  withdrawStudentSchema,
+} from "@school-clerk/utils/student-withdrawal";
 const studentProcedure = moduleProcedure(["STUDENT_MANAGEMENT"]);
 const studentAcademicProcedure = moduleProcedure(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"], { roles: ["Admin", "Registrar"] });
 const studentAdmissionProcedure = moduleProcedure(["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS", "BILLING_FINANCE"], { roles: ["Admin", "Registrar"] });
@@ -108,6 +118,15 @@ export const studentsRouter = createTRPCRouter({
     .mutation(async (props) => {
       return deleteStudent(props.ctx, props.input);
     }),
+  withdrawStudent: moduleProcedure(["STUDENT_MANAGEMENT"], { roles: ["Admin", "Registrar"] })
+    .input(withdrawStudentSchema)
+    .mutation(({ ctx, input }) => withdrawStudentFromSchool(ctx, input)),
+  readmitStudent: moduleProcedure(["STUDENT_MANAGEMENT"], { roles: ["Admin", "Registrar"] })
+    .input(readmitStudentSchema)
+    .mutation(({ ctx, input }) => readmitWithdrawnStudent(ctx, input)),
+  withdrawalHistory: moduleProcedure(["STUDENT_MANAGEMENT"], { roles: ["Admin", "Registrar"] })
+    .input(studentWithdrawalHistorySchema)
+    .query(({ ctx, input }) => readStudentWithdrawalHistory(ctx, input)),
   deleteTermSheet: studentAcademicProcedure
     .input(deleteTermSheetSchema)
     .mutation(async (props) => {

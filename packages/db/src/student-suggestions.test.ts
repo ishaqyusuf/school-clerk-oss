@@ -80,6 +80,8 @@ function database(rows: Student[]) {
 					.slice(skip, skip + take);
 			},
 		},
+		studentWithdrawal: { findMany: async () => [] },
+		sessionTerm: { findFirst: async () => null },
 	} as unknown as Parameters<typeof getStudentSuggestions>[0];
 	return { db, reads };
 }

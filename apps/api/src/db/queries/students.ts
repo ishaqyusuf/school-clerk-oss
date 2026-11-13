@@ -21,6 +21,7 @@ import {
   Prisma,
 } from "@school-clerk/db";
 import { STUDENT_PAGE_STATUS_FILTERS } from "@school-clerk/utils/constants";
+import { getTermRosterExclusions } from "@school-clerk/db";
 import {
   createStudentSchema,
   studentFeeSchema,
@@ -95,9 +96,22 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
     size: effectiveQuery.pageSize ?? effectiveQuery.size ?? 25,
     sort: null,
   };
+  // Withdrawn students leave the active roster of the viewed term but keep
+  // their history; the Withdrawn and Show all filters still list them.
+  const withdrawnStudentIds = await resolveWithdrawnStudentIds(
+    ctx,
+    schoolProfileId,
+    effectiveQuery.sessionTermId,
+  );
   const { response, searchMeta, where } = await composeQueryData(
     paginationQuery,
-    whereStudents(effectiveQuery, ctx, schoolProfileId, query),
+    whereStudents(
+      effectiveQuery,
+      ctx,
+      schoolProfileId,
+      query,
+      withdrawnStudentIds,
+    ),
     model,
   );
   const { skip, take } = searchMeta;
@@ -230,7 +244,11 @@ export async function getStudents(ctx: TRPCContext, query: GetStudentsSchema) {
         termFormId,
         termFormSessionTermId,
         admissionType: term?.admissionType ?? "UNCLASSIFIED",
-        status: termFormId ? "enrolled" : "not enrolled",
+        status: withdrawnStudentIds.has(student.id)
+          ? "withdrawn"
+          : termFormId
+            ? "enrolled"
+            : "not enrolled",
         guardianName: guardian?.name ?? null,
         guardianPhone: guardian?.phone ?? null,
       };
@@ -241,11 +259,38 @@ export async function getStudent(ctx: TRPCContext, query: GetStudentsSchema) {
   const student = await getStudents(ctx, query);
   return student?.data?.[0];
 }
+async function resolveWithdrawnStudentIds(
+  ctx: TRPCContext,
+  schoolProfileId: string,
+  sessionTermId: string | null | undefined,
+) {
+  if (sessionTermId) {
+    return getTermRosterExclusions(ctx.db, {
+      schoolId: schoolProfileId,
+      termId: sessionTermId,
+    });
+  }
+  // Without a term in view, "withdrawn" means currently withdrawn.
+  const open = await ctx.db.studentWithdrawal.findMany({
+    where: { schoolProfileId, readmittedOn: null },
+    select: { studentId: true },
+  });
+  return new Set(open.map((row) => row.studentId));
+}
+
+/** Filters that list the whole school, including withdrawn students. */
+const INCLUSIVE_STUDENT_STATUSES = new Set<GetStudentsSchema["status"]>([
+  "show all",
+  "withdrawn",
+  "no enrollement record",
+]);
+
 function whereStudents(
   query: GetStudentsSchema,
   ctx: TRPCContext,
   schoolProfileId: string,
   explicitQuery: GetStudentsSchema,
+  withdrawnStudentIds: ReadonlySet<string> = new Set(),
 ) {
   const where: Prisma.StudentsWhereInput[] = [
     {
@@ -253,6 +298,15 @@ function whereStudents(
       deletedAt: null,
     },
   ];
+  if (query.status === "withdrawn") {
+    where.push({ id: { in: [...withdrawnStudentIds] } });
+  } else if (
+    withdrawnStudentIds.size &&
+    !query.studentId &&
+    !INCLUSIVE_STUDENT_STATUSES.has(query.status)
+  ) {
+    where.push({ id: { notIn: [...withdrawnStudentIds] } });
+  }
   const explicitEnrollmentWhere = createExplicitEnrollmentScope(
     explicitQuery,
     schoolProfileId,

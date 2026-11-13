@@ -69,7 +69,9 @@ export function StudentSuggestionRecordDialog({
 					<div>
 						<dt className="text-xs text-muted-foreground">Current term</dt>
 						<dd>
-							{student.status === "not enrolled"
+							{student.status === "withdrawn"
+								? "Withdrawn. Readmit before enrolling."
+								: student.status === "not enrolled"
 								? "Not enrolled"
 								: student.status === "pending approval"
 									? "Pending approval"

@@ -37,6 +37,13 @@ function StudentCell({ item }: { item: Item }) {
 }
 
 export function StatusCell({ status }: { status: Item["status"] }) {
+	if (status === "withdrawn") {
+		return (
+			<Badge variant="secondary" className="rounded-none">
+				Withdrawn
+			</Badge>
+		);
+	}
 	const enrolled = status === "enrolled";
 	return (
 		<Badge variant={enrolled ? "success" : "outline"} className="rounded-none">

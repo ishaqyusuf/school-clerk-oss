@@ -23,6 +23,7 @@ model SchoolProfile {
   classRoomDepartments    ClassRoomDepartment[]
   classRoomAttendanceList ClassRoomAttendance[]
   students                Students[]
+  studentWithdrawals      StudentWithdrawal[]
   sessionForms            StudentSessionForm[]
   termForms               StudentTermForm[]
   studentAttendanceList   StudentAttendance[]
@@ -171,6 +172,8 @@ model SessionTerm {
   activeForSchools               SchoolProfile[]      @relation("SchoolActiveSessionTerm")
   sourceSetupRuns                AcademicTermSetupRun[] @relation("AcademicTermSetupSource")
   targetSetupRuns                AcademicTermSetupRun[] @relation("AcademicTermSetupTarget")
+  studentWithdrawals             StudentWithdrawal[]    @relation("StudentWithdrawalTerm")
+  studentReadmissions            StudentWithdrawal[]    @relation("StudentReadmissionTerm")
 }
 
 model AcademicTermSetupRun {

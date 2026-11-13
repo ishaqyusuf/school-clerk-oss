@@ -5,6 +5,7 @@ import {
 } from "@school-clerk/utils/student-name";
 import type { Prisma } from "./generated/client";
 import type { Database } from "./prisma";
+import { partitionStudentsByTermEligibility } from "./student-enrollment-eligibility";
 
 export type StudentSuggestionSearch = {
 	name: string;
@@ -36,7 +37,7 @@ export function studentSuggestionGroups(
 }
 
 export async function getStudentSuggestions(
-	db: Pick<Database, "students">,
+	db: Pick<Database, "students" | "studentWithdrawal" | "sessionTerm">,
 	input: StudentSuggestionSearch & {
 		schoolId: string;
 		sessionId: string;
@@ -65,7 +66,7 @@ export async function getStudentSuggestions(
 		dob: Date | null;
 		guardianName: string | null;
 		match: "exact" | "name" | "partial";
-		status: "needs review" | "pending approval" | "enrolled" | "not enrolled";
+		status: "needs review" | "pending approval" | "enrolled" | "not enrolled" | "withdrawn";
 		termFormId: string | null;
 		classroomId: string | null;
 		classroomName: string | null;
@@ -147,6 +148,12 @@ export async function getStudentSuggestions(
 					},
 				},
 			});
+			const { withdrawn } = await partitionStudentsByTermEligibility(db, {
+				schoolId: input.schoolId,
+				termId: input.termId,
+				studentIds: matches.map((student) => student.id),
+			});
+			const withdrawnIds = new Set(withdrawn);
 			for (const student of matches) {
 				const forms = student.sessionForms.flatMap(
 					(session) => session.termForms,
@@ -178,6 +185,8 @@ export async function getStudentSuggestions(
 								: ("partial" as const),
 					status: needsReview
 						? ("needs review" as const)
+						: withdrawnIds.has(student.id)
+							? ("withdrawn" as const)
 						: form?.registrationReviewStatus === "PENDING"
 							? ("pending approval" as const)
 							: form

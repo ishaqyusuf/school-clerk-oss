@@ -46,6 +46,8 @@ export * from "./search-context";
 export * from "./global-search";
 export * from "./student-academic-read";
 export * from "./student-term-enrollment";
+export * from "./student-enrollment-eligibility";
+export * from "./student-withdrawal";
 export * from "./student-fee-preview";
 export * from "./student-registration";
 export * from "./student-deletion";

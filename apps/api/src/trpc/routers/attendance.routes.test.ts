@@ -99,6 +99,7 @@ function createAttendanceContext({
 					lifecycleStatus: "ACTIVE",
 				}),
 			},
+			studentWithdrawal: { findMany: async () => [] },
 			studentTermForm: {
 				findMany: async (query: unknown) => {
 					studentTermFormQueries.push(query);

@@ -60,7 +60,9 @@ export function StudentSuggestionRows({
 						</ItemDescription>
 						<div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
 							<span>
-								{student.status === "not enrolled" ? (
+								{student.status === "withdrawn" ? (
+									"Withdrawn. Readmit before enrolling."
+								) : student.status === "not enrolled" ? (
 									"No enrollment in the current term"
 								) : (
 									<>
@@ -78,7 +80,9 @@ export function StudentSuggestionRows({
 										? "Pending approval"
 										: student.status === "needs review"
 											? "Needs review"
-											: "Not enrolled this term"}
+											: student.status === "withdrawn"
+												? "Withdrawn"
+												: "Not enrolled this term"}
 							</Badge>
 						</div>
 						<ItemActions className="mt-2 flex w-full flex-wrap gap-2" dir="ltr">

@@ -5,6 +5,8 @@ import { Prisma, type Students } from "./generated/client";
 import { requireStudentImportAccess, requireStudentImportTarget, StudentImportAccessError, type StudentImportAuthority } from "./student-import-access";
 import { prepareAuthorizedStudentTermFeeReconciliation } from "./student-fee-reconciliation";
 import { applyFeeHistoriesToStudentTermForm, reconcileFeeHistoriesForStudentTermForm } from "./student-fee-application";
+import { partitionStudentsByTermEligibility } from "./student-enrollment-eligibility";
+import { STUDENT_WITHDRAWAL_ERROR_MESSAGE } from "@school-clerk/utils/student-withdrawal";
 
 type ImportScope = { schoolId: string; sessionId: string; termId: string };
 
@@ -151,6 +153,9 @@ export async function executeStudentImportRow(tx: DatabaseTransaction, authority
       select: { id: true, name: true, surname: true, otherName: true, gender: true },
     });
     if (!student) throw new StudentImportAccessError("NOT_FOUND", "Selected student is unavailable in this school.");
+    // Rechecked at execution time so a stale verification cannot re-enroll a withdrawn student.
+    const eligibility = await partitionStudentsByTermEligibility(tx, { schoolId: scope.schoolId, termId: scope.termId, studentIds: [student.id] });
+    if (eligibility.withdrawn.length) conflict(STUDENT_WITHDRAWAL_ERROR_MESSAGE);
     await assertUniqueClassName(tx, scope, classroomId, row.action === "update_match_with_name" ? row : student, student.id);
   }
   const enrollment = await ensureEnrollment(tx, authority, scope, student, classroomId, row.admissionType ?? "UNCLASSIFIED");

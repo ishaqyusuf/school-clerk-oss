@@ -29,6 +29,7 @@ import {
   previewAcademicTermSetup,
 } from "@api/db/queries/academic-term-setup";
 import { requireAcademicAdmin } from "@api/db/queries/academic-access";
+import { partitionStudentsByTermEligibility } from "@school-clerk/db";
 import {
   previewAcademicTermReset,
   resetAcademicTerm,
@@ -481,7 +482,7 @@ export const academicsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      await requireAcademicAdmin(ctx);
+      const { schoolProfileId } = await requireAcademicAdmin(ctx);
       const db = ctx.db;
 
       const [lastTerm, firstTerm] = await Promise.all([
@@ -587,6 +588,15 @@ export const academicsRouter = createTRPCRouter({
         }
       }
 
+      const { withdrawn } = await partitionStudentsByTermEligibility(db, {
+        schoolId: schoolProfileId,
+        termId: input.firstTermId,
+        studentIds: lastTermForms
+          .map((form) => form.studentId)
+          .filter((id): id is string => Boolean(id)),
+      });
+      const withdrawnStudentIds = new Set(withdrawn);
+
       const students = lastTermForms.map((form) => {
         const targetForm = promotedFormMap.get(form.studentId!);
         const scores = form.assessmentRecords
@@ -645,6 +655,7 @@ export const academicsRouter = createTRPCRouter({
           classLevel: sourceClassLevel,
           departmentLevel: sourceDepartmentLevel,
           avgScore,
+          isWithdrawn: withdrawnStudentIds.has(form.studentId!),
           isPromoted: !!targetForm,
           progressionStatus,
           firstTermFormId: targetForm?.id ?? null,
@@ -922,8 +933,24 @@ export const academicsRouter = createTRPCRouter({
 
       return db.$transaction(async (tx) => {
         let skippedDuplicates = 0;
+        // Rechecked under a shared student-row lock so a stale promotion list
+        // cannot re-enroll a student withdrawn after it was loaded.
+        const { withdrawn } = await partitionStudentsByTermEligibility(tx, {
+          schoolId: schoolProfileId,
+          termId: input.toTermId,
+          studentIds: sourceTermForms
+            .map((form) => form.studentId)
+            .filter((id): id is string => Boolean(id)),
+          lock: true,
+        });
+        const withdrawnStudentIds = new Set(withdrawn);
+        let skippedWithdrawn = 0;
         for (const form of sourceTermForms) {
           if (!form.studentId) continue;
+          if (withdrawnStudentIds.has(form.studentId)) {
+            skippedWithdrawn += 1;
+            continue;
+          }
           const targetClassroomDepartmentId =
             input.toClassroomDepartmentId ?? form.classroomDepartmentId;
 
@@ -1049,8 +1076,9 @@ export const academicsRouter = createTRPCRouter({
           }
         }
         return {
-          promoted: sourceTermForms.length - skippedDuplicates,
+          promoted: sourceTermForms.length - skippedDuplicates - skippedWithdrawn,
           skippedDuplicates,
+          skippedWithdrawn,
           mode: input.mode,
         };
       });

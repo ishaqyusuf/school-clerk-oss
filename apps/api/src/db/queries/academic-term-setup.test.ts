@@ -190,6 +190,8 @@ function createSetupContext({
       }),
       update: async () => ({}),
     },
+    studentWithdrawal: { findMany: async () => [] },
+    $queryRaw: async () => [],
     sessionTerm: {
       findMany: async () => terms,
       findFirst: async ({ where }: any) =>
@@ -440,6 +442,8 @@ function createLifecycleContext({ financeClosed = false } = {}) {
         return { id: "school-1" };
       },
     },
+    studentWithdrawal: { findMany: async () => [] },
+    $queryRaw: async () => [],
     sessionTerm: {
       findMany: async () => state.terms,
       findFirst: async ({ where }: any) =>

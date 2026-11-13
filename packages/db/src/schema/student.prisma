@@ -17,6 +17,7 @@ model Students {
     notificationContact NotificationContact?
     financeCharges     FinanceCharge[]
     financePayments    FinancePayment[]
+    withdrawals        StudentWithdrawal[]
 
     @@unique([name, surname, otherName, schoolProfileId, deletedAt])
 }
@@ -100,4 +101,35 @@ model StudentTermForm {
 
     @@index([schoolProfileId, sessionTermId, admissionType])
     @@index([schoolProfileId, registrationReviewStatus, sessionTermId])
+}
+
+/// One withdrawal period. The student stays enrolled through `lastEnrolledDate`;
+/// the period stays open until a readmission closes it. Withdrawal never
+/// deletes the profile, enrollments, results, attendance, charges or payments
+/// and is independent of deletion, admission type and registration approval.
+model StudentWithdrawal {
+    id                 String        @id @default(uuid())
+    schoolProfile      SchoolProfile @relation(fields: [schoolProfileId], references: [id])
+    schoolProfileId    String
+    student            Students      @relation(fields: [studentId], references: [id])
+    studentId          String
+    withdrawalTerm     SessionTerm   @relation("StudentWithdrawalTerm", fields: [withdrawalTermId], references: [id])
+    withdrawalTermId   String
+    lastEnrolledDate   DateTime      @db.Timestamp(0)
+    reason             String
+    note               String?
+    withdrawnByUserId  String
+    /// Snapshot of future-term enrollments archived or flagged for review.
+    reconciliation     Json?
+    readmissionTerm    SessionTerm?  @relation("StudentReadmissionTerm", fields: [readmissionTermId], references: [id])
+    readmissionTermId  String?
+    readmittedOn       DateTime?     @db.Timestamp(0)
+    readmissionNote    String?
+    readmittedByUserId String?
+    readmittedAt       DateTime?     @db.Timestamp(0)
+    createdAt          DateTime      @default(now()) @db.Timestamp(0)
+    updatedAt          DateTime      @updatedAt
+
+    @@index([schoolProfileId, studentId])
+    @@index([schoolProfileId, readmittedAt])
 }

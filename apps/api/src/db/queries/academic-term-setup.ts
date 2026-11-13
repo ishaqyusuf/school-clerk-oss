@@ -13,6 +13,7 @@ import {
   nestedClassroomDepartmentListOrderBy,
 } from "@school-clerk/db";
 import { requireAcademicAdmin } from "./academic-access";
+import { partitionStudentsByTermEligibility } from "@school-clerk/db";
 
 type AcademicDb = any;
 type OrderedTerm = {
@@ -631,6 +632,52 @@ function addSameSessionIdentityMappings(
   return maps;
 }
 
+/**
+ * Withdrawn students are never rolled into a term their withdrawal covers.
+ * Preview filters them out; apply rechecks under a shared student-row lock so a
+ * stale preview cannot re-enroll a student withdrawn after it was built.
+ */
+async function excludeWithdrawnStudents<
+  T extends { termForms: Array<{ studentId: string | null }> },
+  I extends { selectedStudentIds?: string[] | null },
+>(
+  db: AcademicDb,
+  schoolProfileId: string,
+  targetTermId: string,
+  source: T,
+  input: I,
+  lock: boolean,
+): Promise<{ source: T; input: I; withdrawn: string[] }> {
+  const studentIds = unique(
+    source.termForms
+      .map((item) => item.studentId)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const { withdrawn } = await partitionStudentsByTermEligibility(db, {
+    schoolId: schoolProfileId,
+    termId: targetTermId,
+    studentIds,
+    lock,
+  });
+  if (!withdrawn.length) return { source, input, withdrawn };
+  const excluded = new Set(withdrawn);
+  return {
+    source: {
+      ...source,
+      termForms: source.termForms.filter(
+        (item) => !item.studentId || !excluded.has(item.studentId),
+      ),
+    },
+    input: {
+      ...input,
+      selectedStudentIds: (input.selectedStudentIds ?? []).filter(
+        (id) => !excluded.has(id),
+      ),
+    } as I,
+    withdrawn,
+  };
+}
+
 function setupSelections(
   source: NonNullable<Awaited<ReturnType<typeof loadSourceData>>>,
   input: AcademicTermSetupSelection,
@@ -688,13 +735,13 @@ function validateSelectedIds(
 async function buildTermSetupPreview(
   db: AcademicDb,
   schoolProfileId: string,
-  input: AcademicTermSetupSelection,
+  rawInput: AcademicTermSetupSelection,
 ) {
   const { source: sourceTerm, target } = await resolveSetupTerms(
     db,
     schoolProfileId,
-    input.termId,
-    input.previousTermId,
+    rawInput.termId,
+    rawInput.previousTermId,
   );
   const blockers: { key: string; message: string }[] = [];
   const warnings: { key: string; message: string }[] = [];
@@ -713,10 +760,10 @@ async function buildTermSetupPreview(
       target,
       promotional: false,
       blockers:
-        input.classroomOption === "empty" &&
-        input.subjectOption === "empty" &&
-        input.studentOption === "empty" &&
-        input.teacherOption === "empty"
+        rawInput.classroomOption === "empty" &&
+        rawInput.subjectOption === "empty" &&
+        rawInput.studentOption === "empty" &&
+        rawInput.teacherOption === "empty"
           ? blockers
           : [
               ...blockers,
@@ -736,14 +783,30 @@ async function buildTermSetupPreview(
       counts: emptyCounts(),
     };
   }
-  const source = await loadSourceData(db, schoolProfileId, sourceTerm.id);
-  if (!source) {
+  const loadedSource = await loadSourceData(db, schoolProfileId, sourceTerm.id);
+  if (!loadedSource) {
     throw new TRPCError({
       code: "NOT_FOUND",
       message: "The source academic term is no longer available.",
     });
   }
+  const eligibility = await excludeWithdrawnStudents(
+    db,
+    schoolProfileId,
+    target.id,
+    loadedSource,
+    rawInput,
+    false,
+  );
+  const source = eligibility.source;
+  const input = eligibility.input;
   const promotional = source.sessionId !== target.sessionId;
+  if (eligibility.withdrawn.length && !promotional) {
+    warnings.push({
+      key: "withdrawn-students-excluded",
+      message: `${eligibility.withdrawn.length} withdrawn ${eligibility.withdrawn.length === 1 ? "student is" : "students are"} excluded from this term. Readmit a student before enrolling them.`,
+    });
+  }
   const selections = setupSelections(source, input);
   validateSelectedIds(
     "classroom",
@@ -1213,7 +1276,7 @@ async function copyAssessments(
 async function applySetupTransaction(
   tx: AcademicDb,
   schoolProfileId: string,
-  input: AcademicTermSetupApply,
+  rawInput: AcademicTermSetupApply,
   preview: Pick<
     Awaited<ReturnType<typeof buildTermSetupPreview>>,
     "source" | "target" | "promotional"
@@ -1221,7 +1284,7 @@ async function applySetupTransaction(
 ) {
   if (!preview.source) {
     await tx.sessionTerm.update({
-      where: { id: input.termId },
+      where: { id: rawInput.termId },
       data: {
         lifecycleStatus: "READY",
         setupCompletedAt: new Date(),
@@ -1229,13 +1292,29 @@ async function applySetupTransaction(
     });
     return emptyCounts();
   }
-  const source = await loadSourceData(tx, schoolProfileId, preview.source.id);
-  if (!source) {
+  const loadedSource = await loadSourceData(tx, schoolProfileId, preview.source.id);
+  if (!loadedSource) {
     throw new TRPCError({
       code: "NOT_FOUND",
       message: "The source academic term is no longer available.",
     });
   }
+  const eligibility = await excludeWithdrawnStudents(
+    tx,
+    schoolProfileId,
+    rawInput.termId,
+    loadedSource,
+    rawInput,
+    true,
+  );
+  const source = eligibility.source;
+  const input = eligibility.input;
+  const requestedStudentIds = new Set(
+    setupSelections(loadedSource, rawInput).studentIds,
+  );
+  const skippedWithdrawn = preview.promotional
+    ? 0
+    : eligibility.withdrawn.filter((id) => requestedStudentIds.has(id)).length;
   const selections = setupSelections(source, input);
   const selectionBlockers: { key: string; message: string }[] = [];
   validateSelectedIds(
@@ -1662,7 +1741,7 @@ async function applySetupTransaction(
       setupCompletedAt: new Date(),
     },
   });
-  return result;
+  return skippedWithdrawn ? { ...result, skippedWithdrawn } : result;
 }
 
 export async function applyAcademicTermSetup(
