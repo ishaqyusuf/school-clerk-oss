@@ -1,40 +1,124 @@
 import { cn } from "@school-clerk/ui/cn";
 import { Skeleton } from "@school-clerk/ui/skeleton";
 
-/** Section skeletons that mirror the flat Overview tab layout. */
-export function StudentOverviewSectionsSkeleton() {
+const DETAIL_KEYS = ["one", "two", "three", "four"];
+
+function DetailsSkeleton({ count = 4, large = false }: { count?: number; large?: boolean }) {
   return (
-    <div className="@container divide-y divide-border" aria-hidden>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-5 @2xl:grid-cols-4">
-        {["id", "class", "term", "gender"].map((key) => (
+    <div className="@container py-5">
+      <div
+        className={cn(
+          "grid gap-x-6 gap-y-4",
+          count === 3 ? "grid-cols-3" : "grid-cols-2 @2xl:grid-cols-4",
+        )}
+      >
+        {DETAIL_KEYS.slice(0, count).map((key) => (
           <div key={key} className="space-y-2">
             <Skeleton className="h-3 w-16" />
-            <Skeleton className="h-4 w-24" />
+            <Skeleton className={cn("w-24", large ? "h-6" : "h-4")} />
           </div>
         ))}
       </div>
-      {["enrollment", "history"].map((key) => (
-        <div key={key} className="space-y-4 py-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-3 w-64 max-w-full" />
-            </div>
-            {key === "enrollment" ? <Skeleton className="h-11 w-28" /> : null}
+    </div>
+  );
+}
+
+function SectionHeadingSkeleton({ action = false }: { action?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-3 w-64 max-w-full" />
+      </div>
+      {action ? <Skeleton className="h-9 w-28" /> : null}
+    </div>
+  );
+}
+
+function ListSkeleton({ rows = 3, trailing = "badge" }: { rows?: number; trailing?: "badge" | "amount" }) {
+  return (
+    <div className="divide-y divide-border">
+      {Array.from({ length: rows }, (_, index) => `row-${index}`).map((key) => (
+        <div key={key} className="flex items-center justify-between gap-4 py-3">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-3 w-48 max-w-full" />
           </div>
-          {key === "history"
-            ? ["one", "two", "three"].map((row) => (
-                <div key={row} className="flex items-center justify-between gap-4">
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-36" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                  <Skeleton className="h-5 w-20 rounded-full" />
-                </div>
-              ))
-            : null}
+          {trailing === "amount" ? (
+            <div className="flex flex-col items-end gap-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-14 rounded-sm" />
+            </div>
+          ) : (
+            <Skeleton className="h-5 w-20 rounded-sm" />
+          )}
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Section skeletons that mirror the flat Overview tab layout. */
+export function StudentOverviewSectionsSkeleton() {
+  return (
+    <div className="divide-y divide-border" aria-hidden>
+      <DetailsSkeleton />
+      <div className="space-y-4 py-6">
+        <SectionHeadingSkeleton action />
+      </div>
+      <div className="space-y-4 py-6">
+        <SectionHeadingSkeleton />
+        <ListSkeleton />
+      </div>
+    </div>
+  );
+}
+
+/** Academics tab: enrollment details and a short note. */
+export function StudentAcademicsSkeleton() {
+  return (
+    <div className="divide-y divide-border" aria-hidden>
+      <DetailsSkeleton />
+      <div className="space-y-3 py-6">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-3 w-72 max-w-full" />
+      </div>
+    </div>
+  );
+}
+
+/** Attendance tab: rate figures and the session list. */
+export function StudentAttendanceSkeleton() {
+  return (
+    <div className="divide-y divide-border" aria-hidden>
+      <DetailsSkeleton large />
+      <div className="space-y-4 py-6">
+        <SectionHeadingSkeleton />
+        <ListSkeleton rows={5} />
+      </div>
+    </div>
+  );
+}
+
+/** Payments tab: heading with actions, totals, fees and transactions. */
+export function StudentPaymentsSkeleton() {
+  return (
+    <div className="divide-y divide-border" aria-hidden>
+      <div className="py-6">
+        <SectionHeadingSkeleton action />
+      </div>
+      <div className="space-y-3">
+        <DetailsSkeleton count={3} large />
+        <Skeleton className="mb-5 h-1 w-full" />
+      </div>
+      <div className="space-y-4 py-6">
+        <SectionHeadingSkeleton />
+        <ListSkeleton rows={2} trailing="amount" />
+      </div>
+      <div className="space-y-4 py-6">
+        <SectionHeadingSkeleton />
+        <ListSkeleton rows={3} trailing="amount" />
+      </div>
     </div>
   );
 }

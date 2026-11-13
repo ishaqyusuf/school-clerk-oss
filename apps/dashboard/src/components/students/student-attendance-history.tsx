@@ -1,29 +1,51 @@
 "use client";
 
-import { Suspense } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { useTRPC } from "@/trpc/client";
+import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
 import {
+  type AttendanceStatus,
   attendanceRate,
   attendanceStatusLabel,
   normalizeAttendanceStatus,
 } from "@/lib/attendance";
-import { TableSkeleton } from "../tables/skeleton";
+import { useTRPC } from "@/trpc/client";
+import { Badge, type BadgeProps } from "@school-clerk/ui/badge";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@school-clerk/ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemSeparator,
+  ItemTitle,
+} from "@school-clerk/ui/item";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Card, CardContent } from "@school-clerk/ui/card";
-import { CheckCircle2, XCircle, Clock, TrendingUp, Info } from "lucide-react";
-import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
+import { CalendarDays } from "lucide-react";
+import { Suspense } from "react";
+import { OverviewDetails, OverviewMeter, OverviewSection } from "./overview-section";
+import { StudentAttendanceSkeleton } from "./student-overview.loading";
 
-function attendanceStatus(record: {
-  isPresent?: boolean | null;
-  status?: string | null;
-}) {
-  return normalizeAttendanceStatus(record.status, record.isPresent);
+const GOOD_STANDING = 75;
+
+const STATUS_BADGE: Record<AttendanceStatus, BadgeProps["variant"]> = {
+  PRESENT: "success",
+  LATE: "warning",
+  ABSENT: "destructive",
+  EXCUSED: "neutral",
+  LEAVE: "neutral",
+};
+
+/** "Class Department", without repeating a department that already names the class. */
+function joinClassName(classroom?: string | null, department?: string | null) {
+  if (!classroom) return department ?? "";
+  if (!department || department.includes(classroom)) return department || classroom;
+  return `${classroom} ${department}`;
 }
 
 export function StudentAttendanceHistory() {
   return (
-    <Suspense fallback={<TableSkeleton />}>
+    <Suspense fallback={<StudentAttendanceSkeleton />}>
       <Content />
     </Suspense>
   );
@@ -39,250 +61,101 @@ function Content() {
     ),
   );
 
-  if (!records || records.length === 0) {
+  if (!records?.length) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm gap-2">
-        <span>No attendance records found.</span>
-      </div>
+      <Empty className="py-16">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <CalendarDays />
+          </EmptyMedia>
+          <EmptyTitle>No attendance yet</EmptyTitle>
+          <EmptyDescription>Sessions appear here once a teacher takes the class register.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
+  const statuses = records.map((record) => normalizeAttendanceStatus(record.status, record.isPresent));
+  const count = (status: AttendanceStatus) => statuses.filter((value) => value === status).length;
+  const present = count("PRESENT");
+  const late = count("LATE");
+  const absent = count("ABSENT");
+  const excused = count("EXCUSED");
+  const leave = count("LEAVE");
   const total = records.length;
-  const statuses = records.map(attendanceStatus);
-  const present = statuses.filter((status) => status === "PRESENT").length;
-  const late = statuses.filter((status) => status === "LATE").length;
-  const absent = statuses.filter((status) => status === "ABSENT").length;
-  const excluded = statuses.filter((status) =>
-    ["EXCUSED", "LEAVE"].includes(status),
-  ).length;
-  const eligible = Math.max(total - excluded, 0);
-  const percentage = Math.round(
-    attendanceRate({
-      excused: statuses.filter((status) => status === "EXCUSED").length,
-      late,
-      leave: statuses.filter((status) => status === "LEAVE").length,
-      present,
-      total,
-    }),
-  );
+  const eligible = Math.max(total - excused - leave, 0);
+  const rate = attendanceRate({ present, late, excused, leave, total });
+  const goodStanding = rate >= GOOD_STANDING;
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 sm:space-y-6">
-      {/* Attendance Stats Grid */}
-      <div data-summary-grid className="hidden md:grid md:grid-cols-3 gap-4">
-        {/* Attendance Rate Card */}
-        <Card className="bg-card rounded-xl shadow-sm">
-          <CardContent data-summary-body className="p-5 flex items-center justify-between">
-            <div>
-              <p data-summary-label className="text-sm font-medium text-muted-foreground">
-                Attendance Rate
-              </p>
-              <p data-summary-value className="text-3xl font-bold text-foreground mt-1">
-                {percentage}%
-              </p>
-              <p data-summary-label className="text-xs text-green-600 mt-2 flex items-center gap-1 font-medium">
-                <TrendingUp className="w-3.5 h-3.5" />
-                {present + late} of {eligible} eligible sessions
-              </p>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-primary">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Days Absent Card */}
-        <Card className="bg-card rounded-xl shadow-sm">
-          <CardContent data-summary-body className="p-5 flex items-center justify-between">
-            <div>
-              <p data-summary-label className="text-sm font-medium text-muted-foreground">
-                Days Absent
-              </p>
-              <p data-summary-value className="text-3xl font-bold text-foreground mt-1">
-                {absent}
-              </p>
-              <p data-summary-label className="text-xs text-muted-foreground mt-2">
-                Total school days: {total}
-              </p>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-500">
-              <XCircle className="w-6 h-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Status Card */}
-        <Card className="bg-card rounded-xl shadow-sm">
-          <CardContent data-summary-body className="p-5 flex items-center justify-between">
-            <div>
-              <p data-summary-label className="text-sm font-medium text-muted-foreground">
-                Status
-              </p>
-              <p data-summary-value className="text-3xl font-bold text-foreground mt-1">
-                {percentage >= 75 ? "Good" : "At Risk"}
-              </p>
-              <p data-summary-label
-                className={`text-xs mt-2 flex items-center gap-1 font-medium ${
-                  percentage >= 75 ? "text-green-600" : "text-orange-600"
-                }`}
-              >
-                {percentage >= 75
-                  ? "Above minimum threshold"
-                  : "Needs improvement"}
-              </p>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-500">
-              <Clock className="w-6 h-6" />
-            </div>
-          </CardContent>
-        </Card>
+    <div className="divide-y divide-border">
+      <div className="pb-5">
+        <OverviewDetails
+          size="lg"
+          className="pb-3"
+          details={[
+            {
+              label: "Attendance",
+              value: `${rate}%`,
+              hint: goodStanding ? "Good standing" : `Below ${GOOD_STANDING}%`,
+              className: goodStanding ? undefined : "text-status-warning-fg",
+            },
+            {
+              label: "Attended",
+              value: present + late,
+              hint: late ? `of ${eligible} · ${late} late` : `of ${eligible} counted`,
+            },
+            { label: "Absent", value: absent, hint: `of ${total} sessions` },
+            { label: "Excused", value: excused + leave, hint: "Not counted" },
+          ]}
+        />
+        <OverviewMeter value={rate} label="Attendance rate" tone={goodStanding ? "success" : "primary"} />
       </div>
 
-      {/* Detailed Records Table */}
-      <Card className="bg-card rounded-xl shadow-sm overflow-hidden">
-        <div className="px-4 py-4 border-b border-border flex justify-between items-center sm:px-5">
-          <h3 className="text-base font-semibold text-foreground">
-            Recent Activity
-          </h3>
-        </div>
-        <div className="divide-y divide-border md:hidden">
-          {records.map((record) => {
-            const className = record.department?.classRoom?.name;
-            const deptName = record.department?.departmentName;
-            const label =
-              className && deptName
-                ? `${className} ${deptName}`
-                : deptName || className || "Class";
-            const attendanceDate =
-              record.classroomAttendance?.attendanceDate ??
-              record.classroomAttendance?.createdAt;
-            const date = attendanceDate
-              ? format(new Date(attendanceDate), "MMM dd, yyyy")
-              : record.createdAt
-                ? format(new Date(record.createdAt), "MMM dd, yyyy")
-                : "";
-
+      <OverviewSection
+        title="Sessions"
+        description="Synced from the class register. Ask the class teacher about any mistakes."
+      >
+        <ItemGroup className="-mx-2">
+          {records.map((record, index) => {
+            const status = statuses[index] ?? "ABSENT";
+            const attendance = record.classroomAttendance;
+            const when = attendance?.attendanceDate ?? attendance?.createdAt ?? record.createdAt;
+            const classLabel = joinClassName(record.department?.classRoom?.name, record.department?.departmentName);
+            const session = [
+              attendance?.attendanceTitle || "Session",
+              attendance?.departmentSubject?.subject.title,
+              attendance?.periodLabel,
+            ]
+              .filter(Boolean)
+              .join(" · ");
             return (
-              <article key={record.id} className="space-y-3 px-4 py-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground">{date}</p>
-                    <p className="mt-1 truncate text-sm text-muted-foreground">
-                      {label}
-                    </p>
-                  </div>
-                  <span
-                    className={`inline-flex shrink-0 items-center rounded border px-2.5 py-0.5 text-xs font-medium ${
-                      ["PRESENT", "LATE"].includes(attendanceStatus(record))
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
-                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
-                    }`}
-                  >
-                    {attendanceStatusLabel(attendanceStatus(record))}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {record.classroomAttendance?.attendanceTitle || "Session"}
-                  {record.classroomAttendance?.departmentSubject?.subject.title
-                    ? ` · ${record.classroomAttendance.departmentSubject.subject.title}`
-                    : ""}
-                  {record.classroomAttendance?.periodLabel
-                    ? ` · ${record.classroomAttendance.periodLabel}`
-                    : ""}
-                </p>
-              </article>
+              <div key={record.id}>
+                {index > 0 ? <ItemSeparator /> : null}
+                <Item size="sm">
+                  <ItemContent className="min-w-0">
+                    <ItemTitle className="tabular-nums">
+                      {when ? format(new Date(when), "EEE, d MMM yyyy") : "Undated session"}
+                    </ItemTitle>
+                    <ItemDescription className="line-clamp-none break-words">
+                      {classLabel ? (
+                        <>
+                          <bdi>{classLabel}</bdi>
+                          {" · "}
+                        </>
+                      ) : null}
+                      {session}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <Badge variant={STATUS_BADGE[status]}>{attendanceStatusLabel(status)}</Badge>
+                  </ItemActions>
+                </Item>
+              </div>
             );
           })}
-        </div>
-        <div className="hidden overflow-x-auto md:block">
-          <table className="w-full text-sm text-left text-muted-foreground">
-            <thead className="text-xs text-foreground uppercase bg-muted/50">
-              <tr>
-                <th className="px-5 py-3" scope="col">
-                  Date
-                </th>
-                <th className="px-5 py-3" scope="col">
-                  Class
-                </th>
-                <th className="px-5 py-3" scope="col">
-                  Status
-                </th>
-                <th className="px-5 py-3" scope="col">
-                  Session
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {records.map((record) => {
-                const className = record.department?.classRoom?.name;
-                const deptName = record.department?.departmentName;
-                const label =
-                  className && deptName
-                    ? `${className} ${deptName}`
-                    : deptName || className || "";
-                return (
-                  <tr
-                    key={record.id}
-                    className="bg-card hover:bg-muted/20 transition-colors"
-                  >
-                    <td className="px-5 py-3 font-medium text-foreground">
-                      {(record.classroomAttendance?.attendanceDate ??
-                      record.classroomAttendance?.createdAt)
-                        ? format(
-                            new Date(
-                              record.classroomAttendance.attendanceDate ??
-                                record.classroomAttendance.createdAt!,
-                            ),
-                            "MMM dd, yyyy",
-                          )
-                        : record.createdAt
-                          ? format(new Date(record.createdAt), "MMM dd, yyyy")
-                          : ""}
-                    </td>
-                    <td className="px-5 py-3">{label}</td>
-                    <td className="px-5 py-3">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium border ${
-                          ["PRESENT", "LATE"].includes(attendanceStatus(record))
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
-                            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
-                        }`}
-                      >
-                        {attendanceStatusLabel(attendanceStatus(record))}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-muted-foreground">
-                      {record.classroomAttendance?.attendanceTitle || "Session"}
-                      {record.classroomAttendance?.departmentSubject?.subject
-                        .title
-                        ? ` · ${record.classroomAttendance.departmentSubject.subject.title}`
-                        : ""}
-                      {record.classroomAttendance?.periodLabel
-                        ? ` · ${record.classroomAttendance.periodLabel}`
-                        : ""}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      {/* Info Box */}
-      <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-lg p-4 flex gap-3">
-        <Info className="text-blue-600 dark:text-blue-400 shrink-0 h-5 w-5 mt-0.5" />
-        <div>
-          <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">
-            Note
-          </h4>
-          <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-            Attendance data is automatically synchronized from the classroom
-            register. If you notice a discrepancy, please contact the class
-            teacher.
-          </p>
-        </div>
-      </div>
+        </ItemGroup>
+      </OverviewSection>
     </div>
   );
 }

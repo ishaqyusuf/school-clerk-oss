@@ -1,1090 +1,600 @@
 "use client";
 
-import { SummaryNumber } from "@/components/summary-number";
-
+import { formatNaira } from "@/components/finance/student-payment-allocation";
+import { StudentChargeModal } from "@/components/modals/student-charge-modal";
+import { StudentPurchaseModal } from "@/components/modals/student-purchase-modal";
 import { useReceivePaymentParams } from "@/hooks/use-receive-payment-params";
 import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Suspense, useState } from "react";
-import { TableSkeleton } from "../tables/skeleton";
-
-import { useZodForm } from "@/hooks/use-zod-form";
-import { Badge } from "@school-clerk/ui/badge";
-import { Button } from "@school-clerk/ui/button";
-import { Card, CardContent } from "@school-clerk/ui/card";
-import { cn } from "@school-clerk/ui/cn";
-import { Collapsible, CollapsibleContent } from "@school-clerk/ui/collapsible";
-import { ComboboxDropdown } from "@school-clerk/ui/combobox-dropdown";
-import { FormInput } from "@school-clerk/ui/controls/form-input";
-import { Form } from "@school-clerk/ui/form";
-import { Label } from "@school-clerk/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@school-clerk/ui/alert";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@school-clerk/ui/select";
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@school-clerk/ui/alert-dialog";
+import { Badge, type BadgeProps } from "@school-clerk/ui/badge";
+import { Button, buttonVariants } from "@school-clerk/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@school-clerk/ui/dropdown-menu";
+import {
+	Item,
+	ItemActions,
+	ItemContent,
+	ItemDescription,
+	ItemGroup,
+	ItemSeparator,
+	ItemTitle,
+} from "@school-clerk/ui/item";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
 	AlertTriangle,
 	CreditCard,
-	Filter,
-	Info,
+	MoreHorizontal,
 	Plus,
-	Printer,
-	Receipt,
-	ScrollText,
-	Wallet,
+	ShoppingBag,
 } from "lucide-react";
-import { NumericFormat } from "react-number-format";
-import { z } from "zod";
-import { AnimatedNumber } from "../animated-number";
-import { CreateStudentBilling } from "../create-student-billing";
-import { Menu } from "../menu";
-import { SubmitButton } from "../submit-button";
+import { useState } from "react";
+import {
+	OverviewDetails,
+	OverviewMeter,
+	OverviewSection,
+} from "./overview-section";
+import { StudentPaymentsSkeleton } from "./student-overview.loading";
 
-export function StudentTransactionOverview() {
-	return (
-		<Suspense fallback={<TableSkeleton />}>
-			<Content />
-		</Suspense>
-	);
-}
-
-// ── Fee item row ──────────────────────────────────────────────────────────────
-
-type FeeItemData = {
-	key?: string;
-	title?: string;
+type FeeRow = {
+	key: string;
+	title?: string | null;
 	description?: string | null;
-	amount?: number;
-	paidAmount?: number;
-	pendingAmount?: number;
-	status?: string;
+	amount?: number | null;
+	paidAmount?: number | null;
+	pendingAmount?: number | null;
+	status?: string | null;
 	studentFeeId?: string | null;
 };
 
-const STATUS_CONFIG: Record<string, { badge: string; bar: string }> = {
-	PAID: {
-		badge:
-			"border-green-300 text-green-700 dark:border-green-800 dark:text-green-400",
-		bar: "bg-green-500",
-	},
-	PARTIAL: {
-		badge: "border-primary text-primary",
-		bar: "bg-primary",
-	},
-	PENDING: {
-		badge:
-			"border-yellow-300 text-yellow-700 dark:border-yellow-800 dark:text-yellow-400",
-		bar: "bg-muted-foreground/30",
-	},
-	UNAPPLIED: {
-		badge: "border-muted text-muted-foreground",
-		bar: "bg-muted-foreground/20",
-	},
+type PaymentRow = {
+	id?: string;
+	amount?: number;
+	status?: string | null;
+	type?: "FEE" | "PURCHASE" | null;
+	paymentType?: string | null;
+	description?: string | null;
+	createdAt?: Date | string | null;
+	studentFee?: { feeTitle?: string | null } | null;
+	walletTransaction?: {
+		id?: string | null;
+		summary?: string | null;
+		transactionDate?: Date | string | null;
+		status?: string | null;
+	} | null;
 };
 
-function FeeItemRow({
-	item,
-	onCancel,
-	cancelPending,
-}: {
-	item: FeeItemData;
-	onCancel?: (id: string) => void;
-	cancelPending?: boolean;
-}) {
-	const cfg = STATUS_CONFIG[item.status ?? "PENDING"] ?? STATUS_CONFIG.PENDING;
-	const paidPct =
-		(item.amount ?? 0) > 0
-			? Math.round(((item.paidAmount ?? 0) / (item.amount ?? 1)) * 100)
-			: 0;
+type PendingCancel =
+	| { kind: "fee"; id: string; title: string }
+	| { kind: "payment"; id: string; title: string; amount: number }
+	| null;
 
-	return (
-		<div className="flex flex-col gap-2">
-			<div className="flex flex-col gap-2 text-sm sm:flex-row sm:justify-between">
-				<div className="flex min-w-0 flex-wrap items-center gap-2">
-					<span className="font-medium text-foreground">
-						{item.title ?? "Fee"}
-					</span>
-					<Badge variant="outline" className={cn("text-[10px]", cfg.badge)}>
-						{item.status ?? "PENDING"}
-					</Badge>
-				</div>
-				<div className="flex items-center justify-between gap-2 sm:justify-end">
-					<span className="font-bold text-foreground">
-						<NumericFormat
-							readOnly
-							value={item.amount ?? 0}
-							prefix="NGN "
-							displayType="text"
-						/>
-					</span>
-					{onCancel && item.studentFeeId && item.status !== "PAID" && (
-						<Menu>
-							<Menu.Item
-								onClick={() =>
-									item.studentFeeId ? onCancel(item.studentFeeId) : undefined
-								}
-								disabled={cancelPending}
-							>
-								Cancel Fee
-							</Menu.Item>
-						</Menu>
-					)}
-				</div>
-			</div>
-			{item.status !== "UNAPPLIED" && (
-				<div className="flex items-center gap-3">
-					<div className="flex-1 bg-muted h-2 rounded-full overflow-hidden">
-						<div
-							className={cn("h-full rounded-full transition-all", cfg.bar)}
-							style={{ width: `${paidPct}%` }}
-						/>
-					</div>
-					<span className="text-xs text-muted-foreground whitespace-nowrap">
-						{(item.pendingAmount ?? 0) === 0 ? (
-							<span className="text-green-600 font-medium">Paid</span>
-						) : (
-							<NumericFormat
-								readOnly
-								value={item.pendingAmount ?? 0}
-								prefix="NGN "
-								suffix=" pending"
-								displayType="text"
-							/>
-						)}
-					</span>
-				</div>
-			)}
-			{item.description && (
-				<p className="text-xs text-muted-foreground">{item.description}</p>
-			)}
-		</div>
-	);
+const FEE_STATUS: Record<
+	string,
+	{ label: string; variant: BadgeProps["variant"] }
+> = {
+	PAID: { label: "Paid", variant: "success" },
+	PARTIAL: { label: "Part paid", variant: "info" },
+	PENDING: { label: "Unpaid", variant: "warning" },
+	UNAPPLIED: { label: "Not applied", variant: "neutral" },
+};
+
+function paymentStatus(status?: string | null): {
+	label: string;
+	variant: BadgeProps["variant"];
+} {
+	if (status === "success") return { label: "Received", variant: "success" };
+	if (status === "draft") return { label: "Draft", variant: "warning" };
+	return { label: status || "Unknown", variant: "neutral" };
 }
 
-// ── Main Content ──────────────────────────────────────────────────────────────
-
-function Content() {
+export function StudentTransactionOverview() {
 	const trpc = useTRPC();
 	const qc = useQueryClient();
 	const { setParams: setReceivePaymentParams } = useReceivePaymentParams();
-	const [openForm, setOpenForm] = useState<"bill" | "purchase">();
 	const { activeStudentTerm, studentId } = useStudentOverviewSheet();
-	const hasActiveTerm = Boolean(activeStudentTerm?.termId && studentId);
+	const [modal, setModal] = useState<"charge" | "purchase" | null>(null);
+	const [pendingCancel, setPendingCancel] = useState<PendingCancel>(null);
+	const termId = activeStudentTerm?.termId ?? undefined;
+	const enabled = Boolean(studentId && termId);
 
-	const { data: rpData } = useQuery(
+	const paymentData = useQuery(
 		trpc.finance.getReceivePaymentData.queryOptions(
-			{
-				studentId: studentId ?? "",
-				termId: activeStudentTerm?.termId ?? undefined,
-			},
-			{ enabled: !!studentId && !!activeStudentTerm?.termId },
+			{ studentId: studentId ?? "", termId },
+			{ enabled },
 		),
 	);
-
-	const { data: payments } = useQuery(
+	const paymentsQuery = useQuery(
 		trpc.finance.getStudentPayments.queryOptions(
-			{
-				studentId: studentId ?? "",
-				termId: activeStudentTerm?.termId ?? undefined,
-			},
-			{ enabled: !!studentId && !!activeStudentTerm?.termId },
+			{ studentId: studentId ?? "", termId },
+			{ enabled },
 		),
 	);
 
-	const { mutate: cancelFeeMutate, isPending: cancelFeePending } = useMutation(
+	const refreshFinance = () => {
+		qc.invalidateQueries({
+			queryKey: trpc.finance.getReceivePaymentData.queryKey({ studentId }),
+		});
+		qc.invalidateQueries({
+			queryKey: trpc.finance.getStudentPayments.queryKey({ studentId, termId }),
+		});
+	};
+
+	const cancelFee = useMutation(
 		trpc.transactions.cancelStudentFee.mutationOptions({
 			meta: {
 				toastTitle: {
-					error: "Something went wrong",
-					loading: "Cancelling...",
-					success: "Cancelled",
+					loading: "Cancelling fee...",
+					success: "Fee cancelled",
+					error: "Fee could not be cancelled",
 				},
 			},
-			onSuccess() {
-				qc.invalidateQueries({
-					queryKey: trpc.finance.getReceivePaymentData.queryKey({
-						studentId,
-					}),
-				});
-				qc.invalidateQueries({
-					queryKey: trpc.finance.getStudentPayments.queryKey({
-						studentId,
-						termId: activeStudentTerm?.termId ?? undefined,
-					}),
-				});
+			onSuccess: refreshFinance,
+			onSettled: () => setPendingCancel(null),
+		}),
+	);
+	const reversePayment = useMutation(
+		trpc.finance.reverseStudentPayment.mutationOptions({
+			meta: {
+				toastTitle: {
+					loading: "Cancelling payment...",
+					success: "Payment cancelled",
+					error: "Payment could not be cancelled",
+				},
 			},
+			onSuccess: refreshFinance,
+			onSettled: () => setPendingCancel(null),
 		}),
 	);
 
-	const _openForm = (frm: typeof openForm) => {
-		setOpenForm(frm === openForm ? undefined : frm);
-	};
+	if (!studentId) return null;
+	if (enabled && (paymentData.isPending || paymentsQuery.isPending))
+		return <StudentPaymentsSkeleton />;
 
+	const rpData = paymentData.data;
+	const payments: PaymentRow[] = paymentsQuery.data ?? [];
 	const summary = rpData?.summary ?? {
 		totalDue: 0,
 		totalPaid: 0,
 		totalPending: 0,
 	};
 	const paidPercentage =
-		summary.totalDue > 0
-			? Math.round((summary.totalPaid / summary.totalDue) * 100)
-			: 0;
-	const successfulPayments = (payments ?? []).filter(
-		(payment) => payment.status === "success",
-	);
-	const receivedTotal = successfulPayments.reduce(
+		summary.totalDue > 0 ? (summary.totalPaid / summary.totalDue) * 100 : 0;
+	const received = payments.filter((payment) => payment.status === "success");
+	const receivedTotal = received.reduce(
 		(sum, payment) => sum + (payment.amount ?? 0),
 		0,
 	);
-	const transactionCount = payments?.length ?? 0;
 
-	const hasFees =
-		(rpData?.feeItems?.length ?? 0) > 0 ||
-		(rpData?.otherCharges?.length ?? 0) > 0;
+	const fees: Array<FeeRow & { cancellable: boolean }> = [
+		...(rpData?.feeItems ?? []).map((item) => ({
+			...item,
+			key: item.key,
+			cancellable: true,
+		})),
+		...(rpData?.manualFeeHistories ?? []).map((item) => ({
+			key: item.feeHistoryId,
+			title: item.title,
+			description: item.description,
+			amount: item.amount,
+			paidAmount: 0,
+			pendingAmount: item.amount,
+			status: "UNAPPLIED",
+			cancellable: false,
+		})),
+		...(rpData?.otherCharges ?? []).map((item) => ({
+			key: item.key,
+			title: item.title,
+			description: item.description,
+			amount: item.amount,
+			paidAmount: item.paidAmount,
+			pendingAmount: item.pendingAmount,
+			status: item.status,
+			studentFeeId: item.studentFeeId,
+			cancellable: true,
+		})),
+	];
 
-	const handleCollectPayment = () => {
-		setReceivePaymentParams({
-			receivePayment: true,
-			receivePaymentStudentId: studentId,
-		});
+	const confirmCancel = () => {
+		if (!pendingCancel) return;
+		if (pendingCancel.kind === "fee")
+			cancelFee.mutate({ id: pendingCancel.id, reason: "" });
+		else reversePayment.mutate({ paymentId: pendingCancel.id });
 	};
+	const cancelling = cancelFee.isPending || reversePayment.isPending;
 
 	return (
-		<div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 sm:space-y-6">
-			{/* Alert */}
-			{rpData?.alert && (
-				<div
-					className={cn(
-						"rounded-lg p-4 flex gap-3 border",
-						rpData.alert.variant === "destructive"
-							? "bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800"
-							: "bg-yellow-50 dark:bg-yellow-900/10 border-yellow-100 dark:border-yellow-800",
-					)}
-				>
-					<AlertTriangle
-						className={cn(
-							"shrink-0 h-5 w-5 mt-0.5",
-							rpData.alert.variant === "destructive"
-								? "text-red-600 dark:text-red-400"
-								: "text-yellow-600 dark:text-yellow-400",
-						)}
-					/>
-					<div>
-						<h4
-							className={cn(
-								"text-sm font-medium",
-								rpData.alert.variant === "destructive"
-									? "text-red-800 dark:text-red-300"
-									: "text-yellow-800 dark:text-yellow-300",
-							)}
-						>
-							{rpData.alert.title}
-						</h4>
-						<p
-							className={cn(
-								"text-sm mt-1",
-								rpData.alert.variant === "destructive"
-									? "text-red-600 dark:text-red-400"
-									: "text-yellow-600 dark:text-yellow-400",
-							)}
-						>
-							{rpData.alert.description}
-						</p>
-					</div>
+		<div className="divide-y divide-border">
+			{rpData?.alert ? (
+				<div className="py-5">
+					<Alert
+						variant={
+							rpData.alert.variant === "destructive" ? "destructive" : "warning"
+						}
+					>
+						<AlertTriangle className="size-4" />
+						<AlertTitle>{rpData.alert.title}</AlertTitle>
+						<AlertDescription>{rpData.alert.description}</AlertDescription>
+					</Alert>
 				</div>
-			)}
+			) : null}
 
-			{/* Header & Actions */}
-			<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-				<div className="flex flex-col gap-1">
-					<h3 className="text-2xl font-bold tracking-tight text-foreground">
-						Financial Overview
-					</h3>
-					<p className="text-sm text-muted-foreground">
-						Payment records for{" "}
-						<span className="font-medium text-foreground">
+			<OverviewSection
+				title="Payments"
+				description={
+					<>
+						Charges and payments for{" "}
+						<bdi className="text-foreground">
 							{activeStudentTerm?.term || "the selected term"}
-						</span>
+						</bdi>
 						.
-					</p>
-				</div>
-				<div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+					</>
+				}
+			>
+				<div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
 					<Button
-						className="w-full sm:w-auto"
+						type="button"
+						size="sm"
+						className="col-span-2 gap-1.5"
+						onClick={() =>
+							setReceivePaymentParams({
+								receivePayment: true,
+								receivePaymentStudentId: studentId,
+							})
+						}
+					>
+						<CreditCard className="size-4" aria-hidden />
+						Collect payment
+					</Button>
+					<Button
+						type="button"
+						size="sm"
 						variant="outline"
-						size="sm"
-						type="button"
-						disabled
+						className="gap-1.5"
+						disabled={!enabled}
+						onClick={() => setModal("charge")}
 					>
-						<ScrollText className="w-4 h-4 mr-1" />
-						Statement
+						<Plus className="size-4" aria-hidden />
+						Add charge
 					</Button>
 					<Button
-						onClick={() => _openForm("bill")}
-						variant={openForm === "bill" ? "default" : "outline"}
-						size="sm"
 						type="button"
-						className="w-full sm:w-auto"
-					>
-						<Plus className="w-4 h-4 mr-1" />
-						Bill
-					</Button>
-					<Button
-						onClick={handleCollectPayment}
+						size="sm"
 						variant="outline"
-						size="sm"
-						type="button"
-						className="w-full sm:w-auto"
+						className="gap-1.5"
+						disabled={!enabled}
+						onClick={() => setModal("purchase")}
 					>
-						<CreditCard className="w-4 h-4 mr-1" />
-						Collect Payment
-					</Button>
-					<Button
-						onClick={() => _openForm("purchase")}
-						variant={openForm === "purchase" ? "default" : "outline"}
-						size="sm"
-						type="button"
-						className="w-full sm:w-auto"
-					>
-						<Plus className="w-4 h-4 mr-1" />
+						<ShoppingBag className="size-4" aria-hidden />
 						Purchase
 					</Button>
 				</div>
+			</OverviewSection>
+
+			<div className="pb-5">
+				<OverviewDetails
+					size="lg"
+					columns={3}
+					className="pb-3"
+					details={[
+						{
+							label: "Charged",
+							value: formatNaira(summary.totalDue),
+							hint: "Fees and charges this term",
+						},
+						{
+							label: "Paid",
+							value: formatNaira(receivedTotal),
+							hint: `${received.length} payment${received.length === 1 ? "" : "s"} received`,
+						},
+						{
+							label: "Outstanding",
+							value: formatNaira(summary.totalPending),
+							hint: summary.totalPending > 0 ? "Balance due" : "Nothing owed",
+							className:
+								summary.totalPending > 0
+									? "text-destructive"
+									: "text-status-success-fg",
+						},
+					]}
+				/>
+				<OverviewMeter
+					value={paidPercentage}
+					label="Share of charges paid"
+					tone="success"
+				/>
 			</div>
 
-			{/* Bill form */}
-			<Collapsible open={openForm === "bill"}>
-				<CollapsibleContent>
-					{hasActiveTerm && studentId ? (
-						<CreateStudentBilling
-							termId={activeStudentTerm?.termId ?? ""}
-							studentId={studentId}
-							studentTermId={activeStudentTerm?.studentTermId}
-						/>
-					) : (
-						<div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-							Student must be enrolled in an active term before new fees can be
-							created.
-						</div>
-					)}
-				</CollapsibleContent>
-			</Collapsible>
+			{fees.length > 0 ? (
+				<OverviewSection
+					title="Fees"
+					description={`${fees.length} item${fees.length === 1 ? "" : "s"} this term`}
+				>
+					<ItemGroup className="-mx-2">
+						{fees.map((fee, index) => {
+							const status =
+								FEE_STATUS[fee.status ?? "PENDING"] ?? FEE_STATUS.PENDING;
+							const amount = fee.amount ?? 0;
+							const pending = fee.pendingAmount ?? 0;
+							const cancelId =
+								fee.cancellable && fee.status !== "PAID"
+									? fee.studentFeeId
+									: null;
+							return (
+								<div key={fee.key}>
+									{index > 0 ? <ItemSeparator /> : null}
+									<Item size="sm" className="items-start">
+										<ItemContent className="min-w-0 gap-2">
+											<div className="flex flex-wrap items-center gap-2">
+												<ItemTitle className="break-words">
+													{fee.title ?? "Fee"}
+												</ItemTitle>
+												<Badge variant={status.variant}>{status.label}</Badge>
+											</div>
+											{fee.status !== "UNAPPLIED" ? (
+												<OverviewMeter
+													value={
+														amount > 0
+															? ((fee.paidAmount ?? 0) / amount) * 100
+															: 0
+													}
+													label={`${fee.title ?? "Fee"} paid`}
+													tone="success"
+													className="max-w-56"
+												/>
+											) : null}
+											<ItemDescription className="line-clamp-none">
+												{fee.status === "UNAPPLIED"
+													? fee.description || "Not charged to this student yet"
+													: pending === 0
+														? "Fully paid"
+														: `${formatNaira(pending)} left${fee.description && fee.description !== fee.title ? ` · ${fee.description}` : ""}`}
+											</ItemDescription>
+										</ItemContent>
+										<ItemActions className="gap-1">
+											<span className="text-sm font-medium tabular-nums">
+												{formatNaira(amount)}
+											</span>
+											{cancelId ? (
+												<DropdownMenu>
+													<DropdownMenuTrigger asChild>
+														<Button
+															type="button"
+															variant="ghost"
+															size="icon"
+															className="size-8"
+															aria-label={`Actions for ${fee.title ?? "fee"}`}
+														>
+															<MoreHorizontal className="size-4" />
+														</Button>
+													</DropdownMenuTrigger>
+													<DropdownMenuContent align="end">
+														<DropdownMenuItem
+															className="text-destructive focus:text-destructive"
+															onSelect={() =>
+																setPendingCancel({
+																	kind: "fee",
+																	id: cancelId,
+																	title: fee.title ?? "this fee",
+																})
+															}
+														>
+															Cancel fee
+														</DropdownMenuItem>
+													</DropdownMenuContent>
+												</DropdownMenu>
+											) : (
+												<span className="size-8" aria-hidden />
+											)}
+										</ItemActions>
+									</Item>
+								</div>
+							);
+						})}
+					</ItemGroup>
+				</OverviewSection>
+			) : null}
 
-			{/* Purchase form */}
-			<Collapsible open={openForm === "purchase"}>
-				<CollapsibleContent>
-					<StudentPurchaseForm
+			<OverviewSection
+				title="Transactions"
+				description={`${payments.length} transaction${payments.length === 1 ? "" : "s"} this term`}
+			>
+				{payments.length === 0 ? (
+					<p className="text-sm text-muted-foreground">
+						No payments recorded for this term yet.
+					</p>
+				) : (
+					<PaymentList payments={payments} onCancel={setPendingCancel} />
+				)}
+			</OverviewSection>
+
+			{enabled && studentId && termId ? (
+				<>
+					<StudentChargeModal
+						open={modal === "charge"}
+						onOpenChange={(open) => setModal(open ? "charge" : null)}
+						studentId={studentId}
+						termId={termId}
+						studentTermId={activeStudentTerm?.studentTermId}
+					/>
+					<StudentPurchaseModal
+						open={modal === "purchase"}
+						onOpenChange={(open) => setModal(open ? "purchase" : null)}
 						studentId={studentId}
 						studentTermFormId={activeStudentTerm?.studentTermId}
-						onSuccess={() => {
-							setOpenForm(undefined);
-							qc.invalidateQueries({
-								queryKey: trpc.finance.getStudentPayments.queryKey({
-									studentId,
-									termId: activeStudentTerm?.termId ?? undefined,
-								}),
-							});
-							qc.invalidateQueries({
-								queryKey: trpc.finance.getReceivePaymentData.queryKey({
-									studentId,
-								}),
-							});
-						}}
+						onSuccess={refreshFinance}
 					/>
-				</CollapsibleContent>
-			</Collapsible>
+				</>
+			) : null}
 
-			{/* Summary Cards */}
-			<div data-summary-grid className="hidden md:grid md:grid-cols-3 gap-4">
-				{/* Total Invoiced */}
-				<Card className="bg-card rounded-xl shadow-sm">
-					<CardContent data-summary-body className="p-5">
-						<div className="flex items-center gap-3 mb-2">
-							<div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-								<Receipt className="w-4 h-4" />
-							</div>
-							<p data-summary-label className="text-muted-foreground text-sm font-medium">
-								Total Invoiced
-							</p>
-						</div>
-						<p data-summary-value className="text-foreground text-2xl font-bold">
-							<SummaryNumber value={summary.totalDue} currency="NGN" />
-						</p>
-						<p data-summary-label className="text-xs text-muted-foreground mt-1">
-							All fees and charges in this term
-						</p>
-					</CardContent>
-				</Card>
-
-				{/* Total Paid */}
-				<Card className="bg-card rounded-xl shadow-sm">
-					<CardContent data-summary-body className="p-5">
-						<div className="flex items-center gap-3 mb-2">
-							<div className="h-8 w-8 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-600 dark:text-green-400">
-								<Wallet className="w-4 h-4" />
-							</div>
-							<p data-summary-label className="text-muted-foreground text-sm font-medium">
-								Total Paid
-							</p>
-						</div>
-						<p data-summary-value className="text-foreground text-2xl font-bold">
-							<SummaryNumber value={receivedTotal} currency="NGN" />
-						</p>
-						<div className="w-full bg-muted h-1.5 rounded-full mt-2 overflow-hidden">
-							<div
-								className="bg-green-500 h-1.5 rounded-full transition-all"
-								style={{ width: `${paidPercentage}%` }}
-							/>
-						</div>
-						<p data-summary-label className="text-xs text-muted-foreground mt-1">
-							{successfulPayments.length} recorded payment
-							{successfulPayments.length === 1 ? "" : "s"}
-						</p>
-					</CardContent>
-				</Card>
-
-				{/* Outstanding */}
-				<Card className="bg-card rounded-xl shadow-sm border-red-100 dark:border-red-900/30 relative overflow-hidden">
-					<div className="absolute right-0 top-0 h-full w-1 bg-red-500" />
-					<CardContent data-summary-body className="p-5">
-						<div className="flex items-center gap-3 mb-2">
-							<div className="h-8 w-8 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-600 dark:text-red-400">
-								<AlertTriangle className="w-4 h-4" />
-							</div>
-							<p data-summary-label className="text-muted-foreground text-sm font-medium">
-								Outstanding
-							</p>
-						</div>
-						<p data-summary-value className="text-red-600 dark:text-red-400 text-2xl font-bold">
-							<SummaryNumber value={summary.totalPending} currency="NGN" />
-						</p>
-						<p data-summary-label className="text-xs text-red-500 mt-1 font-medium">Balance due</p>
-					</CardContent>
-				</Card>
-			</div>
-
-			<div className="grid grid-cols-1 gap-4 xl:grid-cols-5 xl:gap-6">
-				{hasFees && (
-					<Card className="bg-card rounded-xl shadow-sm overflow-hidden xl:col-span-2">
-						<div className="flex items-center justify-between gap-3 border-b border-border bg-muted/30 px-4 py-4 sm:px-5">
-							<h3 className="text-foreground text-base font-bold">
-								Fee Structure
-							</h3>
-							<Badge variant="secondary">Current term</Badge>
-						</div>
-						<div className="flex flex-col gap-4 p-4 sm:p-5">
-							{rpData?.feeItems?.map((item) => (
-								<FeeItemRow
-									key={item.key}
-									item={item}
-									onCancel={(id) => cancelFeeMutate({ id, reason: "" })}
-									cancelPending={cancelFeePending}
-								/>
-							))}
-							{rpData?.manualFeeHistories?.map((item) => (
-								<FeeItemRow
-									key={item.feeHistoryId}
-									item={{
-										key: item.feeHistoryId,
-										title: item.title,
-										description: item.description,
-										amount: item.amount,
-										paidAmount: 0,
-										pendingAmount: item.amount,
-										status: "UNAPPLIED",
-									}}
-								/>
-							))}
-							{rpData?.otherCharges?.map((item) => (
-								<FeeItemRow
-									key={item.key}
-									item={{
-										key: item.key,
-										title: item.title,
-										description: item.description,
-										amount: item.amount,
-										paidAmount: item.paidAmount,
-										pendingAmount: item.pendingAmount,
-										status: item.status,
-										studentFeeId: item.studentFeeId,
-									}}
-									onCancel={(id) => cancelFeeMutate({ id, reason: "" })}
-									cancelPending={cancelFeePending}
-								/>
-							))}
-						</div>
-					</Card>
-				)}
-
-				<Card className="bg-card rounded-xl shadow-sm overflow-hidden xl:col-span-3">
-					<div className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
-						<div className="min-w-0">
-							<h3 className="text-foreground text-base font-bold">
-								Transaction History
-							</h3>
-							<p className="text-xs text-muted-foreground mt-1">
-								{transactionCount} transaction
-								{transactionCount === 1 ? "" : "s"} in this term
-							</p>
-						</div>
-						<div className="flex items-center gap-2">
-							<Button variant="ghost" size="icon" type="button" disabled>
-								<Filter className="w-4 h-4" />
-							</Button>
-							<Button variant="ghost" size="icon" type="button" disabled>
-								<Printer className="w-4 h-4" />
-							</Button>
-						</div>
-					</div>
-					<PaymentHistoryList
-						payments={payments ?? []}
-						studentId={studentId ?? ""}
-						termId={activeStudentTerm?.termId ?? undefined}
-					/>
-				</Card>
-			</div>
-
-			{/* Info Box */}
-			<div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-lg p-4 flex gap-3">
-				<Info className="text-blue-600 dark:text-blue-400 shrink-0 h-5 w-5 mt-0.5" />
-				<div>
-					<h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">
-						Payment Information
-					</h4>
-					<p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-						All payment records are scoped to the current term. Use the term
-						selector in the header to view payment history for other terms.
-					</p>
-				</div>
-			</div>
+			<AlertDialog
+				open={Boolean(pendingCancel)}
+				onOpenChange={(open) => !open && !cancelling && setPendingCancel(null)}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							{pendingCancel?.kind === "payment"
+								? "Cancel this payment?"
+								: "Cancel this fee?"}
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							{pendingCancel?.kind === "payment"
+								? `${formatNaira(pendingCancel.amount)} for ${pendingCancel.title} is reversed and the amount goes back onto the student's balance.`
+								: `${pendingCancel?.title ?? "This fee"} is removed from this term's charges. Payments already made stay on record.`}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={cancelling}>Keep it</AlertDialogCancel>
+						<AlertDialogAction
+							className={buttonVariants({ variant: "destructive" })}
+							disabled={cancelling}
+							onClick={(event) => {
+								event.preventDefault();
+								confirmCancel();
+							}}
+						>
+							{pendingCancel?.kind === "payment"
+								? "Cancel payment"
+								: "Cancel fee"}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }
 
-// ── Payment History List ──────────────────────────────────────────────────────
-
-function PaymentHistoryList({
+function PaymentList({
 	payments,
-	studentId,
-	termId,
+	onCancel,
 }: {
-	payments: Array<{
-		id?: string;
-		amount?: number;
-		status?: string | null;
-		type?: "FEE" | "PURCHASE" | null;
-		paymentType?: string | null;
-		description?: string | null;
-		createdAt?: Date | string | null;
-		studentFee?: { feeTitle?: string | null } | null;
-		walletTransaction?: {
-			id?: string | null;
-			summary?: string | null;
-			transactionDate?: Date | string | null;
-			status?: string | null;
-		} | null;
-	}>;
-	studentId: string;
-	termId?: string | null;
+	payments: PaymentRow[];
+	onCancel: (pending: PendingCancel) => void;
 }) {
-	const trpc = useTRPC();
-	const qc = useQueryClient();
 	const openReceipt = (paymentId: string, download = false) => {
 		const params = new URLSearchParams({ paymentIds: paymentId });
-		if (download) {
-			params.set("download", "true");
-		}
+		if (download) params.set("download", "true");
 		window.open(
 			`/api/pdf/student-payment-receipt?${params.toString()}`,
 			"_blank",
 		);
 	};
 
-	const { mutate: reverse, isPending } = useMutation(
-		trpc.finance.reverseStudentPayment.mutationOptions({
-			meta: {
-				toastTitle: {
-					loading: "Cancelling payment...",
-					success: "Payment cancelled",
-					error: "Failed to cancel payment",
-				},
-			},
-			onSuccess() {
-				qc.invalidateQueries({
-					queryKey: trpc.finance.getStudentPayments.queryKey({
-						studentId,
-						termId: termId ?? undefined,
-					}),
-				});
-				qc.invalidateQueries({
-					queryKey: trpc.finance.getReceivePaymentData.queryKey({ studentId }),
-				});
-			},
-		}),
-	);
-
 	return (
-		<div>
-			{payments.length === 0 ? (
-				<div className="px-5 py-10 text-center text-sm text-muted-foreground">
-					No recorded payments yet for this term.
-				</div>
-			) : (
-				<>
-					<div className="divide-y divide-border md:hidden">
-						{payments.map((p) => {
-							const date = p.walletTransaction?.transactionDate || p.createdAt;
-							const canReverse =
-								p.status === "success" &&
-								p.walletTransaction?.status === "success" &&
-								p.walletTransaction?.id;
-							const method =
-								p.description?.split("•")[0]?.trim() ||
-								p.walletTransaction?.summary?.split("•")[0]?.trim() ||
-								(p.type === "PURCHASE" ? "Purchase" : "Payment");
-							const paymentId = p.id ?? p.walletTransaction?.id ?? "";
-							const refId = p.walletTransaction?.id
-								? `#${p.walletTransaction.id.slice(0, 8).toUpperCase()}`
-								: paymentId
-									? `#${paymentId.slice(0, 8).toUpperCase()}`
-									: "#PAYMENT";
-							const statusClass =
-								p.status === "success"
-									? "border-green-300 text-green-600 dark:border-green-800 dark:text-green-400"
-									: p.status === "draft"
-										? "border-yellow-300 text-yellow-700 dark:border-yellow-800 dark:text-yellow-400"
-										: "border-red-300 text-red-500 dark:border-red-800 dark:text-red-400";
+		<ItemGroup className="-mx-2">
+			{payments.map((payment, index) => {
+				const paymentId = payment.id ?? payment.walletTransaction?.id ?? "";
+				const date =
+					payment.walletTransaction?.transactionDate || payment.createdAt;
+				const title =
+					payment.studentFee?.feeTitle || payment.paymentType || "Payment";
+				const method =
+					payment.description?.split("•")[0]?.trim() ||
+					payment.walletTransaction?.summary?.split("•")[0]?.trim() ||
+					(payment.type === "PURCHASE" ? "Purchase" : "Payment");
+				const ref = (payment.walletTransaction?.id || paymentId)
+					.slice(0, 8)
+					.toUpperCase();
+				const status = paymentStatus(payment.status);
+				const canPrint = payment.status === "success" && Boolean(paymentId);
+				const canReverse =
+					payment.status === "success" &&
+					payment.walletTransaction?.status === "success" &&
+					Boolean(payment.walletTransaction?.id);
 
-							return (
-								<article
-									key={paymentId || refId}
-									className="space-y-4 px-4 py-4"
-								>
-									<div className="flex items-start justify-between gap-3">
-										<div className="min-w-0">
-											<p className="truncate text-sm font-semibold text-foreground">
-												{p.studentFee?.feeTitle || p.paymentType || "Payment"}
-											</p>
-											{p.description ? (
-												<p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-													{p.description}
-												</p>
-											) : null}
-										</div>
-										<Badge
-											variant="outline"
-											className={cn("shrink-0 text-xs", statusClass)}
-										>
-											{p.status}
-										</Badge>
-									</div>
-
-									<div className="rounded-lg border border-border bg-muted/20 p-3">
-										<div className="flex items-baseline justify-between gap-3">
-											<span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-												Amount
-											</span>
-											<span className="text-base font-bold text-foreground">
-												<AnimatedNumber value={p.amount ?? 0} currency="NGN" />
-											</span>
-										</div>
-										<div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-											<div>
-												<p className="font-medium uppercase tracking-wide text-muted-foreground">
-													Date
-												</p>
-												<p className="mt-1 text-foreground">
-													{date ? format(new Date(date), "dd MMM yyyy") : "-"}
-												</p>
-											</div>
-											<div>
-												<p className="font-medium uppercase tracking-wide text-muted-foreground">
-													Method
-												</p>
-												<p className="mt-1 truncate text-foreground">{method}</p>
-											</div>
-											<div className="col-span-2">
-												<p className="font-medium uppercase tracking-wide text-muted-foreground">
-													Ref ID
-												</p>
-												<p className="mt-1 font-mono text-muted-foreground">
-													{refId}
-												</p>
-											</div>
-										</div>
-									</div>
-
-									{p.status === "success" || canReverse ? (
-										<div className="grid gap-2 sm:grid-cols-3">
-											{p.status === "success" ? (
+				return (
+					<div key={paymentId || `${title}-${index}`}>
+						{index > 0 ? <ItemSeparator /> : null}
+						<Item size="sm" className="items-start">
+							<ItemContent className="min-w-0">
+								<ItemTitle className="break-words">{title}</ItemTitle>
+								<ItemDescription className="line-clamp-none">
+									{[date ? format(new Date(date), "d MMM yyyy") : null, method]
+										.filter(Boolean)
+										.join(" · ")}
+									{ref ? <span className="font-mono"> · #{ref}</span> : null}
+								</ItemDescription>
+							</ItemContent>
+							<ItemActions className="gap-1">
+								<div className="flex flex-col items-end gap-1">
+									<span className="text-sm font-medium tabular-nums">
+										{formatNaira(payment.amount ?? 0)}
+									</span>
+									<Badge variant={status.variant}>{status.label}</Badge>
+								</div>
+								{canPrint || canReverse ? (
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												className="size-8"
+												aria-label={`Actions for ${title}`}
+											>
+												<MoreHorizontal className="size-4" />
+											</Button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="end">
+											{canPrint ? (
 												<>
-													<Button
-														variant="outline"
-														size="sm"
-														type="button"
-														className="w-full"
-														onClick={() => paymentId && openReceipt(paymentId)}
+													<DropdownMenuItem
+														onSelect={() => openReceipt(paymentId)}
 													>
-														Print
-													</Button>
-													<Button
-														variant="outline"
-														size="sm"
-														type="button"
-														className="w-full"
-														onClick={() =>
-															paymentId && openReceipt(paymentId, true)
-														}
+														Print receipt
+													</DropdownMenuItem>
+													<DropdownMenuItem
+														onSelect={() => openReceipt(paymentId, true)}
 													>
-														Download
-													</Button>
+														Download receipt
+													</DropdownMenuItem>
 												</>
 											) : null}
+											{canPrint && canReverse ? (
+												<DropdownMenuSeparator />
+											) : null}
 											{canReverse ? (
-												<Button
-													variant="ghost"
-													size="sm"
-													type="button"
-													className="w-full text-destructive hover:text-destructive"
-													disabled={isPending}
-													onClick={() =>
-														reverse({
-															paymentId,
+												<DropdownMenuItem
+													className="text-destructive focus:text-destructive"
+													onSelect={() =>
+														onCancel({
+															kind: "payment",
+															id: paymentId,
+															title,
+															amount: payment.amount ?? 0,
 														})
 													}
 												>
-													Cancel
-												</Button>
+													Cancel payment
+												</DropdownMenuItem>
 											) : null}
-										</div>
-									) : null}
-								</article>
-							);
-						})}
+										</DropdownMenuContent>
+									</DropdownMenu>
+								) : (
+									<span className="size-8" aria-hidden />
+								)}
+							</ItemActions>
+						</Item>
 					</div>
-
-					<div className="hidden overflow-x-auto md:block">
-						<table className="w-full text-left text-sm">
-						<thead className="text-xs text-muted-foreground uppercase bg-muted/40">
-							<tr>
-								<th className="px-5 py-3 font-medium">Date</th>
-								<th className="px-5 py-3 font-medium">Ref ID</th>
-								<th className="px-5 py-3 font-medium">Description</th>
-								<th className="px-5 py-3 font-medium">Method</th>
-								<th className="px-5 py-3 font-medium">Amount</th>
-								<th className="px-5 py-3 font-medium">Status</th>
-								<th className="px-5 py-3 font-medium text-right">Actions</th>
-							</tr>
-						</thead>
-						<tbody className="divide-y divide-border">
-							{payments.map((p) => {
-								const date =
-									p.walletTransaction?.transactionDate || p.createdAt;
-								const canReverse =
-									p.status === "success" &&
-									p.walletTransaction?.status === "success" &&
-									p.walletTransaction?.id;
-								const method =
-									p.description?.split("•")[0]?.trim() ||
-									p.walletTransaction?.summary?.split("•")[0]?.trim() ||
-									(p.type === "PURCHASE" ? "Purchase" : "Payment");
-								const paymentId = p.id ?? p.walletTransaction?.id ?? "";
-								const refId = p.walletTransaction?.id
-									? `#${p.walletTransaction.id.slice(0, 8).toUpperCase()}`
-									: paymentId
-										? `#${paymentId.slice(0, 8).toUpperCase()}`
-										: "#PAYMENT";
-								const statusClass =
-									p.status === "success"
-										? "border-green-300 text-green-600 dark:border-green-800 dark:text-green-400"
-										: p.status === "draft"
-											? "border-yellow-300 text-yellow-700 dark:border-yellow-800 dark:text-yellow-400"
-											: "border-red-300 text-red-500 dark:border-red-800 dark:text-red-400";
-
-								return (
-									<tr
-										key={paymentId || refId}
-										className="hover:bg-muted/20 transition-colors"
-									>
-										<td className="px-5 py-4 whitespace-nowrap text-foreground">
-											{date ? format(new Date(date), "dd MMM yyyy") : ""}
-										</td>
-										<td className="px-5 py-4 font-mono text-xs text-muted-foreground">
-											{refId}
-										</td>
-										<td className="px-5 py-4">
-											<p className="font-medium text-foreground">
-												{p.studentFee?.feeTitle || p.paymentType || "Payment"}
-											</p>
-											{p.description ? (
-												<p className="text-xs text-muted-foreground mt-1">
-													{p.description}
-												</p>
-											) : null}
-										</td>
-										<td className="px-5 py-4 text-muted-foreground">
-											{method}
-										</td>
-										<td className="px-5 py-4 font-semibold text-foreground whitespace-nowrap">
-											<AnimatedNumber value={p.amount ?? 0} currency="NGN" />
-										</td>
-										<td className="px-5 py-4">
-											<Badge
-												variant="outline"
-												className={cn("text-xs", statusClass)}
-											>
-												{p.status}
-											</Badge>
-										</td>
-										<td className="px-5 py-4">
-											<div className="flex items-center justify-end gap-1">
-												{p.status === "success" && (
-													<>
-														<Button
-															variant="ghost"
-															size="xs"
-															type="button"
-															onClick={() =>
-																paymentId && openReceipt(paymentId)
-															}
-														>
-															Print
-														</Button>
-														<Button
-															variant="ghost"
-															size="xs"
-															type="button"
-															onClick={() =>
-																paymentId && openReceipt(paymentId, true)
-															}
-														>
-															Download
-														</Button>
-													</>
-												)}
-												{canReverse && (
-													<Button
-														variant="ghost"
-														size="xs"
-														type="button"
-														disabled={isPending}
-														onClick={() =>
-															reverse({
-																paymentId,
-															})
-														}
-													>
-														Cancel
-													</Button>
-												)}
-											</div>
-										</td>
-									</tr>
-								);
-							})}
-						</tbody>
-						</table>
-					</div>
-				</>
-			)}
-		</div>
-	);
-}
-
-// ── Student Purchase Form ─────────────────────────────────────────────────────
-
-const purchaseSchema = z.object({
-	title: z.string().min(1),
-	description: z.string().optional().nullable(),
-	amount: z.number().positive(),
-	paid: z.boolean().default(true),
-	paymentMethod: z.string().optional().nullable(),
-});
-
-function StudentPurchaseForm({
-	studentId,
-	studentTermFormId,
-	onSuccess,
-}: {
-	studentId: string;
-	studentTermFormId?: string | null;
-	onSuccess?: () => void;
-}) {
-	const trpc = useTRPC();
-	const [title, setTitle] = useState("");
-	const [amount, setAmount] = useState("");
-	const [method, setMethod] = useState("Cash");
-	const [description, setDescription] = useState("");
-	const [purchaseSearch, setPurchaseSearch] = useState("");
-	const { data: purchaseSuggestions = [] } = useQuery(
-		trpc.finance.getStudentPurchaseSuggestions.queryOptions(
-			{
-				query: purchaseSearch || undefined,
-			},
-			{
-				enabled: Boolean(studentTermFormId),
-			},
-		),
-	);
-
-	const { mutate, isPending } = useMutation(
-		trpc.finance.createStudentPurchase.mutationOptions({
-			meta: {
-				toastTitle: {
-					loading: "Recording purchase...",
-					success: "Purchase recorded",
-					error: "Failed to record purchase",
-				},
-			},
-			onSuccess,
-		}),
-	);
-
-	const PRESETS = [
-		"Uniform",
-		"Textbooks",
-		"Exercise Books",
-		"Stationery",
-		"PE Kit",
-		"School Bag",
-	];
-
-	if (!studentTermFormId) {
-		return (
-			<div className="border border-border rounded-lg p-4 text-sm text-muted-foreground">
-				Student must be enrolled in a term to record purchases.
-			</div>
-		);
-	}
-
-	return (
-		<div className="rounded-lg border border-border bg-muted/20 p-3 sm:p-4">
-			<div className="mb-3 flex flex-wrap gap-2">
-				{PRESETS.map((p) => (
-					<button
-						key={p}
-						type="button"
-						onClick={() => setTitle(p)}
-						className={cn(
-							"rounded border border-border px-2 py-1 text-xs transition-colors hover:bg-accent",
-							title === p && "bg-accent",
-						)}
-					>
-						{p}
-					</button>
-				))}
-			</div>
-			<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-				<div className="grid gap-1.5">
-					<Label className="text-sm">Item</Label>
-					<ComboboxDropdown
-						items={purchaseSuggestions.map((item) => ({
-							id: item.id,
-							label: item.title,
-							description: item.description,
-							amount: item.amount,
-						}))}
-						selectedItem={
-							title
-								? {
-										id: title,
-										label: title,
-										description,
-										amount: Number(amount || 0),
-									}
-								: null
-						}
-						placeholder="e.g. School Uniform"
-						searchPlaceholder="Search previous inventory items..."
-						onSearch={setPurchaseSearch}
-						onSelect={(item) => {
-							setTitle(item.label);
-							setDescription(item.description || "");
-							setAmount(String(item.amount ?? ""));
-						}}
-						onCreate={(value) => {
-							setTitle(value.trim());
-						}}
-						renderOnCreate={(value) => <span>Use "{value}" as a new item</span>}
-						renderSelectedItem={(item) => <span>{item.label}</span>}
-						renderListItem={({ item }) => (
-							<div className="flex w-full items-center justify-between gap-3">
-								<div className="flex flex-col">
-									<span className="font-medium">{item.label}</span>
-									{item.description ? (
-										<span className="text-xs text-muted-foreground">
-											{item.description}
-										</span>
-									) : null}
-								</div>
-								<span className="text-xs font-medium">
-									NGN {Number(item.amount || 0).toLocaleString()}
-								</span>
-							</div>
-						)}
-					/>
-					<p className="text-xs text-muted-foreground">
-						Selecting a previous item fills title, description, and amount.
-					</p>
-				</div>
-				<div className="grid gap-1.5">
-					<Label className="text-sm">Amount (NGN)</Label>
-					<input
-						type="number"
-						className="flex h-9 w-full rounded-md border border-border bg-transparent px-3 py-1 text-sm shadow-sm"
-						placeholder="0.00"
-						value={amount}
-						onChange={(e) => setAmount(e.target.value)}
-					/>
-				</div>
-				<div className="grid gap-1.5">
-					<Label className="text-sm">Payment Method</Label>
-					<Select value={method} onValueChange={setMethod}>
-						<SelectTrigger>
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="Cash">Cash</SelectItem>
-							<SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-							<SelectItem value="Card">Card (POS)</SelectItem>
-						</SelectContent>
-					</Select>
-				</div>
-				<div className="grid gap-1.5">
-					<Label className="text-sm">Notes (optional)</Label>
-					<input
-						className="flex h-9 w-full rounded-md border border-border bg-transparent px-3 py-1 text-sm shadow-sm"
-						placeholder="Additional notes"
-						value={description}
-						onChange={(e) => setDescription(e.target.value)}
-					/>
-				</div>
-			</div>
-			<div className="mt-3">
-				<SubmitButton
-					isSubmitting={isPending}
-					disabled={!title || !amount}
-					type="button"
-					onClick={() =>
-						mutate({
-							studentId,
-							studentTermFormId,
-							title,
-							description: description || undefined,
-							amount: Number.parseFloat(amount),
-							paid: true,
-							paymentMethod: method,
-						})
-					}
-				>
-					Record Purchase
-				</SubmitButton>
-			</div>
-		</div>
+				);
+			})}
+		</ItemGroup>
 	);
 }

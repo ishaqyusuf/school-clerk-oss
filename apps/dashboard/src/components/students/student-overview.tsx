@@ -1,6 +1,6 @@
 import { StudentOverviewSectionsSkeleton } from "./student-overview.loading";
 import { Suspense, useEffect, useState } from "react";
-import { OverviewSection } from "./overview-section";
+import { OverviewDetails, OverviewSection } from "./overview-section";
 import { Button } from "@school-clerk/ui/button";
 import { Badge } from "@school-clerk/ui/badge";
 import {
@@ -88,23 +88,7 @@ function Content() {
 
   return (
     <div className="divide-y divide-border">
-      <div className="@container">
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 py-5 @2xl:grid-cols-4">
-        {details.map((detail) => (
-          <div key={detail.label} className="min-w-0 space-y-1">
-            <dt className="text-xs text-muted-foreground">{detail.label}</dt>
-            <dd
-              className={cn(
-                "break-words text-sm font-medium text-foreground",
-                detail.mono && "font-mono",
-              )}
-            >
-              <bdi>{detail.value}</bdi>
-            </dd>
-          </div>
-        ))}
-      </dl>
-      </div>
+      <OverviewDetails details={details} />
 
       <div className="py-5 empty:hidden">
         <StudentDuplicateAlert

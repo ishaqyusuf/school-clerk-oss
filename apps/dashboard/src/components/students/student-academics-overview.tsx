@@ -1,161 +1,121 @@
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { TableSkeleton } from "../tables/skeleton";
 import { Suspense } from "react";
 
+import { useDebugToast } from "@/hooks/use-debug-console";
+import { useStudentFeePreview } from "@/hooks/use-student-fee-preview";
+import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
 import { useZodForm } from "@/hooks/use-zod-form";
 import { entrollStudentToTermSchema } from "@school-clerk/assessment-results";
-import { Form } from "@school-clerk/ui/form";
-import { useDebugToast } from "@/hooks/use-debug-console";
-import { SubmitButton } from "../submit-button";
-import { useStudentOverviewSheet } from "@/hooks/use-student-overview-sheet";
-import { FormDebugBtn } from "../form-debug-btn";
-import { FormCombobox } from "@school-clerk/ui/controls/form-combobox";
-import { selectOptions } from "@school-clerk/utils";
-import { Card, CardContent } from "@school-clerk/ui/card";
+import { Alert, AlertDescription } from "@school-clerk/ui/alert";
 import { Badge } from "@school-clerk/ui/badge";
-import { GraduationCap, Layers3, Info } from "lucide-react";
-import { StudentHistoryUnavailable } from "./student-history-unavailable";
-import { useStudentFeePreview } from "@/hooks/use-student-fee-preview";
 import { Button } from "@school-clerk/ui/button";
+import { FormCombobox } from "@school-clerk/ui/controls/form-combobox";
+import { Form } from "@school-clerk/ui/form";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemSeparator,
+  ItemTitle,
+} from "@school-clerk/ui/item";
+import { selectOptions } from "@school-clerk/utils";
+import { ArrowRight } from "lucide-react";
+import { formatNaira } from "../finance/student-payment-allocation";
+import { SubmitButton } from "../submit-button";
+import { OverviewDetails, OverviewSection } from "./overview-section";
+import { StudentHistoryUnavailable } from "./student-history-unavailable";
+import { StudentAcademicsSkeleton } from "./student-overview.loading";
 
 function fullClassName(term?: {
   classDisplayName?: string | null;
   departmentName?: string | null;
 }) {
-  return term?.classDisplayName || term?.departmentName || "--";
+  return term?.classDisplayName || term?.departmentName || "—";
 }
 
-export function StudentAcademicsOverview({}) {
+export function StudentAcademicsOverview() {
   return (
-    <Suspense fallback={<TableSkeleton />}>
+    <Suspense fallback={<StudentAcademicsSkeleton />}>
       <Content />
     </Suspense>
   );
 }
-function Content({}) {
+
+function Notice({ children }: { children: React.ReactNode }) {
+  return <p className="break-words py-6 text-sm text-muted-foreground">{children}</p>;
+}
+
+function Content() {
   const svc = useStudentOverviewSheet();
   if (!svc?.overviewData?.student?.id) return null;
 
   const term = svc.activeStudentTerm;
-  if (!term) return <p className="break-words p-4 text-sm text-muted-foreground">No available academic term is selected. Ask an administrator to review the school terms.</p>;
+  if (!term) {
+    return <Notice>No academic term is selected. Ask an administrator to review the school terms.</Notice>;
+  }
   if (term.enrollmentState === "unavailable") return <StudentHistoryUnavailable onRefresh={svc.refresh} />;
   if (term.enrollmentState === "not-enrolled") {
-    if (!svc.overviewData.capabilities.enroll) return <p className="break-words p-4 text-sm text-muted-foreground">Enrollment is unavailable because this workflow applies term fees and requires Finance access. Ask an administrator to review module access.</p>;
-    return <NotEntrolled key={`${svc.studentId}:${term.termId}`} />;
+    if (!svc.overviewData.capabilities.enroll) {
+      return (
+        <Notice>
+          Enrollment needs Finance access because it applies term fees. Ask an administrator to review
+          module access.
+        </Notice>
+      );
+    }
+    return <NotEnrolled key={`${svc.studentId}:${term.termId}`} />;
   }
-  if (term.enrollmentState !== "enrolled" || !term.studentTermId) return <StudentHistoryUnavailable onRefresh={svc.refresh} />;
+  if (term.enrollmentState !== "enrolled" || !term.studentTermId) {
+    return <StudentHistoryUnavailable onRefresh={svc.refresh} />;
+  }
 
   return (
-    <div className="max-w-full space-y-4 overflow-x-hidden animate-in fade-in slide-in-from-bottom-2 duration-500 sm:space-y-6">
-      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="min-w-0 overflow-hidden rounded-xl border-border shadow-sm">
-          <CardContent className="p-5">
-            <div className="mb-3 flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <GraduationCap className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Enrollment Status
-                </p>
-                <p className="break-words text-sm font-semibold text-foreground">
-                  Active for selected term
-                </p>
-              </div>
-            </div>
-            <Badge
-              variant="outline"
-              className="border-primary/20 bg-primary/10 text-primary"
-            >
-              Enrolled
-            </Badge>
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0 overflow-hidden rounded-xl border-border shadow-sm">
-          <CardContent className="p-5">
-            <div className="mb-3 flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
-                <Layers3 className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Current Class
-                </p>
-                <p className="break-words text-sm font-semibold text-foreground">
-                  {fullClassName(term)}
-                </p>
-              </div>
-            </div>
-            <p className="break-words text-sm text-muted-foreground">
-              {term?.term || "No active term selected"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0 overflow-hidden rounded-xl border-border shadow-sm">
-          <CardContent className="p-5">
-            <div className="mb-3 flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <Info className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Session Link
-                </p>
-                <p className="break-words text-sm font-semibold text-foreground">
-                  {term?.studentSessionId ? "Connected" : "Pending"}
-                </p>
-              </div>
-            </div>
-            <p className="break-words text-sm text-muted-foreground">
-              Academic records, billing, and attendance will follow this term
-              selection.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="min-w-0 overflow-hidden rounded-xl border-border shadow-sm">
-        <CardContent className="p-5">
-          <h3 className="text-base font-semibold text-foreground">
-            Academic Summary
-          </h3>
-          <p className="mt-2 break-words text-sm text-muted-foreground">
-            This student is enrolled for the selected term. Use the term picker
-            in the header to review other enrollment periods, or move to the
-            attendance and payments tabs for operational details tied to this
-            selection.
-          </p>
-        </CardContent>
-      </Card>
+    <div className="divide-y divide-border">
+      <OverviewDetails
+        details={[
+          { label: "Status", value: "Enrolled", className: "text-status-success-fg" },
+          { label: "Class", value: fullClassName(term) },
+          { label: "Term", value: term.term || "—" },
+          { label: "Session record", value: term.studentSessionId ? "Linked" : "Pending" },
+        ]}
+      />
+      <OverviewSection
+        title="This term"
+        description="Results, attendance and payments follow the term picked in the header."
+      >
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => svc.setActiveTab("attendance")}>
+            Attendance
+            <ArrowRight className="size-3.5" aria-hidden />
+          </Button>
+          <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => svc.setActiveTab("finance")}>
+            Payments
+            <ArrowRight className="size-3.5" aria-hidden />
+          </Button>
+        </div>
+      </OverviewSection>
     </div>
   );
 }
-function NotEntrolled() {
+
+function NotEnrolled() {
   const svc = useStudentOverviewSheet();
   const term = svc?.activeStudentTerm;
+  const trpc = useTRPC();
   const form = useZodForm(entrollStudentToTermSchema, {
     defaultValues: {
-      studentId: svc.studentId || svc.overviewData?.student?.id!,
+      studentId: svc.studentId || svc.overviewData?.student?.id,
       schoolSessionId: term?.termSessionId,
       sessionTermId: term?.termId,
-      // termId: term?.termId,
-
       classroomDepartmentId: term?.departmentId ?? undefined,
-      // classroomId: term?.classroomId,
       studentSessionFormId: term?.studentSessionId,
     },
   });
 
-  const trpc = useTRPC();
-  const {
-    mutate,
-    data: enrolledData,
-    error,
-    isPending,
-  } = useMutation(
+  const { mutate, data: enrolledData, error, isPending } = useMutation(
     trpc.academics.entrollStudentToTerm.mutationOptions({
       retry: false,
       onSuccess() {
@@ -171,139 +131,123 @@ function NotEntrolled() {
     }),
   );
   useDebugToast("Enrollment Form", enrolledData, error);
-  const onSubmit = (formData: typeof entrollStudentToTermSchema._type) => {
-    if (isPending || isLoadingFeePreview || isFeePreviewError || !applicableFeesPreview ||
-      !svc.overviewData?.capabilities.enroll || term?.enrollmentState !== "not-enrolled" || formData.studentId !== svc.overviewData.student.id ||
-      formData.sessionTermId !== term.termId || formData.schoolSessionId !== term.termSessionId) return;
-    mutate(formData);
-  };
+
   const { data: classrooms } = useQuery(
     trpc.classrooms.getClassroomsForSession.queryOptions(term?.termSessionId, {
       enabled: !!term?.termSessionId,
     }),
   );
   const selectedClassroomDepartmentId = form.watch("classroomDepartmentId");
-  const { data: applicableFeesPreview, isLoading: isLoadingFeePreview, isError: isFeePreviewError, retry: retryFeePreview } = useStudentFeePreview({
-    sessionTermId: term?.termId || "", classroomDepartmentId: selectedClassroomDepartmentId || null,
-    admissionType: "RETURNING", studentGender: svc.overviewData!.student!.gender,
+  const {
+    data: fees,
+    isLoading: isLoadingFees,
+    isError: isFeesError,
+    retry: retryFees,
+  } = useStudentFeePreview({
+    sessionTermId: term?.termId || "",
+    classroomDepartmentId: selectedClassroomDepartmentId || null,
+    admissionType: "RETURNING",
+    studentGender: svc.overviewData?.student?.gender,
   });
 
-  // build nice student not enrolled for this term card, with enrollement formˆ
+  const feesReady = Boolean(selectedClassroomDepartmentId && !isLoadingFees && !isFeesError && fees);
+
+  const onSubmit = (formData: typeof entrollStudentToTermSchema._type) => {
+    if (
+      isPending ||
+      !feesReady ||
+      !svc.overviewData?.capabilities.enroll ||
+      term?.enrollmentState !== "not-enrolled" ||
+      formData.studentId !== svc.overviewData.student.id ||
+      formData.sessionTermId !== term.termId ||
+      formData.schoolSessionId !== term.termSessionId
+    )
+      return;
+    mutate(formData);
+  };
+
   return (
-    <div className="flex min-w-0 w-full flex-col items-center justify-center gap-4 px-4 py-6 sm:px-0">
-      {/* {JSON.stringify(term)} */}
-      <h3 className="break-words text-sm font-medium">Student not enrolled for this term</h3>
+    <OverviewSection
+      title={`Not enrolled in ${term?.term || "this term"}`}
+      description="Choose a class to enroll them. Required fees are charged on enrollment."
+    >
       <Form {...form}>
-        <form className="grid w-full min-w-0 max-w-lg gap-4" onSubmit={form.handleSubmit(onSubmit)}>
+        <form className="grid max-w-lg gap-5" onSubmit={form.handleSubmit(onSubmit)}>
           <FormCombobox
             control={form.control}
-            label={"Classroom"}
+            label="Class"
             name="classroomDepartmentId"
             comboProps={{
-              onCreate(value) {},
-              renderSelectedItem(item) {
-                return (
-                  <div className="flex items-center justify-between w-full group gap-2 flex-1">
-                    <span>{item.label as any}</span>
-                    {/* <span>{item.data?.description}</span> */}
-                    {/* <span>
-                      <AnimatedNumber
-                        value={item?.data?.amount}
-                        currency="NGN"
-                      />
-                    </span> */}
-                  </div>
-                );
-              },
-              // renderOnCreate: (name) => {
-              //   return (
-              //     <div className="flex items-center space-x-2">
-              //       <button
-              //         type="button"
-              //         onClick={() => onCreate?.(name)}
-              //       >{`Create "${name}"`}</button>
-              //     </div>
-              //   );
-              // },
-              items: [
-                ...selectOptions(classrooms?.data || [], "displayName", "id"),
-              ],
-              renderListItem(item) {
-                return (
-                  <div className="flex flex-col w-full">
-                    <div className="flex items-center justify-between w-full group gap-2 flex-1">
-                      <div className="flex-col flex">
-                        <span>{item.item?.label as any}</span>
-                        {/* <span>{item.item.data?.description}</span> */}
-                      </div>
-                      {/* <span>{item.item.data?.amount}</span> */}
-                      {/* <AnimatedNumber
-                        value={item.item.data?.amount}
-                        currency="NGN"
-                      /> */}
-                      <div className="flex-1"></div>
-                    </div>
-                  </div>
-                );
-              },
+              items: [...selectOptions(classrooms?.data || [], "displayName", "id")],
+              renderSelectedItem: (item) => <bdi>{item.label as string}</bdi>,
+              renderListItem: (item) => <bdi>{item.item?.label as string}</bdi>,
             }}
           />
-          {/* <FormCombobox control={form.control}
-          name="class" comboProps={{
-            
-          }} label="Classroom" /> */}
-          {/* <Menu label={"Add Billing"}>
-          <Menu.Item>Term Fee</Menu.Item>
-          <Menu.Item>Enrollment Fee</Menu.Item>
-        </Menu> */}
-          {/* add form select, onselect update classroomId and departmentId */}
-          <SubmitButton className="min-h-11" disabled={term?.enrollmentState !== "not-enrolled" || !selectedClassroomDepartmentId || isLoadingFeePreview || isFeePreviewError || !applicableFeesPreview} isSubmitting={isPending}>Enroll</SubmitButton>
-          {error ? <p role="alert" className="break-words text-sm text-destructive">Enrollment could not be confirmed. Refresh history before trying again; an existing matching enrollment will not be charged again by this action.</p> : null}
-          <div className="rounded-lg border border-border p-3">
-            <h4 className="text-sm font-medium">
-              Applicable fees
-            </h4>
-            {!selectedClassroomDepartmentId ? <p className="mt-2 text-sm text-muted-foreground">Select a classroom to preview fees.</p>
-              : isLoadingFeePreview ? <p role="status" className="mt-2 text-sm text-muted-foreground">Loading fee preview…</p>
-              : isFeePreviewError || !applicableFeesPreview ? <div role="alert" className="mt-2 space-y-2 text-sm">
-                <p className="break-words text-destructive">Fee preview is unavailable. Retry, or refresh history before enrolling.</p>
-                <Button type="button" variant="outline" className="min-h-11 w-full sm:w-auto" onClick={retryFeePreview}>Retry fee preview</Button>
-              </div>
-              : !applicableFeesPreview.length ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                No active term fees match this class selection.
-              </p>
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Fees for this class</p>
+            {!selectedClassroomDepartmentId ? (
+              <p className="text-sm text-muted-foreground">Pick a class to preview its fees.</p>
+            ) : isLoadingFees ? (
+              <output className="block text-sm text-muted-foreground">Loading fees…</output>
+            ) : isFeesError || !fees ? (
+              <Alert variant="destructive">
+                <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+                  Fee preview is unavailable.
+                  <Button type="button" variant="outline" size="sm" onClick={retryFees}>
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : fees.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No term fees apply to this class.</p>
             ) : (
-              <ul className="mt-2 min-w-0 space-y-2">
-                {applicableFeesPreview.map((fee) => (
-                  <li key={fee.feeHistoryId} className="rounded-md border p-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="min-w-0 break-words font-medium">{fee.title}</span>
-                      <span className="text-sm">
-                        {new Intl.NumberFormat("en-NG", {
-                          style: "currency",
-                          currency: "NGN",
-                        }).format(fee.amount)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {fee.collectable ? "Required: applied on enrollment." : "Optional: not selected by this enrollment action."}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {fee.description || "No description"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Scope: {fee.scope} • Stream:{" "}
-                      {fee.streamName || "Unassigned"}
-                    </p>
-                  </li>
+              <ItemGroup className="rounded-lg border border-border">
+                {fees.map((fee, index) => (
+                  <div key={fee.feeHistoryId}>
+                    {index > 0 ? <ItemSeparator /> : null}
+                    <Item size="sm">
+                      <ItemContent className="min-w-0">
+                        <ItemTitle className="break-words">{fee.title}</ItemTitle>
+                        <ItemDescription className="line-clamp-none">
+                          {[fee.description, fee.streamName]
+                            .filter((part) => part && part !== fee.title)
+                            .join(" · ") || (fee.collectable ? "Charged on enrollment" : "Not charged by this enrollment")}
+                        </ItemDescription>
+                      </ItemContent>
+                      <ItemActions className="flex-col items-end gap-1">
+                        <span className="text-sm font-medium tabular-nums">{formatNaira(fee.amount)}</span>
+                        <Badge variant={fee.collectable ? "secondary" : "outline"}>
+                          {fee.collectable ? "Required" : "Optional"}
+                        </Badge>
+                      </ItemActions>
+                    </Item>
+                  </div>
                 ))}
-              </ul>
+              </ItemGroup>
             )}
           </div>
-          <FormDebugBtn />
+
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>
+                Enrollment could not be confirmed. Refresh the student before trying again; a matching
+                enrollment is never charged twice.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          <div>
+            <SubmitButton
+              className="w-full sm:w-auto"
+              disabled={term?.enrollmentState !== "not-enrolled" || !feesReady}
+              isSubmitting={isPending}
+            >
+              Enroll student
+            </SubmitButton>
+          </div>
         </form>
       </Form>
-    </div>
+    </OverviewSection>
   );
 }
