@@ -6,6 +6,7 @@ import {
 	formatReportNumerals,
 	formatReportPosition,
 	formatReportTermLabel,
+	planReportCardLayout,
 	reportDensity,
 	resolveReportComment,
 } from "@school-clerk/utils/report-card";
@@ -43,6 +44,31 @@ export function reportCardRowCount(tables: ReportCardTable[]) {
 
 export function reportCardSizes(tables: ReportCardTable[]) {
 	return REPORT_CARD_DENSITY_SIZES[reportDensity(reportCardLineCount(tables))];
+}
+
+/**
+ * Page margin and text size for one report: planned from the length of its
+ * result list unless the school turned automatic sizing off.
+ */
+export function reportCardPageLayout({
+	config,
+	report,
+	templateId,
+}: Pick<ReportCardRenderProps, "config" | "report" | "templateId">) {
+	if (config.layout.autoSize === false) {
+		return {
+			auto: false,
+			pageMarginMm: config.layout.pageMarginMm,
+			fontScale: config.layout.fontScale,
+		};
+	}
+	return {
+		auto: true,
+		...planReportCardLayout({
+			lineCount: reportCardLineCount(report.tables),
+			templateId,
+		}),
+	};
 }
 
 export function reportCardSections(config: ReportCardConfig) {

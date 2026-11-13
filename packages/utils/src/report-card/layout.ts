@@ -84,3 +84,41 @@ export function reportDensity(lineCount: number) {
 	if (lineCount > 5) return "relaxed" as const;
 	return "spacious" as const;
 }
+
+/**
+ * Text scale per number of table lines (header rows + subject rows), measured
+ * with the PDF renderer so the natural page fills about 80% of an A4 sheet;
+ * the fit step then grows rows and gaps into the rest. Index = line count.
+ */
+const AUTO_TEXT_SCALE: Record<"bilingual-classic" | "framed-ledger", number[]> =
+	{
+		"bilingual-classic": [
+			1.25, 1.25, 1.25, 1.25, 1.25, 1.25, 1.25, 1.225, 1.15, 1.15, 1.125, 1.05,
+			0.975, 0.975, 0.975, 0.975, 0.925, 0.9, 0.85, 0.8, 0.775, 0.75, 0.7,
+		],
+		"framed-ledger": [
+			1.25, 1.25, 1.25, 1.25, 1.25, 1.2, 1.125, 1.025, 0.975, 0.975, 0.925,
+			0.875, 0.8, 0.8, 0.775, 0.725, 0.7,
+		],
+	};
+
+/**
+ * Chooses the page margin and text size from how long the result list is, so
+ * a lower class with four subjects prints large and airy and an upper class
+ * with twenty prints tighter, both on one page.
+ */
+export function planReportCardLayout(input: {
+	lineCount: number;
+	templateId: string;
+}) {
+	const lines = Math.max(0, Math.round(input.lineCount));
+	const table =
+		AUTO_TEXT_SCALE[input.templateId as keyof typeof AUTO_TEXT_SCALE] ??
+		AUTO_TEXT_SCALE["bilingual-classic"];
+	const fontScale = table[Math.min(lines, table.length - 1)] ?? 1;
+	// 14 mm for six lines or fewer, down to 6 mm at thirty lines or more.
+	const pageMarginMm = Math.round(
+		Math.max(6, Math.min(14, 14 - ((lines - 6) * 8) / 24)),
+	);
+	return { pageMarginMm, fontScale };
+}

@@ -61,11 +61,13 @@ export const reportCardConfigSchema = z.object({
 		addressStyle: z.enum(["script", "plain"]).default("script"),
 	}),
 	layout: z.object({
+		/** Pick margin and text size from the length of each report. */
+		autoSize: z.boolean().default(true),
 		direction: z.enum(["rtl", "ltr"]).default("rtl"),
 		numerals: z.enum(["arabic-indic", "western"]).default("arabic-indic"),
 		pageMarginMm: z.number().min(4).max(25).default(10),
 		fitToPage: z.boolean().default(true),
-		fontScale: z.number().min(0.8).max(1.25).default(1),
+		fontScale: z.number().min(0.7).max(1.25).default(1),
 	}),
 	header: z.object({
 		showAcademicYear: z.boolean().default(true),
@@ -220,6 +222,7 @@ export function createDefaultReportCardConfig(input?: {
 			addressStyle: "script",
 		},
 		layout: {
+			autoSize: true,
 			direction: "rtl",
 			numerals: "arabic-indic",
 			pageMarginMm: 10,

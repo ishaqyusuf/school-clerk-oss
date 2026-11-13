@@ -1,7 +1,11 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { SAMPLE_REPORTS, SAMPLE_TERM } from "@school-clerk/pdf/report-card";
+import {
+	SAMPLE_REPORTS,
+	SAMPLE_TERM,
+	reportCardPageLayout,
+} from "@school-clerk/pdf/report-card";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
@@ -200,17 +204,18 @@ function A4Preview({ children }: { children: ReactNode }) {
 		return () => observer.disconnect();
 	}, []);
 	return (
-		<div ref={frameRef} className="w-full">
+		// The height comes from CSS (A4 aspect ratio), never from the scale, so a
+		// scrollbar appearing cannot feed back into the scale and make it flicker.
+		<div
+			ref={frameRef}
+			className="relative w-full overflow-hidden"
+			style={{ aspectRatio: "210 / 297" }}
+		>
 			<div
-				className="relative overflow-hidden"
-				style={{ height: 1122.5 * scale }}
+				className="absolute left-0 top-0 origin-top-left shadow-[0_18px_40px_-16px_rgba(0,0,0,0.35)] ring-1 ring-black/10"
+				style={{ transform: `scale(${scale})` }}
 			>
-				<div
-					className="absolute left-0 top-0 origin-top-left shadow-[0_18px_40px_-16px_rgba(0,0,0,0.35)] ring-1 ring-black/10"
-					style={{ transform: `scale(${scale})` }}
-				>
-					{children}
-				</div>
+				{children}
 			</div>
 		</div>
 	);
@@ -323,6 +328,13 @@ export function ReportCardEditor() {
 			setPdfPending(false);
 		}
 	}
+	const autoSize = config.layout.autoSize !== false;
+	// The margin and text size the preview is using for the selected sample.
+	const previewLayout = reportCardPageLayout({
+		config,
+		templateId,
+		report: SAMPLE_REPORTS[sample],
+	});
 	const calligraphyPreview = applyNameCalligraphy(tryName, config.calligraphy);
 
 	return (
@@ -527,34 +539,58 @@ export function ReportCardEditor() {
 										English
 									</Button>
 								</div>
-								<Field label={`Page margin · ${config.layout.pageMarginMm} mm`}>
+								<Toggle
+									label="Size automatically"
+									hint="Sets the page margin and text size from how many subjects each report has, so short and long lists both fill one page."
+									checked={autoSize}
+									onChange={(value) =>
+										update((draft) => {
+											draft.layout.autoSize = value;
+											if (!value) {
+												// Start manual sizing from what the preview shows now.
+												draft.layout.pageMarginMm = previewLayout.pageMarginMm;
+												draft.layout.fontScale = Math.min(
+													1.25,
+													Math.max(
+														0.7,
+														Math.round(previewLayout.fontScale * 20) / 20,
+													),
+												);
+											}
+										})
+									}
+									disabled={disabled}
+								/>
+								<Field
+									label={`Page margin · ${previewLayout.pageMarginMm} mm${autoSize ? " (auto)" : ""}`}
+								>
 									<Slider
 										min={4}
 										max={25}
 										step={1}
-										value={[config.layout.pageMarginMm]}
+										value={[previewLayout.pageMarginMm]}
 										onValueChange={([value]) =>
 											update((draft) => {
 												draft.layout.pageMarginMm = value ?? 10;
 											})
 										}
-										disabled={disabled}
+										disabled={disabled || autoSize}
 									/>
 								</Field>
 								<Field
-									label={`Text size · ${Math.round(config.layout.fontScale * 100)}%`}
+									label={`Text size · ${Math.round(previewLayout.fontScale * 100)}%${autoSize ? " (auto)" : ""}`}
 								>
 									<Slider
-										min={0.8}
+										min={0.7}
 										max={1.25}
 										step={0.05}
-										value={[config.layout.fontScale]}
+										value={[previewLayout.fontScale]}
 										onValueChange={([value]) =>
 											update((draft) => {
 												draft.layout.fontScale = value ?? 1;
 											})
 										}
-										disabled={disabled}
+										disabled={disabled || autoSize}
 									/>
 								</Field>
 								<Toggle
@@ -924,7 +960,8 @@ export function ReportCardEditor() {
 														onChange={(event) =>
 															update((draft) => {
 																const target = draft.comments.bands[index];
-																if (target) target.min = Number(event.target.value);
+																if (target)
+																	target.min = Number(event.target.value);
 															})
 														}
 													/>
@@ -941,7 +978,8 @@ export function ReportCardEditor() {
 														onChange={(event) =>
 															update((draft) => {
 																const target = draft.comments.bands[index];
-																if (target) target.max = Number(event.target.value);
+																if (target)
+																	target.max = Number(event.target.value);
 															})
 														}
 													/>

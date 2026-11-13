@@ -18,6 +18,8 @@ type FitRefs = {
 	sections: RefObject<HTMLElement | null>[];
 };
 
+const MAX_REFITS = 4;
+
 const DEFAULT_FIT: ReportFit = {
 	rowPad: REPORT_BASE_ROW_PAD,
 	gap: 0,
@@ -46,6 +48,12 @@ export function useReportCardFit({
 	const [fit, setFit] = useState<ReportFit>(DEFAULT_FIT);
 	const fitRef = useRef(fit);
 	fitRef.current = fit;
+	// Refitting can change how text wraps, which changes the height again. Cap
+	// the refits per content change so the page settles instead of flickering.
+	const refits = useRef({ key: dependencyKey, count: 0 });
+	if (refits.current.key !== dependencyKey) {
+		refits.current = { key: dependencyKey, count: 0 };
+	}
 
 	const measure = useCallback(() => {
 		const area = refs.area.current;
@@ -83,7 +91,9 @@ export function useReportCardFit({
 			Math.abs(next.rowPad - current.rowPad) > 0.5 ||
 			Math.abs(next.gap - current.gap) > 0.5 ||
 			Math.abs(next.scale - current.scale) > 0.005;
-		if (changed) setFit(next);
+		if (!changed || refits.current.count >= MAX_REFITS) return;
+		refits.current.count += 1;
+		setFit(next);
 	}, [enabled, gaps, refs, rows]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: dependencyKey re-measures when the content changes.

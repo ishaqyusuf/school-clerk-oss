@@ -10,6 +10,7 @@ import {
 	formatReportPosition,
 	formatReportTermLabel,
 	parseCalligraphyDictionary,
+	planReportCardLayout,
 	resolveReportCardConfig,
 	resolveReportComment,
 	stretchArabicWord,
@@ -217,5 +218,49 @@ describe("computeReportFit", () => {
 		});
 		expect(scaled.rowPad).toBe(2);
 		expect(scaled.scale).toBeCloseTo(1000 / 1140, 2);
+	});
+});
+
+describe("planReportCardLayout", () => {
+	it("prints short lists large and long lists tight", () => {
+		const short = planReportCardLayout({
+			lineCount: 5,
+			templateId: "bilingual-classic",
+		});
+		const long = planReportCardLayout({
+			lineCount: 22,
+			templateId: "bilingual-classic",
+		});
+		expect(short).toEqual({ pageMarginMm: 14, fontScale: 1.25 });
+		expect(long.pageMarginMm).toBeLessThan(short.pageMarginMm);
+		expect(long.fontScale).toBeLessThan(short.fontScale);
+		expect(
+			planReportCardLayout({ lineCount: 60, templateId: "bilingual-classic" }),
+		).toEqual({
+			pageMarginMm: 6,
+			fontScale: 0.7,
+		});
+	});
+
+	it("never grows as the list gets longer", () => {
+		for (const templateId of ["bilingual-classic", "framed-ledger"]) {
+			let previous = planReportCardLayout({ lineCount: 0, templateId });
+			for (let lineCount = 1; lineCount <= 40; lineCount++) {
+				const next = planReportCardLayout({ lineCount, templateId });
+				expect(next.fontScale).toBeLessThanOrEqual(previous.fontScale);
+				expect(next.pageMarginMm).toBeLessThanOrEqual(previous.pageMarginMm);
+				previous = next;
+			}
+		}
+	});
+
+	it("sizes the framed template smaller for the same list", () => {
+		expect(
+			planReportCardLayout({ lineCount: 12, templateId: "framed-ledger" })
+				.fontScale,
+		).toBeLessThan(
+			planReportCardLayout({ lineCount: 12, templateId: "bilingual-classic" })
+				.fontScale,
+		);
 	});
 });

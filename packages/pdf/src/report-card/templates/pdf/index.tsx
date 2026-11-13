@@ -24,6 +24,7 @@ import {
 	reportCardColumnLabel,
 	reportCardCommentLines,
 	reportCardInfoFields,
+	reportCardPageLayout,
 	reportCardScoreText,
 	reportCardSections,
 	reportCardSizes,
@@ -686,7 +687,7 @@ export type PdfReportCardPageProps = ReportCardRenderProps & {
 const PAGE_SAFETY = pt(4);
 
 function pageInsets(props: ReportCardRenderProps) {
-	const margin = mm(props.config.layout.pageMarginMm);
+	const margin = mm(reportCardPageLayout(props).pageMarginMm);
 	const frame = props.templateId === "framed-ledger" ? pt(3) + mm(5) : 0;
 	return { margin, frame, vertical: 2 * margin + 2 * frame };
 }
@@ -710,7 +711,9 @@ export function PdfReportCardPage({
 	const fitToPage = config.layout.fitToPage;
 	const grow = fitToPage && !measure;
 	const base =
-		pt(REPORT_CARD_BASE_FONT_PX) * config.layout.fontScale * fitScale;
+		pt(REPORT_CARD_BASE_FONT_PX) *
+		reportCardPageLayout(props).fontScale *
+		fitScale;
 
 	const m: Metrics = {
 		base,

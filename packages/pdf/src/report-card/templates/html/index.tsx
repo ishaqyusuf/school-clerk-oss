@@ -16,6 +16,7 @@ import {
 	reportCardCommentLines,
 	reportCardInfoFields,
 	reportCardLineCount,
+	reportCardPageLayout,
 	reportCardRowCount,
 	reportCardScoreText,
 	reportCardSections,
@@ -398,6 +399,7 @@ export function HtmlReportCard(props: HtmlReportCardProps) {
 		[config, report, term, templateId],
 	);
 	const sizes = reportCardSizes(report.tables);
+	const page = reportCardPageLayout(props);
 	const lineCount = reportCardLineCount(report.tables);
 	const rows = reportCardRowCount(report.tables);
 	const { hasComments, hasSignatures, gaps } = reportCardSections(config);
@@ -435,8 +437,8 @@ export function HtmlReportCard(props: HtmlReportCardProps) {
 			style={{
 				width: "210mm",
 				height: "297mm",
-				padding: `${config.layout.pageMarginMm}mm`,
-				fontSize: `${REPORT_CARD_BASE_FONT_PX * config.layout.fontScale}px`,
+				padding: `${page.pageMarginMm}mm`,
+				fontSize: `${REPORT_CARD_BASE_FONT_PX * page.fontScale}px`,
 			}}
 		>
 			<div
