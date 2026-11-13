@@ -33,8 +33,8 @@ type TermOption = { termId: string; term: string };
 
 /** A calendar day from a date input, as local midnight (how term dates are stored). */
 function localDay(value: string) {
-	const [year, month, day] = value.split("-").map(Number);
-	return new Date(year!, (month ?? 1) - 1, day ?? 1);
+	const [year = 1970, month = 1, day = 1] = value.split("-").map(Number);
+	return new Date(year, month - 1, day);
 }
 
 function todayInput() {
