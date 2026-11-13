@@ -51,12 +51,21 @@ export async function prepareSignatureImage(file: File) {
 	for (let y = 0; y < height; y += 1) {
 		for (let x = 0; x < width; x += 1) {
 			const index = (y * width + x) * 4;
-			const lightness = (data[index]! + data[index + 1]! + data[index + 2]!) / 3;
+			const lightness =
+				((data[index] ?? 255) +
+					(data[index + 1] ?? 255) +
+					(data[index + 2] ?? 255)) /
+				3;
 			// Paper-white becomes transparent; ink keeps its opacity.
 			const alpha =
-				lightness >= 230 ? 0 : lightness <= 160 ? 255 : Math.round(((230 - lightness) / 70) * 255);
-			data[index + 3] = Math.min(data[index + 3]!, alpha);
-			if (data[index + 3]! > 24) {
+				lightness >= 230
+					? 0
+					: lightness <= 160
+						? 255
+						: Math.round(((230 - lightness) / 70) * 255);
+			const opacity = Math.min(data[index + 3] ?? 0, alpha);
+			data[index + 3] = opacity;
+			if (opacity > 24) {
 				if (x < left) left = x;
 				if (x > right) right = x;
 				if (y < top) top = y;
@@ -77,6 +86,16 @@ export async function prepareSignatureImage(file: File) {
 	output.height = cropHeight;
 	output
 		.getContext("2d")
-		?.drawImage(canvas, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+		?.drawImage(
+			canvas,
+			cropX,
+			cropY,
+			cropWidth,
+			cropHeight,
+			0,
+			0,
+			cropWidth,
+			cropHeight,
+		);
 	return output.toDataURL("image/png");
 }

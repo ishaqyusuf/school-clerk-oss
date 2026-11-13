@@ -60,11 +60,25 @@ function useReportText(props: ReportCardRenderProps) {
 
 type ReportText = ReturnType<typeof useReportText>;
 
-function infoFields(config: ReportCardConfig, text: ReportText, classroomName: string) {
+function infoFields(
+	config: ReportCardConfig,
+	text: ReportText,
+	classroomName: string,
+) {
 	const { header, labels } = config;
 	return [
-		{ key: "classroom", label: labels.classroom, value: classroomName, show: true },
-		{ key: "term", label: labels.term, value: text.term, show: header.showTerm },
+		{
+			key: "classroom",
+			label: labels.classroom,
+			value: classroomName,
+			show: true,
+		},
+		{
+			key: "term",
+			label: labels.term,
+			value: text.term,
+			show: header.showTerm,
+		},
 		{
 			key: "percentage",
 			label: labels.percentage,
@@ -138,8 +152,11 @@ function ResultTables({
 											key={columnIndex}
 											className={cn(
 												"border-x border-b border-black/45 px-2 py-2 align-middle font-bold leading-tight text-black",
-												(tableIndex === 0 || variant === "ledger") && "border-t",
-												columnIndex === 0 ? "text-start" : "w-[17%] text-center",
+												(tableIndex === 0 || variant === "ledger") &&
+													"border-t",
+												columnIndex === 0
+													? "text-start"
+													: "w-[17%] text-center",
 											)}
 										>
 											<div className="flex flex-col">
@@ -163,7 +180,10 @@ function ResultTables({
 										if (cellIndex === 0) {
 											// Subject cells arrive as "3. Title"; isolate the title so an
 											// Arabic subject in an LTR table keeps its number at the start.
-											const match = typeof value === "string" ? value.match(/^\s*(\d+)\.\s*(.*)$/) : null;
+											const match =
+												typeof value === "string"
+													? value.match(/^\s*(\d+)\.\s*(.*)$/)
+													: null;
 											return (
 												<td
 													key={cellIndex}
@@ -171,20 +191,28 @@ function ResultTables({
 													className="border-x border-b border-black/45 px-2 text-start font-bold leading-tight"
 												>
 													{match && config.table.numberSubjects ? (
-														<span>{formatReportNumerals(match[1], numerals)}. </span>
+														<span>
+															{formatReportNumerals(match[1], numerals)}.{" "}
+														</span>
 													) : null}
 													<bdi>{match ? match[2] : (value ?? "")}</bdi>
 												</td>
 											);
 										}
-										const empty = value === null || value === undefined || value === "" || value === 0;
+										const empty =
+											value === null ||
+											value === undefined ||
+											value === "" ||
+											value === 0;
 										return (
 											<td
 												key={cellIndex}
 												style={cellStyle}
 												className={cn(
 													"border-x border-b border-black/45 px-2 leading-tight",
-													cellIndex === 0 ? "text-start font-bold" : "text-center",
+													cellIndex === 0
+														? "text-start font-bold"
+														: "text-center",
 												)}
 											>
 												{empty && cellIndex > 0
@@ -203,7 +231,10 @@ function ResultTables({
 	);
 }
 
-function CommentBlock({ config, text }: { config: ReportCardConfig; text: ReportText }) {
+function CommentBlock({
+	config,
+	text,
+}: { config: ReportCardConfig; text: ReportText }) {
 	const { comments, labels, layout } = config;
 	if (!comments.enabled) return null;
 	const lines = [
@@ -223,7 +254,12 @@ function CommentBlock({ config, text }: { config: ReportCardConfig; text: Report
 					dir: comments.secondaryDirection,
 				}
 			: null,
-	].filter(Boolean) as { key: string; label: string; value?: string; dir: "rtl" | "ltr" }[];
+	].filter(Boolean) as {
+		key: string;
+		label: string;
+		value?: string;
+		dir: "rtl" | "ltr";
+	}[];
 
 	return (
 		<div className="flex flex-col gap-7">
@@ -256,13 +292,19 @@ function CommentBlock({ config, text }: { config: ReportCardConfig; text: Report
 	);
 }
 
-function SignatureSlot({ label, imageUrl }: { label: string; imageUrl?: string | null }) {
+function SignatureSlot({
+	label,
+	imageUrl,
+}: { label: string; imageUrl?: string | null }) {
 	return (
 		<div className="flex flex-col items-center">
 			<div className="flex h-[64px] items-end justify-center">
 				{imageUrl ? (
-					// biome-ignore lint/performance/noImgElement: data URLs and print need a plain image
-					<img alt="" src={imageUrl} className="max-h-[64px] max-w-[160px] object-contain" />
+					<img
+						alt=""
+						src={imageUrl}
+						className="max-h-[64px] max-w-[160px] object-contain"
+					/>
 				) : null}
 			</div>
 			<div className="flex w-[150px] justify-center border-t border-dashed border-black/50 pt-1 text-[1em]">
@@ -287,22 +329,39 @@ function Signatures({
 			{signatures.showTeacher ? (
 				<SignatureSlot
 					label={labels.teacherSignature}
-					imageUrl={signatures.useClassTeacherSignature ? teacherSignatureUrl : null}
+					imageUrl={
+						signatures.useClassTeacherSignature ? teacherSignatureUrl : null
+					}
 				/>
 			) : (
 				<span />
 			)}
 			{signatures.showHead ? (
-				<SignatureSlot label={labels.headSignature} imageUrl={signatures.headImageUrl} />
+				<SignatureSlot
+					label={labels.headSignature}
+					imageUrl={signatures.headImageUrl}
+				/>
 			) : null}
 		</div>
 	);
 }
 
-function SchoolHeading({ config, sizes, centered = true }: { config: ReportCardConfig; sizes: Sizes; centered?: boolean }) {
+function SchoolHeading({
+	config,
+	sizes,
+	centered = true,
+}: { config: ReportCardConfig; sizes: Sizes; centered?: boolean }) {
 	return (
-		<div className={cn("flex flex-col gap-1", centered && "items-center text-center")}>
-			<p className="font-bold leading-tight text-black/75" style={{ fontSize: `${sizes.school}em` }}>
+		<div
+			className={cn(
+				"flex flex-col gap-1",
+				centered && "items-center text-center",
+			)}
+		>
+			<p
+				className="font-bold leading-tight text-black/75"
+				style={{ fontSize: `${sizes.school}em` }}
+			>
 				{config.school.name || "School name"}
 			</p>
 			{config.school.address ? (
@@ -310,9 +369,13 @@ function SchoolHeading({ config, sizes, centered = true }: { config: ReportCardC
 					dir="ltr"
 					className={cn(
 						"leading-snug text-black",
-						config.school.addressStyle === "script" ? moonDance.className : "font-semibold",
+						config.school.addressStyle === "script"
+							? moonDance.className
+							: "font-semibold",
 					)}
-					style={{ fontSize: `${sizes.address * (config.school.addressStyle === "script" ? 1 : 0.7)}em` }}
+					style={{
+						fontSize: `${sizes.address * (config.school.addressStyle === "script" ? 1 : 0.7)}em`,
+					}}
 				>
 					{config.school.address}
 				</p>
@@ -321,7 +384,11 @@ function SchoolHeading({ config, sizes, centered = true }: { config: ReportCardC
 	);
 }
 
-function ClassicHeader({ props, text, sizes }: { props: ReportCardRenderProps; text: ReportText; sizes: Sizes }) {
+function ClassicHeader({
+	props,
+	text,
+	sizes,
+}: { props: ReportCardRenderProps; text: ReportText; sizes: Sizes }) {
 	const { config, report } = props;
 	const fields = infoFields(config, text, report.classroomName);
 	return (
@@ -338,7 +405,9 @@ function ClassicHeader({ props, text, sizes }: { props: ReportCardRenderProps; t
 			>
 				<div className="flex items-end gap-4">
 					<div className="flex min-w-0 flex-1 items-end">
-						<span className="whitespace-nowrap text-black/70">{config.labels.studentName}</span>
+						<span className="whitespace-nowrap text-black/70">
+							{config.labels.studentName}
+						</span>
 						<span>:</span>
 						<span className="inline-flex min-w-0 flex-1 flex-wrap border-b-2 border-dashed border-black/40 px-3">
 							{text.name.map((part, index) => (
@@ -350,7 +419,9 @@ function ClassicHeader({ props, text, sizes }: { props: ReportCardRenderProps; t
 					</div>
 					{config.header.showAcademicYear && text.academicYear ? (
 						<div className="flex items-end whitespace-nowrap">
-							<span className="text-black/70">{config.labels.academicYear}</span>
+							<span className="text-black/70">
+								{config.labels.academicYear}
+							</span>
 							<span>:</span>
 							<span className="mx-1">{text.academicYear}</span>
 						</div>
@@ -372,7 +443,11 @@ function ClassicHeader({ props, text, sizes }: { props: ReportCardRenderProps; t
 	);
 }
 
-function LedgerHeader({ props, text, sizes }: { props: ReportCardRenderProps; text: ReportText; sizes: Sizes }) {
+function LedgerHeader({
+	props,
+	text,
+	sizes,
+}: { props: ReportCardRenderProps; text: ReportText; sizes: Sizes }) {
 	const { config, report } = props;
 	const fields = infoFields(config, text, report.classroomName);
 	const cells: { key: string; label: string; value: ReactNode }[] = [
@@ -382,7 +457,13 @@ function LedgerHeader({ props, text, sizes }: { props: ReportCardRenderProps; te
 			value: text.name.join(" "),
 		},
 		...(config.header.showAcademicYear && text.academicYear
-			? [{ key: "year", label: config.labels.academicYear, value: text.academicYear }]
+			? [
+					{
+						key: "year",
+						label: config.labels.academicYear,
+						value: text.academicYear,
+					},
+				]
 			: []),
 		...fields,
 	];
@@ -419,14 +500,22 @@ function LedgerHeader({ props, text, sizes }: { props: ReportCardRenderProps; te
  * One A4 report card. Every template shares the same page box, fit logic and
  * data; they differ only in how the header and frame are drawn.
  */
-export function ReportCardPage(props: ReportCardRenderProps & { className?: string }) {
+export function ReportCardPage(
+	props: ReportCardRenderProps & { className?: string },
+) {
 	const { config, report, templateId } = props;
 	const text = useReportText(props);
 	const lineCount = lineCountOf(report.tables);
 	const sizes = DENSITY_SIZES[reportDensity(lineCount)];
-	const rows = report.tables.reduce((total, table) => total + table.rows.length, 0);
-	const hasComments = config.comments.enabled && (config.comments.showPrimary || config.comments.showSecondary);
-	const hasSignatures = config.signatures.showHead || config.signatures.showTeacher;
+	const rows = report.tables.reduce(
+		(total, table) => total + table.rows.length,
+		0,
+	);
+	const hasComments =
+		config.comments.enabled &&
+		(config.comments.showPrimary || config.comments.showSecondary);
+	const hasSignatures =
+		config.signatures.showHead || config.signatures.showTeacher;
 	const gaps = 1 + (hasComments ? 1 : 0) + (hasSignatures ? 1 : 0);
 
 	const areaRef = useRef<HTMLDivElement>(null);
@@ -435,7 +524,10 @@ export function ReportCardPage(props: ReportCardRenderProps & { className?: stri
 	const commentsRef = useRef<HTMLDivElement>(null);
 	const signaturesRef = useRef<HTMLDivElement>(null);
 	const refs = useMemo(
-		() => ({ area: areaRef, sections: [headerRef, tablesRef, commentsRef, signaturesRef] }),
+		() => ({
+			area: areaRef,
+			sections: [headerRef, tablesRef, commentsRef, signaturesRef],
+		}),
 		[],
 	);
 	const fit = useReportCardFit({
@@ -465,7 +557,10 @@ export function ReportCardPage(props: ReportCardRenderProps & { className?: stri
 		>
 			<div
 				ref={areaRef}
-				className={cn("relative h-full w-full", ledger && "border-[3px] border-double border-black/70 p-[5mm]")}
+				className={cn(
+					"relative h-full w-full",
+					ledger && "border-[3px] border-double border-black/70 p-[5mm]",
+				)}
 			>
 				<div
 					className="flex flex-col"
@@ -500,7 +595,10 @@ export function ReportCardPage(props: ReportCardRenderProps & { className?: stri
 					) : null}
 					{hasSignatures ? (
 						<div ref={signaturesRef} style={gapStyle}>
-							<Signatures config={config} teacherSignatureUrl={props.teacherSignatureUrl} />
+							<Signatures
+								config={config}
+								teacherSignatureUrl={props.teacherSignatureUrl}
+							/>
 						</div>
 					) : null}
 				</div>

@@ -65,8 +65,9 @@ export function stretchArabicWord(word: string, kashidaLength: number) {
 	if (!clusters || clusters.length < 2) return word;
 
 	for (let index = clusters.length - 2; index >= 0; index -= 1) {
-		const current = clusters[index]!;
-		const next = clusters[index + 1]!;
+		const current = clusters[index];
+		const next = clusters[index + 1];
+		if (!current || !next) continue;
 		if (NON_LEFT_JOINING.has(current.letter)) continue;
 		if (current.letter === LAM && ALEF_FORMS.has(next.letter)) continue;
 		return [
@@ -116,7 +117,9 @@ export function parseCalligraphyDictionary(text: string) {
 	return dictionary;
 }
 
-export function formatCalligraphyDictionary(dictionary: Record<string, string>) {
+export function formatCalligraphyDictionary(
+	dictionary: Record<string, string>,
+) {
 	return Object.entries(dictionary)
 		.map(([word, value]) => `${word} = ${value}`)
 		.join("\n");

@@ -99,7 +99,8 @@ export async function saveReportCardTemplate(
 	if (!isAdmin(ctx)) {
 		throw new TRPCError({
 			code: "FORBIDDEN",
-			message: "Only school administrators can change the report card template.",
+			message:
+				"Only school administrators can change the report card template.",
 		});
 	}
 	const config: ReportCardConfig = {
@@ -182,7 +183,10 @@ export async function getReportCardPrintContext(
 	]);
 
 	if (!term) {
-		throw new TRPCError({ code: "NOT_FOUND", message: "Report term not found." });
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Report term not found.",
+		});
 	}
 
 	// Prefer the first assigned teacher who has uploaded a signature.
@@ -264,7 +268,10 @@ export async function updateStaffSignature(
 		data: { signatureUrl },
 	});
 	if (!result.count) {
-		throw new TRPCError({ code: "NOT_FOUND", message: "Staff profile was not found." });
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Staff profile was not found.",
+		});
 	}
 	return { staffId: targetId, signatureUrl };
 }

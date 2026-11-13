@@ -53,7 +53,12 @@ export function computeReportFit(input: ReportFitInput): ReportFit {
 		const usedByRows = rows ? 2 * rows * (rowPad - input.basePad) : 0;
 		const gap = gaps ? Math.min(maxGap, (free - usedByRows) / gaps) : 0;
 		const slack = free - usedByRows - gap * gaps;
-		return { rowPad: round(rowPad), gap: round(Math.max(0, gap)), scale: 1, slack: round(slack) };
+		return {
+			rowPad: round(rowPad),
+			gap: round(Math.max(0, gap)),
+			scale: 1,
+			slack: round(slack),
+		};
 	}
 
 	const shrinkable = rows ? 2 * rows * (input.basePad - minPad) : 0;
@@ -64,7 +69,12 @@ export function computeReportFit(input: ReportFitInput): ReportFit {
 
 	const tightHeight = input.contentHeight - shrinkable;
 	const scale = Math.max(0.5, input.pageHeight / tightHeight);
-	return { rowPad: minPad, gap: 0, scale: Math.floor(scale * 1000) / 1000, slack: 0 };
+	return {
+		rowPad: minPad,
+		gap: 0,
+		scale: Math.floor(scale * 1000) / 1000,
+		slack: 0,
+	};
 }
 
 /** Density tier used for font sizes before measuring (and in server renders). */

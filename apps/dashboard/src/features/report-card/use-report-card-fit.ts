@@ -1,7 +1,16 @@
 "use client";
 
-import { type ReportFit, computeReportFit } from "@school-clerk/utils/report-card";
-import { type RefObject, useCallback, useLayoutEffect, useRef, useState } from "react";
+import {
+	type ReportFit,
+	computeReportFit,
+} from "@school-clerk/utils/report-card";
+import {
+	type RefObject,
+	useCallback,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 
 export const REPORT_BASE_ROW_PAD = 6;
 /** Fixed spacing between page sections before any extra space is added. */
@@ -80,6 +89,7 @@ export function useReportCardFit({
 		if (changed) setFit(next);
 	}, [enabled, gaps, refs, rows]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: dependencyKey re-measures when the content changes.
 	useLayoutEffect(() => {
 		measure();
 		let cancelled = false;

@@ -2,7 +2,10 @@ import { z } from "zod";
 
 export const REPORT_CARD_DOCUMENT_TYPE = "REPORT_CARD";
 
-export const reportCardTemplateIds = ["bilingual-classic", "framed-ledger"] as const;
+export const reportCardTemplateIds = [
+	"bilingual-classic",
+	"framed-ledger",
+] as const;
 export type ReportCardTemplateId = (typeof reportCardTemplateIds)[number];
 export const DEFAULT_REPORT_CARD_TEMPLATE_ID: ReportCardTemplateId =
 	"bilingual-classic";

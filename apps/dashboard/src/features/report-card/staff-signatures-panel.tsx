@@ -11,7 +11,9 @@ export function StaffSignaturesPanel() {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const [search, setSearch] = useState("");
-	const { data: staff, isPending } = useQuery(trpc.reportCards.listStaffSignatures.queryOptions());
+	const { data: staff, isPending } = useQuery(
+		trpc.reportCards.listStaffSignatures.queryOptions(),
+	);
 	const update = useMutation(
 		trpc.reportCards.updateStaffSignature.mutationOptions({
 			async onSuccess() {
@@ -33,7 +35,9 @@ export function StaffSignaturesPanel() {
 	);
 	const filtered = useMemo(() => {
 		const query = search.trim().toLocaleLowerCase();
-		return (staff ?? []).filter((member) => !query || member.name.toLocaleLowerCase().includes(query));
+		return (staff ?? []).filter(
+			(member) => !query || member.name.toLocaleLowerCase().includes(query),
+		);
 	}, [search, staff]);
 
 	return (
@@ -41,12 +45,16 @@ export function StaffSignaturesPanel() {
 			<div className="space-y-1">
 				<h3 className="text-sm font-semibold">Staff signatures</h3>
 				<p className="text-xs text-muted-foreground">
-					Teachers can add their own from their workspace. You can add or replace any of
-					them here.
+					Teachers can add their own from their workspace. You can add or
+					replace any of them here.
 				</p>
 			</div>
 			{(staff?.length ?? 0) > 6 ? (
-				<Input placeholder="Search staff" value={search} onChange={(event) => setSearch(event.target.value)} />
+				<Input
+					placeholder="Search staff"
+					value={search}
+					onChange={(event) => setSearch(event.target.value)}
+				/>
 			) : null}
 			{isPending ? (
 				<p className="text-xs text-muted-foreground">Loading staff…</p>
@@ -57,13 +65,17 @@ export function StaffSignaturesPanel() {
 							<span className="text-sm font-medium">
 								{member.name}
 								{member.title ? (
-									<span className="ms-1 text-xs font-normal text-muted-foreground">· {member.title}</span>
+									<span className="ms-1 text-xs font-normal text-muted-foreground">
+										· {member.title}
+									</span>
 								) : null}
 							</span>
 							<SignatureUploader
 								value={member.signatureUrl}
 								disabled={update.isPending}
-								onChange={(signatureUrl) => update.mutate({ staffId: member.id, signatureUrl })}
+								onChange={(signatureUrl) =>
+									update.mutate({ staffId: member.id, signatureUrl })
+								}
 							/>
 						</li>
 					))}

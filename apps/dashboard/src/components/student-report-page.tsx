@@ -9,7 +9,8 @@ import type { ReportCardConfig } from "@school-clerk/utils/report-card";
 import { getStudentNameParts } from "@school-clerk/utils/student-name";
 import { useMemo } from "react";
 
-export type ReportCardPrintContext = RouterOutputs["reportCards"]["getPrintContext"];
+export type ReportCardPrintContext =
+	RouterOutputs["reportCards"]["getPrintContext"];
 
 /** One student's printed report card, drawn with the school's chosen template. */
 export function StudentReportPage({

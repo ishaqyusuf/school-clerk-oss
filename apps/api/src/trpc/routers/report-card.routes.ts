@@ -11,14 +11,20 @@ import {
 	reportCardTemplateIds,
 } from "@school-clerk/utils/report-card";
 import { z } from "zod";
-import { authenticatedProcedure, createTRPCRouter, moduleProcedure } from "../init";
+import {
+	authenticatedProcedure,
+	createTRPCRouter,
+	moduleProcedure,
+} from "../init";
 
 const reportProcedure = moduleProcedure(["RESULTS_AND_REPORTS"], {
 	roles: ["Admin", "Registrar", "Teacher"],
 });
 
 export const reportCardRouter = createTRPCRouter({
-	getTemplate: authenticatedProcedure.query(({ ctx }) => getReportCardTemplate(ctx)),
+	getTemplate: authenticatedProcedure.query(({ ctx }) =>
+		getReportCardTemplate(ctx),
+	),
 	saveTemplate: authenticatedProcedure
 		.input(
 			z.object({
@@ -27,7 +33,10 @@ export const reportCardRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(({ ctx, input }) =>
-			saveReportCardTemplate(ctx, input as Parameters<typeof saveReportCardTemplate>[1]),
+			saveReportCardTemplate(
+				ctx,
+				input as Parameters<typeof saveReportCardTemplate>[1],
+			),
 		),
 	getPrintContext: reportProcedure
 		.input(
@@ -37,10 +46,17 @@ export const reportCardRouter = createTRPCRouter({
 			}),
 		)
 		.query(({ ctx, input }) =>
-			getReportCardPrintContext(ctx, input as Parameters<typeof getReportCardPrintContext>[1]),
+			getReportCardPrintContext(
+				ctx,
+				input as Parameters<typeof getReportCardPrintContext>[1],
+			),
 		),
-	listStaffSignatures: authenticatedProcedure.query(({ ctx }) => listStaffSignatures(ctx)),
-	getMySignature: authenticatedProcedure.query(({ ctx }) => getMyStaffSignature(ctx)),
+	listStaffSignatures: authenticatedProcedure.query(({ ctx }) =>
+		listStaffSignatures(ctx),
+	),
+	getMySignature: authenticatedProcedure.query(({ ctx }) =>
+		getMyStaffSignature(ctx),
+	),
 	updateStaffSignature: authenticatedProcedure
 		.input(
 			z.object({
@@ -49,6 +65,9 @@ export const reportCardRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(({ ctx, input }) =>
-			updateStaffSignature(ctx, input as Parameters<typeof updateStaffSignature>[1]),
+			updateStaffSignature(
+				ctx,
+				input as Parameters<typeof updateStaffSignature>[1],
+			),
 		),
 });

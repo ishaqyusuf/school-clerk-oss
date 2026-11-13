@@ -32,7 +32,8 @@ export function SignatureUploader({
 		} catch (error) {
 			toast({
 				title: "Signature not added",
-				description: error instanceof Error ? error.message : "Try another image.",
+				description:
+					error instanceof Error ? error.message : "Try another image.",
 				variant: "destructive",
 			});
 		} finally {
@@ -45,8 +46,11 @@ export function SignatureUploader({
 		<div className={cn("flex items-center gap-3", className)}>
 			<div className="flex h-16 w-40 shrink-0 items-center justify-center rounded-md border border-dashed bg-white">
 				{value ? (
-					// biome-ignore lint/performance/noImgElement: data URL preview
-					<img alt={label} src={value} className="max-h-14 max-w-36 object-contain" />
+					<img
+						alt={label}
+						src={value}
+						className="max-h-14 max-w-36 object-contain"
+					/>
 				) : (
 					<span className="text-xs text-neutral-500">No signature</span>
 				)}

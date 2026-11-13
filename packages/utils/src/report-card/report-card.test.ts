@@ -52,7 +52,9 @@ describe("applyNameCalligraphy", () => {
 			kashidaLength: 4,
 			dictionary: { محمد: "مـحمد" },
 		};
-		expect(applyNameCalligraphy("محمد بلال", options)).toBe("مـحمد بــــــــــلال");
+		expect(applyNameCalligraphy("محمد بلال", options)).toBe(
+			"مـحمد بــــــــــلال",
+		);
 	});
 
 	it("only auto-stretches unknown words in auto mode", () => {
@@ -65,12 +67,18 @@ describe("applyNameCalligraphy", () => {
 	});
 
 	it("respects opt-out entries and off mode", () => {
-		expect(applyNameCalligraphy("عبد", { mode: "auto", kashidaLength: 2 })).toBe("عبد");
-		expect(applyNameCalligraphy("محمد", { mode: "off", kashidaLength: 2 })).toBe("محمد");
+		expect(
+			applyNameCalligraphy("عبد", { mode: "auto", kashidaLength: 2 }),
+		).toBe("عبد");
+		expect(
+			applyNameCalligraphy("محمد", { mode: "off", kashidaLength: 2 }),
+		).toBe("محمد");
 	});
 
 	it("parses editor dictionary lines", () => {
-		expect(parseCalligraphyDictionary("أحمد = أحمــد\n\nbad line\nزيد=زيــد")).toEqual({
+		expect(
+			parseCalligraphyDictionary("أحمد = أحمــد\n\nbad line\nزيد=زيــد"),
+		).toEqual({
 			أحمد: "أحمــد",
 			زيد: "زيــد",
 		});
@@ -90,14 +98,21 @@ describe("report formatting", () => {
 		expect(termNumberFromTitle("Third term")).toBe(3);
 		expect(formatReportTermLabel("3rd term", config.header)).toBe("الثالثة");
 		expect(
-			formatReportTermLabel("3rd term", { ...config.header, termLabelMode: "title" }),
+			formatReportTermLabel("3rd term", {
+				...config.header,
+				termLabelMode: "title",
+			}),
 		).toBe("3rd term");
 	});
 
 	it("formats calendar dates without timezone drift", () => {
-		expect(formatReportDate("2026-03-28T00:00:00.000Z", config)).toBe("٢٨/٠٣/٢٦");
+		expect(formatReportDate("2026-03-28T00:00:00.000Z", config)).toBe(
+			"٢٨/٠٣/٢٦",
+		);
 		// Local midnight in Lagos, stored as 23:00 UTC the previous day.
-		expect(formatReportDate("2026-03-27T23:00:00.000Z", config)).toBe("٢٨/٠٣/٢٦");
+		expect(formatReportDate("2026-03-27T23:00:00.000Z", config)).toBe(
+			"٢٨/٠٣/٢٦",
+		);
 		expect(
 			formatReportDate("2026-03-28T00:00:00.000Z", {
 				...config,
@@ -115,13 +130,21 @@ describe("report formatting", () => {
 
 describe("comments", () => {
 	it("finds the band for a percentage", () => {
-		expect(resolveReportComment(95, DEFAULT_REPORT_CARD_COMMENT_BANDS)?.min).toBe(90);
-		expect(resolveReportComment(89.6, DEFAULT_REPORT_CARD_COMMENT_BANDS)?.min).toBe(80);
-		expect(resolveReportComment(0, DEFAULT_REPORT_CARD_COMMENT_BANDS)?.min).toBe(0);
+		expect(
+			resolveReportComment(95, DEFAULT_REPORT_CARD_COMMENT_BANDS)?.min,
+		).toBe(90);
+		expect(
+			resolveReportComment(89.6, DEFAULT_REPORT_CARD_COMMENT_BANDS)?.min,
+		).toBe(80);
+		expect(
+			resolveReportComment(0, DEFAULT_REPORT_CARD_COMMENT_BANDS)?.min,
+		).toBe(0);
 	});
 
 	it("reports gaps and overlaps", () => {
-		expect(findCommentBandIssues(DEFAULT_REPORT_CARD_COMMENT_BANDS)).toEqual([]);
+		expect(findCommentBandIssues(DEFAULT_REPORT_CARD_COMMENT_BANDS)).toEqual(
+			[],
+		);
 		expect(
 			findCommentBandIssues([
 				{ min: 0, max: 49, primary: "", secondary: "" },
@@ -140,7 +163,10 @@ describe("resolveReportCardConfig", () => {
 		expect(config.layout.direction).toBe("ltr");
 		expect(config.layout.numerals).toBe("arabic-indic");
 		expect(config.school.name).toBe("Al Ghurobaa");
-		expect(resolveReportCardConfig({ layout: { pageMarginMm: 999 } }).layout.pageMarginMm).toBe(10);
+		expect(
+			resolveReportCardConfig({ layout: { pageMarginMm: 999 } }).layout
+				.pageMarginMm,
+		).toBe(10);
 	});
 });
 

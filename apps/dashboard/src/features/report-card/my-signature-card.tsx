@@ -15,7 +15,9 @@ import { SignatureUploader } from "./signature-uploader";
 export function MySignatureCard() {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
-	const { data, isPending } = useQuery(trpc.reportCards.getMySignature.queryOptions());
+	const { data, isPending } = useQuery(
+		trpc.reportCards.getMySignature.queryOptions(),
+	);
 	const update = useMutation(
 		trpc.reportCards.updateStaffSignature.mutationOptions({
 			async onSuccess() {
@@ -40,8 +42,8 @@ export function MySignatureCard() {
 			<CardHeader>
 				<CardTitle>My signature</CardTitle>
 				<CardDescription>
-					Printed in the class teacher's signature space on report cards for
-					the classes you teach. A photo of your signature on white paper works
+					Printed in the class teacher's signature space on report cards for the
+					classes you teach. A photo of your signature on white paper works
 					best.
 				</CardDescription>
 			</CardHeader>

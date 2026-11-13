@@ -21,11 +21,11 @@ const ORDINAL_WORDS: Record<string, number> = {
 	fourth: 4,
 	fifth: 5,
 	sixth: 6,
-	"الأولى": 1,
-	"الاولى": 1,
-	"الثانية": 2,
-	"الثالثة": 3,
-	"الرابعة": 4,
+	الأولى: 1,
+	الاولى: 1,
+	الثانية: 2,
+	الثالثة: 3,
+	الرابعة: 4,
 };
 
 /** Reads the term's position (1st, Second, 3) from its title. */
@@ -135,7 +135,10 @@ export function formatReportPosition(
 			: config.labels.studentsMany;
 	const template = config.labels.positionTemplate || "{position}/{total}";
 	return template
-		.replace("{position}", formatReportNumerals(position, config.layout.numerals))
+		.replace(
+			"{position}",
+			formatReportNumerals(position, config.layout.numerals),
+		)
 		.replace("{total}", formatReportNumerals(total, config.layout.numerals))
 		.replace("{students}", students)
 		.replace(/\s+/g, " ")
@@ -150,9 +153,7 @@ export function resolveReportComment(
 	if (Number.isNaN(percentage)) return null;
 	// Bands are whole-number ranges (80–89), so 89.6 belongs to the 80 band.
 	const score = Math.floor(percentage);
-	return (
-		bands.find((band) => score >= band.min && score <= band.max) ?? null
-	);
+	return bands.find((band) => score >= band.min && score <= band.max) ?? null;
 }
 
 /** Finds overlapping or missing ranges between 0 and 100. */

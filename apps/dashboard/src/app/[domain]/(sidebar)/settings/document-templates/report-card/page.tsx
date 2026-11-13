@@ -14,7 +14,13 @@ export default function Page() {
 	return (
 		<HydrateClient>
 			<ErrorBoundary errorComponent={ErrorFallback}>
-				<Suspense fallback={<p className="py-8 text-sm text-muted-foreground">Loading template…</p>}>
+				<Suspense
+					fallback={
+						<p className="py-8 text-sm text-muted-foreground">
+							Loading template…
+						</p>
+					}
+				>
 					<ReportCardEditor />
 				</Suspense>
 			</ErrorBoundary>

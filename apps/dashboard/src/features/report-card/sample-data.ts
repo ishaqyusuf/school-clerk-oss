@@ -9,15 +9,27 @@ function table(
 	return {
 		columns: [
 			{ label: "المواد" },
-			...assessments.map((item) => ({ label: item.label, subLabel: `(${item.max})` })),
-			...(assessments.length > 1 ? [{ label: "المجموع الكلي", subLabel: `(${total})` }] : []),
+			...assessments.map((item) => ({
+				label: item.label,
+				subLabel: `(${item.max})`,
+			})),
+			...(assessments.length > 1
+				? [{ label: "المجموع الكلي", subLabel: `(${total})` }]
+				: []),
 		],
 		rows: subjects.map((subject, index) => ({
 			columns: [
 				{ value: `${startIndex + index}. ${subject.title}` },
 				...subject.scores.map((value) => ({ value })),
 				...(assessments.length > 1
-					? [{ value: subject.scores.reduce<number>((sum, value) => sum + (value ?? 0), 0) }]
+					? [
+							{
+								value: subject.scores.reduce<number>(
+									(sum, value) => sum + (value ?? 0),
+									0,
+								),
+							},
+						]
 					: []),
 			],
 		})),
@@ -43,7 +55,13 @@ export const SAMPLE_REPORTS: Record<"short" | "long", ReportCardData> = {
 				{ title: "الحساب", scores: [8, 22, 44] },
 			]),
 		],
-		grade: { obtained: 336, obtainable: 400, percentage: 84, position: 2, totalStudents: 9 },
+		grade: {
+			obtained: 336,
+			obtainable: 400,
+			percentage: 84,
+			position: 2,
+			totalStudents: 9,
+		},
 	},
 	long: {
 		id: "sample-long",
@@ -74,7 +92,13 @@ export const SAMPLE_REPORTS: Record<"short" | "long", ReportCardData> = {
 				11,
 			),
 		],
-		grade: { obtained: 976, obtainable: 1200, percentage: 81.3, position: 4, totalStudents: 27 },
+		grade: {
+			obtained: 976,
+			obtainable: 1200,
+			percentage: 81.3,
+			position: 4,
+			totalStudents: 27,
+		},
 	},
 };
 
