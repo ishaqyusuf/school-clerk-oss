@@ -7,12 +7,11 @@ import {
 	renderToBuffer,
 } from "@react-pdf/renderer";
 import type { DocumentProps } from "@react-pdf/renderer";
-import type { Style } from "@react-pdf/types";
 import {
 	type ReportCardConfig,
 	formatReportNumerals,
 } from "@school-clerk/utils/report-card";
-import type { ReactElement } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import { toPdfParagraph } from "../../arabic-shaping";
 import {
 	REPORT_BASE_GAP,
@@ -36,6 +35,12 @@ import {
 	REPORT_CARD_PDF_SCRIPT_FONT,
 	registerReportCardFonts,
 } from "./fonts";
+
+/** react-pdf's style object (its types package is not a direct dependency). */
+type Style = Exclude<
+	NonNullable<ComponentProps<typeof View>["style"]>,
+	readonly unknown[]
+>;
 
 /** CSS px → PDF pt (the HTML page is 210mm wide at 96dpi, the PDF at 72dpi). */
 const pt = (px: number) => px * 0.75;
