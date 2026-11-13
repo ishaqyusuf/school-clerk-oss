@@ -512,3 +512,19 @@ describe("read policy", () => {
 		expect(getSchoolNotificationAccessKey(noFinance, "Admin")).not.toBe(admin);
 	});
 });
+
+describe("withdrawal details", () => {
+	it("formats a local-midnight ISO last-enrolled date as a calendar day", () => {
+		const config = getActivityTypeConfig("student_withdrawn");
+		const details = config?.details({
+			studentId: "s1",
+			withdrawalId: "w1",
+			withdrawalTermId: "t1",
+			lastEnrolledDate: "2026-11-11T23:00:00.000Z",
+			reason: "Relocated",
+		});
+		expect(details?.find((d) => d.label === "Last enrolled")?.value).toBe(
+			"Thu, 12 Nov 2026",
+		);
+	});
+});

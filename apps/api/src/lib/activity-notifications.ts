@@ -10,7 +10,6 @@ import {
 } from "@school-clerk/db";
 import { render } from "@school-clerk/email/render";
 import {
-	activityActionHref,
 	activityPartsToText,
 	getActivityTypeConfig,
 } from "@school-clerk/notifications/activities";
@@ -146,9 +145,9 @@ async function deliverActivity(
 	const parts = config.describe(activity.meta, activity);
 	const details = config.details(activity.meta);
 	const target = config.action(activity.meta);
-	const link =
-		activityActionHref(target) ??
-		`/activity?activityId=${encodeURIComponent(activity.id)}`;
+	// Always open the activity sheet: recipients can read the activity that
+	// notified them, while the target route may be outside their role.
+	const link = `/activity?activityId=${encodeURIComponent(activity.id)}`;
 	const action: ActivityNotificationAction = {
 		kind: "activity",
 		activityId: activity.id,

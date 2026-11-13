@@ -49,6 +49,21 @@ export function readDay(meta: MetaRecord, key: string): string | null {
 	return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
 }
 
+/**
+ * Like `readDay`, but also accepts an ISO timestamp of a calendar day saved as
+ * local midnight (e.g. `2026-11-11T23:00:00.000Z` for 12 Nov in Lagos): it is
+ * rounded to the nearest UTC day, which is correct for zones within ±12h.
+ */
+export function readCalendarDay(meta: MetaRecord, key: string): string | null {
+	const day = readDay(meta, key);
+	if (day) return day;
+	const value = readString(meta, key);
+	if (!value) return null;
+	const time = Date.parse(value);
+	if (Number.isNaN(time)) return null;
+	return new Date(time + 12 * 3_600_000).toISOString().slice(0, 10);
+}
+
 /** Counts need at least present and absent; the rest default to 0. */
 export function readCounts(
 	meta: MetaRecord,

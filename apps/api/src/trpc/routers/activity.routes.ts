@@ -4,6 +4,7 @@ import {
 	type ActivityFeedScope,
 	ActivityNotificationRuleError,
 	getActivity,
+	getNotifiedActivity,
 	getSchoolModuleConfiguration,
 	listActivities,
 	listActivityMembers,
@@ -258,7 +259,10 @@ export const activityRouter = createTRPCRouter({
 		.input(activityByIdSchema)
 		.query(async ({ ctx, input }) => {
 			const { scope } = await getActivityViewer(ctx);
-			const row = await getActivity(ctx.db, { ...scope, id: input.id });
+			// Recipients may open the activity behind their notification.
+			const row =
+				(await getActivity(ctx.db, { ...scope, id: input.id })) ??
+				(await getNotifiedActivity(ctx.db, { ...scope, id: input.id }));
 			const item = row ? toActivityItem(row) : null;
 			if (!row || !item)
 				throw new TRPCError({

@@ -184,6 +184,38 @@ export function getActivity(
 	});
 }
 
+/**
+ * An activity the viewer was notified about (ADR-0093): recipients may open
+ * the activity behind their notification even when it is outside their own
+ * feed scope. Read policy (allowed types) still applies.
+ */
+export async function getNotifiedActivity(
+	db: ActivityReader & {
+		notification: Pick<Database["notification"], "findFirst">;
+	},
+	input: ActivityFeedScope & { id: string },
+) {
+	const notice = await db.notification.findFirst({
+		where: {
+			schoolProfileId: input.schoolId,
+			userId: input.viewer.userId,
+			deletedAt: null,
+			tags: { some: { tagName: "activity_id", tagValue: input.id } },
+		},
+		select: { id: true },
+	});
+	if (!notice) return null;
+	return db.activity.findFirst({
+		where: {
+			id: input.id,
+			schoolProfileId: input.schoolId,
+			deletedAt: null,
+			type: { in: [...input.allowedTypes] },
+		},
+		select: activityFeedSelect,
+	});
+}
+
 function metaStudentId(meta: unknown) {
 	if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
 	const record = meta as Record<string, unknown>;

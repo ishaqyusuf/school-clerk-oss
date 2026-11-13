@@ -19,6 +19,7 @@ import {
 	type MetaRecord,
 	asRecord,
 	readCounts,
+	readCalendarDay,
 	readDay,
 	readNumber,
 	readRef,
@@ -445,7 +446,7 @@ const definitions: Record<ActivityTypeName, Definition> = {
 			];
 		},
 		details: (meta) => {
-			const lastDay = readDay(meta, "lastEnrolledDate");
+			const lastDay = readCalendarDay(meta, "lastEnrolledDate");
 			return [
 				detail("Student", readRef(meta, "student")?.name),
 				detail("Term", readRef(meta, "term")?.name),

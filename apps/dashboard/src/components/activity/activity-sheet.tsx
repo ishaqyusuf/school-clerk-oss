@@ -30,6 +30,7 @@ import {
 	formatActivityTime,
 } from "./activity-shared";
 import { ActivityAvatar, ActivityCategoryChip } from "./activity-visuals";
+import { useCanOpenRoute } from "./use-can-open-route";
 
 export type ActivityBurst = {
 	id: string;
@@ -256,6 +257,7 @@ export function ActivityDetailSheet({
 }) {
 	const trpc = useTRPC();
 	const router = useRouter();
+	const canOpen = useCanOpenRoute();
 	const query = useQuery({
 		...trpc.activity.byId.queryOptions({ id: activityId ?? "", relatedLimit: 5 }),
 		enabled: Boolean(activityId),
@@ -279,8 +281,9 @@ export function ActivityDetailSheet({
 		item?.type === "student_payment_reversed" ||
 		item?.type === "student_payment_refund" ||
 		item?.type === "student_payment_cancelled";
+	// Navigate without clearing `activityId` first: that URL update races the
+	// push and keeps the user on /activity. Leaving the page closes the sheet.
 	const go = (href: string) => {
-		onClose();
 		router.push(href);
 	};
 
@@ -301,7 +304,7 @@ export function ActivityDetailSheet({
 				)
 			}
 			footer={
-				item?.href && actionLabel ? (
+				item?.href && actionLabel && canOpen(item.href) ? (
 					<Button type="button" onClick={() => go(item.href as string)}>
 						{actionLabel}
 						<ArrowRight className="ml-1.5 size-4" />
@@ -330,7 +333,9 @@ export function ActivityDetailSheet({
 							<ActivityParts
 								parts={item.parts}
 								className="text-base leading-relaxed"
-								onStudentClick={(id) => go(studentHref(id))}
+								onStudentClick={
+									canOpen("/students") ? (id) => go(studentHref(id)) : undefined
+								}
 							/>
 							<p className="mt-1 text-[12.5px] text-muted-foreground">
 								{item.actor.name} ·{" "}
@@ -369,7 +374,7 @@ export function ActivityDetailSheet({
 						)}
 					</Section>
 
-					{students.length ? (
+					{students.length && canOpen("/students") ? (
 						<Section title="Linked">
 							<div className="flex flex-wrap gap-2">
 								{students.map((student) => (
@@ -419,6 +424,7 @@ export function ActivityBurstSheet({
 	onOpenActivity: (id: string) => void;
 }) {
 	const router = useRouter();
+	const canOpen = useCanOpenRoute();
 	const first = burst?.items[0];
 	const totals = burst?.type === "attendance_created" ? sumAttendance(burst.items) : null;
 	const students = new Map<string, string>();
@@ -446,7 +452,7 @@ export function ActivityBurstSheet({
 				)
 			}
 			footer={
-				first?.href && actionLabel ? (
+				first?.href && actionLabel && canOpen(first.href) ? (
 					<Button
 						type="button"
 						onClick={() => {
@@ -513,7 +519,7 @@ export function ActivityBurstSheet({
 						</div>
 					</Section>
 
-					{students.size ? (
+					{students.size && canOpen("/students") ? (
 						<Section title="Linked">
 							<div className="flex flex-wrap gap-2">
 								{[...students].map(([id, name]) => (

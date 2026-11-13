@@ -76,6 +76,7 @@ import {
 	ACTIVITY_CATEGORY_STYLES,
 	ActivityAvatar,
 } from "./activity-visuals";
+import { useCanOpenRoute } from "./use-can-open-route";
 
 const RANGE_OPTIONS: { value: ActivityRange | "any"; label: string }[] = [
 	{ value: "any", label: "Any time" },
@@ -220,7 +221,10 @@ export function ActivityFeed() {
 		setBurst(null);
 		void setParams({ activityId: id });
 	};
-	const goStudent = (id: string) => router.push(studentHref(id));
+	const canOpen = useCanOpenRoute();
+	const goStudent = canOpen("/students")
+		? (id: string) => router.push(studentHref(id))
+		: undefined;
 
 	const typeLabelById = new Map(
 		(filters?.categories ?? []).flatMap((category) =>
@@ -451,7 +455,7 @@ export function ActivityFeed() {
 					aria-pressed={scope === value}
 					onClick={() => void setParams({ scope: value === "all" ? null : value, members: null })}
 					className={cn(
-						"min-h-10 flex-1 rounded-md px-3 text-sm text-muted-foreground transition-colors md:min-h-8",
+						"min-h-10 flex-1 whitespace-nowrap rounded-md px-3 text-sm text-muted-foreground transition-colors md:min-h-8",
 						scope === value && "bg-background font-medium text-foreground shadow-sm",
 					)}
 				>
@@ -861,7 +865,7 @@ function SingleRow({
 	item: ActivityFeedItem;
 	selected: boolean;
 	onOpen: () => void;
-	onStudentClick: (id: string) => void;
+	onStudentClick?: (id: string) => void;
 }) {
 	return (
 		<div className="grid grid-cols-[30px_minmax(0,1fr)] gap-2.5 border-b py-3 md:gap-3">

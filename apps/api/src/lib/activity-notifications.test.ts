@@ -205,11 +205,11 @@ describe("dispatchPendingActivityNotifications", () => {
 		expect(notification?.body).toBe(
 			"Aisha Bello took attendance for Primary 3A on 13 Nov — 28 present · 2 absent",
 		);
-		expect(notification?.link).toBe(
-			"/academic/classes?viewClassroomId=class-1&classroomTab=attendance&attendanceSessionId=att-1&secondaryTab=attendance-overview",
-		);
-		expect(notification?.action).toEqual({
+		expect(notification?.link).toBe("/activity?activityId=act-1");
+		expect(notification?.action).toMatchObject({
 			kind: "activity",
+			category: "attendance",
+			icon: "clipboard-check",
 			activityId: "act-1",
 			type: "attendance_created",
 			target: {
