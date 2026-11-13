@@ -2,6 +2,7 @@
 @import "./summary-cards.css";
 @import "./dashboard-tables.css";
 @source "../../../**/*.{ts,tsx}";
+@source "../../../../packages/pdf/src/report-card";
 /* @tailwind components; */
 /* @tailwind utilities; */
 @custom-variant dark (&:is(.dark *));

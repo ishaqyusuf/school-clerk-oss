@@ -103,22 +103,8 @@ export function PrintSelectionFooter() {
 
   if (printOrder.length === 0) return null;
 
-  function handlePrint() {
-    if (!filters.termId) return;
-    resetSavePrintLog();
-    const termFormIds = [...printOrder];
-    window.print();
-    dispatchConfirmation({
-      type: "print-completed",
-      payload: {
-        source: "browser",
-        termFormIds,
-        termId: filters.termId,
-      },
-    });
-  }
-
-  function handlePrintV2() {
+  /** Opens a PDF of the selected reports in a new tab, where it prints page by page. */
+  function openReportPdf(endpoint: string, label: string) {
     if (!filters.termId) return;
     resetSavePrintLog();
     const termFormIds = [...printOrder];
@@ -128,14 +114,12 @@ export function PrintSelectionFooter() {
 
     params.set("termId", filters.termId);
 
-    const url = `/api/pdf/result?${params.toString()}`;
-    const popup = window.open(url, "_blank");
+    const popup = window.open(`${endpoint}?${params.toString()}`, "_blank");
 
     if (!popup) {
       toast({
         title: "Unable to open report PDF",
-        description:
-          "Allow pop-ups for this site, then try Print v2 again. No print history was recorded.",
+        description: `Allow pop-ups for this site, then try ${label} again. No print history was recorded.`,
         variant: "destructive",
       });
       return;
@@ -151,6 +135,10 @@ export function PrintSelectionFooter() {
       },
     });
   }
+
+  // Report cards print from the school's report card template as a PDF.
+  const handlePrint = () => openReportPdf("/api/pdf/report-card", "Print");
+  const handlePrintV2 = () => openReportPdf("/api/pdf/result", "Print v2");
 
   function recordPrint() {
     if (!pendingPrint) return;

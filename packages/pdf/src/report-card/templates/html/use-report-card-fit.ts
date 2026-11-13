@@ -11,10 +11,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-
-export const REPORT_BASE_ROW_PAD = 6;
-/** Fixed spacing between page sections before any extra space is added. */
-export const REPORT_BASE_GAP = 12;
+import { REPORT_BASE_GAP, REPORT_BASE_ROW_PAD } from "../../content";
 
 type FitRefs = {
 	area: RefObject<HTMLDivElement | null>;

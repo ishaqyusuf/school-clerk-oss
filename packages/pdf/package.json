@@ -5,6 +5,7 @@
     "clean": "rm -rf .turbo node_modules",
     "lint": "biome check .",
     "format": "biome format --write .",
+    "test": "bun test src/report-card",
     "typecheck": "tsc --noEmit"
   },
   "exports": {
@@ -13,6 +14,9 @@
     "./document-templates": "./src/documents/index.ts",
     "./json-template": "./src/json-template/index.tsx",
     "./payment-receipt-template": "./src/payment-receipt/index.tsx",
+    "./report-card": "./src/report-card/index.ts",
+    "./report-card/html": "./src/report-card/templates/html/index.tsx",
+    "./report-card/pdf": "./src/report-card/templates/pdf/index.tsx",
     "./result-template": "./src/result/index.tsx",
     "./utils/*": "./src/utils/*.ts",
 		"./assistant-report": "./src/assistant-report.tsx"

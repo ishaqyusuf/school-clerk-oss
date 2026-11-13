@@ -1,6 +1,7 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
+import { SAMPLE_REPORTS, SAMPLE_TERM } from "@school-clerk/pdf/report-card";
 import { Badge } from "@school-clerk/ui/badge";
 import { Button } from "@school-clerk/ui/button";
 import { cn } from "@school-clerk/ui/cn";
@@ -22,6 +23,7 @@ import {
 	TabsTrigger,
 } from "@school-clerk/ui/tabs";
 import { Textarea } from "@school-clerk/ui/textarea";
+import { toast } from "@school-clerk/ui/use-toast";
 import {
 	ARABIC_REPORT_CARD_LABELS,
 	ARABIC_TERM_ORDINALS,
@@ -41,7 +43,7 @@ import {
 	useQueryClient,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
-import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { FileText, Plus, RotateCcw, Trash2 } from "lucide-react";
 import {
 	type ReactNode,
 	useEffect,
@@ -52,7 +54,6 @@ import {
 	useState,
 } from "react";
 import { ReportCardPage } from "./report-card-page";
-import { SAMPLE_REPORTS, SAMPLE_TERM } from "./sample-data";
 import { SignatureUploader } from "./signature-uploader";
 import { StaffSignaturesPanel } from "./staff-signatures-panel";
 
@@ -290,6 +291,38 @@ export function ReportCardEditor() {
 		[config.comments.bands],
 	);
 	const disabled = !canEdit || save.isPending;
+	const [pdfPending, setPdfPending] = useState(false);
+	// Renders the unsaved settings with the PDF template the Print button uses.
+	async function openPdfPreview() {
+		const tab = window.open("", "_blank");
+		setPdfPending(true);
+		try {
+			const response = await fetch("/api/pdf/report-card/preview", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ templateId, config, sample }),
+			});
+			if (!response.ok) throw new Error(await response.text());
+			const url = URL.createObjectURL(await response.blob());
+			if (tab) tab.location.href = url;
+			else if (!window.open(url, "_blank")) {
+				toast({
+					title: "Unable to open the PDF preview",
+					description: "Allow pop-ups for this site, then try again.",
+					variant: "destructive",
+				});
+			}
+		} catch {
+			tab?.close();
+			toast({
+				title: "Unable to open the PDF preview",
+				description: "Try again in a moment.",
+				variant: "destructive",
+			});
+		} finally {
+			setPdfPending(false);
+		}
+	}
 	const calligraphyPreview = applyNameCalligraphy(tryName, config.calligraphy);
 
 	return (
@@ -323,6 +356,17 @@ export function ReportCardEditor() {
 						<RotateCcw data-icon="inline-start" />
 						Reset
 					</Button>
+					{canEdit ? (
+						<Button
+							type="button"
+							variant="outline"
+							disabled={pdfPending}
+							onClick={openPdfPreview}
+						>
+							<FileText data-icon="inline-start" />
+							{pdfPending ? "Rendering…" : "Preview PDF"}
+						</Button>
+					) : null}
 					<Button
 						type="button"
 						disabled={disabled || !dirty || !config.school.name.trim()}
@@ -380,10 +424,9 @@ export function ReportCardEditor() {
 									<Input
 										value={config.school.name}
 										onChange={(event) =>
-											update(
-												(draft) =>
-													void (draft.school.name = event.target.value),
-											)
+											update((draft) => {
+												draft.school.name = event.target.value;
+											})
 										}
 										dir="auto"
 									/>
@@ -393,10 +436,9 @@ export function ReportCardEditor() {
 										rows={2}
 										value={config.school.address}
 										onChange={(event) =>
-											update(
-												(draft) =>
-													void (draft.school.address = event.target.value),
-											)
+											update((draft) => {
+												draft.school.address = event.target.value;
+											})
 										}
 									/>
 								</Field>
@@ -492,10 +534,9 @@ export function ReportCardEditor() {
 										step={1}
 										value={[config.layout.pageMarginMm]}
 										onValueChange={([value]) =>
-											update(
-												(draft) =>
-													void (draft.layout.pageMarginMm = value ?? 10),
-											)
+											update((draft) => {
+												draft.layout.pageMarginMm = value ?? 10;
+											})
 										}
 										disabled={disabled}
 									/>
@@ -548,10 +589,9 @@ export function ReportCardEditor() {
 										value={config.table.emptyCell}
 										maxLength={4}
 										onChange={(event) =>
-											update(
-												(draft) =>
-													void (draft.table.emptyCell = event.target.value),
-											)
+											update((draft) => {
+												draft.table.emptyCell = event.target.value;
+											})
 										}
 									/>
 								</Field>
@@ -580,11 +620,9 @@ export function ReportCardEditor() {
 											className="w-24"
 											value={config.header.academicYearSuffix}
 											onChange={(event) =>
-												update(
-													(draft) =>
-														void (draft.header.academicYearSuffix =
-															event.target.value),
-												)
+												update((draft) => {
+													draft.header.academicYearSuffix = event.target.value;
+												})
 											}
 										/>
 									</Field>
@@ -606,10 +644,9 @@ export function ReportCardEditor() {
 											<Choice
 												value={config.header.termLabelMode}
 												onChange={(value) =>
-													update(
-														(draft) =>
-															void (draft.header.termLabelMode = value),
-													)
+													update((draft) => {
+														draft.header.termLabelMode = value;
+													})
 												}
 												options={[
 													{
@@ -780,10 +817,9 @@ export function ReportCardEditor() {
 											hint={config.labels.commentSecondary}
 											checked={config.comments.showSecondary}
 											onChange={(value) =>
-												update(
-													(draft) =>
-														void (draft.comments.showSecondary = value),
-												)
+												update((draft) => {
+													draft.comments.showSecondary = value;
+												})
 											}
 											disabled={disabled}
 										/>
@@ -792,11 +828,9 @@ export function ReportCardEditor() {
 												<Choice
 													value={config.comments.secondaryDirection}
 													onChange={(value) =>
-														update(
-															(draft) =>
-																void (draft.comments.secondaryDirection =
-																	value),
-														)
+														update((draft) => {
+															draft.comments.secondaryDirection = value;
+														})
 													}
 													options={[
 														{ value: "ltr", label: "Left to right" },
@@ -810,11 +844,9 @@ export function ReportCardEditor() {
 												<Choice
 													value={String(config.comments.blankLines)}
 													onChange={(value) =>
-														update(
-															(draft) =>
-																void (draft.comments.blankLines =
-																	Number(value)),
-														)
+														update((draft) => {
+															draft.comments.blankLines = Number(value);
+														})
 													}
 													options={["1", "2", "3", "4"].map((value) => ({
 														value,
@@ -891,9 +923,8 @@ export function ReportCardEditor() {
 														value={band.min}
 														onChange={(event) =>
 															update((draft) => {
-																draft.comments.bands[index]!.min = Number(
-																	event.target.value,
-																);
+																const target = draft.comments.bands[index];
+																if (target) target.min = Number(event.target.value);
 															})
 														}
 													/>
@@ -909,9 +940,8 @@ export function ReportCardEditor() {
 														value={band.max}
 														onChange={(event) =>
 															update((draft) => {
-																draft.comments.bands[index]!.max = Number(
-																	event.target.value,
-																);
+																const target = draft.comments.bands[index];
+																if (target) target.max = Number(event.target.value);
 															})
 														}
 													/>
@@ -939,8 +969,8 @@ export function ReportCardEditor() {
 													value={band.primary}
 													onChange={(event) =>
 														update((draft) => {
-															draft.comments.bands[index]!.primary =
-																event.target.value;
+															const target = draft.comments.bands[index];
+															if (target) target.primary = event.target.value;
 														})
 													}
 												/>
@@ -950,8 +980,8 @@ export function ReportCardEditor() {
 													value={band.secondary}
 													onChange={(event) =>
 														update((draft) => {
-															draft.comments.bands[index]!.secondary =
-																event.target.value;
+															const target = draft.comments.bands[index];
+															if (target) target.secondary = event.target.value;
 														})
 													}
 												/>
@@ -1006,11 +1036,9 @@ export function ReportCardEditor() {
 										hint="Uses the signature of the first teacher assigned to each class who has uploaded one. Leave off to sign by hand."
 										checked={config.signatures.useClassTeacherSignature}
 										onChange={(value) =>
-											update(
-												(draft) =>
-													void (draft.signatures.useClassTeacherSignature =
-														value),
-											)
+											update((draft) => {
+												draft.signatures.useClassTeacherSignature = value;
+											})
 										}
 										disabled={disabled}
 									/>
@@ -1053,11 +1081,9 @@ export function ReportCardEditor() {
 											step={1}
 											value={[config.calligraphy.kashidaLength]}
 											onValueChange={([value]) =>
-												update(
-													(draft) =>
-														void (draft.calligraphy.kashidaLength =
-															value ?? 10),
-												)
+												update((draft) => {
+													draft.calligraphy.kashidaLength = value ?? 10;
+												})
 											}
 											disabled={disabled}
 										/>
@@ -1070,11 +1096,9 @@ export function ReportCardEditor() {
 											hint="About 160 common names, hand-stretched for Darul Hadith."
 											checked={config.calligraphy.useDefaultDictionary}
 											onChange={(value) =>
-												update(
-													(draft) =>
-														void (draft.calligraphy.useDefaultDictionary =
-															value),
-												)
+												update((draft) => {
+													draft.calligraphy.useDefaultDictionary = value;
+												})
 											}
 											disabled={disabled}
 										/>
