@@ -55,7 +55,6 @@ export async function POST(req: NextRequest) {
 			],
 			{
 				title: "Report card preview",
-				fontBaseUrl: new URL("/fonts/", new URL(req.url).origin),
 			},
 		);
 		return new Response(new Uint8Array(buffer), {

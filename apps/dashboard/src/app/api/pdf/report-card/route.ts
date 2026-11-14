@@ -162,7 +162,6 @@ export async function GET(req: NextRequest) {
 	try {
 		const buffer = await renderReportCardsToBuffer(pages, {
 			title: `Report cards ${termLabel}`.trim(),
-			fontBaseUrl: new URL("/fonts/", requestUrl.origin),
 		});
 		return new Response(new Uint8Array(buffer), {
 			headers: {

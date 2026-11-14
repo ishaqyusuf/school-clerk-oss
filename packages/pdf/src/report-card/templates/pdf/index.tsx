@@ -819,8 +819,6 @@ export function PdfReportCardPage({
 export type PdfReportCardDocumentProps = {
 	reports: ReportCardRenderProps[];
 	title?: string;
-	/** Public URL of the dashboard's `/fonts/` folder, used when the fonts are not on disk. */
-	fontBaseUrl?: string | URL;
 	/** Per-report type scale from `fitReportCards`; 1 when omitted. */
 	fitScales?: number[];
 	measure?: boolean;
@@ -830,11 +828,10 @@ export type PdfReportCardDocumentProps = {
 export function PdfReportCardDocument({
 	reports,
 	title = "Report cards",
-	fontBaseUrl,
 	fitScales,
 	measure,
 }: PdfReportCardDocumentProps) {
-	registerReportCardFonts(fontBaseUrl);
+	registerReportCardFonts();
 	return (
 		<Document title={title}>
 			{reports.map((report, index) => (
@@ -884,7 +881,7 @@ function pageHeights(pdf: Buffer) {
  */
 export async function fitReportCards(
 	reports: ReportCardRenderProps[],
-	options: { fontBaseUrl?: string | URL; maxPasses?: number } = {},
+	options: { maxPasses?: number } = {},
 ) {
 	const scales = reports.map(() => 1);
 	let pending = reports
@@ -901,7 +898,6 @@ export async function fitReportCards(
 					(index) => reports[index] as ReportCardRenderProps,
 				)}
 				fitScales={pending.map((index) => scales[index] ?? 1)}
-				fontBaseUrl={options.fontBaseUrl}
 				measure
 			/>,
 			pending.length,
@@ -927,15 +923,14 @@ export async function fitReportCards(
 /** Renders report cards to a PDF buffer, one fitted A4 page per student. */
 export async function renderReportCardsToBuffer(
 	reports: ReportCardRenderProps[],
-	options: { title?: string; fontBaseUrl?: string | URL } = {},
+	options: { title?: string } = {},
 ) {
-	registerReportCardFonts(options.fontBaseUrl);
-	const fitScales = await fitReportCards(reports, options);
+	registerReportCardFonts();
+	const fitScales = await fitReportCards(reports);
 	return renderPdf(
 		<PdfReportCardDocument
 			reports={reports}
 			title={options.title}
-			fontBaseUrl={options.fontBaseUrl}
 			fitScales={fitScales}
 		/>,
 		reports.length,

@@ -3,6 +3,11 @@ import "server-only";
 import { auth } from "@/auth/server";
 import { getFirstPermittedHref } from "@/components/sidebar/links";
 import {
+	createDashboardRoutingHeaders,
+	getDashboardRoutingContext,
+	resolveDashboardRootRouting,
+} from "@/utils/dashboard-routing";
+import {
 	type TenantDomainContext,
 	findTenantDomainByCustomDomain,
 	findTenantDomainBySubdomain,
@@ -18,52 +23,33 @@ import { prisma, resolveTenantWorkspace } from "@school-clerk/db";
 import {
 	buildTenantRedirectUrl,
 	getTenantUrlHeaderNames,
-	resolveTenantUrlContext,
 	toInternalTenantPath,
 } from "@school-clerk/tenant-url";
 import {
-	getPerformanceRequestId,
 	measurePerformance,
 	withPerformanceContext,
 } from "@school-clerk/utils/server-performance";
 import { type NextRequest, NextResponse } from "next/server";
 
-const protectedProxyHeaderNames = [
-	"x-user-id",
-	"x-session-token",
-	"x-tenant-hostname",
-	"x-tenant-subdomain",
-	"x-pathname",
-];
-
 export async function resolveTenantRouting(
 	req: NextRequest,
 	requestId: string,
 ) {
-	const host = getRequestHost(req);
 	const url = req.nextUrl;
 	const tenantUrlConfig = getDashboardTenantUrlConfig();
 	const tenantHeaderNames = getTenantUrlHeaderNames(tenantUrlConfig);
 	const tenantUrlDevMode = tenantUrlConfig.enablePathStyleHosts !== false;
-	const tenantUrlContext = resolveTenantUrlContext(
-		{
-			host,
-			pathname: url.pathname,
-			protocol: req.headers.get("x-forwarded-proto"),
-		},
-		tenantUrlConfig,
-	);
-	const baseRequestHeaders = createDashboardProxyHeaders({
+	const tenantUrlContext = getDashboardRoutingContext(req, tenantUrlConfig);
+	const rootResponse = resolveDashboardRootRouting(
 		req,
 		requestId,
-		tenantHeaderNames,
 		tenantUrlContext,
-	});
+		tenantUrlConfig,
+	);
+	if (rootResponse) return rootResponse;
 
 	// ---- Determine canonical slug ----
 	let canonicalSlug = tenantUrlContext.tenantSlug;
-	const isAppRootHost =
-		tenantUrlContext.isAppRootHost && !tenantUrlContext.tenantSlug;
 	let tenantDomain: TenantDomainContext | null = null;
 	let resolvedSession:
 		| { value: Awaited<ReturnType<typeof auth.api.getSession>> }
@@ -90,7 +76,7 @@ export async function resolveTenantRouting(
 		}
 	}
 
-	if (!canonicalSlug && !isAppRootHost) {
+	if (!canonicalSlug) {
 		const bareHost = tenantUrlContext.customDomainLookupHost;
 
 		if (bareHost) {
@@ -133,18 +119,6 @@ export async function resolveTenantRouting(
 	// ---- Handle special app subdomain ----
 	if (canonicalSlug === "app" || canonicalSlug?.startsWith("app.")) {
 		return NextResponse.rewrite(new URL("/app/", req.url));
-	}
-
-	if (isAppRootHost) {
-		if (isSignupRoute) {
-			return NextResponse.next({
-				request: {
-					headers: baseRequestHeaders,
-				},
-			});
-		}
-
-		return NextResponse.redirect(new URL("/sign-up", req.url));
 	}
 
 	const session = resolvedSession
@@ -341,7 +315,12 @@ export async function resolveTenantRouting(
 	// ---- Default: continue normally ----
 	return NextResponse.next({
 		request: {
-			headers: baseRequestHeaders,
+			headers: createDashboardRoutingHeaders(
+				req,
+				requestId,
+				tenantUrlContext,
+				tenantHeaderNames,
+			),
 		},
 	});
 }
@@ -361,43 +340,14 @@ function createDashboardProxyHeaders({
 	requestId: string;
 	tenantDomain?: TenantDomainContext | null;
 	tenantHeaderNames: ReturnType<typeof getTenantUrlHeaderNames>;
-	tenantUrlContext: ReturnType<typeof resolveTenantUrlContext>;
+	tenantUrlContext: ReturnType<typeof getDashboardRoutingContext>;
 }) {
-	const requestHeaders = new Headers(req.headers);
-	requestHeaders.set("x-request-id", getPerformanceRequestId(requestId));
-	const protectedHeaders = [
-		...protectedProxyHeaderNames,
-		tenantHeaderNames.domain,
-		tenantHeaderNames.pathname,
-		tenantHeaderNames.urlStyle,
-		tenantHeaderNames.externalBasePath,
-		tenantHeaderNames.externalPath,
-		tenantHeaderNames.accountId,
-	];
-
-	for (const header of protectedHeaders) {
-		requestHeaders.delete(header);
-	}
-
-	requestHeaders.set("x-pathname", tenantUrlContext.productPath);
-	requestHeaders.set(tenantHeaderNames.pathname, tenantUrlContext.productPath);
-	requestHeaders.set(tenantHeaderNames.urlStyle, tenantUrlContext.style);
-	requestHeaders.set(
-		tenantHeaderNames.externalBasePath,
-		tenantUrlContext.externalBasePath,
+	const requestHeaders = createDashboardRoutingHeaders(
+		req,
+		requestId,
+		tenantUrlContext,
+		tenantHeaderNames,
 	);
-	requestHeaders.set(
-		tenantHeaderNames.externalPath,
-		tenantUrlContext.externalPath,
-	);
-
-	if (tenantUrlContext.style === "custom-domain") {
-		const tenantHostname = tenantUrlContext.customDomainLookupHost;
-
-		if (tenantHostname) {
-			requestHeaders.set("x-tenant-hostname", tenantHostname);
-		}
-	}
 
 	if (canonicalSlug) {
 		requestHeaders.set("x-tenant-subdomain", canonicalSlug);
@@ -420,13 +370,6 @@ function createDashboardProxyHeaders({
 	}
 
 	return requestHeaders;
-}
-
-function getRequestHost(req: NextRequest) {
-	const forwardedHost = req.headers.get("x-forwarded-host");
-	const host = forwardedHost?.split(",")[0]?.trim() || req.headers.get("host");
-
-	return host ?? "";
 }
 
 function getHrefPathname(href: string) {

@@ -1,8 +1,13 @@
+import { normalizeHost, stripPort } from "@school-clerk/tenant-url";
 import {
 	measurePerformance,
 	withPerformanceContext,
 } from "@school-clerk/utils/server-performance";
 import { type NextRequest, NextResponse } from "next/server";
+import {
+	getDashboardRoutingContext,
+	resolveDashboardRootRouting,
+} from "./utils/dashboard-routing";
 import {
 	getRegionalRoutingEndpoint,
 	parseRoutingResponse,
@@ -26,8 +31,30 @@ export default async function proxy(req: NextRequest) {
 	return withPerformanceContext(requestId, () =>
 		measurePerformance("proxy.total", async () => {
 			try {
+				const tenantUrlConfig = getDashboardTenantUrlConfig();
+				if (req.method === "GET" || req.method === "HEAD") {
+					const rootHost = stripPort(
+						normalizeHost(tenantUrlConfig.appRootDomain),
+					);
+					if (
+						req.nextUrl.hostname === rootHost &&
+						stripPort(normalizeHost(req.headers.get("host"))) === rootHost
+					) {
+						const context = getDashboardRoutingContext(req, tenantUrlConfig);
+						// Forwarded tenant hosts still require the signed regional decision.
+						if (stripPort(context.host) === rootHost) {
+							const response = resolveDashboardRootRouting(
+								req,
+								requestId,
+								context,
+								tenantUrlConfig,
+							);
+							if (response) return response;
+						}
+					}
+				}
 				const endpoint = getRegionalRoutingEndpoint(req.url, {
-					appRootDomain: getDashboardTenantUrlConfig().appRootDomain,
+					appRootDomain: tenantUrlConfig.appRootDomain,
 					vercelEnv: process.env.VERCEL_ENV,
 					vercelUrl: process.env.VERCEL_URL,
 					authUrl: process.env.BETTER_AUTH_URL,

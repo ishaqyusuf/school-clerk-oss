@@ -2,8 +2,6 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { ensureResultFontsRegistered } from "../../../shared";
 import type { ResultTemplatePayload } from "../../../types";
 
-ensureResultFontsRegistered();
-
 const styles = StyleSheet.create({
   page: {
     paddingTop: 24,
@@ -198,6 +196,7 @@ export function K12ScholarTemplate({
   teacherSignatureLabel = "توقيع المدرس",
   directorSignatureLabel = "توقيع المدير",
 }: ResultTemplatePayload) {
+  ensureResultFontsRegistered();
   return (
     <Document title={`${schoolName} Student Reports`}>
       {reports.map((report, index) => (
