@@ -76,6 +76,7 @@ import {
 import {
   type CSSProperties,
   Fragment,
+  type UIEvent,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -198,6 +199,20 @@ function AssessmentRecordingWorkspace({
   const [isActionsSheetOpen, setIsActionsSheetOpen] = useState(false);
   const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
   const actionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
+  /** Keeps the sticky header strip and the score rows at the same sideways offset. */
+  const syncHorizontalScroll = (event: UIEvent<HTMLDivElement>) => {
+    const source = event.currentTarget;
+    const target =
+      source === headerScrollRef.current
+        ? bodyScrollRef.current
+        : headerScrollRef.current;
+    // Writing an unchanged offset can stop momentum scrolling on iOS.
+    if (target && target.scrollLeft !== source.scrollLeft) {
+      target.scrollLeft = source.scrollLeft;
+    }
+  };
   const isMobile = useIsMobile();
   const deferredNameSearch = useDeferredValue(nameSearch);
 
@@ -467,6 +482,223 @@ function AssessmentRecordingWorkspace({
       </div>
     );
   }
+
+  const tableClassName =
+    "w-full min-w-[var(--recording-table-min-w)] table-fixed border-collapse sm:min-w-[var(--recording-table-w)]";
+  // The first header row only has subject spans, so a fixed table would
+  // split widths evenly and squeeze the names; fix every column instead.
+  const multiSubjectColumns = (
+    <colgroup>
+      <col className="w-[var(--recording-student-w)] sm:w-[220px]" />
+      {Array.from({ length: scoreColumnCount }, (_, index) => (
+        <col key={index} className="w-[76px]" />
+      ))}
+      <col className="hidden sm:table-column" />
+    </colgroup>
+  );
+  const tableHeader = (
+    <TableHeader
+      className={cn(
+        "bg-background [&_th]:bg-background",
+        // One subject sticks below the page's subject bar. Several
+        // subjects stick through the header strip around it instead.
+        singleSubject &&
+          cn(
+            "sticky z-30 shadow-sm",
+            MOBILE_SUBJECT_BAR_OFFSET,
+            "md:top-12 lg:top-0",
+          ),
+      )}
+    >
+      {singleSubject ? null : (
+        <TableRow>
+          <TableHead
+            rowSpan={2}
+            className={cn(
+              "sticky z-20 border-e sm:w-[220px]",
+              isRtl ? "right-0" : "left-0",
+            )}
+          >
+            Student
+          </TableHead>
+          {visibleSubjects.map((subject) => (
+            <TableHead
+              key={subject.id}
+              colSpan={Math.max(subject.assessments.length, 1)}
+              className="border-e text-center"
+            >
+              <button
+                type="button"
+                disabled={!!publicToken}
+                onClick={() => {
+                  if (publicToken) return;
+                  setOpenSubjectId(subject.id);
+                }}
+                className="max-w-full truncate font-semibold underline-offset-4 enabled:hover:underline disabled:cursor-default"
+                dir="auto"
+              >
+                {subject.subject.title}
+              </button>
+            </TableHead>
+          ))}
+          <FillerHead rowSpan={2} />
+        </TableRow>
+      )}
+      <TableRow>
+        {singleSubject ? (
+          <TableHead
+            className={cn(
+              "sticky z-20 border-e sm:w-[220px]",
+              isRtl ? "right-0" : "left-0",
+            )}
+          >
+            Student
+          </TableHead>
+        ) : null}
+        {visibleSubjects.map((subject) => (
+          <Fragment key={subject.id}>
+            {subject.assessments.length ? (
+              subject.assessments.map((assessment) => (
+                <TableHead
+                  key={`${subject.id}-${assessment.id}`}
+                  className={cn(
+                    SCORE_CELL_WIDTH,
+                    "h-auto border-e px-1 py-1.5 text-center text-xs leading-tight",
+                  )}
+                  title={getAssessmentDisplayTitle(assessment)}
+                >
+                  <div className="truncate font-medium text-foreground">
+                    {getAssessmentDisplayTitle(assessment)}
+                  </div>
+                  <div className="text-muted-foreground">
+                    ({assessment.obtainable ?? "-"})
+                  </div>
+                </TableHead>
+              ))
+            ) : (
+              <TableHead
+                className={cn(
+                  SCORE_CELL_WIDTH,
+                  "border-e text-center text-xs text-muted-foreground",
+                )}
+              >
+                No assessments
+              </TableHead>
+            )}
+          </Fragment>
+        ))}
+        {singleSubject ? <FillerHead /> : null}
+      </TableRow>
+    </TableHeader>
+  );
+  const tableBody = (
+    <TableBody>
+      {resultRows.length ? (
+        resultRows.map((row, rowIndex) => {
+          let scoreColumn = 0;
+          return (
+            <TableRow
+              key={row.student.id}
+              className="hover:bg-muted/30 focus-within:bg-accent/40"
+            >
+              <TableCell
+                className={cn(
+                  "sticky z-10 border-e bg-background sm:w-[220px] sm:whitespace-nowrap",
+                  // Several subjects scroll sideways on phones, so
+                  // let long names wrap instead of cutting them off.
+                  singleSubject
+                    ? "whitespace-nowrap"
+                    : "whitespace-normal",
+                  isRtl ? "right-0" : "left-0",
+                )}
+              >
+                <StudentOverviewTrigger
+                  studentId={
+                    publicToken ? null : row.student.student?.id
+                  }
+                  termId={termId}
+                  termSheetId={row.student.id}
+                  label={row.studentName}
+                >
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      {rowIndex + 1}.
+                    </span>
+                    <span
+                      className={cn(
+                        "min-w-0",
+                        singleSubject
+                          ? "truncate"
+                          : "break-words leading-snug max-sm:line-clamp-2 sm:truncate",
+                      )}
+                      dir="auto"
+                    >
+                      {row.studentName}
+                    </span>
+                    <StudentGenderBadge
+                      gender={row.student.student?.gender}
+                    />
+                    {row.student.registrationReviewStatus ===
+                    "PENDING" ? (
+                      <Badge
+                        variant="warning"
+                        className="h-5 shrink-0 px-1.5 text-[10px]"
+                      >
+                        Pending
+                      </Badge>
+                    ) : null}
+                  </div>
+                </StudentOverviewTrigger>
+              </TableCell>
+              {row.subjectTotals.map((subjectTotal) => (
+                <Fragment key={subjectTotal.subject.id}>
+                  {subjectTotal.cells.length ? (
+                    subjectTotal.cells.map((cell) => {
+                      const gridCol = scoreColumn++;
+                      return (
+                        <AssessmentResultsScoreCell
+                          key={`${row.student.id}-${cell.assessment.id}`}
+                          assessmentId={cell.assessment.id}
+                          obtainable={cell.assessment.obtainable}
+                          studentTermFormId={row.student.id}
+                          studentId={row.student.student?.id}
+                          departmentSubjectId={subjectTotal.subject.id}
+                          publicToken={publicToken}
+                          publicAccessGrant={publicAccessGrant}
+                          result={cell.result}
+                          gridRow={rowIndex}
+                          gridCol={gridCol}
+                          widthClass={SCORE_CELL_WIDTH}
+                          label={`${row.studentName}, ${subjectTotal.subject.subject.title} ${getAssessmentDisplayTitle(cell.assessment)} (${cell.assessment.obtainable ?? "-"})`}
+                        />
+                      );
+                    })
+                  ) : (
+                    <TableCell className="border-e text-center text-muted-foreground">
+                      -
+                    </TableCell>
+                  )}
+                </Fragment>
+              ))}
+              <TableCell
+                aria-hidden="true"
+                className="hidden p-0 sm:table-cell"
+              />
+            </TableRow>
+          );
+        })
+      ) : (
+        <TableRow>
+          <TableCell
+            colSpan={2 + scoreColumnCount}
+            className="h-24 border-e text-center text-muted-foreground"
+          >
+            No students match the current filters.
+          </TableCell>
+        </TableRow>
+      )}
+    </TableBody>
+  );
 
   return (
     <>
@@ -796,10 +1028,7 @@ function AssessmentRecordingWorkspace({
           </div>
 
           <div
-            className={cn(
-              "w-full rounded-md border bg-background",
-              !singleSubject && "overflow-x-auto",
-            )}
+            className="w-full rounded-md border bg-background"
             style={
               {
                 "--recording-table-w": `${tableWidth}px`,
@@ -810,219 +1039,49 @@ function AssessmentRecordingWorkspace({
               } as CSSProperties
             }
           >
-            <Table
-              dir={academicDataDirection}
-              className="w-full min-w-[var(--recording-table-min-w)] table-fixed border-collapse sm:min-w-[var(--recording-table-w)]"
-            >
-              {singleSubject ? null : (
-                // The first header row only has subject spans, so a fixed
-                // table would split widths evenly and squeeze the names.
-                <colgroup>
-                  <col className="w-[var(--recording-student-w)] sm:w-[220px]" />
-                  {Array.from({ length: scoreColumnCount }, (_, index) => (
-                    <col key={index} className="w-[76px]" />
-                  ))}
-                  <col className="hidden sm:table-column" />
-                </colgroup>
-              )}
-              <TableHeader
-                className={cn(
-                  "sticky z-30 bg-background shadow-sm [&_th]:bg-background",
-                  // One subject: sticks below the page's subject bar. Several:
-                  // the sideways-scrolling wrapper is the sticky container, so
-                  // a page offset would push the header over the first rows.
-                  singleSubject
-                    ? cn(MOBILE_SUBJECT_BAR_OFFSET, "md:top-12 lg:top-0")
-                    : "top-0",
-                )}
-              >
-                {singleSubject ? null : (
-                  <TableRow>
-                    <TableHead
-                      rowSpan={2}
-                      className={cn(
-                        "sticky z-20 border-e sm:w-[220px]",
-                        isRtl ? "right-0" : "left-0",
-                      )}
+            {singleSubject ? (
+              <Table dir={academicDataDirection} className={tableClassName}>
+                {tableHeader}
+                {tableBody}
+              </Table>
+            ) : (
+              <>
+                {/* Several subjects scroll sideways, which would trap a sticky
+                    header inside the scroller. The header gets its own strip
+                    that sticks to the page and scrolls in step with the rows. */}
+                <div
+                  className={cn(
+                    "sticky z-30 bg-background shadow-sm",
+                    MOBILE_SUBJECT_BAR_OFFSET,
+                    "md:top-12 lg:top-0",
+                  )}
+                >
+                  <div
+                    ref={headerScrollRef}
+                    onScroll={syncHorizontalScroll}
+                    className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  >
+                    <Table
+                      dir={academicDataDirection}
+                      className={tableClassName}
                     >
-                      Student
-                    </TableHead>
-                    {visibleSubjects.map((subject) => (
-                      <TableHead
-                        key={subject.id}
-                        colSpan={Math.max(subject.assessments.length, 1)}
-                        className="border-e text-center"
-                      >
-                        <button
-                          type="button"
-                          disabled={!!publicToken}
-                          onClick={() => {
-                            if (publicToken) return;
-                            setOpenSubjectId(subject.id);
-                          }}
-                          className="max-w-full truncate font-semibold underline-offset-4 enabled:hover:underline disabled:cursor-default"
-                          dir="auto"
-                        >
-                          {subject.subject.title}
-                        </button>
-                      </TableHead>
-                    ))}
-                    <FillerHead rowSpan={2} />
-                  </TableRow>
-                )}
-                <TableRow>
-                  {singleSubject ? (
-                    <TableHead
-                      className={cn(
-                        "sticky z-20 border-e sm:w-[220px]",
-                        isRtl ? "right-0" : "left-0",
-                      )}
-                    >
-                      Student
-                    </TableHead>
-                  ) : null}
-                  {visibleSubjects.map((subject) => (
-                    <Fragment key={subject.id}>
-                      {subject.assessments.length ? (
-                        subject.assessments.map((assessment) => (
-                          <TableHead
-                            key={`${subject.id}-${assessment.id}`}
-                            className={cn(
-                              SCORE_CELL_WIDTH,
-                              "h-auto border-e px-1 py-1.5 text-center text-xs leading-tight",
-                            )}
-                            title={getAssessmentDisplayTitle(assessment)}
-                          >
-                            <div className="truncate font-medium text-foreground">
-                              {getAssessmentDisplayTitle(assessment)}
-                            </div>
-                            <div className="text-muted-foreground">
-                              ({assessment.obtainable ?? "-"})
-                            </div>
-                          </TableHead>
-                        ))
-                      ) : (
-                        <TableHead
-                          className={cn(
-                            SCORE_CELL_WIDTH,
-                            "border-e text-center text-xs text-muted-foreground",
-                          )}
-                        >
-                          No assessments
-                        </TableHead>
-                      )}
-                    </Fragment>
-                  ))}
-                  {singleSubject ? <FillerHead /> : null}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {resultRows.length ? (
-                  resultRows.map((row, rowIndex) => {
-                    let scoreColumn = 0;
-                    return (
-                      <TableRow
-                        key={row.student.id}
-                        className="hover:bg-muted/30 focus-within:bg-accent/40"
-                      >
-                        <TableCell
-                          className={cn(
-                            "sticky z-10 border-e bg-background sm:w-[220px] sm:whitespace-nowrap",
-                            // Several subjects scroll sideways on phones, so
-                            // let long names wrap instead of cutting them off.
-                            singleSubject
-                              ? "whitespace-nowrap"
-                              : "whitespace-normal",
-                            isRtl ? "right-0" : "left-0",
-                          )}
-                        >
-                          <StudentOverviewTrigger
-                            studentId={
-                              publicToken ? null : row.student.student?.id
-                            }
-                            termId={termId}
-                            termSheetId={row.student.id}
-                            label={row.studentName}
-                          >
-                            <div className="flex min-w-0 items-center gap-1.5">
-                              <span className="shrink-0 tabular-nums text-muted-foreground">
-                                {rowIndex + 1}.
-                              </span>
-                              <span
-                                className={cn(
-                                  "min-w-0",
-                                  singleSubject
-                                    ? "truncate"
-                                    : "break-words leading-snug max-sm:line-clamp-2 sm:truncate",
-                                )}
-                                dir="auto"
-                              >
-                                {row.studentName}
-                              </span>
-                              <StudentGenderBadge
-                                gender={row.student.student?.gender}
-                              />
-                              {row.student.registrationReviewStatus ===
-                              "PENDING" ? (
-                                <Badge
-                                  variant="warning"
-                                  className="h-5 shrink-0 px-1.5 text-[10px]"
-                                >
-                                  Pending
-                                </Badge>
-                              ) : null}
-                            </div>
-                          </StudentOverviewTrigger>
-                        </TableCell>
-                        {row.subjectTotals.map((subjectTotal) => (
-                          <Fragment key={subjectTotal.subject.id}>
-                            {subjectTotal.cells.length ? (
-                              subjectTotal.cells.map((cell) => {
-                                const gridCol = scoreColumn++;
-                                return (
-                                  <AssessmentResultsScoreCell
-                                    key={`${row.student.id}-${cell.assessment.id}`}
-                                    assessmentId={cell.assessment.id}
-                                    obtainable={cell.assessment.obtainable}
-                                    studentTermFormId={row.student.id}
-                                    studentId={row.student.student?.id}
-                                    departmentSubjectId={subjectTotal.subject.id}
-                                    publicToken={publicToken}
-                                    publicAccessGrant={publicAccessGrant}
-                                    result={cell.result}
-                                    gridRow={rowIndex}
-                                    gridCol={gridCol}
-                                    widthClass={SCORE_CELL_WIDTH}
-                                    label={`${row.studentName}, ${subjectTotal.subject.subject.title} ${getAssessmentDisplayTitle(cell.assessment)} (${cell.assessment.obtainable ?? "-"})`}
-                                  />
-                                );
-                              })
-                            ) : (
-                              <TableCell className="border-e text-center text-muted-foreground">
-                                -
-                              </TableCell>
-                            )}
-                          </Fragment>
-                        ))}
-                        <TableCell
-                          aria-hidden="true"
-                          className="hidden p-0 sm:table-cell"
-                        />
-                      </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={2 + scoreColumnCount}
-                      className="h-24 border-e text-center text-muted-foreground"
-                    >
-                      No students match the current filters.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                      {multiSubjectColumns}
+                      {tableHeader}
+                    </Table>
+                  </div>
+                </div>
+                <div
+                  ref={bodyScrollRef}
+                  onScroll={syncHorizontalScroll}
+                  className="overflow-x-auto"
+                >
+                  <Table dir={academicDataDirection} className={tableClassName}>
+                    {multiSubjectColumns}
+                    {tableBody}
+                  </Table>
+                </div>
+              </>
+            )}
           </div>
           <p className="hidden flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground md:flex">
             <span>
