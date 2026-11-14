@@ -31,6 +31,7 @@ type Props = {
 	departmentSubjectId: string;
 	dividerClass?: string;
 	publicToken?: string | null;
+	publicAccessGrant?: string | null;
 	result?: ScoreResult | null;
 	/** Grid position for keyboard entry (Enter/arrows move between cells). */
 	gridRow?: number;
@@ -53,6 +54,7 @@ export const AssessmentResultsScoreCell = memo(
 		departmentSubjectId,
 		dividerClass,
 		publicToken,
+		publicAccessGrant,
 		result,
 		gridRow,
 		gridCol,
@@ -131,6 +133,7 @@ export const AssessmentResultsScoreCell = memo(
 							studentId: studentId ?? "",
 							departmentSubjectId,
 							token: publicToken,
+							accessGrant: publicAccessGrant,
 						},
 					}
 				: {

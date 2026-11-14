@@ -8,6 +8,7 @@ import { useState } from "react";
 import { createTRPCClient, httpBatchLink, loggerLink } from "@trpc/client";
 import superjson from "superjson";
 import { loadWorkspaceProfile, WorkspaceProfileError } from "@/lib/workspace-profile";
+import { isPublicAssessmentRecordingPath } from "@/lib/public-share-paths";
 export const { TRPCProvider, useTRPC, useTRPCClient } = createTRPCContext<AppRouter>();
 
 let browserQueryClient: QueryClient;
@@ -52,6 +53,8 @@ export function TRPCReactProvider(
           async headers() {
             // Server prefetch owns SSR reads; this link only loads browser context.
             if (isServer) return {};
+            // Public link visitors have no workspace; their routes check the link token.
+            if (isPublicAssessmentRecordingPath(window.location.pathname)) return {};
             let cook;
             try {
               cook = await loadWorkspaceProfile();

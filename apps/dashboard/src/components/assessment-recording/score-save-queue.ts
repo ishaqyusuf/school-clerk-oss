@@ -24,6 +24,8 @@ export type PublicScorePayload = {
 	studentId: string;
 	departmentSubjectId: string;
 	token: string;
+	/** Proof the visitor entered the link's access code. */
+	accessGrant?: string | null;
 };
 
 export type ScoreSaveRequest =

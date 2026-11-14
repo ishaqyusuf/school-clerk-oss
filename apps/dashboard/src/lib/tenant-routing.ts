@@ -20,6 +20,7 @@ import {
 	workspaceCookieSelection,
 } from "@/utils/workspace-cookie";
 import { prisma, resolveTenantWorkspace } from "@school-clerk/db";
+import { isPublicAssessmentRecordingPath } from "./public-share-paths";
 import {
 	buildTenantRedirectUrl,
 	getTenantUrlHeaderNames,
@@ -110,7 +111,7 @@ export async function resolveTenantRouting(
 		isSignupRoute || publicRoutes.has(tenantUrlContext.productPath);
 	const isPublicShareRoute =
 		tenantUrlContext.productPath.includes("/student-report") ||
-		tenantUrlContext.productPath.includes("/assessment-recording");
+		isPublicAssessmentRecordingPath(tenantUrlContext.productPath);
 	const allowAuthenticatedPublicRoute =
 		tenantUrlContext.productPath === "/forgot-password" ||
 		tenantUrlContext.productPath === "/reset-password" ||

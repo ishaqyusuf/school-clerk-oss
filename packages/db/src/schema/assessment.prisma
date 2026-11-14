@@ -115,6 +115,7 @@ model AssessmentPublicLink {
   revokedAt                    DateTime?                  @db.Timestamp(0)
   expiresAt                    DateTime?                  @db.Timestamp(0)
   lastUsedAt                   DateTime?                  @db.Timestamp(0)
+  accessCodeFailedAttempts     Int                        @default(0)
   createdAt                    DateTime?                  @default(now()) @db.Timestamp(0)
   updatedAt                    DateTime?                  @updatedAt
   deletedAt                    DateTime?                  @db.Timestamp(0)

@@ -81,6 +81,7 @@ import {
 } from "react";
 import { parseAsString, useQueryStates } from "nuqs";
 import { useAcademicDataDirection } from "./academic-data-direction/provider";
+import { PublicAccessCodeForm } from "./assessment-recording/public-access-code-form";
 import { _trpc } from "./static-trpc";
 import { useStudentNameFormat } from "./student-name-format/provider";
 
@@ -109,6 +110,9 @@ type Props = {
   onTermChange?: (termId: string, departmentId: string | null) => void;
   onOpenClassroomOverview?: () => void;
   publicToken?: string | null;
+  /** Proof the public visitor entered the link's access code. */
+  publicAccessGrant?: string | null;
+  onPublicAccessGranted?: (accessGrant: string) => void;
   reportSheetHref?: string | null;
 };
 
@@ -162,6 +166,8 @@ function AssessmentRecordingWorkspace({
   onTermChange,
   onOpenClassroomOverview,
   publicToken,
+  publicAccessGrant,
+  onPublicAccessGranted,
   reportSheetHref,
 }: Props) {
   const academicDataDirection = useAcademicDataDirection();
@@ -206,6 +212,7 @@ function AssessmentRecordingWorkspace({
   const publicLinkQuery = useQuery(
     _trpc.assessments.getPublicAssessmentLink.queryOptions(
       {
+        accessGrant: publicAccessGrant ?? null,
         token: publicToken ?? "",
       },
       {
@@ -385,6 +392,18 @@ function AssessmentRecordingWorkspace({
 
   if (isLoading) {
     return <AssessmentRecordingSkeleton />;
+  }
+
+  if (publicToken && publicLinkStatus === "CODE_REQUIRED") {
+    return (
+      <PublicAccessCodeForm
+        classroomLabel={publicLinkQuery.data?.link?.classroomLabel ?? null}
+        hadGrant={!!publicAccessGrant}
+        onUnlocked={(grant) => onPublicAccessGranted?.(grant)}
+        schoolName={publicLinkQuery.data?.link?.schoolName ?? null}
+        token={publicToken}
+      />
+    );
   }
 
   if (publicToken && publicLinkStatus && publicLinkStatus !== "APPROVED") {
@@ -916,6 +935,7 @@ function AssessmentRecordingWorkspace({
                                     studentId={row.student.student?.id}
                                     departmentSubjectId={subjectTotal.subject.id}
                                     publicToken={publicToken}
+                                    publicAccessGrant={publicAccessGrant}
                                     result={cell.result}
                                     gridRow={rowIndex}
                                     gridCol={gridCol}

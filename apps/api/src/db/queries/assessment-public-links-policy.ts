@@ -97,6 +97,59 @@ export async function verifyAssessmentPublicLinkToken(token: string) {
   };
 }
 
+/** Wrong access-code guesses allowed before the link is revoked. */
+export const ASSESSMENT_PUBLIC_LINK_MAX_CODE_ATTEMPTS = 10;
+
+/**
+ * The 6-digit access code shared alongside a public link. It is derived from
+ * the link id, so every link (including older ones) has a stable code that
+ * admins can re-read, and it changes only when a new link is made.
+ */
+export async function createAssessmentPublicLinkAccessCode(id: string) {
+  const bytes = new Uint8Array(await hmacSha256(`access-code:${id}`));
+  const value =
+    ((bytes[0] ?? 0) * 2 ** 24 +
+      (bytes[1] ?? 0) * 2 ** 16 +
+      (bytes[2] ?? 0) * 2 ** 8 +
+      (bytes[3] ?? 0)) %
+    1_000_000;
+
+  return value.toString().padStart(6, "0");
+}
+
+export async function verifyAssessmentPublicLinkAccessCode(
+  id: string,
+  code: string,
+) {
+  const normalized = code.replace(/\D/g, "");
+  if (normalized.length !== 6) return false;
+
+  return constantTimeEqual(
+    normalized,
+    await createAssessmentPublicLinkAccessCode(id),
+  );
+}
+
+/**
+ * Proof that this browser entered the right code. The page keeps it and
+ * sends it with each public read and score write.
+ */
+export async function createAssessmentPublicLinkAccessGrant(id: string) {
+  return base64Url(await hmacSha256(`access-grant:${id}`));
+}
+
+export async function verifyAssessmentPublicLinkAccessGrant(
+  id: string,
+  grant?: string | null,
+) {
+  if (!grant) return false;
+
+  return constantTimeEqual(
+    grant,
+    await createAssessmentPublicLinkAccessGrant(id),
+  );
+}
+
 export async function hashAssessmentPublicLinkToken(token: string) {
   return base64Url(await sha256(token));
 }

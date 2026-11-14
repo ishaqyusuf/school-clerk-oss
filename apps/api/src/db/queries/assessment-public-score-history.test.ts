@@ -8,7 +8,7 @@ process.env.DATABASE_URL ??=
 
 const { updatePublicAssessmentScore, updatePublicAssessmentScoreSchema } =
   await import("./assessment-public-links");
-const { createAssessmentPublicLinkToken } =
+const { createAssessmentPublicLinkAccessGrant, createAssessmentPublicLinkToken } =
   await import("./assessment-public-links-policy");
 
 describe("updatePublicAssessmentScore history", () => {
@@ -99,7 +99,7 @@ describe("updatePublicAssessmentScore history", () => {
       },
     } as unknown as TRPCContext;
 
-    const result = await updatePublicAssessmentScore(ctx, {
+    const scoreInput = {
       token,
       id: 7,
       assessmentId: 41,
@@ -107,6 +107,17 @@ describe("updatePublicAssessmentScore history", () => {
       obtained: 13,
       studentId: "student-1",
       studentTermId: "term-form-1",
+    };
+
+    // Without the access-code grant the write is refused before any change.
+    await expect(updatePublicAssessmentScore(ctx, scoreInput)).rejects.toThrow(
+      "Enter the access code for this link first.",
+    );
+    expect(historyRows).toEqual([]);
+
+    const result = await updatePublicAssessmentScore(ctx, {
+      ...scoreInput,
+      accessGrant: await createAssessmentPublicLinkAccessGrant("link-1"),
     });
 
     expect(result).toEqual({ id: 7, obtained: 13 });

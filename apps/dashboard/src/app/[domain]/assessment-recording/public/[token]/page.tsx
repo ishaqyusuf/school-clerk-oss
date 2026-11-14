@@ -1,4 +1,4 @@
-import { AssessmentRecordingResultsTable } from "@/components/assessment-recording-results-table";
+import { PublicRecordingAccess } from "@/components/assessment-recording/public-recording-access";
 import { buildTenantPageMetadata } from "@/utils/tenant-page-metadata";
 
 export async function generateMetadata({ params }) {
@@ -30,11 +30,7 @@ export default async function PublicAssessmentRecordingPage({ params }) {
         </div>
       </div>
       <div className="mx-auto max-w-5xl px-2 py-4 sm:px-4">
-        <AssessmentRecordingResultsTable
-          departmentId=""
-          publicToken={decodeURIComponent(token)}
-          termId=""
-        />
+        <PublicRecordingAccess token={decodeURIComponent(token)} />
       </div>
     </main>
   );

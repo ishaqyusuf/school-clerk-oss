@@ -40,6 +40,8 @@ import {
   requestAssessmentPublicLinkSchema,
   revokeAssessmentPublicLink,
   revokeAssessmentPublicLinkSchema,
+  unlockPublicAssessmentLink,
+  unlockPublicAssessmentLinkSchema,
   updatePublicAssessmentScore,
   updatePublicAssessmentScoreSchema,
 } from "@api/db/queries/assessment-public-links";
@@ -184,6 +186,11 @@ export const assessmentRouter = createTRPCRouter({
     .input(getPublicAssessmentLinkSchema)
     .query(async ({ ctx, input }) => {
       return getPublicAssessmentLink(ctx, input);
+    }),
+  unlockPublicAssessmentLink: publicProcedure
+    .input(unlockPublicAssessmentLinkSchema)
+    .mutation(async ({ ctx, input }) => {
+      return unlockPublicAssessmentLink(ctx, input);
     }),
   updatePublicAssessmentScore: publicProcedure
     .input(updatePublicAssessmentScoreSchema)

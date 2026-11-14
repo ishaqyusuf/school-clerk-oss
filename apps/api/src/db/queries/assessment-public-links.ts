@@ -15,12 +15,17 @@ import {
   dispatchUserNotification,
 } from "../../lib/notifications";
 import {
+  ASSESSMENT_PUBLIC_LINK_MAX_CODE_ATTEMPTS,
   assessmentPublicLinkStatusSchema,
+  createAssessmentPublicLinkAccessCode,
+  createAssessmentPublicLinkAccessGrant,
   createAssessmentPublicLinkToken,
   getEffectiveAssessmentPublicLinkStatus,
   hashAssessmentPublicLinkToken,
   normalizeAssessmentPublicLinkSubjectScope,
   type AssessmentPublicLinkStatus,
+  verifyAssessmentPublicLinkAccessCode,
+  verifyAssessmentPublicLinkAccessGrant,
   verifyAssessmentPublicLinkToken,
 } from "./assessment-public-links-policy";
 
@@ -86,6 +91,12 @@ export const revokeAssessmentPublicLinkSchema = z.object({
 });
 
 export const getPublicAssessmentLinkSchema = z.object({
+  accessGrant: z.string().max(200).optional().nullable(),
+  token: z.string().min(1),
+});
+
+export const unlockPublicAssessmentLinkSchema = z.object({
+  code: z.string().min(1).max(20),
   token: z.string().min(1),
 });
 
@@ -96,6 +107,7 @@ export const updatePublicAssessmentScoreSchema = z.object({
   obtained: z.number().finite().min(0).optional().nullable(),
   studentId: z.string().min(1),
   studentTermId: z.string().min(1),
+  accessGrant: z.string().max(200).optional().nullable(),
   token: z.string().min(1),
 });
 
@@ -107,6 +119,7 @@ type CurrentUser = {
 };
 
 type AssessmentPublicLinkRow = {
+  accessCodeFailedAttempts?: number | null;
   approvedAt?: Date | null;
   approvedByName?: string | null;
   approvedByUserId?: string | null;
@@ -234,12 +247,16 @@ function formatNotificationDate(value?: Date | null) {
 
 async function formatAssessmentPublicLink(link: AssessmentPublicLinkRow) {
   const effectiveStatus = getEffectiveAssessmentPublicLinkStatus(link);
-  const publicUrl =
-    effectiveStatus === "APPROVED"
-      ? publicPathForToken(await createAssessmentPublicLinkToken(link.id))
-      : null;
+  const isActive = effectiveStatus === "APPROVED";
+  const publicUrl = isActive
+    ? publicPathForToken(await createAssessmentPublicLinkToken(link.id))
+    : null;
+  const accessCode = isActive
+    ? await createAssessmentPublicLinkAccessCode(link.id)
+    : null;
 
   return {
+    accessCode,
     approvedAt: link.approvedAt ?? null,
     approvedByName: link.approvedByName ?? null,
     classRoomDepartmentId: link.classRoomDepartmentId,
@@ -908,6 +925,87 @@ async function resolvePublicAssessmentLinkForUse(
   };
 }
 
+/** The only link details a public visitor sees; no staff names or emails. */
+function formatPublicAssessmentLinkSummary(link: AssessmentPublicLinkRow) {
+  return {
+    classroomLabel: getClassroomLabel(link),
+    expiresAt: link.expiresAt ?? null,
+    schoolName: link.schoolProfile?.name ?? null,
+    scopeLabel: getScopeLabel(link),
+    termLabel: getTermLabel(link),
+  };
+}
+
+async function hasPublicAssessmentLinkAccess(
+  link: AssessmentPublicLinkRow,
+  accessGrant?: string | null,
+) {
+  return verifyAssessmentPublicLinkAccessGrant(link.id, accessGrant);
+}
+
+export async function unlockPublicAssessmentLink(
+  ctx: TRPCContext,
+  input: z.infer<typeof unlockPublicAssessmentLinkSchema>,
+) {
+  const { effectiveStatus, link } = await resolvePublicAssessmentLinkForUse(
+    ctx,
+    input.token,
+  );
+
+  if (effectiveStatus !== "APPROVED") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "This public assessment link is no longer active.",
+    });
+  }
+
+  if (await verifyAssessmentPublicLinkAccessCode(link.id, input.code)) {
+    if (link.accessCodeFailedAttempts) {
+      await ctx.db.assessmentPublicLink.update({
+        where: { id: link.id },
+        data: { accessCodeFailedAttempts: 0 },
+      });
+    }
+
+    return {
+      accessGrant: await createAssessmentPublicLinkAccessGrant(link.id),
+    };
+  }
+
+  // Count atomically so parallel guesses cannot slip past the limit.
+  const updated = await ctx.db.assessmentPublicLink.update({
+    where: { id: link.id },
+    data: { accessCodeFailedAttempts: { increment: 1 } },
+    select: { accessCodeFailedAttempts: true },
+  });
+  const remaining =
+    ASSESSMENT_PUBLIC_LINK_MAX_CODE_ATTEMPTS - updated.accessCodeFailedAttempts;
+
+  if (remaining <= 0) {
+    await ctx.db.assessmentPublicLink.updateMany({
+      where: { id: link.id, status: "APPROVED" },
+      data: {
+        revokedAt: new Date(),
+        revokedByName: "Too many wrong access codes",
+        status: "REVOKED",
+      },
+    });
+
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message:
+        "Too many wrong codes. This link is now closed; ask the school for a new one.",
+    });
+  }
+
+  throw new TRPCError({
+    code: "BAD_REQUEST",
+    message: `That code is not right. ${remaining} ${
+      remaining === 1 ? "try" : "tries"
+    } left.`,
+  });
+}
+
 export async function getPublicAssessmentLink(
   ctx: TRPCContext,
   input: z.infer<typeof getPublicAssessmentLinkSchema>,
@@ -916,17 +1014,26 @@ export async function getPublicAssessmentLink(
     ctx,
     input.token,
   );
-  const dto = await formatAssessmentPublicLink(link);
+  const summary = formatPublicAssessmentLinkSummary(link);
 
   if (effectiveStatus !== "APPROVED") {
     return {
-      link: dto,
+      link: summary,
       message:
         effectiveStatus === "EXPIRED"
           ? "This public assessment link has expired."
           : "This public assessment link is not available.",
       report: null,
       status: effectiveStatus,
+    };
+  }
+
+  if (!(await hasPublicAssessmentLinkAccess(link, input.accessGrant))) {
+    return {
+      link: summary,
+      message: null,
+      report: null,
+      status: "CODE_REQUIRED" as const,
     };
   }
   await assertAcademicTermWritable(ctx, link.sessionTermId, link.schoolProfileId);
@@ -1063,7 +1170,7 @@ export async function getPublicAssessmentLink(
   });
 
   return {
-    link: dto,
+    link: summary,
     message: null,
     report: department,
     status: effectiveStatus,
@@ -1083,6 +1190,13 @@ export async function updatePublicAssessmentScore(
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "This public assessment link is no longer active.",
+    });
+  }
+
+  if (!(await hasPublicAssessmentLinkAccess(link, input.accessGrant))) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Enter the access code for this link first.",
     });
   }
 

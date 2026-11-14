@@ -9,7 +9,7 @@ import { Button } from "@school-clerk/ui/button";
 import { Dialog, Field, Select } from "@school-clerk/ui/composite";
 import { Textarea } from "@school-clerk/ui/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, Check, Copy, Link2, X } from "lucide-react";
+import { Ban, Check, Copy, KeyRound, Link2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 const DURATION_OPTIONS = [
@@ -29,6 +29,7 @@ type Props = {
 };
 
 type PublicLinkRow = {
+  accessCode: string | null;
   effectiveStatus: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "REVOKED";
   expiresAt: Date | string | null;
   id: string;
@@ -116,15 +117,31 @@ export function AssessmentPublicLinksPanel({
     return new URL(tenantHref(publicUrl), window.location.origin).toString();
   }
 
-  async function copyPublicUrl(publicUrl?: string | null) {
+  async function copyPublicUrl(
+    publicUrl?: string | null,
+    accessCode?: string | null,
+  ) {
     const url = absolutePublicUrl(publicUrl);
     if (!url) return;
 
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link copied.");
+      toast.success(
+        accessCode
+          ? `Link copied. Send the access code ${accessCode} separately.`
+          : "Link copied.",
+      );
     } catch {
       toast.error("Could not copy link.");
+    }
+  }
+
+  async function copyAccessCode(accessCode: string) {
+    try {
+      await navigator.clipboard.writeText(accessCode);
+      toast.success("Access code copied.");
+    } catch {
+      toast.error("Could not copy the access code.");
     }
   }
 
@@ -135,7 +152,7 @@ export function AssessmentPublicLinksPanel({
       },
       async onSuccess(data) {
         await invalidateLinks();
-        await copyPublicUrl(data.publicUrl);
+        await copyPublicUrl(data.publicUrl, data.accessCode);
       },
     }),
   );
@@ -158,7 +175,7 @@ export function AssessmentPublicLinksPanel({
       },
       async onSuccess(data) {
         await invalidateLinks();
-        await copyPublicUrl(data.publicUrl);
+        await copyPublicUrl(data.publicUrl, data.accessCode);
       },
     }),
   );
@@ -213,7 +230,7 @@ export function AssessmentPublicLinksPanel({
           <Dialog.Header>
             <Dialog.Title>Public assessment links</Dialog.Title>
             <Dialog.Description>
-              Links use the current term, classroom, and selected subject scope.
+              Links use the current term, classroom, and selected subject scope. Each link has a 6-digit access code; send it separately from the link.
             </Dialog.Description>
           </Dialog.Header>
 
@@ -295,6 +312,16 @@ export function AssessmentPublicLinksPanel({
                           Requested by {link.requesterName ?? "Unknown"}
                           {link.reason ? `: ${link.reason}` : ""}
                         </p>
+                        {link.accessCode &&
+                        link.effectiveStatus === "APPROVED" ? (
+                          <p className="text-xs text-muted-foreground">
+                            Access code{" "}
+                            <span className="font-mono text-sm font-semibold tracking-widest text-foreground">
+                              {link.accessCode}
+                            </span>{" "}
+                            · send it apart from the link
+                          </p>
+                        ) : null}
                         {link.rejectionNote ? (
                           <p className="text-xs text-destructive">
                             {link.rejectionNote}
@@ -309,10 +336,25 @@ export function AssessmentPublicLinksPanel({
                             size="sm"
                             variant="outline"
                             className="gap-2"
-                            onClick={() => copyPublicUrl(link.publicUrl)}
+                            onClick={() =>
+                              copyPublicUrl(link.publicUrl, link.accessCode)
+                            }
                           >
                             <Copy className="size-4" />
-                            Copy
+                            Copy link
+                          </Button>
+                        ) : null}
+                        {link.accessCode &&
+                        link.effectiveStatus === "APPROVED" ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => copyAccessCode(link.accessCode!)}
+                          >
+                            <KeyRound className="size-4" />
+                            Copy code
                           </Button>
                         ) : null}
                         {isAdmin && link.effectiveStatus === "PENDING" ? (
