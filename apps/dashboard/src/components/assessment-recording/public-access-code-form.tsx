@@ -70,11 +70,20 @@ export function PublicAccessCodeForm({
 				<div className="flex flex-col gap-1">
 					<h2 className="text-base font-semibold">Enter the access code</h2>
 					<p className="text-sm text-muted-foreground">
-						{classroomLabel
-							? `To record scores for ${classroomLabel}${
-									schoolName ? ` at ${schoolName}` : ""
-								}, enter the 6-digit code the school gave you with this link.`
-							: "Enter the 6-digit code the school gave you with this link."}
+						{classroomLabel ? (
+							<>
+								To record scores for <bdi>{classroomLabel}</bdi>
+								{schoolName ? (
+									<>
+										{" "}
+										at <bdi>{schoolName}</bdi>
+									</>
+								) : null}
+								, enter the 6-digit code the school gave you with this link.
+							</>
+						) : (
+							"Enter the 6-digit code the school gave you with this link."
+						)}
 					</p>
 				</div>
 			</div>
