@@ -1,9 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
-  <title id="title">School Clerk development</title>
-  <rect x="5" y="5" width="118" height="118" rx="31" fill="#F43F5E"/>
-  <rect x="28" y="28" width="28" height="28" rx="8" fill="#FFF7F7"/>
-  <rect x="72" y="28" width="28" height="28" rx="8" fill="#FDA4AF"/>
-  <rect x="28" y="72" width="28" height="28" rx="8" fill="#B91C1C"/>
-  <path d="m53 53 22 22h11l13 13" fill="none" stroke="#FFF7F7" stroke-linecap="round" stroke-linejoin="round" stroke-width="10"/>
-  <circle cx="100" cy="100" r="10" fill="#FFE4E6"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="School Clerk"><rect x="4" y="4" width="120" height="120" rx="30" fill="#e11d48"/><g transform="translate(64 66) scale(.84) translate(-64 -62)"><path fill="#ffffff" d="M60.4 27.8a8 8 0 0 1 7.2 0l38.2 19.1a3.5 3.5 0 0 1 0 6.2L67.6 72.2a8 8 0 0 1-7.2 0L22.2 53.1a3.5 3.5 0 0 1 0-6.2Z"/><path fill="#ffffff" d="M38 68l20 10a13.4 13.4 0 0 0 12 0l20-10V86c0 8.4-11.6 14-26 14s-26-5.6-26-14Z"/><path d="M64 48h34" fill="none" stroke="#fde68a" stroke-width="4"/><circle cx="64" cy="48" r="5.5" fill="#fde68a"/><path fill="#fde68a" d="M96 46h12.5V99l-6.25-5.8L96 99Z"/></g></svg>

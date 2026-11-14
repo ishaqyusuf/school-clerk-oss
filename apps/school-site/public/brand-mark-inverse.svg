@@ -1,9 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
-  <title id="title">School Clerk</title>
-  <rect x="5" y="5" width="118" height="118" rx="31" fill="#F8FAFC"/>
-  <rect x="28" y="28" width="28" height="28" rx="8" fill="#0F172A"/>
-  <rect x="72" y="28" width="28" height="28" rx="8" fill="#38BDF8"/>
-  <rect x="28" y="72" width="28" height="28" rx="8" fill="#14B8A6"/>
-  <path d="m53 53 22 22h11l13 13" fill="none" stroke="#0F172A" stroke-linecap="round" stroke-linejoin="round" stroke-width="10"/>
-  <circle cx="100" cy="100" r="10" fill="#F59E0B"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="School Clerk"><rect x="4" y="4" width="120" height="120" rx="30" fill="#2160d8"/><g transform="translate(64 66) scale(.84) translate(-64 -62)"><path fill="#ffffff" d="M60.4 27.8a8 8 0 0 1 7.2 0l38.2 19.1a3.5 3.5 0 0 1 0 6.2L67.6 72.2a8 8 0 0 1-7.2 0L22.2 53.1a3.5 3.5 0 0 1 0-6.2Z"/><path fill="#ffffff" d="M38 68l20 10a13.4 13.4 0 0 0 12 0l20-10V86c0 8.4-11.6 14-26 14s-26-5.6-26-14Z"/><path d="M64 48h34" fill="none" stroke="#f5a524" stroke-width="4"/><circle cx="64" cy="48" r="5.5" fill="#f5a524"/><path fill="#f5a524" d="M96 46h12.5V99l-6.25-5.8L96 99Z"/></g></svg>

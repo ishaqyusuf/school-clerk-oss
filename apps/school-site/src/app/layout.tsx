@@ -9,7 +9,7 @@ const icons: Metadata["icons"] =
         icon: {
           type: "image/svg+xml",
           sizes: "any",
-          url: "/brand-mark-dev.svg",
+          url: "/favicon-dev.svg",
         },
         apple: "/favicon-dev.png",
       }
@@ -18,7 +18,7 @@ const icons: Metadata["icons"] =
           {
             type: "image/svg+xml",
             sizes: "any",
-            url: "/brand-mark.svg",
+            url: "/favicon.svg",
           },
           {
             type: "image/png",
