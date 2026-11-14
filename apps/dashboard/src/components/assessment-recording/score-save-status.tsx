@@ -6,6 +6,10 @@ import { CircleAlert, CloudCheck, CloudOff, LoaderCircle } from "lucide-react";
 import { type ReactNode, useSyncExternalStore } from "react";
 import { _qc, _trpc, _trpcClient } from "../static-trpc";
 import {
+	applySavedScoreToReport,
+	markRecordingProgressDirty,
+} from "./recording-cache";
+import {
 	type ScoreSaveEntryState,
 	ScoreSaveNotReadyError,
 	type ScoreSaveQueue,
@@ -42,33 +46,85 @@ function flushInvalidations() {
 	const trpc = _trpc;
 	if (!qc || !trpc) return;
 	if (pendingInvalidations.authenticated) {
+		// The open report was patched in place (see patchCachedReports); only
+		// mark it stale so the next visit or focus picks up others' edits.
 		qc.invalidateQueries({
 			queryKey: trpc.assessments.getClassroomReportSheet.queryKey({}),
+			refetchType: "none",
 		});
 		qc.invalidateQueries({
 			queryKey: trpc.assessments.getSubjectAssessmentRecordings.queryKey({}),
-		});
-		// Classroom progress counts: mark stale only; the filter sheet refetches
-		// when it opens, so fast typing does not refetch the context each save.
-		qc.invalidateQueries({
-			queryKey: trpc.assessments.getRecordingContextOptions.queryKey(),
-			refetchType: "none",
 		});
 	}
 	for (const token of pendingInvalidations.tokens) {
 		qc.invalidateQueries({
 			queryKey: trpc.assessments.getPublicAssessmentLink.queryKey({ token }),
+			refetchType: "none",
 		});
 	}
 	pendingInvalidations.authenticated = false;
 	pendingInvalidations.tokens.clear();
 }
 
-function invalidateAfterSave(request: ScoreSaveRequest) {
+type QueryInput = { input?: Record<string, unknown> } | undefined;
+
+/**
+ * Writes the saved score into the cached report(s) for its classroom or
+ * public link, instead of re-downloading the whole classroom per save.
+ */
+function patchCachedReports(
+	request: ScoreSaveRequest,
+	result: ScoreSaveResult,
+) {
+	const qc = _qc;
+	const trpc = _trpc;
+	if (!qc || !trpc) return;
+	const score = {
+		assessmentId: request.payload.assessmentId,
+		studentTermFormId: request.payload.studentTermId,
+		studentId: request.payload.studentId,
+		id: result.id ?? request.payload.id,
+		obtained: "obtained" in result ? result.obtained : request.payload.obtained,
+	};
+	if (request.kind === "public") {
+		const token = request.payload.token;
+		qc.setQueriesData<{
+			report?: Parameters<typeof applySavedScoreToReport>[0];
+		}>(
+			{
+				queryKey: trpc.assessments.getPublicAssessmentLink.pathKey(),
+				predicate: (query) =>
+					(query.queryKey[1] as QueryInput)?.input?.token === token,
+			},
+			(data) =>
+				data?.report
+					? { ...data, report: applySavedScoreToReport(data.report, score) }
+					: data,
+		);
+		return;
+	}
+	const departmentId = request.payload.departmentId;
+	qc.setQueriesData<Parameters<typeof applySavedScoreToReport>[0]>(
+		{
+			queryKey: trpc.assessments.getClassroomReportSheet.pathKey(),
+			predicate: (query) =>
+				(query.queryKey[1] as QueryInput)?.input?.departmentId === departmentId,
+		},
+		(data) => applySavedScoreToReport(data, score),
+	);
+}
+
+function invalidateAfterSave(
+	request: ScoreSaveRequest,
+	result: ScoreSaveResult,
+) {
+	patchCachedReports(request, result);
 	if (request.kind === "public") {
 		pendingInvalidations.tokens.add(request.payload.token);
 	} else {
 		pendingInvalidations.authenticated = true;
+		// Only this classroom's percentage is re-counted, when the filter opens.
+		markRecordingProgressDirty(request.payload.departmentId);
 	}
 	invalidationTimer ??= setTimeout(flushInvalidations, 250);
 }

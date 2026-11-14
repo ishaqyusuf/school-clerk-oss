@@ -1,5 +1,17 @@
 import type { TRPCContext } from "@api/trpc/init";
+import { z } from "zod";
 import { getTeacherAcademicAccess } from "../../lib/teacher-authorization";
+
+type TeacherAcademicAccess = NonNullable<
+	Awaited<ReturnType<typeof getTeacherAcademicAccess>>
+>;
+
+export type SubjectRecordingProgress = {
+	/** Scores recorded (non-null) for roster students in this subject. */
+	recorded: number;
+	/** Scores expected: students × this subject's assessment columns. */
+	expected: number;
+};
 
 export type ClassroomRecordingProgress = {
 	/** Students on the classroom's term roster (same filter as the report sheet). */
@@ -10,6 +22,8 @@ export type ClassroomRecordingProgress = {
 	recorded: number;
 	/** Scores expected: students × assessment columns. */
 	expected: number;
+	/** Per department-subject counts; subjects without columns are absent. */
+	subjects: Record<string, SubjectRecordingProgress>;
 };
 
 /** Pure aggregation, kept separate from Prisma so it can be unit-tested. */
@@ -21,31 +35,59 @@ export function summarizeClassroomRecordingProgress({
 }: {
 	departmentIds: string[];
 	studentCounts: Array<{ departmentId: string | null; count: number }>;
-	assessments: Array<{ id: number; departmentId: string | null }>;
+	assessments: Array<{
+		id: number;
+		departmentId: string | null;
+		subjectId?: string | null;
+	}>;
 	recordCounts: Array<{ assessmentId: number | null; count: number }>;
 }) {
 	const students = new Map<string, number>();
 	for (const row of studentCounts) {
 		if (row.departmentId) students.set(row.departmentId, row.count);
 	}
-	const departmentByAssessment = new Map<number, string>();
+	const assessmentById = new Map<
+		number,
+		{ departmentId: string; subjectId: string | null }
+	>();
 	const assessmentCounts = new Map<string, number>();
+	const subjectAssessmentCounts = new Map<string, Map<string, number>>();
 	for (const assessment of assessments) {
 		if (!assessment.departmentId) continue;
-		departmentByAssessment.set(assessment.id, assessment.departmentId);
+		const subjectId = assessment.subjectId ?? null;
+		assessmentById.set(assessment.id, {
+			departmentId: assessment.departmentId,
+			subjectId,
+		});
 		assessmentCounts.set(
 			assessment.departmentId,
 			(assessmentCounts.get(assessment.departmentId) ?? 0) + 1,
 		);
+		if (subjectId) {
+			const bySubject =
+				subjectAssessmentCounts.get(assessment.departmentId) ?? new Map();
+			bySubject.set(subjectId, (bySubject.get(subjectId) ?? 0) + 1);
+			subjectAssessmentCounts.set(assessment.departmentId, bySubject);
+		}
 	}
 	const recorded = new Map<string, number>();
+	const subjectRecorded = new Map<string, number>();
 	for (const row of recordCounts) {
-		const departmentId =
+		const assessment =
 			row.assessmentId == null
 				? undefined
-				: departmentByAssessment.get(row.assessmentId);
-		if (!departmentId) continue;
-		recorded.set(departmentId, (recorded.get(departmentId) ?? 0) + row.count);
+				: assessmentById.get(row.assessmentId);
+		if (!assessment) continue;
+		recorded.set(
+			assessment.departmentId,
+			(recorded.get(assessment.departmentId) ?? 0) + row.count,
+		);
+		if (assessment.subjectId) {
+			subjectRecorded.set(
+				assessment.subjectId,
+				(subjectRecorded.get(assessment.subjectId) ?? 0) + row.count,
+			);
+		}
 	}
 
 	const progress = new Map<string, ClassroomRecordingProgress>();
@@ -53,12 +95,26 @@ export function summarizeClassroomRecordingProgress({
 		const studentCount = students.get(departmentId) ?? 0;
 		const assessmentCount = assessmentCounts.get(departmentId) ?? 0;
 		const expected = studentCount * assessmentCount;
+		const subjects: Record<string, SubjectRecordingProgress> = {};
+		for (const [subjectId, columns] of subjectAssessmentCounts.get(
+			departmentId,
+		) ?? []) {
+			const subjectExpected = studentCount * columns;
+			subjects[subjectId] = {
+				recorded: Math.min(
+					subjectRecorded.get(subjectId) ?? 0,
+					subjectExpected,
+				),
+				expected: subjectExpected,
+			};
+		}
 		progress.set(departmentId, {
 			students: studentCount,
 			assessments: assessmentCount,
 			// A record can outlive a roster change; never report more than expected.
 			recorded: Math.min(recorded.get(departmentId) ?? 0, expected),
 			expected,
+			subjects,
 		});
 	}
 	return progress;
@@ -73,13 +129,18 @@ export async function getClassroomRecordingProgress(
 	{
 		sessionTermId,
 		departmentIds,
-	}: { sessionTermId: string; departmentIds: string[] },
+		teacherAccess,
+	}: {
+		sessionTermId: string;
+		departmentIds: string[];
+		/** Already-resolved teacher access; `null` means not a teacher. */
+		teacherAccess: TeacherAcademicAccess | null;
+	},
 ) {
 	const schoolId = ctx.profile.schoolId;
 	if (!schoolId || !departmentIds.length) {
 		return new Map<string, ClassroomRecordingProgress>();
 	}
-	const teacherAccess = await getTeacherAcademicAccess(ctx, sessionTermId);
 	const rosterWhere = {
 		sessionTermId,
 		deletedAt: null,
@@ -110,7 +171,9 @@ export async function getClassroomRecordingProgress(
 			},
 			select: {
 				id: true,
-				departmentSubject: { select: { classRoomDepartmentId: true } },
+				departmentSubject: {
+					select: { id: true, classRoomDepartmentId: true },
+				},
 			},
 		}),
 	]);
@@ -138,6 +201,7 @@ export async function getClassroomRecordingProgress(
 		assessments: assessments.map((assessment) => ({
 			id: assessment.id,
 			departmentId: assessment.departmentSubject?.classRoomDepartmentId ?? null,
+			subjectId: assessment.departmentSubject?.id ?? null,
 		})),
 		recordCounts: recordCounts.map((row) => ({
 			assessmentId: row.classSubjectAssessmentId,
@@ -146,25 +210,51 @@ export async function getClassroomRecordingProgress(
 	});
 }
 
-/** Adds `recordingProgress` to each classroom option for the given term. */
-export async function withClassroomRecordingProgress<T extends { id: string }>(
+export const recordingProgressSchema = z.object({
+	termId: z.string(),
+	/** Classrooms to count; ids outside the caller's access are dropped. */
+	departmentIds: z.array(z.string()).max(500),
+});
+
+/**
+ * Score-entry progress for the given classrooms of one term, keyed by
+ * classroom id. Kept apart from the filter options so the options can be
+ * cached for long while progress is refreshed per classroom after saves.
+ */
+export async function getRecordingProgress(
 	ctx: TRPCContext,
-	sessionTermId: string | null,
-	classrooms: T[],
+	input: z.infer<typeof recordingProgressSchema>,
 ) {
-	if (!sessionTermId || !classrooms.length) {
-		return classrooms.map((classroom) => ({
-			...classroom,
-			recordingProgress: null as ClassroomRecordingProgress | null,
-		}));
+	const schoolId = ctx.profile.schoolId;
+	const requested = Array.from(new Set(input.departmentIds));
+	if (!schoolId || !requested.length) {
+		return { termId: input.termId, classrooms: {} };
 	}
+	const teacherAccess = await getTeacherAcademicAccess(ctx, input.termId);
+	const departmentIds = teacherAccess
+		? requested.filter((id) =>
+				teacherAccess.classRoomDepartmentIds.includes(id),
+			)
+		: (
+				await ctx.db.classRoomDepartment.findMany({
+					where: {
+						id: { in: requested },
+						schoolProfileId: schoolId,
+						deletedAt: null,
+					},
+					select: { id: true },
+				})
+			).map((department) => department.id);
 	const progress = await getClassroomRecordingProgress(ctx, {
-		sessionTermId,
-		departmentIds: classrooms.map((classroom) => classroom.id),
+		sessionTermId: input.termId,
+		departmentIds,
+		teacherAccess,
 	});
-	return classrooms.map((classroom) => ({
-		...classroom,
-		recordingProgress: (progress.get(classroom.id) ??
-			null) as ClassroomRecordingProgress | null,
-	}));
+	return {
+		termId: input.termId,
+		classrooms: Object.fromEntries(progress) as Record<
+			string,
+			ClassroomRecordingProgress
+		>,
+	};
 }

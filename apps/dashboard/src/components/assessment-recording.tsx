@@ -2,13 +2,15 @@
 import { switchSessionTerm } from "@/actions/cookies/auth-cookie";
 import { AssessmentRecordingResultsTable } from "@/components/assessment-recording-results-table";
 import { AssessmentRecordingSkeleton } from "@/components/assessment-recording/recording-skeleton";
-import { _trpc } from "@/components/static-trpc";
 import { useClassroomParams } from "@/hooks/use-classroom-params";
 import { useAuth } from "@/hooks/use-auth";
 import { useAssessmentRecordingParams } from "@/hooks/use-assessment-recording-params";
 import { Button } from "@school-clerk/ui/button";
 import { Dialog, Field, Select } from "@school-clerk/ui/composite";
-import { useQuery } from "@tanstack/react-query";
+import {
+  useRecordingFilterOptions,
+  useRecordingProgress,
+} from "@/hooks/use-recording-filter-data";
 import type { RouterOutputs } from "@api/trpc/routers/_app";
 import { BookOpenText, PanelRightOpen, School, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -41,14 +43,28 @@ export function AssessmentRecording() {
   const [pendingCurrentTermId, setPendingCurrentTermId] = useState("");
   const [isSavingCurrentTerm, setIsSavingCurrentTerm] = useState(false);
   const syncedTermRef = useRef<string | null>(null);
-  const { data: contextOptions, isLoading: isLoadingContext } = useQuery(
-    _trpc.assessments.getRecordingContextOptions.queryOptions({
-      termId: filters.termId ?? null,
-    }),
-  );
+  const { data: contextOptions, isLoading: isLoadingContext } =
+    useRecordingFilterOptions(filters.termId ?? null);
   const terms = (contextOptions?.terms ?? []) as RecordingTermOption[];
-  const departments = (contextOptions?.classrooms ??
+  const classroomOptions = (contextOptions?.classrooms ??
     []) as RecordingClassroomOption[];
+  // Percentages come from their own cache so the options can stay cached.
+  const { progress: classroomProgress } = useRecordingProgress(
+    contextOptions?.defaultTermId,
+    useMemo(
+      () => classroomOptions.map((classroom) => classroom.id),
+      [classroomOptions],
+    ),
+    { enabled: permissions.classrooms },
+  );
+  const departments = useMemo(
+    () =>
+      classroomOptions.map((classroom) => ({
+        ...classroom,
+        recordingProgress: classroomProgress[classroom.id] ?? null,
+      })),
+    [classroomOptions, classroomProgress],
+  );
   const effectiveTermId =
     (contextOptions?.scoped &&
     filters.termId &&

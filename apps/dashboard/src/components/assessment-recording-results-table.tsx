@@ -10,9 +10,11 @@ import { AssessmentRecordingSkeleton } from "@/components/assessment-recording/r
 import {
   type ClassroomRecordingProgress,
   classroomProgressLabel,
+  type RecordingFilterClassroom,
   type RecordingFilterGroupKey,
   RecordingFilterSheet,
   type RecordingFilterTerm,
+  type RecordingSubjectSelection,
   recordedPercent,
 } from "@/components/assessment-recording/recording-filter-sheet";
 import { keepScoreInputVisible } from "@/components/assessment-recording/score-entry";
@@ -53,7 +55,8 @@ import {
   TableHeader,
   TableRow,
 } from "@school-clerk/ui/table";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { useRefreshRecordingFilter } from "@/hooks/use-recording-filter-data";
 import {
   Check,
   ChevronDown,
@@ -85,12 +88,7 @@ import { PublicAccessCodeForm } from "./assessment-recording/public-access-code-
 import { _trpc } from "./static-trpc";
 import { useStudentNameFormat } from "./student-name-format/provider";
 
-type ClassroomFilterOption = {
-  id: string;
-  displayName?: string | null;
-  departmentName?: string | null;
-  recordingProgress?: ClassroomRecordingProgress | null;
-};
+type ClassroomFilterOption = RecordingFilterClassroom;
 
 function percentLabel(progress: ClassroomRecordingProgress) {
   const percent = recordedPercent(progress);
@@ -171,7 +169,7 @@ function AssessmentRecordingWorkspace({
   reportSheetHref,
 }: Props) {
   const academicDataDirection = useAcademicDataDirection();
-  const queryClient = useQueryClient();
+  const refreshRecordingFilter = useRefreshRecordingFilter();
   const studentNameFormat = useStudentNameFormat();
   const isRtl = academicDataDirection === "rtl";
   const [subjectFilterIds, setSubjectFilterIds] = useState<string[]>([]);
@@ -240,7 +238,25 @@ function AssessmentRecordingWorkspace({
     [allSubjects, data?.studentTermForms],
   );
 
+  // Subjects picked in the phone filter for a classroom or term that was not
+  // loaded yet; applied once that classroom's report arrives.
+  const pendingSelectionRef = useRef<RecordingSubjectSelection | null>(null);
+  const allSubjectsRef = useRef(allSubjects);
+  allSubjectsRef.current = allSubjects;
+
   useEffect(() => {
+    const pending = pendingSelectionRef.current;
+    if (pending && firstSubjectId) {
+      pendingSelectionRef.current = null;
+      const known = new Set(allSubjectsRef.current.map((subject) => subject.id));
+      const ids = pending.subjectIds.filter((id) => known.has(id));
+      if (ids.length) {
+        setMultipleSubjects(pending.multiple);
+        setSubjectFilterIds(pending.multiple ? ids : ids.slice(0, 1));
+        return;
+      }
+    }
+
     if (selectedSubjectId) {
       setSubjectFilterIds([selectedSubjectId]);
       return;
@@ -364,10 +380,16 @@ function AssessmentRecordingWorkspace({
     filterTriggerRef.current = trigger;
     setFilterSheetGroup(group);
   };
-  const changeScope = (scope: {
-    termId: string;
-    departmentId: string | null;
-  }) => {
+  const changeScope = (
+    scope: {
+      termId: string;
+      departmentId: string | null;
+    } & RecordingSubjectSelection,
+  ) => {
+    pendingSelectionRef.current = scope.subjectIds.length
+      ? { subjectIds: scope.subjectIds, multiple: scope.multiple }
+      : null;
+    if (!scope.subjectIds.length) setMultipleSubjects(scope.multiple);
     if (scope.termId !== termId) {
       onTermChange?.(scope.termId, scope.departmentId);
     } else if (scope.departmentId && scope.departmentId !== departmentId) {
@@ -512,12 +534,8 @@ function AssessmentRecordingWorkspace({
             <DropdownMenu
               dir="ltr"
               onOpenChange={(open) => {
-                // Score saves mark classroom progress stale; refresh it on open.
-                if (!open) return;
-                queryClient.refetchQueries({
-                  queryKey: _trpc.assessments.getRecordingContextOptions.queryKey(),
-                  stale: true,
-                });
+                // Re-count classrooms whose scores changed; fresh ones are kept.
+                if (open) refreshRecordingFilter();
               }}
             >
               <DropdownMenu.Trigger asChild>
@@ -713,7 +731,7 @@ function AssessmentRecordingWorkspace({
           selectedCount={visibleSubjects.length}
           search={nameSearch}
           onSearchChange={setNameSearch}
-          onOpenSubjects={(trigger) => openFilterSheet("subjectId", trigger)}
+          onOpenSubjects={(trigger) => openFilterSheet("subjectIds", trigger)}
         />
 
         <section
@@ -1003,14 +1021,15 @@ function AssessmentRecordingWorkspace({
         defaultExpanded={filterSheetGroup ?? undefined}
         termId={termId}
         departmentId={departmentId}
-        subjectId={singleSubject?.id ?? subjectFilterIds[0] ?? null}
+        subjectIds={subjectFilterIds}
+        multiple={multipleSubjects}
         terms={filterTerms}
         classrooms={filterClassrooms}
         subjects={railSubjects}
         onScopeChange={hasScopeFilters ? changeScope : undefined}
-        onSubjectChange={(subjectId) => {
-          setMultipleSubjects(false);
-          setSubjectFilterIds([subjectId]);
+        onSubjectsChange={({ subjectIds, multiple }) => {
+          setMultipleSubjects(multiple);
+          setSubjectFilterIds(multiple ? subjectIds : subjectIds.slice(0, 1));
         }}
       />
       {!publicToken ? (

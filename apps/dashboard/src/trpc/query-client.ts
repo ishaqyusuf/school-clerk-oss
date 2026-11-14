@@ -6,9 +6,10 @@ import {
   defaultShouldDehydrateQuery,
 } from "@tanstack/react-query";
 import superjson from "superjson";
+import { markRecordingCachesStaleAfterMutation } from "@/components/assessment-recording/recording-cache";
 
 export function makeQueryClient() {
-  return new QueryClient({
+  const client: QueryClient = new QueryClient({
     defaultOptions: {
       queries: {
         staleTime: 60 * 1000,
@@ -39,6 +40,10 @@ export function makeQueryClient() {
         });
       },
       onSuccess: async (data, variables, _context, mutation) => {
+        markRecordingCachesStaleAfterMutation(
+          client,
+          mutation?.options.mutationKey,
+        );
         const title = mutation?.meta?.toastTitle?.success;
         if (!title) return;
         toast({
@@ -56,4 +61,5 @@ export function makeQueryClient() {
       },
     }),
   });
+  return client;
 }

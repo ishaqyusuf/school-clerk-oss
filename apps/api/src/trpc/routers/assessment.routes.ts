@@ -1,4 +1,8 @@
-import { withClassroomRecordingProgress } from "@api/db/queries/recording-progress";
+import {
+  getRecordingProgress,
+  recordingProgressSchema,
+} from "@api/db/queries/recording-progress";
+import { withClassroomSubjects } from "@api/db/queries/recording-filter-options";
 import {
   getClassroomReportSheet,
   getClassroomReportSheetSchema,
@@ -221,10 +225,11 @@ export const assessmentRouter = createTRPCRouter({
         return {
           scoped: false,
           terms,
-          classrooms: await withClassroomRecordingProgress(
+          classrooms: await withClassroomSubjects(
             ctx,
             defaultTermId,
             classrooms.data,
+            null,
           ),
           defaultTermId,
           defaultDepartmentId: classrooms.data[0]?.id ?? null,
@@ -312,6 +317,7 @@ export const assessmentRouter = createTRPCRouter({
         }));
 
       const effectiveAccessByTerm = new Map<string, string[]>();
+      const subjectAccessByTerm = new Map<string, string[]>();
       await Promise.all(
         terms.map(async (term) => {
           if (!term.sessionId) return;
@@ -325,6 +331,7 @@ export const assessmentRouter = createTRPCRouter({
           });
 
           effectiveAccessByTerm.set(term.id, access.classRoomDepartmentIds);
+          subjectAccessByTerm.set(term.id, access.departmentSubjectIds);
         }),
       );
       const effectiveClassroomIds = Array.from(
@@ -424,14 +431,21 @@ export const assessmentRouter = createTRPCRouter({
       return {
         scoped: true,
         terms,
-        classrooms: await withClassroomRecordingProgress(
+        classrooms: await withClassroomSubjects(
           ctx,
           defaultTermId,
           classrooms,
+          defaultTermId ? (subjectAccessByTerm.get(defaultTermId) ?? []) : [],
         ),
         defaultTermId,
         defaultDepartmentId: classrooms[0]?.id ?? null,
       };
+    }),
+  /** Score-entry progress per classroom, cached apart from the filter options. */
+  getRecordingProgress: assessmentProcedure
+    .input(recordingProgressSchema)
+    .query(async ({ ctx, input }) => {
+      return getRecordingProgress(ctx, input);
     }),
   saveAssessement: assessmentProcedure
     .input(saveAssessementSchema)
