@@ -810,8 +810,13 @@ function AssessmentRecordingWorkspace({
             >
               <TableHeader
                 className={cn(
-                  "sticky z-30 bg-background shadow-sm md:top-12 lg:top-0 [&_th]:bg-background",
-                  MOBILE_SUBJECT_BAR_OFFSET,
+                  "sticky z-30 bg-background shadow-sm [&_th]:bg-background",
+                  // One subject: sticks below the page's subject bar. Several:
+                  // the sideways-scrolling wrapper is the sticky container, so
+                  // a page offset would push the header over the first rows.
+                  singleSubject
+                    ? cn(MOBILE_SUBJECT_BAR_OFFSET, "md:top-12 lg:top-0")
+                    : "top-0",
                 )}
               >
                 {singleSubject ? null : (

@@ -36,6 +36,8 @@ async function sendScore(request: ScoreSaveRequest): Promise<ScoreSaveResult> {
 // Bursts of saves (e.g. a resumed outbox) share one invalidation per query.
 const pendingInvalidations = {
 	authenticated: false,
+	/** A save whose report was not cached: all progress may be out of date. */
+	unknownClassroom: false,
 	tokens: new Set<string>(),
 };
 let invalidationTimer: ReturnType<typeof setTimeout> | undefined;
@@ -55,6 +57,12 @@ function flushInvalidations() {
 		qc.invalidateQueries({
 			queryKey: trpc.assessments.getSubjectAssessmentRecordings.queryKey({}),
 		});
+		if (pendingInvalidations.unknownClassroom) {
+			qc.invalidateQueries({
+				queryKey: trpc.assessments.getRecordingProgress.pathKey(),
+				refetchType: "none",
+			});
+		}
 	}
 	for (const token of pendingInvalidations.tokens) {
 		qc.invalidateQueries({
@@ -63,22 +71,24 @@ function flushInvalidations() {
 		});
 	}
 	pendingInvalidations.authenticated = false;
+	pendingInvalidations.unknownClassroom = false;
 	pendingInvalidations.tokens.clear();
 }
 
 type QueryInput = { input?: Record<string, unknown> } | undefined;
 
 /**
- * Writes the saved score into the cached report(s) for its classroom or
- * public link, instead of re-downloading the whole classroom per save.
+ * Writes the saved score into the cached report that holds its assessment
+ * column (column ids are unique), instead of re-downloading the classroom.
+ * Returns the classroom ids of the patched reports.
  */
 function patchCachedReports(
 	request: ScoreSaveRequest,
 	result: ScoreSaveResult,
-) {
+): string[] {
 	const qc = _qc;
 	const trpc = _trpc;
-	if (!qc || !trpc) return;
+	if (!qc || !trpc) return [];
 	const score = {
 		assessmentId: request.payload.assessmentId,
 		studentTermFormId: request.payload.studentTermId,
@@ -101,30 +111,36 @@ function patchCachedReports(
 					? { ...data, report: applySavedScoreToReport(data.report, score) }
 					: data,
 		);
-		return;
+		return [];
 	}
-	const departmentId = request.payload.departmentId;
-	qc.setQueriesData<Parameters<typeof applySavedScoreToReport>[0]>(
-		{
-			queryKey: trpc.assessments.getClassroomReportSheet.pathKey(),
-			predicate: (query) =>
-				(query.queryKey[1] as QueryInput)?.input?.departmentId === departmentId,
-		},
-		(data) => applySavedScoreToReport(data, score),
-	);
+	// The payload's `departmentId` is the department-subject id, so the
+	// classroom comes from the cache key of the report that changed.
+	const classroomIds: string[] = [];
+	const entries = qc.getQueriesData<
+		Parameters<typeof applySavedScoreToReport>[0]
+	>({ queryKey: trpc.assessments.getClassroomReportSheet.pathKey() });
+	for (const [queryKey, data] of entries) {
+		const next = applySavedScoreToReport(data, score);
+		if (next === data) continue;
+		qc.setQueryData(queryKey, next);
+		const classroomId = (queryKey[1] as QueryInput)?.input?.departmentId;
+		if (typeof classroomId === "string") classroomIds.push(classroomId);
+	}
+	return classroomIds;
 }
 
 function invalidateAfterSave(
 	request: ScoreSaveRequest,
 	result: ScoreSaveResult,
 ) {
-	patchCachedReports(request, result);
+	const classroomIds = patchCachedReports(request, result);
 	if (request.kind === "public") {
 		pendingInvalidations.tokens.add(request.payload.token);
 	} else {
 		pendingInvalidations.authenticated = true;
 		// Only this classroom's percentage is re-counted, when the filter opens.
-		markRecordingProgressDirty(request.payload.departmentId);
+		for (const id of classroomIds) markRecordingProgressDirty(id);
+		if (!classroomIds.length) pendingInvalidations.unknownClassroom = true;
 	}
 	invalidationTimer ??= setTimeout(flushInvalidations, 250);
 }
