@@ -115,6 +115,11 @@ type Props = {
 };
 
 const STUDENT_COLUMN_WIDTH = 220;
+/**
+ * Phone width of the pinned student column when several subjects are shown.
+ * Wide enough to read names; the score columns scroll sideways beside it.
+ */
+const PHONE_STUDENT_COLUMN_WIDTH = "clamp(150px, 46vw, 210px)";
 const SCORE_COLUMN_WIDTH = 76;
 const SCORE_CELL_WIDTH = "w-[76px] min-w-[76px] max-w-[76px]";
 
@@ -332,7 +337,7 @@ function AssessmentRecordingWorkspace({
   );
   const tableWidth =
     STUDENT_COLUMN_WIDTH + scoreColumnCount * SCORE_COLUMN_WIDTH;
-  const phoneTableMinWidth = 148 + scoreColumnCount * SCORE_COLUMN_WIDTH;
+  const scoreColumnsWidth = scoreColumnCount * SCORE_COLUMN_WIDTH;
 
   const selectedClassroom = classrooms.find(
     (classroom) => classroom.id === departmentId,
@@ -798,9 +803,10 @@ function AssessmentRecordingWorkspace({
             style={
               {
                 "--recording-table-w": `${tableWidth}px`,
+                "--recording-student-w": PHONE_STUDENT_COLUMN_WIDTH,
                 "--recording-table-min-w": singleSubject
                   ? "0px"
-                  : `${phoneTableMinWidth}px`,
+                  : `calc(var(--recording-student-w) + ${scoreColumnsWidth}px)`,
               } as CSSProperties
             }
           >
@@ -808,6 +814,17 @@ function AssessmentRecordingWorkspace({
               dir={academicDataDirection}
               className="w-full min-w-[var(--recording-table-min-w)] table-fixed border-collapse sm:min-w-[var(--recording-table-w)]"
             >
+              {singleSubject ? null : (
+                // The first header row only has subject spans, so a fixed
+                // table would split widths evenly and squeeze the names.
+                <colgroup>
+                  <col className="w-[var(--recording-student-w)] sm:w-[220px]" />
+                  {Array.from({ length: scoreColumnCount }, (_, index) => (
+                    <col key={index} className="w-[76px]" />
+                  ))}
+                  <col className="hidden sm:table-column" />
+                </colgroup>
+              )}
               <TableHeader
                 className={cn(
                   "sticky z-30 bg-background shadow-sm [&_th]:bg-background",
@@ -910,7 +927,12 @@ function AssessmentRecordingWorkspace({
                       >
                         <TableCell
                           className={cn(
-                            "sticky z-10 whitespace-nowrap border-e bg-background sm:w-[220px]",
+                            "sticky z-10 border-e bg-background sm:w-[220px] sm:whitespace-nowrap",
+                            // Several subjects scroll sideways on phones, so
+                            // let long names wrap instead of cutting them off.
+                            singleSubject
+                              ? "whitespace-nowrap"
+                              : "whitespace-normal",
                             isRtl ? "right-0" : "left-0",
                           )}
                         >
@@ -926,7 +948,15 @@ function AssessmentRecordingWorkspace({
                               <span className="shrink-0 tabular-nums text-muted-foreground">
                                 {rowIndex + 1}.
                               </span>
-                              <span className="min-w-0 truncate" dir="auto">
+                              <span
+                                className={cn(
+                                  "min-w-0",
+                                  singleSubject
+                                    ? "truncate"
+                                    : "break-words leading-snug max-sm:line-clamp-2 sm:truncate",
+                                )}
+                                dir="auto"
+                              >
                                 {row.studentName}
                               </span>
                               <StudentGenderBadge
