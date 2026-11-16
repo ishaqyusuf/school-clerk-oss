@@ -6,6 +6,13 @@ type ToolPolicy = { capability: AiCapabilityKey; modules: readonly ModuleId[] };
 // Requirements follow the data each tool actually reads/writes, not the broad
 // capability label. These are not universal module dependencies or grants.
 const toolPolicies = {
+  readPaymentEvidence: { capability: "finance.read", modules: ["BILLING_FINANCE"] },
+  prepareStudentCollection: { capability: "finance.write", modules: ["STUDENT_MANAGEMENT", "BILLING_FINANCE"] },
+  prepareStaffSalary: { capability: "finance.write", modules: ["STAFF_MANAGEMENT", "BILLING_FINANCE"] },
+  prepareAccountTransfer: { capability: "finance.write", modules: ["BILLING_FINANCE"] },
+  prepareStudentRegistration: { capability: "students.enrollment", modules: ["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"] },
+  prepareStudentCorrection: { capability: "students.enrollment", modules: ["STUDENT_MANAGEMENT"] },
+  readSchoolCollections: { capability: "finance.read", modules: ["BILLING_FINANCE"] },
   searchStudents: { capability: "students.read", modules: ["STUDENT_MANAGEMENT", "ACADEMIC_PROGRAMS"],
 	},
   listClassrooms: { capability: "students.enrollment", modules: ["ACADEMIC_PROGRAMS"],

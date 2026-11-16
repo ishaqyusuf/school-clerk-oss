@@ -21,7 +21,10 @@ import {
 	SelectValue,
 } from "@school-clerk/ui/select";
 import type { z } from "zod";
-import { assistantSettingsSchema } from "@school-clerk/ai/contracts";
+import {
+	MAX_ASSISTANT_TURN_STEPS,
+	assistantSettingsSchema,
+} from "@school-clerk/ai/contracts";
 const defaults: z.infer<typeof assistantSettingsSchema> = {
 	enabled: false,
 	preferredProvider: "deepseek",
@@ -54,6 +57,7 @@ export function AssistantSettings({
 					? {
 							...defaults,
 							...config,
+							maxSteps: Math.min(MAX_ASSISTANT_TURN_STEPS, config.maxSteps),
 							preferredProvider: (config.preferredProvider ??
 								"deepseek") as typeof defaults.preferredProvider,
 							preferredModel: config.preferredModel ?? "deepseek-chat",
@@ -172,6 +176,9 @@ export function AssistantSettings({
 								<Input
 									id={key}
 									type="number"
+									max={
+										key === "maxSteps" ? MAX_ASSISTANT_TURN_STEPS : undefined
+									}
 									value={value[key]}
 									onChange={(e) =>
 										setValue({ ...value, [key]: Number(e.target.value) })

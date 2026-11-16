@@ -2496,15 +2496,15 @@ describe("transferFinanceFunds", () => {
 			$transaction: async (fn: (tx: any) => unknown) =>
 				fn({
 					financeStream: {
-						findFirst: async ({ where }: any) =>
-							where.id === "stream-fees"
-								? { id: "stream-fees", name: "School Fees" }
-								: { id: "stream-salary", name: "Salary" },
+						findMany: async () => [
+							{ id: "stream-fees", name: "School Fees" },
+							{ id: "stream-salary", name: "Salary" },
+						],
 					},
 					financeLedgerEntry: {
-						findMany: async () => [
-							{ direction: "CREDIT", amount: 1000 },
-							{ direction: "DEBIT", amount: 100 },
+						groupBy: async () => [
+							{ direction: "CREDIT", _sum: { amount: 1000 } },
+							{ direction: "DEBIT", _sum: { amount: 100 } },
 						],
 						createMany: async ({ data }: any) => {
 							createdEntries.push(...data);
@@ -2561,13 +2561,13 @@ describe("transferFinanceFunds", () => {
 			$transaction: async (fn: (tx: any) => unknown) =>
 				fn({
 					financeStream: {
-						findFirst: async ({ where }: any) =>
-							where.id === "stream-fees"
-								? { id: "stream-fees", name: "School Fees" }
-								: { id: "stream-salary", name: "Salary" },
+						findMany: async () => [
+							{ id: "stream-fees", name: "School Fees" },
+							{ id: "stream-salary", name: "Salary" },
+						],
 					},
 					financeLedgerEntry: {
-						findMany: async () => [{ direction: "CREDIT", amount: 100 }],
+						groupBy: async () => [{ direction: "CREDIT", _sum: { amount: 100 } }],
 					},
 				}),
 		};

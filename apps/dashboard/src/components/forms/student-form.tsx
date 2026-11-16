@@ -34,7 +34,9 @@ const currencyFormatter = new Intl.NumberFormat("en-NG", {
 	maximumFractionDigits: 2,
 });
 
-export function Form({ onEnrolled }: { onEnrolled?: () => void } = {}) {
+export function Form({
+	onEnrolled, assistantFees,
+}: { onEnrolled?: () => void; assistantFees?: { name: string; amount: number }[] } = {}) {
 	const { control, getValues, watch, setValue } = useStudentFormContext();
 	const trpc = useTRPC();
 
@@ -178,8 +180,66 @@ export function Form({ onEnrolled }: { onEnrolled?: () => void } = {}) {
 	);
 	const totalPending = Math.max(totalAssigned - totalPayingNow, 0);
 
+	const [feeChoices, setFeeChoices] = useState<Record<string, string>>({});
+	const normalizedFeeName = (value: string) => value.normalize("NFKC").toLowerCase().trim()
+		.replace(/[^\p{L}\p{N}]+/gu, " ");
+	const feeKey = (index: number) => `${classRoomId ?? ""}:${admissionType}:${studentGender}:${index}`;
+	function feeChoice(hint: { name: string; amount: number }, index: number) {
+		const label = normalizedFeeName(hint.name);
+		const aliases = label === "form" || label === "form fee" || label === "admission form"
+			? ["admission form", "admission fee", "form fee", "استمارة القبول"]
+			: ["school fee", "school fees", "رسوم المدرسة"].includes(label)
+				? ["school fee", "school fees", "tuition", "tuition fee", "رسوم المدرسة"]
+				: [label];
+		const matches = (applicableFeesPreview ?? []).filter((fee) => aliases.includes(normalizedFeeName(fee.title)));
+		return feeChoices[feeKey(index)] ?? (matches.length === 1 ? matches[0]?.feeHistoryId : "") ?? "";
+	}
+	function applyAssistantFees() {
+		if (!assistantFees?.length || !applicableFeesPreview?.length) return;
+		const rows = assistantFees.map((hint, index) => ({ feeId: feeChoice(hint, index), amount: hint.amount }));
+		if (new Set(rows.map((row) => row.feeId)).size !== rows.length ||
+			rows.some((row) => !applicableFeesPreview.some((fee) => fee.feeHistoryId === row.feeId && fee.amount >= row.amount))) return;
+		const selected = new Set(rows.map((row) => row.feeId));
+		setValue("selectedOptionalFeeItemIds", [...new Set([
+			...selectedOptionalFeeItemIds,
+			...applicableFeesPreview.filter((fee) => !fee.collectable && selected.has(fee.feeHistoryId)).map((fee) => fee.feeHistoryId),
+		])]);
+		setValue("feePayments", [
+			...feePayments.filter((payment) => !selected.has(payment.feeItemId)),
+			...rows.map((row) => ({ feeItemId: row.feeId, amount: row.amount })),
+		]);
+	}
+	const canApplyFees = Boolean(classRoomId && canReceivePayments && assistantFees?.length && assistantFees.every((hint, index) =>
+		applicableFeesPreview?.some((fee) => fee.feeHistoryId === feeChoice(hint, index) && fee.amount >= hint.amount),
+	) && new Set(assistantFees.map(feeChoice)).size === assistantFees.length);
+
 	return (
 		<div className="flex flex-col gap-4">
+			{Boolean(assistantFees?.length) && (
+				<section className="grid gap-2 rounded-md border p-3 text-sm">
+					<h3 className="font-medium">Payments from the assistant</h3>
+					{!classRoomId && <p>Choose a classroom to match the draft payments to school fees.</p>}
+					{assistantFees?.map((hint, index) => (
+						<label key={`${hint.name}:${index}`} className="grid gap-1">
+							<span>{hint.name} · {currencyFormatter.format(hint.amount)}</span>
+							{classRoomId && (
+								<select className="h-9 rounded-md border bg-background px-2" value={feeChoice(hint, index)}
+									onChange={(event) => setFeeChoices((current) => ({ ...current, [feeKey(index)]: event.target.value }))}>
+									<option value="">Choose a fee</option>
+									{applicableFeesPreview?.map((fee) => (
+										<option key={fee.feeHistoryId} value={fee.feeHistoryId} disabled={hint.amount > fee.amount}>
+											{fee.title} · {currencyFormatter.format(fee.amount)}
+										</option>
+									))}
+								</select>
+							)}
+						</label>
+					))}
+					<Button type="button" variant="outline" className="justify-self-start" disabled={!canApplyFees} onClick={applyAssistantFees}>
+						Apply payments to registration
+					</Button>
+				</section>
+			)}
 			{process.env.NODE_ENV !== "production" && (
 				<div className="flex justify-between items-center">
 					<h3 className="font-medium">Student Details</h3>

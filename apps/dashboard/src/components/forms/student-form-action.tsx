@@ -24,6 +24,8 @@ export function StudentFormAction({
 	onSaved,
 	onCreated,
 	onClose,
+	requireClassroom,
+	expectedPaymentCount,
 }: {
 	/** Replaces the default success flow (refresh + receipt/payment hand-off). */
 	onSaved?: () => void;
@@ -31,6 +33,8 @@ export function StudentFormAction({
 	onCreated?: () => void;
 	/** Runs when the success state's Close button is pressed. */
 	onClose?: () => void;
+	requireClassroom?: boolean;
+	expectedPaymentCount?: number;
 } = {}) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -104,6 +108,8 @@ export function StudentFormAction({
 		admissionType: watch("admissionType"), studentGender: watch("gender"),
 	}, needsFeePreview && !data);
 	const blockedByPreview = needsFeePreview && !feePreview.data;
+	const assistantDraftIncomplete = (requireClassroom && !classroomDepartmentId) ||
+		(expectedPaymentCount !== undefined && feePayments.filter((fee) => fee.amount > 0).length < expectedPaymentCount);
 	const blockedByPolicy = !registrationPolicy.ready;
 	const totalPayingNow = feePayments.reduce(
 		(sum, payment) => sum + payment.amount,
@@ -117,7 +123,7 @@ export function StudentFormAction({
 			toast({ title: "Your registration workspace is unavailable. Reopen the form before saving.", variant: "error" });
 			return;
 		}
-		if (isPending || blockedByPreview || blockedByPolicy) {
+		if (isPending || blockedByPreview || blockedByPolicy || assistantDraftIncomplete) {
 			if (blockedByPreview) toast({ title: "Review a current fee preview before creating this enrollment or payment.", variant: "error" });
 			return;
 		}
@@ -227,7 +233,7 @@ export function StudentFormAction({
 					});
 				})}
 			>
-				<SubmitButton className="min-h-11 w-full whitespace-normal" size="sm" isSubmitting={isPending} disabled={blockedByPreview || blockedByPolicy || !scopeReady}>
+				<SubmitButton className="min-h-11 w-full whitespace-normal" size="sm" isSubmitting={isPending} disabled={assistantDraftIncomplete || blockedByPreview || blockedByPolicy || !scopeReady}>
 					{blockedByPolicy ? "Check registration settings" : blockedByPreview ? "Review fee preview" : totalPayingNow > 0
 						? `Create student & record ${currencyFormatter.format(totalPayingNow)}`
 						: "Create student"}

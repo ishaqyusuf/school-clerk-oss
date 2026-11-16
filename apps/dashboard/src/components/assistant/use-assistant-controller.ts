@@ -32,8 +32,6 @@ export function useAssistantController() {
 			{ conversationId: state.conversationId ?? "" },
 			{
 				enabled: !!state.conversationId,
-				refetchInterval: (q) =>
-					q.state.data?.runs.some((r) => r.status === "running") ? 2000 : false,
 			},
 		),
 	);
@@ -111,6 +109,28 @@ export function useAssistantController() {
 		}
 	}, [state.conversationId, setMessages]);
 	const sending = chat.status === "streaming" || chat.status === "submitted";
+	const detachedRun = detail.data?.runs.find(
+		(item) => item.status === "running",
+	);
+	const status = useQuery(
+		trpc.assistant.runStatus.queryOptions(
+			{
+				runId: detachedRun?.id ?? "",
+				conversationId: state.conversationId ?? "",
+			},
+			{
+				enabled: !sending && Boolean(detachedRun && state.conversationId),
+				refetchInterval: (query) => (query.state.data?.running ? 3000 : false),
+				refetchIntervalInBackground: false,
+			},
+		),
+	);
+	useEffect(() => {
+		if (status.data?.running !== false || !detachedRun || sending) return;
+		void detail.refetch();
+		void proposals.refetch();
+	}, [status.data, detachedRun?.id, sending]);
+
 	useEffect(() => {
 		if (bootstrap.isError || detail.isError) {
 			setMessages([]);

@@ -118,6 +118,44 @@ export async function readConversation(
 		},
 	);
 }
+export async function readAssistantTurnHistory(
+	db: Database,
+	scope: AssistantScope,
+	conversationId: string,
+) {
+	return withAssistantConversationAccess(
+		db,
+		{ ...scope, conversationId },
+		async (tx) => {
+			const messages = await tx.assistantMessage.findMany({
+				where: {
+					conversationId,
+					schoolProfileId: scope.schoolId,
+					deletedAt: null,
+				},
+				select: { id: true, role: true, parts: true, content: true },
+				orderBy: [{ createdAt: "desc" }, { sequence: "desc" }, { id: "desc" }],
+				take: 40,
+			});
+			return messages.reverse();
+		},
+	);
+}
+
+export async function hasAssistantConversationAccess(
+	db: Database,
+	scope: AssistantScope,
+	conversationId: string,
+) {
+	return Boolean(
+		await withAssistantConversationAccess(
+			db,
+			{ ...scope, conversationId },
+			async () => true,
+		),
+	);
+}
+
 export async function updateConversation(
 	db: Database,
 	scope: AssistantScope,

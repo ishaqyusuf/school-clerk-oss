@@ -1,8 +1,10 @@
 "use client";
 import { Button } from "@school-clerk/ui/button";
 import { CheckCircle2, Clock3 } from "lucide-react";
+import { AssistantAccountActionForm } from "./assistant-account-action";
 import { AssistantRecords } from "./assistant-records";
 import {
+	parseAccountActionCard,
 	assistantToolInfo,
 	assistantResultSchema,
 } from "@school-clerk/ai/contracts";
@@ -81,6 +83,28 @@ export function AssistantResult({
 		);
 	const result = parsed.data;
 	const data = result.data as Record<string, unknown> | null;
+	const card = parseAccountActionCard(data?.card);
+	if (card && result.status === "success") {
+		const draftId =
+			typeof data?.draftId === "string" ? data.draftId : undefined;
+		const draft = proposalStatuses.find((item) => item.id === draftId);
+		return (
+			<section className="my-2 grid min-w-0 gap-3 rounded-lg border bg-card p-4">
+				<h3 className="text-sm font-medium">
+					{assistantToolInfo(result.toolId)?.title}
+				</h3>
+				<AssistantAccountActionForm
+					busy={busy}
+					card={card}
+					draftId={draftId}
+					status={draft?.status}
+					expiresAt={
+						typeof data?.expiresAt === "string" ? data.expiresAt : undefined
+					}
+				/>
+			</section>
+		);
+	}
 	const proposal = proposalStatuses.find((p) => p.id === data?.proposalId);
 	const decision =
 		proposal?.status !== "pending"

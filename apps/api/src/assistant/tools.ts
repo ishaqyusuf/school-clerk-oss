@@ -24,6 +24,7 @@ import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import type { TRPCContext } from "../trpc/init";
 import { resolveAssistantActor, type AssistantActor } from "./actor";
+import { buildAccountTools } from "./account-tools";
 import { recordFinancePaymentInTransaction } from "../db/queries/finance";
 import { recordStudentPaymentReceivedActivity } from "../db/queries/finance-activity";
 import { getAssistantTeacherWorkspace } from "@school-clerk/db/assistant";
@@ -199,6 +200,7 @@ export async function buildAssistantTools(
 	runId: string,
 	conversationId: string,
 	approval?: { id: string; toolName: string; token: string },
+	attachmentIds: readonly string[] = [],
 ) {
 	if (!actor.config) throw new Error("Assistant settings unavailable");
 	const context: SchoolAiToolContext = {
@@ -210,27 +212,23 @@ export async function buildAssistantTools(
 		studentNameFormat: ctx.profile.studentNameFormat,
 	};
 	const assertAccess = async (toolName: string) => {
-		const current = await resolveAssistantActor(ctx);
+		const [current, run] = await Promise.all([
+			resolveAssistantActor(ctx),
+			ctx.db.assistantRun.findFirst({
+				where: {
+					id: runId, schoolProfileId: actor.schoolId, userId: actor.userId,
+					status: "running", cancelRequested: false, deadlineAt: { gt: new Date() },
+				},
+				select: { id: true },
+			}),
+		]);
 		if (
 			current.schoolId !== actor.schoolId ||
 			current.userId !== actor.userId ||
 			current.sessionId !== actor.sessionId ||
 			current.termId !== actor.termId ||
 			!current.availableTools.includes(toolName)
-		)
-			throw new Error(
-				"This action is no longer available in the current workspace.",
-			);
-		const run = await ctx.db.assistantRun.findFirst({
-			where: {
-				id: runId,
-				schoolProfileId: actor.schoolId,
-				userId: actor.userId,
-				status: "running",
-				cancelRequested: false,
-				deadlineAt: { gt: new Date() },
-			},
-		});
+		) throw new Error("This action is no longer available in the current workspace.");
 		if (!run)
 			throw new Error(
 				"This response stopped. Check saved actions before retrying.",
@@ -507,7 +505,6 @@ export async function buildAssistantTools(
 		wrapped[name] = {
 			...definition,
 			execute: async (input, options) => {
-				await assertAccess(name);
 				const result = await execute(input, options);
 				const data = result as Record<string, unknown>;
 				if (
@@ -569,7 +566,10 @@ export async function buildAssistantTools(
 			},
 		};
 	}
-	return { tools: wrapped, rawTools: tools, assertAccess, context, deps };
+	return {
+		tools: { ...wrapped, ...buildAccountTools(ctx, actor, conversationId, runId, assertAccess, attachmentIds) },
+		rawTools: tools, assertAccess, context, deps,
+	};
 }
 export function proposalSummary(
 	toolName: string,

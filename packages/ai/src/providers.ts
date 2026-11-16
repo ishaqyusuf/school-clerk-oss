@@ -33,3 +33,7 @@ export function getAiModelSelection(config: AiProviderConfig) {
 }
 
 export const getModelSelection = getAiModelSelection;
+
+export function getSchoolAiReceiptModel() {
+  return process.env.OPENAI_API_KEY?.trim() ? openai.responses("gpt-4.1-mini") : null;
+}

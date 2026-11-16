@@ -17,12 +17,13 @@ export const assistantRequestSchema = z
 		attachmentIds: z.array(z.string().min(1).max(191)).max(5).default([]),
 	})
 	.strict();
+export const MAX_ASSISTANT_TURN_STEPS = 6;
 export const assistantSettingsSchema = z
 	.object({
 		enabled: z.boolean(),
 		preferredProvider: z.enum(["deepseek", "openai", "anthropic", "gemini"]),
 		preferredModel: z.string().trim().min(1).max(120),
-		maxSteps: z.number().int().min(1).max(10),
+		maxSteps: z.number().int().min(1).max(MAX_ASSISTANT_TURN_STEPS),
 		dailyRequestLimit: z.number().int().min(1).max(10000),
 		dailyTokenLimit: z.number().int().min(200000).max(10000000),
 		concurrentRunLimit: z.number().int().min(1).max(5),
@@ -51,3 +52,5 @@ export function mergeAssistantRecords(
 }
 
 export { assistantToolInfo, assistantToolCatalog } from "./catalog";
+
+export * from "./account-actions";

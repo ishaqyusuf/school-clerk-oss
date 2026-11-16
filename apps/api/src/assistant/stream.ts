@@ -2,12 +2,14 @@ import {
 	buildSchoolAiSystemPrompt,
 	getAiModelSelection,
 } from "@school-clerk/ai";
-import { assistantRequestSchema } from "@school-clerk/ai/contracts";
-import { createAssistantExecutionClient } from "@school-clerk/ai/runtime/mcp";
+import {
+	MAX_ASSISTANT_TURN_STEPS,
+	assistantRequestSchema,
+} from "@school-clerk/ai/contracts";
 import {
 	claimRun,
 	finishRun,
-	readConversation,
+	readAssistantTurnHistory,
 	requestFingerprint,
 } from "@school-clerk/db/assistant";
 import {
@@ -47,13 +49,14 @@ export async function streamAssistant(
 	const runId = claimed.run.id;
 	const signal = AbortSignal.timeout(45000);
 	let modelStarted = false;
-	let execution:
-		| Awaited<ReturnType<typeof createAssistantExecutionClient>>
-		| undefined;
 	try {
-		const history = await readConversation(ctx.db, actor, input.conversationId);
+		const history = await readAssistantTurnHistory(
+			ctx.db,
+			actor,
+			input.conversationId,
+		);
 		if (!history) throw new Error("Conversation unavailable");
-		const previousFiles = history.messages.flatMap((message) =>
+		const previousFiles = history.flatMap((message) =>
 			Array.isArray(message.parts)
 				? message.parts.flatMap((part) => {
 						if (
@@ -76,16 +79,19 @@ export async function streamAssistant(
 		const fileIds = [
 			...new Set([...previousFiles, ...input.attachmentIds]),
 		].slice(-5);
-		const attachments = await ctx.db.assistantAttachment.findMany({
-			where: {
-				id: { in: fileIds },
-				schoolProfileId: actor.schoolId,
-				userId: actor.userId,
-				conversationId: input.conversationId,
-				deletedAt: null,
-				status: "ready",
-			},
-		});
+		const attachmentScope = {
+			schoolProfileId: actor.schoolId,
+			userId: actor.userId,
+			conversationId: input.conversationId,
+			deletedAt: null,
+			status: "ready" as const,
+		};
+		const attachments = fileIds.length
+			? await ctx.db.assistantAttachment.findMany({
+					where: { ...attachmentScope, id: { in: fileIds } },
+					select: { id: true, name: true, mediaType: true, text: true },
+				})
+			: [];
 		if (input.attachmentIds.some((id) => !attachments.some((a) => a.id === id)))
 			throw new Error("An attachment is unavailable.");
 		const built = await buildAssistantTools(
@@ -93,9 +99,16 @@ export async function streamAssistant(
 			actor,
 			runId,
 			input.conversationId,
+			undefined,
+			attachments
+				.filter(
+					(file) =>
+						file.mediaType.startsWith("image/") ||
+						file.mediaType === "application/pdf",
+				)
+				.map((file) => file.id),
 		);
-		execution = await createAssistantExecutionClient(built.tools);
-		const messages = toUiMessages(history.messages).slice(-40);
+		const messages = toUiMessages(history);
 		let chars = 0;
 		const bounded: UIMessage[] = [];
 		for (const message of [...messages].reverse()) {
@@ -109,11 +122,13 @@ export async function streamAssistant(
 			selectedRecords: input.records,
 			attachments: attachments.map((a) => ({
 				name: a.name,
+				id: a.id,
+				mediaType: a.mediaType,
 				text: a.text?.slice(0, 16000),
 			})),
 		});
 		const modelMessages = await convertToModelMessages(bounded, {
-			tools: execution.tools,
+			tools: built.tools,
 			ignoreIncompleteToolCalls: true,
 		});
 		if (input.records.length || attachments.length)
@@ -139,10 +154,12 @@ export async function streamAssistant(
 			model,
 			instructions: `${systemPrompt}
 Respond in ${preference?.locale === "ar" ? "Arabic" : preference?.locale === "en" ? "English" : "the user’s language"}.
-Current school/session/term: ${JSON.stringify({ schoolId: actor.schoolId, sessionId: actor.sessionId, termId: actor.termId })}. Mutations return review cards. Never claim a write occurred unless a committed receipt is returned.`,
-			tools: execution.tools,
+Current school/session/term: ${JSON.stringify({ schoolId: actor.schoolId, sessionId: actor.sessionId, termId: actor.termId })}. Never claim a write occurred unless a committed receipt is returned.
+For finance and enrollment use the editable preparation tools when available: a bare student name and amount means student collection unless context specifies another intent, a staff name and salary means staff payment, and a new-student request with form and tuition payments means registration. Include evidence fields only when supplied or visible. Never invent dates, amounts, classifications or bank references. Present the review form and wait for the user to complete it. For a single transfer across students require a known total and explicit allocations, or ask how it was split. Use actual ledger tools for totals and name correction for spelling changes.
+For receipt images or PDFs use readPaymentEvidence when listed, even if the chat model cannot see images. Use extracted details only as review hints. If amount or date conflicts with the user's message, ask. A failed or pending transfer must not be drafted as received without an explicit correction from the user.`,
+			tools: built.tools,
 			stopWhen: [
-				stepCountIs(Math.min(10, actor.config.maxSteps)),
+				stepCountIs(Math.min(MAX_ASSISTANT_TURN_STEPS, actor.config.maxSteps)),
 				({ steps }) =>
 					steps.reduce((sum, step) => sum + (step.usage.totalTokens ?? 0), 0) >=
 					150000,
@@ -176,7 +193,28 @@ Current school/session/term: ${JSON.stringify({ schoolId: actor.schoolId, sessio
 				return {};
 			},
 		});
-		for (const file of attachments) {
+		const paymentEvidenceTurn =
+			Boolean(built.tools.readPaymentEvidence) &&
+			/\b(fee|fees|payment|paid|receipt|transfer|salary)\b|رسوم|دفع|تحويل|إيصال|راتب/iu.test(
+				input.text,
+			);
+		const binaryIds =
+			provider === "deepseek" || paymentEvidenceTurn
+				? []
+				: attachments
+						.filter(
+							(file) =>
+								file.mediaType.startsWith("image/") ||
+								file.mediaType === "application/pdf",
+						)
+						.map((file) => file.id);
+		const binary = binaryIds.length
+			? await ctx.db.assistantAttachment.findMany({
+					where: { ...attachmentScope, id: { in: binaryIds } },
+					select: { mediaType: true, bytes: true, name: true },
+				})
+			: [];
+		for (const file of binary) {
 			if (file.bytes && file.mediaType.startsWith("image/"))
 				modelMessages.push({
 					role: "user",
@@ -249,8 +287,6 @@ Current school/session/term: ${JSON.stringify({ schoolId: actor.schoolId, sessio
 					error:
 						"Response interrupted. Check saved actions before repeating a change.",
 				});
-			} finally {
-				await execution?.close();
 			}
 		})();
 		const response = result.toUIMessageStreamResponse({
@@ -261,7 +297,6 @@ Current school/session/term: ${JSON.stringify({ schoolId: actor.schoolId, sessio
 		response.headers.set("Cache-Control", "private, no-store");
 		return { response, completion };
 	} catch (error) {
-		await execution?.close();
 		await finishRun(ctx.db, actor, {
 			runId,
 			conversationId: input.conversationId,

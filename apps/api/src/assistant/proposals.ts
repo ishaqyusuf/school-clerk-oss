@@ -3,9 +3,9 @@ import {
 	claimRun,
 	finishRun,
 	requestFingerprint,
-	readConversation,
+	hasAssistantConversationAccess,
 } from "@school-clerk/db/assistant";
-import { getAssistantRunReceipts } from "@school-clerk/db";
+import { moneyDraftToolNames } from "@school-clerk/ai/contracts";
 import { TRPCError } from "@trpc/server";
 import type { TRPCContext } from "../trpc/init";
 import { resolveAssistantActor } from "./actor";
@@ -25,7 +25,11 @@ export async function decideProposal(
 	});
 	if (
 		!proposal ||
-		!(await readConversation(ctx.db, actor, proposal.conversationId))
+		!(await hasAssistantConversationAccess(
+			ctx.db,
+			actor,
+			proposal.conversationId,
+		))
 	)
 		throw new TRPCError({ code: "NOT_FOUND" });
 	if (!actor.availableTools.includes(proposal.toolName))
@@ -43,6 +47,11 @@ export async function decideProposal(
 		});
 		return { status: current.status };
 	}
+	if (Object.values<string>(moneyDraftToolNames).includes(proposal.toolName))
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Open the action form to complete this draft.",
+		});
 	if (
 		proposal.status !== "pending" ||
 		proposal.expiresAt <= new Date() ||
@@ -150,15 +159,20 @@ export async function readSavedActions(
 		take: 30,
 		select: { id: true },
 	});
-	return (
-		await Promise.all(
-			runs.map((run) =>
-				getAssistantRunReceipts(ctx.db, {
-					...actor,
-					runId: run.id,
-					toolNames: actor.availableTools,
-				}),
-			),
-		)
-	).flatMap((run) => run?.receipts ?? []);
+	if (!runs.length) return [];
+	return ctx.db.assistantToolExecution.findMany({
+		where: {
+			runId: { in: runs.map((run) => run.id) },
+			conversationId,
+			schoolProfileId: actor.schoolId,
+			deletedAt: null,
+			status: "completed",
+			isMutation: true,
+			toolName: { in: actor.availableTools },
+			output: { path: ["receipt", "version"], equals: 1 },
+		},
+		select: { id: true, toolName: true, completedAt: true, output: true },
+		orderBy: [{ completedAt: "desc" }, { id: "desc" }],
+		take: 60,
+	});
 }

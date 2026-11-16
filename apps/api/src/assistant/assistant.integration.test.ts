@@ -12,6 +12,7 @@ import {
 } from "@school-clerk/db/assistant";
 import { resolveAssistantActor } from "./actor";
 import { buildAssistantTools } from "./tools";
+import { completeAccountAction } from "./account-actions";
 import { decideProposal } from "./proposals";
 import type { TRPCContext } from "../trpc/init";
 const enabled = process.env.ASSISTANT_DB_TEST === "1";
@@ -61,8 +62,20 @@ test.skipIf(!enabled)(
 				data: {
 					schoolProfileId: schoolId,
 					version: 1,
-					enabledModules: ["AI_ASSISTANT", "INVENTORY_ASSETS"],
-					entitledModules: ["AI_ASSISTANT", "INVENTORY_ASSETS"],
+					enabledModules: [
+						"AI_ASSISTANT",
+						"INVENTORY_ASSETS",
+						"STAFF_MANAGEMENT",
+						"BILLING_FINANCE",
+						"STUDENT_MANAGEMENT",
+					],
+					entitledModules: [
+						"AI_ASSISTANT",
+						"INVENTORY_ASSETS",
+						"STAFF_MANAGEMENT",
+						"BILLING_FINANCE",
+						"STUDENT_MANAGEMENT",
+					],
 				},
 			});
 			await prisma.schoolAssistantConfig.create({
@@ -77,7 +90,11 @@ test.skipIf(!enabled)(
 			});
 			const ctx = {
 				db: prisma,
-				currentUser: { id: userId, email: `${prefix}-a@example.invalid` },
+				currentUser: {
+					id: userId,
+					role: "Admin",
+					email: `${prefix}-a@example.invalid`,
+				},
 				profile: { schoolId, authSessionId: login.id },
 			} as TRPCContext;
 			const actor = await resolveAssistantActor(ctx);
@@ -359,6 +376,210 @@ test.skipIf(!enabled)(
 					requestId: crypto.randomUUID(),
 				}),
 			).rejects.toThrow("Approval expired");
+
+			const schoolSession = await prisma.schoolSession.create({
+				data: { schoolId, title: prefix },
+			});
+			const term = await prisma.sessionTerm.create({
+				data: {
+					schoolId,
+					sessionId: schoolSession.id,
+					title: "Term 3",
+					startDate: new Date("2026-11-01"),
+				},
+			});
+			const financeCtx = {
+				...ctx,
+				profile: {
+					...ctx.profile,
+					sessionId: schoolSession.id,
+					termId: term.id,
+				},
+			};
+			const financeActor = await resolveAssistantActor(financeCtx);
+			const financeChat = await createConversation(prisma, financeActor);
+			const financeRun = await claimRun(prisma, financeActor, {
+				...request,
+				conversationId: financeChat.id,
+				requestId: crypto.randomUUID(),
+				concurrentRunLimit: 5,
+				dailyTokenLimit: 10_000_000,
+			});
+			const toolsForFinance = (
+				await buildAssistantTools(
+					financeCtx,
+					financeActor,
+					financeRun.run.id,
+					financeChat.id,
+				)
+			).tools;
+			const options = { toolCallId: "account-test", messages: [] };
+			const runTool = async (name: string, input: unknown) =>
+				required(required(toolsForFinance[name]).execute)(input, options);
+			const tuition = await prisma.financeStream.create({
+				data: {
+					schoolProfileId: schoolId,
+					name: "School Fees",
+					slug: "fees",
+					accountType: "CREDIT",
+				},
+			});
+			const payroll = await prisma.financeStream.create({
+				data: {
+					schoolProfileId: schoolId,
+					name: "Salary",
+					slug: "salary",
+					accountType: "DEBIT",
+				},
+			});
+			const students = await Promise.all(
+				["أحمد", "أنس"].map((name) =>
+					prisma.students.create({
+						data: {
+							schoolProfileId: schoolId,
+							name,
+							surname: "مفتاح",
+							gender: "Male",
+						},
+					}),
+				),
+			);
+			const charges = await Promise.all(
+				students.map((student) =>
+					prisma.financeCharge.create({
+						data: {
+							schoolProfileId: schoolId,
+							studentId: student.id,
+							streamId: tuition.id,
+							payerType: "STUDENT",
+							title: "School Fees",
+							amount: 6000,
+							status: "PENDING",
+							sessionTermId: term.id,
+							schoolSessionId: schoolSession.id,
+						},
+					}),
+				),
+			);
+			const studentDraft = (await runTool("prepareStudentCollection", {
+				students: [
+					{ name: "أحمد مفتاح", amount: 3000 },
+					{ name: "أنس مفتاح", amount: 3000 },
+				],
+				transferTotal: 6000,
+				method: "Bank Transfer",
+				reference: "QA-ACCT-123456",
+				date: "2026-11-16",
+			})) as {
+				data: { draftId: string; card: { matches: { id: string }[][] } };
+			};
+			expect(studentDraft.data.card.matches.map((row) => row[0]?.id)).toEqual(
+				students.map((student) => student.id),
+			);
+			expect(
+				await prisma.financePayment.count({
+					where: { schoolProfileId: schoolId },
+				}),
+			).toBe(0);
+			const selection = {
+				action: "student_payment" as const,
+				method: "Bank Transfer" as const,
+				date: "2026-11-16",
+				reference: "QA-ACCT-123456",
+				lines: charges.map((charge) => ({
+					chargeId: charge.id,
+					studentId: required(charge.studentId),
+					amount: 3000,
+				})),
+			};
+			await expect(
+				completeAccountAction(financeCtx, {
+					draftId: studentDraft.data.draftId,
+					selection: {
+						...selection,
+						lines: [
+							{ ...required(selection.lines[0]), amount: 2000 },
+							required(selection.lines[1]),
+						],
+					},
+				}),
+			).rejects.toThrow("allocate the full transfer");
+			const first = await completeAccountAction(financeCtx, {
+				draftId: studentDraft.data.draftId,
+				selection,
+			});
+			expect(first).toMatchObject({ amount: 6000, receipt: { version: 1 } });
+			expect(
+				await completeAccountAction(financeCtx, {
+					draftId: studentDraft.data.draftId,
+					selection,
+				}),
+			).toEqual(first);
+			expect(
+				await prisma.financePayment.count({
+					where: { schoolProfileId: schoolId },
+				}),
+			).toBe(2);
+			const duplicate = (await runTool("prepareStudentCollection", {
+				students: [
+					{ name: "أحمد مفتاح", amount: 3000 },
+					{ name: "أنس مفتاح", amount: 3000 },
+				],
+				transferTotal: 6000,
+				method: "Bank Transfer",
+				reference: "QA ACCT 123456",
+				date: "2026-11-16",
+			})) as { data: { draftId: string } };
+			await expect(
+				completeAccountAction(financeCtx, {
+					draftId: duplicate.data.draftId,
+					selection: { ...selection, reference: "qa acct-123456" },
+				}),
+			).rejects.toThrow("already recorded");
+			const staff = await prisma.staffProfile.create({
+				data: { schoolProfileId: schoolId, name: "Example Teacher" },
+			});
+			const salaryDraft = (await runTool("prepareStaffSalary", {
+				name: "Example Teacher",
+				amount: 2000,
+			})) as { data: { draftId: string } };
+			expect(
+				await completeAccountAction(financeCtx, {
+					draftId: salaryDraft.data.draftId,
+					selection: {
+						action: "staff_payment",
+						amount: 2000,
+						staffId: staff.id,
+						streamId: payroll.id,
+					},
+				}),
+			).toMatchObject({ amount: 2000, receipt: { version: 1 } });
+			const transferDraft = (await runTool("prepareAccountTransfer", {
+				from: tuition.name,
+				to: payroll.name,
+				amount: 250,
+			})) as { data: { draftId: string } };
+			expect(
+				await completeAccountAction(financeCtx, {
+					draftId: transferDraft.data.draftId,
+					selection: {
+						action: "transfer",
+						amount: 250,
+						fromId: tuition.id,
+						toId: payroll.id,
+						note: "Fund salaries",
+					},
+				}),
+			).toMatchObject({ amount: 250, receipt: { version: 1 } });
+			expect(
+				await runTool("readSchoolCollections", { period: "current_term" }),
+			).toMatchObject({
+				data: {
+					collected: 6000,
+					salariesPaid: 2000,
+					collectionsByFee: [{ fee: "School Fees", collected: 6000 }],
+				},
+			});
 			const artifact = await prisma.assistantArtifact.create({
 				data: {
 					schoolProfileId: schoolId,
@@ -409,6 +630,36 @@ test.skipIf(!enabled)(
 				});
 				await tx.verification.deleteMany({
 					where: { identifier: { contains: schoolIds[0] ?? prefix } },
+				});
+				await tx.financeLedgerEntry.deleteMany({
+					where: { schoolProfileId: { in: schoolIds } },
+				});
+				await tx.financePaymentAllocation.deleteMany({
+					where: { payment: { schoolProfileId: { in: schoolIds } } },
+				});
+				await tx.financePayment.deleteMany({
+					where: { schoolProfileId: { in: schoolIds } },
+				});
+				await tx.financeTransfer.deleteMany({
+					where: { schoolProfileId: { in: schoolIds } },
+				});
+				await tx.financeCharge.deleteMany({
+					where: { schoolProfileId: { in: schoolIds } },
+				});
+				await tx.financeStream.deleteMany({
+					where: { schoolProfileId: { in: schoolIds } },
+				});
+				await tx.staffProfile.deleteMany({
+					where: { schoolProfileId: { in: schoolIds } },
+				});
+				await tx.students.deleteMany({
+					where: { schoolProfileId: { in: schoolIds } },
+				});
+				await tx.sessionTerm.deleteMany({
+					where: { schoolId: { in: schoolIds } },
+				});
+				await tx.schoolSession.deleteMany({
+					where: { schoolId: { in: schoolIds } },
 				});
 				await tx.schoolProfile.deleteMany({ where: { id: { in: schoolIds } } });
 				await tx.user.deleteMany({ where: { id: { in: userIds } } });

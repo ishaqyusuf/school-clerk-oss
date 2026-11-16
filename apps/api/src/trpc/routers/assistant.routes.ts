@@ -1,3 +1,9 @@
+import {
+	accountActionDecision,
+	accountOptions,
+	completeAccountAction,
+	salaryOptions,
+} from "../../assistant/account-actions";
 import { createConversationExport } from "../../assistant/artifacts";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -7,6 +13,7 @@ import { decideProposal, readSavedActions } from "../../assistant/proposals";
 import { toUiMessages } from "../../assistant/messages";
 import {
 	createConversation,
+	hasAssistantConversationAccess,
 	listConversations,
 	readConversation,
 	updateConversation,
@@ -16,11 +23,61 @@ import { assistantSettingsSchema } from "@school-clerk/ai/contracts";
 import { aiCapabilities } from "@school-clerk/ai";
 const id = z.string().min(1).max(191);
 export const assistantRouter = createTRPCRouter({
+	completeAccountAction: authenticatedProcedure
+		.input(accountActionDecision)
+		.mutation(({ ctx, input }) => completeAccountAction(ctx, input)),
+	accountOptions: authenticatedProcedure
+		.input(z.object({ action: z.enum(["staff_payment", "transfer"]) }))
+		.query(({ ctx, input }) => accountOptions(ctx, input.action)),
+	runStatus: authenticatedProcedure
+		.input(z.object({ runId: id, conversationId: id }))
+		.query(async ({ ctx, input }) => {
+			const actor = await resolveAssistantActor(ctx);
+			if (
+				!(await hasAssistantConversationAccess(
+					ctx.db,
+					actor,
+					input.conversationId,
+				))
+			)
+				throw new TRPCError({ code: "NOT_FOUND" });
+			const run = await ctx.db.assistantRun.findFirst({
+				where: {
+					id: input.runId,
+					conversationId: input.conversationId,
+					schoolProfileId: actor.schoolId,
+					userId: actor.userId,
+					deletedAt: null,
+					conversation: {
+						schoolProfileId: actor.schoolId,
+						createdByUserId: actor.userId,
+						deletedAt: null,
+					},
+				},
+				select: { status: true, deadlineAt: true },
+			});
+			return {
+				running: Boolean(
+					run?.status === "running" &&
+						run.deadlineAt &&
+						run.deadlineAt > new Date(),
+				),
+			};
+		}),
+	salaryOptions: authenticatedProcedure
+		.input(z.object({ staffId: id }))
+		.query(({ ctx, input }) => salaryOptions(ctx, input.staffId)),
 	attachments: authenticatedProcedure
 		.input(z.object({ conversationId: id }))
 		.query(async ({ ctx, input }) => {
 			const actor = await resolveAssistantActor(ctx);
-			if (!(await readConversation(ctx.db, actor, input.conversationId)))
+			if (
+				!(await hasAssistantConversationAccess(
+					ctx.db,
+					actor,
+					input.conversationId,
+				))
+			)
 				throw new TRPCError({ code: "NOT_FOUND" });
 			return ctx.db.assistantAttachment.findMany({
 				where: {
@@ -43,7 +100,13 @@ export const assistantRouter = createTRPCRouter({
 		.input(z.object({ conversationId: id }))
 		.query(async ({ ctx, input }) => {
 			const actor = await resolveAssistantActor(ctx);
-			if (!(await readConversation(ctx.db, actor, input.conversationId)))
+			if (
+				!(await hasAssistantConversationAccess(
+					ctx.db,
+					actor,
+					input.conversationId,
+				))
+			)
 				throw new TRPCError({ code: "NOT_FOUND" });
 			return ctx.db.assistantArtifact.findMany({
 				where: {
@@ -131,7 +194,13 @@ export const assistantRouter = createTRPCRouter({
 		.input(z.object({ conversationId: id }))
 		.query(async ({ ctx, input }) => {
 			const actor = await resolveAssistantActor(ctx);
-			if (!(await readConversation(ctx.db, actor, input.conversationId)))
+			if (
+				!(await hasAssistantConversationAccess(
+					ctx.db,
+					actor,
+					input.conversationId,
+				))
+			)
 				throw new TRPCError({ code: "NOT_FOUND" });
 			return ctx.db.assistantActionProposal.findMany({
 				where: {
@@ -273,7 +342,13 @@ export const assistantRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const actor = await resolveAssistantActor(ctx);
-			if (!(await readConversation(ctx.db, actor, input.conversationId)))
+			if (
+				!(await hasAssistantConversationAccess(
+					ctx.db,
+					actor,
+					input.conversationId,
+				))
+			)
 				throw new TRPCError({ code: "NOT_FOUND" });
 			await ctx.db.assistantFeedback.create({
 				data: {

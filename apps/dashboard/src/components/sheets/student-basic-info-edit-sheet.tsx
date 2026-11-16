@@ -1,3 +1,5 @@
+import { useAssistantStudentForm } from "@/store/assistant-student-form";
+import { useAuth } from "@/hooks/use-auth";
 import { useMemo } from "react";
 import { useStudentOverviewQuery } from "@/hooks/use-student-overview-query";
 import { useStudentParams } from "@/hooks/use-student-params";
@@ -13,13 +15,19 @@ export function StudentBasicInfoEditSheet() {
   const { studentEditId, setParams } = useStudentParams();
   const isOpen = Boolean(studentEditId);
   const { data, isLoading, refetch } = useStudentOverviewQuery(studentEditId || null);
+  const auth = useAuth();
+  const seed = useAssistantStudentForm((state) => state.seed);
+  const setSeed = useAssistantStudentForm((state) => state.setSeed);
+  const scope = [auth.profile?.schoolId, auth.id, auth.profile?.sessionId, auth.profile?.termId].join(":");
+  const correction = seed?.kind === "correct" && seed.studentId === studentEditId &&
+    seed.scope === scope ? seed.input : undefined;
   const defaultValues = useMemo(() => {
     const student = data?.student;
 
     return {
-      name: student?.name || "",
-      surname: student?.surname || "",
-      otherName: student?.otherName || "",
+      name: correction?.givenName ?? student?.name ?? "",
+      surname: correction?.surname ?? student?.surname ?? "",
+      otherName: correction?.otherName ?? student?.otherName ?? "",
       gender:
         student?.gender === "Female" ? ("Female" as const) : ("Male" as const),
       dob: toNullableDate(student?.dob),
@@ -33,9 +41,10 @@ export function StudentBasicInfoEditSheet() {
         phone2: student?.guardian?.phone2 || null,
       },
     };
-  }, [data?.student]);
+  }, [data?.student, correction]);
 
   const close = () => {
+    if (correction) setSeed(null);
     setParams({
       studentEditId: null,
     });
@@ -44,7 +53,7 @@ export function StudentBasicInfoEditSheet() {
   if (!isOpen) return null;
 
   return (
-    <FormContext key={data ? `${data.scope.schoolId}:${data.scope.userId}:${data.scope.loginSessionId}:${data.student.id}` : "unavailable"} defaultValues={defaultValues}>
+    <FormContext key={data ? `${data.scope.schoolId}:${data.scope.userId}:${data.scope.loginSessionId}:${data.student.id}:${JSON.stringify(correction)}` : "unavailable"} defaultValues={defaultValues}>
       <Sheet
         floating
         rounded

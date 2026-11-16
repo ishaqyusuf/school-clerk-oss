@@ -1,4 +1,5 @@
 import { useStudentParams } from "@/hooks/use-student-params";
+import { useAssistantStudentForm } from "@/store/assistant-student-form";
 import { useAuth } from "@/hooks/use-auth";
 
 import { SheetHeader, SheetTitle } from "@school-clerk/ui/sheet";
@@ -9,7 +10,7 @@ import { StudentFormAction } from "../forms/student-form-action";
 import { FormContext } from "../students/form-context";
 import Sheet from "@school-clerk/ui/custom/sheet";
 export function StudentCreateSheet({}) {
-  const { createStudent, createStudentPrefillName, setParams } =
+  const { createStudent, createStudentPrefillName, createStudentReturnTo, setParams } =
     useStudentParams();
   const isOpen = createStudent;
   const auth = useAuth();
@@ -17,14 +18,25 @@ export function StudentCreateSheet({}) {
     !!auth.id && !!auth.sessionId && !!auth.profile?.schoolId && auth.profile.auth?.userId === auth.id;
   const scopeKey = JSON.stringify([auth.profile?.schoolId, auth.id, auth.sessionId, auth.profile?.sessionId, auth.profile?.termId]);
 
+  const seed = useAssistantStudentForm((state) => state.seed);
+  const setSeed = useAssistantStudentForm((state) => state.setSeed);
+  const assistantScope = [auth.profile?.schoolId, auth.id, auth.profile?.sessionId, auth.profile?.termId].join(":");
+  const assistant = createStudentReturnTo === "assistant" && scopeReady &&
+    seed?.kind === "register" && seed.scope === assistantScope ? seed.input : undefined;
   const defaultValues = useMemo(
     () => ({
-      name: createStudentPrefillName || "",
-      surname: "",
-      otherName: "",
+      name: assistant?.givenName ?? assistant?.name ?? createStudentPrefillName ?? "",
+      surname: assistant?.surname ?? "",
+      otherName: assistant?.otherName ?? "",
       gender: "Male" as const,
       dob: null,
-      classRoomId: null,
+      classRoomId: assistant?.classroomId ?? null,
+      admissionType: assistant?.admissionType ?? (assistant?.fees.length ? "NEW_ADMISSION" as const : "UNCLASSIFIED" as const),
+      paymentDetails: assistant ? {
+        method: assistant.method === "Bank Transfer" ? "TRANSFER" : assistant.method === "Cheque" ? "Cheque" : "CASH",
+        reference: assistant.reference,
+        paymentDate: assistant.date ? new Date(`${assistant.date}T12:00:00+01:00`) : undefined,
+      } : undefined,
       fees: [],
       termForms: [],
       guardian: {
@@ -34,7 +46,7 @@ export function StudentCreateSheet({}) {
         phone2: null,
       },
     }),
-    [createStudentPrefillName],
+    [assistant, createStudentPrefillName],
   );
 
   if (!isOpen) return null;
@@ -45,25 +57,26 @@ export function StudentCreateSheet({}) {
         rounded
         size="lg"
         open={isOpen}
-        onOpenChange={() =>
-          setParams({
+        onOpenChange={() => {
+          if (assistant) setSeed(null);
+          void setParams({
             createStudent: null,
             createStudentPrefillName: null,
             createStudentReturnTo: null,
-          })
-        }
+          });
+        }}
         sheetName="create-student"
       >
         <SheetHeader>
           <SheetTitle>Student Form</SheetTitle>
         </SheetHeader>
         {scopeReady ? (
-          <FormContext key={scopeKey} defaultValues={defaultValues}>
+          <FormContext key={JSON.stringify([scopeKey, assistant])} defaultValues={defaultValues}>
             <Sheet.Content className="flex min-w-0 flex-col gap-2">
-              <Form />
+              <Form assistantFees={assistant?.fees} />
             </Sheet.Content>
             <Sheet.Footer className="shrink-0 border-t bg-background py-3">
-              <StudentFormAction />
+              <StudentFormAction requireClassroom={Boolean(assistant)} expectedPaymentCount={assistant?.fees.length} />
             </Sheet.Footer>
           </FormContext>
         ) : (

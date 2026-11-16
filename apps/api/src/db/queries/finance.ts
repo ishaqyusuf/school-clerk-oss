@@ -46,6 +46,7 @@ import type {
 } from "../../trpc/schemas/finance";
 
 type FinanceDb = Pick<TRPCContext["db"], "financeStream">;
+type FinanceTransaction = Omit<TRPCContext["db"], "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends" | "$use">;
 type StudentTermFormDb = Pick<TRPCContext["db"], "studentTermForm">;
 type StudentChargeReconciliationDb = Pick<
 	TRPCContext["db"],
@@ -1167,67 +1168,75 @@ export async function createFinanceCharge(
 	input: FinanceChargeInput,
 ) {
 	requireFinanceWriteAccess(ctx);
+	await assertTermLedgerWritable(ctx.db, { schoolProfileId: requireSchoolId(ctx), termId: input.termId });
+	return ctx.db.$transaction((tx) => createFinanceChargeInTransaction(ctx, tx, input));
+}
+
+export async function createFinanceChargeInTransaction(
+	ctx: TRPCContext,
+	tx: FinanceTransaction,
+	input: FinanceChargeInput,
+) {
+	requireFinanceWriteAccess(ctx);
 	const schoolProfileId = requireSchoolId(ctx);
-	await assertTermLedgerWritable(ctx.db as any, {
+	await assertTermLedgerWritable(tx, {
 		schoolProfileId,
 		termId: input.termId,
 	});
 
-	return ctx.db.$transaction(async (tx) => {
-		const item = input.itemId
-			? await tx.financeItem.findFirst({
-					where: { id: input.itemId, schoolProfileId },
-				})
-			: null;
+	const item = input.itemId
+		? await tx.financeItem.findFirst({
+				where: { id: input.itemId, schoolProfileId },
+			})
+		: null;
 
-		if (input.itemId && !item) {
-			throw new TRPCError({
-				code: "NOT_FOUND",
-				message: "Finance item was not found.",
-			});
-		}
-
-		const stream = await getOrCreateStream(tx, {
-			schoolProfileId,
-			streamId: input.streamId ?? item?.streamId,
-			streamName: input.streamName,
-			type: input.type ?? item?.type,
+	if (input.itemId && !item) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Finance item was not found.",
 		});
+	}
 
-		const amount = toMoney(input.amount || item?.amount || 0);
-		const charge = await tx.financeCharge.create({
-			data: {
-				schoolProfileId,
-				streamId: stream.id,
-				itemId: item?.id,
-				payerType: input.payerType,
-				studentId: input.studentId,
-				studentTermFormId: input.studentTermFormId,
-				staffProfileId: input.staffProfileId,
-				staffTermProfileId: input.staffTermProfileId,
-				payeeId: input.payeeId,
-				payrollStructureId: input.payrollStructureId,
-				classroomDepartmentId: input.classroomDepartmentId,
-				schoolSessionId: input.sessionId ?? item?.schoolSessionId,
-				sessionTermId: input.termId ?? item?.sessionTermId,
-				title: input.title || item?.name || "Charge",
-				description: input.description ?? item?.description,
-				amount,
-				collectionStatus:
-					input.collectionStatus ??
-					(item?.collectable ? "NOT_COLLECTED" : "NOT_REQUIRED"),
-				assignmentSource: "MANUAL",
-				dueDate: input.dueDate,
-				createdById: ctx.currentUser?.id,
-			},
-		});
-
-		return {
-			...charge,
-			amount: toNumber(charge.amount),
-			amountPaid: toNumber(charge.amountPaid),
-		};
+	const stream = await getOrCreateStream(tx, {
+		schoolProfileId,
+		streamId: input.streamId ?? item?.streamId,
+		streamName: input.streamName,
+		type: input.type ?? item?.type,
 	});
+
+	const amount = toMoney(input.amount || item?.amount || 0);
+	const charge = await tx.financeCharge.create({
+		data: {
+			schoolProfileId,
+			streamId: stream.id,
+			itemId: item?.id,
+			payerType: input.payerType,
+			studentId: input.studentId,
+			studentTermFormId: input.studentTermFormId,
+			staffProfileId: input.staffProfileId,
+			staffTermProfileId: input.staffTermProfileId,
+			payeeId: input.payeeId,
+			payrollStructureId: input.payrollStructureId,
+			classroomDepartmentId: input.classroomDepartmentId,
+			schoolSessionId: input.sessionId ?? item?.schoolSessionId,
+			sessionTermId: input.termId ?? item?.sessionTermId,
+			title: input.title || item?.name || "Charge",
+			description: input.description ?? item?.description,
+			amount,
+			collectionStatus:
+				input.collectionStatus ??
+				(item?.collectable ? "NOT_COLLECTED" : "NOT_REQUIRED"),
+			assignmentSource: "MANUAL",
+			dueDate: input.dueDate,
+			createdById: ctx.currentUser?.id,
+		},
+	});
+
+	return {
+		...charge,
+		amount: toNumber(charge.amount),
+		amountPaid: toNumber(charge.amountPaid),
+	};
 }
 
 /** Spending pages: Services (work done for the school) vs Purchases (things it buys). */
@@ -1825,12 +1834,8 @@ export async function reverseFinancePayment(
 	});
 }
 
-export async function transferFinanceFunds(
-	ctx: TRPCContext,
-	input: FinanceTransferInput,
-) {
+function assertFinanceTransferInput(ctx: TRPCContext, input: FinanceTransferInput) {
 	requireFinanceWriteAccess(ctx);
-	const schoolProfileId = requireSchoolId(ctx);
 	const amountNumber = toNumber(input.amount);
 
 	if (input.fromStreamId === input.toStreamId) {
@@ -1853,94 +1858,106 @@ export async function transferFinanceFunds(
 			"Only an Admin can approve large account transfers.",
 		);
 	}
+}
 
-	return ctx.db.$transaction(async (tx) => {
-		const [fromStream, toStream] = await Promise.all([
-			tx.financeStream.findFirst({
-				where: { id: input.fromStreamId, schoolProfileId },
-			}),
-			tx.financeStream.findFirst({
-				where: { id: input.toStreamId, schoolProfileId },
-			}),
-		]);
+export async function transferFinanceFunds(
+	ctx: TRPCContext,
+	input: FinanceTransferInput,
+) {
+	assertFinanceTransferInput(ctx, input);
+	return ctx.db.$transaction((tx) => transferFinanceFundsInTransaction(ctx, tx, input));
+}
 
-		if (!fromStream || !toStream) {
-			throw new TRPCError({
-				code: "NOT_FOUND",
-				message: "Both finance streams are required for a transfer.",
-			});
-		}
+export async function transferFinanceFundsInTransaction(
+	ctx: TRPCContext,
+	tx: FinanceTransaction,
+	input: FinanceTransferInput,
+) {
+	assertFinanceTransferInput(ctx, input);
+	const schoolProfileId = requireSchoolId(ctx);
+	const amountNumber = toNumber(input.amount);
 
-		const amount = toMoney(input.amount);
-		const collectedSessionTermId = ctx.profile.termId ?? null;
-		const collectedSchoolSessionId = ctx.profile.sessionId ?? null;
-		await assertTermLedgerWritable(tx as any, {
-			schoolProfileId,
-			termId: collectedSessionTermId,
+	const streams = await tx.financeStream.findMany({
+		where: { id: { in: [input.fromStreamId, input.toStreamId] }, schoolProfileId, deletedAt: null },
+		select: { id: true, name: true },
+	});
+	const fromStream = streams.find((stream) => stream.id === input.fromStreamId);
+	const toStream = streams.find((stream) => stream.id === input.toStreamId);
+
+	if (!fromStream || !toStream) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Both finance streams are required for a transfer.",
 		});
-		const fromEntries = await tx.financeLedgerEntry.findMany({
-			where: {
-				schoolProfileId,
-				streamId: fromStream.id,
-				deletedAt: null,
-			},
-			select: {
-				direction: true,
-				amount: true,
-			},
+	}
+
+	const amount = toMoney(input.amount);
+	const collectedSessionTermId = ctx.profile.termId ?? null;
+	const collectedSchoolSessionId = ctx.profile.sessionId ?? null;
+	await assertTermLedgerWritable(tx as any, {
+		schoolProfileId,
+		termId: collectedSessionTermId,
+	});
+	if (!isFinanceAdmin(ctx)) {
+		const fromEntries = await tx.financeLedgerEntry.groupBy({
+			by: ["direction"],
+			where: { schoolProfileId, streamId: fromStream.id, deletedAt: null },
+			_sum: { amount: true },
 		});
-		const fromBalance = summarizeLedger(fromEntries).balance;
-		if (amountNumber - fromBalance > 0.01 && !isFinanceAdmin(ctx)) {
+		const fromBalance = summarizeLedger(fromEntries.map((entry) => ({
+			direction: entry.direction, amount: entry._sum.amount ?? toMoney(0),
+		}))).balance;
+		if (amountNumber - fromBalance > 0.01) {
 			throw new TRPCError({
 				code: "BAD_REQUEST",
 				message: "Source account does not have enough available balance.",
 			});
 		}
+	}
 
-		const transfer = await tx.financeTransfer.create({
-			data: {
-				schoolProfileId,
-				fromStreamId: fromStream.id,
-				toStreamId: toStream.id,
-				amount,
-				note: input.note,
-				sentById: input.sentById ?? ctx.currentUser?.id,
-			},
-		});
-
-		await tx.financeLedgerEntry.createMany({
-			data: [
-				{
-					schoolProfileId,
-					streamId: fromStream.id,
-					direction: "DEBIT",
-					sourceType: "TRANSFER",
-					sourceId: transfer.id,
-					amount,
-					note: input.note ?? `Transfer to ${toStream.name}`,
-					createdById: ctx.currentUser?.id,
-					collectedSessionTermId,
-					collectedSchoolSessionId,
-					transferId: transfer.id,
-				},
-				{
-					schoolProfileId,
-					streamId: toStream.id,
-					direction: "CREDIT",
-					sourceType: "TRANSFER",
-					sourceId: transfer.id,
-					amount,
-					note: input.note ?? `Transfer from ${fromStream.name}`,
-					createdById: ctx.currentUser?.id,
-					collectedSessionTermId,
-					collectedSchoolSessionId,
-					transferId: transfer.id,
-				},
-			],
-		});
-
-		return { success: true, transferId: transfer.id };
+	const transfer = await tx.financeTransfer.create({
+		data: {
+			schoolProfileId,
+			fromStreamId: fromStream.id,
+			toStreamId: toStream.id,
+			amount,
+			note: input.note,
+			sentById: input.sentById ?? ctx.currentUser?.id,
+		},
 	});
+
+	await tx.financeLedgerEntry.createMany({
+		data: [
+			{
+				schoolProfileId,
+				streamId: fromStream.id,
+				direction: "DEBIT",
+				sourceType: "TRANSFER",
+				sourceId: transfer.id,
+				amount,
+				note: input.note ?? `Transfer to ${toStream.name}`,
+				createdById: ctx.currentUser?.id,
+				collectedSessionTermId,
+				collectedSchoolSessionId,
+				transferId: transfer.id,
+			},
+			{
+				schoolProfileId,
+				streamId: toStream.id,
+				direction: "CREDIT",
+				sourceType: "TRANSFER",
+				sourceId: transfer.id,
+				amount,
+				note: input.note ?? `Transfer from ${fromStream.name}`,
+				createdById: ctx.currentUser?.id,
+				collectedSessionTermId,
+				collectedSchoolSessionId,
+				transferId: transfer.id,
+			},
+		],
+	});
+
+	return { success: true, transferId: transfer.id };
 }
 
 export async function listFinanceTransfers(ctx: TRPCContext) {

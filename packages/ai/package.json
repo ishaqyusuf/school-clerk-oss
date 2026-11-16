@@ -13,7 +13,6 @@
     "./tools": "./src/tools/index.ts",
     "./workflows": "./src/workflows/index.ts",
     "./contracts": "./src/contracts/assistant.ts",
-    "./runtime/mcp": "./src/runtime/mcp.ts",
     "./contracts/attachments": "./src/contracts/attachments.ts"
   },
   "scripts": {
@@ -30,9 +29,7 @@
     "@school-clerk/db": "workspace:*",
     "@school-clerk/utils": "workspace:*",
     "ai": "^6.0.158",
-    "zod": "3.25.64",
-    "@ai-sdk/mcp": "1.0.30",
-    "@modelcontextprotocol/sdk": "1.28.0"
+    "zod": "3.25.64"
   },
   "devDependencies": {
     "@school-clerk/tsconfig": "workspace:*",

@@ -1,4 +1,11 @@
 export const assistantToolCatalog = {
+	readPaymentEvidence: { title: "Read bank receipt", version: 1, href: "/finance/student-payments" },
+	prepareStudentCollection: { title: "Receive student payment", version: 1, href: "/finance/student-payments" },
+	prepareStaffSalary: { title: "Record salary payment", version: 1, href: "/finance/salaries" },
+	prepareAccountTransfer: { title: "Transfer between accounts", version: 1, href: "/finance/accounts/transfers" },
+	prepareStudentRegistration: { title: "Register student", version: 1, href: "/students/list" },
+	prepareStudentCorrection: { title: "Correct student name", version: 1, href: "/students/list" },
+	readSchoolCollections: { title: "School collections", version: 1, href: "/finance/student-payments" },
 	searchStudents: { title: "Students", version: 1, href: "/students/list" },
 	listClassrooms: {
 		title: "Classrooms",
