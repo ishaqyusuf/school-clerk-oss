@@ -2049,23 +2049,9 @@ export async function previewAcademicTermActivation(
       message: "The term end date must be on or after its start date.",
     });
   }
-  if (active && active.id !== target.id) {
-    const financeClose = await ctx.db.financeTermLedgerClose.findFirst({
-      where: {
-        schoolProfileId,
-        sessionTermId: active.id,
-        status: "CLOSED",
-        deletedAt: null,
-      },
-      select: { id: true },
-    });
-    if (!financeClose) {
-      blockers.push({
-        key: "finance-ledger-open",
-        message: `Close the finance ledger for ${active.title} before activation.`,
-      });
-    }
-  }
+  // Activation only moves the school's working term. The outgoing term and
+  // its finance ledger stay open until an Admin closes each explicitly
+  // (ADR-0099), so late results and payments can still be recorded.
   const completedRun = await ctx.db.academicTermSetupRun.findFirst({
     where: {
       schoolProfileId,
@@ -2160,19 +2146,8 @@ export async function activateAcademicTerm(
           message: preview.blockers[0]?.message ?? "Term cannot be activated.",
         });
       }
-      if (
-        preview.currentActiveTerm &&
-        preview.currentActiveTerm.id !== input.termId
-      ) {
-        await tx.sessionTerm.update({
-          where: { id: preview.currentActiveTerm.id },
-          data: {
-            lifecycleStatus: "CLOSED",
-            closedAt: new Date(),
-            closedByUserId: user.id,
-          },
-        });
-      }
+      // The previous working term keeps its ACTIVE (activated, still open)
+      // status; only the school pointer moves. See ADR-0099.
       const target = await tx.sessionTerm.update({
         where: { id: input.termId },
         data: {
@@ -2251,7 +2226,7 @@ export async function closeAcademicTerm(
     if (term.lifecycleStatus !== "ACTIVE" && activeSessionTermId !== term.id) {
       throw new TRPCError({
         code: "CONFLICT",
-        message: "Only the active term can be closed.",
+        message: "Only an activated, open term can be closed.",
       });
     }
     const financeClose = await tx.financeTermLedgerClose.findFirst({

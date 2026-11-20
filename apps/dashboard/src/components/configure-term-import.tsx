@@ -367,6 +367,9 @@ export function ConfigureTermImport({ termId }: { termId: string }) {
     trpc.academics.activateTerm.mutationOptions({
       async onSuccess(result) {
         await switchSessionTerm(result);
+        await queryClient.invalidateQueries({
+          queryKey: trpc.academics.dashboard.queryKey({}),
+        });
         toast({
           title: "Academic term activated",
           description: `${result.termTitle} is now active.`,
@@ -692,8 +695,9 @@ export function ConfigureTermImport({ termId }: { termId: string }) {
             <CardHeader>
               <CardTitle>Finish the transition</CardTitle>
               <CardDescription>
-                Activation changes the school’s operational term and closes the
-                previous academic term.
+                Activation makes this the school’s working term. The previous
+                term stays open for late results and payments until you close
+                it from Academic management.
               </CardDescription>
             </CardHeader>
             <CardFooter className="flex flex-wrap justify-end gap-3">

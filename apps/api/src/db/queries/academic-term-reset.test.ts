@@ -11,7 +11,7 @@ function createContext({
 	financeRecords = 0,
 	rejectConcurrentTransactionQueries = false,
 }: {
-	lifecycleStatus?: "DRAFT" | "READY" | "ACTIVE" | "CLOSED";
+	lifecycleStatus?: "DRAFT" | "READY" | "ACTIVE" | "CLOSED" | null;
 	financeRecords?: number;
 	rejectConcurrentTransactionQueries?: boolean;
 } = {}) {
@@ -150,6 +150,14 @@ describe("academic term reset", () => {
 
 	test("protects active terms", async () => {
 		const { ctx } = createContext({ lifecycleStatus: "ACTIVE" });
+
+		await expect(
+			previewAcademicTermReset(ctx, { termId: "term-1" }),
+		).rejects.toBeInstanceOf(TRPCError);
+	});
+
+	test("protects legacy terms without a lifecycle status", async () => {
+		const { ctx } = createContext({ lifecycleStatus: null });
 
 		await expect(
 			previewAcademicTermReset(ctx, { termId: "term-1" }),

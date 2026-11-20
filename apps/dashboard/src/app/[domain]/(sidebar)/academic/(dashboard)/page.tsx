@@ -366,7 +366,7 @@ const Dashboard = () => {
                                     >
                                       <Settings /> Configure
                                     </Link>
-                                    {term.status === "active" ? (
+                                    {term.status === "active" || term.status === "open" ? (
                                       <Button
                                         type="button"
                                         variant="ghost"
@@ -378,8 +378,8 @@ const Dashboard = () => {
                                         Close
                                       </Button>
                                     ) : null}
-                                    {term.status !== "active" &&
-                                    term.status !== "closed" ? (
+                                    {term.lifecycleStatus === "DRAFT" ||
+                                    term.lifecycleStatus === "READY" ? (
                                       <Button
                                         type="button"
                                         variant="ghost"

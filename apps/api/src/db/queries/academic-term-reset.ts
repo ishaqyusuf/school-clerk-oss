@@ -29,11 +29,12 @@ async function loadResetTarget(ctx: TRPCContext, termId: string) {
 			message: "Academic term was not found.",
 		});
 	}
-	if (term.lifecycleStatus === "ACTIVE" || term.lifecycleStatus === "CLOSED") {
+	// Legacy terms (null lifecycle) hold real history and are protected too.
+	if (term.lifecycleStatus !== "DRAFT" && term.lifecycleStatus !== "READY") {
 		throw new TRPCError({
 			code: "CONFLICT",
 			message:
-				"Only draft or ready terms can be reset. Active and closed terms are protected.",
+				"Only draft or ready terms can be reset. Active, closed, and legacy terms are protected.",
 		});
 	}
 	return { schoolProfileId, term, user };

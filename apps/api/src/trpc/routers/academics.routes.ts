@@ -283,8 +283,12 @@ export const academicsRouter = createTRPCRouter({
               !!term.endDate && differenceInDays(now, term.endDate) > 0;
             return {
               id: term.id,
+              // An activated term that is no longer the working term stays
+              // open for late results and payments until closed (ADR-0099).
               status:
-                term.lifecycleStatus?.toLowerCase() ??
+                (term.lifecycleStatus === "ACTIVE" && !isCurrentTerm
+                  ? "open"
+                  : term.lifecycleStatus?.toLowerCase()) ??
                 (isCurrentTerm
                   ? "current"
                   : isCompleted

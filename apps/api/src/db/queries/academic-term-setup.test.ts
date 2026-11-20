@@ -693,21 +693,21 @@ describe("academic term setup", () => {
     } satisfies Partial<TRPCError>);
   });
 
-  test("blocks activation while the outgoing finance ledger is open", async () => {
+  test("allows activation while the outgoing finance ledger is open", async () => {
     const { ctx } = createLifecycleContext();
 
     const preview = await previewAcademicTermActivation(ctx, {
       termId: "term-target",
     });
 
-    expect(preview.canActivate).toBe(false);
-    expect(preview.blockers).toContainEqual(
+    expect(preview.blockers).not.toContainEqual(
       expect.objectContaining({ key: "finance-ledger-open" }),
     );
+    expect(preview.canActivate).toBe(true);
   });
 
-  test("activates a ready term and atomically closes the previous term", async () => {
-    const { ctx, state } = createLifecycleContext({ financeClosed: true });
+  test("activates a ready term and leaves the previous term open", async () => {
+    const { ctx, state } = createLifecycleContext();
 
     const result = await activateAcademicTerm(ctx, {
       termId: "term-target",
@@ -717,13 +717,28 @@ describe("academic term setup", () => {
     expect(state.activeSessionTermId).toBe("term-target");
     expect(
       state.terms.find((term) => term.id === "term-source")?.lifecycleStatus,
-    ).toBe("CLOSED");
+    ).toBe("ACTIVE");
     expect(
       state.terms.find((term) => term.id === "term-target")?.lifecycleStatus,
     ).toBe("ACTIVE");
+    await expect(
+      assertAcademicTermWritable(ctx, "term-source"),
+    ).resolves.toMatchObject({ id: "term-source" });
     expect(state.activities).toContainEqual(
       expect.objectContaining({ type: "academic_term_activated" }),
     );
+  });
+
+  test("closes an open previous term without moving the working term", async () => {
+    const { ctx, state } = createLifecycleContext({ financeClosed: true });
+    await activateAcademicTerm(ctx, { termId: "term-target" });
+
+    await closeAcademicTerm(ctx, { termId: "term-source" });
+
+    expect(state.activeSessionTermId).toBe("term-target");
+    expect(
+      state.terms.find((term) => term.id === "term-source")?.lifecycleStatus,
+    ).toBe("CLOSED");
   });
 
   test("returns the canonical active term when activation is retried", async () => {
