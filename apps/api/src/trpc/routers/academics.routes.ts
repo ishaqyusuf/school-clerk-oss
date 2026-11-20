@@ -212,6 +212,53 @@ export const academicsRouter = createTRPCRouter({
         ),
         now,
       );
+    const termIds = allTerms.map((term) => term.id);
+    const [studentCounts, ledgerCloses, subjectCount, teacherCount] =
+      await Promise.all([
+        termIds.length
+          ? // Distinct students: some legacy terms hold duplicate enrolment rows.
+            db.studentTermForm.groupBy({
+              by: ["sessionTermId", "studentId"],
+              where: { sessionTermId: { in: termIds }, deletedAt: null },
+            })
+          : [],
+        termIds.length
+          ? db.financeTermLedgerClose.findMany({
+              where: {
+                schoolProfileId: ctx.profile.schoolId,
+                sessionTermId: { in: termIds },
+                status: "CLOSED",
+                deletedAt: null,
+              },
+              select: { sessionTermId: true },
+            })
+          : [],
+        currentTerm
+          ? db.departmentSubject.count({
+              where: { sessionTermId: currentTerm.id, deletedAt: null },
+            })
+          : 0,
+        currentTerm
+          ? db.staffTermProfile.count({
+              where: { sessionTermId: currentTerm.id, deletedAt: null },
+            })
+          : 0,
+      ]);
+    const studentCountByTerm = new Map<string, number>();
+    for (const row of studentCounts as {
+      sessionTermId: string | null;
+      studentId: string | null;
+    }[]) {
+      if (row.sessionTermId && row.studentId) {
+        studentCountByTerm.set(
+          row.sessionTermId,
+          (studentCountByTerm.get(row.sessionTermId) ?? 0) + 1,
+        );
+      }
+    }
+    const ledgerClosedTermIds = new Set(
+      ledgerCloses.map((row) => row.sessionTermId),
+    );
     const currentSessionId = currentTerm?.sessionId ?? ctx.profile.sessionId;
     const currentSessionIdx = sessions.findIndex(
       (s) => s.id === currentSessionId,
@@ -301,10 +348,15 @@ export const academicsRouter = createTRPCRouter({
               setupCompletedAt: term.setupCompletedAt,
               note: term.note,
               resumptionDate: term.resumptionDate,
+              studentCount: studentCountByTerm.get(term.id) ?? 0,
+              financeLedgerClosed: ledgerClosedTermIds.has(term.id),
             };
           }),
         };
       }),
+      currentTermStats: currentTerm
+        ? { subjects: subjectCount, teachers: teacherCount }
+        : null,
     };
   }),
   updateTermMetadata: academicProcedure
