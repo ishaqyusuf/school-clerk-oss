@@ -19,6 +19,7 @@ import { activityTermRef } from "@school-clerk/utils/activity-refs";
 type AcademicDb = any;
 type OrderedTerm = {
   id: string;
+  sessionId?: string | null;
   startDate: Date | null;
   createdAt: Date | null;
 };
@@ -150,19 +151,47 @@ const emptyCounts = (): SetupCounts => ({
   fees: 0,
 });
 
-function termOrderValue(term: OrderedTerm) {
-  return term.startDate?.getTime() ?? term.createdAt?.getTime() ?? 0;
+/**
+ * Orders terms chronologically. A scheduled term sorts by its start date.
+ * An unscheduled draft sorts after every scheduled term in its own session,
+ * so its creation date can never place it ahead of its session siblings and
+ * make a term from an earlier session look like its predecessor.
+ */
+export function orderAcademicTerms<T extends OrderedTerm>(terms: T[]) {
+  const latestSessionStart = new Map<string, number>();
+  for (const term of terms) {
+    if (!term.sessionId || !term.startDate) continue;
+    const start = term.startDate.getTime();
+    latestSessionStart.set(
+      term.sessionId,
+      Math.max(latestSessionStart.get(term.sessionId) ?? start, start),
+    );
+  }
+  const orderValue = (term: T) => {
+    if (term.startDate) return term.startDate.getTime();
+    const created = term.createdAt?.getTime() ?? 0;
+    const sessionStart = term.sessionId
+      ? latestSessionStart.get(term.sessionId)
+      : undefined;
+    return sessionStart === undefined
+      ? created
+      : Math.max(created, sessionStart);
+  };
+  return [...terms].sort((left, right) => {
+    const byDate = orderValue(left) - orderValue(right);
+    if (byDate !== 0) return byDate;
+    const byScheduled =
+      Number(left.startDate == null) - Number(right.startDate == null);
+    if (byScheduled !== 0) return byScheduled;
+    return left.id.localeCompare(right.id);
+  });
 }
 
 export function findPreviousAcademicTerm<T extends OrderedTerm>(
   terms: T[],
   targetTermId: string,
 ) {
-  const ordered = [...terms].sort((left, right) => {
-    const byDate = termOrderValue(left) - termOrderValue(right);
-    if (byDate !== 0) return byDate;
-    return left.id.localeCompare(right.id);
-  });
+  const ordered = orderAcademicTerms(terms);
   const targetIndex = ordered.findIndex((term) => term.id === targetTermId);
   return targetIndex > 0 ? ordered[targetIndex - 1] : null;
 }

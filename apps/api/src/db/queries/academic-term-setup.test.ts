@@ -519,6 +519,44 @@ describe("academic term setup", () => {
     ).toBe("second");
   });
 
+  test("keeps an unscheduled draft after its own session's terms", () => {
+    // Mirrors a real tenant: the third-term draft was created (with no start
+    // date) before its session's first term began, so ordering by createdAt
+    // used to pick the previous session's last term as its source.
+    const terms = [
+      {
+        id: "old-session-third",
+        sessionId: "old",
+        startDate: new Date("2025-10-31"),
+        createdAt: new Date("2026-01-25"),
+      },
+      {
+        id: "draft-third",
+        sessionId: "current",
+        startDate: null,
+        createdAt: new Date("2026-03-25T21:27:51Z"),
+      },
+      {
+        id: "current-first",
+        sessionId: "current",
+        startDate: new Date("2026-03-27"),
+        createdAt: new Date("2026-03-25T21:27:51Z"),
+      },
+      {
+        id: "current-second",
+        sessionId: "current",
+        startDate: new Date("2026-07-17"),
+        createdAt: new Date("2026-03-25T21:27:51Z"),
+      },
+    ];
+    expect(findPreviousAcademicTerm(terms, "draft-third")?.id).toBe(
+      "current-second",
+    );
+    expect(findPreviousAcademicTerm(terms, "current-first")?.id).toBe(
+      "old-session-third",
+    );
+  });
+
   test("rejects a school outside the authenticated account", async () => {
     const { ctx } = createSetupContext();
     (ctx.db.schoolProfile.findFirst as any) = async () => null;
